@@ -846,6 +846,9 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/frame_blend_test.cpp core/sound/interp/FrameBlend.cpp \
             core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o frame_blend_test
           ./frame_blend_test
+          # The drawn waveform (core/sound/interp/Waveform): its block is the engine's configured FFT size / 512 at every rate.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/waveform_test.cpp core/sound/interp/Waveform.cpp core/sound/*.cpp -o waveform_test
+          ./waveform_test
 
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.

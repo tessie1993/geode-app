@@ -3,6 +3,7 @@
 //   g++ -std=c++20 -O1 -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test && ./musical_test
 // Synthetic signals only, so every number here is reproducible.
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -15,6 +16,7 @@
 
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
+#include "sound/Rhythm.hpp"
 #include "sound/SoundEngine.hpp"
 
 using namespace geode::sound;
@@ -235,6 +237,40 @@ void testNoTempoCentre() {
         CHECK(same, "the level read depends on the tempo (and at %.1f):%s", andGain, read.c_str());
         const double expected = andGain < 0.5 ? 1.0 : 2.0;
         CHECK(std::fabs(first / expected - 1.0) < 0.02, "and at %.1f read x%.2f of the beat, x%.0f expected", andGain, first, expected);
+    }
+}
+
+// The level is the evidence's, never the order of the lags: a pulse with a quiet one between its beats (a
+// seventh of its height in the onset envelope) is read as the pulse, not its double, and with the one between
+// as loud as the beat it is read as the double. Band powers go straight into Rhythm, so the envelope's
+// heights are exact.
+void testLevelByEvidence() {
+    std::printf("level by evidence:\n");
+    const int rate = 44100;
+    const int hop = 512;
+    const double hopSeconds = static_cast<double>(hop) / rate;
+    for (double bpm : {71.0, 97.0}) {
+        for (float between : {0.07f, 1.0f}) {
+            Rhythm r;
+            r.configure(rate, hop);
+            const double half = 30.0 / bpm;
+            for (int64_t h = 0; h < static_cast<int64_t>(12.0 / hopSeconds); h++) {
+                // The half beat that begins within this hop, if one does: even ones are beats, odd ones between.
+                const int64_t k = static_cast<int64_t>(std::floor(static_cast<double>(h + 1) * hopSeconds / half));
+                const bool begins = k > static_cast<int64_t>(std::floor(static_cast<double>(h) * hopSeconds / half));
+                std::array<float, Rhythm::kBands> power{};
+                power.fill(1e-4f);
+                if (begins) power.fill(k % 2 == 0 ? 1.0f : between);
+                r.hop(power);
+            }
+            GeodeSoundFrame f{};
+            r.read(0, 0.0f, f);
+            const double level = f.bpm / bpm;
+            const double expected = between < 0.5f ? 1.0 : 2.0;
+            std::printf("  %.0f BPM, between at %.2f: read %.2f (x%.2f)\n", bpm, static_cast<double>(between), static_cast<double>(f.bpm), level);
+            CHECK(std::fabs(level / expected - 1.0) < 0.02, "%.0f BPM, between at %.2f: read x%.2f of the beat, x%.0f expected", bpm,
+                  static_cast<double>(between), level, expected);
+        }
     }
 }
 
@@ -904,6 +940,7 @@ int main() {
     testScales();
     testClickTracks();
     testNoTempoCentre();
+    testLevelByEvidence();
     testNoTempoIsNoTempo();
     testPauseKeepsTempo();
     testChordProgression();

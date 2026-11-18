@@ -81,7 +81,7 @@ ArborHit arborMap(vec3 p) {
     ArborHit hit = arborTree(b, f, gGrow);
     float tree = hit.d;
     float d = smin(soma, tree, 0.12);
-    hit.mat.x = smoothstep(0.05, -0.05, soma - tree);
+    hit.mat.x = 1.0 - smoothstep(-0.05, 0.05, soma - tree);
     hit.mat.y = h;
     hit.d = smax(d, 0.6 - length(p - gEye), 0.3);
     return hit;
@@ -94,7 +94,7 @@ float spark(float level, float along, float path, float cellH, float phase) {
     float carries = step(0.55, arbBranchHash(path, 0.0, cellH * 91.0));
     float depth = level + along;
     float w = fract(depth * 0.4 - phase + arbBranchHash(path, 1.0, cellH));
-    return carries * smoothstep(0.0, 0.08, w) * smoothstep(0.3, 0.08, w);
+    return carries * smoothstep(0.0, 0.08, w) * (1.0 - smoothstep(0.08, 0.3, w));
 }
 
 void main() {
@@ -176,7 +176,7 @@ void main() {
     col += glow * (0.8 + 0.3 * swell) * glowK;
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // k0 PULSE: the emission, as lib_flame's finish.
     col *= emit;
     fragColor = vec4(grade(col), 1.0);

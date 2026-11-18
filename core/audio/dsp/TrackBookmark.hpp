@@ -17,6 +17,8 @@ enum class BookmarkVerdict : int {
 constexpr int64_t kLongTrackMs = 20 * 60 * 1000;
 // A position closer than this to either end clears.
 constexpr int64_t kBookmarkEdgeMs = 10 * 1000;
+// At most this many tracks keep a bookmark; past it the one saved longest ago goes (GEODE_BOOKMARK_MAX).
+constexpr int kMaxBookmarks = 200;
 
 BookmarkVerdict bookmarkVerdict(int64_t positionMs, int64_t durationMs);
 

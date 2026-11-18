@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of PlayoutNative (CLAUDE.md).
+// The JNI declarations of geode_playout_jni.cpp (CLAUDE.md).
 object PlayoutNative {
     init {
         GeodeNative.ensureLoaded()

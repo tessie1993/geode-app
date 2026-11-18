@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of StudioNative (CLAUDE.md).
+// The JNI declarations of geode_studio_jni.cpp (CLAUDE.md).
 object StudioNative {
     init {
         GeodeNative.ensureLoaded()

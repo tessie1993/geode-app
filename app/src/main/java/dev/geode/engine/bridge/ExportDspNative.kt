@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of ExportDspNative (CLAUDE.md).
+// The JNI declarations of geode_export_dsp_jni.cpp (CLAUDE.md).
 object ExportDspNative {
     init {
         GeodeNative.ensureLoaded()

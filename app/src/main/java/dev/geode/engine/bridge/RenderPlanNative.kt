@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of RenderPlanNative (CLAUDE.md).
+// The JNI declarations of geode_render_plan_jni.cpp (CLAUDE.md).
 object RenderPlanNative {
     init {
         GeodeNative.ensureLoaded()

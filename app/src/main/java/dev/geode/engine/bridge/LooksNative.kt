@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of LooksNative (CLAUDE.md).
+// The JNI declarations of geode_looks_jni.cpp (CLAUDE.md).
 object LooksNative {
     init {
         GeodeNative.ensureLoaded()

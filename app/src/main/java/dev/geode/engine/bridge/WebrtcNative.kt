@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of WebrtcNative (CLAUDE.md).
+// The JNI declarations of geode_webrtc_jni.cpp (CLAUDE.md).
 object WebrtcNative {
     init {
         GeodeNative.ensureLoaded()

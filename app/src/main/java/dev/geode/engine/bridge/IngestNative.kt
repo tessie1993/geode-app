@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of IngestNative (CLAUDE.md).
+// The JNI declarations of geode_ingest_jni.cpp (CLAUDE.md).
 object IngestNative {
     init {
         GeodeNative.ensureLoaded()

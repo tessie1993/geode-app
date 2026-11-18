@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of LoopJobNative (CLAUDE.md).
+// The JNI declarations of geode_loop_job_jni.cpp (CLAUDE.md).
 object LoopJobNative {
     init {
         GeodeNative.ensureLoaded()

@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of MilkNative (CLAUDE.md).
+// The JNI declarations of geode_milk_jni.cpp (CLAUDE.md).
 object MilkNative {
     init {
         GeodeNative.ensureLoaded()

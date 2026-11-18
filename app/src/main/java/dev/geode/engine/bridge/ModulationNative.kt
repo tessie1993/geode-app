@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of ModulationNative (CLAUDE.md).
+// The JNI declarations of geode_modulation_jni.cpp (CLAUDE.md).
 object ModulationNative {
     init {
         GeodeNative.ensureLoaded()

@@ -772,6 +772,89 @@ void stillStylesKeepTheBankOutOfTheFlatRoll() {
     check(maxTurning > 0.01f, "a turning style still banks into the curve");
 }
 
+// Every float of a CameraPose, in one list.
+std::array<float, 24> poseFloats(const CameraPose& c) {
+    std::array<float, 24> out{};
+    size_t n = 0;
+    for (const std::array<float, 3>* v : {&c.pos, &c.right, &c.up, &c.fwd}) {
+        for (float f : *v) out[n++] = f;
+    }
+    for (float f : {c.focal, c.travel, c.dolly, c.yaw, c.pitch, c.roll}) out[n++] = f;
+    for (float f : c.flat) out[n++] = f;
+    for (float f : c.tilt) out[n++] = f;
+    return out;
+}
+
+// One frame with a NaN or an infinity in a camera param, the look input or the director's moves must not
+// latch: std::clamp passed a NaN on into the springs, which kept it, and the pose stayed NaN for good.
+// The rig steps beside one that never saw the bad frame and must be back beside it a few seconds later.
+void nonFiniteCameraInputsDoNotLatch() {
+    using Poison = void (*)(SceneParams&, CameraRig::LookInput&, CameraRig::Moves&, float);
+    struct Case {
+        const char* name;
+        Poison poison;
+    };
+    const Case cases[] = {
+        {"camSmooth", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camSmooth = v; }},
+        {"camYaw", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camYaw = v; }},
+        {"camPitch", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camPitch = v; }},
+        {"camRoll", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camRoll = v; }},
+        {"camFov", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camFov = v; }},
+        {"camFly", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camFly = v; }},
+        {"camPush", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camPush = v; }},
+        {"camOrbit", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camOrbit = v; }},
+        {"camShake", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.camShake = v; }},
+        {"motionAmount", [](SceneParams& p, CameraRig::LookInput&, CameraRig::Moves&, float v) { p.motionAmount = v; }},
+        {"look yaw", [](SceneParams&, CameraRig::LookInput& l, CameraRig::Moves&, float v) { l.yaw = v; }},
+        {"look pitch", [](SceneParams&, CameraRig::LookInput& l, CameraRig::Moves&, float v) { l.pitch = v; }},
+        // Not sanitised by the rig: only the springs' own refusal stands between these and the pose.
+        {"moves dolly", [](SceneParams&, CameraRig::LookInput&, CameraRig::Moves& m, float v) { m.dolly = v; }},
+        {"moves breath", [](SceneParams&, CameraRig::LookInput&, CameraRig::Moves& m, float v) { m.breath = v; }},
+    };
+    SceneParams normal;
+    normal.camFly = 1.0f;
+    normal.camSmooth = 0.3f;
+    normal.camYaw = 0.3f;
+    normal.camPitch = -0.2f;
+    normal.camRoll = 0.25f;
+    normal.camFov = 1.2f;
+    normal.camPush = 0.4f;
+    normal.camOrbit = 0.6f;
+    normal.camShake = 0.3f;
+    normal.motionAmount = 0.8f;
+    normal.camTouch = true;
+    const CameraRig::LookInput look{0.4f, -0.3f};
+    GeodeSoundFrame sound = silence();
+    sound.presence = 0.6f;
+    sound.bassAtt = 1.4f;
+    sound.energyTrend = 0.8f;
+    const float dt = 1.0f / 60.0f;
+    for (const Case& c : cases) {
+        for (float bad : {NAN, INFINITY, -INFINITY}) {
+            const std::string what = std::string(c.name) + (std::isnan(bad) ? " = NaN" : bad > 0.0f ? " = +inf" : " = -inf");
+            CameraRig rig;
+            CameraRig reference;
+            bool finite = true;
+            for (int i = 0; i < 300; ++i) {
+                SceneParams p = normal;
+                CameraRig::LookInput l = look;
+                CameraRig::Moves m;
+                if (i == 60) c.poison(p, l, m, bad);
+                rig.setMoves(m);
+                rig.step(p, l, dt, false, true, &sound);
+                reference.step(normal, look, dt, false, true, &sound);
+                for (float f : poseFloats(rig.pose())) finite = finite && std::isfinite(f);
+            }
+            check(finite, ("the camera pose stays finite on every frame around one " + what).c_str());
+            const std::array<float, 24> a = poseFloats(rig.pose());
+            const std::array<float, 24> b = poseFloats(reference.pose());
+            float worst = 0.0f;
+            for (size_t k = 0; k < a.size(); ++k) worst = std::fmax(worst, std::fabs(a[k] - b[k]));
+            check(worst < 0.1f, ("the camera returns beside its normal course after one " + what).c_str());
+        }
+    }
+}
+
 // One kick per 0.5 s at 60 fps, for `beats` kicks.
 void playBeats(ReactionEngine& e, int beats, int& count) {
     for (int b = 0; b < beats; ++b) {
@@ -2552,6 +2635,7 @@ int main() {
     oddFrameTimesStayFiniteAndBounded();
     zeroDtFreezesTheCameraAndHugeDtIsOneClampedStep();
     stillStylesKeepTheBankOutOfTheFlatRoll();
+    nonFiniteCameraInputsDoNotLatch();
     hardCutsJumpWithoutATweenAndKeepTheirGap();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();

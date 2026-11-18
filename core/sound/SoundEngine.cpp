@@ -898,7 +898,11 @@ void SoundEngine::melody(float dt, GeodeSoundFrame& out) {
     float midi = 0.0f;
     float confidence = 0.0f;
     float evenness = 0.0f;
-    estimatePitch(s.note >= 0 ? static_cast<float>(s.note) : -1.0f, midi, confidence, evenness);
+    // The 4096-point pitch FFT is skipped while nothing can use it: below the silence level the note is never
+    // taken, and with the meter's gate closed Harmony (the other reader of its spectrum) holds still too.
+    if (out.rms > silenceOn || meter_.open()) {
+        estimatePitch(s.note >= 0 ? static_cast<float>(s.note) : -1.0f, midi, confidence, evenness);
+    }
     out.pitchConfidence = confidence;
     s.runRate *= std::exp(-dt / kRunTau);
     if (confidence >= t.pitchThreshold && out.rms > silenceOn) {

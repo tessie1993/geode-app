@@ -81,7 +81,7 @@ private:
     void uploadShapes();
     pool::Controls poolControls() const;
     void specializeWorld();
-    void set1f(const char* name, float value);
+    void set1f(Uniform id, float value);
     float marchSteps(float detail);
 
     std::string id_;

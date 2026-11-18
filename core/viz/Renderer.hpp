@@ -254,7 +254,6 @@ private:
     // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
     void applyStyleSchedule(float dt);
     void applyRenderScale();
-    static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
     // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }

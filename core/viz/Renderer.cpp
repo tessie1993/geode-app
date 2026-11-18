@@ -577,12 +577,10 @@ void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
 
 void Renderer::applyRenderScale() {
     appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
-    // A user scale below 1 also drops the small-screen supersample: someone who asked for fewer
-    // pixels did not mean 1.4x of fewer pixels.
-    const float supersample = appliedUserScale_ < 1.0f ? 1.0f : supersampleFactor(width_, height_);
-    const float scale = supersample * appliedUserScale_;
-    renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
-    renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
+    // The scene target is the surface's pixels times the user's scale and never more: a scale of 1 draws
+    // each pixel once.
+    renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);
+    renderHeight_ = std::max(static_cast<int>(height_ * appliedUserScale_), 1);
     // Spares over the budget go before anything is resized (#378). Then only the scenes drawn this frame
     // are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
     // resize per scene shown, not one per scene ever built.
@@ -598,13 +596,6 @@ void Renderer::applyRenderScale() {
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
     if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
-}
-
-float Renderer::supersampleFactor(int width, int height) {
-    const int longest = std::max(width, height);
-    if (longest >= 2200) return 1.0f;
-    if (longest >= 1600) return 1.25f;
-    return 1.4f;
 }
 
 bool Renderer::setScene(const std::string& sceneId) {

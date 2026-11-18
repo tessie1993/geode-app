@@ -10,7 +10,7 @@ import dev.geode.engine.bridge.PerfNative
  * renders offline, so it always takes the full-quality path.
  */
 data class PerformanceSettings(
-    /** Fraction of the surface's pixels the scene is drawn at, then upscaled. Below 1 also drops supersampling. */
+    /** Fraction of the surface's pixels the scene is drawn at, then upscaled. */
     val renderScale: Float,
     /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`PerfNative.LIVE_FPS_FOLLOW`). */
     val fpsCap: Int,

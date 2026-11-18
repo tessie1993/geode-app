@@ -216,7 +216,7 @@ float mdField(vec3 p) {
 float mdFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mdField(shellAt3(i)));
     }
     return r;
@@ -285,12 +285,17 @@ void main() {
 
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitMat = 0.0;
+    vec3 hitDomeP = vec3(0.0);
     for (int i = 0; i < MD_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         float d = map(ro + rd * t);
         if (d < 0.001 + 0.0007 * t) {
             hitT = t;
+            hitMat = gMat;
+            hitDomeP = gDomeP;
             break;
         }
         t += d;
@@ -311,7 +316,8 @@ void main() {
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         float ao = clamp(1.0 - 2.0 * (0.25 - map(p + n * 0.25)), 0.3, 1.0);
         // Restore the hit's material after the normal and AO taps.
-        map(p);
+        gMat = hitMat;
+        gDomeP = hitDomeP;
         float ndv = clamp(dot(n, -rd), 0.05, 1.0);
         float px = hitT * pxWorld / ndv;
 

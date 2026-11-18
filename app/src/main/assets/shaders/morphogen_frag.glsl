@@ -725,7 +725,7 @@ float morphField(vec3 p) {
 float morphFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, morphField(shellAt3(i)));
     }
     return r;
@@ -984,6 +984,11 @@ void main() {
         float t = max(-b - sh, 0.0) + jitter * 0.01;
 
         float hitT = -1.0;
+        // What map() leaves at the hit, kept so the shading needs no second map(p) to recover it.
+        float hitSat = 0.0;
+        float hitDmtSatHue = 0.0;
+        float hitDmtSatLife = 0.0;
+        float hitDmtSatBand = 0.0;
         float travelled = 0.0;
         float hitFuse = 0.0;
         float hitFront = 0.0;
@@ -995,6 +1000,10 @@ void main() {
             float eps = max(HIT_EPS * t, 6e-4);
             if (d < eps) {
                 hitT = t;
+                hitSat = gHitSat;
+                hitDmtSatHue = gDmtSatHue;
+                hitDmtSatLife = gDmtSatLife;
+                hitDmtSatBand = gDmtSatBand;
                 travelled = float(i) / max(uSteps, 1.0);
                 hitFuse = gFuse;
                 hitFront = gFront;
@@ -1017,7 +1026,10 @@ void main() {
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
             // Which body was hit is captured BEFORE the normal taps overwrite it.
-            map(p);
+            gHitSat = hitSat;
+            gDmtSatHue = hitDmtSatHue;
+            gDmtSatLife = hitDmtSatLife;
+            gDmtSatBand = hitDmtSatBand;
             float isSat = gHitSat;
             float satHue = gDmtSatHue;
             float satLife = gDmtSatLife;

@@ -172,7 +172,7 @@ float mapField(vec3 w) {
 float mapFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
     }
     return r;
@@ -257,6 +257,13 @@ void main() {
     float roofY = gHiMax + 0.1 + SHELL_SLACK(abs(gHiMax - ro.y));
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(pw) after the normal taps.
+    float hitTop = 0.0;
+    float hitBand = 0.0;
+    float hitH = 0.0;
+    vec2 hitCentre = vec2(0.0);
+    vec2 hitHalf = vec2(0.0);
+    float hitMat = 0.0;
     for (int i = 0; i < NC_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -266,6 +273,12 @@ void main() {
         float d = map(p);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
+            hitTop = gTop;
+            hitBand = gBand;
+            hitH = gH;
+            hitCentre = gCentre;
+            hitHalf = gHalf;
+            hitMat = gMat;
             break;
         }
         t += d * 0.95;
@@ -277,7 +290,12 @@ void main() {
     if (hitT > 0.0) {
         vec3 pw = ro + rd * hitT;
         vec3 n = normalAt(pw, max(0.0015, 0.001 * hitT));
-        map(pw);
+        gTop = hitTop;
+        gBand = hitBand;
+        gH = hitH;
+        gCentre = hitCentre;
+        gHalf = hitHalf;
+        gMat = hitMat;
         // The streets, edges and windows are drawn in the city's own (bent) frame.
         vec3 p = cityP(pw);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);

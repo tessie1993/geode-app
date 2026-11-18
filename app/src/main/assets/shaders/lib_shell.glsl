@@ -52,7 +52,7 @@
 //     float fGrown(vec3 p) {                      // a distance field
 //         shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
 //         float r = 0.0;
-//         for (int i = SHELL_FROM; i < 7; i++) {
+//         for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
 //             if (shellPass3(i)) r = shellKeep3(i, f(shellAt3(i)));
 //         }
 //         return r;
@@ -65,7 +65,9 @@
 // Fractal's child) run only while their hook is on, passes 3, 4 and 5 (Life's
 // births, lib_grow) only while each birth lives, and a distance's pass 6 (the
 // nearest extra copy read again so the globals F leaves are its) only when an
-// extra copy is nearest.
+// extra copy is nearest. SHELL_PASSES(n) is the loop's bound: 1 while every hook
+// and Life rest (shellStart3 or shellStart2 has just said so), so a style at rest
+// does not step through the six passes that would all be skipped.
 //
 // THE DEFAULT IS THE OLD PICTURE: every control rests at exactly 0, and with
 // every hook and Life at 0 a wrapper reads F once, at the point it was given, and
@@ -277,6 +279,13 @@ float gShellFractal = 0.0;
 float gShellFront = 0.0;
 float gShellBack = 0.0;
 bool gShellIdle = true;
+
+/**
+ * A wrapper's pass count, n (7 for a distance, 6 for a density or a 2D pattern) while a hook or Life is on,
+ * 1 while all rest. Exactly the same reads either way: at rest every pass after 0 is skipped (shellPass3,
+ * shellPass2), so the bound only spares the loop stepping through them. Read after shellStart3/shellStart2.
+ */
+#define SHELL_PASSES(n) (gShellIdle ? 1 : (n))
 
 /** Keep the amounts for a wrapper's read. */
 void shellAmounts(float spawn, float fractal, float front, float back) {

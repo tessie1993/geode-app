@@ -178,7 +178,7 @@ float mapField(vec3 p) {
 float mapFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
     }
     return r;
@@ -253,6 +253,10 @@ void main() {
     }
 
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitC = 0.0;
+    float hitBand = 0.0;
+    float hitAng = 0.0;
     float used = 0.0;
     float haze = 0.0;
     for (int i = 0; i < TN_MAX_STEPS; i++) {
@@ -266,6 +270,9 @@ void main() {
         float eps = 0.0008 * t + 0.0008;
         if (d < eps) {
             hitT = t;
+            hitC = gC;
+            hitBand = gBand;
+            hitAng = gAng;
             break;
         }
         t += max(d * 0.9, eps);
@@ -281,7 +288,9 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
         // Restore the hit point's globals after the normal taps.
-        map(p);
+        gC = hitC;
+        gBand = hitBand;
+        gAng = hitAng;
 
         float hue = hue0 + 0.5 + 0.5 * sin(p.z * (TN_TAU / 32.0));
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);

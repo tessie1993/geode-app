@@ -66,6 +66,13 @@ class SceneParams private constructor(
         id: String = NO_CUSTOM_PALETTE,
     ): SceneParams = SceneParams(ParamsNative.paramsApplyStops(frame, stops.toIntArray()), id)
 
+    /**
+     * These params (a look) as they replace the live [current]: the input preferences stay [current]'s (native's
+     * kInput rows), the rest is this look's.
+     */
+    fun keepingInputsOf(current: SceneParams): SceneParams =
+        SceneParams(ParamsNative.paramsKeepInputs(current.frame, frame), customPaletteId)
+
     /** The same frame naming saved palette [id]. */
     fun withPaletteId(id: String): SceneParams = SceneParams(frame, id)
 

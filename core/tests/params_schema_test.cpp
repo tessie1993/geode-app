@@ -667,6 +667,44 @@ void everyLiveRowHasOneMeta() {
           "Life: a universal target, 0 by default, never dealt by the param roll");
 }
 
+// A look (a preset, a template, Reset all) replaces the live params but not the input preferences: a row whose meta
+// flags hold kInput keeps the live value through SceneParams::keepInputs, every other row takes the look's.
+void aLookKeepsTheInputPreferences() {
+    check((SceneParams::meta(ParamSlot::camGyro).flags & kInput) != 0, "Tilt phone to look is an input preference");
+    check((SceneParams::meta(ParamSlot::camTouch).flags & kInput) != 0, "Drag to look is an input preference");
+    check((SceneParams::meta(ParamSlot::speed).flags & kInput) == 0, "Speed belongs to the look");
+    constexpr int n = SceneParams::kFieldCount;
+    float current[n];
+    float incoming[n];
+    float out[n];
+    for (int i = 0; i < n; ++i) {
+        current[i] = 1000.0f + static_cast<float>(i);
+        incoming[i] = 5000.0f + static_cast<float>(i);
+    }
+    SceneParams::keepInputs(current, incoming, out);
+    for (int i = 0; i < n; ++i) {
+        const bool input = (SceneParams::meta(static_cast<ParamSlot>(i)).flags & kInput) != 0;
+        const std::string name = SceneParams::fieldNames()[static_cast<size_t>(i)];
+        check(out[i] == (input ? current[i] : incoming[i]), name + (input ? " keeps the live value" : " takes the look's value"));
+    }
+    SceneParams::keepInputs(current, incoming, incoming);
+    check(std::equal(out, out + n, incoming), "out may be the incoming frame");
+
+    // Tilt and drag on, then a look built over the defaults (as every built-in one is): both stay on, the rest is the look's.
+    SceneParams live;
+    live.camGyro = true;
+    live.camTouch = true;
+    live.speed = 3.0f;
+    float liveWire[n];
+    float lookWire[n];
+    live.toWire(liveWire);
+    SceneParams{}.toWire(lookWire);
+    SceneParams::keepInputs(liveWire, lookWire, lookWire);
+    const SceneParams applied = SceneParams::fromWire(lookWire);
+    check(applied.camGyro && applied.camTouch, "a look leaves Tilt phone to look and Drag to look as the user set them");
+    check(applied.speed == SceneParams{}.speed, "a look still sets everything else");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << SceneParams::schemaText();
@@ -686,6 +724,7 @@ int main(int argc, char** argv) {
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
     everyLiveRowHasOneMeta();
+    aLookKeepsTheInputPreferences();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/params_schema.txt");
     if (failures == 0) std::printf("params_schema_test: all checks passed\n");
     return failures;

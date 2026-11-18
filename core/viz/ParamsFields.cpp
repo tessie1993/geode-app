@@ -126,6 +126,11 @@ const std::array<ParamMeta, SceneParams::kFieldCount>& SceneParams::metaTable() 
     return kMeta;
 }
 
+void SceneParams::keepInputs(const float* current, const float* incoming, float* out) {
+    const auto& meta = metaTable();
+    for (size_t i = 0; i < meta.size(); ++i) out[i] = (meta[i].flags & kInput) != 0 ? current[i] : incoming[i];
+}
+
 const std::string& SceneParams::schemaText() {
     static const std::string kText = [] {
         std::string out = "params|" + std::to_string(kSchemaTextVersion) + "|" + std::to_string(kFieldCount) + "\n";

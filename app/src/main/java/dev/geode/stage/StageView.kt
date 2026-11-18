@@ -143,8 +143,13 @@ class StageView(
         val sensor = tilt ?: return
         val on = stage.gyroListens(gyroWanted)
         if (on == tiltOn) return
-        tiltOn = on
-        if (on) sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) else sensors?.unregisterListener(this)
+        // Only a registration the sensor service took counts as on, so a refused one is tried again next sync.
+        if (on) {
+            tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) == true
+        } else {
+            tiltOn = false
+            sensors?.unregisterListener(this)
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent) {

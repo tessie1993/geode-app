@@ -33,3 +33,7 @@ object LibrarySettingsCodec : PrefsCodec<LibrarySettings> {
         editor.putString(KEY_PRESET_MIRROR_URI, value.presetMirrorUri)
     }
 }
+
+/** The saved preset-mirror folder, for a caller with no repository at hand. */
+internal fun savedPresetFolder(context: android.content.Context): String? =
+    LibrarySettingsCodec.read(context.getSharedPreferences(GeodePrefsFiles.GENERAL, android.content.Context.MODE_PRIVATE)).presetMirrorUri

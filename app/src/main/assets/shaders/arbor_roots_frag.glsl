@@ -119,18 +119,13 @@ float wnoise3(vec3 p, float pz) {
     int y0 = int(f.y);
     int z0 = int(mod(f.z, pz));
     int z1 = int(mod(f.z + 1.0, pz));
-    float c000 = hashCell(ivec3(x0, y0, z0));
-    float c100 = hashCell(ivec3(x0 + 1, y0, z0));
-    float c010 = hashCell(ivec3(x0, y0 + 1, z0));
-    float c110 = hashCell(ivec3(x0 + 1, y0 + 1, z0));
-    float c001 = hashCell(ivec3(x0, y0, z1));
-    float c101 = hashCell(ivec3(x0 + 1, y0, z1));
-    float c011 = hashCell(ivec3(x0, y0 + 1, z1));
-    float c111 = hashCell(ivec3(x0 + 1, y0 + 1, z1));
-    float x00 = mix(c000, c100, w.x);
-    float x10 = mix(c010, c110, w.x);
-    float x01 = mix(c001, c101, w.x);
-    float x11 = mix(c011, c111, w.x);
+    vec4 lo;
+    vec4 hi;
+    hashCellCube(ivec3(x0, y0, z0), ivec3(x0 + 1, y0 + 1, z1), lo, hi);
+    float x00 = mix(lo.x, lo.y, w.x);
+    float x10 = mix(lo.z, lo.w, w.x);
+    float x01 = mix(hi.x, hi.y, w.x);
+    float x11 = mix(hi.z, hi.w, w.x);
     return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
 }
 
@@ -267,7 +262,8 @@ void main() {
         ArborHit h = arborField(ro + rd * tm);
         float d = h.d;
         float depth = h.level + h.along;
-        glow += exp(-pow((depth - front) * 1.4, 2.0)) * exp(-max(h.mat.y, 0.0) * 10.0) * min(d, 0.5);
+        float behind = (depth - front) * 1.4;
+        glow += exp(-behind * behind) * exp(-max(h.mat.y, 0.0) * 10.0) * min(d, 0.5);
         if (d < 0.0012 + 0.0008 * tm) {
             hitT = tm;
             hitMat = h.mat.x;
@@ -305,7 +301,8 @@ void main() {
         float threadAmt;
         float sap = 0.0;
         if (hitMat < 0.5) {
-            sap = exp(-pow((hitDepth - front) * 1.4, 2.0)) * sapOn;
+            float behind = (hitDepth - front) * 1.4;
+            sap = exp(-behind * behind) * sapOn;
             base = mix(rootCol, sapCol, clamp(sap, 0.0, 1.0));
             threadAmt = 0.4;
         } else if (hitMat < 1.5) {
@@ -335,6 +332,6 @@ void main() {
     col += sapCol * glow * sapOn * 0.2 * glowK;
 
     col *= 0.9 + 0.12 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

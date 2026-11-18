@@ -12,14 +12,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDestination
+import dev.geode.data.ExportFps
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.RecordPrefs
 import dev.geode.data.RecordPrefsStore
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportQualityLabel
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
 import dev.geode.export.ExportQuality
 import dev.geode.geodeContainer
 import dev.geode.pro.FeatureGate
@@ -76,14 +76,14 @@ internal fun RecordSection() {
     )
     SettingsChoiceRow(
         title = stringResource(R.string.export_frame_rate),
-        options = EXPORT_FPS_OPTIONS,
+        options = ExportFps.options,
         selected = prefs.fps,
         label = { proMarked(stringResource(R.string.record_fps, it), gate.blockingExportFeature(prefs.quality.shortSide, it) != null) },
         onSelect = { choose(prefs.copy(fps = it)) },
     )
     SettingsChoiceRow(
         title = stringResource(R.string.record_max_length),
-        options = remember { GeodeNative.recordMaxLengths().toList() },
+        options = remember { ExportNative.recordMaxLengths().toList() },
         selected = prefs.maxLengthSec,
         label = { recordLengthLabel(LocalContext.current, it) },
         onSelect = { length ->
@@ -117,10 +117,10 @@ private fun recordSizeHint(prefs: RecordPrefs): String {
     val bps = prefs.quality.bitRate
     val limited = prefs.maxLengthSec > 0
     val seconds = if (limited) prefs.maxLengthSec else SECONDS_PER_MINUTE
-    val size = Formatter.formatShortFileSize(context, GeodeNative.recordEstimateBytes(bps, seconds))
+    val size = Formatter.formatShortFileSize(context, ExportNative.recordEstimateBytes(bps, seconds))
     return when {
         !limited -> stringResource(R.string.record_size_per_minute, size)
-        GeodeNative.recordRateLowered(bps, seconds) -> stringResource(R.string.record_size_lowered, size)
+        ExportNative.recordRateLowered(bps, seconds) -> stringResource(R.string.record_size_lowered, size)
         else -> stringResource(R.string.record_size_at_most, size)
     }
 }

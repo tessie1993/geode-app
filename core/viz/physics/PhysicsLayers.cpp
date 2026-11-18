@@ -37,8 +37,8 @@ GLuint PhysicsLayers::run(const Plan& plan, const Frame& f) {
     fluidShown_ = false;
     particlesShown_ = false;
     // Each part outlives its layer going off by the idle window, then goes: nothing is held while both are off.
-    const bool keepFluid = fluidKeep_.step(plan.fluid);
-    const bool keepParticles = particleKeep_.step(plan.particles);
+    const bool keepFluid = fluidKeep_.step(plan.fluid, f.wallDt);
+    const bool keepParticles = particleKeep_.step(plan.particles, f.wallDt);
     if (!keepFluid && fluid_) fluid_.reset();
     if (!keepParticles && particles_) {
         particles_.reset();
@@ -158,8 +158,9 @@ bool PhysicsLayers::ensureParticles(const Plan& plan, float aspect, bool blockin
 }
 
 void PhysicsLayers::stepFluid(const Plan& plan, const Frame& f) {
-    // The whole frame on the music clock, in the solver's stable steps (FluidSim::step); none in silence.
-    const float simDt = fluid::math::frameSimDt(f.dt);
+    // The whole frame on the music clock (live, capped), in the solver's stable steps (FluidSim::step); none in
+    // silence.
+    const float simDt = f.live ? fluid::math::liveFrameSimDt(f.dt) : fluid::math::frameSimDt(f.dt);
     if (!(simDt > 0.0f)) return;
     fluid::FluidSim& sim = *fluid_;
     sim.densityDissipation = kDyeDissipation;
@@ -187,7 +188,8 @@ void PhysicsLayers::stepFluid(const Plan& plan, const Frame& f) {
 }
 
 void PhysicsLayers::stepParticles(const Plan& plan, const Frame& f, float aspect, bool withFluid) {
-    const float dt = fluid::math::frameSimDt(f.dt);
+    // On the fluid's clock, so the motes ride the field over the time it moved.
+    const float dt = f.live ? fluid::math::liveFrameSimDt(f.dt) : fluid::math::frameSimDt(f.dt);
     if (!(dt > 0.0f)) return;
     fluid::Particles& parts = *particles_;
     parts.drag = kDrag;

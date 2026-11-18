@@ -54,7 +54,7 @@ void ProgramStager::onContext(bool parallelCompile) {
     parallel_ = parallelCompile;
 }
 
-ProgramStager::Entry& ProgramStager::entryFor(const std::vector<ShaderStage>& stages) {
+ProgramStager::Entry& ProgramStager::entryFor(const std::vector<ShaderStage>& stages, bool cached) {
     const std::string id = idOf(stages);
     for (auto& entry : entries_) {
         if (entry.id == id) return entry;
@@ -63,16 +63,16 @@ ProgramStager::Entry& ProgramStager::entryFor(const std::vector<ShaderStage>& st
     entry.id = id;
     entry.stages = stages;
     // The same key program::build uses, so staged and inline builds share binaries.
-    if (cache_ && stages.size() == 2 && stages[0].type == GL_VERTEX_SHADER && stages[1].type == GL_FRAGMENT_SHADER) {
+    if (cached && cache_ && stages.size() == 2 && stages[0].type == GL_VERTEX_SHADER && stages[1].type == GL_FRAGMENT_SHADER) {
         entry.cacheKey = cache_->keyFor(stages[0].source, stages[1].source);
     }
     entries_.push_back(std::move(entry));
     return entries_.back();
 }
 
-GLuint ProgramStager::obtain(const std::vector<ShaderStage>& stages, std::string* error, bool* placeholder) {
+GLuint ProgramStager::obtain(const std::vector<ShaderStage>& stages, std::string* error, bool* placeholder, bool cached) {
     if (placeholder) *placeholder = false;
-    Entry& entry = entryFor(stages);
+    Entry& entry = entryFor(stages, cached);
     if (entry.failed) {
         if (error) *error = entry.error;
         return 0;

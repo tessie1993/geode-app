@@ -13,8 +13,8 @@ inline float clamp01(float v) { return std::clamp(v, 0.0f, 1.0f); }
 inline float perFrame(float f0, float dt) { return std::pow(f0, 30.0f * dt); }
 
 // A fixed cadence on a dt clock: true once `every` seconds have gathered, keeping the remainder. Within a
-// millisecond counts, so ten 10 ms hops (whose float sum can fall a hair short of 0.1) make 0.1 s and the
-// cadence is a whole number of hops, not one hop late now and then.
+// millisecond counts, so hops whose float sum falls a hair short of `every` still make it, and the cadence
+// is not one hop late now and then.
 inline bool due(float& since, float every, float dt) {
     since += dt;
     if (since < every - 1e-3f) return false;

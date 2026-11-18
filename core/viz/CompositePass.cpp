@@ -14,8 +14,8 @@ constexpr const char* kTag = "GeodeCompositePass";
 
 bool CompositePass::create(const std::string& fadeVert, std::string* error) {
     if (!transitions_.create(fadeVert, error)) return false;
-    noiseTex_ = createNoiseTexture();
-    zeroTex_ = createZeroTexture();
+    noiseTex_.reset(createNoiseTexture());
+    zeroTex_.reset(createZeroTexture());
     return true;
 }
 
@@ -24,14 +24,21 @@ void CompositePass::release() {
     releaseStaleTextures();
 }
 
+void CompositePass::forget() {
+    transitions_.forget();
+    noiseTex_.forget();
+    zeroTex_.forget();
+    underlayTex_.forget();
+    underlayBlendMode_ = 0;
+    underlayAmount_ = 0.0f;
+}
+
 void CompositePass::releaseStaleTextures() {
-    if (noiseTex_ != 0) glDeleteTextures(1, &noiseTex_);
-    noiseTex_ = 0;
+    noiseTex_.reset();
     // zeroTex_ is only ever (re)created in create(), which callers invoke
     // again right after releaseStaleTextures() on surface recreation; delete
     // it here too so it doesn't leak the old context's texture name.
-    if (zeroTex_ != 0) glDeleteTextures(1, &zeroTex_);
-    zeroTex_ = 0;
+    zeroTex_.reset();
     // W00: same reasoning applies to the underlay texture - Renderer re-arms
     // underlayDirty_ from its retained pixel buffer on surface recreation (see
     // Renderer::onSurfaceCreated), so it is safe (and required, to avoid
@@ -86,92 +93,85 @@ void CompositePass::draw(const Inputs& inputs) {
     uploadFrameUniforms(program, inputs, definition);
     uploadGradeUniforms(program, inputs);
 
-    glUniform4fv(program.loc("uGateA"), 1, inputs.gateA.data());
-    glUniform4fv(program.loc("uGateB"), 1, inputs.gateB.data());
-    glUniform4fv(program.loc("uCamFlat"), 1, inputs.camFlat.data());
-    glUniform2fv(program.loc("uCamTilt"), 1, inputs.camTilt.data());
-    glUniform2fv(program.loc("uCamGate"), 1, inputs.camGate.data());
-    glUniform4fv(program.loc("uGateL"), 1, inputs.gateL.data());
-    glUniform1f(program.loc("uCamGateL"), inputs.camGateL);
+    glUniform4fv(program.loc(Uniform::uGateA), 1, inputs.gateA.data());
+    glUniform4fv(program.loc(Uniform::uGateB), 1, inputs.gateB.data());
+    glUniform4fv(program.loc(Uniform::uCamFlat), 1, inputs.camFlat.data());
+    glUniform2fv(program.loc(Uniform::uCamTilt), 1, inputs.camTilt.data());
+    glUniform2fv(program.loc(Uniform::uCamGate), 1, inputs.camGate.data());
+    glUniform4fv(program.loc(Uniform::uGateL), 1, inputs.gateL.data());
+    glUniform1f(program.loc(Uniform::uCamGateL), inputs.camGateL);
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glActiveTexture(GL_TEXTURE0);
 }
 
+// The samplers' units were set when each program was built (TransitionPrograms, composite_unit).
 void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, inputs.texA);
-    glUniform1i(p.loc("uTexA"), 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, inputs.texB);
-    glUniform1i(p.loc("uTexB"), 1);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, inputs.flowTex);
-    glUniform1i(p.loc("uFlow"), 2);
-    glUniform1f(p.loc("uFlowStrength"), inputs.flowStrength);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, noiseTex_);
-    glUniform1i(p.loc("uNoise"), 4);
-    glUniform1f(p.loc("uDither"), noiseTex_ != 0 ? kDitherAmount : 0.0f);
+    auto bind = [](int unit, GLuint tex) {
+        glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
+        glBindTexture(GL_TEXTURE_2D, tex);
+    };
+    bind(composite_unit::kTexA, inputs.texA);
+    bind(composite_unit::kTexB, inputs.texB);
+    bind(composite_unit::kFlow, inputs.flowTex);
+    glUniform1f(p.loc(Uniform::uFlowStrength), inputs.flowStrength);
+    bind(composite_unit::kNoise, noiseTex_.get());
+    glUniform1f(p.loc(Uniform::uDither), noiseTex_ ? kDitherAmount : 0.0f);
     // W00: underlay, see the class comment in CompositePass.hpp.
-    glActiveTexture(GL_TEXTURE5);
-    glBindTexture(GL_TEXTURE_2D, inputs.underlayTex);
-    glUniform1i(p.loc("uUnderlay"), 5);
-    glUniform1i(p.loc("uUnderlayBlend"), inputs.underlayBlend);
-    glUniform1f(p.loc("uUnderlayAmount"), inputs.underlayAmount);
-    glActiveTexture(GL_TEXTURE6);
-    glBindTexture(GL_TEXTURE_2D, inputs.texL != 0 ? inputs.texL : zeroTex_);
-    glUniform1i(p.loc("uTexL"), 6);
+    bind(composite_unit::kUnderlay, inputs.underlayTex);
+    glUniform1i(p.loc(Uniform::uUnderlayBlend), inputs.underlayBlend);
+    glUniform1f(p.loc(Uniform::uUnderlayAmount), inputs.underlayAmount);
+    bind(composite_unit::kTexL, inputs.texL != 0 ? inputs.texL : zeroTex_.get());
 }
 
 void CompositePass::uploadFrameUniforms(UniformCache& p, const Inputs& inputs, const TransitionCatalog::Def* definition) {
-    glUniform1f(p.loc("uProgress"), inputs.progress);
-    glUniform1f(p.loc("uLayerMix"), inputs.layerMix);
-    glUniform1i(p.loc("uBlendMode"), inputs.blendOrdinal);
+    glUniform1f(p.loc(Uniform::uProgress), inputs.progress);
+    glUniform1f(p.loc(Uniform::uLayerMix), inputs.layerMix);
+    glUniform1i(p.loc(Uniform::uBlendMode), inputs.blendOrdinal);
     // The layer goes over whatever the transition shows, so a style change runs under a layer as it does without.
-    glUniform1i(p.loc("uHasLayer"), inputs.hasLayer ? 1 : 0);
+    glUniform1i(p.loc(Uniform::uHasLayer), inputs.hasLayer ? 1 : 0);
     const int styleValue = !inputs.hasOutgoing ? static_cast<int>(TransitionStyle::Cut)
                            : definition ? TransitionCatalog::kStyleLibrary
                                         : static_cast<int>(inputs.transitionStyle);
-    glUniform1i(p.loc("uStyle"), styleValue);
-    glUniform1f(p.loc("uRatio"), inputs.ratio);
-    glUniform1f(p.loc("uTime"), inputs.timeSeconds);
+    glUniform1i(p.loc(Uniform::uStyle), styleValue);
+    glUniform1f(p.loc(Uniform::uRatio), inputs.ratio);
+    glUniform1f(p.loc(Uniform::uTime), inputs.timeSeconds);
 }
 
 void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     const SceneParams& fx = inputs.fx;
-    glUniform1f(p.loc("uChroma"), fx.chromaAb);
-    glUniform1f(p.loc("uVignette"), fx.vignette);
-    glUniform1f(p.loc("uScanline"), fx.scanlines);
-    glUniform1f(p.loc("uGrain"), fx.grain);
-    glUniform1f(p.loc("uFisheye"), fx.fisheye);
-    glUniform1f(p.loc("uPostWarp"), fx.warp);
-    glUniform1f(p.loc("uPostRipple"), fx.ripple);
+    glUniform1f(p.loc(Uniform::uChroma), fx.chromaAb);
+    glUniform1f(p.loc(Uniform::uVignette), fx.vignette);
+    glUniform1f(p.loc(Uniform::uScanline), fx.scanlines);
+    glUniform1f(p.loc(Uniform::uGrain), fx.grain);
+    glUniform1f(p.loc(Uniform::uFisheye), fx.fisheye);
+    glUniform1f(p.loc(Uniform::uPostWarp), fx.warp);
+    glUniform1f(p.loc(Uniform::uPostRipple), fx.ripple);
     const SceneParams::KaleidoUniforms kaleido = SceneParams::kaleidoUniforms(fx.kaleidoFolds);
-    glUniform1f(p.loc("uPostSymmetry"), kaleido.folds);
-    glUniform1f(p.loc("uPostKaleido"), kaleido.on);
-    glUniform1f(p.loc("uPostPixelate"), fx.pixelate);
-    glUniform1f(p.loc("uPostTile"), fx.tile);
-    glUniform1f(p.loc("uPostTwist"), fx.twist);
-    glUniform1f(p.loc("uPostBloom"), fx.bloom);
-    glUniform1f(p.loc("uPostPosterize"), fx.posterize);
-    glUniform1f(p.loc("uPostDriftX"), fx.driftX);
-    glUniform1f(p.loc("uPostDriftY"), fx.driftY);
-    glUniform1f(p.loc("uPostSway"), fx.sway);
-    glUniform1f(p.loc("uPostTemp"), fx.temperature);
-    glUniform1f(p.loc("uPostSolarize"), fx.solarize ? 1.0f : 0.0f);
-    glUniform1f(p.loc("uPostMirror"), fx.mirror ? 1.0f : 0.0f);
-    glUniform1f(p.loc("uPostInvert"), fx.invert ? 1.0f : 0.0f);
-    glUniform1f(p.loc("uPostZoom"), fx.zoom);
-    glUniform1f(p.loc("uPostRotation"), inputs.postRotationAngle);
-    glUniform1f(p.loc("uPostLife"), fx.life);
-    glUniform4fv(p.loc("uPostBirths"), p.arrayCount("uPostBirths", 2 * births::kBirths), inputs.postBirths.data());
-    glUniform1f(p.loc("uPostSat"), fx.saturation);
-    glUniform1f(p.loc("uPostBright"), grade::brightness(fx.brightness, fx.intensity));
-    glUniform1f(p.loc("uPostContrast"), fx.contrast);
-    glUniform1f(p.loc("uPostGamma"), fx.gamma);
-    glUniform1f(p.loc("uPostHue"), fx.colorShift);
+    glUniform1f(p.loc(Uniform::uPostSymmetry), kaleido.folds);
+    glUniform1f(p.loc(Uniform::uPostKaleido), kaleido.on);
+    glUniform1f(p.loc(Uniform::uPostPixelate), fx.pixelate);
+    glUniform1f(p.loc(Uniform::uPostTile), fx.tile);
+    glUniform1f(p.loc(Uniform::uPostTwist), fx.twist);
+    glUniform1f(p.loc(Uniform::uPostBloom), fx.bloom);
+    glUniform1f(p.loc(Uniform::uPostPosterize), fx.posterize);
+    glUniform1f(p.loc(Uniform::uPostDriftX), fx.driftX);
+    glUniform1f(p.loc(Uniform::uPostDriftY), fx.driftY);
+    glUniform1f(p.loc(Uniform::uPostSway), fx.sway);
+    glUniform1f(p.loc(Uniform::uPostTemp), fx.temperature);
+    glUniform1f(p.loc(Uniform::uPostSolarize), fx.solarize ? 1.0f : 0.0f);
+    glUniform1f(p.loc(Uniform::uPostMirror), fx.mirror ? 1.0f : 0.0f);
+    glUniform1f(p.loc(Uniform::uPostInvert), fx.invert ? 1.0f : 0.0f);
+    glUniform1f(p.loc(Uniform::uPostZoom), fx.zoom);
+    glUniform1f(p.loc(Uniform::uPostRotation), inputs.postRotationAngle);
+    glUniform1f(p.loc(Uniform::uPostLife), fx.life);
+    glUniform4fv(p.loc(Uniform::uPostBirths), p.arrayCount(Uniform::uPostBirths, 2 * births::kBirths), inputs.postBirths.data());
+    glUniform1f(p.loc(Uniform::uPostSat), fx.saturation);
+    glUniform1f(p.loc(Uniform::uPostBright), grade::brightness(fx.brightness, fx.intensity));
+    glUniform1f(p.loc(Uniform::uPostContrast), fx.contrast);
+    glUniform1f(p.loc(Uniform::uPostGamma), fx.gamma);
+    glUniform1f(p.loc(Uniform::uPostHue), fx.colorShift);
 }
 
 }  // namespace geode::viz

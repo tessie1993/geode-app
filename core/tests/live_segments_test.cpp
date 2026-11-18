@@ -384,6 +384,15 @@ void testMasterPlaylistFollowsTheInit() {
     check(s.masterPlaylist() == share::masterPlaylist(good.data(), good.size()), "the master playlist is the init segment's");
 }
 
+// A second init (the muxer restarted into the same sink) replaces the header; it does not append to it.
+void testSecondInitReplacesTheFirst() {
+    const Buf good = cat({ftyp(), moov()});
+    LiveSegments s(zero);
+    s.write(good.data(), good.size());
+    s.write(good.data(), good.size());
+    check(held(s.init()) == good, "a second ftyp + moov is one init segment, not two");
+}
+
 }  // namespace
 
 int main() {
@@ -398,6 +407,7 @@ int main() {
     testLargeSizeBox();
     testBoxesNoStreamHolds();
     testMasterPlaylistFollowsTheInit();
+    testSecondInitReplacesTheFirst();
     if (failures == 0) std::printf("live_segments_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

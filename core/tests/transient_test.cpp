@@ -16,6 +16,7 @@
 #include <numbers>
 #include <vector>
 
+#include "sound/FilterBank.hpp"
 #include "sound/OnsetFlux.hpp"
 #include "sound/SoundEngine.hpp"
 
@@ -119,17 +120,22 @@ double plucked(double t) {
 }
 double pluckAt(int k) { return kFirstPluck + k * kCycle; }
 
-// Where a transient shows: the attack is measured for 5 ms, reported on the hop that ends after it (10 ms), and
-// shown on the frame after that hop.
-constexpr double kLatency = 0.005 + 0.010 + 1.0 / 30.0 + 0.002;
+// The engine's hop at `rate`, in seconds: its sample count over the analysis rate.
+double hopSeconds(int rate) {
+    return static_cast<double>(geode::sound::AnalysisSettings{}.hopSamples()) / SoundEngine::analysisRateFor(rate);
+}
+
+// Where a transient shows: the attack is measured for 5 ms, reported on the hop that ends after it (one hop at
+// 48 kHz), and shown on the frame after that hop.
+double latency() { return 0.005 + hopSeconds(48000) + 1.0 / 30.0 + 0.002; }
 
 void testClicksFireEachTime() {
     const Run run = play([](double t) { return clicks(t, 0.6); }, 0.5 + kClicks * kClickPeriod + 0.3, 48000, 60.0);
     CHECK(static_cast<int>(run.fires.size()) == kClicks, "%zu transients for %d clicks", run.fires.size(), kClicks);
     for (int k = 0; k < kClicks; k++) {
         const double at = 0.5 + k * kClickPeriod;
-        const bool seen = std::any_of(run.fires.begin(), run.fires.end(), [&](const Fire& f) { return f.t >= at && f.t <= at + kLatency; });
-        CHECK(seen, "click %d at %.3f s heard within %.0f ms", k, at, 1000.0 * kLatency);
+        const bool seen = std::any_of(run.fires.begin(), run.fires.end(), [&](const Fire& f) { return f.t >= at && f.t <= at + latency(); });
+        CHECK(seen, "click %d at %.3f s heard within %.0f ms", k, at, 1000.0 * latency());
     }
     for (const Fire& f : run.fires) CHECK(f.sharpness >= 0.6f, "a click is a step: sharpness %.2f", static_cast<double>(f.sharpness));
     CHECK(run.maxEnv > 0.2f, "the envelope rises on a click: %.2f", static_cast<double>(run.maxEnv));
@@ -171,13 +177,13 @@ void testPlucksFireSwellsDoNot() {
     const Run run = play(plucked, pluckAt(kPlucks) + 0.2, 48000, 60.0);
     for (int k = 0; k < kPlucks; k++) {
         const double at = pluckAt(k);
-        const auto n = std::count_if(run.fires.begin(), run.fires.end(), [&](const Fire& f) { return f.t >= at && f.t <= at + kLatency; });
+        const auto n = std::count_if(run.fires.begin(), run.fires.end(), [&](const Fire& f) { return f.t >= at && f.t <= at + latency(); });
         CHECK(n == 1, "pluck %d at %.3f s: %d transients", k, at, static_cast<int>(n));
     }
     for (const Fire& f : run.fires) {
         if (f.t < 0.9) continue;  // the bed's own fade-in
         bool nearPluck = false;
-        for (int k = 0; k < kPlucks; k++) nearPluck = nearPluck || (f.t >= pluckAt(k) && f.t <= pluckAt(k) + kLatency);
+        for (int k = 0; k < kPlucks; k++) nearPluck = nearPluck || (f.t >= pluckAt(k) && f.t <= pluckAt(k) + latency());
         CHECK(nearPluck, "a transient at %.3f s, %.3f s into its cycle: a swell or the bed fired", f.t,
               std::fmod(f.t - kFirstPluck, kCycle));
         if (nearPluck) CHECK(f.sharpness >= 0.3f, "a pluck is sharp: %.2f", static_cast<double>(f.sharpness));
@@ -185,16 +191,18 @@ void testPlucksFireSwellsDoNot() {
 }
 
 // The attacks are the samples', so 44.1, 48 and 96 kHz (analysed at 48) hear the same ones, at the same times
-// within a frame and a hop; and a frame rate only changes which frame shows each.
+// within a frame and a hop (the longest, 44.1 kHz's) and a millisecond; and a frame rate only changes which
+// frame shows each.
 void testRateIndependent() {
     const double seconds = pluckAt(kPlucks) + 0.2;
+    const double within = 1.0 / 30.0 + hopSeconds(44100) + 0.001;
     const Run base = play(plucked, seconds, 48000, 60.0);
     const auto same = [&](const Run& other, const char* what) {
         CHECK(other.fires.size() == base.fires.size(), "%s: %zu transients, 48 kHz at 60 fps %zu", what, other.fires.size(),
               base.fires.size());
         const size_t n = std::min(other.fires.size(), base.fires.size());
         for (size_t i = 0; i < n; i++) {
-            CHECK(std::fabs(other.fires[i].t - base.fires[i].t) <= 1.0 / 30.0 + 0.011, "%s: transient %zu at %.3f s, not %.3f", what, i,
+            CHECK(std::fabs(other.fires[i].t - base.fires[i].t) <= within, "%s: transient %zu at %.3f s, not %.3f", what, i,
                   other.fires[i].t, base.fires[i].t);
             CHECK(std::fabs(other.fires[i].sharpness - base.fires[i].sharpness) <= 0.15f, "%s: sharpness %.2f, not %.2f", what,
                   static_cast<double>(other.fires[i].sharpness), static_cast<double>(base.fires[i].sharpness));
@@ -239,9 +247,41 @@ void testVibratoSlideIsNoRise() {
           "the filter spreads a peak over its reach and no further");
 }
 
+// A band that skips punch (SliceBand::set's punch false: the engine's low, middle and high, whose punch nobody
+// reads) hands out the very same level, hop power and filtered sample as one that measures it, bit for bit; only
+// its punch is 0. A tone with clicks over it, so the measuring band's punch really moves.
+void testPunchOffLeavesTheBandAlone() {
+    constexpr int kRate = 48000;
+    constexpr int kHop = 512;
+    geode::sound::SliceBand on;
+    geode::sound::SliceBand off;
+    on.set(0.0f, 250.0f, kRate, true);
+    off.set(0.0f, 250.0f, kRate, false);
+    bool same = true;
+    float punchOn = 0.0f;
+    float punchOff = 0.0f;
+    for (int i = 0; i < 4 * kRate; i++) {
+        const double t = static_cast<double>(i) / kRate;
+        float x = static_cast<float>(0.2 * std::sin(kTau * 110.0 * t));
+        if (i % 14123 < 24) x += 0.9f;  // a click about every 0.29 s
+        on.process(x);
+        off.process(x);
+        same = same && on.out() == off.out();
+        if ((i + 1) % kHop == 0) {
+            same = same && on.take() == off.take() && on.takeHopPower() == off.takeHopPower();
+            punchOn = std::max(punchOn, on.takePunch());
+            punchOff = std::max(punchOff, off.takePunch());
+        }
+    }
+    CHECK(same, "a band without punch filters, levels and powers exactly as one with it");
+    CHECK(punchOn > 0.0f && punchOff == 0.0f, "only the measuring band has punch: %.3f, %.3f", static_cast<double>(punchOn),
+          static_cast<double>(punchOff));
+}
+
 }  // namespace
 
 int main() {
+    testPunchOffLeavesTheBandAlone();
     testVibratoSlideIsNoRise();
     testClicksFireEachTime();
     testSilenceNeverFires();

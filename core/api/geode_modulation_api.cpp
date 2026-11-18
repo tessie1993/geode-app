@@ -54,56 +54,80 @@ ModDocument withAdsrs(const char* adsrs) {
 
 extern "C" {
 
-const char* geode_mod_catalog_text(void) { return viz::modcatalog::text().c_str(); }
+const char* geode_mod_catalog_text(void) try {
+    return viz::modcatalog::text().c_str();
+} catch (...) {
+    return nullptr;
+}
 
-int geode_mod_lfos_read(const char* lfos, char* out, int capacity) {
+int geode_mod_lfos_read(const char* lfos, char* out, int capacity) try {
     return textOut(withLfos(lfos).lfosText(), out, capacity);
+} catch (...) {
+    return textOut(std::string(), out, capacity);
 }
 
-int geode_mod_adsrs_read(const char* adsrs, char* out, int capacity) {
+int geode_mod_adsrs_read(const char* adsrs, char* out, int capacity) try {
     return textOut(withAdsrs(adsrs).adsrsText(), out, capacity);
+} catch (...) {
+    return textOut(std::string(), out, capacity);
 }
 
-int geode_mod_reactions_read(const char* reactions, char* out, int capacity) {
+int geode_mod_reactions_read(const char* reactions, char* out, int capacity) try {
     ModDocument doc;
     doc.readReactions(view(reactions), GEODE_HAND_ALL);
     return textOut(doc.reactionsText(), out, capacity);
+} catch (...) {
+    return textOut(std::string(), out, capacity);
 }
 
-int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask) {
+int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask) try {
     if (!reactions) return 0;
     ModDocument doc;
     doc.readReactions(view(reactions), GEODE_HAND_ALL);
     if (!doc.hand.user) return -1;
     return has_mask ? static_cast<int>(static_cast<unsigned>(saved_mask) & GEODE_HAND_ALL) : static_cast<int>(GEODE_HAND_ALL);
+} catch (...) {
+    return 0;
 }
 
-int geode_mod_lfo_values(const char* lfos, int slot, const char* style_id, float* out, int capacity) {
+int geode_mod_lfo_values(const char* lfos, int slot, const char* style_id, float* out, int capacity) try {
     return withLfos(lfos).lfoValues(slot, text(style_id), out, capacity);
+} catch (...) {
+    return 0;
 }
 
-int geode_mod_lfo_edit(const char* lfos, int slot, int field, float value, char* out, int capacity) {
+int geode_mod_lfo_edit(const char* lfos, int slot, int field, float value, char* out, int capacity) try {
     ModDocument doc = withLfos(lfos);
     doc.setLfo(slot, field, value);
     return textOut(doc.lfosText(), out, capacity);
+} catch (...) {
+    return textOut(std::string(), out, capacity);
 }
 
-int geode_mod_adsr_values(const char* adsrs, int slot, float* out, int capacity) {
+int geode_mod_adsr_values(const char* adsrs, int slot, float* out, int capacity) try {
     return withAdsrs(adsrs).adsrValues(slot, out, capacity);
+} catch (...) {
+    return 0;
 }
 
-int geode_mod_adsr_edit(const char* adsrs, int slot, int field, float value, char* out, int capacity) {
+int geode_mod_adsr_edit(const char* adsrs, int slot, int field, float value, char* out, int capacity) try {
     ModDocument doc = withAdsrs(adsrs);
     doc.setAdsr(slot, field, value);
     return textOut(doc.adsrsText(), out, capacity);
+} catch (...) {
+    return textOut(std::string(), out, capacity);
 }
 
-int geode_mod_targets_offered(const char* style_id, int picker, int* out, int capacity) {
+int geode_mod_targets_offered(const char* style_id, int picker, int* out, int capacity) try {
     return ModDocument::targetsOffered(text(style_id), picker, out, capacity);
+} catch (...) {
+    return 0;
 }
 
-int geode_mod_adsr_targets_offered(const char* adsrs, int slot, const char* style_id, int* out, int capacity) {
+int geode_mod_adsr_targets_offered(const char* adsrs, int slot, const char* style_id, int* out, int capacity) try {
     return withAdsrs(adsrs).adsrTargetsOffered(slot, text(style_id), out, capacity);
+} catch (...) {
+    return 0;
 }
 
 }  // extern "C"

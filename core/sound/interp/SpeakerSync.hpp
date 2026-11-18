@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "sound/Budget.hpp"
 #include "sound/interp/PlayoutClock.hpp"
 
 /*
@@ -23,10 +24,13 @@ inline constexpr int64_t kNewest = INT64_MAX;
 /**
  * The player's ring: frames kept and the most one write publishes. A reader at the speaker trails the
  * tap by the sink's buffer, the link and the A/V offset, in source frames: about 1.1 s at 1x over
- * Bluetooth, twice that at 2x. 2^19 less two runways keeps 2.5 s at 192 kHz, so it is not overrun.
+ * Bluetooth, twice that at 2x. So the ring keeps kSpeakerLagMs at the fastest rate and two runways more,
+ * and is not overrun.
  */
-inline constexpr int kPlayerRingFrames = 1 << 19;
+inline constexpr int kSpeakerLagMs = 2500;
 inline constexpr int kPlayerRingRunway = 1 << 14;
+inline constexpr int kPlayerRingFrames = budget::ringFrames(kSpeakerLagMs, budget::kMaxRateHz, 2 * kPlayerRingRunway);
+static_assert(kPlayerRingFrames == 1 << 19, "the player's ring changed size: 4 MB of stereo floats, and every reader's reach");
 
 /**
  * The exclusive end (a ring head position) of what a live renderer may hear at monotonic [nowNs].

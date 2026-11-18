@@ -17,6 +17,7 @@
 #include <numbers>
 #include <vector>
 
+#include "sound/AnalysisSettings.hpp"
 #include "sound/DriveGain.hpp"
 #include "sound/LufsMeter.hpp"
 #include "sound/SoundEngine.hpp"
@@ -48,7 +49,8 @@ struct Metered {
     int hop;
     int fill = 0;
     int64_t at = 0;
-    explicit Metered(int sampleRate) : rate(sampleRate), hop(std::max(1, sampleRate / 100)) { meter.configure(rate, hop); }
+    // The engine's own hop, a sample count at every rate.
+    explicit Metered(int sampleRate) : rate(sampleRate), hop(geode::sound::AnalysisSettings{}.hopSamples()) { meter.configure(rate, hop); }
     void feed(float l, float r) {
         meter.process(l, r);
         at++;

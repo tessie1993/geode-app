@@ -55,12 +55,12 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.ParamsNative
 import dev.geode.model.ControlRange
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 
 val LocalParamLocks =
@@ -211,7 +211,7 @@ internal fun ControlHint(
  * JNI call and a linear scan per row). Kotlin only holds what native returned.
  */
 private val lockableKeys: Set<String> by lazy {
-    GeodeNative
+    CustomizeNative
         .customizeLockableKeys()
         .lineSequence()
         .filter { it.isNotEmpty() }
@@ -493,7 +493,7 @@ internal fun ParamChips(
  * (Compose › API defaults › "Minimum touch target sizes": at least 48 dp, so touch areas cannot
  * overlap). The row grows by 16 dp; nothing is drawn differently.
  *
- * The value's text is native's (`GeodeNative.paramText`: a % for amounts, × for multipliers, s/ms, Hz, °) and reads
+ * The value's text is native's (`ParamsNative.paramText`: a % for amounts, × for multipliers, s/ms, Hz, °) and reads
  * "Default" at the default. A unit suffix in the key ("Particle life (s)") is dropped from the
  * shown name, since the value now carries it.
  *
@@ -511,7 +511,7 @@ internal fun LabeledSlider(
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
     default: Float? = null,
-    unit: ParamUnit? = null,
+    unit: Int = ParamsNative.PARAM_UNIT_OWN,
     steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
@@ -519,13 +519,14 @@ internal fun LabeledSlider(
     if (!visible(label, scope, name)) return
     val shown =
         remember(value, default, unit, range) {
-            GeodeNative.paramText(label, unit?.ordinal ?: -1, value, range.start, range.endInclusive, default ?: Float.NaN)
+            ParamsNative.paramText(label, unit, value, range.start, range.endInclusive, default ?: Float.NaN)
         }
     val lock = LocalProLock.current
     val locked = !lock.allows(label)
     // The value before a locked drag began, put back on release.
     var before by remember(label) { mutableStateOf<Float?>(null) }
-    val reset: (() -> Unit)? = default?.takeIf { GeodeNative.sliderOffDefault(value, it) }?.let { d -> { onChange(d) } }
+    val offDefault = remember(value, default) { default?.takeIf { ParamsNative.sliderOffDefault(value, it) } }
+    val reset: (() -> Unit)? = offDefault?.let { d -> { onChange(d) } }
     val resetLabel = stringResource(R.string.customize_a11y_reset)
     val sliderLabel = if (locked) stringResource(R.string.customize_a11y_part_of_pro, name) else name
     // A slider a knob can move: long-press its name row (or TalkBack's action) to put it on a knob.
@@ -606,7 +607,7 @@ internal fun LabeledSlider(
     name: String,
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
-    unit: ParamUnit? = null,
+    unit: Int = ParamsNative.PARAM_UNIT_OWN,
     steps: Int = 0,
     onChange: (SceneParams) -> Unit,
 ) {
@@ -684,9 +685,9 @@ internal fun LabeledIntSlider(
             ControlLabelRow("$display · $value", label)
             Slider(
                 value = value.toFloat(),
-                onValueChange = { onChange(GeodeNative.sliderIntValue(it, range.first, range.last)) },
+                onValueChange = { onChange(ParamsNative.sliderIntValue(it, range.first, range.last)) },
                 valueRange = range.first.toFloat()..range.last.toFloat(),
-                steps = GeodeNative.sliderIntSteps(range.first, range.last),
+                steps = ParamsNative.sliderIntSteps(range.first, range.last),
                 enabled = !LocalLockedByPro.current,
                 modifier =
                     Modifier.fillMaxWidth().systemGestureExclusion().semantics {

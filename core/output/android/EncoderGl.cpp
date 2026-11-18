@@ -35,6 +35,8 @@ const char* EncoderGl::open(void* window) {
     surface_ = eglCreateWindowSurface(display_, config, reinterpret_cast<EGLNativeWindowType>(window), none);
     if (surface_ == EGL_NO_SURFACE) return "eglCreateWindowSurface failed";
     if (!eglMakeCurrent(display_, surface_, surface_, context_)) return "eglMakeCurrent failed";
+    // The encoder's frames carry their own presentation times: a swap never waits on a vsync (viz/frame/RecordTap too).
+    eglSwapInterval(display_, 0);
     return nullptr;
 }
 

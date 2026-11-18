@@ -145,13 +145,19 @@ H264 profileOf(const uint8_t* annexB, size_t n) {
 
 std::vector<uint8_t> accessUnit(const uint8_t* config, size_t configSize, const uint8_t* frame, size_t frameSize, bool key) {
     std::vector<uint8_t> out;
-    if (!frame || frameSize == 0) return out;
+    accessUnit(config, configSize, frame, frameSize, key, out);
+    return out;
+}
+
+void accessUnit(const uint8_t* config, size_t configSize, const uint8_t* frame, size_t frameSize, bool key,
+                std::vector<uint8_t>& out) {
+    out.clear();
+    if (!frame || frameSize == 0) return;
     const bool prepend = key && config && configSize > 0 && !hasNal(frame, frameSize, kSps) && hasNal(config, configSize, kSps) &&
                          hasNal(config, configSize, kPps);
     out.reserve(frameSize + (prepend ? configSize : 0));
     if (prepend) out.insert(out.end(), config, config + configSize);
     out.insert(out.end(), frame, frame + frameSize);
-    return out;
 }
 
 bool compatible(int offeredProfile, int offeredConstraints, H264 ours) {

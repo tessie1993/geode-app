@@ -38,7 +38,8 @@ public:
     // uv displacement per (velocity * second), per axis: the liquid's back-trace scale.
     float velScaleX() const { return sim_.rdx() / static_cast<float>(std::max(sim_.velocityGridWidth(), 1)); }
     float velScaleY() const { return sim_.rdx() / static_cast<float>(std::max(sim_.velocityGridHeight(), 1)); }
-    void step(const GeodeSoundFrame& features, float dt, const SceneParams& p);
+    // live: a live surface's frame, whose simulated time is capped (math::liveFrameSimDt); an export's is whole.
+    void step(const GeodeSoundFrame& features, float dt, const SceneParams& p, bool live);
     // The fingers' kicks alone (Settings › Touch › Smear, viz/TouchSmear): no sound, no curl, `dissipation` per second.
     void stepTouch(float dt, float dissipation);
     void release() { sim_.release(); }

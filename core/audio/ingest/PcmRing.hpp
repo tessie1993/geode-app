@@ -21,7 +21,7 @@
 // when the writer could have reached those slots, so torn audio is never handed on. The samples are
 // relaxed atomics (plain loads and stores on every target), which makes that discarded read defined.
 //
-// One writer is the contract, and the shell keeps it (PcmTap.owns). Two writers at once still cannot
+// One writer is the contract, and the tap's gate keeps it (geode_pcm_ring_tap_set_owner). Two writers at once still cannot
 // move the head backwards or tear a format mark: a block whose publish finds the head moved is dropped
 // and its writer carries on from the new head.
 //
@@ -99,8 +99,10 @@ public:
     bool snapshotLatest(float* interleaved, int frames) const;
 
     // The one listener (sound/hop/SharedAnalysis), null for none. Not the ring's state, so a reader may set it;
-    // it must outlive every write made while it is set.
-    void setListener(RingListener* listener) const { listener_.store(listener, std::memory_order_release); }
+    // it must outlive every write made while it is set. When this returns, no write is still inside the
+    // previous listener's ringWritten and none will call it again, so the caller may destroy it. Waits only
+    // for a write already under way (the writer never waits); not from inside ringWritten.
+    void setListener(RingListener* listener) const;
 
 private:
     friend class Cursor;
@@ -137,12 +139,14 @@ private:
     const int maxWrite_;
     const int64_t mask_;
     std::vector<std::atomic<float>> samples_;  // capacity_ frames, interleaved at channels_
-    std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
+    // On its own cache line: the writer stores it at every write, and the fields above are read by every reader.
+    alignas(64) std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
     std::atomic<uint64_t> epoch_{0};
     Mark marks_[kMarks];
     std::atomic<uint32_t> markCount_{0};
     std::atomic_flag markBusy_;  // held for the few stores of one append, so two writers cannot tear a slot
     mutable std::atomic<RingListener*> listener_{nullptr};
+    mutable std::atomic<int> notifying_{0};  // writes between loading the listener and returning from it
 };
 
 // One reader's place in a ring: every frame once, in order (SoundCursor.take's rules). The sound engine

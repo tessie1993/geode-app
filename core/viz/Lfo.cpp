@@ -16,37 +16,21 @@ static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
 static_assert(config::indexInGroup(config::Slot::lfo_moment) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
 
+// The chained targets are the slots' speed and depth in pairs, from wave 1's speed: one pair per slot.
+static_assert(static_cast<int>(LfoTarget::Lfo3Depth) - static_cast<int>(LfoTarget::Lfo1Rate) + 1 == 2 * LfoEngine::kSlots,
+              "a speed and a depth target per wave slot");
+
 bool chainOf(LfoTarget target, ModChain& out) {
-    switch (target) {
-        case LfoTarget::Lfo1Rate: out = {0, ModChainField::Rate}; return true;
-        case LfoTarget::Lfo1Depth: out = {0, ModChainField::Depth}; return true;
-        case LfoTarget::Lfo2Rate: out = {1, ModChainField::Rate}; return true;
-        case LfoTarget::Lfo2Depth: out = {1, ModChainField::Depth}; return true;
-        case LfoTarget::Lfo3Rate: out = {2, ModChainField::Rate}; return true;
-        case LfoTarget::Lfo3Depth: out = {2, ModChainField::Depth}; return true;
-        default: return false;
-    }
+    const int k = static_cast<int>(target) - static_cast<int>(LfoTarget::Lfo1Rate);
+    if (k < 0 || k >= 2 * LfoEngine::kSlots) return false;
+    out = {k / 2, k % 2 == 0 ? ModChainField::Rate : ModChainField::Depth};
+    return true;
 }
 
 bool isLuminanceTarget(LfoTarget target) {
-    switch (target) {
-        case LfoTarget::Brightness: case LfoTarget::Intensity: case LfoTarget::Saturation: case LfoTarget::Bloom:
-        case LfoTarget::Vignette: case LfoTarget::ColorShift: case LfoTarget::PaletteMix:
-        case LfoTarget::Temperature: case LfoTarget::PaletteAmount1: case LfoTarget::PaletteAmount3:
-        case LfoTarget::PaletteAmount4: case LfoTarget::PaletteAmount5: case LfoTarget::PaletteAmount6:
-        case LfoTarget::PaletteAmount7: case LfoTarget::PaletteAmount8: case LfoTarget::PaletteShift:
-        // A second style blended in and out of the picture changes its light as much as a colour swap.
-        case LfoTarget::LayerMix:
-        // The physics layers lay a fluid and particles over or under the picture: as much light as a layer.
-        case LfoTarget::SimFluid: case LfoTarget::SimParticles: case LfoTarget::SimLayerOrder:
-        // The soft shadows darken the lit surface; the escape colour moves it along the palette, as Palette position.
-        case LfoTarget::Shadow: case LfoTarget::EscapeColor:
-            return true;
-        default:
-            return false;
-    }
+    const int slot = paramSlotOf(target);
+    return slot >= 0 && (kParamMods[static_cast<size_t>(slot)].flags & kModLight) != 0;
 }
-
 
 float polarized(float raw, ModPolarity polarity) {
     switch (polarity) {
@@ -69,121 +53,15 @@ float shape(float value, ModCurve curve) {
     return value < 0.0f ? -shaped : shaped;
 }
 
-namespace {
-
-// What a target writes: one float field, and how far one unit of modulation moves it. The clamp is
-// the field's own range in viz/ParamTable.inc, so an LFO, an envelope or a route can never push a
-// field past what its control offers, and a Circular field (the hue) adds unclamped.
-struct Drive {
-    float SceneParams::*member;
-    ParamSlot slot;
-    float scale;
-};
-
-bool driveOf(LfoTarget target, Drive& out) {
-#define GEODE_DRIVE(field, scale)                              \
-    out = Drive{&SceneParams::field, ParamSlot::field, scale}; \
-    return true
-    switch (target) {
-        case LfoTarget::Speed: GEODE_DRIVE(speed, 1.0f);
-        case LfoTarget::Zoom: GEODE_DRIVE(zoom, 1.0f);
-        case LfoTarget::Rotation: GEODE_DRIVE(rotation, 1.5f);
-        case LfoTarget::Sway: GEODE_DRIVE(sway, 1.0f);
-        case LfoTarget::DriftX: GEODE_DRIVE(driftX, 1.0f);
-        case LfoTarget::DriftY: GEODE_DRIVE(driftY, 1.0f);
-        case LfoTarget::Warp: GEODE_DRIVE(warp, 1.0f);
-        case LfoTarget::Ripple: GEODE_DRIVE(ripple, 1.0f);
-        case LfoTarget::Morph: GEODE_DRIVE(morph, 1.0f);
-        case LfoTarget::Twist: GEODE_DRIVE(twist, 1.0f);
-        case LfoTarget::Tile: GEODE_DRIVE(tile, 2.0f);
-        case LfoTarget::Pixelate: GEODE_DRIVE(pixelate, 1.0f);
-        case LfoTarget::Posterize: GEODE_DRIVE(posterize, 1.0f);
-        case LfoTarget::ColorShift: GEODE_DRIVE(colorShift, 0.5f);
-        case LfoTarget::PaletteMix: GEODE_DRIVE(paletteAmount1, 1.0f);
-        case LfoTarget::Saturation: GEODE_DRIVE(saturation, 1.0f);
-        case LfoTarget::Brightness: GEODE_DRIVE(brightness, 1.0f);
-        case LfoTarget::Intensity: GEODE_DRIVE(intensity, 1.0f);
-        case LfoTarget::Bloom: GEODE_DRIVE(bloom, 1.0f);
-        case LfoTarget::Temperature: GEODE_DRIVE(temperature, 1.0f);
-        case LfoTarget::Turbulence: GEODE_DRIVE(turbulence, 1.0f);
-        case LfoTarget::ChromaAb: GEODE_DRIVE(chromaAb, 1.0f);
-        case LfoTarget::Vignette: GEODE_DRIVE(vignette, 1.0f);
-        case LfoTarget::Fisheye: GEODE_DRIVE(fisheye, 1.0f);
-        case LfoTarget::ParticleSize: GEODE_DRIVE(particleSize, 1.0f);
-        case LfoTarget::TrailLength: GEODE_DRIVE(trailLength, 1.0f);
-        case LfoTarget::FluidCurl: GEODE_DRIVE(fluidCurl, 25.0f);
-        case LfoTarget::FluidRadius: GEODE_DRIVE(fluidSplatRadius, 0.15f);
-        case LfoTarget::FluidForce: GEODE_DRIVE(fluidSplatForce, 1.5f);
-        case LfoTarget::FluidGlow: GEODE_DRIVE(fluidBloomIntensity, 1.0f);
-        case LfoTarget::FluidFade: GEODE_DRIVE(fluidDensityDissipation, 1.5f);
-        case LfoTarget::FluidCatchPull: GEODE_DRIVE(fluidCatchPull, 1.5f);
-        case LfoTarget::FluidCatchRadius: GEODE_DRIVE(fluidCatchRadius, 0.12f);
-        case LfoTarget::FlowStrength: GEODE_DRIVE(flowStrength, 1.0f);
-        case LfoTarget::CamFly: GEODE_DRIVE(camFly, 1.0f);
-        case LfoTarget::CamOrbit: GEODE_DRIVE(camOrbit, 1.0f);
-        case LfoTarget::CamPush: GEODE_DRIVE(camPush, 1.0f);
-        case LfoTarget::CamYaw: GEODE_DRIVE(camYaw, 1.0f);
-        case LfoTarget::CamPitch: GEODE_DRIVE(camPitch, 1.0f);
-        case LfoTarget::CamRoll: GEODE_DRIVE(camRoll, 1.0f);
-        case LfoTarget::CamFov: GEODE_DRIVE(camFov, 1.0f);
-        case LfoTarget::CamShake: GEODE_DRIVE(camShake, 1.0f);
-        case LfoTarget::FlowCurl: GEODE_DRIVE(flowCurl, 25.0f);
-        case LfoTarget::FlowForce: GEODE_DRIVE(flowForce, 1.5f);
-        case LfoTarget::EndlessZoomSpeed: GEODE_DRIVE(endlessZoomSpeed, 0.5f);
-        case LfoTarget::DiveTwist: GEODE_DRIVE(diveTwist, 0.5f);
-        case LfoTarget::DiveAimX: GEODE_DRIVE(diveAimX, 0.5f);
-        case LfoTarget::DiveAimY: GEODE_DRIVE(diveAimY, 0.5f);
-        case LfoTarget::PaletteAmount1: GEODE_DRIVE(paletteAmount0, 1.0f);
-        case LfoTarget::PaletteAmount3: GEODE_DRIVE(paletteAmount2, 1.0f);
-        case LfoTarget::PaletteAmount4: GEODE_DRIVE(paletteAmount3, 1.0f);
-        case LfoTarget::PaletteAmount5: GEODE_DRIVE(paletteAmount4, 1.0f);
-        case LfoTarget::PaletteAmount6: GEODE_DRIVE(paletteAmount5, 1.0f);
-        case LfoTarget::PaletteAmount7: GEODE_DRIVE(paletteAmount6, 1.0f);
-        case LfoTarget::PaletteAmount8: GEODE_DRIVE(paletteAmount7, 1.0f);
-        case LfoTarget::PaletteShift: GEODE_DRIVE(paletteShift, 0.5f);
-        // Half the range per unit: a full wave from Off reaches 9 folds, from 8 sweeps the whole 1..16.
-        case LfoTarget::KaleidoFolds: GEODE_DRIVE(kaleidoFolds, 8.0f);
-        case LfoTarget::LayerMix: GEODE_DRIVE(layerMix, 1.0f);
-        case LfoTarget::SimFluid: GEODE_DRIVE(simFluid, 1.0f);
-        case LfoTarget::SimParticles: GEODE_DRIVE(simParticles, 1.0f);
-        case LfoTarget::SimForce: GEODE_DRIVE(simForce, 1.0f);
-        case LfoTarget::SimLayerOrder: GEODE_DRIVE(simLayerOrder, 1.0f);
-        // The whole of Spawn and Fractal per unit; the layers' half range, so a full wave from 0 reaches either end.
-        case LfoTarget::Spawn: GEODE_DRIVE(spawn, 1.0f);
-        case LfoTarget::Fractal: GEODE_DRIVE(fractal, 1.0f);
-        case LfoTarget::FrontLayer: GEODE_DRIVE(frontLayer, 1.0f);
-        case LfoTarget::BackLayer: GEODE_DRIVE(backLayer, 1.0f);
-        // The whole of Formula per unit, as Morph: a structural target, never a luminance one.
-        case LfoTarget::Formula: GEODE_DRIVE(formula, 1.0f);
-        // The whole of Shapes per unit: how far the shape graph melts into the style's form, a structural target.
-        case LfoTarget::Shapes: GEODE_DRIVE(shapes, 1.0f);
-        // The whole of Soft shadows and of Escape colour per unit: a full wave from 0 reaches either end.
-        case LfoTarget::Shadow: GEODE_DRIVE(shadow, 1.0f);
-        case LfoTarget::EscapeColor: GEODE_DRIVE(escapeColor, 1.0f);
-        // The whole of Life per unit: how much is born, a structural target, never a luminance one.
-        case LfoTarget::Life: GEODE_DRIVE(life, 1.0f);
-        // None, the retired slots and the chained targets write no scene parameter.
-        default: return false;
-    }
-#undef GEODE_DRIVE
+void applyLfoTargetInPlace(SceneParams& r, LfoTarget target, float v) {
+    const int slot = paramSlotOf(target);
+    if (slot < 0) return;
+    const ParamSpec& spec = SceneParams::schema()[static_cast<size_t>(slot)];
+    const float moved = r.getSlot(slot) + v * kParamMods[static_cast<size_t>(slot)].scale;
+    r.setSlot(slot, spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max));
 }
 
-}  // namespace
-
-SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
-    SceneParams o = r;
-    Drive drive{};
-    if (!driveOf(target, drive)) return o;
-    const ParamSpec& spec = SceneParams::spec(drive.slot);
-    const float moved = r.*drive.member + v * drive.scale;
-    o.*drive.member = spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max);
-    return o;
-}
-
-int paramSlotOf(LfoTarget target) {
-    Drive drive{};
-    return driveOf(target, drive) ? static_cast<int>(drive.slot) : -1;
-}
+int paramSlotOf(LfoTarget target) { return modtable::slotOf(static_cast<int>(target)); }
 
 const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd,
                                                              const float* extDepthAdd, std::uint32_t moments) {
@@ -228,13 +106,11 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
     return out_;
 }
 
-SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlots>& values) const {
-    SceneParams r = p;
+void LfoEngine::apply(SceneParams& p, const std::array<float, kSlots>& values) const {
     for (int i = 0; i < kSlots; i++) {
         if (!configs[i].enabled) continue;
-        r = applyLfoTarget(r, configs[i].target, values[i]);
+        applyLfoTargetInPlace(p, configs[i].target, values[i]);
     }
-    return r;
 }
 
 
@@ -243,13 +119,15 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
     constexpr float kEaseSeconds = 0.5f;
     const float n = std::clamp(c.beats, 1.0f, 32.0f);
     const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;
-    // The free clock keeps the last measured tempo, so silence runs on, never stops.
+    // Unlocked, the free clock runs on the tempo the music still reports; at bpm 0 oscillator() runs the slot on its own period.
     const float hz = safety::limitLfoRate(lastBpm_ / 60.0f / n, c.target);
     const bool limited = hz < lastBpm_ / 60.0f / n;
     float ph;
     if (locked && !limited) {
         // beatCount wraps at 4096, a multiple of 32, so the position stays continuous across the wrap.
-        const float pos = std::fmod(sound.beatCount + sound.beatPhase, n) / n;
+        // A non-finite clock holds the last position: NaN would stay in syncFree_ for good.
+        const float beat = sound.beatCount + sound.beatPhase;
+        const float pos = std::isfinite(beat) ? std::fmod(beat, n) / n : syncFree_[i];
         if (!syncLocked_[i]) {
             const float d = syncFree_[i] - pos;
             syncJump_[i] = d - std::round(d);
@@ -282,12 +160,13 @@ float LfoEngine::held(int i, std::uint32_t cycle) const {
 }
 
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
-    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
+    // bpm 0 is no tempo (none heard yet, or a whole window without a beat): nothing is kept to stand in for it.
+    lastBpm_ = sound.bpm > 0.0f ? sound.bpm : 0.0f;
     float ph;
-    // Beat timing needs a tempo the music gave: before the first one the slot runs on its own period. A slot on a
-    // moment runs on its own period from each one.
+    // Beat timing needs a tempo the music gives: without one the slot runs on its own period, on from where the
+    // beat left it. A slot on a moment runs on its own period from each one.
     if (c.beats >= 1.0f && lastBpm_ > 0.0f && c.moment < 0) {
-        ph = syncedPhase(i, c, dt, sound);
+        ph = phases_[i] = syncedPhase(i, c, dt, sound);
     } else {
         const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
         const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
@@ -323,7 +202,8 @@ float LfoEngine::follow(int i, float value, float dt) {
 }
 
 float LfoEngine::followBipolar(int i, float value, float dt) {
-    const float target = std::clamp(value, -1.0f, 1.0f);
+    // A non-finite field is no signal: clamp passes NaN, which would hold followed_ for good.
+    const float target = std::clamp(std::isfinite(value) ? value : 0.0f, -1.0f, 1.0f);
     const float tau = target > followed_[i] ? kFollowRiseSeconds : kFollowFallSeconds;
     followed_[i] += (target - followed_[i]) * std::clamp(dt / tau, 0.0f, 1.0f);
     return followed_[i];

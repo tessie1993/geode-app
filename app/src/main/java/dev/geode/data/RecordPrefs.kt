@@ -4,7 +4,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
 import dev.geode.export.ExportQuality
 
 /**
@@ -28,18 +28,18 @@ data class RecordPrefs(
  * and an untouched row keeps following the Custom defaults.
  *
  * Kotlin only stores the values. Which lengths exist and what a stored one snaps to is native
- * ([snap], `geode_record_snap_max_length`); the frame rates are the export's own [EXPORT_FPS_OPTIONS].
+ * ([snap], `geode_record_snap_max_length`); the frame rates are the export's own ([ExportFps]).
  */
 class RecordPrefsStore(
     private val prefs: SharedPreferences,
-    private val snap: (Int) -> Int = { GeodeNative.recordSnapMaxLength(it) },
+    private val snap: (Int) -> Int = { ExportNative.recordSnapMaxLength(it) },
 ) {
     fun load(fallback: ExportDefaults): RecordPrefs =
         RecordPrefs(
             quality =
                 runCatching { ExportQuality.valueOf(prefs.getString(KEY_QUALITY, null) ?: fallback.quality.name) }
                     .getOrDefault(fallback.quality),
-            fps = prefs.getInt(KEY_FPS, fallback.fps).let { if (it in EXPORT_FPS_OPTIONS) it else fallback.fps },
+            fps = ExportFps.read(prefs.getInt(KEY_FPS, fallback.fps), fallback.fps),
             maxLengthSec = maxLengthSec(),
         )
 

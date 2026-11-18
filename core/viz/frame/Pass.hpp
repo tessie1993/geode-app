@@ -42,7 +42,11 @@ struct PassTarget {
 
 class Pass {
 public:
+    Pass() = default;
     virtual ~Pass() = default;
+    // A pass owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    Pass(const Pass&) = delete;
+    Pass& operator=(const Pass&) = delete;
     virtual bool wants(const FrameCtx&) const = 0;                // false: skipped
     virtual void prepare(const FrameCtx&) = 0;                    // CPU only, no GL
     virtual void draw(const PassInputs&, const PassTarget&) = 0;  // GL thread

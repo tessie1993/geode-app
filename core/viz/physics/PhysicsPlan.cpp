@@ -77,13 +77,15 @@ void Clock::step(float dt) {
     stirTime = std::fmod(stirTime + kStirRate * dt, 6.2831853f * 64.0f);
 }
 
-bool Keep::step(bool on) {
+bool Keep::step(bool on, float wallDt) {
+    // A sum of frame steps lands within this of its whole seconds (120 steps of 1/60 in float).
+    constexpr float kSlack = 1e-4f;
     if (on) {
-        idle = 0;
+        idle = 0.0f;
         return true;
     }
-    if (idle <= kIdleFrames) ++idle;
-    return idle <= kIdleFrames;
+    if (idle <= kIdleSeconds + kSlack) idle += std::max(wallDt, 0.0f);
+    return idle <= kIdleSeconds + kSlack;
 }
 
 float luma(const Rgb& c) { return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b; }

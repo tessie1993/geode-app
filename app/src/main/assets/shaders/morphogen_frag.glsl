@@ -645,7 +645,7 @@ float morphField(vec3 p) {
     float db = bulgeDist(p);
     // The bank orbits in undeformed space and needs no Lipschitz correction,
     // so it sits in a plain min() with whatever the body reports.
-    float sat = dmtSatellites(p, gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    float sat = dmtSatellites(p);
     if (bound > BODY_MARGIN) {
         float outside = smin(bound, db, BULGE_K);
         gHitSat = sat < outside ? 1.0 : 0.0;
@@ -725,7 +725,7 @@ float morphField(vec3 p) {
 float morphFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, morphField(shellAt3(i)));
     }
     return r;
@@ -940,6 +940,7 @@ void main() {
     gBodyBound = gBulgeN > 0 ? TOUCH_BOUND : BODY_BOUND;
     // Detail buys population: three satellites at the floor, six at the top.
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
+    dmtSatPrepare(gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
 
     // ---- camera ------------------------------------------------------------
     vec3 ro = vec3(0.0, 0.0, -CAM_DIST);
@@ -983,6 +984,11 @@ void main() {
         float t = max(-b - sh, 0.0) + jitter * 0.01;
 
         float hitT = -1.0;
+        // What map() leaves at the hit, kept so the shading needs no second map(p) to recover it.
+        float hitSat = 0.0;
+        float hitDmtSatHue = 0.0;
+        float hitDmtSatLife = 0.0;
+        float hitDmtSatBand = 0.0;
         float travelled = 0.0;
         float hitFuse = 0.0;
         float hitFront = 0.0;
@@ -994,6 +1000,10 @@ void main() {
             float eps = max(HIT_EPS * t, 6e-4);
             if (d < eps) {
                 hitT = t;
+                hitSat = gHitSat;
+                hitDmtSatHue = gDmtSatHue;
+                hitDmtSatLife = gDmtSatLife;
+                hitDmtSatBand = gDmtSatBand;
                 travelled = float(i) / max(uSteps, 1.0);
                 hitFuse = gFuse;
                 hitFront = gFront;
@@ -1016,7 +1026,10 @@ void main() {
         if (hitT > 0.0) {
             vec3 p = ro + rd * hitT;
             // Which body was hit is captured BEFORE the normal taps overwrite it.
-            map(p);
+            gHitSat = hitSat;
+            gDmtSatHue = hitDmtSatHue;
+            gDmtSatLife = hitDmtSatLife;
+            gDmtSatBand = hitDmtSatBand;
             float isSat = gHitSat;
             float satHue = gDmtSatHue;
             float satLife = gDmtSatLife;

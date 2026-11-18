@@ -2,8 +2,8 @@ package dev.geode.cast
 
 import android.os.Handler
 import android.os.Looper
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,9 +25,9 @@ import kotlinx.coroutines.launch
  * Auto while the app is in the background, never reached the TV.
  *
  * The UI feeds it ([follow], from `ui/cast/CastHost`, on every screen); `cast/` can't read the UI's state itself
- * (the layer rule keeps the UI package out of every other package). It follows that flow for the
- * life of the process, so it keeps mirroring with the app in the background. Until something has
- * fed it, [look] is null and [CastStream] falls back to the saved live state.
+ * (the layer rule keeps the UI package out of every other package). It follows that flow while the
+ * screen is composed, the app in the background included, and keeps the last values once it goes
+ * ([unfollow]). Until something has fed it, [look] is null and [CastStream] falls back to the saved live state.
  */
 object CastMirror {
     /** A style and its params, as the stage draws them. */
@@ -57,7 +57,7 @@ object CastMirror {
         streamingFlow.value = on
     }
 
-    /** What the shell last saw of the stage (the `GeodeNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
+    /** What the shell last saw of the stage (the `StageNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
     @Volatile
     var stageFlags: Int = 0
 
@@ -74,7 +74,7 @@ object CastMirror {
      * (core/viz/StageRun).
      */
     fun directorMoment() {
-        val leads = GeodeNative.stageRun(stageFlags or GeodeNative.STAGE_CASTING) and GeodeNative.STAGE_CAST_LEADS_AUTO != 0
+        val leads = SoundNative.stageRun(stageFlags or SoundNative.STAGE_CASTING) and SoundNative.STAGE_CAST_LEADS_AUTO != 0
         if (leads) main.post { onDirectorMoment?.invoke() }
     }
 
@@ -83,18 +83,32 @@ object CastMirror {
 
     /**
      * Follows [source] and [milk] (each preset the stage asks for or reports loaded) from now on;
-     * called again (a new Activity), it replaces the old sources.
+     * called again (a new Activity), it replaces the old sources. The job it returns is what
+     * [unfollow] takes.
      */
     @Synchronized
     fun follow(
         source: Flow<Look>,
         milk: Flow<String?>,
-    ) {
+    ): Job {
         following?.cancel()
-        following =
-            scope.launch {
+        return scope
+            .launch {
                 launch { milk.collect { milkPath = it } }
                 source.collect { look = it }
-            }
+            }.also { following = it }
+    }
+
+    /**
+     * Stops following once the UI that fed [follow] goes: the collector held its flows, and through
+     * them that screen's state, for the life of the process. [look] and [milkPath] keep the last
+     * values. A [job] another [follow] already replaced is left alone, so an old screen going
+     * after a new one came never stops the new one.
+     */
+    @Synchronized
+    fun unfollow(job: Job) {
+        if (following !== job) return
+        job.cancel()
+        following = null
     }
 }

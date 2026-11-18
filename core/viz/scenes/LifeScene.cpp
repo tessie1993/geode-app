@@ -7,11 +7,14 @@
 
 #include "viz/Quad.hpp"
 #include "viz/Reactions.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz {
 
 namespace {
 constexpr int kCensusProbes[5][2] = {{1, 2}, {3, 2}, {2, 1}, {2, 3}, {2, 2}};
+// The census buffer: one RGBA float texel per probe (an RGBA8 census uses the first quarter).
+constexpr GLsizeiptr kCensusBytes = static_cast<GLsizeiptr>(std::size(kCensusProbes) * 4 * sizeof(float));
 
 // The materials the field is lit in (lib_field3d's uFieldLook), the eight looks the families lend:
 // a = diffuse, specular, shininess, rim; b = sky reflection, emission of dense matter, contour lines, sheen.
@@ -94,6 +97,9 @@ LifeScene::Rule LifeScene::preset(int index) const {
 void LifeScene::init() {
     stepProgram_ = 0;
     vao_ = 0;
+    censusPbo_ = 0;
+    censusFence_ = nullptr;
+    censusContext_ = EGL_NO_CONTEXT;
     programOk_ = false;
     formats_.reset();
     state_.reset();
@@ -126,6 +132,8 @@ void LifeScene::resize(int width, int height) {
     height_ = std::max(height, 1);
     if (state_) state_->release();
     state_.reset();
+    // A census in flight read the old field.
+    dropCensus();
     seedRemain_ = kSeedSeconds;
     present_.resize(width_, height_);
 }
@@ -241,25 +249,65 @@ fluid::DoubleFbo* LifeScene::ensureState() {
     return nullptr;
 }
 
-void LifeScene::census(fluid::DoubleFbo& field, GLint restoreFbo) {
+void LifeScene::startCensus(fluid::DoubleFbo& field, GLint restoreFbo) {
+    if (censusPbo_ == 0) {
+        glGenBuffers(1, &censusPbo_);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, censusPbo_);
+        glBufferData(GL_PIXEL_PACK_BUFFER, kCensusBytes, nullptr, GL_STREAM_READ);
+    } else {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, censusPbo_);
+    }
+    censusBytes_ = byteState_;
+    const size_t texelBytes = censusBytes_ ? 4 : 4 * sizeof(float);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, field.read().fbo());
+    size_t offset = 0;
+    for (const auto& probe : kCensusProbes) {
+        const int x = field.width() * probe[0] / 4;
+        const int y = field.height() * probe[1] / 4;
+        // Into the pack buffer: the pointer is an offset in it, and the call returns without waiting.
+        glReadPixels(x, y, 1, 1, GL_RGBA, censusBytes_ ? GL_UNSIGNED_BYTE : GL_FLOAT, reinterpret_cast<void*>(offset));
+        offset += texelBytes;
+    }
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(restoreFbo));
+    censusFence_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    censusContext_ = eglGetCurrentContext();
+}
+
+void LifeScene::dropCensus() {
+    // A fence of a lost context is not this one's to delete: the name means nothing here.
+    if (censusFence_ != nullptr && censusContext_ == eglGetCurrentContext()) glDeleteSync(censusFence_);
+    censusFence_ = nullptr;
+    censusContext_ = EGL_NO_CONTEXT;
+}
+
+void LifeScene::finishCensus() {
+    if (censusFence_ == nullptr) return;
+    // A zero wait only asks: not passed yet, and the next frame asks again.
+    const GLenum status = glClientWaitSync(censusFence_, 0, 0);
+    if (status == GL_TIMEOUT_EXPIRED) return;
+    dropCensus();
+    if (status == GL_WAIT_FAILED) return;
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, censusPbo_);
+    const void* mapped = glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, kCensusBytes, GL_MAP_READ_BIT);
+    if (mapped == nullptr) {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        return;
+    }
     float maxA = 0.0f;
     float maxV = 0.0f;
     float minLive = std::numeric_limits<float>::max();
     bool sane = true;
-    for (const auto& probe : kCensusProbes) {
-        const int x = field.width() * probe[0] / 4;
-        const int y = field.height() * probe[1] / 4;
+    for (size_t i = 0; i < std::size(kCensusProbes); ++i) {
         float a = 0.0f;
         float v = 0.0f;
-        if (byteState_) {
-            unsigned char bytes[4] = {0, 0, 0, 0};
-            glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, bytes);
+        if (censusBytes_) {
+            const unsigned char* bytes = static_cast<const unsigned char*>(mapped) + i * 4;
             a = static_cast<float>(bytes[0]) / 255.0f;
             v = static_cast<float>(bytes[1]) / 255.0f;
         } else {
             float texel[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-            glReadPixels(x, y, 1, 1, GL_RGBA, GL_FLOAT, texel);
+            std::memcpy(texel, static_cast<const unsigned char*>(mapped) + i * sizeof(texel), sizeof(texel));
             a = texel[0];
             v = texel[1];
         }
@@ -268,7 +316,8 @@ void LifeScene::census(fluid::DoubleFbo& field, GLint restoreFbo) {
         maxV = std::max(maxV, v);
         minLive = std::min(minLive, style_.rule == 0 ? a : v);
     }
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(restoreFbo));
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     if (!sane) return;
     const float maxLive = style_.rule == 0 ? maxA : maxV;
     const bool starving = maxLive < kStarved && (style_.rule == 1 ? maxA > 0.9f : true);
@@ -284,18 +333,24 @@ void LifeScene::draw(float timeSeconds) {
     resetFrameState();
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    SceneTarget::read(prevFbo, prevViewport);
     fluid::DoubleFbo* field = ensureState();
-    if (!field) return;
+    if (!field) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
 
     seedRemain_ = std::max(seedRemain_ - dt, 0.0f);
+    // The last census's verdict, once the GPU has its probes; a new one only when none is in flight.
+    finishCensus();
     censusAge_ += dt;
-    if (censusAge_ >= kCensusSeconds) {
+    if (censusAge_ >= kCensusSeconds && censusFence_ == nullptr) {
         censusAge_ = 0.0f;
-        census(*field, prevFbo);
+        startCensus(*field, prevFbo);
     }
 
     // Whole texels of drift go into the solver (an exact shift, no smear); the remainder is drawn by
@@ -400,6 +455,9 @@ void LifeScene::release() {
     if (state_) state_->release();
     state_.reset();
     formats_.reset();
+    dropCensus();
+    if (censusPbo_ != 0) glDeleteBuffers(1, &censusPbo_);
+    censusPbo_ = 0;
     sound_.release();
     stepProgram_ = 0;
     vao_ = 0;

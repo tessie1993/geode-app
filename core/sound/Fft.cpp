@@ -13,17 +13,20 @@
 
 namespace geode::sound {
 
-Fft::Fft(int size) : n_(size), in_(static_cast<size_t>(size)), out_(static_cast<size_t>(size)) {
+Fft::Fft(int size) : n_(size), out_(static_cast<size_t>(size / 2)) {
     // Power-of-two sizes only: the engine's frame sizes are, and KISS FFT stays on its radix-4 and
     // radix-2 butterflies for them, which never touch its scratch buffer.
     if (size < 2 || !std::has_single_bit(static_cast<unsigned>(size))) std::abort();
-    plan_ = std::make_shared<const kissfft<float>>(static_cast<std::size_t>(size), false);
+    // A real signal of `size` is one complex transform of half that size (transform_real).
+    plan_ = std::make_shared<const kissfft<float>>(static_cast<std::size_t>(size / 2), false);
 }
 
 void Fft::magnitudes(const float* real, float* out) {
-    for (int i = 0; i < n_; i++) in_[static_cast<size_t>(i)] = {real[i], 0.0f};
-    plan_->transform(in_.data(), out_.data());
-    for (int k = 0; k <= n_ / 2; k++) out[k] = std::sqrt(std::norm(out_[static_cast<size_t>(k)]));
+    plan_->transform_real(real, out_.data());
+    // Bins 0 and size/2 are real and share out_[0].
+    out[0] = std::fabs(out_[0].real());
+    for (int k = 1; k < n_ / 2; k++) out[k] = std::sqrt(std::norm(out_[static_cast<size_t>(k)]));
+    out[n_ / 2] = std::fabs(out_[0].imag());
 }
 
 }  // namespace geode::sound

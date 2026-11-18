@@ -37,7 +37,7 @@ data class PlayerPrefs(
     /**
      * Settings › Output & devices › Picture delay: the playout clock's A/V offset in ms, positive shows
      * the picture later, for a headset that misreports its latency. Device-local: it belongs to this
-     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.GeodeNative.playoutMaxOffsetMs]).
+     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.PlayoutNative.playoutMaxOffsetMs]).
      */
     val pictureDelayMs: Int = 0,
 ) {
@@ -198,10 +198,13 @@ object PlayerPrefsCodec : PrefsCodec<PlayerPrefs> {
 
 /**
  * Where a long track was left, per track, in the same prefs file as the player options. Which
- * tracks get one, and which positions clear it, is native's call (`core/audio/dsp/TrackBookmark`).
+ * tracks get one, which positions clear it, and how many are kept ([GeodeNative.BOOKMARK_MAX]) is
+ * native's call (`core/audio/dsp/TrackBookmark`). Past the cap the bookmark saved longest ago goes:
+ * [KEY_ORDER] lists the tracks oldest first, and one saved before the list was kept counts as older.
  */
 class BookmarkStore(
     private val prefs: SharedPreferences,
+    private val cap: Int = GeodeNative.BOOKMARK_MAX,
 ) {
     fun positionFor(uri: String): Long? = prefs.getLong(keyOf(uri), -1L).takeIf { it > 0L }
 
@@ -209,21 +212,48 @@ class BookmarkStore(
         uri: String,
         positionMs: Long,
     ) {
-        prefs.edit().putLong(keyOf(uri), positionMs).apply()
+        val edit = prefs.edit().putLong(keyOf(uri), positionMs)
+        val order = order()
+        if (order.lastOrNull() != uri) {
+            val newest = order.filter { it != uri } + uri
+            val untracked =
+                prefs.all.keys
+                    .filter { it.startsWith(PREFIX) }
+                    .map { it.removePrefix(PREFIX) } - newest.toSet()
+            val all = untracked + newest
+            val dropped = all.take((all.size - cap).coerceAtLeast(0)).toSet()
+            dropped.forEach { edit.remove(keyOf(it)) }
+            edit.putString(KEY_ORDER, newest.filterNot { it in dropped }.joinToString(SEPARATOR))
+        }
+        edit.apply()
     }
 
     fun clear(uri: String) {
-        if (prefs.contains(keyOf(uri))) prefs.edit().remove(keyOf(uri)).apply()
+        if (!prefs.contains(keyOf(uri))) return
+        val edit = prefs.edit().remove(keyOf(uri))
+        val order = order()
+        if (uri in order) edit.putString(KEY_ORDER, order.filter { it != uri }.joinToString(SEPARATOR))
+        edit.apply()
     }
+
+    private fun order(): List<String> =
+        prefs
+            .getString(KEY_ORDER, null)
+            ?.split(SEPARATOR)
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
 
     private fun keyOf(uri: String): String = PREFIX + uri
 
     companion object {
         private const val PREFIX = "bookmark:"
+        internal const val KEY_ORDER = "bookmark_order"
+        private const val SEPARATOR = "\n"
 
         internal val PREF_KEYS =
             prefKeys(GeodePrefsFiles.PLAYER) {
                 portablePrefix(PrefType.LONG, PREFIX)
+                portable(PrefType.STRING, KEY_ORDER)
             }
     }
 }

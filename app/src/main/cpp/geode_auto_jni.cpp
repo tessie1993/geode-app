@@ -24,39 +24,39 @@ std::vector<float> floatsOf(JNIEnv* env, jfloatArray array) {
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoIntervalSeconds(JNIEnv*, jobject, jint requested) {
+Java_dev_geode_engine_bridge_AutoNative_autoIntervalSeconds(JNIEnv*, jobject, jint requested) {
     return geode_auto_interval_s(requested);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoEditingSet(JNIEnv*, jobject, jboolean on, jlong nowMs) {
+Java_dev_geode_engine_bridge_AutoNative_autoEditingSet(JNIEnv*, jobject, jboolean on, jlong nowMs) {
     geode_auto_editing_set(on ? 1 : 0, nowMs);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoHandPick(JNIEnv*, jobject, jlong nowMs) {
+Java_dev_geode_engine_bridge_AutoNative_autoHandPick(JNIEnv*, jobject, jlong nowMs) {
     geode_auto_hand_pick(nowMs);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoPlaylistTick(JNIEnv*, jobject, jint count, jboolean enabled, jboolean playing,
+Java_dev_geode_engine_bridge_AutoNative_autoPlaylistTick(JNIEnv*, jobject, jint count, jboolean enabled, jboolean playing,
                                                           jint intervalSec, jlong nowMs) {
     return geode_auto_playlist_tick(count, enabled ? 1 : 0, playing ? 1 : 0, intervalSec, nowMs);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoPlaylistStep(JNIEnv*, jobject, jint count, jint step, jlong nowMs) {
+Java_dev_geode_engine_bridge_AutoNative_autoPlaylistStep(JNIEnv*, jobject, jint count, jint step, jlong nowMs) {
     return geode_auto_playlist_step(count, step, nowMs);
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoRandomTick(JNIEnv*, jobject, jboolean enabled, jboolean playing, jint intervalSec,
+Java_dev_geode_engine_bridge_AutoNative_autoRandomTick(JNIEnv*, jobject, jboolean enabled, jboolean playing, jint intervalSec,
                                                         jlong nowMs) {
     return geode_auto_random_tick(enabled ? 1 : 0, playing ? 1 : 0, intervalSec, nowMs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoMoment(JNIEnv* env, jobject, jstring style, jfloatArray params, jstring paletteId,
+Java_dev_geode_engine_bridge_AutoNative_autoMoment(JNIEnv* env, jobject, jstring style, jfloatArray params, jstring paletteId,
                                                     jboolean playing, jboolean playlistEnabled) {
     Utf8Chars id(env, style);
     Utf8Chars palette(env, paletteId);
@@ -66,7 +66,7 @@ Java_dev_geode_engine_bridge_GeodeNative_autoMoment(JNIEnv* env, jobject, jstrin
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoLeftAs(JNIEnv* env, jobject, jstring style, jfloatArray params, jstring paletteId) {
+Java_dev_geode_engine_bridge_AutoNative_autoLeftAs(JNIEnv* env, jobject, jstring style, jfloatArray params, jstring paletteId) {
     Utf8Chars id(env, style);
     Utf8Chars palette(env, paletteId);
     const std::vector<float> frame = floatsOf(env, params);
@@ -75,7 +75,7 @@ Java_dev_geode_engine_bridge_GeodeNative_autoLeftAs(JNIEnv* env, jobject, jstrin
 
 // out[0] the entry's kind, out[1] its index in that list; null for none.
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoDraw(JNIEnv* env, jobject, jstring lockedStyles, jstring current, jstring presetStyles,
+Java_dev_geode_engine_bridge_AutoNative_autoDraw(JNIEnv* env, jobject, jstring lockedStyles, jstring current, jstring presetStyles,
                                                   jint presetOnScreen, jint milkCount, jint milkOnScreen, jstring milkStyle,
                                                   jint sources, jlong nowMs, jintArray out) {
     if (!out || env->GetArrayLength(out) < 2) return nullptr;

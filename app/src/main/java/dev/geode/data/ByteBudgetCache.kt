@@ -44,12 +44,13 @@ class ByteBudgetCache<K : Any, V : Any>(
     fun peek(key: K): V? = synchronized(lock) { values[key] }
 
     /**
-     * Drops every real value (the system asked for memory back). The "decodes to nothing" answers
-     * stay: they cost a key each, and forgetting them would decode every artless track again.
+     * Drops every real value (the system asked for memory back) and every "decodes to nothing"
+     * answer: a miss recorded while a grant was lost must not outlive the memory trim.
      */
     fun clear() =
         synchronized(lock) {
             values.clear()
+            misses.clear()
             bytes = 0L
         }
 

@@ -1,0 +1,94 @@
+package dev.geode.engine.bridge
+
+// The JNI declarations of geode_viz_jni.cpp for performance tiers and the frame clock (CLAUDE.md).
+object PerfNative {
+    init {
+        GeodeNative.ensureLoaded()
+    }
+
+    // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
+    // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
+
+    /** Size of the frame clock's state (GEODE_FRAME_CLOCK_STATE). */
+    const val FRAME_CLOCK_STATE = 3
+
+    /** Starts [state] at [nowNs], [fps] frames a second; the first frame is due at once. */
+    external fun frameClockStart(
+        state: LongArray,
+        fps: Int,
+        nowNs: Long,
+    )
+
+    /** Nanoseconds until the next frame is due; 0 when it is due now. */
+    external fun frameClockWaitNs(
+        state: LongArray,
+        nowNs: Long,
+    ): Long
+
+    /** Takes the frame to draw now and returns its PTS in ns; missed slots are dropped, never burst. */
+    external fun frameClockTake(
+        state: LongArray,
+        nowNs: Long,
+    ): Long
+
+    /** The audio cut: the end of the last frame taken, in µs of stream time. */
+    external fun frameClockAudioUntilUs(state: LongArray): Long
+
+    // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
+
+    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1). */
+    const val PERF_TIER_FLOATS = 4
+
+    /** Fills [out] with [mode]'s tier; false for an unknown mode. */
+    external fun perfTier(
+        mode: Int,
+        out: FloatArray,
+    ): Boolean
+
+    /** Mirrors GEODE_LIVE_FPS_MAX_CHOICES: the size of the array [liveFpsChoices] fills. */
+    const val LIVE_FPS_MAX_CHOICES = 5
+
+    /**
+     * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap and handed
+     * to the pacer as one. The stage runs at the rate the display runs now and states no rate of its own.
+     */
+    const val LIVE_FPS_FOLLOW = -1
+
+    /**
+     * Settings › Performance's live frame-rate caps (core/viz/frame/LiveFps) on a display that can switch to
+     * [refreshRates] seamlessly, ascending into [out]; returns how many. 30 and 60 always, 90 and 120 where
+     * the display shows them, then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper, dream, export and
+     * Cast keep their own.
+     */
+    external fun liveFpsChoices(
+        refreshRates: FloatArray,
+        out: IntArray,
+    ): Int
+
+    /** The stored live cap as a display with [refreshRates] runs it: offered as is, else the nearest offered. */
+    external fun liveFpsCap(
+        storedFps: Int,
+        refreshRates: FloatArray,
+    ): Int
+
+    /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
+    external fun perfModeForDevice(
+        totalRamBytes: Long,
+        lowRam: Boolean,
+        mediaPerformanceClass: Int,
+    ): Int
+
+    /** The mode these values are, or -1 when none is ("Custom"). */
+    external fun perfModeOf(
+        renderScale: Float,
+        fpsCap: Int,
+        marchScale: Float,
+        postFx: Boolean,
+    ): Int
+
+    /** The render and march scales Settings › Performance offers, ascending. */
+    external fun perfScaleChoices(): FloatArray
+
+    /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
+    external fun memoryTrim(level: Int)
+}

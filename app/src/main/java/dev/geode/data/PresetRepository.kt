@@ -3,8 +3,8 @@ package dev.geode.data
 import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,12 +70,12 @@ class PresetStore(
                 .filter { it.isDirectory && it != dir }
                 .map { it.relativeTo(dir).path }
                 .toList()
-        return GeodeNative.looksOrder(all.toTypedArray(), false).map { all[it] }
+        return LooksNative.looksOrder(all.toTypedArray(), false).map { all[it] }
     }
 
     fun addFolder(path: String) {
         ensureMigrated()
-        File(dir, GeodeNative.fileSafeChars(path)).mkdirs()
+        File(dir, LooksNative.fileSafeChars(path)).mkdirs()
     }
 
     fun renameFolder(
@@ -83,8 +83,8 @@ class PresetStore(
         to: String,
     ) {
         ensureMigrated()
-        val src = File(dir, GeodeNative.fileSafeChars(from))
-        if (src.isDirectory) src.renameTo(File(dir, GeodeNative.fileSafeChars(to)))
+        val src = File(dir, LooksNative.fileSafeChars(from))
+        if (src.isDirectory) src.renameTo(File(dir, LooksNative.fileSafeChars(to)))
     }
 
     @WorkerThread
@@ -124,24 +124,31 @@ class PresetStore(
                     .onFailure { dev.geode.RingLog.note("PresetStore", "unreadable preset skipped: ${f.name}", it) }
                     .getOrNull()
             }
-        return GeodeNative.looksOrder(read.map { it.name }.toTypedArray(), false).map { read[it] }
+        return LooksNative.looksOrder(read.map { it.name }.toTypedArray(), false).map { read[it] }
     }
 
     @WorkerThread
     fun save(
         preset: Preset,
         folder: String = "",
-    ) {
+    ): Boolean {
         ensureMigrated()
         val dest = File(folderDir(folder), safeFileName(preset.name) + ".json")
         val previous = findFile(preset.name)?.takeIf { it != dest }
-        if (AtomicWrite.text(dest, toJson(preset))) previous?.delete()
+        val written = AtomicWrite.text(dest, toJson(preset))
+        if (written) previous?.delete()
+        return written
     }
 
+    /** Deletes the preset [name], and its `.milk` while that is still [milkSource] (an imported one of the same name stays). */
     @WorkerThread
-    fun delete(name: String) {
+    fun delete(
+        name: String,
+        milkSource: String? = null,
+    ) {
         ensureMigrated()
         findFile(name)?.delete()
+        milkSource?.let { ImportedMilk.removeIfText(milkFileOf(name), it) }
     }
 
     private fun jsonFiles(): List<File> = dir.walkTopDown().filter { it.isFile && it.extension == "json" }.toList()
@@ -152,12 +159,12 @@ class PresetStore(
     }
 
     private fun folderDir(folder: String): File =
-        if (folder.isEmpty()) dir else File(dir, GeodeNative.fileSafeChars(folder)).apply { mkdirs() }
+        if (folder.isEmpty()) dir else File(dir, LooksNative.fileSafeChars(folder)).apply { mkdirs() }
 
     companion object {
         fun toJson(p: Preset): String =
             checkNotNull(
-                GeodeNative.presetWrite(
+                LooksNative.presetWrite(
                     p.name,
                     p.sceneId,
                     p.attack,
@@ -174,7 +181,7 @@ class PresetStore(
             val frame = FloatArray(SceneParams.FIELDS)
             val strings = arrayOfNulls<String>(5)
             val envelope = FloatArray(2)
-            require(GeodeNative.presetRead(json, frame, strings, envelope)) { "not a preset" }
+            require(LooksNative.presetRead(json, frame, strings, envelope)) { "not a preset" }
             return Preset(
                 name = strings[0].orEmpty(),
                 sceneId = strings[1].orEmpty(),
@@ -186,13 +193,13 @@ class PresetStore(
             )
         }
 
-        fun milkFileName(presetName: String): String = GeodeNative.presetMilkFileName(presetName)
+        fun milkFileName(presetName: String): String = LooksNative.presetMilkFileName(presetName)
 
         fun safeFileName(name: String): String = fileStem(name)
 
         /** Native's file stem rule (`geode_file_safe_name`); a seam for JVM tests of the other stores, which have no libgeode. */
         @VisibleForTesting
-        internal var fileStem: (String) -> String = { GeodeNative.fileSafeName(it) }
+        internal var fileStem: (String) -> String = { LooksNative.fileSafeName(it) }
     }
 }
 
@@ -208,12 +215,17 @@ interface PresetRepository {
 
     suspend fun list(): List<Preset>
 
+    /** True when the file was written. */
     suspend fun save(
         preset: Preset,
         folder: String = "",
-    )
+    ): Boolean
 
-    suspend fun delete(name: String)
+    /** Deletes the preset [name], with the `.milk` [materializeMilk] wrote for it when that still holds [milkSource]. */
+    suspend fun delete(
+        name: String,
+        milkSource: String? = null,
+    )
 
     suspend fun addFolder(path: String)
 
@@ -248,13 +260,17 @@ class FilePresetRepository(
     override suspend fun save(
         preset: Preset,
         folder: String,
-    ) {
-        withContext(Dispatchers.IO) { store.save(preset, folder) }
+    ): Boolean {
+        val written = withContext(Dispatchers.IO) { store.save(preset, folder) }
         refreshFolders()
+        return written
     }
 
-    override suspend fun delete(name: String) {
-        withContext(Dispatchers.IO) { store.delete(name) }
+    override suspend fun delete(
+        name: String,
+        milkSource: String?,
+    ) {
+        withContext(Dispatchers.IO) { store.delete(name, milkSource) }
         refreshFolders()
     }
 

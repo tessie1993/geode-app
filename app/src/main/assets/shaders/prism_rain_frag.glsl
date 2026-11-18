@@ -199,7 +199,7 @@ float mapField(vec3 p) {
 float mapFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
     }
     return r;
@@ -296,6 +296,10 @@ void main() {
 
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitH = 0.0;
+    vec3 hitQ = vec3(0.0);
+    float hitWave = 0.0;
     for (int i = 0; i < PR_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -303,6 +307,9 @@ void main() {
         float d = map(p);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
+            hitH = gH;
+            hitQ = gQ;
+            hitWave = gWave;
             break;
         }
         t += d * 0.9;
@@ -315,7 +322,9 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         // Restore the hit prism's globals after the normal taps.
-        map(p);
+        gH = hitH;
+        gQ = hitQ;
+        gWave = hitWave;
 
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = 0.04 + 0.96 * pow(1.0 - ndv, 5.0);

@@ -59,15 +59,15 @@ import androidx.navigationevent.compose.NavigationEventState
 import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
 import dev.geode.data.BuiltInPresets
-import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
+import dev.geode.data.ExportFps
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.exportCodecLabel
 import dev.geode.data.exportQualityLabel
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.RenderPlanNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
@@ -271,7 +271,7 @@ internal fun StudioRenderTab(
     val studioViewModel: StudioViewModel = geodeViewModel()
     val player by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val export by studioViewModel.exportState.collectAsStateWithLifecycle()
+    val export = studioViewModel.exportState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val store = remember { ExportPrefsStore(context.geodeContainer.prefsFiles.general) }
     val studioPrefs = remember { StudioPrefsStore(context.geodeContainer.prefsFiles.general) }
@@ -287,7 +287,7 @@ internal fun StudioRenderTab(
     var loopOpen by rememberSaveable { mutableStateOf(false) }
     var proBlock by remember { mutableStateOf<ProFeature?>(null) }
     var keepAsk by remember { mutableStateOf<ExportDefaults?>(null) }
-    val startExport = rememberVisualizerExport(viewModel, visualizerView)
+    val startExport = rememberVisualizerExport(viewModel, visualizerView, studioViewModel::renderStartTried)
 
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
@@ -421,13 +421,13 @@ internal fun StudioRenderTab(
             }
         }
         RenderBar(
-            export = export,
+            exportState = export,
             scope = { modifier ->
                 Text(
                     stringResource(
                         R.string.render_summary,
                         exportQualityLabel(options.quality),
-                        fpsLabels()[EXPORT_FPS_OPTIONS.indexOf(options.fps).coerceAtLeast(0)],
+                        fpsLabels()[ExportFps.options.indexOf(options.fps).coerceAtLeast(0)],
                         stringResource(if (askWhere) R.string.render_save_ask else R.string.render_save_library),
                     ),
                     modifier = modifier,
@@ -675,7 +675,7 @@ internal data class RenderLength(
 ) {
     fun rangeFor(trackDurationMs: Long): ExportRange? {
         val out = LongArray(2)
-        return if (segment && GeodeNative.exportRangeOf(start, end, trackDurationMs, out)) ExportRange(out[0], out[1]) else null
+        return if (segment && RenderPlanNative.exportRangeOf(start, end, trackDurationMs, out)) ExportRange(out[0], out[1]) else null
     }
 }
 
@@ -700,7 +700,7 @@ private fun RenderVideoOptions(
     if (options.quality == ExportQuality.UHD4K) OptionHint(stringResource(R.string.export_4k_fallback))
     OptionLabel(stringResource(R.string.export_frame_rate))
     RenderChipRow {
-        EXPORT_FPS_OPTIONS.zip(fpsLabels()).forEach { (fps, label) ->
+        ExportFps.options.zip(fpsLabels()).forEach { (fps, label) ->
             RenderChip(label, options.fps == fps) { update(options.copy(fps = fps)) }
         }
     }
@@ -764,8 +764,8 @@ private fun RenderLengthGroup(
                 )
                 val part = LongArray(3)
                 OptionHint(
-                    if (!GeodeNative.exportRangeOf(length.start, length.end, trackDurationMs, part)) {
-                        stringResource(R.string.export_segment_hint, (GeodeNative.exportRangeMinMs() / 1000).toInt())
+                    if (!RenderPlanNative.exportRangeOf(length.start, length.end, trackDurationMs, part)) {
+                        stringResource(R.string.export_segment_hint, (RenderPlanNative.exportRangeMinMs() / 1000).toInt())
                     } else {
                         stringResource(
                             R.string.export_segment_summary,
@@ -853,7 +853,7 @@ private fun RenderChip(
 // The frame-rate chips' labels ("24 fps", "25 fps", …).
 @Composable
 internal fun fpsLabels(): List<String> =
-    EXPORT_FPS_OPTIONS.map { fps ->
+    ExportFps.options.map { fps ->
         when (fps) {
             24 -> stringResource(R.string.export_fps_24)
             25 -> stringResource(R.string.export_fps_25)

@@ -123,17 +123,32 @@ public:
     // False when no hop is readable yet or `position` is below 0: then only the triggers (and the accent) clear.
     bool read(const AnalysisThread& analysis, int64_t position, GeodeSoundFrame& out, Emotion::State& emotion,
               Hits& hits);
+    // A paused speaker's frame: where the analysis stands now (its newest hop), firing only the hops a starved engine
+    // ran on silence. Those repeat the position the writer stopped at and no speaker ever plays them, so each fires
+    // here once and read() never fires it again. The hops the speaker has not played yet are left for read(): they
+    // fire when it plays them. False as read().
+    bool readStill(const AnalysisThread& analysis, GeodeSoundFrame& out, Emotion::State& emotion, Hits& hits);
     // The next read delivers no trigger of a hop at or before `position` (an export's pre-roll).
     void heardThrough(const AnalysisThread& analysis, int64_t position);
     // The next read delivers triggers from its own position on, not from history (a new ring, a new surface).
-    void restart() { primed_ = false; }
+    void restart() {
+        primed_ = false;
+        stillAt_ = -1;
+    }
     // The writer stopped and the engine runs on silence: its newest hops share one position.
     static bool starved(const AnalysisThread& analysis);
 
 private:
+    void fire(const AnalysisThread::Heard& hop, GeodeSoundFrame& out, Emotion::State& emotion, Hits& hits) const;
+
     int64_t lastIndex_ = -1;       // the newest hop whose triggers were delivered (Heard::index)
     int64_t lastHopPosition_ = 0;  // and its position: later hops never sit before it
     bool primed_ = false;
+    // The hops heard while paused (readStill): the position they repeat, the first hop standing there (not one of
+    // them: it ends the audio written) and the newest delivered. One run is remembered, the latest.
+    int64_t stillAt_ = -1;
+    int64_t stillFirst_ = -1;
+    int64_t stillTo_ = -1;
 };
 
 }  // namespace geode::sound::interp

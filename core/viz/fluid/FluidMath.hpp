@@ -120,6 +120,16 @@ constexpr int kMaxSubsteps = 4;
  */
 float frameSimDt(float dt);
 
+/**
+ * At most this many steps a live frame. A slow phone's long frame (up to 0.1 s) took three or four whole solves
+ * under frameSimDt and so ran slower still; live, the fluid slows down instead past 1/15 s a frame. An export keeps
+ * every frame's whole time (frameSimDt): its frames are 1/fps and never slow.
+ */
+constexpr int kLiveMaxSubsteps = 2;
+
+/** frameSimDt for a live surface: at most kLiveMaxSubsteps * kMaxSimStep. */
+float liveFrameSimDt(float dt);
+
 /** A frame's simulated time split into `count` equal steps of `step` seconds, each at most kMaxSimStep. */
 struct Substeps {
     int count = 1;

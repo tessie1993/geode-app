@@ -1,5 +1,6 @@
 #include "api/geode_stage_api.h"
 #include "api/geode_modulation_api.h"
+#include "api/geode_viz_internal.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -68,9 +69,14 @@ public:
     void surfaceCreated() override { geode_viz_surface_created(v_); }
     void surfaceChanged(int width, int height) override { geode_viz_surface_changed(v_, width, height); }
     uint32_t frame(const void* ring, float pacedFps, float capFps) override {
-        return static_cast<uint32_t>(geode_viz_frame(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps));
+        return static_cast<uint32_t>(
+            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_));
     }
+    void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void trimSpares() override { geode_viz_trim_spares(v_); }
+    // The feed's cursor and its hold on the ring's analysis go; the next frame's geode_viz_feed_ring makes both
+    // again. Other surfaces hearing the ring keep their own hold, so its thread stops only with the last.
+    void letSoundGo() override { geode_viz_feed_ring(v_, nullptr); }
     void releaseScenes() override { geode_viz_release_scenes(v_); }
     void warmTransition(const std::string& id) override { geode_viz_warm_transition(v_, id.c_str()); }
     bool recordStart(const stage::RecordAsk& ask) override {
@@ -109,12 +115,8 @@ public:
     int takeDirectorMoments() override { return geode_viz_take_director_style_moments(v_); }
     int liquidMode() override { return geode_viz_liquid_mode(v_); }
     bool readStill(stage::Still& out) override {
-        int width = 0, height = 0;
-        if (!geode_viz_still_size(v_, &width, &height) || width <= 0 || height <= 0) return false;
-        out.width = width;
-        out.height = height;
-        out.rgba.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
-        return geode_viz_still_read(v_, out.rgba.data(), out.rgba.size()) != 0;
+        // The renderer's buffer itself, not a copy of the whole frame into a second one.
+        return geode::api::takeVizStill(v_, out.width, out.height, out.rgba);
     }
     void requestStill() override { geode_viz_still_request(v_); }
 
@@ -127,6 +129,7 @@ private:
     geode_viz* v_;
     AAssetManager* assets_;
     geode_export_pass* mark_ = nullptr;  // stage thread
+    int64_t vsyncNs_ = 0;  // stage thread: the next frame's vsync time (frameTime), 0 for none
 };
 
 struct Stage {
@@ -214,10 +217,11 @@ geode_stage* geode_stage_create(int kind, const geode_stage_client* client, floa
 geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir, const char* milk_texture_dir,
                                      float cap_fps) {
     if (kind != GEODE_STAGE_KIND_VIEW && kind != GEODE_STAGE_KIND_SURFACE) return nullptr;
-    geode_viz* viz = geode_viz_create(assets, cache_dir);
-    if (!viz) return nullptr;
+    geode_viz* viz = nullptr;
     std::shared_ptr<stage::LiveClient> live;
     try {
+        viz = geode_viz_create(assets, cache_dir);
+        if (!viz) return nullptr;
         geode_viz_set_milk_texture_dir(viz, milk_texture_dir);
         auto s = std::make_shared<Stage>();
         s->viz = viz;

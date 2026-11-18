@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/SceneTarget.hpp"
+
 namespace geode::viz::present {
 
 namespace {
@@ -127,8 +129,7 @@ void FieldPresent::draw(GLuint state, int stateW, int stateH, float fracX, float
     const int shortSide = std::max(std::min(stateW, stateH), 1);
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    SceneTarget::read(prevFbo, prevViewport);
     if (!ensureField(longSide, shortSide, format)) {
         glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
         return;

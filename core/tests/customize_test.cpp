@@ -6,6 +6,7 @@
 //
 // The fixture is what the JVM tests parse (they cannot load libgeode): the free set (pro/FreeTier)
 // and the panel's categories are tested against it, so this test is what keeps them honest.
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -63,6 +64,30 @@ void lockableKeysAreTheRolledKeys() {
     check(!listed.empty(), "lockable keys are not empty");
     check(listed == rolled, "lockable keys equal the rolled keys");
     check(randomizer::lockableKeysText().back() == '\n', "lockable keys end with a newline");
+}
+
+// The saved keep document: only what a user can keep survives a read, once each, in a stable order.
+void aKeepDocumentHoldsOnlyKeepableKeysOnceSorted() {
+    const std::string a = randomizer::rolledKeys().front().key;
+    const std::string b = randomizer::rolledKeys().back().key;
+    const std::string first = std::min(a, b), second = std::max(a, b);
+    check(a != b, "two different rolled keys to keep");
+    const std::string saved = second + "\nno_such_control\n\n#MOTION\n" + first + "\n" + second + "\n#NOPE\n#PRO";
+    check(customize::keepNormalize(saved) == "#MOTION\n" + first + "\n" + second + "\n", "keep document: dropped, once, sorted");
+    check(customize::keepNormalize("") == "", "an empty keep document keeps nothing");
+    check(customize::keepNormalize(customize::keepNormalize(saved)) == customize::keepNormalize(saved), "normalising is stable");
+    check(customize::keepHas(saved, first), "keepHas finds a kept control");
+    check(!customize::keepHas(saved, "no_such_control"), "keepHas ignores what the document may not hold");
+}
+
+void aKeepToggleAddsRemovesAndRefusesUnknownKeys() {
+    const std::string key = randomizer::rolledKeys().front().key;
+    const std::string on = customize::keepToggle("", key);
+    check(on == key + "\n", "toggle puts a key in");
+    check(customize::keepToggle(on, key).empty(), "toggle takes it out again");
+    check(customize::keepToggle("#LOOK\n", "#LOOK").empty(), "a category marker toggles");
+    check(customize::keepToggle(on, "no_such_control") == on, "an unknown key leaves the document as it was");
+    check(customize::keepToggle(on, "#PRO") == on, "#PRO is not the user's to keep");
 }
 
 void everyPlacedControlIsKnownAndPlacedOnce() {
@@ -389,6 +414,9 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     check(customize::changedCount(p) == 3, "a flag and a pick count too");
     p.speed = defaults.speed;
     check(customize::changedCount(p) == 2, "a value put back stops counting");
+    p.camTouch = !defaults.camTouch;
+    check(customize::changedCount(p) == 2, "an input preference Reset keeps is not counted");
+    p.camTouch = defaults.camTouch;
     float wire[SceneParams::kFieldCount];
     defaults.toWire(wire);
     wire[SceneParams::slotOf("speed")] = defaults.speed + 1.0f;
@@ -489,6 +517,8 @@ int main(int argc, char** argv) {
     }
     everyRolledControlIsPlacedOnce();
     lockableKeysAreTheRolledKeys();
+    aKeepDocumentHoldsOnlyKeepableKeysOnceSorted();
+    aKeepToggleAddsRemovesAndRefusesUnknownKeys();
     everyPlacedControlIsKnownAndPlacedOnce();
     heldFieldsAreSceneParams();
     heldControlsAgreeWithTheMeta();

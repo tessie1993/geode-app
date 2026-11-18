@@ -8,7 +8,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.AudioOutput
 import androidx.media3.exoplayer.audio.AudioOutputProvider
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.AudioOutNative
 import java.nio.ByteBuffer
 import java.util.concurrent.CopyOnWriteArraySet
 
@@ -35,17 +35,17 @@ internal class OboeAudioOutput private constructor(
     private val listeners = CopyOnWriteArraySet<AudioOutput.Listener>()
     private var failed = false
 
-    override fun play() = GeodeNative.audioOutPlay(handle)
+    override fun play() = AudioOutNative.audioOutPlay(handle)
 
-    override fun pause() = GeodeNative.audioOutPause(handle)
+    override fun pause() = AudioOutNative.audioOutPause(handle)
 
     override fun write(
         buffer: ByteBuffer,
         encodedAccessUnitCount: Int,
         presentationTimeUs: Long,
     ): Boolean {
-        report(GeodeNative.audioOutEvents(handle))
-        val taken = if (failed) -1 else GeodeNative.audioOutWrite(handle, buffer, buffer.position(), buffer.remaining())
+        report(AudioOutNative.audioOutEvents(handle))
+        val taken = if (failed) -1 else AudioOutNative.audioOutWrite(handle, buffer, buffer.position(), buffer.remaining())
         if (taken < 0) {
             fail()
             // Mid-stream the sink sees the stall and builds a new output. Draining at the end of the
@@ -57,34 +57,34 @@ internal class OboeAudioOutput private constructor(
         return !buffer.hasRemaining()
     }
 
-    override fun flush() = GeodeNative.audioOutFlush(handle)
+    override fun flush() = AudioOutNative.audioOutFlush(handle)
 
-    override fun stop() = GeodeNative.audioOutStop(handle)
+    override fun stop() = AudioOutNative.audioOutStop(handle)
 
     override fun release() {
         if (handle == 0L) return
-        GeodeNative.audioOutRelease(handle)
+        AudioOutNative.audioOutRelease(handle)
         // Every native call takes a null handle, so a late call after this is harmless.
         handle = 0L
         listeners.forEach { it.onReleased() }
     }
 
-    override fun setVolume(volume: Float) = GeodeNative.audioOutSetVolume(handle, volume)
+    override fun setVolume(volume: Float) = AudioOutNative.audioOutSetVolume(handle, volume)
 
     override fun isOffloadedPlayback(): Boolean = false
 
     /** The stream's session, which is the player's: `C.AUDIO_SESSION_ID_UNSET` (0) once released. */
-    override fun getAudioSessionId(): Int = GeodeNative.audioOutSessionId(handle)
+    override fun getAudioSessionId(): Int = AudioOutNative.audioOutSessionId(handle)
 
     override fun getSampleRate(): Int = sampleRateHz
 
-    override fun getBufferSizeInFrames(): Long = GeodeNative.audioOutBufferFrames(handle)
+    override fun getBufferSizeInFrames(): Long = AudioOutNative.audioOutBufferFrames(handle)
 
-    override fun getPositionUs(): Long = GeodeNative.audioOutPositionUs(handle)
+    override fun getPositionUs(): Long = AudioOutNative.audioOutPositionUs(handle)
 
     override fun getPlaybackParameters(): PlaybackParameters = PlaybackParameters.DEFAULT
 
-    override fun isStalled(): Boolean = failed || GeodeNative.audioOutStalled(handle)
+    override fun isStalled(): Boolean = failed || AudioOutNative.audioOutStalled(handle)
 
     override fun addListener(listener: AudioOutput.Listener) {
         listeners.add(listener)
@@ -107,21 +107,21 @@ internal class OboeAudioOutput private constructor(
 
     override fun setAuxEffectSendLevel(level: Float) = Unit
 
-    override fun setPreferredDevice(preferredDevice: AudioDeviceInfo?) = GeodeNative.audioOutSetDevice(handle, preferredDevice?.id ?: 0)
+    override fun setPreferredDevice(preferredDevice: AudioDeviceInfo?) = AudioOutNative.audioOutSetDevice(handle, preferredDevice?.id ?: 0)
 
     /** Native's event bits (`GEODE_AUDIO_OUT_*`) as Media3's listener calls, on the playback thread. */
     private fun report(events: Int) {
-        if (events and GeodeNative.AUDIO_OUT_ADVANCING != 0) {
+        if (events and AudioOutNative.AUDIO_OUT_ADVANCING != 0) {
             val startedMs = System.currentTimeMillis()
             listeners.forEach { it.onPositionAdvancing(startedMs) }
         }
-        if (events and GeodeNative.AUDIO_OUT_UNDERRUN != 0) listeners.forEach { it.onUnderrun() }
-        if (events and GeodeNative.AUDIO_OUT_FAILED != 0) fail()
+        if (events and AudioOutNative.AUDIO_OUT_UNDERRUN != 0) listeners.forEach { it.onUnderrun() }
+        if (events and AudioOutNative.AUDIO_OUT_FAILED != 0) fail()
     }
 
     private fun fail() {
         failed = true
-        GeodeNative.audioOutNoteFailed(SystemClock.elapsedRealtime())
+        AudioOutNative.audioOutNoteFailed(SystemClock.elapsedRealtime())
     }
 
     companion object {
@@ -132,7 +132,7 @@ internal class OboeAudioOutput private constructor(
          */
         fun open(config: AudioOutputProvider.OutputConfig): OboeAudioOutput? {
             val takes =
-                GeodeNative.audioOutTakes(
+                AudioOutNative.audioOutTakes(
                     SystemClock.elapsedRealtime(),
                     config.isOffload,
                     config.isTunneling,
@@ -146,7 +146,7 @@ internal class OboeAudioOutput private constructor(
                 )
             if (!takes) return null
             val c = config
-            val handle = GeodeNative.audioOutOpen(c.sampleRate, c.channelMask, c.encoding, c.bufferSize, c.audioSessionId)
+            val handle = AudioOutNative.audioOutOpen(c.sampleRate, c.channelMask, c.encoding, c.bufferSize, c.audioSessionId)
             return if (handle != 0L) OboeAudioOutput(handle, config.sampleRate) else null
         }
     }

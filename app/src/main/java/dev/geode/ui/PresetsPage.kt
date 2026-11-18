@@ -66,7 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BuiltInPresets
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering
@@ -140,10 +141,10 @@ internal fun PresetsTab(
                     sceneId = p.sceneId,
                     builtIn = BuiltInPresets.isBuiltIn(p.name),
                     folder = presetFolders.folderOf(p.name),
-                    forThisStyle = GeodeNative.presetMatchesScene(p.sceneId, viz.sceneId),
+                    forThisStyle = LooksNative.presetMatchesScene(p.sceneId, viz.sceneId),
                     // Every MilkDrop preset shares the default params; only the file tells them
                     // apart, so a MilkDrop row is marked only when the user tapped it.
-                    onStage = looks && (p.sceneId != GeodeNative.STYLE_MILKDROP || p.name == lastTapped),
+                    onStage = looks && (p.sceneId != CatalogueNative.STYLE_MILKDROP || p.name == lastTapped),
                 )
             }
         }
@@ -258,7 +259,7 @@ internal fun PresetsTab(
             folder,
         )
         // What was just saved is what the stage shows, so its row gets the check.
-        lastTapped = GeodeNative.presetCleanName(name, "")
+        lastTapped = LooksNative.presetCleanName(name, "")
     }
     val close = { dialog = null }
     when (val d = dialog) {
@@ -328,7 +329,7 @@ internal fun PresetsTab(
                 error = { folderNameError(resources, it, null, folders) },
                 onDismiss = close,
                 onConfirm = { raw ->
-                    val name = GeodeNative.presetFolderName(raw)
+                    val name = LooksNative.presetFolderName(raw)
                     visualsViewModel.addPresetFolder(name)
                     if (d.thenMove != null) {
                         visualsViewModel.movePresetToFolder(d.thenMove, name)
@@ -346,7 +347,7 @@ internal fun PresetsTab(
                 error = { folderNameError(resources, it, d.name, folders) },
                 onDismiss = close,
                 onConfirm = { raw ->
-                    val to = GeodeNative.presetFolderName(raw)
+                    val to = LooksNative.presetFolderName(raw)
                     visualsViewModel.renamePresetFolder(d.name, to)
                     if (openFolder == d.name) filterKey = filterKeyOf(PresetFilter.Folder(to))
                     close()

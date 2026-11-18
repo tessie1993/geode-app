@@ -56,8 +56,8 @@ import dev.geode.data.CustomPalette
 import dev.geode.data.PaletteStore
 import dev.geode.data.SavedPaletteFiles
 import dev.geode.data.withSavedPalette
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -169,7 +169,7 @@ internal fun PaletteDropdown(
     val rows =
         remember(p, saved) {
             val ids = saved.joinToString("\n") { it.id }
-            nativeRows(GeodeNative.paletteListView(p.frame(), p.customPaletteId, ids, saved.joinToString("\n") { it.name }))
+            nativeRows(CustomizeNative.paletteListView(p.frame(), p.customPaletteId, ids, saved.joinToString("\n") { it.name }))
         }
     val head = rows.first()
     val options = rows.drop(1)
@@ -205,19 +205,27 @@ internal fun YourColoursCard(
     onChange: (SceneParams) -> Unit,
     palettes: SavedPalettes,
 ) {
-    var state by remember { mutableStateOf(GeodeNative.paletteMakerStart(p.frame())) }
+    var state by remember { mutableStateOf(CustomizeNative.paletteMakerStart(p.frame())) }
+    // When the look changes under the editor (another style, preset or undo), it starts over from the look's colours
+    // instead of committing its stale stops. The editor's own commits leave the look with the editor's stops.
+    val lookStops = CustomizeNative.paletteMakerStops(CustomizeNative.paletteMakerStart(p.frame())).toList()
+    LaunchedEffect(lookStops) {
+        if (CustomizeNative.paletteMakerStops(state).toList() != lookStops) {
+            state = CustomizeNative.paletteMakerStart(p.frame())
+        }
+    }
     var name by rememberSaveable { mutableStateOf("") }
     var picking by remember { mutableStateOf<Bitmap?>(null) }
     val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val rows = remember(state) { nativeRows(GeodeNative.paletteMakerView(state)) }
+    val rows = remember(state) { nativeRows(CustomizeNative.paletteMakerView(state)) }
     val head = rows.first()
     val stops = rows.drop(1)
     val commit = { next: String ->
         state = next
-        onChange(p.withStops(GeodeNative.paletteMakerStops(next).toList(), ""))
+        onChange(p.withStops(CustomizeNative.paletteMakerStops(next).toList(), ""))
     }
-    val edit = { op: Int, arg: Int -> commit(GeodeNative.paletteMakerEdit(state, op, arg)) }
+    val edit = { op: Int, arg: Int -> commit(CustomizeNative.paletteMakerEdit(state, op, arg)) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(panelText("palette_explainer"), style = MaterialTheme.typography.labelSmall)
         PaletteSwatch(swatchColours(head[5]), Modifier.fillMaxWidth())
@@ -225,11 +233,11 @@ internal fun YourColoursCard(
             stops,
             removable = head[3] == "1",
             addable = head[4] == "1",
-            onSelect = { state = GeodeNative.paletteMakerEdit(state, GeodeNative.PALETTE_MAKER_SELECT, it) },
-            onAdd = { edit(GeodeNative.PALETTE_MAKER_ADD, 0) },
-            onRemove = { edit(GeodeNative.PALETTE_MAKER_REMOVE, 0) },
+            onSelect = { state = CustomizeNative.paletteMakerEdit(state, CustomizeNative.PALETTE_MAKER_SELECT, it) },
+            onAdd = { edit(CustomizeNative.PALETTE_MAKER_ADD, 0) },
+            onRemove = { edit(CustomizeNative.PALETTE_MAKER_REMOVE, 0) },
         )
-        ColourPicker(rgb = stops[head[2].toInt()][2].toInt(HEX), onChange = { edit(GeodeNative.PALETTE_MAKER_SET, it) })
+        ColourPicker(rgb = stops[head[2].toInt()][2].toInt(HEX), onChange = { edit(CustomizeNative.PALETTE_MAKER_SET, it) })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
                 host.visualizerView.stage
@@ -242,7 +250,7 @@ internal fun YourColoursCard(
                 Icon(Icons.Filled.Colorize, contentDescription = null)
                 Text(panelText("palette_pick_artwork"), Modifier.padding(start = 6.dp))
             }
-            TextButton(onClick = { commit(GeodeNative.paletteMakerFromLook(p.frame())) }) {
+            TextButton(onClick = { commit(CustomizeNative.paletteMakerFromLook(p.frame())) }) {
                 Text(panelText("palette_from_current"))
             }
         }
@@ -255,7 +263,7 @@ internal fun YourColoursCard(
         )
         OutlinedButton(
             onClick = {
-                val stored = palettes.save(PaletteStore.create(name, GeodeNative.paletteMakerStops(state).toList()))
+                val stored = palettes.save(PaletteStore.create(name, CustomizeNative.paletteMakerStops(state).toList()))
                 name = ""
                 onChange(p.withSavedPalette(stored))
             },
@@ -263,7 +271,7 @@ internal fun YourColoursCard(
         ) { Text(panelText("palette_save")) }
         SavedPaletteList(palettes, onEdit = { palette ->
             name = palette.name
-            commit(GeodeNative.paletteMakerOpen(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan))
+            commit(CustomizeNative.paletteMakerOpen(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan))
         }, onDelete = { palette ->
             palettes.delete(palette.id)
             onChange(p.forgetPalette(palette.id))
@@ -272,7 +280,7 @@ internal fun YourColoursCard(
     picking?.let { image ->
         EyedropperDialog(image, onPick = { rgb ->
             picking = null
-            edit(GeodeNative.PALETTE_MAKER_SET, rgb)
+            edit(CustomizeNative.PALETTE_MAKER_SET, rgb)
         }, onDismiss = { picking = null })
     }
 }
@@ -338,7 +346,7 @@ private fun SavedPaletteList(
     palettes.items.forEach { palette ->
         val swatch =
             remember(palette) {
-                swatchColours(GeodeNative.paletteSavedSwatch(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan))
+                swatchColours(CustomizeNative.paletteSavedSwatch(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan))
             }
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(palette.name, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))

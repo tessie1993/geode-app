@@ -30,7 +30,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val data = result.data
             if (result.resultCode == Activity.RESULT_OK && data != null) {
-                PlaybackCaptureService.start(context, result.resultCode, data)
+                if (!PlaybackCaptureService.start(context, result.resultCode, data)) viewModel.noteExternalAudioConsentDenied()
             } else {
                 viewModel.noteExternalAudioConsentDenied()
             }
@@ -45,7 +45,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
                 askConsent()
             } else {
-                viewModel.noteExternalAudioConsentDenied()
+                viewModel.noteExternalAudioPermissionDenied()
             }
         }
 
@@ -96,6 +96,12 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             else ->
                 external.failure?.let { failure ->
                     Text(stringResource(failureText(failure)), style = MaterialTheme.typography.bodySmall)
+                    // Once Android stops asking for the mic, its page in Settings is the only way back.
+                    if (failure == CaptureFailure.PERMISSION) {
+                        CrystalButton(onClick = { context.openAppSettings() }, compact = true, filled = false) {
+                            Text(stringResource(R.string.permission_open_settings))
+                        }
+                    }
                 }
         }
 
@@ -121,9 +127,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                 CrystalButton(
                     filled = false,
                     modifier = Modifier.padding(top = 6.dp),
-                    onClick = {
-                        runCatching { context.startActivity(viewModel.notificationAccessIntent()) }
-                    },
+                    onClick = { viewModel.openNotificationAccess(context) },
                 ) { Text(stringResource(R.string.ext_allow_reading)) }
             }
         }

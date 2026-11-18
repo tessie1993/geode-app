@@ -42,6 +42,7 @@ void FluidSim::create() {
     glSamplerParameteri(linearSampler_, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     std::string error;
     baseVertSrc_ = loader_.source("fluid_base_vert.glsl", &error);
+    samplerUnits_ = {};  // the programs below are new: none has a unit set yet
     for (int i = 0; i < kProgCount; ++i) {
         std::string frag = loader_.source(progAsset(i), &error);
         // The display shader's #if chain needs LOOK defined (GLSL ES rejects an undefined name in
@@ -59,7 +60,6 @@ void FluidSim::create() {
         }
         programs_[static_cast<size_t>(i)] = UniformCache(program);
     }
-    programsBuilt_ = true;
     std::lock_guard<std::mutex> lock(injectionLock_);
     injectionDirty_ = !pendingForceSrc_.empty() || !pendingDyeSrc_.empty();
 }
@@ -556,11 +556,12 @@ void FluidSim::release() {
         if (*fbo) (*fbo)->release();
         fbo->reset();
     }
-    if (programsBuilt_) {
-        for (auto& cache : programs_) glDeleteProgram(cache.program());
-        programsBuilt_ = false;
+    // Every non-zero program: a build that failed part-way leaves the earlier ones live.
+    for (auto& cache : programs_) {
+        if (cache.program() != 0) glDeleteProgram(cache.program());
     }
     programs_.fill(UniformCache(0));
+    samplerUnits_ = {};
     deleteCustom(customForce_);
     deleteCustom(customDye_);
     quad_.release();
@@ -590,10 +591,27 @@ void FluidSim::blit(const Fbo& target) {
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
+// `prog` is current (useProgram). The sampler's unit is set only when this program has not been told it yet.
 void FluidSim::bindTex(const char* name, GLuint tex, int unit, int prog) {
     glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
     glBindTexture(GL_TEXTURE_2D, tex);
-    glUniform1i(loc(prog, name), unit);
+    const GLint l = loc(prog, name);
+    if (l < 0) return;
+    for (SamplerUnit& slot : samplerUnits_[static_cast<size_t>(prog)]) {
+        if (slot.loc == l) {
+            if (slot.unit != unit) {
+                glUniform1i(l, unit);
+                slot.unit = unit;
+            }
+            return;
+        }
+        if (slot.loc < 0) {
+            glUniform1i(l, unit);
+            slot = {l, unit};
+            return;
+        }
+    }
+    glUniform1i(l, unit);  // more samplers than tracked: set every time
 }
 
 }  // namespace geode::viz::fluid

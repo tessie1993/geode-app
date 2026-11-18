@@ -163,20 +163,25 @@ void main() {
     vec3 o = inv * ro / GM_SCALE;
     vec3 d = inv * rd;
 
-    vec3 col = glassEnv(rd, lk) * 0.7;
-    // The stone's fire thrown into the dark: spectral rays from its centre, turning with it,
-    // longer on bright mixes, flickering on the hat.
-    float ra = atan(uv.y, uv.x);
-    float rl = length(uv);
-    // k1 TEXTURE widens the rays (a lower power), k5 SPACE carries them further.
-    float wide = 1.0 + kTexture;
-    float rays = pow(abs(sin(ra * 7.0 + turn * 2.0)), 30.0 / wide) + 0.6 * pow(abs(sin(ra * 11.0 - turn * 3.0 + 1.0)), 40.0 / wide);
-    float reach = (0.6 + 0.9 * ear.sharp) * (1.0 + 0.4 * kSpace);
-    vec3 fireCol = glassSpectrum(fract(ra * 1.1 + turn * 0.5 + rl * 0.8));
-    col += fireCol * rays * exp(-rl / reach) * smoothstep(0.25, 0.45, rl) * (0.35 + 0.8 * ear.hat) * 1.2;
     vec3 n;
     vec2 hit = enterCut(o, d, n);
-    if (hit.x < hit.y && hit.y > 0.0 && hit.x > 0.0) {
+    bool onStone = hit.x < hit.y && hit.y > 0.0 && hit.x > 0.0;
+    vec3 col = vec3(0.0);
+    // The dark behind the stone and its fire are only the picture where the ray misses the stone: a hit overwrites them.
+    if (!onStone) {
+        col = glassEnv(rd, lk) * 0.7;
+        // The stone's fire thrown into the dark: spectral rays from its centre, turning with it,
+        // longer on bright mixes, flickering on the hat.
+        float ra = atan(uv.y, uv.x);
+        float rl = length(uv);
+        // k1 TEXTURE widens the rays (a lower power), k5 SPACE carries them further.
+        float wide = 1.0 + kTexture;
+        float rays = pow(abs(sin(ra * 7.0 + turn * 2.0)), 30.0 / wide) + 0.6 * pow(abs(sin(ra * 11.0 - turn * 3.0 + 1.0)), 40.0 / wide);
+        float reach = (0.6 + 0.9 * ear.sharp) * (1.0 + 0.4 * kSpace);
+        vec3 fireCol = glassSpectrum(fract(ra * 1.1 + turn * 0.5 + rl * 0.8));
+        col += fireCol * rays * exp(-rl / reach) * smoothstep(0.25, 0.45, rl) * (0.35 + 0.8 * ear.hat) * 1.2;
+    }
+    if (onStone) {
         vec3 p = o + d * hit.x;
         n = glassWobble(n, p, glassChaos());
         vec3 tint = mix(vec3(1.0), pal(hue + 0.6), 0.6 * glassComplexity());

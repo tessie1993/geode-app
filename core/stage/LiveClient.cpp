@@ -15,6 +15,10 @@ void LiveClient::surfaceChanged(int width, int height) {
     if (viz_) viz_->surfaceChanged(width, height);
 }
 
+void LiveClient::frameTime(int64_t vsyncNs) {
+    if (viz_) viz_->frameTime(vsyncNs);
+}
+
 uint32_t LiveClient::frame(float pacedFps, float capFps) {
     if (!viz_) return 0;
     runJobs(true);
@@ -66,8 +70,11 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
     return events;
 }
 
+// The stage asks for this as it leaves drawing (Lifecycle::noteDrawing): no frame comes until it draws again.
 void LiveClient::trimSpares() {
-    if (viz_) viz_->trimSpares();
+    if (!viz_) return;
+    viz_->trimSpares();
+    viz_->letSoundGo();
 }
 
 void LiveClient::service(bool ready) { runJobs(ready); }
@@ -78,6 +85,11 @@ void LiveClient::release(bool glCurrent) {
         std::lock_guard<std::mutex> jobs(jobsLock_);
         released_ = true;
         left.swap(jobs_);
+    }
+    {
+        // A picture nobody asked for is not kept for a stage that has no renderer left.
+        std::lock_guard<std::mutex> state(stateLock_);
+        still_.reset();
     }
     if (!viz_) return;
     // No frame will come: a tee still waiting to open fails, and every tee asked for is closed, so no recording

@@ -51,6 +51,7 @@ private:
     mutable std::mutex lock_;
     std::vector<std::shared_ptr<Peer>> peers_;   // lock_
     std::vector<uint8_t> config_;                // lock_: the encoder's SPS and PPS
+    std::vector<uint8_t> unit_;                  // lock_: the frame video() sends, reused frame to frame
     viz::frame::webrtc::H264 profile_;           // lock_: read from config_
     bool closed_ = false;                        // lock_
 };

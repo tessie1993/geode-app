@@ -1,11 +1,11 @@
 package dev.geode.data
 
 import android.content.Context
+import dev.geode.engine.bridge.LibraryNative
 import dev.geode.model.DeviceTrack
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 
+/** A smart playlist rule's field; the names are the tokens the files hold (core/library/SmartPlaylist). */
 enum class RuleField {
     TITLE,
     ARTIST,
@@ -22,6 +22,7 @@ enum class RuleField {
     val isFlag: Boolean get() = this == FAVOURITE
 }
 
+/** A smart playlist rule's op; the names are the tokens the files hold. */
 enum class RuleOp {
     CONTAINS,
     IS,
@@ -48,86 +49,28 @@ data class SmartPlaylist(
     val limit: Int = 0,
 )
 
-/** Which of the library's tracks a rule set picks; the sources the rules cannot read from a track are passed in. */
-object SmartPlaylistMatcher {
-    fun resolve(
-        playlist: SmartPlaylist,
-        tracks: List<DeviceTrack>,
-        playCountOf: (String) -> Int,
-        favourites: Set<String>,
-        nowMs: Long = System.currentTimeMillis(),
-    ): List<DeviceTrack> {
-        val rules = playlist.rules.filter { it.value.isNotBlank() || it.field.isFlag }
-        val picked =
-            if (rules.isEmpty()) {
-                tracks
-            } else {
-                tracks.filter { track ->
-                    val hits = rules.map { matches(it, track, playCountOf, favourites, nowMs) }
-                    if (playlist.matchAll) hits.all { it } else hits.any { it }
-                }
-            }
-        return if (playlist.limit > 0) picked.take(playlist.limit) else picked
-    }
-
-    private fun matches(
-        rule: SmartRule,
-        track: DeviceTrack,
-        playCountOf: (String) -> Int,
-        favourites: Set<String>,
-        nowMs: Long,
-    ): Boolean =
-        when (rule.field) {
-            RuleField.TITLE -> text(rule, track.title)
-            RuleField.ARTIST -> text(rule, track.artist)
-            RuleField.ALBUM -> text(rule, track.album)
-            RuleField.FOLDER -> text(rule, track.folder)
-            RuleField.DURATION_MINUTES -> number(rule, track.durationMs / 60_000f)
-            RuleField.ADDED_DAYS_AGO -> number(rule, (nowMs / 1000L - track.addedSec) / 86_400f)
-            RuleField.PLAY_COUNT -> number(rule, playCountOf(track.uri).toFloat())
-            RuleField.FAVOURITE -> (track.uri in favourites) == (rule.op != RuleOp.IS_NOT)
-        }
-
-    private fun text(
-        rule: SmartRule,
-        field: String,
-    ): Boolean =
-        when (rule.op) {
-            RuleOp.CONTAINS -> field.contains(rule.value.trim(), ignoreCase = true)
-            RuleOp.IS -> field.equals(rule.value.trim(), ignoreCase = true)
-            RuleOp.IS_NOT -> !field.equals(rule.value.trim(), ignoreCase = true)
-            RuleOp.AT_LEAST, RuleOp.AT_MOST -> false
-        }
-
-    private fun number(
-        rule: SmartRule,
-        actual: Float,
-    ): Boolean {
-        val wanted = rule.value.trim().toFloatOrNull() ?: return false
-        return when (rule.op) {
-            RuleOp.IS -> actual.toInt() == wanted.toInt()
-            RuleOp.IS_NOT -> actual.toInt() != wanted.toInt()
-            RuleOp.AT_LEAST -> actual >= wanted
-            RuleOp.AT_MOST -> actual <= wanted
-            RuleOp.CONTAINS -> false
-        }
-    }
-}
-
-/** One JSON file per smart playlist under `files/smart-playlists`, like the ordinary playlists. */
+/**
+ * One JSON file per smart playlist under `files/smart-playlists`, like the ordinary playlists. The file format, the
+ * order and which tracks a rule set picks are native's (core/library/SmartPlaylist); this lists and reads the files.
+ */
 class SmartPlaylistStore(
     context: Context,
 ) {
     private val dir = File(context.filesDir, "smart-playlists").apply { mkdirs() }
 
-    fun list(): List<SmartPlaylist> =
-        dir
-            .listFiles { f -> f.extension == "json" }
-            ?.mapNotNull { runCatching { fromJson(it.readText()) }.getOrNull() }
-            ?.sortedBy { it.name.lowercase() }
-            .orEmpty()
+    fun list(): List<SmartPlaylist> {
+        val texts =
+            dir
+                .listFiles { f -> f.extension == "json" }
+                ?.mapNotNull { runCatching { it.readText() }.getOrNull() }
+                .orEmpty()
+        return playlistsOf(LibraryNative.smartList(texts.toTypedArray()))
+    }
 
-    fun save(playlist: SmartPlaylist): Boolean = playlist.name.isNotBlank() && AtomicWrite.text(fileOf(playlist.name), toJson(playlist))
+    fun save(playlist: SmartPlaylist): Boolean {
+        val text = LibraryNative.smartSaveText(playlist.name, playlist.matchAll, playlist.limit, cellsOf(playlist)) ?: return false
+        return AtomicWrite.text(fileOf(playlist.name), text)
+    }
 
     fun delete(name: String) {
         fileOf(name).delete()
@@ -135,33 +78,70 @@ class SmartPlaylistStore(
 
     private fun fileOf(name: String): File = File(dir, PresetStore.safeFileName(name) + ".json")
 
-    private fun toJson(p: SmartPlaylist): String =
-        JSONObject()
-            .put("name", p.name)
-            .put("matchAll", p.matchAll)
-            .put("limit", p.limit)
-            .put(
-                "rules",
-                JSONArray(p.rules.map { JSONObject().put("field", it.field.name).put("op", it.op.name).put("value", it.value) }),
-            ).toString()
+    companion object {
+        private const val FIELD = '\u001F'
+        private const val RECORD = '\u001E'
+        private const val HEAD_FIELDS = 3
+        private const val RULE_FIELDS = 3
+        private const val TRACK_CELLS = 5
 
-    private fun fromJson(text: String): SmartPlaylist {
-        val o = JSONObject(text)
-        val rules = o.optJSONArray("rules") ?: JSONArray()
-        return SmartPlaylist(
-            name = o.getString("name"),
-            matchAll = o.optBoolean("matchAll", true),
-            limit = o.optInt("limit", 0),
-            // `valueOf` throws on a token from a newer/foreign build, and the caller's runCatching
-            // would then discard the whole file. Look the token up instead and drop only that one
-            // rule (firstOrNull -> null -> mapNotNull skips it) so the rest of the playlist survives.
-            rules =
-                (0 until rules.length()).mapNotNull { i ->
-                    val r = rules.optJSONObject(i) ?: return@mapNotNull null
-                    val field = RuleField.entries.firstOrNull { it.name == r.optString("field") } ?: return@mapNotNull null
-                    val op = RuleOp.entries.firstOrNull { it.name == r.optString("op") } ?: return@mapNotNull null
-                    SmartRule(field, op, r.optString("value", ""))
-                },
-        )
+        /**
+         * The tracks [playlist] picks from [tracks], in their order (native, `geode_smart_resolve`): [history] is the
+         * play history's state ([HistoryStore.text]), which holds the play counts.
+         */
+        fun resolve(
+            playlist: SmartPlaylist,
+            tracks: List<DeviceTrack>,
+            history: String,
+            favourites: Set<String>,
+            nowMs: Long = System.currentTimeMillis(),
+        ): List<DeviceTrack> {
+            val cells =
+                Array(tracks.size * TRACK_CELLS) { i ->
+                    val t = tracks[i / TRACK_CELLS]
+                    when (i % TRACK_CELLS) {
+                        0 -> t.uri
+                        1 -> t.title
+                        2 -> t.artist
+                        3 -> t.album
+                        else -> t.folder
+                    }
+                }
+            val rows =
+                LibraryNative.smartResolve(
+                    playlist.matchAll,
+                    playlist.limit,
+                    cellsOf(playlist),
+                    cells,
+                    LongArray(tracks.size) { tracks[it].durationMs },
+                    LongArray(tracks.size) { tracks[it].addedSec },
+                    history,
+                    favourites.toTypedArray(),
+                    nowMs,
+                )
+            return rows.map { tracks[it] }
+        }
+
+        // Three strings per rule: field token, op token, value.
+        private fun cellsOf(playlist: SmartPlaylist): Array<String> =
+            playlist.rules.flatMap { listOf(it.field.name, it.op.name, it.value) }.toTypedArray()
+
+        // Native's wire (`geode_smart_list`); a token this build has no entry for drops only its rule.
+        private fun playlistsOf(wire: String?): List<SmartPlaylist> =
+            wire
+                .orEmpty()
+                .split(RECORD)
+                .filter { it.isNotEmpty() }
+                .mapNotNull { record ->
+                    val f = record.split(FIELD)
+                    if (f.size < HEAD_FIELDS || (f.size - HEAD_FIELDS) % RULE_FIELDS != 0) return@mapNotNull null
+                    val rules =
+                        f.drop(HEAD_FIELDS).chunked(RULE_FIELDS).mapNotNull { (field, op, value) ->
+                            val ruleField = RuleField.entries.firstOrNull { it.name == field } ?: return@mapNotNull null
+                            val ruleOp = RuleOp.entries.firstOrNull { it.name == op } ?: return@mapNotNull null
+                            SmartRule(ruleField, ruleOp, value)
+                        }
+                    SmartPlaylist(name = f[0], rules = rules, matchAll = f[1] == "1", limit = f[2].toInt())
+                }
     }
 }

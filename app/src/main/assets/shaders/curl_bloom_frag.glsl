@@ -105,7 +105,7 @@ float cbField(vec3 p) {
     // warp bound here (rather than at the step) lets it sit in one min() with
     // the satellites, which need no correction.
     float host = body(q) / gLip;
-    float sat = dmtSatellites(p, gSatCount, CB_SAT_ORBIT, CB_SAT_RADIUS, CB_SAT_PERIOD);
+    float sat = dmtSatellites(p);
     gHitSat = sat < host ? 1.0 : 0.0;
     return min(host, sat);
 }
@@ -114,7 +114,7 @@ float cbField(vec3 p) {
 float cbFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, cbField(shellAt3(i)));
     }
     return r;
@@ -190,6 +190,7 @@ void main() {
     gMorph = uFormPhase;
     // Detail buys population: three satellites at the floor, six at the top.
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
+    dmtSatPrepare(gSatCount, CB_SAT_ORBIT, CB_SAT_RADIUS, CB_SAT_PERIOD);
 
     // The camera orbits on two unrelated slow rates, so the body is seen from
     // a new angle every second even in silence. Both turns run on uTime alone:
@@ -205,6 +206,11 @@ void main() {
     // ---- the march ---------------------------------------------------------
     float t = 0.0;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no second map(p) to recover it.
+    float hitSat = 0.0;
+    float hitDmtSatHue = 0.0;
+    float hitDmtSatLife = 0.0;
+    float hitDmtSatBand = 0.0;
     // How close the ray ever came without hitting: the glow around the body.
     float near = 1e9;
     for (int i = 0; i < CB_MAX_STEPS; i++) {
@@ -216,6 +222,10 @@ void main() {
         near = min(near, d);
         if (d < eps) {
             hitT = t;
+            hitSat = gHitSat;
+            hitDmtSatHue = gDmtSatHue;
+            hitDmtSatLife = gDmtSatLife;
+            hitDmtSatBand = gDmtSatBand;
             break;
         }
         // map() already divided the host's term by the warp bound.
@@ -230,7 +240,10 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         // Which body was hit is captured BEFORE the normal taps overwrite it.
-        map(p);
+        gHitSat = hitSat;
+        gDmtSatHue = hitDmtSatHue;
+        gDmtSatLife = hitDmtSatLife;
+        gDmtSatBand = hitDmtSatBand;
         float isSat = gHitSat;
         float satHue = gDmtSatHue;
         float satLife = gDmtSatLife;
@@ -275,6 +288,6 @@ void main() {
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
-    col *= 0.68 + 0.32 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.68 + 0.32 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col * emission), 1.0);
 }

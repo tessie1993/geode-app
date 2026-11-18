@@ -60,7 +60,7 @@ extern "C" void AAsset_close(AAsset* asset) { delete asset; }
 // build ProgramStager::current() is null by its contract, and the pass is built with no cache, so the rest
 // is unreachable here: it aborts, which would show at once if that ever changed.
 geode::viz::ProgramStager* geode::viz::ProgramStager::current() { return nullptr; }
-GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*) { std::abort(); }
+GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*, bool) { std::abort(); }
 std::optional<geode::viz::ProgramKey> geode::viz::ProgramBinaryCache::keyFor(const std::string&, const std::string&) {
     std::abort();
 }

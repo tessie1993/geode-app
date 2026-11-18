@@ -10,9 +10,11 @@ namespace geode::viz {
 // each band's level, att envelope, shaped low/middle/high, its ~3 s presence and its onset flux. Every
 // band read a style makes follows the trim, so the three controls reach every style that hears a band.
 // The clocks, counts and the absolute loudness stay the music's own. Identity at 1.
-inline GeodeSoundFrame bandTrimmed(const GeodeSoundFrame& f, const SceneParams& p) {
-    if (p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f) return f;
-    GeodeSoundFrame out = f;
+inline bool bandTrimsAreIdentity(const SceneParams& p) { return p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f; }
+
+// The trimmed frame written over `out`; `out` is a whole frame already, so the caller owns its storage.
+inline void bandTrimInto(const GeodeSoundFrame& f, const SceneParams& p, GeodeSoundFrame& out) {
+    out = f;
     const auto unit = [](float v, float g) { return std::clamp(v * g, 0.0f, 1.0f); };
     out.bass = f.bass * p.bassGain;
     out.bassAtt = f.bassAtt * p.bassGain;
@@ -29,6 +31,12 @@ inline GeodeSoundFrame bandTrimmed(const GeodeSoundFrame& f, const SceneParams& 
     out.high = unit(f.high, p.trebGain);
     out.treblePresence = unit(f.treblePresence, p.trebGain);
     out.fluxHigh = f.fluxHigh * p.trebGain;
+}
+
+inline GeodeSoundFrame bandTrimmed(const GeodeSoundFrame& f, const SceneParams& p) {
+    if (bandTrimsAreIdentity(p)) return f;
+    GeodeSoundFrame out;
+    bandTrimInto(f, p, out);
     return out;
 }
 

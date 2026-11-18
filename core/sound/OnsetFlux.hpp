@@ -40,14 +40,42 @@ constexpr float kReachFraction = 0.05946309f;
 inline int reachOf(int k) { return std::max(1, static_cast<int>(std::lround(static_cast<float>(k) * kReachFraction))); }
 
 // out[k] = the largest of in[k - reach[k] … k + reach[k]], for k in [from, to), the window clipped to [from, to).
-// `in` and `out` must not overlap.
+// `in` and `out` must not overlap. A sliding maximum when the windows only move up (reachOf's table: the reach grows
+// by at most a bin a step) and fit the queue; else the plain scan, the same values either way.
 inline void maxFilter(const float* in, float* out, int from, int to, const int* reach) {
+    constexpr int kQueue = 1024;  // a power of two: wider windows take the plain scan
+    bool sliding = true;
+    int prevLo = from;
+    for (int k = from; k < to && sliding; k++) {
+        const int lo = std::max(from, k - reach[k]);
+        const int hi = std::min(to - 1, k + reach[k]);
+        sliding = lo >= prevLo && hi - lo < kQueue;
+        prevLo = lo;
+    }
+    if (!sliding) {
+        for (int k = from; k < to; k++) {
+            const int lo = std::max(from, k - reach[k]);
+            const int hi = std::min(to - 1, k + reach[k]);
+            float m = in[lo];
+            for (int j = lo + 1; j <= hi; j++) m = std::max(m, in[j]);
+            out[k] = m;
+        }
+        return;
+    }
+    // Bin indices, the values in `in` falling from the front: the front is the window's largest.
+    int queue[kQueue];
+    unsigned head = 0;
+    unsigned tail = 0;
+    int next = from;
     for (int k = from; k < to; k++) {
         const int lo = std::max(from, k - reach[k]);
         const int hi = std::min(to - 1, k + reach[k]);
-        float m = in[lo];
-        for (int j = lo + 1; j <= hi; j++) m = std::max(m, in[j]);
-        out[k] = m;
+        for (; next <= hi; next++) {
+            while (tail != head && in[queue[(tail - 1) % kQueue]] <= in[next]) tail--;
+            queue[tail++ % kQueue] = next;
+        }
+        while (queue[head % kQueue] < lo) head++;
+        out[k] = in[queue[head % kQueue]];
     }
 }
 

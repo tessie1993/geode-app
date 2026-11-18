@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include "viz/GlHandle.hpp"
 #include "viz/GlProfile.hpp"
 
 namespace geode::viz {
@@ -76,25 +77,31 @@ struct GlImageFormatInfo {
 const GlImageFormatInfo& imageFormatInfo(GlImageFormat format);
 std::optional<GlImageFormat> imageFormatOf(ProbedFormat format);
 
+// Owns its program (GlHandle): moves, never copies; release() deletes it, forget() drops it after context loss.
 class ComputeProgram {
 public:
     // Compiles and links a compute shader; the linked local size must match `expected`.
     static std::optional<ComputeProgram> build(const std::string& label, const std::string& source, WorkGroupSize expected,
                                                std::string* error);
 
-    GLuint program() const { return program_; }
+    ComputeProgram(const ComputeProgram&) = delete;
+    ComputeProgram& operator=(const ComputeProgram&) = delete;
+    ComputeProgram(ComputeProgram&&) noexcept = default;
+    ComputeProgram& operator=(ComputeProgram&&) noexcept = default;
+    ~ComputeProgram() = default;
+
+    GLuint program() const { return program_.get(); }
     const WorkGroupSize& localSize() const { return localSize_; }
-    void use() const { glUseProgram(program_); }
-    GLint uniformLocation(const char* name) const { return glGetUniformLocation(program_, name); }
-    void release();
-    void forget() { released_ = true; }
+    void use() const { glUseProgram(program_.get()); }
+    GLint uniformLocation(const char* name) const { return glGetUniformLocation(program_.get(), name); }
+    void release() { program_.reset(); }
+    void forget() { program_.forget(); }
 
 private:
     ComputeProgram(GLuint program, WorkGroupSize localSize) : program_(program), localSize_(localSize) {}
 
-    GLuint program_;
+    GlProgram program_;
     WorkGroupSize localSize_;
-    bool released_ = false;
 };
 
 enum class ComputeReader : GLbitfield {
@@ -113,9 +120,15 @@ enum class ComputeReader : GLbitfield {
     TransformFeedback = GL_TRANSFORM_FEEDBACK_BARRIER_BIT,
 };
 
+// Owns its ComputeProgram: moves with it, never copies.
 class ComputePass {
 public:
     ComputePass(std::string label, ComputeProgram program, GLbitfield barrierMask);
+    ComputePass(const ComputePass&) = delete;
+    ComputePass& operator=(const ComputePass&) = delete;
+    ComputePass(ComputePass&&) noexcept = default;
+    ComputePass& operator=(ComputePass&&) noexcept = default;
+    ~ComputePass() = default;
 
     const WorkGroupSize& localSize() const { return program_.localSize(); }
     GLuint programName() const { return program_.program(); }

@@ -39,7 +39,10 @@ DriverInput DriverInput::fromSound(const GeodeSoundFrame& f, float audioDrive) {
 }
 
 void MorphDriver::reset(uint64_t seed) {
+    // The scene binds the assets once (ShaderScene::uploadWorld); a new play keeps them.
+    const bool bound = texturesBound_;
     *this = MorphDriver{};
+    texturesBound_ = bound;
     seed_ = seed;
     rng_ = mix64(seed ^ 0x576F726C64447276ull);
     gazeRng_ = mix64(seed ^ 0x47617A6553747265ull);

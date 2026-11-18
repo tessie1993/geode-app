@@ -46,12 +46,18 @@ public:
     void reset();
 
 private:
+    // suggest(active), kept for the style it was made for (see LayerPick.cpp).
+    const std::string& suggestion(const std::string& active);
+
     std::string picked_;
     std::string directed_;
     auto_draw::Draw draw_{0};
     std::uint64_t seed_ = 0;
     bool seeded_ = false;
     int macroIndex_ = -1;
+    std::string suggestedFor_;
+    std::string suggested_;
+    bool suggestedYet_ = false;
 };
 
 // What the page calls `source` (You, Auto Director, Macro).

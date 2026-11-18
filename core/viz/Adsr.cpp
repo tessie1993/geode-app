@@ -23,7 +23,7 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         const AdsrConfig& c = configs[i];
         if (!c.enabled || !hasLiveTarget(c)) {
             level_[i] = 0.0f;
-            stage_[i] = 0;
+            stage_[i] = Stage::Idle;
             peak_[i] = 1.0f;
             out_[i] = 0.0f;
             continue;
@@ -46,43 +46,43 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         const bool onMoment = c.moment >= 0 && c.moment < 32;
         const float onset = std::isfinite(sound.onset) ? std::clamp(sound.onset, 0.0f, 1.0f) : 0.0f;
         const float hit = onMoment ? (((moments >> c.moment) & 1u) != 0 ? 1.0f : 0.0f) : onset;
-        if (hit > 0.0f && (c.retrigger || stage_[i] == 0 || stage_[i] == 4)) {
-            const bool wasAttacking = stage_[i] == 1;
-            stage_[i] = 1;
+        if (hit > 0.0f && (c.retrigger || stage_[i] == Stage::Idle || stage_[i] == Stage::Release)) {
+            const bool wasAttacking = stage_[i] == Stage::Attack;
+            stage_[i] = Stage::Attack;
             peak_[i] = wasAttacking ? std::max(peak_[i], hit) : std::max(hit, level_[i]);
         }
         const float ceiling = std::clamp(peak_[i], 0.0f, 1.0f);
         const float sustainTarget =
             (c.sustainTrack ? c.sustain * std::clamp(energy / std::max(c.gateThreshold, kMinGateThreshold), 0.0f, 1.0f) : c.sustain) * ceiling;
         switch (stage_[i]) {
-            case 1:
+            case Stage::Attack:
                 level_[i] += dt / std::max(c.attack, kMinStageSeconds) * ceiling;
                 if (level_[i] >= ceiling) {
                     level_[i] = ceiling;
-                    stage_[i] = 2;
+                    stage_[i] = Stage::Decay;
                 }
                 break;
-            case 2:
+            case Stage::Decay:
                 level_[i] -= dt / std::max(c.decay, kMinStageSeconds) * std::max(1.0f - sustainTarget, 0.05f);
                 if (level_[i] <= sustainTarget) {
                     level_[i] = sustainTarget;
-                    stage_[i] = gateHolds ? 3 : 4;
+                    stage_[i] = gateHolds ? Stage::Sustain : Stage::Release;
                 }
                 break;
-            case 3:
+            case Stage::Sustain:
                 level_[i] += (sustainTarget - level_[i]) * std::min(dt * 8.0f, 1.0f);
-                if (!gateHolds) stage_[i] = 4;
+                if (!gateHolds) stage_[i] = Stage::Release;
                 break;
-            case 4:
+            case Stage::Release:
                 level_[i] -= dt / std::max(c.release, kMinStageSeconds);
                 if (gateOpen && level_[i] > 0.01f) {
-                    stage_[i] = 3;
+                    stage_[i] = Stage::Sustain;
                 } else if (level_[i] <= 0.0f) {
                     level_[i] = 0.0f;
-                    stage_[i] = 0;
+                    stage_[i] = Stage::Idle;
                 }
                 break;
-            default:
+            case Stage::Idle:
                 break;
         }
         out_[i] = std::clamp(level_[i], 0.0f, 1.0f);
@@ -106,18 +106,16 @@ void AdsrEngine::lfoOffsets(const std::array<AdsrConfig, kCount>& configs, const
     }
 }
 
-SceneParams AdsrEngine::apply(const SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs) {
-    SceneParams r = p;
+void AdsrEngine::apply(SceneParams& p, const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs) {
     for (int i = 0; i < kCount; i++) {
         const AdsrConfig& c = configs[i];
         if (!c.enabled || envs[i] <= 0.0f) continue;
         for (const LfoTarget t : c.targets) {
             ModChain chain{};
             if (t == LfoTarget::None || chainOf(t, chain)) continue;
-            r = applyLfoTarget(r, t, envs[i] * c.amount);
+            applyLfoTargetInPlace(p, t, envs[i] * c.amount);
         }
     }
-    return r;
 }
 
 

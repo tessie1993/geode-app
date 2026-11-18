@@ -61,20 +61,32 @@ class BackupRepository
             withContext(io) {
                 guarded("export") {
                     val sources = BackupSection.entries.flatMap(::sourcesFor)
-                    val out =
-                        context.contentResolver.openOutputStream(destination, "wt")
-                            ?: fail(BackupProblem.IO_FAILED, "no output stream for the chosen file")
                     val now = System.currentTimeMillis()
+                    // Packed aside first: opening the destination in "wt" truncates the previous backup at
+                    // once, so it is touched only after the new zip is whole.
+                    val temp = File.createTempFile("backup", ".zip", context.cacheDir)
                     try {
-                        val manifest = out.use { BackupArchive.pack(it, sources, BackupSection.entries, BuildConfig.VERSION_CODE, now) }
-                        RingLog.note(TAG, "exported ${manifest.entries.size} files")
-                    } catch (e: BackupException) {
-                        // A half-written zip has no manifest (it goes in last), so it could never
-                        // be restored; removing it keeps it from passing for a backup.
-                        bestEffort(TAG, "delete partial backup") {
-                            DocumentsContract.deleteDocument(context.contentResolver, destination)
+                        val manifest =
+                            temp.outputStream().use {
+                                BackupArchive.pack(it, sources, BackupSection.entries, BuildConfig.VERSION_CODE, now)
+                            }
+                        val out =
+                            context.contentResolver.openOutputStream(destination, "wt")
+                                ?: fail(BackupProblem.IO_FAILED, "no output stream for the chosen file")
+                        try {
+                            temp.inputStream().use { src -> out.use { src.copyTo(it) } }
+                        } catch (e: IOException) {
+                            // The destination was truncated on open; a half-copied zip has no manifest
+                            // (it goes in last), so it could never be restored. Removing it keeps it from
+                            // passing for a backup.
+                            bestEffort(TAG, "delete partial backup") {
+                                DocumentsContract.deleteDocument(context.contentResolver, destination)
+                            }
+                            throw e
                         }
-                        throw e
+                        RingLog.note(TAG, "exported ${manifest.entries.size} files")
+                    } finally {
+                        temp.delete()
                     }
                 }
             }
@@ -103,12 +115,19 @@ class BackupRepository
             withContext(io) {
                 guarded("restore") {
                     val preview = staged ?: fail(BackupProblem.IO_FAILED, "nothing staged")
+                    var wrote = false
                     try {
                         for (section in BackupSection.entries.filter { it in sections && it in preview.sections }) {
                             swapFiles(section)
+                            // Files are on disk from here: the stores still hold the old copy in memory.
+                            wrote = true
                             BackupFormat.prefsEntries(section).forEach { (name, path) -> restorePrefs(section, name, path) }
                             RingLog.note(TAG, "restored ${section.id}")
                         }
+                    } catch (e: BackupException) {
+                        throw if (wrote) BackupException(e.problem, e.message.orEmpty(), e, wroteSomething = true) else e
+                    } catch (e: IOException) {
+                        throw if (wrote) BackupException(BackupProblem.IO_FAILED, "restore: ${e.message}", e, wroteSomething = true) else e
                     } finally {
                         discardStaging()
                     }
@@ -119,7 +138,28 @@ class BackupRepository
 
         private fun discardStaging() {
             staged = null
+            returnAside()
             workDir.deleteRecursively()
+        }
+
+        /**
+         * A swap the process did not outlive leaves the user's originals in the aside directory. Whatever
+         * has no file at its place in filesDir goes back before the work directory is deleted.
+         */
+        private fun returnAside() {
+            val aside = asideDir
+            if (!aside.isDirectory) return
+            aside
+                .walkTopDown()
+                .filter { it.isFile }
+                .forEach { file ->
+                    val home = File(filesDir, file.relativeTo(aside).path)
+                    if (home.exists()) return@forEach
+                    runCatching {
+                        home.parentFile?.mkdirs()
+                        file.renameTo(home)
+                    }.onFailure { RingLog.note(TAG, "could not return ${file.name} from ${aside.path}", it) }
+                }
         }
 
         private fun sourcesFor(section: BackupSection): List<BackupSource> {
@@ -210,8 +250,9 @@ class BackupRepository
         /**
          * Replaces [section]'s keys of one prefs file with the backup's, read from [path]. Device-local
          * keys and other sections' keys on this phone are left as they are, and any in the backup are
-         * ignored: restoring Settings keeps the macros, restoring Creative keeps the settings. commit(),
-         * not apply(): the restore must know the write landed before it reports success.
+         * ignored: restoring Settings keeps the macros, restoring Creative keeps the settings. A value of
+         * another type than its key's ([BackupFormat.hasDeclaredType]) is skipped, so the key reads as its
+         * default. commit(), not apply(): the restore must know the write landed before it reports success.
          */
         @SuppressLint("ApplySharedPref")
         private fun restorePrefs(
@@ -221,7 +262,10 @@ class BackupRepository
         ) {
             val file = File(stagedDir, path)
             if (!file.isFile) return
-            val values = PrefsJson.decode(file.readText()).filterKeys { BackupFormat.sectionOfKey(name, it) == section }
+            val values =
+                PrefsJson.decode(file.readText()).filter { (key, value) ->
+                    BackupFormat.sectionOfKey(name, key) == section && BackupFormat.hasDeclaredType(name, key, value)
+                }
             val prefs = prefsFile(name)
             val editor = prefs.edit()
             for (key in prefs.all.keys) {

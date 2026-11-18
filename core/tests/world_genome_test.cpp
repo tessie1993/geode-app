@@ -855,6 +855,18 @@ void loadAssets(const char* shapes, const char* textures) {
     atlasMatchesTheSlabs(s);
 }
 
+// The scene binds the baked assets once (ShaderScene::uploadWorld); a new play's reset keeps them bound.
+void assetsStayBoundAcrossANewSeed() {
+    MorphDriver d;
+    d.reset(1);
+    d.setAssetsBound(true);
+    d.step(DriverInput{}, 1.0f / 60.0f);
+    check(d.uniforms()[Assets] == 1.0f, "the bound assets are drawn");
+    d.reset(2);
+    d.step(DriverInput{}, 1.0f / 60.0f);
+    check(d.uniforms()[Assets] == 1.0f, "a new seed keeps the assets bound");
+}
+
 }  // namespace
 
 // Audio drive reaches Morph World: the levels the driver hears scale with it, and 1 is the frame as heard.
@@ -897,7 +909,10 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
-    if (argc == 4) loadAssets(argv[2], argv[3]);
+    if (argc == 4) {
+        loadAssets(argv[2], argv[3]);
+        assetsStayBoundAcrossANewSeed();
+    }
     lerpEndpointsAreExact();
     audioDriveScalesWhatTheWorldHears();
     seedsAreValid();

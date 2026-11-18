@@ -4,7 +4,7 @@ import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.StudioNative
 import dev.geode.export.ExportCodec
 import org.json.JSONArray
 import org.json.JSONObject
@@ -68,10 +68,10 @@ internal object EditorProjectJson {
     }
 
     private fun kind(o: JSONObject): String =
-        requireNotNull(GeodeNative.studioKindRead(o.optJSONObject("kind")?.toString())) { "unknown Studio project kind" }
+        requireNotNull(StudioNative.studioKindRead(o.optJSONObject("kind")?.toString())) { "unknown Studio project kind" }
 
     private fun edit(o: JSONObject): String =
-        requireNotNull(GeodeNative.studioEditRead(o.optJSONObject("edit")?.toString())) { "unreadable Studio edit" }
+        requireNotNull(StudioNative.studioEditRead(o.optJSONObject("edit")?.toString())) { "unreadable Studio edit" }
 
     private fun export(d: ExportDefaults): JSONObject =
         JSONObject()
@@ -88,7 +88,7 @@ internal object EditorProjectJson {
         val d = ExportDefaults()
         return ExportDefaults(
             quality = enumOr(o.optString("quality"), d.quality),
-            fps = o.optInt("fps", d.fps).let { if (it in EXPORT_FPS_OPTIONS) it else d.fps },
+            fps = ExportFps.read(o.optInt("fps", d.fps), d.fps),
             ratio = enumOr(o.optString("ratio"), d.ratio),
             loopSafe = o.optBoolean("loopSafe", d.loopSafe),
             codec = enumOr(o.optString("codec"), ExportCodec.H264),

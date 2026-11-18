@@ -77,7 +77,10 @@ public:
     }
 
     void end() override {
-        if (JNIEnv* env = currentEnv()) release(env);
+        JNIEnv* env = currentEnv();
+        // begin() may have failed to attach; the Java references still have to be let go of.
+        if (!env && vm_->AttachCurrentThread(&env, nullptr) == JNI_OK) attached_ = true;
+        if (env) release(env);
         if (attached_) vm_->DetachCurrentThread();
         attached_ = false;
         env_ = nullptr;

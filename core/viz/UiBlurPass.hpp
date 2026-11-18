@@ -54,18 +54,22 @@ public:
 
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error);
     void release();
+    // The context is gone: drops the programs and targets without a GL call.
+    void forget();
     void releaseTargets();
+    // Once a frame, on the wall step: frees the targets once `idleSeconds` pass without a draw.
+    void releaseIdle(float wallDt, float idleSeconds);
     // After the composite, with `targetFbo` holding the finished frame of width × height pixels.
     void draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao);
 
 private:
-    GLuint blurProgram_ = 0;
-    GLuint maskProgram_ = 0;
-    UniformCache blurUniforms_;
-    UniformCache maskUniforms_;
+    OwnedProgram blurUniforms_;  // the blur program and its locations
+    OwnedProgram maskUniforms_;  // the mask program and its locations
     Framebuffer half_{"uiBlurHalf"};
     Framebuffer quarterA_{"uiBlurQuarterA"};
     Framebuffer quarterB_{"uiBlurQuarterB"};
+    // Wall seconds since the last draw (releaseIdle).
+    float idleSeconds_ = 0.0f;
 };
 
 }  // namespace geode::viz

@@ -251,7 +251,7 @@ float ssOuter(vec3 p) {
 float ssOuterGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, ssOuter(shellAt3(i)));
     }
     return r;
@@ -520,6 +520,9 @@ void main() {
     float sceneR = SS_SCENE_R + SHELL_SLACK(SS_SCENE_R);
     float disc = b * b - (dot(ro, ro) - sceneR * sceneR);
     float hitT = -1.0;
+    // What mapOuter() leaves at the hit, kept so the shading needs no extra mapOuter(p) after the normal taps.
+    float hitMat = 0.0;
+    vec2 hitAng = vec2(0.0);
     float used = 0.0;
     vec3 glow = vec3(0.0);
     if (disc > 0.0) {
@@ -535,6 +538,8 @@ void main() {
             float eps = 0.0007 * t + 0.0005;
             if (d < eps) {
                 hitT = t;
+                hitMat = gMat;
+                hitAng = gAng;
                 break;
             }
             // Glow gathered along the ray: complementary light from the membrane and satellites.
@@ -548,7 +553,8 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalOuter(p, max(0.0012 * hitT, 0.0006));
         // Restore the hit's material and angles after the normal taps.
-        mapOuter(p);
+        gMat = hitMat;
+        gAng = hitAng;
         float mat = gMat;
         vec2 ang = gAng;
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);

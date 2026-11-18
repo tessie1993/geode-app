@@ -90,6 +90,9 @@ bool EglWindow::ensureDisplay() {
         return false;
     }
     surfaceless_ = hasExtension(display, "EGL_KHR_surfaceless_context");
+    if (hasExtension(display, "EGL_ANDROID_presentation_time")) {
+        presentationTime_ = reinterpret_cast<decltype(presentationTime_)>(eglGetProcAddress("eglPresentationTimeANDROID"));
+    }
     return true;
 }
 
@@ -146,6 +149,8 @@ void EglWindow::releaseCurrent() {
 
 EGLint EglWindow::swap() {
     if (surface_ == EGL_NO_SURFACE) return EGL_BAD_SURFACE;
+    if (presentNs_ > 0 && presentationTime_) presentationTime_(display_, surface_, presentNs_);
+    presentNs_ = 0;
     if (eglSwapBuffers(display_, surface_)) return EGL_SUCCESS;
     const EGLint error = eglGetError();
     GEODE_LOGW(kTag, "eglSwapBuffers: 0x%x", static_cast<unsigned>(error));

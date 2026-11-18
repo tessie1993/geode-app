@@ -22,9 +22,9 @@ namespace geode::viz::physics {
 
 // Below this a layer's mix draws nothing and allocates nothing.
 inline constexpr float kOn = 1.0f / 256.0f;
-// Frames the grids and targets outlive a layer going off (about two seconds at 60 Hz): a wave or a route that
-// dips to 0 each cycle must not free and allocate them every time.
-inline constexpr int kIdleFrames = 120;
+// How long the grids and targets outlive a layer going off, on the wall clock: a wave or a route that dips to 0
+// each cycle must not free and allocate them every time.
+inline constexpr float kIdleSeconds = 2.0f;
 
 // What one frame asks of the layers.
 struct Plan {
@@ -73,10 +73,11 @@ struct Clock {
     void step(float dt);
 };
 
-// Whether the layers' grids and targets stay this frame: kept while on and for kIdleFrames after.
+// Whether the layers' grids and targets stay this frame: kept while on and for kIdleSeconds after. `wallDt` is the
+// frame's wall step, so the window is the same time at 30, 60 and 120 fps; silence does not stretch it.
 struct Keep {
-    int idle = kIdleFrames + 1;  // nothing to keep before the first frame on
-    bool step(bool on);
+    float idle = kIdleSeconds + 1.0f;  // nothing to keep before the first frame on
+    bool step(bool on, float wallDt);
 };
 
 // The composite's maths, which physics_layer_frag.glsl and physics_particle_frag.glsl draw: kept here so the host

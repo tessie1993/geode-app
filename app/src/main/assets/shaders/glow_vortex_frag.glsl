@@ -238,7 +238,7 @@ float mapField(vec3 p) {
 float mapFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
     }
     return r;
@@ -284,7 +284,7 @@ vec3 swirlCol(vec2 sp) {
 vec3 gvEyeWebGrown(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     vec3 r = vec3(0.0);
-    for (int i = SHELL_FROM; i < 6; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(6); i++) {
         if (!shellPass2(i)) continue;
         vec3 v = gvEyeWeb(shellAt2(uv, i, SHELL_ROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
@@ -478,7 +478,7 @@ void main() {
         gEyeTwist = mix(0.55, 1.6, kFlow);
         gHue0 = hue0;
         vec3 web = gvEyeWebGrown(pp);
-        web *= smoothstep(1.3, 0.25, lp) * (0.5 + 0.7 * clamp(kBuild, 0.0, 1.0));
+        web *= (1.0 - smoothstep(0.25, 1.3, lp)) * (0.5 + 0.7 * clamp(kBuild, 0.0, 1.0));
         float core = exp(-lp * 6.0 * sCoreK);
         col += (web * 0.7 * glow + eyeCol * core * (0.15 + 1.0 * kPulse)) * esc;
     }

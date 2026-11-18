@@ -42,10 +42,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.ModulationNative
+import dev.geode.engine.bridge.ParamsNative
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 
@@ -110,10 +110,10 @@ internal fun EventsTab(
                 remember(sceneId, seed, reactions, handMask) {
                     ModCatalog
                         .words("recipe")
-                        .map { it to GeodeNative.modRecipeState(it.ordinal, sceneId, seed, reactions, handMask) }
-                        .filter { (_, state) -> state and GeodeNative.MOD_RECIPE_OFFERED != 0 }
+                        .map { it to ModulationNative.modRecipeState(it.ordinal, sceneId, seed, reactions, handMask) }
+                        .filter { (_, state) -> state and ModulationNative.MOD_RECIPE_OFFERED != 0 }
                 }
-            val onCount = shown.count { (_, state) -> state and GeodeNative.MOD_RECIPE_ON != 0 }
+            val onCount = shown.count { (_, state) -> state and ModulationNative.MOD_RECIPE_ON != 0 }
             val recipesName = stringResource(R.string.music_moment_recipes)
             val recipesSummary = stringResource(R.string.music_recipes_summary, onCount)
             Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
@@ -124,18 +124,18 @@ internal fun EventsTab(
                         summary = recipesSummary,
                         picks =
                             shown.map { (recipe, state) ->
-                                val on = state and GeodeNative.MOD_RECIPE_ON != 0
-                                MenuPick(recipe.label, checked = on, enabled = on || state and GeodeNative.MOD_RECIPE_FITS != 0)
+                                val on = state and ModulationNative.MOD_RECIPE_ON != 0
+                                MenuPick(recipe.label, checked = on, enabled = on || state and ModulationNative.MOD_RECIPE_FITS != 0)
                             },
-                    ) { i -> onEdit(GeodeNative.MOD_EDIT_RECIPE_TOGGLE, shown[i].first.ordinal, 0, 0f) }
+                    ) { i -> onEdit(ModulationNative.MOD_EDIT_RECIPE_TOGGLE, shown[i].first.ordinal, 0, 0f) }
                 }
             }
-            val recipeFull = shown.any { (_, state) -> state and (GeodeNative.MOD_RECIPE_ON or GeodeNative.MOD_RECIPE_FITS) == 0 }
+            val recipeFull = shown.any { (_, state) -> state and (ModulationNative.MOD_RECIPE_ON or ModulationNative.MOD_RECIPE_FITS) == 0 }
             val momentFull = rows.any { row -> actions.any { (a) -> a !in row.on && a !in row.fits } }
             if (recipeFull || momentFull) {
                 val playing =
                     remember(sceneId, seed, reactions, handMask) {
-                        GeodeNative.modRoutesPlaying(sceneId, seed, reactions, handMask).size / GeodeNative.MOD_ROUTE_VALUES
+                        ModulationNative.modRoutesPlaying(sceneId, seed, reactions, handMask).size / ModulationNative.MOD_ROUTE_VALUES
                     }
                 ControlHint(stringResource(R.string.music_moment_full, playing, ModCatalog.count("routes")))
             }
@@ -216,9 +216,9 @@ private fun MomentRow(
                     if (i == ordered.size) {
                         // None: every action this moment plays, off, one native edit after another.
                         val off = ordered.filter { it in row.on }
-                        off.forEach { a -> onEdit(GeodeNative.MOD_EDIT_MUSIC_TOGGLE, moment.ordinal, a.ordinal, 0f) }
+                        off.forEach { a -> onEdit(ModulationNative.MOD_EDIT_MUSIC_TOGGLE, moment.ordinal, a.ordinal, 0f) }
                     } else {
-                        onEdit(GeodeNative.MOD_EDIT_MUSIC_TOGGLE, moment.ordinal, ordered[i].ordinal, 0f)
+                        onEdit(ModulationNative.MOD_EDIT_MUSIC_TOGGLE, moment.ordinal, ordered[i].ordinal, 0f)
                     }
                 }
             }
@@ -236,8 +236,8 @@ private fun MomentRow(
                 range = ModCatalog.range("music.strength"),
                 display = stringResource(R.string.music_moment_strength, name),
                 scope = ParamScope.UNIVERSAL,
-                unit = ParamUnit.TIMES,
-            ) { v -> onEdit(GeodeNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, v) }
+                unit = ParamsNative.PARAM_UNIT_TIMES,
+            ) { v -> onEdit(ModulationNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, v) }
         }
     }
 }
@@ -298,9 +298,9 @@ private fun MomentMenu(
                 onClick = {
                     open = false
                     if (row.mine) {
-                        edit(GeodeNative.MOD_EDIT_MUSIC_RESET, moment.ordinal, 0, 0f)
+                        edit(ModulationNative.MOD_EDIT_MUSIC_RESET, moment.ordinal, 0, 0f)
                     } else {
-                        edit(GeodeNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, row.strength)
+                        edit(ModulationNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, row.strength)
                     }
                 },
             )
@@ -322,7 +322,7 @@ private fun MomentMenu(
             if (row.mine) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.music_moment_reset)) }, onClick = {
                     open = false
-                    edit(GeodeNative.MOD_EDIT_MUSIC_RESET, moment.ordinal, 0, 0f)
+                    edit(ModulationNative.MOD_EDIT_MUSIC_RESET, moment.ordinal, 0, 0f)
                 })
             }
         }

@@ -13,7 +13,7 @@ import android.provider.MediaStore
 import dev.geode.R
 import dev.geode.data.pendingRows
 import dev.geode.data.publishPending
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -78,13 +78,13 @@ class LoopExtendPlan private constructor(
     fun estimatedBytes(
         loopBytes: Long,
         soundtrackBytes: Long,
-    ): Long = GeodeNative.loopEstimatedBytes(loopDurationUs, totalDurationUs, loopBytes, soundtrackBytes)
+    ): Long = ExportNative.loopEstimatedBytes(loopDurationUs, totalDurationUs, loopBytes, soundtrackBytes)
 
     /** The video bit rate a render would need to keep a file of this length under [limitBytes]. */
     fun fittingBitRate(
         limitBytes: Long,
         soundtrackBytes: Long,
-    ): Int = GeodeNative.loopFittingBitRate(totalDurationUs, limitBytes, soundtrackBytes)
+    ): Int = ExportNative.loopFittingBitRate(totalDurationUs, limitBytes, soundtrackBytes)
 
     companion object {
         fun of(
@@ -95,7 +95,7 @@ class LoopExtendPlan private constructor(
             require(loopDurationUs > 0) { "loopDurationUs must be positive, was $loopDurationUs" }
             require(loops >= 1) { "a plan needs at least one loop, was $loops" }
             val total = totalDurationUs.coerceAtLeast(1L)
-            val pairs = GeodeNative.loopExtendPlan(loopDurationUs, total, loops)
+            val pairs = ExportNative.loopExtendPlan(loopDurationUs, total, loops)
             val writes = List(pairs.size / 2) { LoopWrite(loopIndex = pairs[it * 2 + 1].toInt(), offsetUs = pairs[it * 2]) }
             return LoopExtendPlan(loopDurationUs, total, writes)
         }
@@ -179,7 +179,7 @@ class LoopExtend(
         ) : Target
     }
 
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "TooGenericExceptionCaught")
     private fun write(
         reel: LoopReel,
         soundtrack: Soundtrack,
@@ -201,15 +201,18 @@ class LoopExtend(
         return try {
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
             finish(target, completed, plan)
-        } catch (e: IllegalStateException) {
+        } catch (e: CancellationException) {
             discard(target)
-            Result.Failed(e.message ?: context.getString(R.string.export_error_extend_assemble))
-        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
             discard(target)
-            Result.Failed(context.getString(R.string.export_error_extend_copy, e.message))
-        } catch (e: IOException) {
-            discard(target)
-            Result.Failed(context.getString(R.string.export_error_extend_write, e.message))
+            Result.Failed(
+                when (e) {
+                    is IllegalArgumentException -> context.getString(R.string.export_error_extend_copy, e.message)
+                    is IllegalStateException -> e.message ?: context.getString(R.string.export_error_extend_assemble)
+                    else -> context.getString(R.string.export_error_extend_write, e.message)
+                },
+            )
         }
     }
 
@@ -221,11 +224,7 @@ class LoopExtend(
         if (completed && !publish(target)) {
             Result.Failed(context.getString(R.string.export_error_library_publish))
         } else if (completed) {
-            Result.Saved(
-                uri = target.uri,
-                durationMs = plan.totalDurationUs / 1000,
-                plan = plan,
-            )
+            Result.Saved(uri = target.uri, durationMs = plan.totalDurationUs / 1000, plan = plan)
         } else {
             discard(target)
             Result.Cancelled
@@ -250,7 +249,7 @@ class LoopExtend(
         var started = false
         var stopped = false
         try {
-            reel.loops.forEach { readers += LoopReader.open(it.file) }
+            reel.loops.forEach { readers += LoopReader.open(it.file, readers.firstOrNull()?.buffer) }
             checkOneEncoding(readers)
             val writer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxer = it }
             val videoTrack = writer.addTrack(readers.first().format)
@@ -311,7 +310,7 @@ class LoopExtend(
                             maxDurationMs = 0L,
                             startMs = 0L,
                             // One AAC track carries one rate, so every clip is brought to the same one.
-                            outputRateHz = GeodeNative.mixRateHz(),
+                            outputRateHz = ExportNative.mixRateHz(),
                             isCancelled = isCancelled,
                         ) { progress ->
                             onProgress(AUDIO_PROGRESS_SPAN * (index + progress) / clips.size)
@@ -331,7 +330,7 @@ class LoopExtend(
     /**
      * The clips become one AAC track, so they must agree on sample rate and channel count — a
      * track carries one codec configuration. [transcode] brings every clip to
-     * [GeodeNative.mixRateHz], so in practice this now catches a mono clip among stereo ones.
+     * [ExportNative.mixRateHz], so in practice this now catches a mono clip among stereo ones.
      * Rejecting the mix up front beats writing an hour of audio that plays at the wrong speed.
      */
     private fun joinable(clips: List<TranscodedClip>): AudioBuild {
@@ -462,8 +461,8 @@ class LoopExtend(
     private class LoopReader private constructor(
         private val extractor: MediaExtractor,
         val format: MediaFormat,
+        val buffer: ByteBuffer,
     ) : Closeable {
-        private val buffer: ByteBuffer = ByteBuffer.allocateDirect(sampleBufferBytes(format))
         private val info = MediaCodec.BufferInfo()
 
         /** Identifies the encoder configuration this loop carries: width, height, mime and csd. */
@@ -507,7 +506,10 @@ class LoopExtend(
         }
 
         companion object {
-            fun open(file: File): LoopReader {
+            fun open(
+                file: File,
+                shared: ByteBuffer?,
+            ): LoopReader {
                 val extractor = MediaExtractor()
                 val opened =
                     runCatching {
@@ -517,7 +519,8 @@ class LoopExtend(
                                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
                             } ?: error("The rendered loop has no video track.")
                         extractor.selectTrack(track)
-                        LoopReader(extractor, extractor.getTrackFormat(track))
+                        val format = extractor.getTrackFormat(track)
+                        LoopReader(extractor, format, shared ?: ByteBuffer.allocateDirect(sampleBufferBytes(format)))
                     }
                 return opened.getOrElse { failure ->
                     bestEffort(TAG, "extractor.release()") { extractor.release() }
@@ -631,7 +634,7 @@ class LoopExtend(
          * which is what the failure message says. Native (`core/output/EncodePlan`), beside the
          * lower target [MuxerBudget] aims renders at.
          */
-        val MUXER_SAFE_BYTES: Long get() = GeodeNative.exportMuxerHardLimitBytes()
+        val MUXER_SAFE_BYTES: Long get() = ExportNative.exportMuxerHardLimitBytes()
 
         private const val AUDIO_PROGRESS_SPAN = 0.35f
         private const val SCRATCH_BYTES = 64 * 1024

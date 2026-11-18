@@ -4,9 +4,9 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 
 ## Where tests live
 
-- JVM unit tests live in `app/src/test` and `engine/*/src/test`; CI runs every module's.
+- JVM unit tests live in `app/src/test`; CI runs them.
 - Instrumented tests live in `app/src/androidTest`.
-- `engine/scenes/src/test/` holds no test: the module has no Kotlin left.
+- There is no `engine/` module: every JVM test is under `app/src/test/`.
 - `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
 - `app/src/androidTest/.../ui/SceneTabLayersTest.kt`: "Layers enabled" on the Layers page turns native's layer on, and a search for "layer" finds it.
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
@@ -14,7 +14,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `app/src/test/.../ui/MusicMomentsTest.kt` holds the `MusicMoment` and `MusicAction` enums to native's wire order and the Music menu to native's order and groups.
 - `app/src/test/.../ui/ParamNamesTest.kt` holds every scene param name `CustomizeAdvanced` and `CustomizeTabs` pass as text to a live row of the params schema fixture; the controls' own names are held natively by `customize_rows_test`.
 - `app/src/test/.../ui/StageIconRoomTest.kt` pins where the stage icons are drawn under each sheet height and the landscape panel.
-- Put new pure tests in a JVM module where you can.
+- Put new pure tests in `app/src/test` where you can.
 - Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (the reactions' saved text is native for that reason: `core/viz/ReactionText`, `reaction_text_test.cpp`).
 - Anything that needs a device goes into the PR as a short checklist.
 - `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
@@ -23,7 +23,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
-- `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`core/audio/ingest/AiffHeaderScan`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
+- `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`AiffHeaderScan` in `core/audio/ingest/AiffReader.hpp`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
 - `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.
 - `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
@@ -35,7 +35,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `cast_same_visual_test.cpp`: the stage's host while casting (`core/viz/StageRun`): drawing on every tab and before Visuals was ever laid out, no bars; every stage shape filling the stream; a new stream waiting for the stage's first copy.
 - `catalogue_test.cpp`: the catalogue against its tables, the answers the shell asks for, and its text against `core/tests/catalogue.txt`.
 - `core/tests/catalogue.txt` is the copy the tools read (`tools/store-stats.sh`, `tools/glslcheck`); regenerate it with `catalogue_test --write`.
-- `app/src/test/.../render/scene/TestCatalogue.kt` is a small hand-written catalogue; a JVM test that reaches `StyleCatalogue` installs it first.
+- `app/src/test/java/dev/geode/model/TestCatalogue.kt` is a small hand-written catalogue; a JVM test that reaches `StyleCatalogue` installs it first.
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 - `command_queue_test.cpp`: `core/stage/CommandQueue`, how other threads hand a stage its commands: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
@@ -48,7 +48,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `director_test.cpp` also covers the musical spans: looks on the bar, the feeling's glide, the build's lean, sections that grow when they return, the song's arc, style intents and the settings table.
 - `director_style_test.cpp`: Auto's style at a director moment (`core/viz/DirectorStyle`): a return's own family stepped on, the next along the catalogue, a drop's leap, stay, the one-shot intent.
 - `dsp_handoff_test.cpp`: the playback DSP's format hand-off.
-- `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `GeodeNative.AUDIO_OUT_*`, pinned.
+- `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `AudioOutNative.AUDIO_OUT_*`, pinned.
 - `dsp_runs_test.cpp`: which formats the playback DSP runs (`geode_dsp_runs`: 16-bit or float, mono or stereo); `NativeDspProcessor` steps aside for the rest.
 - `easter_eggs_test.cpp`: shake to screenshot never from walking or a set-down, one picture per shake; tap along fires once on four taps on the beat, never off it, in silence or on double taps.
 - `edge_glow_pass_test.cpp`: `frame::EdgeGlowPass`'s lifetime and what one wallpaper frame of it leaves in the target.
@@ -80,6 +80,10 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `library_playlist_test.cpp`: `core/library/PlaylistRules`: the playlist file, the order, add, remove, move, rename, create and import (a free name by file stem), the legacy rename plan and the wires the shell splits.
+- `library_session_test.cpp`: `core/library/SessionDoc`: session.json written and read back, the version gate, the clamps, which texts are no session, and the wire the shell splits.
+- `library_smart_playlist_test.cpp`: `core/library/SmartPlaylist`: the file read and written, text rules (case folded in every script with case), number rules, favourites, match all or any, the limit, the order, rule tokens and the wire the shell splits.
+- `library_history_test.cpp`: `core/library/History`: how history.json reads, a play, listened time, newest first, what is kept on disk, and the wire the shell splits.
 - `look_snapshot_test.cpp`: `core/viz/LookSnapshot`, the look a renderer is handed whole: only the parts that differ pass (all on a new renderer), equal copies pass nothing, and the defaults the shell reads.
 - `lyrics_test.cpp`: the .lrc parse (stamps, fractions, headers, plain lyrics, the wire form) and the line sung at a position.
 - `playlist_test.cpp`: `core/library/Playlist`: M3U, PLS and XSPF reads, names, durations, base names, the DOCTYPE refusal and the wire text.
@@ -90,7 +94,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
 - `physics_layers_test.cpp`: the physics layers' `PhysicsPlan` (`core/viz/physics`): off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the four params and their safety rules.
-- `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
+- `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the events.
 - `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; the loop job drives it.
 - `loop_render_test.cpp`: the loop render job in `core/output/LoopRender` on a fake host, encoder and muxer: the encoder it settles on, each stop's frame count and PTS, the seam, progress, cancel and every failure.
 - `loudness_test.cpp`: export DSP, the BS.1770 meter.
@@ -130,7 +134,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `pcm_ring_kinds_test.cpp`: `core/audio/ingest/RingKinds`: the process's player and mic rings (one handle from every thread, sizes, runway, the mic's layer, never freed), the output mix's stitched ring freed by its owner while a reader still reads.
 - `playback_controls_test.cpp`: Settings › Playback's rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step, the saved options' ranges and defaults (`PlayerPrefs.coerced` reads them), the crossfade slider's rounding.
 - `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
-- `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear.
+- `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear, the C ABI cap is the engine's.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
@@ -143,7 +147,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `encode_sink_test.cpp`: `core/output/EncodeSink` and `RecordSession` on a fake codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, end of stream, errors, the stage tee's close.
 - `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
 - `render_eta_test.cpp`: the export's time left (`core/output/RenderEta`): nothing through a lead-in or the first 10 s, then near the truth and never climbing, and which phrase words it.
-- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, thermal slot, Liquid label and error text.
+- `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, Liquid label and error text.
 - `resampler_test.cpp`: export DSP, the resampler.
 - `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.
 - `resolver_test.cpp` also covers the bank's offset, an export's pinned bank, and the director leaving the bank alone.
@@ -160,7 +164,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
 - `live_client_test.cpp`: `core/stage/LiveClient`, a live stage's client: the ring a frame hears, events kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed on release.
 - `stage_lifecycle_test.cpp`: `core/stage/StageLifecycle`, when a stage makes, uses and frees its EGL context and surface: the common paths action by action, then every four-event sequence and long random ones (no GL without a context, every create destroyed, one release).
-- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
+- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
 - `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.
 - `style_pick_test.cpp`: Styles' Random: every family or the on-screen family, never the style on screen, a kept style first, a family of one rolling inside its style; each list led by what is on screen.
 - `style_reads_test.cpp`: shader truth: each shader style's camera rig (`catalogue::fliesCamera`, which Customize's Camera framing and feel follow) and its march against the `uCamBasis` and `uSteps` its assembled shader reads.
@@ -169,7 +173,6 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `style_schedule_test.cpp`: an export segment's style schedule, which drops the styles the entitlement locks and holds in silence.
 - `surface_motion_test.cpp`: the wallpaper's and dream's run rule under reduced motion, the still frame's settle, and each surface's fps choice.
 - `surface_run_test.cpp`: the wallpaper's and dream's run rule and the trial's end, and the stage's (`core/viz/StageRun`).
-- `thermal_test.cpp`: the process's one thermal state (`core/viz/frame/Thermal`): the fps-first ladder, the thermal cap on the pacer, every renderer reading one tier, the once-per-process "Phone is warm" note `ui/StageWarmNote` toasts, `geode_thermal_take_warm_note`.
 - `touch_smear_test.cpp`: Settings › Touch › Smear (`core/viz/TouchSmear`): the fingers' kicks, the bend, its linger, silence, reduced motion.
 - `touch_gesture_test.cpp`: the fingers on the visual (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger reading and pinch step, the stir.
 - `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.

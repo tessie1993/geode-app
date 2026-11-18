@@ -482,15 +482,16 @@
 
     <!-- Settings › Audio › Other apps (playback capture). -->
     <string name="ext_visualize_other_apps">Visualize other apps</string>
-    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. An app that blocks capture is heard through the phone\'s own sound output instead, which is rougher. Audio is analysed live and never recorded, saved or sent anywhere.</string>
     <string name="ext_waiting_permission">Waiting for the capture permission…</string>
     <string name="ext_listening_to">Listening to %1$s.</string>
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>
     <string name="ext_hearing_silence">Listening, but hearing only silence. Either nothing is playing, or the app that is playing does not let other apps capture its audio (some music and video apps block it). Try another app, or the microphone.</string>
     <string name="ext_now_playing_line">%1$s: %2$s</string>
     <string name="ext_now_playing_line_with_artist">%1$s: %2$s — %3$s</string>
-    <string name="ext_read_now_playing_explainer">BeatRealms can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
-    <string name="ext_allow_reading">Allow reading now playing</string>
+    <string name="ext_read_now_playing_explainer">With notification access, BeatRealms shows the other app\'s track and controls it from the player. Optional: the visuals work on the sound alone.</string>
+    <string name="ext_allow_reading">Allow notification access</string>
+    <string name="ext_session_unreadable">Allow notification access to see the other app\'s track and control it from here.</string>
     <string name="ext_silence_title">Silence, on purpose</string>
     <string name="ext_refused_body">%1$s does not allow other apps to capture its audio. Android honours that, and there is no setting on either side that changes it — the capture is running and being handed digital silence. Most other apps (YouTube, podcast players, games) do allow it and work here.</string>
     <string name="ext_mic_alternative">The microphone still hears your speaker. It picks up the room with it, so it is a rougher signal — but it reacts to %1$s.</string>

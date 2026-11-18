@@ -48,69 +48,53 @@ jintArray intsOf(JNIEnv* env, const int* values, int count) {
 extern "C" {
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modCatalogText(JNIEnv* env, jobject) {
+Java_dev_geode_engine_bridge_ModulationNative_modCatalogText(JNIEnv* env, jobject) {
     return utf8String(env, geode_mod_catalog_text());
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modLfosRead(JNIEnv* env, jobject, jstring text) {
+Java_dev_geode_engine_bridge_ModulationNative_modLfosRead(JNIEnv* env, jobject, jstring text) {
     Utf8Chars saved(env, text);
     return textOf(env, false, [&](char* out, int capacity) { return geode_mod_lfos_read(saved.get(), out, capacity); });
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modAdsrsRead(JNIEnv* env, jobject, jstring text) {
+Java_dev_geode_engine_bridge_ModulationNative_modAdsrsRead(JNIEnv* env, jobject, jstring text) {
     Utf8Chars saved(env, text);
     return textOf(env, false, [&](char* out, int capacity) { return geode_mod_adsrs_read(saved.get(), out, capacity); });
 }
 
 // Null for text that is no route list: Auto.
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modReactionsRead(JNIEnv* env, jobject, jstring text) {
+Java_dev_geode_engine_bridge_ModulationNative_modReactionsRead(JNIEnv* env, jobject, jstring text) {
     Utf8Chars saved(env, text);
     return textOf(env, true, [&](char* out, int capacity) { return geode_mod_reactions_read(saved.get(), out, capacity); });
 }
 
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modLfoValues(JNIEnv* env, jobject, jstring lfos, jint slot, jstring styleId) {
+Java_dev_geode_engine_bridge_ModulationNative_modLfoValues(JNIEnv* env, jobject, jstring lfos, jint slot, jstring styleId) {
     Utf8Chars saved(env, lfos);
     Utf8Chars id(env, styleId);
     float out[GEODE_MOD_LFO_VALUES] = {};
     return floatsOf(env, out, geode_mod_lfo_values(saved.get(), slot, id.get(), out, GEODE_MOD_LFO_VALUES));
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modLfoEdit(JNIEnv* env, jobject, jstring lfos, jint slot, jint field, jfloat value) {
-    Utf8Chars saved(env, lfos);
-    return textOf(env, false, [&](char* out, int capacity) {
-        return geode_mod_lfo_edit(saved.get(), slot, field, value, out, capacity);
-    });
-}
-
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modAdsrValues(JNIEnv* env, jobject, jstring adsrs, jint slot) {
+Java_dev_geode_engine_bridge_ModulationNative_modAdsrValues(JNIEnv* env, jobject, jstring adsrs, jint slot) {
     Utf8Chars saved(env, adsrs);
     float out[GEODE_MOD_ADSR_VALUES + kMaxTargets] = {};
     return floatsOf(env, out, geode_mod_adsr_values(saved.get(), slot, out, GEODE_MOD_ADSR_VALUES + kMaxTargets));
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modAdsrEdit(JNIEnv* env, jobject, jstring adsrs, jint slot, jint field, jfloat value) {
-    Utf8Chars saved(env, adsrs);
-    return textOf(env, false, [&](char* out, int capacity) {
-        return geode_mod_adsr_edit(saved.get(), slot, field, value, out, capacity);
-    });
-}
-
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modTargetsOffered(JNIEnv* env, jobject, jstring styleId, jint picker) {
+Java_dev_geode_engine_bridge_ModulationNative_modTargetsOffered(JNIEnv* env, jobject, jstring styleId, jint picker) {
     Utf8Chars id(env, styleId);
     int out[kMaxTargets] = {};
     return intsOf(env, out, geode_mod_targets_offered(id.get(), picker, out, kMaxTargets));
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modAdsrTargetsOffered(JNIEnv* env, jobject, jstring adsrs, jint slot, jstring styleId) {
+Java_dev_geode_engine_bridge_ModulationNative_modAdsrTargetsOffered(JNIEnv* env, jobject, jstring adsrs, jint slot, jstring styleId) {
     Utf8Chars saved(env, adsrs);
     Utf8Chars id(env, styleId);
     int out[kMaxTargets] = {};
@@ -118,7 +102,7 @@ Java_dev_geode_engine_bridge_GeodeNative_modAdsrTargetsOffered(JNIEnv* env, jobj
 }
 
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modRoutesPlaying(JNIEnv* env, jobject, jstring styleId, jint seed, jstring reactions,
+Java_dev_geode_engine_bridge_ModulationNative_modRoutesPlaying(JNIEnv* env, jobject, jstring styleId, jint seed, jstring reactions,
                                                           jint mask) {
     Utf8Chars id(env, styleId);
     Utf8Chars saved(env, reactions);
@@ -129,7 +113,7 @@ Java_dev_geode_engine_bridge_GeodeNative_modRoutesPlaying(JNIEnv* env, jobject, 
 
 // outMask[0] is the mask to save beside the returned text; null (and mask 0) when every route is Auto again.
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modReactionsEdit(JNIEnv* env, jobject, jstring styleId, jint seed, jstring reactions,
+Java_dev_geode_engine_bridge_ModulationNative_modReactionsEdit(JNIEnv* env, jobject, jstring styleId, jint seed, jstring reactions,
                                                           jint mask, jint op, jint a, jint b, jfloat value, jintArray outMask) {
     Utf8Chars id(env, styleId);
     Utf8Chars saved(env, reactions);
@@ -146,7 +130,7 @@ Java_dev_geode_engine_bridge_GeodeNative_modReactionsEdit(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modMusicState(JNIEnv* env, jobject, jstring styleId, jint seed, jstring reactions,
+Java_dev_geode_engine_bridge_ModulationNative_modMusicState(JNIEnv* env, jobject, jstring styleId, jint seed, jstring reactions,
                                                        jint mask) {
     Utf8Chars id(env, styleId);
     Utf8Chars saved(env, reactions);
@@ -156,7 +140,7 @@ Java_dev_geode_engine_bridge_GeodeNative_modMusicState(JNIEnv* env, jobject, jst
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modRecipeState(JNIEnv* env, jobject, jint recipe, jstring styleId, jint seed,
+Java_dev_geode_engine_bridge_ModulationNative_modRecipeState(JNIEnv* env, jobject, jint recipe, jstring styleId, jint seed,
                                                         jstring reactions, jint mask) {
     Utf8Chars id(env, styleId);
     Utf8Chars saved(env, reactions);
@@ -165,19 +149,75 @@ Java_dev_geode_engine_bridge_GeodeNative_modRecipeState(JNIEnv* env, jobject, ji
 
 // -1: the saved routes no longer read and are to be dropped.
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modHandLoad(JNIEnv* env, jobject, jstring reactions, jboolean hasMask, jint savedMask) {
+Java_dev_geode_engine_bridge_ModulationNative_modHandLoad(JNIEnv* env, jobject, jstring reactions, jboolean hasMask, jint savedMask) {
     Utf8Chars saved(env, reactions);
     return geode_mod_hand_load(saved.get(), hasMask ? 1 : 0, savedMask);
 }
 
+// The modulation the app holds (geode_mod_state_*): each edit is an event and returns nothing.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateLoad(JNIEnv* env, jobject, jstring lfos, jstring adsrs, jstring reactions,
+                                                      jint mask) {
+    Utf8Chars waves(env, lfos);
+    Utf8Chars envelopes(env, adsrs);
+    Utf8Chars routes(env, reactions);
+    geode_mod_state_load(waves.get(), envelopes.get(), routes.get(), static_cast<unsigned>(mask));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateLfoSet(JNIEnv*, jobject, jint slot, jint field, jfloat value) {
+    geode_mod_state_lfo_set(slot, field, value);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateAdsrSet(JNIEnv*, jobject, jint slot, jint field, jfloat value) {
+    geode_mod_state_adsr_set(slot, field, value);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateReactionsEdit(JNIEnv* env, jobject, jstring styleId, jint seed, jint op, jint a,
+                                                               jint b, jfloat value) {
+    Utf8Chars id(env, styleId);
+    geode_mod_state_reactions_edit(id.get(), seed, op, a, b, value);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateKeepLoad(JNIEnv* env, jobject, jstring document) {
+    Utf8Chars text(env, document);
+    geode_mod_state_keep_load(text.get());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateKeepToggle(JNIEnv* env, jobject, jstring key) {
+    Utf8Chars name(env, key);
+    geode_mod_state_keep_toggle(name.get());
+}
+
+// A text held; null for the routes while Auto. Asked again when an edit on another thread grew it in between.
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateText(JNIEnv* env, jobject, jint which) {
+    std::vector<char> text(2048);
+    for (;;) {
+        const int need = geode_mod_state_text(which, text.data(), static_cast<int>(text.size()));
+        if (need == 0 && which == GEODE_MOD_STATE_REACTIONS) return nullptr;
+        if (need < static_cast<int>(text.size())) return utf8String(env, text.data());
+        text.resize(static_cast<size_t>(need) + 1);
+    }
+}
+
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modLfoShows(JNIEnv* env, jobject, jstring lfos, jint slot) {
+Java_dev_geode_engine_bridge_ModulationNative_modStateHandMask(JNIEnv*, jobject) {
+    return static_cast<jint>(geode_mod_state_hand_mask());
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modLfoShows(JNIEnv* env, jobject, jstring lfos, jint slot) {
     Utf8Chars saved(env, lfos);
     return static_cast<jint>(geode_mod_lfo_shows(saved.get(), slot));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modAdsrShows(JNIEnv* env, jobject, jstring adsrs, jint slot) {
+Java_dev_geode_engine_bridge_ModulationNative_modAdsrShows(JNIEnv* env, jobject, jstring adsrs, jint slot) {
     Utf8Chars saved(env, adsrs);
     return static_cast<jint>(geode_mod_adsr_shows(saved.get(), slot));
 }

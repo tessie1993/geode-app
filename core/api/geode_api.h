@@ -416,6 +416,8 @@ GEODE_API int64_t    geode_ab_loop_seek(int64_t start_ms, int64_t end_ms, int64_
 GEODE_API int        geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms);
 /* 1 when a track that just started at current_position_ms is still within 10 s of its start, so it may jump to its bookmark. */
 GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
+/* At most this many tracks keep a bookmark; past it the shell drops the one saved longest ago. */
+#define GEODE_BOOKMARK_MAX 200
 
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
@@ -541,12 +543,12 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
-/* Lyrics (core/library/Lyrics). _parse reads UTF-8 .lrc or plain lyrics into the wire form: "S" (timed, sorted by
- * time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
+/* Lyrics (core/library/Lyrics). _parse reads `len` bytes of UTF-8 .lrc or plain lyrics (a NUL among them is text,
+ * not the end) into the wire form: "S" (timed, sorted by time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
  * lyrics. The text goes out as geode::api::textOut does (the return is the length needed). _index_at takes the
  * ascending times of the lines and returns the line sung at `position_ms`: -1 before the first, with no lines,
  * or when plain (first time -1). */
-GEODE_API int         geode_lyrics_parse(const char* text, char* out, int capacity);
+GEODE_API int         geode_lyrics_parse(const char* text, int len, char* out, int capacity);
 GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count, long long position_ms);
 
 /* A playlist file the user picked (core/library/Playlist): M3U, PLS or XSPF as UTF-8 bytes, `file_name` its name
@@ -556,6 +558,86 @@ GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count
  * by U+001F, records by U+001E. A playlist with a DOCTYPE is refused. Pure, any thread. */
 GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned char* data, int len, char* out,
                                            int capacity);
+
+/* The play history (core/library/History). The shell holds history.json's text as the state, hands it to each call
+ * and keeps what comes back; it does the file, the lock, the quarantine and the write queue. Text out is valid until
+ * the calling thread's next call of the same function; NULL arguments read as "". Pure, any thread.
+ * corrupt: 1 when the text is not blank and does not read (the shell moves the file aside and starts empty).
+ * record_play: the state once `uri` starts playing at now_ms (made if new, count up, title set, artist unless
+ * blank, stamped after every play held). add_listen: the state with delta_ms (ignored at 0 or less, and for a uri
+ * not held) added to the track's listened time. file_text: the text to write (the 200 most recent and the 200 most
+ * played). recent: at most `limit` entries, newest first, as History's wire: uri, last-played ms, play count,
+ * title, artist and listened ms split by U+001F, each entry ended by U+001E. */
+GEODE_API int         geode_history_corrupt(const char* text);
+GEODE_API const char* geode_history_record_play(const char* state, const char* uri, const char* title,
+                                                const char* artist, long long now_ms);
+GEODE_API const char* geode_history_add_listen(const char* state, const char* uri, long long delta_ms);
+GEODE_API const char* geode_history_file_text(const char* state);
+GEODE_API const char* geode_history_recent(const char* state, int limit);
+
+/* Smart playlists (core/library/SmartPlaylist). The shell lists smart-playlists/ and reads and writes the files'
+ * text. A playlist crosses as match_all (1 or 0), limit and `rules`, 3 UTF-8 strings per rule: the field and op
+ * tokens the files hold (TITLE ... FAVOURITE, CONTAINS ... AT_MOST) and the value; a rule with an unknown token is
+ * dropped. Text out is valid until the calling thread's next call of the same function; NULL texts read as "".
+ * smart_list: the playlists among `count` file texts, sorted by lower-case name (ties in the order given), as
+ * SmartPlaylist's wire: per playlist its name, match_all ("1" or "0"), limit, then each rule's field token, op token
+ * and value, split by U+001F, each playlist ended by U+001E.
+ * smart_save_text: the text to write for a playlist named `name`, NULL for a blank name (nothing is saved).
+ * smart_resolve: the rows of `tracks` the playlist picks, in order (every track when no rule with a value is left,
+ * then the first `limit` when limit > 0). `tracks` holds 5 UTF-8 strings per track: uri, title, artist, album,
+ * folder; durations_ms and added_sec one value per track (NULL = zeros); `history` the play history's state (the
+ * play counts, see geode_history_*); `favourites` the favourite uris; now_ms the wall clock. Writes up to max_out rows
+ * to out and returns how many are picked. */
+GEODE_API const char* geode_smart_list(const char* const* texts, int count);
+GEODE_API const char* geode_smart_save_text(const char* name, int match_all, int limit, const char* const* rules,
+                                            int rule_count);
+GEODE_API int         geode_smart_resolve(int match_all, int limit, const char* const* rules, int rule_count,
+                                          const char* const* tracks, const long long* durations_ms,
+                                          const long long* added_sec, int track_count, const char* history,
+                                          const char* const* favourites, int favourite_count, long long now_ms,
+                                          int* out, int max_out);
+
+/* The user's ordinary playlists (core/library/PlaylistRules). The shell lists music-playlists/, reads and writes the
+ * files' text and acts on what comes back; a playlist's file is its name's geode_file_safe_name stem plus ".json".
+ * Text out is valid until the calling thread's next call of the same function; NULL texts read as "". Fields are
+ * split by U+001F and records ended by U+001E.
+ * list: the playlists among `count` file texts, sorted by lower-case name (ties in the order given): per playlist
+ * its name, then its track uris.
+ * apply: one edit, `kind` a GEODE_MUSIC_PLAYLIST_* below: create (name, tracks: each track once under the first free
+ * name from the trimmed name; a blank name writes nothing), import (name is the base, tracks as given, under the
+ * first free name), add (track), remove (track), move (from, to) and rename (name to new_name). A free name is one
+ * whose stem no listed playlist has. `texts` are every playlist file's text, `named` the text of the file `name`
+ * maps to, NULL when there is none (a file that cannot be read is ""): an add, remove or move never writes over a
+ * file that does not read. The answer is one record: write ("1" or "0"), ok ("0" when a rename is refused), the
+ * name whose file to write `json` to, the name whose file to delete once it is written ("" for none), and json.
+ * migration: the one-time renames of files saved under an older name rule, given every entry of the folder
+ * (`texts[i]` the text of a .json file, "" for anything else): per rename its from and to file names, in order.
+ * import_base: the name an imported file's playlist starts from: its own name, else the file's name, else
+ * `untitled`, each kept as it is when not blank. */
+#define GEODE_MUSIC_PLAYLIST_CREATE 0
+#define GEODE_MUSIC_PLAYLIST_IMPORT 1
+#define GEODE_MUSIC_PLAYLIST_ADD 2
+#define GEODE_MUSIC_PLAYLIST_REMOVE 3
+#define GEODE_MUSIC_PLAYLIST_MOVE 4
+#define GEODE_MUSIC_PLAYLIST_RENAME 5
+GEODE_API const char* geode_music_playlist_list(const char* const* texts, int count);
+GEODE_API const char* geode_music_playlist_apply(int kind, const char* name, const char* new_name, const char* track,
+                                                 const char* const* tracks, int track_count, int from, int to,
+                                                 const char* const* texts, int text_count, const char* named);
+GEODE_API const char* geode_music_playlist_migration(const char* const* file_names, const char* const* texts,
+                                                     int count);
+GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, const char* file_name,
+                                                       const char* untitled);
+
+/* The saved play queue, session.json (core/library/SessionDoc). The shell reads and writes the file's text. Text out
+ * is valid until the calling thread's next call of the same function; NULL texts read as "".
+ * session_read: the session the text holds as one record of index, position ms, then each track's uri, title and
+ * artist, split by U+001F and ended by U+001E; "" when the text is no session (the shell moves such a file aside):
+ * not an object, a version above 1, no track with a uri. Index and position come clamped.
+ * session_write: the text to write for `count` tracks (3 UTF-8 strings each: uri, title, artist), the index and the
+ * position (both clamped); "" for no tracks, when the shell deletes the file instead. */
+GEODE_API const char* geode_session_read(const char* text);
+GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
 
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
@@ -577,12 +659,16 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
 #define GEODE_STYLE_FLUID 4
 #define GEODE_STYLE_CYMATICS 5
 GEODE_API const char* geode_catalogue_style_ids(int trait);
+/* 1 when the style has the trait; 0 for an unknown trait or id. */
+GEODE_API int         geode_catalogue_style_has(int trait, const char* style_id);
 GEODE_API const char* geode_catalogue_picker_names(void);
 GEODE_API const char* geode_catalogue_picker_ids(const char* family);
 GEODE_API const char* geode_catalogue_resolve(const char* style_id);
 GEODE_API const char* geode_catalogue_preset_style(const char* style_id);
 GEODE_API const char* geode_catalogue_scope_of(const char* param_key);
 GEODE_API int         geode_catalogue_reaches(const char* scope_name, const char* style_id);
+/* 1 when the style holds the control at a value of its own (geode_catalogue_override then gives it), 0 when it is the user's. */
+GEODE_API int         geode_catalogue_has_override(const char* style_id, const char* param_key);
 GEODE_API float       geode_catalogue_override(const char* style_id, const char* param_key);
 GEODE_API float       geode_catalogue_value(const char* name);
 
@@ -604,6 +690,10 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
  * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
 GEODE_API void        geode_params_sanitize(const float* in, float* out);
+/* A look's frame `in` (a preset, a template, Reset all) as it replaces the live frame `current`: every slot whose
+ * meta row has kInput (viz/ParamTable.inc: an input preference such as Tilt phone to look, not part of a look) keeps
+ * current's value, every other slot is in's (viz/Params SceneParams::keepInputs). Same wire; out may alias either. */
+GEODE_API void        geode_params_keep_inputs(const float* current, const float* in, float* out);
 /* The scene params object of a preset, shared link, template look or saved live look (viz/ParamsJson), the
  * text the shell's org.json wrote and read. write_json: the n-float geode_viz_set_params frame (n at least
  * geode_viz_param_count) and the two palette slot ids (NULL as "") as compact JSON, valid until the calling
@@ -671,6 +761,9 @@ GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
 GEODE_API int         geode_saved_palette_max_stops(void);
 GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
 GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
+/* The saved palette id a look keeps on a params frame native wrote (a roll, a reset): `look_id` while the frame
+ * still draws its own palette, "" once it does not. Thread-local text. */
+GEODE_API const char* geode_saved_palette_frame_id(const char* look_id, const float* frame);
 /* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
  * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
  * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =
@@ -852,6 +945,10 @@ GEODE_API int         geode_params_control_range(const char* name, float* out);
  * untouched, for a name with no live row. in and out may alias. Pure, any thread. */
 GEODE_API void        geode_params_defaults(float* out);
 GEODE_API float       geode_params_get(const float* frame, const char* name);
+/* The same param as the int or the flag it stands for (SceneParams::asInt rounds, 0 for NaN; ::asFlag is value > 0.5);
+ * 0 for a NULL frame or a name with no live row. */
+GEODE_API int         geode_params_get_int(const float* frame, const char* name);
+GEODE_API int         geode_params_get_flag(const float* frame, const char* name);
 GEODE_API int         geode_params_set(const float* in, const char* name, float value, float* out);
 
 /* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
@@ -954,7 +1051,7 @@ GEODE_API const char* geode_panel_text(const char* id);
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);
 /* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
- * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * params' own colours (its stops, else its hue ramp), _from_look the same, for the editor to start over from them, _open a saved palette's stops
  * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
  * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
  * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next
@@ -1008,14 +1105,15 @@ GEODE_API void        geode_params_reroll_reactions(const float* in, float* out)
 /* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
  * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
  * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
- * put up instead of current (redo 1: the last undone), its frame into out (count floats) and its palette id returned,
+ * put up instead of current (redo 1: the last undone; entries recorded on another style_id are dropped, never applied), its frame into out (count floats) and its palette id returned,
  * valid until this thread's next step; NULL when there is none. Both report GEODE_PARAM_HISTORY_* bits through state
  * (record returns them too). */
 #define GEODE_PARAM_HISTORY_UNDO 1
 #define GEODE_PARAM_HISTORY_REDO 2
-GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms,
-                                                 int discrete);
-GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out);
+GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, const char* style_id,
+                                                 long long now_ms, int discrete);
+GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette,
+                                               const char* style_id, float* out);
 GEODE_API int         geode_param_history_state(void);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
@@ -1055,6 +1153,8 @@ GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id
 GEODE_API const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta);
 GEODE_API const char* geode_macro_bank_reset_knob(const char* bank, int knob_id);
+/* The default bank, keeping the ids the given bank already spent. */
+GEODE_API const char* geode_macro_bank_reset_all(const char* bank);
 GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
 GEODE_API const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target);
 GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
@@ -1071,6 +1171,8 @@ GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_live_mods(void);
+/* A knob's turn plus what modulation adds to it, held to -1..1: what the engine draws it at. */
+GEODE_API float       geode_macro_bank_modulated(float turn, float add);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
@@ -1745,6 +1847,11 @@ GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
  * size, the mic's layered over the player's, and never freed: a handle any thread holds stays valid. NULL
  * for another kind or no memory. Any thread. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_shared(int kind);
+/* The app's sound input, for the surfaces that hold no playback session (the stage, the wallpaper, the dream, a
+ * cast): the player's ring while a session holds it, else NULL. The shell says so as a session begins and ends.
+ * Process-wide, any thread. */
+GEODE_API void              geode_pcm_ring_set_live(int on);
+GEODE_API geode_pcm_ring*   geode_pcm_ring_live(void);
 /* A new ring of a kind's size and rules (the output mix's writes are snapshots), its owner's to destroy.
  * NULL for an unknown kind or no memory. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_create_kind(int kind);
@@ -1772,6 +1879,16 @@ GEODE_API int               geode_pcm_ring_set_snapshots(geode_pcm_ring*, int on
 GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
+/* The player's Media3 tap (the shell's PcmTap), on the ring the tap writes. The tap thread is the writer
+ * while the gate is open; the gate is open by default. `owns` 0 closes it: a capture of another app writes
+ * the ring, and a paused player still pushes buffers until its AudioTrack is full. Any thread. */
+GEODE_API void              geode_pcm_ring_tap_set_owner(geode_pcm_ring*, int owns);
+/* The chain flushed with this format (Android's AudioFormat.ENCODING_PCM_* for `encoding`): with the gate
+ * open every flush starts a ring epoch, before a sample of the new format is written. Tap thread. */
+GEODE_API void              geode_pcm_ring_tap_flush(geode_pcm_ring*, int sample_rate, int channels, int encoding);
+/* One buffer of the chain in the format of the last flush, written where it lies. Returns the frames
+ * written; 0 with the gate closed, before a flush gave a format, or for a refused block. Tap thread. */
+GEODE_API int               geode_pcm_ring_tap_write(geode_pcm_ring*, const void* data, size_t bytes);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */
 GEODE_API int64_t           geode_pcm_ring_head(const geode_pcm_ring*);      /* frames ever written, across epochs */
 /* The playout clock of the sink that plays this ring (the player's), or NULL for none: a renderer fed this

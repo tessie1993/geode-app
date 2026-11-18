@@ -47,7 +47,7 @@ extern "C" int __android_log_print(int, const char*, const char*, ...) { return 
 
 // ---- our own code's link seams --------------------------------------------------------------------------
 geode::viz::ProgramStager* geode::viz::ProgramStager::current() { return nullptr; }
-GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*) { std::abort(); }
+GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*, bool) { std::abort(); }
 std::optional<geode::viz::ProgramKey> geode::viz::ProgramBinaryCache::keyFor(const std::string&, const std::string&) {
     std::abort();
 }
@@ -69,6 +69,7 @@ struct Context {
     std::map<GLuint, std::map<std::string, std::vector<float>>> uniforms;
     GLuint program = 0;
     int compiles = 0;
+    int locationQueries = 0;
 };
 
 Context gl;
@@ -122,6 +123,7 @@ void glGetProgramInfoLog(GLuint, GLsizei, GLsizei* length, GLchar*) {
 }
 // Every name has a location on a live program: the model does not parse the shader.
 GLint glGetUniformLocation(GLuint program, const GLchar* name) {
+    ++fake::gl.locationQueries;
     if (fake::gl.programs.count(program) == 0) return -1;
     auto& names = fake::gl.locations[program];
     const auto it = std::find(names.begin(), names.end(), name);
@@ -242,11 +244,64 @@ void aRebuiltTransitionGetsItsParamsAgain() {
     check(hasAmount(rebuilt), "the rebuilt program gets its params again");
 }
 
+// Kills a per-frame name lookup: an interned uniform is asked of the driver once per program, then read from
+// a slot; a rebuilt program (a new UniformCache) asks again, so it never reads the old program's locations.
+void anInternedUniformIsResolvedOncePerProgram() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    UniformCache& base = programs.programFor("fade");
+    const GLint first = base.loc(Uniform::uTime);
+    const int asked = fake::gl.locationQueries;
+    for (int frame = 0; frame < 100; ++frame) check(base.loc(Uniform::uTime) == first, "a slot returns the location it resolved");
+    check(fake::gl.locationQueries == asked, "later frames do not ask the driver again");
+    check(base.loc(std::string_view("uTime")) == first, "the interned and the named lookups agree");
+    check(base.arrayCount(Uniform::uKnob, 6) == base.arrayCount("uKnob", 6), "the interned and the named array counts agree");
+    check(base.loc(Uniform::uProgress) != first, "two names get two locations");
+
+    UniformCache elsewhere(base.program() + 100);
+    const int before = fake::gl.locationQueries;
+    check(elsewhere.loc(Uniform::uTime) == -1, "a program the driver does not have reports no location");
+    check(fake::gl.locationQueries == before + 1, "a new UniformCache resolves again instead of reusing another program's slot");
+}
+
+bool toldItsUnits(GLuint program) {
+    const auto& uniforms = fake::gl.uniforms[program];
+    auto is = [&](const char* name, int unit) {
+        const auto it = uniforms.find(name);
+        return it != uniforms.end() && it->second == std::vector<float>{static_cast<float>(unit)};
+    };
+    return is("uTexA", composite_unit::kTexA) && is("uTexB", composite_unit::kTexB) && is("uFlow", composite_unit::kFlow) &&
+           is("uNoise", composite_unit::kNoise) && is("uUnderlay", composite_unit::kUnderlay) && is("uTexL", composite_unit::kTexL);
+}
+
+// CompositePass binds its textures to composite_unit's units and no longer sets the samplers each frame, so every
+// program the composite can draw with is told them when it is built: the base, a library transition, and one
+// built again after its eviction (a new program, its uniforms at zero).
+void everyBuiltProgramIsToldItsSamplerUnits() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    check(toldItsUnits(programs.programFor("fade").program()), "the base program is told its sampler units when built");
+    const GLuint first = programs.programFor("a").program();
+    check(toldItsUnits(first), "a library transition's program is told them when built");
+    for (const char* id : {"b", "c", "d", "e"}) programs.programFor(id);
+    check(fake::gl.programs.count(first) == 0, "a fifth transition evicts the oldest program");
+    const GLuint rebuilt = programs.programFor("a").program();
+    check(rebuilt != first && toldItsUnits(rebuilt), "a program built again is told them again");
+}
+
 }  // namespace
 
 int main() {
     aTransitionThatFailsToBuildIsTriedOncePerContext();
     aRebuiltTransitionGetsItsParamsAgain();
+    anInternedUniformIsResolvedOncePerProgram();
+    everyBuiltProgramIsToldItsSamplerUnits();
     if (failures != 0) {
         std::printf("%d transition programs check(s) failed\n", failures);
         return 1;

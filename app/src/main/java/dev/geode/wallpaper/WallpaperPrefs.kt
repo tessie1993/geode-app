@@ -4,7 +4,7 @@ import android.content.SharedPreferences
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 
 /** How the wallpaper draws on one screen. */
 enum class WallpaperLook {
@@ -47,10 +47,10 @@ data class WallpaperSettings(
     /**
      * The wallpaper's own frame rate, apart from Settings › Performance's cap for the live
      * visual: 30 unless the user picks another. Stored as the user's int; the allowed rates and the
-     * snap are native (`GeodeNative.surfaceFpsChoice`), so the pacer only ever
+     * snap are native (`SoundNative.surfaceFpsChoice`), so the pacer only ever
      * sees a listed rate, whatever an older or newer build wrote here.
      */
-    val fps: Int = GeodeNative.SURFACE_DEFAULT_FPS,
+    val fps: Int = SoundNative.SURFACE_DEFAULT_FPS,
 )
 
 /**

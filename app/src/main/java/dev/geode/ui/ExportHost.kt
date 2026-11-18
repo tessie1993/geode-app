@@ -180,12 +180,15 @@ internal fun rememberRenderNotificationAsk(): () -> Unit {
 /**
  * Starts one visualizer export of the current track through [PlayerViewModel.startExport] (which
  * holds the Pro gates). Passing true first asks where to save; otherwise the render is saved into
- * the Videos library without asking.
+ * the Videos library without asking. [onStartTried] runs once the start was tried, or once the
+ * folder picker came back with no folder, so the caller can tell a render that started from one
+ * that did not.
  */
 @Composable
 internal fun rememberVisualizerExport(
     viewModel: PlayerViewModel,
     visualizerView: StageView,
+    onStartTried: () -> Unit = {},
 ): (PendingExport, Boolean) -> Unit {
     val askNotifications = rememberRenderNotificationAsk()
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) {
@@ -206,6 +209,7 @@ internal fun rememberVisualizerExport(
             val req = pendingExport
             pendingExport = null
             if (dest != null && req != null) start(req, dest)
+            onStartTried()
         }
     return { req, toFolder ->
         askNotifications()
@@ -214,6 +218,7 @@ internal fun rememberVisualizerExport(
             destinationPicker.launch("beatrealms_${System.currentTimeMillis()}.mp4")
         } else {
             start(req, null)
+            onStartTried()
         }
     }
 }

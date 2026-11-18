@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TagsNative
 import dev.geode.model.LyricLine
 
 data class Lyrics(
@@ -14,7 +14,7 @@ data class Lyrics(
 ) {
     private val timesMs = LongArray(lines.size) { lines[it].timeMs }
 
-    fun indexAt(positionMs: Long): Int = GeodeNative.lyricsIndexAt(timesMs, positionMs)
+    fun indexAt(positionMs: Long): Int = TagsNative.lyricsIndexAt(timesMs, positionMs)
 }
 
 object LyricsLoader {
@@ -54,6 +54,12 @@ object LyricsLoader {
             file.writeText(text)
             true
         }.getOrDefault(false)
+
+    /** Removes the .lrc [attach] kept for [trackUri]; false when there was none. The sidecar and the tags show again. */
+    fun detach(
+        context: Context,
+        trackUri: Uri,
+    ): Boolean = runCatching { attachedFile(context, trackUri).delete() }.getOrDefault(false)
 
     private fun attached(
         context: Context,
@@ -115,7 +121,7 @@ object LyricsLoader {
         text: String,
         source: String,
     ): Lyrics? {
-        val wire = String(GeodeNative.lyricsParse(text.toByteArray()), Charsets.UTF_8)
+        val wire = String(TagsNative.lyricsParse(text.toByteArray()), Charsets.UTF_8)
         if (wire.isEmpty()) return null
         val rows = wire.split('\n')
         val lines =

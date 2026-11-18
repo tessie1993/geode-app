@@ -12,6 +12,7 @@
 #include "viz/MilkProgress.hpp"
 #include "viz/MilkShaderNote.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
@@ -106,7 +107,10 @@ void MilkdropScene::init() {
     lastCreateAttemptSeconds_ = 0.0;
     // A new context is a new chance for a preset that failed under the old one, and the scene
     // must not inherit the old context's load debounce either.
-    lastLoadSeconds_ = 0.0;
+    {
+        std::lock_guard<std::mutex> lock(presetLock_);
+        lastLoadSeconds_ = 0.0;
+    }
     {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastLoggedError_.clear();
@@ -229,8 +233,8 @@ void MilkdropScene::loadPendingPreset(double now) {
         shared = sharedTextureDir_;
         if (rescanTextures_) textureDirs_.clear();
         rescanTextures_ = false;
+        lastLoadSeconds_ = now;
     }
-    lastLoadSeconds_ = now;
     const std::string dir = parentDir(path);
     // The per-preset link directory goes first: search order is the only precedence projectM has. Only
     // a preset with linked textures has one, and setting the paths makes projectM rebuild its texture
@@ -301,8 +305,7 @@ void MilkdropScene::loadPendingPreset(double now) {
 void MilkdropScene::draw(float timeSeconds) {
     (void) timeSeconds;
     if (!postProgramOk_) return;
-    GLint prevFbo = 0;
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
+    const GLint prevFbo = SceneTarget::fbo();
     // Reset before the engine as well as after: projectM assumes default GL state and restores little.
     resetFrameState();
     const double now = nowSeconds();

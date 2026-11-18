@@ -31,7 +31,8 @@
 //     gShapeHue = 0.0;
 //     return shapesInto(ownDistance, p, gShapeHue);
 //
-// and at the hit (after the map that restores the hit's own globals) read the hue its palette draws with as
+// and at the hit (once the hit's own globals are back, gShapeHue and gShapeShare among them: kept from the
+// march's last map, or read by a map at the hit) read the hue its palette draws with as
 //
 //     float hue = shapesHue(ownHue, baseHue, gShapeHue, gShapeShare);
 //

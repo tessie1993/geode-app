@@ -9,13 +9,14 @@ import dev.geode.data.FavouritesStore
 import dev.geode.data.HistoryStore
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.TrackLibrary
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TagsNative
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 
 /**
- * The browse tree Android Auto and other browsers walk. Folder ids are fixed words or `<kind>/<name>`;
- * a playable id is `<parentId>|<uri>` so the parent list can be rebuilt when one of its rows is tapped.
+ * The browse tree Android Auto and other browsers walk. Folder ids are fixed words or `<kind>/<name>`,
+ * the name escaped ([folderId]) so it holds no `|`; a playable id is `<parentId>|<uri>` so the parent
+ * list can be rebuilt when one of its rows is tapped.
  */
 class LibraryTree(
     private val context: Context,
@@ -57,7 +58,7 @@ class LibraryTree(
             ALBUMS -> groups(ALBUMS, tracks().map { it.album }, MediaMetadata.MEDIA_TYPE_ALBUM)
             ARTISTS -> groups(ARTISTS, tracks().map { it.artist }, MediaMetadata.MEDIA_TYPE_ARTIST)
             PLAYLISTS ->
-                MusicPlaylistStore(context).list().map { folder("$PLAYLISTS/${it.name}", it.name, MediaMetadata.MEDIA_TYPE_PLAYLIST) }
+                MusicPlaylistStore(context).list().map { folder(folderId(PLAYLISTS, it.name), it.name, MediaMetadata.MEDIA_TYPE_PLAYLIST) }
             FAVOURITES -> rowsFor(FavouritesStore(context.geodeContainer.prefsFiles.favourites).all()).map { playable(parentId, it) }
             RECENT ->
                 HistoryStore(context).recentlyPlayed(RECENT_LIMIT).map { playable(parentId, Row(it.uri, it.title, it.artist, "")) }
@@ -123,7 +124,7 @@ class LibraryTree(
         }
         val out = IntArray(rows.size)
         val request = asked.map { it?.encodeToByteArray() }.toTypedArray()
-        val count = GeodeNative.librarySearch(cells, request, out).coerceIn(0, out.size)
+        val count = TagsNative.librarySearch(cells, request, out).coerceIn(0, out.size)
         return (0 until minOf(count, max)).map { rows[out[it]] }
     }
 
@@ -171,12 +172,12 @@ class LibraryTree(
         val rows =
             when (kind) {
                 SEARCH -> searchRows(name)
-                ALBUMS -> tracks().filter { it.album == name }
-                ARTISTS -> tracks().filter { it.artist == name }
+                ALBUMS -> tracks().filter { it.album == folderName(name) }
+                ARTISTS -> tracks().filter { it.artist == folderName(name) }
                 PLAYLISTS ->
                     MusicPlaylistStore(context)
                         .list()
-                        .firstOrNull { it.name == name }
+                        .firstOrNull { it.name == folderName(name) }
                         ?.trackUris
                         ?.let(::rowsFor)
                         .orEmpty()
@@ -189,7 +190,7 @@ class LibraryTree(
         kind: String,
         names: List<String>,
         mediaType: Int,
-    ): List<MediaItem> = names.distinct().sortedBy { it.lowercase() }.map { folder("$kind/$it", it, mediaType) }
+    ): List<MediaItem> = names.distinct().sortedBy { it.lowercase() }.map { folder(folderId(kind, it), it, mediaType) }
 
     /** Memoised merge of device tracks and imported documents; Media3 calls its callbacks on its own executor. */
     private fun tracks(): List<Row> =
@@ -271,6 +272,18 @@ class LibraryTree(
         const val SEARCH = "search"
         private const val SEPARATOR = "|"
         private const val SEARCH_LIMIT = 50
+
+        /**
+         * `<kind>/<name>` with the name's `%` and `|` escaped, so a playable id under it still splits on its
+         * first `|`. A name without either keeps the id it always had.
+         */
+        internal fun folderId(
+            kind: String,
+            name: String,
+        ): String = "$kind/" + name.replace("%", "%25").replace(SEPARATOR, "%7C")
+
+        /** The name [folderId] escaped. Every `%` in an escaped name starts `%25` or `%7C`, so the order is safe. */
+        internal fun folderName(escaped: String): String = escaped.replace("%7C", SEPARATOR).replace("%25", "%")
 
         /** The id search results hang under; the separator is taken out so the id still splits. */
         private fun searchParent(query: String): String = "$SEARCH/" + query.replace(SEPARATOR, " ").trim()

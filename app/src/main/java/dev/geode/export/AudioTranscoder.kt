@@ -5,7 +5,7 @@ import android.content.res.AssetFileDescriptor
 import android.media.MediaFormat
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportAudioNative
 import dev.geode.util.bestEffort
 import java.io.File
 import java.io.IOException
@@ -31,10 +31,10 @@ class AudioTranscoder(
         /** A view over the native table, a row per access unit in PTS order. */
         val sampleInfos: List<SampleInfo> =
             object : AbstractList<SampleInfo>() {
-                override val size: Int get() = table.size / GeodeNative.AAC_SAMPLE_LONGS
+                override val size: Int get() = table.size / ExportAudioNative.AAC_SAMPLE_LONGS
 
                 override fun get(index: Int): SampleInfo {
-                    val at = index * GeodeNative.AAC_SAMPLE_LONGS
+                    val at = index * ExportAudioNative.AAC_SAMPLE_LONGS
                     return SampleInfo(table[at], table[at + 1].toInt(), table[at + 2], table[at + 3].toInt())
                 }
             }
@@ -68,16 +68,16 @@ class AudioTranscoder(
         var job = 0L
         try {
             job = open(uri, file, startMs, maxDurationMs, outputRateHz ?: 0)
-            while (GeodeNative.aacJobRun(job, SLICE_MS)) {
+            while (ExportAudioNative.aacJobRun(job, SLICE_MS)) {
                 if (isCancelled()) throw kotlinx.coroutines.CancellationException("Export cancelled")
-                onProgress(GeodeNative.aacJobProgress(job))
+                onProgress(ExportAudioNative.aacJobProgress(job))
             }
             return resultOf(job, file)
         } catch (t: Throwable) {
             bestEffort(TAG, "file.delete()") { file.delete() }
             throw t
         } finally {
-            if (job != 0L) GeodeNative.aacJobDestroy(job)
+            if (job != 0L) ExportAudioNative.aacJobDestroy(job)
         }
     }
 
@@ -100,7 +100,7 @@ class AudioTranscoder(
         val length = afd.declaredLength
         val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
         val job =
-            GeodeNative.aacJobCreate(
+            ExportAudioNative.aacJobCreate(
                 afd.parcelFileDescriptor.detachFd(),
                 offset,
                 length,
@@ -117,27 +117,27 @@ class AudioTranscoder(
         job: Long,
         file: File,
     ): Result {
-        if (GeodeNative.aacJobState(job) != GeodeNative.AAC_JOB_DONE) {
-            val detail = GeodeNative.aacJobDetail(job)
-            throw when (GeodeNative.aacJobFailure(job)) {
-                GeodeNative.AAC_FAILURE_NO_AUDIO -> IllegalArgumentException(detail)
-                GeodeNative.AAC_FAILURE_WRITE, GeodeNative.AAC_FAILURE_UNREADABLE -> IOException(detail)
+        if (ExportAudioNative.aacJobState(job) != ExportAudioNative.AAC_JOB_DONE) {
+            val detail = ExportAudioNative.aacJobDetail(job)
+            throw when (ExportAudioNative.aacJobFailure(job)) {
+                ExportAudioNative.AAC_FAILURE_NO_AUDIO -> IllegalArgumentException(detail)
+                ExportAudioNative.AAC_FAILURE_WRITE, ExportAudioNative.AAC_FAILURE_UNREADABLE -> IOException(detail)
                 else -> IllegalStateException(detail)
             }
         }
-        val track = LongArray(GeodeNative.AAC_TRACK_LONGS).also { GeodeNative.aacJobTrack(job, it) }
+        val track = LongArray(ExportAudioNative.AAC_TRACK_LONGS).also { ExportAudioNative.aacJobTrack(job, it) }
         val format =
             MediaFormat
                 .createAudioFormat(
                     MediaFormat.MIMETYPE_AUDIO_AAC,
-                    track[GeodeNative.AAC_TRACK_RATE].toInt(),
-                    track[GeodeNative.AAC_TRACK_CHANNELS].toInt(),
+                    track[ExportAudioNative.AAC_TRACK_RATE].toInt(),
+                    track[ExportAudioNative.AAC_TRACK_CHANNELS].toInt(),
                 ).apply {
-                    setInteger(MediaFormat.KEY_BIT_RATE, track[GeodeNative.AAC_TRACK_BIT_RATE].toInt())
-                    GeodeNative.aacJobCsd(job)?.let { setByteBuffer("csd-0", ByteBuffer.wrap(it)) }
+                    setInteger(MediaFormat.KEY_BIT_RATE, track[ExportAudioNative.AAC_TRACK_BIT_RATE].toInt())
+                    ExportAudioNative.aacJobCsd(job)?.let { setByteBuffer("csd-0", ByteBuffer.wrap(it)) }
                 }
-        val table = checkNotNull(GeodeNative.aacJobSamples(job)) { "The audio's sample table could not be read" }
-        return Result(format, file, table, track[GeodeNative.AAC_TRACK_DURATION_US])
+        val table = checkNotNull(ExportAudioNative.aacJobSamples(job)) { "The audio's sample table could not be read" }
+        return Result(format, file, table, track[ExportAudioNative.AAC_TRACK_DURATION_US])
     }
 
     private companion object {

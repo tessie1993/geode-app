@@ -23,7 +23,7 @@ void putRange(JNIEnv* env, jlongArray out, const jlong* values, jsize count) {
 
 extern "C" {
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeOf(JNIEnv* env, jobject, jfloat start,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_RenderPlanNative_exportRangeOf(JNIEnv* env, jobject, jfloat start,
                                                                                  jfloat end, jlong trackMs,
                                                                                  jlongArray out) {
     int64_t startMs = 0;
@@ -35,7 +35,7 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeO
     return JNI_TRUE;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeCapped(JNIEnv* env, jobject,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_RenderPlanNative_exportRangeCapped(JNIEnv* env, jobject,
                                                                                  jlong startMs, jlong durationMs,
                                                                                  jlong capMs, jlongArray out) {
     int64_t start = 0;
@@ -45,11 +45,11 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeCappe
     putRange(env, out, values, 2);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeMinMs(JNIEnv*, jobject) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_RenderPlanNative_exportRangeMinMs(JNIEnv*, jobject) {
     return geode_export_range_min_ms();
 }
 
-JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchOrder(JNIEnv* env, jobject,
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_RenderPlanNative_renderBatchOrder(JNIEnv* env, jobject,
                                                                                     jobjectArray uris) {
     const jsize count = uris ? env->GetArrayLength(uris) : 0;
     std::vector<std::string> texts;
@@ -73,7 +73,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatch
     return result;
 }
 
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderBatchProgress(JNIEnv*, jobject, jint done,
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_RenderPlanNative_renderBatchProgress(JNIEnv*, jobject, jint done,
                                                                                     jint total, jfloat within) {
     return geode_render_batch_progress(done, total, within);
 }

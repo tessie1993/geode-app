@@ -1,0 +1,165 @@
+package dev.geode.model
+
+import dev.geode.engine.bridge.CatalogueNative
+
+/**
+ * What the shell asks about styles: the native catalogue's answers (core/viz/Catalogue), one JNI call each
+ * (`CatalogueNative.catalogue*`). Native holds the lists and answers from tables built once, so nothing is
+ * kept here.
+ *
+ * Nothing here decides anything: which styles exist, their order, which family a style is in, what a
+ * retired id became and which control reaches which style are all native's, and so are the names
+ * (core/viz/StyleNames, `CustomizeNative.styleLabel`); the Pro rule is `pro/FreeTier`.
+ */
+object StyleCatalogue {
+    /**
+     * The style a fresh look, template or project names. A constant, not a question, because it is the
+     * default of data classes that are built where no native library is loaded.
+     */
+    const val DEFAULT_ID: String = "silk_web"
+
+    /** The catalogue's questions. The app asks native; a JVM test, which cannot load the library, installs its own. */
+    interface Reads {
+        fun styleIds(trait: Int): List<String>
+
+        fun styleHas(
+            trait: Int,
+            styleId: String,
+        ): Boolean
+
+        fun pickerNames(): List<String>
+
+        fun pickerIds(family: String): List<String>
+
+        fun resolve(styleId: String): String
+
+        fun presetStyle(styleId: String): String
+
+        fun scopeOf(paramKey: String): String
+
+        fun reaches(
+            scope: String,
+            styleId: String,
+        ): Boolean
+
+        fun holds(
+            styleId: String,
+            paramKey: String,
+        ): Boolean
+
+        fun held(
+            styleId: String,
+            paramKey: String,
+        ): Float
+    }
+
+    private object Native : Reads {
+        override fun styleIds(trait: Int): List<String> = CatalogueNative.catalogueStyleIds(trait).asList()
+
+        override fun styleHas(
+            trait: Int,
+            styleId: String,
+        ): Boolean = CatalogueNative.catalogueStyleHas(trait, styleId)
+
+        override fun pickerNames(): List<String> = CatalogueNative.cataloguePickerNames().asList()
+
+        override fun pickerIds(family: String): List<String> = CatalogueNative.cataloguePickerIds(family).asList()
+
+        override fun resolve(styleId: String): String = CatalogueNative.catalogueResolve(styleId)
+
+        override fun presetStyle(styleId: String): String = CatalogueNative.cataloguePresetStyle(styleId)
+
+        override fun scopeOf(paramKey: String): String = CatalogueNative.catalogueScopeOf(paramKey)
+
+        override fun reaches(
+            scope: String,
+            styleId: String,
+        ): Boolean = CatalogueNative.catalogueReaches(scope, styleId)
+
+        override fun holds(
+            styleId: String,
+            paramKey: String,
+        ): Boolean = CatalogueNative.catalogueHasOverride(styleId, paramKey)
+
+        override fun held(
+            styleId: String,
+            paramKey: String,
+        ): Float = CatalogueNative.catalogueOverride(styleId, paramKey)
+    }
+
+    @Volatile
+    private var reads: Reads = Native
+
+    /** Asks [next] from now on. */
+    fun install(next: Reads) {
+        reads = next
+    }
+
+    /** Every style, in the order the picker lists them and the stage swipes. */
+    val ids: List<String> get() = ids(CatalogueNative.STYLE_ANY)
+
+    /** The styles with one of `CatalogueNative.STYLE_*`'s traits, in the same order. */
+    fun ids(trait: Int): List<String> = reads.styleIds(trait)
+
+    /** The Styles page's families in order, each with its styles. */
+    val picker: Map<String, List<String>> get() = reads.pickerNames().associateWith { reads.pickerIds(it) }
+
+    /** True for every look of the Fluid solver, `fluid` itself included; Curl Flow is its own renderer. */
+    fun isFluid(id: String): Boolean = reads.styleHas(CatalogueNative.STYLE_FLUID, id)
+
+    /** The style a saved id opens on: a retired id's replacement, any other id itself. */
+    fun resolve(id: String): String = reads.resolve(id)
+
+    /** The style a saved look of [id] is filed under: every look of Fluid or Cymatics shares one shelf. */
+    fun presetStyle(id: String): String = reads.presetStyle(id)
+
+    /** The value [styleId] holds the control [paramKey] at, or null when the control is the user's. */
+    fun held(
+        styleId: String,
+        paramKey: String,
+    ): Float? = if (reads.holds(styleId, paramKey)) reads.held(styleId, paramKey) else null
+
+    internal fun scopeOf(paramKey: String): String = reads.scopeOf(paramKey)
+
+    internal fun reaches(
+        scope: String,
+        styleId: String,
+    ): Boolean = reads.reaches(scope, styleId)
+}
+
+/**
+ * Which styles a Customize parameter can actually move, by the native catalogue's name for the scope.
+ *
+ * WHY (R4, no dead controls): a control that does nothing for the style on screen has to be HIDDEN, not
+ * greyed out with an apology under it. Every surface that shows, rolls or modulates a parameter asks
+ * [appliesTo], and the answer is native's, so "is this parameter live right now?" has one answer.
+ *
+ * The constants are the scopes a screen names outright; `catalogue_test` holds native to those names.
+ * [UNIVERSAL] is not a shrug: the composite pass applies the parameter to the finished frame for every
+ * style, so it really does reach all of them.
+ */
+@JvmInline
+value class ParamScope(
+    val name: String,
+) {
+    fun appliesTo(sceneId: String): Boolean = StyleCatalogue.reaches(name, sceneId)
+
+    companion object {
+        val UNIVERSAL = ParamScope("UNIVERSAL")
+        val BAND_GAINS = ParamScope("BAND_GAINS")
+        val SHADER_LOOK = ParamScope("SHADER_LOOK")
+        val MARCH_DETAIL = ParamScope("MARCH_DETAIL")
+        val ENDLESS_ZOOM = ParamScope("ENDLESS_ZOOM")
+        val FLUID_SIM = ParamScope("FLUID_SIM")
+        val EMITTERS = ParamScope("EMITTERS")
+        val JOURNEY = ParamScope("JOURNEY")
+        val CYMATICS = ParamScope("CYMATICS")
+
+        /**
+         * The scope of the control named [paramKey]. A key that is not a scene parameter at all (a panel
+         * preference, an envelope field) is [UNIVERSAL]: it belongs to the panel rather than to a style,
+         * so it is always live.
+         */
+        fun of(paramKey: String): ParamScope = ParamScope(StyleCatalogue.scopeOf(paramKey))
+    }
+}

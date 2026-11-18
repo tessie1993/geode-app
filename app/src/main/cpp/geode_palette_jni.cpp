@@ -33,25 +33,25 @@ jintArray swatchOf(JNIEnv* env, jint samples, Fill fill) {
 extern "C" {
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackEditor(JNIEnv* env, jobject, jstring stack) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackEditor(JNIEnv* env, jobject, jstring stack) {
     Utf8Chars text(env, stack);
     return utf8String(env, geode_palette_stack_editor(textOf(text)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackNormalize(JNIEnv* env, jobject, jstring stack) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackNormalize(JNIEnv* env, jobject, jstring stack) {
     Utf8Chars text(env, stack);
     return utf8String(env, geode_palette_stack_normalize(textOf(text)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackAddLibrary(JNIEnv* env, jobject, jstring stack, jint index) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackAddLibrary(JNIEnv* env, jobject, jstring stack, jint index) {
     Utf8Chars text(env, stack);
     return utf8String(env, geode_palette_stack_add_library(textOf(text), index));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackAddColours(JNIEnv* env, jobject, jstring stack, jstring name, jintArray rgb) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackAddColours(JNIEnv* env, jobject, jstring stack, jstring name, jintArray rgb) {
     Utf8Chars text(env, stack);
     Utf8Chars label(env, name);
     const jsize count = rgb ? env->GetArrayLength(rgb) : 0;
@@ -62,37 +62,37 @@ Java_dev_geode_engine_bridge_GeodeNative_paletteStackAddColours(JNIEnv* env, job
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackRemove(JNIEnv* env, jobject, jstring stack, jint layer) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackRemove(JNIEnv* env, jobject, jstring stack, jint layer) {
     Utf8Chars text(env, stack);
     return utf8String(env, geode_palette_stack_remove(textOf(text), layer));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackMove(JNIEnv* env, jobject, jstring stack, jint layer, jint delta) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackMove(JNIEnv* env, jobject, jstring stack, jint layer, jint delta) {
     Utf8Chars text(env, stack);
     return utf8String(env, geode_palette_stack_move(textOf(text), layer, delta));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackSetBlend(JNIEnv* env, jobject, jstring stack, jstring blend) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackSetBlend(JNIEnv* env, jobject, jstring stack, jstring blend) {
     Utf8Chars text(env, stack);
     Utf8Chars name(env, blend);
     return utf8String(env, geode_palette_stack_set_blend(textOf(text), textOf(name)));
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackLayerSwatch(JNIEnv* env, jobject, jstring stack, jint layer, jint samples) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackLayerSwatch(JNIEnv* env, jobject, jstring stack, jint layer, jint samples) {
     Utf8Chars text(env, stack);
     return swatchOf(env, samples, [&](int count, int* out) { geode_palette_stack_layer_swatch(textOf(text), layer, count, out); });
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteLibrarySwatch(JNIEnv* env, jobject, jint index, jint samples) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteLibrarySwatch(JNIEnv* env, jobject, jint index, jint samples) {
     return swatchOf(env, samples, [&](int count, int* out) { geode_palette_library_swatch(index, count, out); });
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackSet(JNIEnv* env, jobject, jstring stack) {
+Java_dev_geode_engine_bridge_PaletteNative_paletteStackSet(JNIEnv* env, jobject, jstring stack) {
     Utf8Chars text(env, stack);
     geode_palette_stack_set(textOf(text));
 }

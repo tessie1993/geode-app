@@ -10,6 +10,11 @@ namespace geode::viz::liquid {
 
 namespace {
 constexpr const char* kTag = "GeodeLiquid";
+// liquid_frag.glsl's texture units; run() unbinds 0..kUnitVel after its draw.
+constexpr int kUnitPrev = 0;
+constexpr int kUnitStyle = 1;
+constexpr int kUnitBorn = 2;
+constexpr int kUnitVel = 3;
 
 GLuint makeTexture(int w, int h, bool halfFloat) {
     GLuint tex = 0;
@@ -37,13 +42,18 @@ bool LiquidPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, c
     program_ = program::build(vert, *frag, cache, error);
     if (program_ == 0) return false;
     uniforms_ = UniformCache(program_);
+    // The samplers' units, once: a uniform keeps its value until the program is linked again.
+    glUseProgram(program_);
+    glUniform1i(uniforms_.loc("uPrev"), kUnitPrev);
+    glUniform1i(uniforms_.loc("uStyle"), kUnitStyle);
+    glUniform1i(uniforms_.loc("uBorn"), kUnitBorn);
+    glUniform1i(uniforms_.loc("uVel"), kUnitVel);
     halfFloat_ = halfFloat;
     return true;
 }
 
 void LiquidPass::release() {
-    releaseSide(sides_[0]);
-    releaseSide(sides_[1]);
+    releaseSides();
     if (program_ != 0) glDeleteProgram(program_);
     program_ = 0;
     width_ = height_ = 0;
@@ -52,11 +62,10 @@ void LiquidPass::release() {
 
 bool LiquidPass::makeSide(Side& s) {
     s.liquid = makeTexture(width_, height_, halfFloat_);
-    s.display = makeTexture(width_, height_, false);
     glGenFramebuffers(1, &s.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, s.fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.liquid, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s.display, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, display_, 0);
     const GLenum buffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
     glDrawBuffers(2, buffers);
     const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
@@ -75,13 +84,18 @@ bool LiquidPass::makeSide(Side& s) {
 void LiquidPass::releaseSide(Side& s) {
     if (s.fbo != 0) glDeleteFramebuffers(1, &s.fbo);
     if (s.liquid != 0) glDeleteTextures(1, &s.liquid);
-    if (s.display != 0) glDeleteTextures(1, &s.display);
     s = {};
 }
 
-void LiquidPass::releaseTargets() {
+void LiquidPass::releaseSides() {
     releaseSide(sides_[0]);
     releaseSide(sides_[1]);
+    if (display_ != 0) glDeleteTextures(1, &display_);
+    display_ = 0;
+}
+
+void LiquidPass::releaseTargets() {
+    releaseSides();
     width_ = height_ = 0;
     read_ = 0;
     fresh_ = true;
@@ -92,10 +106,10 @@ bool LiquidPass::ensure(int width, int height) {
     height = std::max(height, 1);
     if (program_ == 0) return false;
     if (width == width_ && height == height_ && sides_[0].fbo != 0 && sides_[1].fbo != 0) return true;
-    releaseSide(sides_[0]);
-    releaseSide(sides_[1]);
+    releaseSides();
     width_ = width;
     height_ = height;
+    display_ = makeTexture(width_, height_, false);
     bool ok = makeSide(sides_[0]) && makeSide(sides_[1]);
     if (!ok && halfFloat_) {
         // A driver that probed half float renderable but will not attach it beside RGBA8.
@@ -105,8 +119,7 @@ bool LiquidPass::ensure(int width, int height) {
         ok = makeSide(sides_[0]) && makeSide(sides_[1]);
     }
     if (!ok) {
-        releaseSide(sides_[0]);
-        releaseSide(sides_[1]);
+        releaseSides();
         width_ = height_ = 0;
     }
     read_ = 0;
@@ -117,7 +130,7 @@ bool LiquidPass::ensure(int width, int height) {
 GLuint LiquidPass::run(const Frame& f) {
     if (program_ == 0 || sides_[0].fbo == 0 || sides_[1].fbo == 0) return 0;
     // A stopped clock holds the picture: another pass would sharpen and fade it again with nothing moving.
-    if (!(f.dt > 0.0f) && !fresh_) return sides_[read_].display;
+    if (!(f.dt > 0.0f) && !fresh_) return display_;
     const int write = 1 - read_;
     Side& dst = sides_[write];
     glBindFramebuffer(GL_FRAMEBUFFER, dst.fbo);
@@ -126,15 +139,15 @@ GLuint LiquidPass::run(const Frame& f) {
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
     glUseProgram(program_);
-    auto bind = [this](const char* name, GLuint tex, int unit) {
-        glActiveTexture(GL_TEXTURE0 + unit);
+    // Each sampler's unit was set at create().
+    auto bind = [](int unit, GLuint tex) {
+        glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
         glBindTexture(GL_TEXTURE_2D, tex);
-        glUniform1i(uniforms_.loc(name), unit);
     };
-    bind("uPrev", sides_[read_].liquid, 0);
-    bind("uStyle", f.styleTex, 1);
-    bind("uBorn", f.bornTex != 0 ? f.bornTex : f.styleTex, 2);
-    bind("uVel", f.velocityTex, 3);
+    bind(kUnitPrev, sides_[read_].liquid);
+    bind(kUnitStyle, f.styleTex);
+    bind(kUnitBorn, f.bornTex != 0 ? f.bornTex : f.styleTex);
+    bind(kUnitVel, f.velocityTex);
     glUniform2f(uniforms_.loc("uVelScale"), f.velScaleX, f.velScaleY);
     glUniform2f(uniforms_.loc("uTexel"), 1.0f / static_cast<float>(width_), 1.0f / static_cast<float>(height_));
     glUniform2f(uniforms_.loc("uStyleTexel"), 1.0f / static_cast<float>(std::max(f.styleWidth, 1)),
@@ -170,13 +183,13 @@ GLuint LiquidPass::run(const Frame& f) {
     glBindVertexArray(f.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
-    for (int unit = 3; unit >= 0; unit--) {
+    for (int unit = kUnitVel; unit >= 0; unit--) {
         glActiveTexture(GL_TEXTURE0 + unit);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
     read_ = write;
     fresh_ = false;
-    return dst.display;
+    return display_;
 }
 
 }  // namespace geode::viz::liquid

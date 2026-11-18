@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
@@ -13,20 +12,21 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.RenderPlanNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.export.ExportRun
 import dev.geode.export.SceneFactory
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.model.SceneParams
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -95,9 +95,12 @@ class PlayerViewModel
 
         fun noteExternalAudioConsentDenied() = session.captureController.noteExternalAudioConsentDenied()
 
+        fun noteExternalAudioPermissionDenied() = session.captureController.noteExternalAudioPermissionDenied()
+
         fun stopExternalAudio() = session.stopExternalAudio()
 
-        fun notificationAccessIntent(): Intent = session.captureController.notificationAccessIntent()
+        /** Notification access in system settings: what lets the player show and drive the app it captures. */
+        fun openNotificationAccess(from: android.content.Context) = session.captureController.openNotificationAccess(from)
 
         fun toggleShuffle() = session.settings.toggleShuffle()
 
@@ -205,15 +208,31 @@ class PlayerViewModel
 
         fun playQueueIndex(index: Int) = session.queueController.playQueueIndex(index)
 
-        fun next() = session.queueController.next()
+        /**
+         * Another app is the sound source: the transport is its, through its media session ([ExternalAudioState.driven]),
+         * and does nothing while that session cannot be read. It never starts the paused player, which would end the capture.
+         */
+        private val drivesOtherApp: Boolean get() = externalAudio.value.active
 
-        fun previous() = session.queueController.previous()
+        fun next() {
+            if (drivesOtherApp) session.captureController.externalNext() else session.queueController.next()
+        }
 
-        fun togglePlayPause() = session.togglePlayPause()
+        fun previous() {
+            if (drivesOtherApp) session.captureController.externalPrevious() else session.queueController.previous()
+        }
 
-        fun seekToMs(positionMs: Long) = session.queueController.seekToMs(positionMs)
+        fun togglePlayPause() {
+            if (drivesOtherApp) session.captureController.externalPlayPause() else session.togglePlayPause()
+        }
 
-        fun seekTo(fraction: Float) = session.queueController.seekTo(fraction)
+        fun seekToMs(positionMs: Long) {
+            if (!drivesOtherApp) session.queueController.seekToMs(positionMs)
+        }
+
+        fun seekTo(fraction: Float) {
+            if (drivesOtherApp) session.captureController.externalSeekTo(fraction) else session.queueController.seekTo(fraction)
+        }
 
         fun clearPlaybackNotice() = session.clearPlaybackNotice()
 
@@ -238,8 +257,6 @@ class PlayerViewModel
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
 
-        fun applyCustomShader(source: String) = session.visual.applyCustomShader(source)
-
         fun setTransitionId(id: String) = session.visual.setTransitionId(id)
 
         fun setTransitionDuration(seconds: Float) = session.visual.setTransitionDuration(seconds)
@@ -257,7 +274,9 @@ class PlayerViewModel
             if (openPaywallIfLocked(aspect, fps)) return
             val limits = gate.value
             val capped = capRange(range, limits.exportCapMs)
+            val idle = !ExportRun.running
             session.startExport(aspect, fps, sceneFactory, destination, capped, codec, pinnedWatermark())
+            if (idle) session.followRender(destination)
         }
 
         /**
@@ -297,6 +316,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
+            val idle = !ExportRun.running
             session.exportController.startLoopRender(
                 aspect,
                 codec,
@@ -309,6 +329,7 @@ class PlayerViewModel
                 destination,
                 pinnedWatermark(),
             )
+            if (idle) session.followRender(destination, audioClips)
         }
 
         /** The entitlement's wordmark, placed as Settings › Preferences says now; the render keeps this one. */
@@ -326,7 +347,7 @@ class PlayerViewModel
             capMs: Long?,
         ): ExportRange? {
             val out = LongArray(2)
-            GeodeNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
+            RenderPlanNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
             return if (out[1] > 0) ExportRange(out[0], out[1]) else null
         }
 

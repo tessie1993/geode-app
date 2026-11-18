@@ -103,7 +103,7 @@ double geode_hls_fragment_seconds(const uint8_t* init, size_t init_size, const u
 }
 
 int geode_hls_playlist(int64_t first_sequence, const double* durations, int count, const char* init_uri,
-                       const char* segment_prefix, const char* segment_suffix, char* out, int cap) {
+                       const char* segment_prefix, const char* segment_suffix, char* out, int cap) try {
     const std::string text = hls::playlist(first_sequence, durations, count, init_uri, segment_prefix, segment_suffix);
     if (out && cap > 0 && text.size() + 1 <= static_cast<size_t>(cap)) {
         std::memcpy(out, text.c_str(), text.size() + 1);
@@ -111,6 +111,9 @@ int geode_hls_playlist(int64_t first_sequence, const double* durations, int coun
         out[0] = '\0';
     }
     return static_cast<int>(text.size());
+} catch (...) {
+    if (out && cap > 0) out[0] = '\0';
+    return 0;
 }
 
 size_t geode_hls_rewrite_fragment(const uint8_t* init, size_t init_size, int64_t moof_at, const uint8_t* fragment,

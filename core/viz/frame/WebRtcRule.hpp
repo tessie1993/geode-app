@@ -55,6 +55,9 @@ H264 profileOf(const uint8_t* annexB, size_t n);
 // SPS and PPS MediaCodec hands over once, at the start) in front, so a browser that joins at any keyframe can
 // decode it; anything else is sent as it is.
 std::vector<uint8_t> accessUnit(const uint8_t* config, size_t configSize, const uint8_t* frame, size_t frameSize, bool key);
+// The same into `out`, replacing what it held and keeping its storage, so a link reuses one buffer for every frame.
+void accessUnit(const uint8_t* config, size_t configSize, const uint8_t* frame, size_t frameSize, bool key,
+                std::vector<uint8_t>& out);
 
 // Whether a browser that offers H.264 with this profile can decode the phone's stream. Constrained Baseline is
 // inside every profile; a Baseline stream from MediaCodec uses none of Baseline's extras (FMO, ASO, redundant

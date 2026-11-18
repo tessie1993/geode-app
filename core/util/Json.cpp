@@ -189,10 +189,15 @@ private:
                     unsigned int cp = 0;
                     if (!hex4(cp)) return std::nullopt;
                     if (cp >= 0xD800 && cp <= 0xDBFF && text_.compare(pos_, 2, "\\u") == 0) {
+                        // Merged only with a low surrogate; any other escape is left to be parsed on its own.
+                        const size_t second = pos_;
                         pos_ += 2;
                         unsigned int low = 0;
-                        if (!hex4(low)) return std::nullopt;
-                        cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                        if (hex4(low) && low >= 0xDC00 && low <= 0xDFFF) {
+                            cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                        } else {
+                            pos_ = second;
+                        }
                     }
                     appendUtf8(out, cp);
                     break;

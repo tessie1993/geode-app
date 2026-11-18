@@ -156,6 +156,10 @@ void savedPalettes() {
     check(files::keptPaletteId("Dusk", "Dusk").empty(), "a look forgets the palette deleted");
     check(files::keptPaletteId("Dusk", "Dawn") == "Dusk", "and keeps another");
     check(files::keptPaletteId("", "").empty(), "nothing deleted, nothing named");
+
+    check(files::framePaletteId("Dusk", stopped) == "Dusk", "a frame that draws its own palette keeps the id");
+    check(files::framePaletteId("Dusk", SceneParams{}).empty(), "a frame on the built-in palette drops it");
+    check(files::framePaletteId("", stopped).empty(), "no id, none kept");
 }
 
 std::string fixture(const std::string& folder, const char* name) {
@@ -295,6 +299,10 @@ void presetNames() {
     check(files::cleanPresetName("  Night \xc2\xb7 Rain ") == "Night - Rain", "the link separator is dropped");
     check(files::cleanPresetName(" \xc2\xb7 ") == "-", "a lone separator is a dash");
     check(files::cleanPresetName(" \t", "Untitled") == "Untitled", "a blank name takes the fallback");
+    check(files::cleanPresetName(std::string(500, 'a')).size() == files::kMaxPresetNameBytes, "a long name is capped");
+    std::string wide;
+    for (int i = 0; i < 60; ++i) wide += "\xc3\xa9";
+    check(files::cleanPresetName(wide).size() == files::kMaxPresetNameBytes, "a cap lands between code points");
     check(files::cleanFolderName(" Live\xe2\x80\x83") == "Live", "a folder name is trimmed");
 
     check(files::folderNameProblem(" ", std::nullopt, {"Live"}) == NameProblem::Blank, "a blank folder is refused");

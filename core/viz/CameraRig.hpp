@@ -121,7 +121,8 @@ private:
     struct Spring {
         float x = 0.0f;
         float v = 0.0f;
-        void reset(float to) { x = to; v = 0.0f; }
+        // Neither takes a non-finite value: reset keeps x, step keeps x and stops (CameraRig.cpp).
+        void reset(float to);
         // Critically damped; exact for constant target, stable for any dt.
         void step(float target, float dt, float seconds);
     };

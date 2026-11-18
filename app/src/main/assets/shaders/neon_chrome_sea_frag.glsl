@@ -139,7 +139,7 @@ float ocSeaField(vec2 p) {
 float ocSeaFieldGrownW(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = float(0.0);
-    for (int i = SHELL_FROM; i < 6; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(6); i++) {
         if (!shellPass2(i)) continue;
         float v = ocSeaField(shellAt2(uv, i, SHELL_GROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
@@ -210,17 +210,17 @@ vec3 ocMandala(vec2 p) {
         float d = abs(r - petal) / R;
         col += neon(0.25 * fi + 0.4) * exp(-d * 24.0) * 1.2;
         float d2 = abs(q.y - q.x * tan(0.2 + 0.1 * fi)) / max(r, 1e-3);
-        col += neon(0.25 * fi + 0.7) * exp(-d2 * 160.0) * smoothstep(R * 0.5, R, r) * smoothstep(R * 2.2, R * 1.2, r) * 0.3;
+        col += neon(0.25 * fi + 0.7) * exp(-d2 * 160.0) * smoothstep(R * 0.5, R, r) * (1.0 - smoothstep(R * 1.2, R * 2.2, r)) * 0.3;
     }
     col += neon(0.55) * exp(-r * 18.0) * 1.5;
-    return col * smoothstep(0.75, 0.45, r);
+    return col * (1.0 - smoothstep(0.45, 0.75, r));
 }
 
 /** The pattern ocMandala through lib_shell's hooks: exactly ocMandala(uv) at rest, and ocMandala read once, in a loop the compiler cannot unroll. */
 vec3 ocMandalaGrown(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     vec3 r = vec3(0.0);
-    for (int i = SHELL_FROM; i < 6; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(6); i++) {
         if (!shellPass2(i)) continue;
         vec3 v = ocMandala(shellAt2(uv, i, SHELL_ROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));

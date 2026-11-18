@@ -42,15 +42,31 @@ private:
     std::map<std::string, size_t> byName_;
 };
 
+// composite_frag.glsl's texture units. Each program here is told them once, when it is built (a sampler keeps its
+// unit until the program is linked again); CompositePass binds its textures to them every frame.
+namespace composite_unit {
+inline constexpr int kTexA = 0;
+inline constexpr int kTexB = 1;
+inline constexpr int kFlow = 2;
+inline constexpr int kNoise = 4;
+inline constexpr int kUnderlay = 5;
+inline constexpr int kTexL = 6;
+}  // namespace composite_unit
+
 // The base composite program plus an LRU of four spliced variants.
 class TransitionPrograms {
 public:
     TransitionPrograms(const ShaderSource& assets, ProgramBinaryCache* cache) : catalog_(assets), assets_(assets), cache_(cache) {}
     ~TransitionPrograms() { release(); }
+    // Owns the programs it builds: neither copied nor moved (viz/GlHandle.hpp).
+    TransitionPrograms(const TransitionPrograms&) = delete;
+    TransitionPrograms& operator=(const TransitionPrograms&) = delete;
 
     // Compiles the base composite program; returns false with the driver log in `error`.
     bool create(const std::string& fadeVert, std::string* error);
     void release();
+    // The context is gone: drops every program without a GL call.
+    void forget();
     TransitionCatalog& catalog() { return catalog_; }
     const TransitionCatalog::Def* definition(const std::string& id) { return catalog_.definition(id); }
     UniformCache& programFor(const std::string& id);
@@ -63,10 +79,10 @@ private:
     TransitionCatalog catalog_;
     const ShaderSource& assets_;
     ProgramBinaryCache* cache_;
-    UniformCache base_;
+    OwnedProgram base_;
     std::string source_;
     std::string fadeVert_;
-    std::list<std::pair<std::string, std::unique_ptr<UniformCache>>> lru_;
+    std::list<std::pair<std::string, std::unique_ptr<OwnedProgram>>> lru_;
     // Ids whose spliced program failed to build in this context: not tried again until release().
     std::set<std::string> failed_;
     const UniformCache* uploadedFor_ = nullptr;

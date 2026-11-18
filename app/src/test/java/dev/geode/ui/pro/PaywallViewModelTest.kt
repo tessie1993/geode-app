@@ -5,6 +5,7 @@ import dev.geode.billing.FakePurchaseOutcome
 import dev.geode.billing.StoredTrialRepository
 import dev.geode.billing.TrialStore
 import dev.geode.billing.WallClock
+import dev.geode.model.TestCatalogue
 import dev.geode.pro.BillingError
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FreeTier
@@ -16,7 +17,6 @@ import dev.geode.pro.ProductLoad
 import dev.geode.pro.PurchaseStatus
 import dev.geode.pro.RestoreResult
 import dev.geode.pro.TrialState
-import dev.geode.render.scene.TestCatalogue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch

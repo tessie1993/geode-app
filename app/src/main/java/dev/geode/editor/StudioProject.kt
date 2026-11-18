@@ -42,7 +42,7 @@ data class TrackRef(
  * A Studio project: one folder on disk.
  *
  * [kind] (standard, or a loop drawn once and repeated to a length) and [edit] are native's JSON
- * (`GeodeNative.studioKindRead`, `studioEditRead`, `studioEditNew`).
+ * (`StudioNative.studioKindRead`, `studioEditRead`, `studioEditNew`).
  *
  * [export] is the project's own copy of the export settings. It starts as [destination]'s defaults
  * from Settings › Export and then belongs to the project: changing it here never touches Settings,

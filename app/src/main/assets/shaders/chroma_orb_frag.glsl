@@ -162,7 +162,7 @@ float coField(vec3 p) {
 float coFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, coField(shellAt3(i)));
     }
     return r;
@@ -287,6 +287,10 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     float nearest = 1e3;
+    // What map() leaves at the hit, kept so the shading needs no extra map() after the normal taps.
+    float hitMat = 0.0;
+    float hitCz = 0.0;
+    float hitIdx = 0.0;
     for (int i = 0; i < CO_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -297,6 +301,9 @@ void main() {
         float eps = 0.0007 * t + 0.0005;
         if (d < eps) {
             hitT = t;
+            hitMat = gMat;
+            hitCz = gCz;
+            hitIdx = gIdx;
             break;
         }
         t += max(d * 0.9, eps);
@@ -312,7 +319,9 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
+        gMat = hitMat;
+        gCz = hitCz;
+        gIdx = hitIdx;
         vec3 l = vec3(p.xy, p.z - gCz);
         float orbHue = hue + 0.04 * (gIdx - 3.5) / 3.5;
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
@@ -333,7 +342,7 @@ void main() {
                        skin(st, density, bass, aa),
                        skin(st * (1.0 - split), density, bass, aa));
             // A dark ring marks the bore's lip, as a bored hole would.
-            float lip = 1.0 - 0.6 * smoothstep(0.6, 0.0, polyR(q, gFolds) - CO_BORE);
+            float lip = 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.6, polyR(q, gFolds) - CO_BORE));
             vec3 dots = fringe(rgb, orbHue) * lip * glow;
             float limb = 0.5 + 0.5 * ndv;
             col = pal(orbHue + 0.62) * 0.04 + dots * limb * (0.55 + 0.45 * ao);
@@ -374,7 +383,7 @@ void main() {
             float h2 = hashCell(ivec3(int(cell.x), int(cell.y), slice + 131));
             vec2 c = (cell + 0.5 + (vec2(h, h2) - 0.5) * 0.6) * 2.5
                    + 0.2 * vec2(sin(uTime * 0.21 + h * 30.0), cos(uTime * 0.17 + h2 * 30.0));
-            float blob = smoothstep(0.45, 0.06, length(xy - c)) * (0.25 + 0.75 * h2);
+            float blob = (1.0 - smoothstep(0.06, 0.45, length(xy - c))) * (0.25 + 0.75 * h2);
             col += pal(hue + 0.62) * blob * 0.12 * lift * exp(-ti * fogK);
         }
     }

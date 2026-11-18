@@ -65,7 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.PaletteNative
 import dev.geode.ui.theme.GeodeSpacing
 import kotlin.math.roundToInt
 
@@ -81,10 +81,10 @@ internal fun ColourPicker(
 ) {
     var hsv by remember { mutableStateOf(hsvOf(rgb)) }
     // Another stop, a hex code or the eyedropper changed the colour: start from its own HSV.
-    if (GeodeNative.colourFromHsv(hsv[0], hsv[1], hsv[2]) != rgb) hsv = hsvOf(rgb)
+    if (PaletteNative.colourFromHsv(hsv[0], hsv[1], hsv[2]) != rgb) hsv = hsvOf(rgb)
     val emit = { h: Float, s: Float, v: Float ->
         hsv = floatArrayOf(h, s.coerceIn(0f, 1f), v.coerceIn(0f, 1f))
-        onChange(GeodeNative.colourFromHsv(h, s, v))
+        onChange(PaletteNative.colourFromHsv(h, s, v))
     }
     Column {
         SaturationValueSquare(hsv, emit)
@@ -93,7 +93,7 @@ internal fun ColourPicker(
     }
 }
 
-private fun hsvOf(rgb: Int): FloatArray = FloatArray(3).also { GeodeNative.colourToHsv(rgb, it) }
+private fun hsvOf(rgb: Int): FloatArray = FloatArray(3).also { PaletteNative.colourToHsv(rgb, it) }
 
 private const val A11Y_STEP = 0.1f
 private const val PERCENT = 100f
@@ -105,7 +105,7 @@ private fun SaturationValueSquare(
 ) {
     val latest by rememberUpdatedState(hsv)
     val set by rememberUpdatedState(emit)
-    val pure = packedColour(GeodeNative.colourFromHsv(hsv[0], 1f, 1f))
+    val pure = packedColour(PaletteNative.colourFromHsv(hsv[0], 1f, 1f))
     val label = stringResource(R.string.palette_sv_square)
     val state = stringResource(R.string.palette_sv_state, (hsv[1] * PERCENT).roundToInt(), (hsv[2] * PERCENT).roundToInt())
     val actions =
@@ -152,7 +152,7 @@ private fun HueStrip(
     onHue: (Float) -> Unit,
 ) {
     val set by rememberUpdatedState(onHue)
-    val colours = remember { List(HUE_STOPS) { packedColour(GeodeNative.colourFromHsv(it / (HUE_STOPS - 1f), 1f, 1f)) } }
+    val colours = remember { List(HUE_STOPS) { packedColour(PaletteNative.colourFromHsv(it / (HUE_STOPS - 1f), 1f, 1f)) } }
     val label = stringResource(R.string.palette_hue_strip)
     val at = { x: Float, width: Int -> set((x / width).coerceIn(0f, 1f)) }
     Canvas(
@@ -187,13 +187,13 @@ private fun HexField(
     rgb: Int,
     onChange: (Int) -> Unit,
 ) {
-    var text by remember(rgb) { mutableStateOf(GeodeNative.colourHex(rgb)) }
-    val parsed = GeodeNative.colourParseHex(text)
+    var text by remember(rgb) { mutableStateOf(PaletteNative.colourHex(rgb)) }
+    val parsed = PaletteNative.colourParseHex(text)
     OutlinedTextField(
         value = text,
         onValueChange = { typed ->
             text = typed
-            val colour = GeodeNative.colourParseHex(typed)
+            val colour = PaletteNative.colourParseHex(typed)
             if (colour >= 0 && colour != rgb) onChange(colour)
         },
         singleLine = true,
@@ -294,7 +294,7 @@ private fun Loupe(
                 .background(if (rgb >= 0) packedColour(rgb) else Color.Transparent),
         )
         Spacer(Modifier.height(4.dp))
-        if (rgb >= 0) Text(GeodeNative.colourHex(rgb), color = Color.White, style = MaterialTheme.typography.labelSmall)
+        if (rgb >= 0) Text(PaletteNative.colourHex(rgb), color = Color.White, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -320,5 +320,5 @@ private fun sampleAt(
     val h = (y + SAMPLE_RADIUS).coerceAtMost(image.height - 1) - top + 1
     val pixels = IntArray(w * h)
     image.getPixels(pixels, 0, w, left, top, w, h)
-    return GeodeNative.colourAverageArgb(pixels)
+    return PaletteNative.colourAverageArgb(pixels)
 }

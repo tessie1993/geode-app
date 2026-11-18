@@ -504,9 +504,12 @@ SceneParams reset(const SceneParams& current, Category category) { return borrow
 
 int changedCount(const SceneParams& current) {
     float now[SceneParams::kFieldCount];
+    float defaults[SceneParams::kFieldCount];
     float was[SceneParams::kFieldCount];
     current.toWire(now);
-    SceneParams{}.toWire(was);
+    SceneParams{}.toWire(defaults);
+    // Reset keeps the input preferences (drag to look, tilt), so they are not a change from what Reset gives.
+    SceneParams::keepInputs(now, defaults, was);
     int changed = 0;
     for (int i = 0; i < SceneParams::kFieldCount; ++i) {
         if (now[i] != was[i]) ++changed;
@@ -567,6 +570,45 @@ void setKept(std::string_view lines) {
     auto next = std::make_shared<const std::set<std::string>>(expandLocks(keys));
     std::lock_guard<std::mutex> guard(gKeptLock);
     gKept = std::move(next);
+}
+
+namespace {
+std::set<std::string> keepKeys(std::string_view document) {
+    std::set<std::string> keys;
+    size_t start = 0;
+    while (start <= document.size()) {
+        const size_t end = std::min(document.find('\n', start), document.size());
+        const std::string_view line = document.substr(start, end - start);
+        if (keepable(line)) keys.emplace(line);
+        start = end + 1;
+    }
+    return keys;
+}
+
+std::string keepText(const std::set<std::string>& keys) {
+    std::string out;
+    for (const auto& key : keys) out += key + "\n";
+    return out;
+}
+}  // namespace
+
+bool keepable(std::string_view key) {
+    if (key.empty()) return false;
+    if (key[0] == kCategoryLockPrefix) return categoryNamed(key.substr(1)).has_value();
+    for (const auto& roll : randomizer::rolledKeys()) {
+        if (key == roll.key) return true;
+    }
+    return false;
+}
+
+std::string keepNormalize(std::string_view document) { return keepText(keepKeys(document)); }
+
+bool keepHas(std::string_view document, std::string_view key) { return keepKeys(document).count(std::string(key)) > 0; }
+
+std::string keepToggle(std::string_view document, std::string_view key) {
+    auto keys = keepKeys(document);
+    if (keepable(key) && keys.erase(std::string(key)) == 0) keys.emplace(key);
+    return keepText(keys);
 }
 
 std::shared_ptr<const std::set<std::string>> kept() {

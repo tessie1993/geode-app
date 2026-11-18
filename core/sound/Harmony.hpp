@@ -17,7 +17,7 @@ int scaleCount();
 const ScaleInfo& scaleInfo(int index);
 
 // The harmony half of the musical layer: chroma, key, the chord's colour, tension and harmonic change,
-// read every analysis hop (10 ms) from the sound engine's long (pitch) spectrum.
+// read every analysis hop (its dt the hop's duration) from the sound engine's long (pitch) spectrum.
 //
 //   |X| 250 Hz–2 kHz ─► spectral peaks ─► log over the frame's peak ─► nearest pitch class ─┬► fast (0.1 s), medium (0.5 s), slow (4 s)
 //     slow ─► Noland's key profiles (24 keys, Pearson) ─► key, major/minor, clarity

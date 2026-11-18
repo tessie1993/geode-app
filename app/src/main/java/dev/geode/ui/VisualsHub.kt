@@ -59,7 +59,8 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.stage.StageView
@@ -149,7 +150,9 @@ private fun VisualsHubContent(
     onRequestedPageShown: () -> Unit,
     behaviour: BehaviourPrefs,
 ) {
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    // Held as a State and read only inside derived values: a slider tick or pinch moves vizState, and only what
+    // actually changed (scene, shader error, step target) recomposes this screen.
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     // Every navigation decision lives in VisualsNavState (VisualsNavigation.kt); this only draws.
     val nav = rememberVisualsNavState()
@@ -187,22 +190,33 @@ private fun VisualsHubContent(
     val stepStyle: (Int) -> Unit = { step ->
         stepStage(viewModel, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles, step)
     }
-    val styleStepTarget = stageStepTarget(viz, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles.size)
+    val styleStepTarget by remember(visualizerView, pip) {
+        derivedStateOf {
+            stageStepTarget(vizState.value, visualizerView, gate, nav.top, nav.sheetShown && !pip, milkFiles.size)
+        }
+    }
     val styleStepLabels = stageStepLabels(styleStepTarget)
     val context = LocalContext.current
     val resources = LocalResources.current
     val view = LocalView.current
     // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
     // The MilkDrop page shows it itself.
-    val milkError = viz.shaderError?.takeIf { viz.sceneId == GeodeNative.STYLE_MILKDROP }
+    val milkError by remember {
+        derivedStateOf { vizState.value.let { v -> v.shaderError?.takeIf { v.sceneId == CatalogueNative.STYLE_MILKDROP } } }
+    }
+    val sceneId by remember { derivedStateOf { vizState.value.sceneId } }
+    val otherShaderError by remember {
+        derivedStateOf { vizState.value.let { v -> v.shaderError?.takeIf { v.sceneId != CatalogueNative.STYLE_MILKDROP } } }
+    }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
-        if (milkError != null && !pip && !onMilkPage) {
-            val text = resources.getString(R.string.milk_load_failed, milkError.substringAfterLast('/'))
+        val failed = milkError
+        if (failed != null && !pip && !onMilkPage) {
+            val text = resources.getString(R.string.milk_load_failed, failed.substringAfterLast('/'))
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
-    StageBuildNote(viz.shaderError?.takeIf { viz.sceneId != GeodeNative.STYLE_MILKDROP }, pip)
+    StageBuildNote(otherShaderError, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
@@ -352,7 +366,7 @@ private fun VisualsHubContent(
                 onOpenStudioRender = onOpenStudioRender,
                 onSettings = { nav.openTab(VisualsPage.SETTINGS) },
                 // ‹ › are the sideways swipe's twin: they step what it steps, styles when it steps nothing.
-                stepLabels = stageStepLabels(if (sidewaysStepsOther) GeodeNative.STAGE_STEP_STYLES else styleStepTarget),
+                stepLabels = stageStepLabels(if (sidewaysStepsOther) SoundNative.STAGE_STEP_STYLES else styleStepTarget),
                 onStep = { step ->
                     actions.run(if (sideways in STEP_ACTIONS) sideways else GestureAction.STEP_STYLE, step)
                 },
@@ -456,7 +470,7 @@ private fun VisualsHubContent(
         CloseOnBack(enabled = !nav.sheetShown, onBack = nav::showSheet)
         MacrosDrawer(
             visible = macros,
-            sceneId = viz.sceneId,
+            sceneId = sceneId,
             onDismiss = { macros = false },
             onEdit = {
                 macros = false

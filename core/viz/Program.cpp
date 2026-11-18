@@ -7,23 +7,28 @@
 
 namespace geode::viz {
 
-GLint UniformCache::loc(const std::string& name) {
+GLint UniformCache::loc(std::string_view name) {
     const auto it = locations_.find(name);
     if (it != locations_.end()) return it->second;
-    const GLint location = glGetUniformLocation(program_, name.c_str());
-    locations_.emplace(name, location);
+    // A miss is once per name and program: the only place a std::string is built, for the driver's C string.
+    const std::string key(name);
+    const GLint location = glGetUniformLocation(program_, key.c_str());
+    locations_.emplace(key, location);
     return location;
 }
 
-GLsizei UniformCache::arrayCount(const std::string& name, GLsizei declared) {
+GLsizei UniformCache::arrayCount(std::string_view name, GLsizei declared) { return std::min(arraySize(name, declared), declared); }
+
+GLsizei UniformCache::arraySize(std::string_view name, GLsizei declared) {
     const auto it = arraySizes_.find(name);
-    if (it != arraySizes_.end()) return std::min(it->second, declared);
-    const std::string first = name + "[0]";
+    if (it != arraySizes_.end()) return it->second;
+    const std::string base(name);
+    const std::string first = base + "[0]";
     const char* names[1] = {first.c_str()};
     GLuint index = GL_INVALID_INDEX;
     glGetUniformIndices(program_, 1, names, &index);
     if (index == GL_INVALID_INDEX) {
-        names[0] = name.c_str();
+        names[0] = base.c_str();
         glGetUniformIndices(program_, 1, names, &index);
     }
     GLsizei size = declared;
@@ -32,8 +37,8 @@ GLsizei UniformCache::arrayCount(const std::string& name, GLsizei declared) {
         glGetActiveUniformsiv(program_, 1, &index, GL_UNIFORM_SIZE, &reported);
         size = std::max(reported, 1);
     }
-    arraySizes_.emplace(name, size);
-    return std::min(size, declared);
+    arraySizes_.emplace(base, size);
+    return size;
 }
 
 namespace program {
@@ -67,7 +72,7 @@ GLuint build(const std::string& vertexSrc, const std::string& fragmentSrc, Progr
     // A live renderer building a scene across frames (ProgramStager, ScenePrep): the stager compiles
     // it in budgeted steps and hands out a placeholder until it is linked.
     if (ProgramStager* stager = ProgramStager::current()) {
-        return stager->obtain({{GL_VERTEX_SHADER, vertexSrc}, {GL_FRAGMENT_SHADER, fragmentSrc}}, error);
+        return stager->obtain({{GL_VERTEX_SHADER, vertexSrc}, {GL_FRAGMENT_SHADER, fragmentSrc}}, error, nullptr, cache != nullptr);
     }
     const auto key = cache ? cache->keyFor(vertexSrc, fragmentSrc) : std::nullopt;
     if (key) {

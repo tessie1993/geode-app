@@ -138,6 +138,8 @@ float gScale;
 vec3 gOffset;
 float gSway;
 float gTurn;
+/** Turbulence's turn inside each fold: it depends on the fold's index and the time only, so main() builds it once per pixel. */
+mat2 gFoldRot[MC_ITER];
 float gTone;
 /** The vault's and the arcade's compass offsets: wider is more pointed. */
 float gArchC;
@@ -232,10 +234,7 @@ float fractal(vec3 pw) {
         p = clamp(p, -1.0, 1.0) * 2.0 - p;
         // Turbulence: a small turn inside every fold, an isometry, so the
         // estimate stays a bound.
-        if (gTurn > 0.0) {
-            float a = gTurn * sin(float(i) * 1.7 + uTime * 0.37);
-            p.xy = mat2(cos(a), -sin(a), sin(a), cos(a)) * p.xy;
-        }
+        if (gTurn > 0.0) p.xy = gFoldRot[i] * p.xy;
         // Minimum radius^2 0.25, fixed radius^2 1.
         float k = clamp(1.0 / max(dot(p, p), 0.25), 1.0, 4.0);
         p *= k;
@@ -295,7 +294,7 @@ float mapField(vec3 p) {
 float mapFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
     }
     return r;
@@ -362,7 +361,7 @@ vec3 glass(vec2 w, float stain, float id) {
     vec2 r = w - vec2(0.0, 0.95);
     float rr = length(r);
     float pet = abs(fract(atan(r.y, r.x) / MC_TAU * 8.0) - 0.5);
-    float rose = smoothstep(0.42, 0.38, rr) * (0.6 + 0.4 * smoothstep(0.2, 0.0, pet - rr * 0.3));
+    float rose = (1.0 - smoothstep(0.38, 0.42, rr)) * (0.6 + 0.4 * (1.0 - smoothstep(0.0, 0.2, pet - rr * 0.3)));
     pane = mix(pane, neon(0.55 + stain + rr), rose * 0.7);
     return pane * lead * (0.7 + 0.3 * pick);
 }
@@ -442,7 +441,7 @@ float shafts(vec3 p, float motes) {
     vec2 q = p.xy - naveAxis(p.z);
     float s = p.z + 0.55 * (q.y - 1.3) + 0.35 * (q.x + 0.9);
     float z = mod(s, MC_BAY) - 0.5 * MC_BAY;
-    float beam = exp(-z * z * 9.0) * smoothstep(MC_FLOOR, 1.2, q.y + 0.4) * smoothstep(0.05, -0.35, naveSd(q));
+    float beam = exp(-z * z * 9.0) * smoothstep(MC_FLOOR, 1.2, q.y + 0.4) * (1.0 - smoothstep(-0.35, 0.05, naveSd(q)));
     // Dust: one soft round mote in a few cells of a fine grid.
     vec3 cell = floor(p * 12.0);
     vec3 f = fract(p * 12.0) - 0.5;
@@ -493,7 +492,7 @@ float mcRose(vec2 rp) {
 float mcRoseGrown(vec2 uv) {
     shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = float(0.0);
-    for (int i = SHELL_FROM; i < 6; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(6); i++) {
         if (!shellPass2(i)) continue;
         float v = mcRose(shellAt2(uv, i, SHELL_ROUND2));
         r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
@@ -538,6 +537,13 @@ void main() {
     gArcadeC = mix(0.25, 0.4, form);
     gSway = 0.25 * clamp(neonFlow() + neonKnob(2), 0.0, 1.0);
     gTurn = 0.35 * neonChaos();
+    if (gTurn > 0.0) {
+        for (int i = 0; i < MC_ITER; i++) {
+            if (float(i) >= sIter) break;
+            float a = gTurn * sin(float(i) * 1.7 + uTime * 0.37);
+            gFoldRot[i] = mat2(cos(a), -sin(a), sin(a), cos(a));
+        }
+    }
     gTone = neonKeyTurn() - 0.08 + 0.25 * neonKnob(3);
     // A hard cut re-seeds the offset; the held envelope eases the old seed
     // into the new one, so the aisles re-grow instead of jumping.
@@ -569,6 +575,11 @@ void main() {
     int steps = 0;
     vec3 glow = vec3(0.0);
     vec3 air = vec3(0.0);
+    // What map() leaves at the hit, kept so the shading needs no extra map() after the normal taps.
+    float hitMat = 0.0;
+    float hitRibD = 0.0;
+    float hitRibKind = 0.0;
+    vec4 hitTrap = vec4(0.0);
     for (int i = 0; i < MC_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
@@ -578,6 +589,10 @@ void main() {
         glow += ribColour(p.z, gRibKind, hot) * ribLight(p.z, gRibKind, ribBase, snare) / (1.0 + gRibD * gRibD * 900.0) * exp(-t * 0.07);
         if (d < 0.0012 * (1.0 + t)) {
             hit = true;
+            hitMat = gMat;
+            hitRibD = gRibD;
+            hitRibKind = gRibKind;
+            hitTrap = gTrap;
             break;
         }
         float stepLen = d * 0.85;
@@ -598,13 +613,16 @@ void main() {
         float rr = length(rp);
         float rose = mcRoseGrown(rp);
         float beat = 0.7 + 0.6 * kick + 1.2 * surge;
-        fogCol += neon(0.3 + rr * 0.6 + stain) * rose * smoothstep(0.75, 0.2, rr) * 0.6 * beat * awake * glowGain;
+        fogCol += neon(0.3 + rr * 0.6 + stain) * rose * (1.0 - smoothstep(0.2, 0.75, rr)) * 0.6 * beat * awake * glowGain;
     }
     vec3 col = fogCol;
     if (hit) {
         vec3 p = ro + rd * t;
         vec3 n = calcNormal(p, t);
-        map(p);
+        gMat = hitMat;
+        gRibD = hitRibD;
+        gRibKind = hitRibKind;
+        gTrap = hitTrap;
         float mat = gMat;
         vec2 q = p.xy - naveAxis(p.z);
         float zl = mod(p.z, MC_BAY) - 0.5 * MC_BAY;
@@ -623,6 +641,8 @@ void main() {
             float rt = 0.05;
             vec3 rcol = fogCol * 0.4;
             for (int j = 0; j < MC_REFL_STEPS; j++) {
+                // A share of the user's Detail: 0.6 x 64 is over MC_REFL_STEPS, so full quality keeps all 36.
+                if (float(j) >= uSteps * 0.6) break;
                 vec3 rp = p + rr * rt;
                 float rd2 = map(rp);
                 if (rd2 < 0.004 * (1.0 + rt)) {

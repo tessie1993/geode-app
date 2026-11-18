@@ -35,7 +35,8 @@ namespace geode::viz {
 //   the bar     a look lands on a downbeat whenever a beat is heard (a drop cuts in at once, a quarter
 //               second, where Form has moved the downbeat). How it lands is the feeling's: peace,
 //               tenderness and transcendence glide in over up to two bars, power and joy over a beat
-//               (changeBars). The bar is whatever the tracker hears; no tempo is preferred
+//               (changeBars). The bar is whatever the tracker hears; no tempo is preferred,
+//               and with none heard the look lands over the tuning's plain seconds (changeSeconds)
 //   the build   while Form says the song is in a build, the look leans toward the drop over four bars:
 //               faster, closer, rougher. The drop's cut takes it away; a build that fades without one
 //               lets go over a bar. It follows Form's state, never a level or a hit
@@ -98,6 +99,9 @@ struct StyleIntent {
     std::string remembered;  // Return: the style the section was first shown on
     int step = 0;            // Return: how many times the section has come back
     bool progress = true;    // the Styles progress setting; off, a return brings its own style back and else it stays
+    // Which entry a step lands on when the pool lists the style more than once (MilkDrop, once per .milk file):
+    // from the play's seed and the moment's commit, so each moment draws anew and an export draws as the screen.
+    uint64_t draw = 0;
 };
 }  // namespace director
 
@@ -176,6 +180,8 @@ public:
     // transcendence) at the tuning's calm glide, one bar between, the driven end (power, joy) at its
     // driven glide. Never the tempo's: the bar is whatever the tracker hears.
     static float changeBars(const sound::Emotion::State& s, const director::Tuning& tuning = director::defaultTuning());
+    // The same blend in seconds, for when no tempo is heard and there is no bar: the tuning's own times.
+    static float changeSeconds(const sound::Emotion::State& s, const director::Tuning& tuning = director::defaultTuning());
     // A remembered look grown on for its `returns`-th return: further the way it was heading, plus a
     // seeded turn of its own, both growing with the returns, held to each dial's range. Pure.
     static Look grow(const Look& look, const Look& heading, int returns, float growth, uint64_t seed, int section);

@@ -6,8 +6,8 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.VizNative
+import dev.geode.model.SceneParams
 import dev.geode.viz.ArtPalette
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -89,7 +89,7 @@ internal class TrackColorController(
                 } ?: return null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            val sample = GeodeNative.underlaySampleSize(bounds.outWidth, bounds.outHeight, maxSide, maxSide, fit = true)
+            val sample = VizNative.underlaySampleSize(bounds.outWidth, bounds.outHeight, maxSide, maxSide, fit = true)
             val opts = BitmapFactory.Options().apply { inSampleSize = sample }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
         }.getOrNull()

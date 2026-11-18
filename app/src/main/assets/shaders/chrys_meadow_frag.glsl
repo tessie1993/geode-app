@@ -311,7 +311,7 @@ void main() {
         vec3 ground = pal(hue + 0.36) * 0.035 * (0.7 + 0.6 * fld.a.y);
         // World size of one pixel at this depth: petal detail fades before it shimmers.
         float foot = hitT * 2.0 / (uResolution.y * uCamFocal);
-        float detail = smoothstep(0.05, 0.015, foot);
+        float detail = 1.0 - smoothstep(0.015, 0.05, foot);
         vec3 c;
         if (fld.mat < 0.5) {
             c = ground * (0.6 + 0.6 * max(ndl, 0.0)) * ao;

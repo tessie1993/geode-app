@@ -1,4 +1,5 @@
 #pragma once
+#include <EGL/egl.h>
 #include <GLES3/gl3.h>
 
 #include <array>
@@ -78,7 +79,11 @@ private:
     };
 
     fluid::DoubleFbo* ensureState();
-    void census(fluid::DoubleFbo& field, GLint restoreFbo);
+    // The census reads its probes into censusPbo_ and maps them once censusFence_ has passed, a frame or more
+    // later, so the GL thread never waits on the GPU for five texels.
+    void startCensus(fluid::DoubleFbo& field, GLint restoreFbo);
+    void finishCensus();
+    void dropCensus();
     Rule preset(int index) const;
     void steer(const GeodeSoundFrame& f, float dt);
     int mapTouch(const fluid::DoubleFbo& field, std::array<float, TouchField::kMaxPoints * TouchField::kPointStride>& out) const;
@@ -106,6 +111,10 @@ private:
     float seedRemain_ = 0.0f;
     float seedSalt_ = 0.0f;
     float censusAge_ = 0.0f;
+    GLuint censusPbo_ = 0;
+    GLsync censusFence_ = nullptr;  // set while a census is in flight
+    EGLContext censusContext_ = EGL_NO_CONTEXT;  // the context that made censusFence_
+    bool censusBytes_ = false;      // the in-flight census read RGBA8 texels, not float ones
     const TouchField* touch_ = nullptr;
 
     // Steering, folded from the sound frame in update() and consumed by draw().

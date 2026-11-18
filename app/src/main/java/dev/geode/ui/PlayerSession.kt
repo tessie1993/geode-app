@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import android.app.Application
+import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
@@ -33,20 +34,28 @@ import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
 import dev.geode.data.SmartPlaylist
-import dev.geode.data.SmartPlaylistMatcher
+import dev.geode.data.SmartPlaylistStore
 import dev.geode.data.SystemMotion
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
+import dev.geode.data.UnfinishedOutputs
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
+import dev.geode.data.persistGrant
 import dev.geode.data.prefs.PrefsSettingsRepository
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.data.releaseGrant
+import dev.geode.editor.ProjectId
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.IngestNative
+import dev.geode.engine.bridge.ParamsNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.export.ExportRun
 import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
@@ -54,12 +63,12 @@ import dev.geode.model.LibraryTrack
 import dev.geode.model.MilkFile
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CompletableDeferred
@@ -75,6 +84,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
@@ -121,8 +131,8 @@ class PlayerSession internal constructor(
                 override fun resetSound(playerOwnsRing: Boolean) {
                     // The tap first: once this returns it writes nothing while another source has the ring.
                     playback.tap.owns = playerOwnsRing
-                    GeodeNative.pcmRingBeginEpoch(playback.sampleRing)
-                    bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
+                    IngestNative.pcmRingBeginEpoch(playback.sampleRing)
+                    bestEffort("PlayerSession", "player source") { SoundNative.soundSetPlayerSource(playerOwnsRing) }
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
@@ -244,7 +254,7 @@ class PlayerSession internal constructor(
     internal val modulation: ModulationController =
         ModulationController(
             LfoStore(prefsFiles.general),
-            prefsFiles.modulation,
+            container.keepSet,
             object : ModulationController.Host {
                 override val params: SceneParams get() = _vizState.value.params
 
@@ -252,7 +262,7 @@ class PlayerSession internal constructor(
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
             },
-            container.autoDirector::setKept,
+            scope,
         )
 
     val adsrs: StateFlow<String> get() = modulation.adsrs
@@ -272,6 +282,9 @@ class PlayerSession internal constructor(
     internal val milkImport = MilkImportController(application, container.mediaStore, scope)
 
     fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkImport.milkPresetFilesAsync(onDone)
+
+    /** Deletes an imported .milk; the stage, Auto and the saved look forget it, as for a removed texture's presets. */
+    fun removeMilkPreset(path: String) = milkImport.removeMilkAsync(path) { vizStateStore.dropRemovedMilkPaths(listOf(it)) }
 
     fun importMilkPresetAsync(
         uri: Uri,
@@ -325,7 +338,7 @@ class PlayerSession internal constructor(
     internal val record: RecordController =
         RecordController(
             application,
-            scope,
+            container.appScope,
             dev.geode.data.RecordFiles(application),
             object : RecordController.Host {
                 override fun canRecord(): Boolean = allowsRecording()
@@ -391,7 +404,8 @@ class PlayerSession internal constructor(
 
     private fun refresh() {
         val uri = player.currentMediaItem?.localConfiguration?.uri
-        _positionMs.value = player.currentPosition.coerceAtLeast(0)
+        // While another app is the source and its session is followed, the playhead shown is its.
+        _positionMs.value = captureController.externalPositionMs() ?: player.currentPosition.coerceAtLeast(0)
         _uiState.value =
             PlayerUiState(
                 isPlaying = player.isPlaying,
@@ -504,7 +518,7 @@ class PlayerSession internal constructor(
     }
 
     fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =
-        SmartPlaylistMatcher.resolve(playlist, deviceTracks.value, listening::playCountOf, favourites.value)
+        SmartPlaylistStore.resolve(playlist, deviceTracks.value, listening.historyText(), favourites.value)
 
     fun playSmartPlaylist(playlist: SmartPlaylist) {
         val tracks = resolveSmartPlaylist(playlist).map(PlaybackQueue::queueTrack)
@@ -714,7 +728,7 @@ class PlayerSession internal constructor(
      */
     fun randomizeEverything(basicsOnly: Boolean) {
         // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
-        if (allowsStyle(GeodeNative.STYLE_MILKDROP)) {
+        if (allowsStyle(CatalogueNative.STYLE_MILKDROP)) {
             milkPresetFilesAsync { randomizeEverything(basicsOnly, it) }
         } else {
             randomizeEverything(basicsOnly, emptyList())
@@ -730,7 +744,7 @@ class PlayerSession internal constructor(
         val locked = StyleCatalogue.ids.filterNot(allowsStyle)
         val picks = IntArray(2)
         val style =
-            GeodeNative.randomizeAllPick(
+            ParamsNative.randomizeAllPick(
                 seed,
                 chosenSceneId,
                 locked.joinToString("\n"),
@@ -828,16 +842,62 @@ class PlayerSession internal constructor(
         watermark: dev.geode.model.WatermarkChoice = dev.geode.model.WatermarkChoice.NONE,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, codec, watermark)
 
+    /**
+     * Follows the render just started (only when [ExportRun] runs one) on the app's scope, so a render
+     * that outlives this screen is still followed. The file it writes at a picked [destination] is
+     * noted ([UnfinishedOutputs], with a grant that outlives the process) until it ends, so one the process
+     * does not outlive is deleted at the next start. Once it ends, however it ends, the read grants on
+     * the loop render's [clips] go back, except a song the library holds.
+     */
+    fun followRender(
+        destination: Uri?,
+        clips: List<Uri> = emptyList(),
+    ) {
+        if (!ExportRun.running || (destination == null && clips.isEmpty())) return
+        container.appScope.launch(Dispatchers.IO) {
+            val unfinished = UnfinishedOutputs(application)
+            destination?.let {
+                application.contentResolver.persistGrant(it, RENDER_GRANT)
+                unfinished.begin(it.toString())
+            }
+            ExportRun.state.first { !it.running }
+            destination?.let {
+                unfinished.end(it.toString())
+                application.contentResolver.releaseGrant(it, RENDER_GRANT)
+            }
+            container.mediaStore.releaseReadAccess(clips, library.value.tracks.mapTo(HashSet()) { it.uri })
+        }
+    }
+
     fun deleteStudioClip(
         uri: String,
         onResult: (Boolean) -> Unit,
     ) = exportController.deleteStudioClip(uri, onResult)
+
+    /** Takes the video off its project's list and deletes the file itself. */
+    private fun deleteRender(
+        projectId: ProjectId,
+        uri: String,
+    ) {
+        editor.removeRender(projectId, uri)
+        deleteStudioClip(uri) {}
+    }
+
+    /**
+     * My videos' deletes waiting out their Undo snackbar. They wait in the session, not in the tab's
+     * composition or a ViewModel, and [shutdown] commits those still waiting, so leaving the tab or
+     * the app mid-snackbar still deletes the item (#322) instead of bringing it back.
+     */
+    internal val videoDeletes =
+        PendingDeletes<VideoDelete>(scope, keyOf = VideoDelete::key) { deleteRender(it.projectId, it.uri) }
 
     /**
      * Tears the session down. Called only by [dev.geode.di.PlayerSessionProvider], on behalf of the
      * one ViewModel that owns the session — never from a screen.
      */
     internal fun shutdown() {
+        // My videos' deletes still in their Undo window go now, while the scopes they use still run.
+        videoDeletes.commitAll()
         // Queue every outstanding write BEFORE the pending set is snapshotted below, or the store
         // scope's cancellation races the very writes this teardown exists to preserve.
         listening.flushListenTime()
@@ -846,6 +906,7 @@ class PlayerSession internal constructor(
             storeScope.coroutineContext.job.children
                 .toList()
 
+        record.stop()
         captureController.shutdown()
         playerListener?.let { player.removeListener(it) }
         queueController.release()
@@ -902,7 +963,7 @@ class PlayerSession internal constructor(
                 // The widget has no tab: it steps the styles, by the stage's native walk.
                 val order = stageStyleOrder()
                 val next =
-                    GeodeNative.stageStepIndex(BooleanArray(order.size) { allowsStyle(order[it]) }, order.indexOf(chosenSceneId), step)
+                    SoundNative.stageStepIndex(BooleanArray(order.size) { allowsStyle(order[it]) }, order.indexOf(chosenSceneId), step)
                 if (next >= 0) selectScene(order[next])
             }
         }
@@ -987,5 +1048,8 @@ class PlayerSession internal constructor(
         const val STORE_FLUSH_BUDGET_MS = 2_000L
         const val POLL_INTERVAL_MS = 500L
         const val WIDGET_STYLE_SETTLE_MS = 400L
+
+        /** A picked render destination's grant, kept while it renders so the next start can delete a broken one. */
+        const val RENDER_GRANT = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
     }
 }

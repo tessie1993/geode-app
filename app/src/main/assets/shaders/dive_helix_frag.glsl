@@ -57,7 +57,8 @@ void main() {
         float fog = exp(-0.055 * hitT);
         // Sheen: hue runs with the view angle, strongest at grazing.
         vec3 sheen = diveColor(id * 0.5 + 1.6 * ndv);
-        col += sheen * (0.08 + 0.5 * pow(1.0 - ndv, 2.0)) * fog;
+        float graze = 1.0 - ndv;
+        col += sheen * (0.08 + 0.5 * graze * graze) * fog;
         vec3 refl = reflect(rd, n);
         float pick = step(0.66, dive_hash11(id * 91.0 + fract(SND_ONSET_COUNT * 0.618) * 37.0));
         float glint = pick * clamp(SND_HAT_ENV * e, 0.0, 1.0) * pow(max(dot(refl, -rd), 0.0), 6.0);

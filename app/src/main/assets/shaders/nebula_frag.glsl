@@ -546,7 +546,7 @@ float nebField(vec3 q) {
 float nebFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, nebField(shellAt3(i)));
     }
     return r;
@@ -701,7 +701,8 @@ void main() {
     float satCount = dmtSatelliteCount();
     // In world space: the bank orbits the cloud, not the camera. t is the
     // same in both frames, the basis being a rotation.
-    float satT = dmtMarchSatellites(roW, rdW, tNear + span, uSteps * 0.5, satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+    dmtSatPrepare(satCount, NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+    float satT = dmtMarchSatellites(roW, rdW, tNear + span, uSteps * 0.5);
     float tStop = satT > 0.0 ? satT : tNear + span;
 
     float volSteps = min(max(uSteps * NEB_STEP_SCALE, NEB_MIN_STEPS), float(NEB_MAX_STEPS));
@@ -913,8 +914,7 @@ void main() {
 
     // A satellite, through whatever the dye in front of it did not absorb.
     if (satT > 0.0) {
-        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, hueBase + 0.30 + NEB_HUE_MID * mid, treble, satCount,
-                                      NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
+        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, hueBase + 0.30 + NEB_HUE_MID * mid, treble);
         col += body * trans * glowGain * 0.6;
         trans = 0.0;
     }
@@ -931,7 +931,7 @@ void main() {
 
     // Corner falloff, floored: on a wide aspect a fade to zero would black out
     // a third of the frame.
-    col *= mix(NEB_VIGNETTE_FLOOR, 1.0, smoothstep(NEB_VIGNETTE_OUTER, NEB_VIGNETTE_INNER, length(uv)));
+    col *= mix(NEB_VIGNETTE_FLOOR, 1.0, 1.0 - smoothstep(NEB_VIGNETTE_INNER, NEB_VIGNETTE_OUTER, length(uv)));
 
     fragColor = vec4(grade(col * emission), 1.0);
 }

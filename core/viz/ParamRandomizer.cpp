@@ -256,7 +256,7 @@ const std::string& lockableKeysText() {
 }
 
 const std::vector<std::pair<const char*, const char*>>& neverRolled() {
-    static const std::vector<std::pair<const char*, const char*>> kNever = {
+    static const std::vector<std::pair<const char*, const char*>> kListed = {
         {"paramFadeSec", "an automation preference, not a look"},
         {"fluidQuality", "a performance setting, not a look"},
         {"fluidAutoQuality", "a performance setting, not a look"},
@@ -290,8 +290,6 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camPitch", "a modulation offset the reaction routes drive"},
         {"camRoll", "a modulation offset the reaction routes drive"},
         {"camSmooth", "a comfort preference, not a look"},
-        {"camTouch", "an input preference, not a look"},
-        {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
         {"motionDrift", "Spin: whether a turning style spins is the user's choice"},
         // Grow and layers: shapes the music drives through the reaction routes, waves and knobs; a roll that set
@@ -354,6 +352,16 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         // Colour map, retired: the colour maps are palettes of the stack.
         {"paletteLut", "retired"},
     };
+    static const std::vector<std::pair<const char*, const char*>> kNever = [] {
+        auto out = kListed;
+        // The input preferences (meta rows with kInput, Tilt phone to look and Drag to look): no look sets them.
+        for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+            if ((SceneParams::meta(static_cast<ParamSlot>(slot)).flags & kInput) != 0) {
+                out.emplace_back(SceneParams::fieldNames()[static_cast<size_t>(slot)], "an input preference, not a look");
+            }
+        }
+        return out;
+    }();
     return kNever;
 }
 

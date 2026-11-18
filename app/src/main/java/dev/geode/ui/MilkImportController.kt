@@ -4,13 +4,13 @@ import android.app.Application
 import android.net.Uri
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
+import dev.geode.data.ImportedMilk
 import dev.geode.data.MediaStoreSource
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
-import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.MilkNative
 import dev.geode.model.MilkFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +62,7 @@ internal class MilkImportController(
                         builtInDir().deleteRecursively()
                         File(importDir(), "textures").mkdirs()
                     }
-                    GeodeNative.milkStarterInstall(application.assets, importDir().path)
+                    MilkNative.milkStarterInstall(application.assets, importDir().path)
                     // Idempotent refresh: catches textures imported before a preset existed,
                     // presets from older installs that predate linking, and starter presets.
                     if (relink) textureLinks.relinkAll()
@@ -133,12 +133,7 @@ internal class MilkImportController(
     ): String? =
         try {
             val dir = importDir().apply { mkdirs() }
-            val display = displayNameOf(uri).orEmpty().ifBlank { "preset" }
-            val stem = PresetStore.milkFileName(display).removeSuffix(".milk")
-            val file =
-                generateSequence(1) { it + 1 }
-                    .map { n -> File(dir, if (n == 1) "$stem.milk" else "$stem $n.milk") }
-                    .first { !keepExisting || !it.exists() }
+            val file = File(dir, MilkNative.milkImportFileName(dir.path, displayNameOf(uri).orEmpty(), keepExisting))
             // A .milk is text, tens of KB; anything past the cap is not one, and the write is dropped.
             val written =
                 mediaStore.read(uri) { input ->
@@ -166,6 +161,23 @@ internal class MilkImportController(
             val report = imported.copy(presetsMissingTextures = textureLinks.relinkAll())
             relist()
             withContext(Dispatchers.Main) { onDone(report) }
+        }
+    }
+
+    /**
+     * Deletes the imported preset at [path] (only a `.milk` in the folder), sweeps its texture links
+     * and pins ([MilkTextureLinks.relinkAll]) and reads the list again; [onRemoved], on main, forgets
+     * the path wherever the session remembered it. Nothing happens for a path that was not one.
+     */
+    fun removeMilkAsync(
+        path: String,
+        onRemoved: (String) -> Unit,
+    ) {
+        scope.launch(Dispatchers.IO) {
+            if (!ImportedMilk.remove(importDir(), path)) return@launch
+            runCatching { textureLinks.relinkAll() }.onFailure { RingLog.note("MilkImport", "relink after a delete failed", it) }
+            relist()
+            withContext(Dispatchers.Main) { onRemoved(path) }
         }
     }
 

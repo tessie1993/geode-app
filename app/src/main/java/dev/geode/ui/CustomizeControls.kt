@@ -6,6 +6,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -13,11 +15,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.geodeContainer
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 
@@ -34,31 +35,40 @@ internal fun CustomizeControls(
     host: AdvancedHost,
 ) {
     // One collector for the whole section, not one per control: a slider drag wakes one section.
-    val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
+    val vizState = host.viewModel.vizState.collectAsStateWithLifecycle()
+    val viz = vizState.value
     val liquidMode by host.visualsViewModel.liquidMode.collectAsStateWithLifecycle()
     val sceneId = LocalSceneId.current
     val query = LocalParamQuery.current
     val transition = viz.transitionId != null
     val rows =
         remember(keys, sceneId, query, viz.params, transition, liquidMode) {
-            GeodeNative
+            CustomizeNative
                 .customizeRows(sceneId, keys.joinToString("\n"), query, transition, liquidMode, viz.params.frame())
                 .lines()
                 .drop(1)
                 .filter { it.isNotEmpty() }
-                .map { it.split('|') }
+                .map { ControlFields(it.split('|')) }
         }
-    rows.forEach { ControlRow(it, host, viz) }
+    rows.forEach { ControlRow(it, host, vizState) }
 }
+
+/** One native row's fields; structural equality, so a row whose fields did not change skips recomposition. */
+@Immutable
+private data class ControlFields(
+    val list: List<String>,
+)
 
 /** One native row (core/viz/CustomizeRows.hpp names its fields), drawn by its type. */
 @Composable
 private fun ControlRow(
-    f: List<String>,
+    row: ControlFields,
     host: AdvancedHost,
-    viz: VizUiState,
+    vizState: State<VizUiState>,
 ) {
-    val edit: (Float) -> Unit = { host.visualsViewModel.editSceneParams(viz.params.with(f[2], it)) }
+    val f = row.list
+    // Read when a move arrives, not while composing: a row recomposes when its own fields change.
+    val edit: (Float) -> Unit = { host.visualsViewModel.editSceneParams(vizState.value.params.with(f[2], it)) }
     when (f[0]) {
         "SLIDER" ->
             LabeledSlider(
@@ -68,7 +78,7 @@ private fun ControlRow(
                 display = f[3],
                 scope = ParamScope.UNIVERSAL,
                 default = f[7].toFloatOrNull(),
-                unit = ParamUnit.entries.getOrNull(f[8].toInt()),
+                unit = f[8].toInt(),
                 steps = f[9].toInt(),
                 onChange = edit,
             )
@@ -87,8 +97,8 @@ private fun ControlRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
-        "SHELL" -> ShellSlider(f, host, viz)
-        "PIECE" -> PanelPiece(f[1], f[2], f[3], f[4], host, viz)
+        "SHELL" -> ShellSlider(f, host, vizState)
+        "PIECE" -> PanelPiece(f[1], f[2], f[3], f[4], host, vizState)
         else -> Unit
     }
 }
@@ -98,10 +108,11 @@ private fun ControlRow(
 private fun ShellSlider(
     f: List<String>,
     host: AdvancedHost,
-    viz: VizUiState,
+    vizState: State<VizUiState>,
 ) {
+    val viz = vizState.value
     val range = f[4].toFloat()..f[5].toFloat()
-    val unit = ParamUnit.entries.getOrNull(f[6].toInt())
+    val unit = f[6].toInt()
     val vm = host.viewModel
     when (f[2]) {
         "ATTACK" -> LabeledSlider(f[1], viz.attack, range, f[3], ParamScope.UNIVERSAL, unit = unit) { vm.setReactivity(it, viz.decay) }
@@ -124,8 +135,9 @@ private fun PanelPiece(
     label: String,
     text: String,
     host: AdvancedHost,
-    viz: VizUiState,
+    vizState: State<VizUiState>,
 ) {
+    val viz = vizState.value
     val context = LocalContext.current
     val vm = host.visualsViewModel
     val p = viz.params

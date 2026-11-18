@@ -13,21 +13,22 @@ bool TrailPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, co
     const auto fadeFrag = assets.load("fade_frag.glsl", error);
     const auto warpFrag = assets.load("trail_warp_frag.glsl", error);
     if (!fadeFrag || !warpFrag) return false;
-    fadeProgram_ = program::build(fadeVert, *fadeFrag, cache, error);
-    if (fadeProgram_ == 0) return false;
-    trailWarpProgram_ = program::build(fadeVert, *warpFrag, cache, error);
-    if (trailWarpProgram_ == 0) return false;
-    fadeUniforms_ = UniformCache(fadeProgram_);
-    trailUniforms_ = UniformCache(trailWarpProgram_);
-    return true;
+    fadeUniforms_.reset(program::build(fadeVert, *fadeFrag, cache, error));
+    if (fadeUniforms_.program() == 0) return false;
+    trailUniforms_.reset(program::build(fadeVert, *warpFrag, cache, error));
+    return trailUniforms_.program() != 0;
 }
 
 void TrailPass::release() {
-    if (fadeProgram_ != 0) glDeleteProgram(fadeProgram_);
-    if (trailWarpProgram_ != 0) glDeleteProgram(trailWarpProgram_);
-    fadeProgram_ = 0;
-    trailWarpProgram_ = 0;
+    fadeUniforms_.release();
+    trailUniforms_.release();
     trail_.release();
+}
+
+void TrailPass::forget() {
+    fadeUniforms_.forget();
+    trailUniforms_.forget();
+    trail_.forget();
 }
 
 float TrailPass::fadeAlpha(float keep, float dt) { return 1.0f - std::pow(keep * 0.97f, dt * 60.0f); }
@@ -38,7 +39,7 @@ float TrailPass::warpScale(float trailZoom, float dt) {
     return std::pow(1.0f - std::clamp(trailZoom, -1.0f, 1.0f) * 0.06f, liquid::frames60(dt));
 }
 
-void TrailPass::apply(const SceneParams& p, float keep, float timeSeconds, float dt, const Framebuffer& sceneTarget, GLuint quadVao,
+void TrailPass::apply(const SceneParams& p, float keep, float timeSeconds, float dt, Framebuffer& sceneTarget, GLuint quadVao,
                       int renderWidth, int renderHeight) {
     if (p.trailZoom != 0.0f || p.trailWarp > 0.0f) {
         drawTrailWarp(p, keep, timeSeconds, dt, sceneTarget, quadVao, renderWidth, renderHeight);
@@ -47,21 +48,21 @@ void TrailPass::apply(const SceneParams& p, float keep, float timeSeconds, float
     }
 }
 
-void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeSeconds, float dt, const Framebuffer& sceneTarget,
+void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeSeconds, float dt, Framebuffer& sceneTarget,
                               GLuint quadVao, int renderWidth, int renderHeight) {
-    if (!trail_.ensure(renderWidth, renderHeight)) {
+    warpIdleSeconds_ = 0.0f;
+    if (!trail_.ensure(renderWidth, renderHeight) || sceneTarget.width() != renderWidth || sceneTarget.height() != renderHeight) {
         drawFadeQuad(fadeAlpha(retention, dt), quadVao);
         return;
     }
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, sceneTarget.fbo());
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, trail_.fbo());
-    trail_.discardContents(GL_DRAW_FRAMEBUFFER);
-    glBlitFramebuffer(0, 0, renderWidth, renderHeight, 0, 0, renderWidth, renderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    // Last frame's picture becomes the pass's to read and its old texture the one to draw into: a trade, where
+    // a copy would move the whole frame through memory every frame.
+    trail_.swap(sceneTarget);
     glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget.fbo());
     glViewport(0, 0, renderWidth, renderHeight);
     glDisable(GL_BLEND);
     sceneTarget.discardContents();
-    glUseProgram(trailWarpProgram_);
+    glUseProgram(trailUniforms_.program());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, trail_.tex());
     glUniform1i(trailUniforms_.loc("uPrev"), 0);
@@ -74,10 +75,18 @@ void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeS
     glBindVertexArray(0);
 }
 
+void TrailPass::releaseIdle(float wallDt, float idleSeconds) {
+    // The echo's target holds only an older frame (the scene target has the newest), so freeing it loses
+    // nothing: the next echo makes a fresh one and trades it in.
+    if (!trail_.ok()) return;
+    warpIdleSeconds_ += wallDt;
+    if (warpIdleSeconds_ >= idleSeconds) trail_.release();
+}
+
 void TrailPass::drawFadeQuad(float alpha, GLuint quadVao) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glUseProgram(fadeProgram_);
+    glUseProgram(fadeUniforms_.program());
     glUniform1f(fadeUniforms_.loc("uFadeAlpha"), std::clamp(alpha, 0.02f, 1.0f));
     glBindVertexArray(quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);

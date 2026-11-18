@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
@@ -11,6 +12,7 @@
 #include <type_traits>
 
 #include "audio/ingest/PcmRing.hpp"
+#include "sound/AnalysisSettings.hpp"
 #include "sound/Emotion.hpp"
 #include "sound/Rhythm.hpp"
 #include "sound/SoundEngine.hpp"
@@ -49,12 +51,15 @@ public:
     };
     static_assert(std::is_trivially_copyable_v<Heard>);
 
-    // Published hops kept: 2.5 s. One fewer can be read; the oldest slot is the one written next.
-    static constexpr int kPublished = 256;
+    // Published hops kept: at least this long at every rate, so the shortest hop (the highest analysis rate,
+    // under 88.2 kHz) sizes the slots. One fewer can be read; the oldest slot is the one written next.
+    static constexpr float kPublishedSeconds = 2.5f;
 
     // The ring must outlive this. silenceWhenStarved feeds the engine silence once its writer stops (step()'s
-    // rule), off for a run that must not depend on wall time.
-    explicit AnalysisThread(const audio::ingest::PcmRing& ring, bool silenceWhenStarved = true);
+    // rule), off for a run that must not depend on wall time. Every engine it makes runs on `settings`.
+    explicit AnalysisThread(const audio::ingest::PcmRing& ring, bool silenceWhenStarved = true, AnalysisSettings settings = {});
+    // The published slots, from kPublishedSeconds and the settings' hop.
+    int published() const { return static_cast<int>(capacity_); }
     ~AnalysisThread();
     AnalysisThread(const AnalysisThread&) = delete;
     AnalysisThread& operator=(const AnalysisThread&) = delete;
@@ -131,7 +136,10 @@ private:
 
     static_assert(sizeof(Heard) % sizeof(uint32_t) == 0);
     static constexpr int kWords = static_cast<int>(sizeof(Heard) / sizeof(uint32_t));
-    static constexpr uint64_t kReadable = kPublished - 1;
+    // The frame's waveform is zero in every published hop (step() draws it, a hop does not): its words are neither
+    // stored nor loaded, and a read zeroes them.
+    static constexpr int kWaveFirst = static_cast<int>((offsetof(Heard, frame) + offsetof(GeodeSoundFrame, waveform)) / sizeof(uint32_t));
+    static constexpr int kWaveEnd = kWaveFirst + GEODE_SOUND_WAVEFORM_POINTS;
     // A seqlocked copy of one Heard: seq is odd while the analysis thread writes it. The words are atomics so
     // a reader's copy that races the writer is defined (and thrown away); position is the search's hint.
     struct Slot {
@@ -157,6 +165,9 @@ private:
 
     const audio::ingest::PcmRing& ring_;
     const bool silenceWhenStarved_;
+    const AnalysisSettings settings_;
+    const uint64_t capacity_;  // published slots
+    const uint64_t readable_;  // capacity_ - 1
 
     // The analysis thread's own (or pump()'s caller's).
     audio::ingest::Cursor cursor_;
@@ -172,7 +183,6 @@ private:
     int64_t hopsSeen_ = 0;       // engine_->hopsRun() as last published
     bool flowing_ = false;       // audio came, and the engine has not reported silence since
     float quietSeconds_ = 0.0f;  // since audio last came, while flowing
-    GeodeSoundFrame stepped_{};
     std::array<Control, kControls> applying_{};
     std::array<uint32_t, kWords> staging_{};
 
@@ -191,6 +201,8 @@ private:
     std::atomic<uint32_t> signal_{0};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> timedWaiting_{false};
+    // Set before the untimed wait on signal_ and cleared after it, so notify() wakes only a thread that may sleep.
+    std::atomic<bool> waiting_{false};
     std::mutex waitLock_;
     std::condition_variable waitCv_;
     std::atomic<uint64_t> passes_{0};

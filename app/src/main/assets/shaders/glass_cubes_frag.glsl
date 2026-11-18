@@ -139,7 +139,7 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     gEye = ro;
-    vec3 col = glassEnv(rd, lk);
+    vec3 col;
 
     float hitT = -1.0;
     float used = 0.0;
@@ -193,7 +193,11 @@ void main() {
         vec3 block = (refr * (1.0 - fr) + refl * fr) * glassStepAO(used * 0.4);
         block += glassRim(cosI, hue + glassHash3(c) * 0.6, 1.0);
         block += vec3(1.0) * glassGlint(cellRot(c) * lq, 8.0, ear.hat) * (0.3 + fr);
-        col = mix(block, col, smoothstep(reachFar * 0.45, reachFar, hitT));
+        // The environment is only needed where the block fades into it (weight above 0); mix(x, y, 0.0) is x.
+        float envW = smoothstep(reachFar * 0.45, reachFar, hitT);
+        col = envW > 0.0 ? mix(block, glassEnv(rd, lk), envW) : block;
+    } else {
+        col = glassEnv(rd, lk);
     }
 
     col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

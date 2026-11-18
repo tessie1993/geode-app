@@ -11,6 +11,7 @@
 namespace share = geode::viz::frame::link;
 namespace qr = geode::util::qr;
 
+static_assert(qr::kMaxSide == GEODE_QR_MAX_SIDE && qr::kMaxBytes == GEODE_QR_MAX_BYTES, "the shell's QR buffer is MAX_SIDE squared");
 static_assert(share::kTokenChars == GEODE_LINK_TOKEN_CHARS && share::kStateInts == GEODE_LINK_STATE);
 static_assert(static_cast<int>(share::Resource::Segment) == GEODE_LINK_SEGMENT &&
               static_cast<int>(share::Resource::Redirect) == GEODE_LINK_REDIRECT &&
@@ -52,16 +53,22 @@ int copyOut(const std::string& text, char* out, int cap) {
 
 }  // namespace
 
-int geode_link_route(const char* method, const char* target, const char* token, int* resource, int64_t* sequence) {
+int geode_link_route(const char* method, const char* target, const char* token, int* resource, int64_t* sequence) try {
     const share::Route r = share::route(method ? method : "", target ? target : "", token ? token : "");
     if (resource) *resource = static_cast<int>(r.resource);
     if (sequence) *sequence = r.sequence;
     return r.status;
+} catch (...) {
+    if (resource) *resource = static_cast<int>(share::Resource::None);
+    if (sequence) *sequence = -1;
+    return share::Route{}.status;
 }
 
-int geode_link_response_head(int status, int resource, int64_t length, const char* token, char* out, int cap) {
+int geode_link_response_head(int status, int resource, int64_t length, const char* token, char* out, int cap) try {
     const auto r = resource >= 0 && resource <= GEODE_LINK_PAIR ? static_cast<share::Resource>(resource) : share::Resource::None;
     return copyOut(share::responseHead(status, r, length, token ? token : ""), out, cap);
+} catch (...) {
+    return copyOut(std::string(), out, cap);
 }
 
 const char* geode_link_asset(int resource, size_t* size) {
@@ -78,30 +85,40 @@ const char* geode_link_asset(int resource, size_t* size) {
     return text.empty() ? nullptr : text.data();
 }
 
-int geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out, int cap) {
+int geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out, int cap) try {
     return copyOut(share::masterPlaylist(init, init_size), out, cap);
+} catch (...) {
+    return copyOut(std::string(), out, cap);
 }
 
 int geode_link_step(int* state, int event, int arg) { return share::step(state, event, arg); }
 
-int64_t geode_link_body_length(const char* const* headers, int count, int64_t max) {
+int64_t geode_link_body_length(const char* const* headers, int count, int64_t max) try {
     std::vector<std::string_view> lines;
     for (int i = 0; headers && i < count; ++i) lines.emplace_back(headers[i] ? headers[i] : "");
     return share::bodyLength(lines.data(), lines.size(), max);
+} catch (...) {
+    return share::kBadBody;
 }
 
 int geode_link_rtc_status(int answer_result) { return share::rtcStatus(answer_result); }
 
-int geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap) {
+int geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap) try {
     return copyOut(share::shareUrl(address, port, token ? token : ""), out, cap);
+} catch (...) {
+    return copyOut(std::string(), out, cap);
 }
 
-int geode_link_pair_url(uint32_t address, int port, char* out, int cap) {
+int geode_link_pair_url(uint32_t address, int port, char* out, int cap) try {
     return copyOut(share::pairUrl(address, port), out, cap);
+} catch (...) {
+    return copyOut(std::string(), out, cap);
 }
 
-int geode_link_label(const char* token, char* out, int cap) {
+int geode_link_label(const char* token, char* out, int cap) try {
     return copyOut(share::friendlyLabel(token ? token : ""), out, cap);
+} catch (...) {
+    return copyOut(std::string(), out, cap);
 }
 
 int geode_link_admit(uint32_t peer, uint32_t bound, int prefix, uint32_t tv, int wants) {
@@ -112,10 +129,12 @@ int geode_link_receiver_health(int64_t now_ms, int64_t load_ms, int64_t last_fet
     return share::receiverHealth(now_ms, load_ms, last_fetch_ms, player_state, idle_reason);
 }
 
-int geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap) {
+int geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap) try {
     if (size < 0 || size > GEODE_QR_MAX_BYTES || (size > 0 && !data)) return 0;
     const qr::Symbol s = qr::encode(data, static_cast<size_t>(size));
     if (s.side == 0 || !out || cap < s.side * s.side) return 0;
     std::memcpy(out, s.modules.data(), s.modules.size());
     return s.side;
+} catch (...) {
+    return 0;
 }

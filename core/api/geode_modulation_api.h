@@ -152,8 +152,41 @@ GEODE_API void geode_viz_set_reactions(geode_viz*, const char* reactions);
 /* The hand mask to push when the saved routes load. reactions is the saved route text (NULL: none saved);
    has_mask says a mask was saved beside it, saved_mask is that mask. Routes saved before the mask existed
    (has_mask 0) were a whole list of the user's: GEODE_HAND_ALL. No routes: 0. Returns -1 when the text is
-   saved but is no route list any more: the shell drops the saved routes and mask, and the mask is 0. */
+   saved but is no route list any more (an old or newer version, damaged text): the shell keeps the text aside,
+   drops the saved routes and mask, and the mask is 0. */
 GEODE_API int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask);
+
+/* The user's modulation as the app holds it while it runs (core/viz/ModState), process-wide. The panel sends each
+   edit as an event that returns nothing: native applies it with the rules above and keeps the result. The shell
+   reads the texts back (geode_mod_state_text) only to draw the editors, to save them and to hand a renderer its
+   look. Thread-safe; none touches a renderer's GL or audio state. */
+
+/* What the shell saved: the waves and envelopes as they are, the user's routes as geode_mod_reactions_read wrote
+   them (NULL while Auto) and the mask geode_mod_hand_load decided. Pushes the hand mask (geode_hand_set). */
+GEODE_API void geode_mod_state_load(const char* lfos, const char* adsrs, const char* reactions, unsigned mask);
+/* One field of one wave or envelope, as geode_mod_lfo_edit and geode_mod_adsr_edit. */
+GEODE_API void geode_mod_state_lfo_set(int slot, int field, float value);
+GEODE_API void geode_mod_state_adsr_set(int slot, int field, float value);
+/* One reaction edit (GEODE_MOD_EDIT_*), as geode_mod_reactions_edit over the routes held, on style_id and the
+   params' reactSeed; then pushes the hand mask. A NULL style changes nothing. */
+GEODE_API void geode_mod_state_reactions_edit(const char* style_id, int seed, int op, int a, int b, float value);
+/* Randomize for the waves held, as geode_mod_waves_roll with the keep set held. */
+GEODE_API void geode_mod_state_waves_roll(const char* style_id, int all, const float* params);
+/* Customize's keep set as saved (one key a line): normalised (core/viz/CustomizeMap keepNormalize: every key it
+   may not hold dropped, each kept key once, sorted), held and handed to the director (geode_director_keep_set). */
+GEODE_API void geode_mod_state_keep_load(const char* document);
+/* One Keep tap (keepToggle: the key out when kept, in when not) on the set held; the director gets the new set. */
+GEODE_API void geode_mod_state_keep_toggle(const char* key);
+
+/* geode_mod_state_text's `which`. */
+#define GEODE_MOD_STATE_LFOS 0
+#define GEODE_MOD_STATE_ADSRS 1
+#define GEODE_MOD_STATE_REACTIONS 2 /* "" while Auto */
+#define GEODE_MOD_STATE_KEEP 3
+/* A text held, as a text out; an unknown `which` is "". */
+GEODE_API int geode_mod_state_text(int which, char* out, int capacity);
+/* The hand mask to save beside the routes; 0 while Auto. */
+GEODE_API unsigned geode_mod_state_hand_mask(void);
 
 #ifdef __cplusplus
 }

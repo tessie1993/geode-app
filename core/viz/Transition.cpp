@@ -14,6 +14,17 @@ constexpr const char* kTag = "Transitions";
 
 float at(const std::vector<float>& v, size_t i) { return i < v.size() ? v[i] : 0.0f; }
 
+// A program just built: its samplers' units (composite_unit), set once. Leaves the program current.
+void assignUnits(UniformCache& p) {
+    glUseProgram(p.program());
+    glUniform1i(p.loc(Uniform::uTexA), composite_unit::kTexA);
+    glUniform1i(p.loc(Uniform::uTexB), composite_unit::kTexB);
+    glUniform1i(p.loc(Uniform::uFlow), composite_unit::kFlow);
+    glUniform1i(p.loc(Uniform::uNoise), composite_unit::kNoise);
+    glUniform1i(p.loc(Uniform::uUnderlay), composite_unit::kUnderlay);
+    glUniform1i(p.loc(Uniform::uTexL), composite_unit::kTexL);
+}
+
 }  // namespace
 
 const std::vector<TransitionCatalog::Def>& TransitionCatalog::library() {
@@ -84,14 +95,22 @@ bool TransitionPrograms::create(const std::string& fadeVert, std::string* error)
     source_ = *source;
     const GLuint program = program::build(fadeVert_, source_, cache_, error);
     if (program == 0) return false;
-    base_ = UniformCache(program);
+    base_.reset(program);
+    assignUnits(base_);
     return true;
 }
 
 void TransitionPrograms::release() {
-    if (base_.program() != 0) glDeleteProgram(base_.program());
-    base_ = UniformCache(0);
-    for (auto& entry : lru_) glDeleteProgram(entry.second->program());
+    base_.release();
+    lru_.clear();  // each program goes with its entry
+    failed_.clear();
+    uploadedFor_ = nullptr;
+    uploadedDef_ = nullptr;
+}
+
+void TransitionPrograms::forget() {
+    base_.forget();
+    for (auto& entry : lru_) entry.second->forget();
     lru_.clear();
     failed_.clear();
     uploadedFor_ = nullptr;
@@ -118,10 +137,10 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
     }
     while (lru_.size() >= kMaxPrograms) {
         if (lru_.front().second.get() == uploadedFor_) uploadedFor_ = nullptr;
-        glDeleteProgram(lru_.front().second->program());
-        lru_.pop_front();
+        lru_.pop_front();  // deletes its program
     }
-    lru_.emplace_back(id, std::make_unique<UniformCache>(program));
+    lru_.emplace_back(id, std::make_unique<OwnedProgram>(program));
+    assignUnits(*lru_.back().second);
     return *lru_.back().second;
 }
 

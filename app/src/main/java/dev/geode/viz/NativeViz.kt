@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.res.AssetManager
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.VizNative
+import dev.geode.model.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
 
@@ -63,10 +63,10 @@ class NativeViz(
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
-            handle = GeodeNative.vizCreate(assets, cacheDir)
+            handle = VizNative.vizCreate(assets, cacheDir)
             owned.handle = handle
             if (handle != 0L) {
-                GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
+                VizNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 quality()
                 underlaySent = false
                 look?.let(::pushLook)
@@ -79,7 +79,7 @@ class NativeViz(
     @Synchronized
     fun destroy() {
         if (handle == 0L) return
-        GeodeNative.vizDestroy(handle)
+        VizNative.vizDestroy(handle)
         handle = 0L
         owned.handle = 0L
     }
@@ -92,7 +92,7 @@ class NativeViz(
         override fun run() {
             val h = handle
             handle = 0L
-            if (h != 0L) GeodeNative.vizDestroy(h)
+            if (h != 0L) VizNative.vizDestroy(h)
         }
     }
 
@@ -109,7 +109,7 @@ class NativeViz(
 
     private fun pushLook(l: LookSnapshot) {
         l.params.frameInto(paramFrame)
-        GeodeNative.vizSetLook(
+        VizNative.vizSetLook(
             handle,
             l.sceneId,
             paramFrame,
@@ -137,7 +137,7 @@ class NativeViz(
         marchScale: Float,
         postFx: Boolean,
     ) {
-        quality = { if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx) }
+        quality = { if (handle != 0L) VizNative.vizSetQuality(handle, renderScale, marchScale, postFx) }
         quality()
     }
 
@@ -145,25 +145,25 @@ class NativeViz(
     fun setParams(p: SceneParams) {
         if (handle == 0L) return
         p.frameInto(paramFrame)
-        GeodeNative.vizSetParams(handle, paramFrame)
+        VizNative.vizSetParams(handle, paramFrame)
     }
 
     fun setTransition(
         id: String,
         durationMs: Long,
     ) {
-        if (handle != 0L) GeodeNative.vizSetTransition(handle, id, durationMs)
+        if (handle != 0L) VizNative.vizSetTransition(handle, id, durationMs)
     }
 
     fun loadMilkPreset(path: String) {
-        if (handle != 0L) GeodeNative.vizLoadMilkPreset(handle, path)
+        if (handle != 0L) VizNative.vizLoadMilkPreset(handle, path)
     }
 
     /** The preset MilkDrop last compiled, handed out once; null until the next one. */
-    fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else GeodeNative.vizTakeMilkPresetLoaded(handle)
+    fun takeMilkPresetLoaded(): String? = if (handle == 0L) null else VizNative.vizTakeMilkPresetLoaded(handle)
 
     /** The director's new-section and drop decisions since the last call (one Auto mode). */
-    fun takeDirectorStyleMoments(): Int = if (handle == 0L) 0 else GeodeNative.vizTakeDirectorStyleMoments(handle)
+    fun takeDirectorStyleMoments(): Int = if (handle == 0L) 0 else VizNative.vizTakeDirectorStyleMoments(handle)
 
     /** The renderer's sound engine: interleaved PCM in play order, each sample once, before [render]. */
     fun writeAudio(
@@ -172,11 +172,11 @@ class NativeViz(
         channels: Int,
         sampleRateHz: Int,
     ) {
-        if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
+        if (handle != 0L && frames > 0) VizNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
     }
 
     /**
-     * One live frame into framebuffer 0 ([GeodeNative.vizFrame]): the renderer hears what [ring] gained, natively,
+     * One live frame into framebuffer 0 ([VizNative.vizFrame]): the renderer hears what [ring] gained, natively,
      * each sample once (0: nothing, and the last ring goes), and [fps] and [capFps] are the rate the surface last
      * drew at and its own cap. The `FRAME_*` events; 0 before the
      * handle exists. GL thread.
@@ -185,38 +185,38 @@ class NativeViz(
         ring: Long,
         fps: Float,
         capFps: Float,
-    ): Int = if (handle == 0L) 0 else GeodeNative.vizFrame(handle, ring, fps, capFps)
+    ): Int = if (handle == 0L) 0 else VizNative.vizFrame(handle, ring, fps, capFps)
 
     /** Settings › Audio's saved tuning, null for the defaults; native resolves and clamps it. */
     fun setSoundTuning(saved: List<Float>?) {
-        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, saved?.toFloatArray())
+        if (handle != 0L) VizNative.vizSetSoundTuning(handle, saved?.toFloatArray())
     }
 
     fun setOffscreen(on: Boolean) {
-        if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
+        if (handle != 0L) VizNative.vizSetOffscreen(handle, on)
     }
 
     /** A new surface keeps what was pushed: the native handle holds it, so nothing is sent again here. */
     fun surfaceCreated() {
-        if (create()) GeodeNative.vizSurfaceCreated(handle)
+        if (create()) VizNative.vizSurfaceCreated(handle)
     }
 
     fun surfaceChanged(
         width: Int,
         height: Int,
     ) {
-        if (handle != 0L) GeodeNative.vizSurfaceChanged(handle, width, height)
+        if (handle != 0L) VizNative.vizSurfaceChanged(handle, width, height)
     }
 
     /** GL thread, at once: an export's (and a test's) scene. A live surface's goes with its look. */
-    fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
+    fun setScene(sceneId: String): Boolean = handle != 0L && VizNative.vizSetScene(handle, sceneId)
 
     fun render(
         timeSeconds: Double,
         targetFbo: Int,
     ) {
         if (handle == 0L) return
-        GeodeNative.vizRender(handle, timeSeconds, targetFbo)
+        VizNative.vizRender(handle, timeSeconds, targetFbo)
     }
 
     /**
@@ -230,11 +230,11 @@ class NativeViz(
         blend: Int,
         amount: Float,
     ) {
-        if (handle != 0L) GeodeNative.vizSetUnderlay(handle, pixels, width, height, blend, amount)
+        if (handle != 0L) VizNative.vizSetUnderlay(handle, pixels, width, height, blend, amount)
     }
 
     /** The native error, null when clean. A live frame says when it changed (`FRAME_ERROR_CHANGED`). */
-    fun lastError(): String? = if (handle == 0L) null else GeodeNative.vizLastError(handle).ifEmpty { null }
+    fun lastError(): String? = if (handle == 0L) null else VizNative.vizLastError(handle).ifEmpty { null }
 
     private companion object {
         /** One daemon thread for every renderer in the process. */

@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
 #include <utility>
 
 #include "audio/ingest/CapturePump.hpp"
@@ -23,6 +25,33 @@ int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
+// Handles are ids, never addresses: a call with a capture already stopped finds nothing and does nothing.
+std::mutex gLock;
+std::unordered_map<uintptr_t, std::shared_ptr<geode_java_capture>> gCaptures;
+uintptr_t gLastId = 0;
+
+geode_java_capture* enlist(std::shared_ptr<geode_java_capture> capture) {
+    std::lock_guard<std::mutex> guard(gLock);
+    const uintptr_t id = ++gLastId;
+    gCaptures.emplace(id, std::move(capture));
+    return reinterpret_cast<geode_java_capture*>(id);
+}
+
+std::shared_ptr<geode_java_capture> find(const geode_java_capture* handle) {
+    std::lock_guard<std::mutex> guard(gLock);
+    const auto it = gCaptures.find(reinterpret_cast<uintptr_t>(handle));
+    return it == gCaptures.end() ? nullptr : it->second;
+}
+
+std::shared_ptr<geode_java_capture> delist(const geode_java_capture* handle) {
+    std::lock_guard<std::mutex> guard(gLock);
+    const auto it = gCaptures.find(reinterpret_cast<uintptr_t>(handle));
+    if (it == gCaptures.end()) return nullptr;
+    std::shared_ptr<geode_java_capture> capture = std::move(it->second);
+    gCaptures.erase(it);
+    return capture;
+}
+
 geode_java_capture* run(std::unique_ptr<ingest::CaptureReader> reader, geode_pcm_ring* ring,
                         const ingest::JavaCaptureFormat& format) {
     if (!reader) return nullptr;
@@ -33,7 +62,7 @@ geode_java_capture* run(std::unique_ptr<ingest::CaptureReader> reader, geode_pcm
     };
     auto pump = ingest::CapturePump::start(std::move(reader), write, format.readBytes, nowMs);
     if (!pump) return nullptr;
-    return new geode_java_capture{std::move(pump)};
+    return enlist(std::make_shared<geode_java_capture>(geode_java_capture{std::move(pump)}));
 }
 
 }  // namespace
@@ -57,16 +86,18 @@ geode_java_capture* geode_java_capture_output_mix(JNIEnv* env, geode_pcm_ring* r
     return run(std::move(reader), ring, format);
 }
 
-void geode_java_capture_stop(geode_java_capture* capture) {
-    std::unique_ptr<geode_java_capture> owned(capture);
-    if (owned && owned->pump) owned->pump->stop();
+void geode_java_capture_stop(geode_java_capture* handle) {
+    const std::shared_ptr<geode_java_capture> capture = delist(handle);
+    if (capture && capture->pump) capture->pump->stop();
 }
 
-int geode_java_capture_active(const geode_java_capture* capture) {
+int geode_java_capture_active(const geode_java_capture* handle) {
+    const std::shared_ptr<geode_java_capture> capture = find(handle);
     return capture && capture->pump->active() ? 1 : 0;
 }
 
-int geode_java_capture_quiet(const geode_java_capture* capture) {
+int geode_java_capture_quiet(const geode_java_capture* handle) {
+    const std::shared_ptr<geode_java_capture> capture = find(handle);
     return capture && capture->pump->quiet() ? 1 : 0;
 }
 

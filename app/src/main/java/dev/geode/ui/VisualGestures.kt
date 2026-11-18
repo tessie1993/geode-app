@@ -47,7 +47,9 @@ import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.TouchNative
 import dev.geode.pro.FeatureGate
 import dev.geode.ui.theme.StoneHaptics
 import kotlinx.coroutines.delay
@@ -176,11 +178,11 @@ internal fun Modifier.visualGestures(
     return this
         .windowPlacement(placement)
         .pointerInput(edges, direction, doubleSlop) {
-            val points = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
+            val points = FloatArray(CatalogueNative.catalogueValue("touchPoints").toInt() * 2)
             val pinchStep = FloatArray(2)
             val actions = IntArray(CanvasGesture.entries.size)
             val decided = IntArray(3)
-            val reader = GeodeNative.gestureCreate()
+            val reader = TouchNative.gestureCreate()
             try {
                 awaitEachGesture {
                     var next: PointerInputChange? = awaitFirstDown(requireUnconsumed = false)
@@ -191,7 +193,7 @@ internal fun Modifier.visualGestures(
                         val start = down.position
                         // Read per down, not once: the strips change with rotation and the navigation mode.
                         val window = windowInfo.containerSize
-                        GeodeNative.gestureArea(
+                        TouchNative.gestureArea(
                             reader,
                             window.width.toFloat(),
                             window.height.toFloat(),
@@ -203,7 +205,7 @@ internal fun Modifier.visualGestures(
                             placement.origin.y,
                             placement.placed,
                         )
-                        GeodeNative.gestureConfigure(
+                        TouchNative.gestureConfigure(
                             reader,
                             viewConfiguration.touchSlop,
                             doubleSlop,
@@ -213,7 +215,7 @@ internal fun Modifier.visualGestures(
                             viewConfiguration.doubleTapTimeoutMillis,
                         )
                         for (gesture in CanvasGesture.entries) actions[gesture.ordinal] = action(gesture).ordinal
-                        GeodeNative.gestureDown(reader, start.x, start.y, down.uptimeMillis, actions, armed)
+                        TouchNative.gestureDown(reader, start.x, start.y, down.uptimeMillis, actions, armed)
                         try {
                             follow(
                                 reader = reader,
@@ -237,9 +239,9 @@ internal fun Modifier.visualGestures(
                             // Also on cancellation (the visual leaves mid-gesture): a ring or a published
                             // finger left behind would stay on screen, or keep steering, forever.
                             ring.at = null
-                            if (GeodeNative.gestureRelease(reader)) touch(points, 0)
+                            if (TouchNative.gestureRelease(reader)) touch(points, 0)
                         }
-                        val gesture = CanvasGesture.entries.getOrNull(GeodeNative.gestureEnd(reader, split(), decided))
+                        val gesture = CanvasGesture.entries.getOrNull(TouchNative.gestureEnd(reader, split(), decided))
                         if (gesture != null && decided[1] == 0) {
                             fire(gesture, decided[0])
                         } else if (gesture != null) {
@@ -252,7 +254,7 @@ internal fun Modifier.visualGestures(
                     }
                 }
             } finally {
-                GeodeNative.gestureDestroy(reader)
+                TouchNative.gestureDestroy(reader)
             }
         }.semantics {
             // Named, so TalkBack can land on the visual at all and offer its actions there.
@@ -279,27 +281,27 @@ private suspend fun AwaitPointerEventScope.follow(
     onTouch: (Int) -> Unit,
 ) {
     while (true) {
-        val wait = GeodeNative.gestureWaitMs(reader)
+        val wait = TouchNative.gestureWaitMs(reader)
         val event = if (wait > 0) withTimeoutOrNull(wait) { awaitPointerEvent() } else awaitPointerEvent()
         var live = 0
         val answer =
             if (event == null) {
-                GeodeNative.gestureTick(reader)
+                TouchNative.gestureTick(reader)
             } else {
                 live = pressedInto(event, points)
                 val primaryDown = event.changes.firstOrNull { it.id == downId }?.pressed == true
                 val at = event.changes.firstOrNull()?.uptimeMillis ?: -1L
-                GeodeNative.gestureEvent(reader, at, points, live, primaryDown, pinchStep)
+                TouchNative.gestureEvent(reader, at, points, live, primaryDown, pinchStep)
             }
-        ring.at = if (answer and GeodeNative.GESTURE_RING != 0) start else null
-        if (answer and GeodeNative.GESTURE_HOLD != 0) onHold()
-        if (answer and GeodeNative.GESTURE_SWIRL != 0) onSwirl()
-        if (answer and GeodeNative.GESTURE_OVER != 0) return
-        if (answer and GeodeNative.GESTURE_PINCH != 0) onPinch(pinchStep[0], pinchStep[1])
-        if (answer and GeodeNative.GESTURE_PUBLISH != 0) {
-            GeodeNative.touchToNdc(points, live, size.width.toFloat(), size.height.toFloat())
+        ring.at = if (answer and TouchNative.GESTURE_RING != 0) start else null
+        if (answer and TouchNative.GESTURE_HOLD != 0) onHold()
+        if (answer and TouchNative.GESTURE_SWIRL != 0) onSwirl()
+        if (answer and TouchNative.GESTURE_OVER != 0) return
+        if (answer and TouchNative.GESTURE_PINCH != 0) onPinch(pinchStep[0], pinchStep[1])
+        if (answer and TouchNative.GESTURE_PUBLISH != 0) {
+            TouchNative.touchToNdc(points, live, size.width.toFloat(), size.height.toFloat())
             onTouch(live)
-        } else if (answer and GeodeNative.GESTURE_RELEASE != 0) {
+        } else if (answer and TouchNative.GESTURE_RELEASE != 0) {
             onTouch(0)
         }
     }
@@ -346,23 +348,23 @@ private suspend fun AwaitPointerEventScope.awaitSecondTap(
     reader: Long,
     waitMs: Long,
 ): SecondTap {
-    var answer = GeodeNative.GESTURE_SECOND_BOUNCE
+    var answer = TouchNative.GESTURE_SECOND_BOUNCE
     val second =
         withTimeoutOrNull(waitMs) {
             var down: PointerInputChange
             do {
                 down = awaitFirstDown(requireUnconsumed = false)
-                answer = GeodeNative.gestureSecondDown(reader, down.position.x, down.position.y, down.uptimeMillis)
-            } while (answer == GeodeNative.GESTURE_SECOND_BOUNCE)
+                answer = TouchNative.gestureSecondDown(reader, down.position.x, down.position.y, down.uptimeMillis)
+            } while (answer == TouchNative.GESTURE_SECOND_BOUNCE)
             down
         } ?: return SecondTap.NONE
-    if (answer != GeodeNative.GESTURE_SECOND_FOLLOW) return SecondTap(double = false, next = second)
+    if (answer != TouchNative.GESTURE_SECOND_FOLLOW) return SecondTap(double = false, next = second)
     while (true) {
         val change = awaitPointerEvent().changes.firstOrNull { it.id == second.id }
         val at = change?.position ?: Offset.Zero
-        when (GeodeNative.gestureSecondMove(reader, change != null, at.x, at.y, change?.pressed == true)) {
-            GeodeNative.GESTURE_SECOND_DOUBLE -> return SecondTap(double = true, next = null, downMs = second.uptimeMillis)
-            GeodeNative.GESTURE_SECOND_NEW_TOUCH -> return SecondTap(double = false, next = second)
+        when (TouchNative.gestureSecondMove(reader, change != null, at.x, at.y, change?.pressed == true)) {
+            TouchNative.GESTURE_SECOND_DOUBLE -> return SecondTap(double = true, next = null, downMs = second.uptimeMillis)
+            TouchNative.GESTURE_SECOND_NEW_TOUCH -> return SecondTap(double = false, next = second)
         }
     }
 }
@@ -397,7 +399,7 @@ internal fun Modifier.windowPlacement(placement: WindowPlacement): Modifier =
 
 /**
  * The long-press guard: a red ring around the finger that fills over
- * [GeodeNative.GESTURE_HOLD_FILL_MS], recording when it closes. The fill is a timer, not decoration, so it runs on the frame clock rather than an
+ * [TouchNative.GESTURE_HOLD_FILL_MS], recording when it closes. The fill is a timer, not decoration, so it runs on the frame clock rather than an
  * animation spec: with the system's animations removed it still fills at the pace of the hold
  * (WCAG 2.3.3 keeps essential motion). Its progress is read only in the draw phase, so the fill
  * redraws without recomposing anything. A dark halo under the red keeps it readable over any
@@ -414,7 +416,7 @@ internal fun HoldRing(
         progress.floatValue = 0f
         if (at == null) return@LaunchedEffect
         val t0 = withFrameMillis { it }
-        val fillMs = GeodeNative.GESTURE_HOLD_FILL_MS.toFloat()
+        val fillMs = TouchNative.GESTURE_HOLD_FILL_MS.toFloat()
         while (progress.floatValue < 1f) {
             withFrameMillis { now -> progress.floatValue = ((now - t0).toFloat() / fillMs).coerceAtMost(1f) }
         }
@@ -455,7 +457,7 @@ internal fun rememberTouchPulse(onTouchPoints: (FloatArray, Int) -> Unit): () ->
                     // The stir's shape and pace are native (`core/viz/TouchGesture`); this only sends it.
                     var step = 0
                     while (true) {
-                        val holdMs = GeodeNative.touchPulse(step++, xy)
+                        val holdMs = TouchNative.touchPulse(step++, xy)
                         if (holdMs <= 0) break
                         send(xy, 2)
                         delay(holdMs.toLong())
@@ -530,7 +532,7 @@ internal fun stepPreset(
 ) {
     val viz = viewModel.vizState.value
     val open = openLooks(viz, gate)
-    val next = GeodeNative.stageStepIndex(BooleanArray(open.size) { true }, lookOnStage(viz, open), step)
+    val next = SoundNative.stageStepIndex(BooleanArray(open.size) { true }, lookOnStage(viz, open), step)
     if (next >= 0) viewModel.applyPreset(open[next])
 }
 

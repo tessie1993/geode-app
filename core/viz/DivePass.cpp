@@ -8,27 +8,29 @@ bool DivePass::create(const ShaderSource& assets, ProgramBinaryCache* cache, con
     release();
     const auto frag = assets.load("dive_frag.glsl", error);
     if (!frag) return false;
-    program_ = program::build(vert, *frag, cache, error);
-    if (program_ == 0) return false;
-    uniforms_ = UniformCache(program_);
-    return true;
+    uniforms_.reset(program::build(vert, *frag, cache, error));
+    return uniforms_.program() != 0;
 }
 
 void DivePass::release() {
     target_.release();
-    if (program_ != 0) glDeleteProgram(program_);
-    program_ = 0;
+    uniforms_.release();
+}
+
+void DivePass::forget() {
+    target_.forget();
+    uniforms_.forget();
 }
 
 GLuint DivePass::run(GLuint sceneTex, int srcWidth, int srcHeight, int width, int height, float phase, float mix,
                      const endless::tunnel::Look& look, GLuint quadVao) {
-    if (program_ == 0 || sceneTex == 0 || !target_.ensure(std::max(width, 1), std::max(height, 1))) return 0;
+    if (uniforms_.program() == 0 || sceneTex == 0 || !target_.ensure(std::max(width, 1), std::max(height, 1))) return 0;
     glBindFramebuffer(GL_FRAMEBUFFER, target_.fbo());
     // Every pixel is written below: a tile GPU must not load the old contents back first.
     target_.discardContents();
     glViewport(0, 0, target_.width(), target_.height());
     glDisable(GL_BLEND);
-    glUseProgram(program_);
+    glUseProgram(uniforms_.program());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, sceneTex);
     glUniform1i(uniforms_.loc("uScene"), 0);

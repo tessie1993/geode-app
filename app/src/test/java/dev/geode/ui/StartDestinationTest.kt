@@ -2,12 +2,20 @@ package dev.geode.ui
 
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.StartScreen
+import dev.geode.data.TestBehaviourRules
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
-/** Settings › Behaviour › Open on (#337): a cold start's destination comes from [BehaviourPrefs]. */
+/**
+ * Settings › Behaviour › Open on (#337): a cold start's destination comes from [BehaviourPrefs]. The
+ * "last used" rule is native's (core/tests/shell_prefs_test.cpp); here it is a stand-in.
+ */
 class StartDestinationTest {
+    @Before
+    fun rules() = TestBehaviourRules.install()
+
     @Test
     fun aChosenScreenIsWhereAColdStartOpens() {
         assertEquals(GeodeDestination.PLAYER, BehaviourPrefs(startScreen = StartScreen.PLAYER).startDestination())

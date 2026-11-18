@@ -95,7 +95,10 @@ class WidgetPublisher(
         val playing = player.isPlaying
         val position = player.currentPosition.coerceAtLeast(0L)
         val duration = durationOf(player)
+        nowPlaying = NowPlaying(title, artist, playing)
         stateScope.launch {
+            // No widget placed: nothing to write or redraw. The next event with one placed brings the state up to date.
+            if (!hasWidgets()) return@launch
             WidgetState.update(appContext) {
                 it.copy(
                     title = title,
@@ -115,6 +118,11 @@ class WidgetPublisher(
             artJob?.cancel()
             artJob =
                 scope.launch {
+                    if (!hasWidgets()) {
+                        // Not decoded: forget the uri, so the next event with a widget placed decodes this art.
+                        if (uri == artUri) artUri = null
+                        return@launch
+                    }
                     val art = uri?.let { MediaArtwork.decodeEmbedded(appContext, it) }
                     if (uri != artUri) return@launch
                     val path = WidgetState.writeArt(appContext, art)
@@ -134,6 +142,7 @@ class WidgetPublisher(
 
     fun clear() {
         stopTick()
+        nowPlaying = nowPlaying?.copy(playing = false)
         // The publisher's own scopes are cancelled right below, which would cancel this write and
         // redraw before they dispatch and leave the widget showing a stale "playing" state; run
         // them on the process-scoped appScope instead so they survive the publisher's teardown.
@@ -202,12 +211,28 @@ class WidgetPublisher(
         uri: String?,
     ): String = metadata.title?.toString()?.ifBlank { null } ?: uri?.substringAfterLast('/').orEmpty()
 
-    private companion object {
+    /** The session's track as a publisher last read it: memory only, so it costs nothing with no widget placed. */
+    data class NowPlaying(
+        val title: String,
+        val artist: String,
+        val playing: Boolean,
+    )
+
+    companion object {
+        /**
+         * Kept on every player event whether or not a widget is placed (the [WidgetState] write is
+         * skipped without one), so the screen saver's now-playing line (`wallpaper/DreamOverlay`) is
+         * always current. Null until the playback service publishes in this process.
+         */
+        @Volatile
+        var nowPlaying: NowPlaying? = null
+            private set
+
         /**
          * How often a playing, visible widget redraws its progress and visual (#878). Every redraw wakes
          * the process and the launcher and the bar is approximate anyway; a minute keeps a four-minute
          * track within a few percent. Transport changes redraw at once, and so does turning the screen on.
          */
-        const val TICK_MS = 60_000L
+        private const val TICK_MS = 60_000L
     }
 }

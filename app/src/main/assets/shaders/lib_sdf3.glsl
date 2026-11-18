@@ -338,6 +338,28 @@ float hashCell(ivec3 c) {
 }
 
 /**
+ * hashCell at the eight corners of a lattice box, `a` the low corner and `b`
+ * the high one per axis (b need not be a + 1: a wrapped z cell is fine).
+ * lo holds z = a.z and hi z = b.z, each as (x0y0, x1y0, x0y1, x1y1).
+ *
+ * Bit for bit the eight hashCell calls: uhash3 xors the y and z hashes into
+ * x, and xor is associative, so the two y and two z hashes are made once
+ * here instead of four times each.
+ */
+void hashCellCube(ivec3 a, ivec3 b, out vec4 lo, out vec4 hi) {
+    uvec3 ua = uvec3(a);
+    uvec3 ub = uvec3(b);
+    uint y0 = uhash(ua.y + 0x9e3779b9u);
+    uint y1 = uhash(ub.y + 0x9e3779b9u);
+    uint z0 = uhash(ua.z + 0x85ebca6bu);
+    uint z1 = uhash(ub.z + 0x85ebca6bu);
+    lo = vec4(uhashUnit(uhash(ua.x ^ y0 ^ z0)), uhashUnit(uhash(ub.x ^ y0 ^ z0)),
+              uhashUnit(uhash(ua.x ^ y1 ^ z0)), uhashUnit(uhash(ub.x ^ y1 ^ z0)));
+    hi = vec4(uhashUnit(uhash(ua.x ^ y0 ^ z1)), uhashUnit(uhash(ub.x ^ y0 ^ z1)),
+              uhashUnit(uhash(ua.x ^ y1 ^ z1)), uhashUnit(uhash(ub.x ^ y1 ^ z1)));
+}
+
+/**
  * Value noise on the integer lattice, quintic-smoothed.
  *
  * Quintic (6t^5 - 15t^4 + 10t^3) rather than smoothstep's cubic because its
@@ -352,19 +374,14 @@ float vnoise3(vec3 p) {
     vec3 t = p - f;
     vec3 w = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 
-    float c000 = hashCell(i + ivec3(0, 0, 0));
-    float c100 = hashCell(i + ivec3(1, 0, 0));
-    float c010 = hashCell(i + ivec3(0, 1, 0));
-    float c110 = hashCell(i + ivec3(1, 1, 0));
-    float c001 = hashCell(i + ivec3(0, 0, 1));
-    float c101 = hashCell(i + ivec3(1, 0, 1));
-    float c011 = hashCell(i + ivec3(0, 1, 1));
-    float c111 = hashCell(i + ivec3(1, 1, 1));
+    vec4 lo;
+    vec4 hi;
+    hashCellCube(i, i + 1, lo, hi);
 
-    float x00 = mix(c000, c100, w.x);
-    float x10 = mix(c010, c110, w.x);
-    float x01 = mix(c001, c101, w.x);
-    float x11 = mix(c011, c111, w.x);
+    float x00 = mix(lo.x, lo.y, w.x);
+    float x10 = mix(lo.z, lo.w, w.x);
+    float x01 = mix(hi.x, hi.y, w.x);
+    float x11 = mix(hi.z, hi.w, w.x);
     return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
 }
 

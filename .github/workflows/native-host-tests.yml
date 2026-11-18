@@ -47,7 +47,7 @@ jobs:
         run: |
           docs_only=false
           if git rev-parse -q --verify HEAD^2 >/dev/null; then
-            docs_only=$(git diff --name-only HEAD^1 HEAD | bash tools/ci-docs-only.sh)
+            docs_only=$(git diff --name-only --no-renames HEAD^1 HEAD | bash tools/ci-docs-only.sh)
           fi
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
           echo "docs_only=$docs_only"
@@ -100,6 +100,9 @@ jobs:
           # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_smear_test
           ./touch_smear_test
+          # The touch field: a point that is not a number is dropped, not counted as a finger.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/touch_field_test.cpp core/viz/TouchField.cpp -o touch_field_test
+          ./touch_field_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
@@ -173,6 +176,9 @@ jobs:
           # over the player and never freed; the output mix's stitched and its owner's, a reader outliving its destroy.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_kinds_test.cpp $INGEST_SRCS -o pcm_ring_kinds_test
           ./pcm_ring_kinds_test
+          # The player's Media3 tap on the ring (what PcmTap decided in Kotlin): the format of the last flush, an epoch at every flush, the closed gate.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_tap_test.cpp $INGEST_SRCS -o pcm_tap_test
+          ./pcm_tap_test
           # An export's track audio (TrackFeed) and the AIFF reader, pinned to the Kotlin TrackAudio and AiffPcm: every
           # sample width and byte order, the header walk, the codec pre-roll and AIFF lead-in cuts, each video frame
           # hearing exactly its audio, an fd span.
@@ -193,8 +199,9 @@ jobs:
             core/audio/ingest/CapturePlan.cpp core/audio/ingest/PcmRing.cpp -o mic_input_test
           ./mic_input_test
           # Another app's audio and the output mix (CapturePump) over a fake reader: blocks written as read on the pump's
-          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/capture_pump_test.cpp \
+          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet, and
+          # new captures refused while kMaxStuck threads are left behind. fakegl only for its <android/log.h>.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/fakegl core/tests/capture_pump_test.cpp \
             core/audio/ingest/CapturePump.cpp -o capture_pump_test
           ./capture_pump_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
@@ -203,6 +210,43 @@ jobs:
             core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp \
             core/output/FrameClock.cpp -o track_pump_test
           ./track_pump_test
+          # The player's queue and transport (core/player, pure logic): next and previous across the repeat modes, a
+          # seeded shuffle, edits around the current track, the previous-restarts rule, end of queue, seek and the A-B loop.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/player_queue_test.cpp core/player/*.cpp -o player_queue_test
+          ./player_queue_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/player_transport_test.cpp core/player/*.cpp -o player_transport_test
+          ./player_transport_test
+          # The music library's rules ported from Kotlin (core/library): tag fallbacks and the library document, playlist
+          # edits, the smart-playlist matcher, play history and its retention, the saved session. Not called by the app yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_tracks_test.cpp core/library/TrackRules.cpp core/library/TrackLibraryDoc.cpp core/util/Json.cpp -o library_tracks_test
+          ./library_tracks_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_playlist_test.cpp core/library/PlaylistRules.cpp core/util/Json.cpp -o library_playlist_test
+          ./library_playlist_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_smart_playlist_test.cpp core/library/SmartPlaylist.cpp core/library/History.cpp core/util/Json.cpp -o library_smart_playlist_test
+          ./library_smart_playlist_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_history_test.cpp core/library/History.cpp core/util/Json.cpp -o library_history_test
+          ./library_history_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_session_test.cpp core/library/SessionDoc.cpp core/util/Json.cpp -o library_session_test
+          ./library_session_test
+          # The shell's own rules ported from Kotlin (core/shell): the tour, the style shelf, preset filtering, opened-audio
+          # routing, notification buttons, the saved Auto visuals and the export fps list, and their C ABI
+          # (core/api/geode_shell_api.cpp). The app calls all but the tour.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_tour_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_tour_test
+          ./shell_tour_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_lists_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_lists_test
+          ./shell_lists_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_opened_audio_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_opened_audio_test
+          ./shell_opened_audio_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_prefs_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_prefs_test
+          ./shell_prefs_test
+          # The backup's rules ported from Kotlin (core/backup): sections and keys, the path-escape check, the size and
+          # count caps, version migration, the manifest, and the export, unpack and restore plans. Not called by the app yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/backup_format_test.cpp core/backup/*.cpp core/util/Json.cpp -o backup_format_test
+          ./backup_format_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/backup_archive_test.cpp core/backup/*.cpp core/util/Json.cpp -o backup_archive_test
+          ./backup_archive_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/backup_restore_test.cpp core/backup/*.cpp core/util/Json.cpp -o backup_restore_test
+          ./backup_restore_test
           # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
           # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
@@ -273,6 +317,11 @@ jobs:
           # lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp -o edge_glow_pass_test
           ./edge_glow_pass_test
+          # Who deletes a GL name (core/viz/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
+          # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/gl_ownership_test.cpp core/viz/Compute.cpp core/viz/Quad.cpp \
+            core/viz/Framebuffer.cpp core/viz/Texture.cpp -o gl_ownership_test
+          ./gl_ownership_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
           ./transition_library_test
@@ -317,6 +366,9 @@ jobs:
           # The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp -o milk_memory_test
           ./milk_memory_test
+          # MilkDrop textures: header checks and caps, stored names and the rename strip, the show preset, the sampler scan and every rung of the link ladder, pack kinds, import collision names.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_textures_test.cpp core/viz/MilkTextures.cpp core/viz/Sha256.cpp -o milk_textures_test
+          ./milk_textures_test
           # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test
@@ -530,6 +582,16 @@ jobs:
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/VisualSafety.cpp -o mod_controls_test
           ./mod_controls_test
+          # The modulation the app holds (core/viz/ModState, geode_mod_state_*): an event is the document's own edit,
+          # no route of the user's is Auto with no mask, the keep set is normalised and toggled, and the hand mask and
+          # keep set reach their process-wide setters.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/mod_state_test.cpp \
+            core/viz/ModState.cpp core/api/geode_mod_state_api.cpp core/api/geode_modulation_api.cpp \
+            core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/util/Json.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o mod_state_test
+          ./mod_state_test
       # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
       # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
       - name: Random waves host tests
@@ -564,14 +626,18 @@ jobs:
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
           # The shell's raw block (geode_dsp_process_bytes): whole frames from encoding and channels, run as the
-          # typed calls run them, part frames dropped; plus the encodings and GeodeNative's event bits, pinned.
+          # typed calls run them, part frames dropped; plus the encodings and AudioOutNative's event bits, pinned.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_bytes_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_bytes_test
-          ./dsp_bytes_test engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt
+          ./dsp_bytes_test app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt
           # Which formats the playback DSP runs (16-bit or float, mono or stereo); any other passes through.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_runs_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_runs_test
           ./dsp_runs_test
+          # The limiter, crossfeed and equalizer forget their state when switched off (or a band set flat), so
+          # turning them back on never plays old audio.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_stage_state_test.cpp             core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_stage_state_test
+          ./dsp_stage_state_test
           # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
           # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \
@@ -755,6 +821,14 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_history_test.cpp core/sound/*.cpp -o sound_history_test
           ./sound_history_test
 
+      # The analysis hop is a sample count from the FFT settings: the same at 44.1, 48 and 96 kHz, and two settings
+      # (2048/4, 2048/8) hear the same tempo, transients and silence in time.
+      - name: Sound hop from the FFT settings
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_hop_test.cpp core/sound/*.cpp -o sound_hop_test
+          ./sound_hop_test
+
       # One engine on its own thread (core/sound/hop/AnalysisThread, #1215): inline equals a bare engine at every position,
       # across irregular blocks, a new epoch and controls mid-stream; the thread equals inline, readers never see a torn
       # hop, it wakes per write and not on a clock, it stops cleanly, and a writer that stops lets the levels fall.
@@ -784,6 +858,9 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/frame_blend_test.cpp core/sound/interp/FrameBlend.cpp \
             core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp -o frame_blend_test
           ./frame_blend_test
+          # The drawn waveform (core/sound/interp/Waveform): its block is the engine's configured FFT size / 512 at every rate.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/waveform_test.cpp core/sound/interp/Waveform.cpp core/sound/*.cpp -o waveform_test
+          ./waveform_test
 
       # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
       # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.

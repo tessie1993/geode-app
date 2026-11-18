@@ -5,16 +5,20 @@
 #include <complex>
 #include <numbers>
 
+#include "sound/Stages.hpp"
+
 namespace geode::sound {
 
 namespace {
 
 constexpr float kBandMeanSeconds = 4.0f;   // each band's level is read over its own ~4 s mean
 constexpr float kLocalMeanSeconds = 0.3f;  // the onset envelope minus this keeps only its peaks
-constexpr int kTempoEvery = 25;            // hops between tempo estimates (0.25 s)
-constexpr int kTempoAfter = 300;           // the first estimate waits for 3 s of envelope
-constexpr int kPhaseEvery = 5;             // hops between phase measurements (50 ms)
-constexpr int kPhaseWindow = 400;          // the phase reads at most the last 4 s, in whole bars
+constexpr float kTempoEvery = 0.25f;       // seconds between tempo estimates
+constexpr float kTempoAfter = 3.0f;        // the first estimate waits for this much envelope
+constexpr float kPhaseEvery = 0.05f;       // seconds between phase measurements
+constexpr float kPhaseWindow = 4.0f;       // the phase reads at most the last 4 s, in whole bars
+// The onset change spans this, rounded to whole hops: the time the 15 ms power envelope takes to rise.
+constexpr float kChangeSeconds = 0.02f;
 // The onset envelope: each band's power against one reference shared by every band (the loudest band's
 // recent peak, so a quiet master and a loud one give the same envelope), compressed, its positive change,
 // and the mean over the bands. The compression is light, so a hat 20 dB under the kick adds little to
@@ -22,61 +26,92 @@ constexpr int kPhaseWindow = 400;          // the phase reads at most the last 4
 constexpr float kRefFloor = 1e-10f;
 constexpr float kCompress = 3.0f;
 constexpr float kFlatEnvelope = 1e-6f;  // mean square per hop under which there are no onsets
-// A lag's evidence is its own autocorrelation plus this share of its double's: a true period repeats at
-// twice itself, a chance alignment does not.
+// A lag's periodicity is its own autocorrelation plus this share of its double's: a true period repeats
+// at twice itself, a chance alignment does not.
 constexpr float kComb = 0.5f;
-// The beat is the fastest lag whose evidence reaches this share of the strongest lag's.
+// A level is as plausible as the most periodic one when its periodicity reaches this share of it, ...
 constexpr float kLevel = 0.45f;
+// ... and of its family when its period is a whole multiple or divisor of that one's, within this share.
+constexpr float kFamily = 0.04f;
 constexpr float kLockOn = 0.35f;
 constexpr float kLockOff = 0.2f;
 constexpr float kLockAfter = 1.0f;         // seconds past the line before locking, ...
 constexpr float kUnlockAfter = 2.0f;       // ... and below it before letting go
-constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected per measurement
-// The onset envelope peaks this many hops after the onset itself (the 15 ms power envelope plus the
-// 20 ms change, measured on clicks from 60 to 190 BPM). The measured phase is moved forward by it, so a
-// beat lands on the hit, not after it.
-constexpr float kLatencyHops = 1.9f;
+constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected per kPhaseEvery
+// The onset envelope's pulse lags the onset by this much (the 15 ms power envelope and the change, clicks
+// from 60 to 190 BPM at 10 to 12 ms hops), and by half a hop more: each hop reads the mean power over it.
+// The measured phase is moved forward by both, so a beat lands on the hit, not after it.
+constexpr float kLatencySeconds = 0.0175f;
 constexpr float kCountWrap = 4096.0f;
 constexpr float kHarmonyLatency = 0.35f;   // a harmonic change is heard this long after the chord moved
+// The bands a beat's accent is read from, in Rhythm::hopLog_ order.
+constexpr std::array<int, 4> kAccentBands = {Rhythm::kKick, Rhythm::kLow, Rhythm::kSnareBody, Rhythm::kSnareNoise};
+// Accents that differ by less than this (log level, about 0.4 dB of power, RMS over the beats) make no
+// pattern: the meter is not read from them.
+constexpr float kMeterFloor = 0.1f;
 
 float wrapHalf(float x) { return x - std::round(x); }
 float frac(double x) { return static_cast<float>(x - std::floor(x)); }
 
 }  // namespace
 
-void Rhythm::configure(int sampleRateHz) {
-    sampleRateHz_ = std::max(8000, sampleRateHz);
-    hop_ = std::max(1, static_cast<int>(std::lround(static_cast<float>(sampleRateHz_) * kHopSeconds)));
-    hopHz_ = static_cast<float>(sampleRateHz_) / static_cast<float>(hop_);
-    lagMin_ = static_cast<int>(std::floor(60.0f * hopHz_ / kFastestBpm));
-    lagMax_ = kRing / kPeriodsHeard;
-    ac_.assign(static_cast<size_t>(2 * lagMax_ + 4), 0.0f);
+void Rhythm::configure(int sampleRateHz, int hopSamples) {
+    Config c;
+    c.sampleRateHz = std::max(8000, sampleRateHz);
+    c.hop = std::max(1, hopSamples);
+    c.hopSeconds = static_cast<float>(c.hop) / static_cast<float>(c.sampleRateHz);
+    c.hopHz = 1.0f / c.hopSeconds;
+    const auto hops = [&](float seconds) { return std::max(1, static_cast<int>(std::lround(seconds / c.hopSeconds))); };
+    // The range's bounds round outward, so it never narrows; inside it every lag is scored alike.
+    c.lagMin = std::max(2, static_cast<int>(std::floor(60.0f / kFastestBpm / c.hopSeconds)));
+    c.lagMax = std::max(c.lagMin + 1, static_cast<int>(std::ceil(60.0f / kSlowestBpm / c.hopSeconds)));
+    c.ring = kPeriodsHeard * c.lagMax;
+    c.tempoAfter = hops(kTempoAfter);
+    c.phaseWindow = std::min(c.ring, hops(kPhaseWindow));
+    c.change = hops(kChangeSeconds);
+    c.latencyHops = kLatencySeconds / c.hopSeconds + 0.5f;
+    cfg_ = c;
+    ac_.assign(static_cast<size_t>(2 * c.lagMax + 4), 0.0f);
+    line_.assign(static_cast<size_t>(c.ring), 0.0f);
+    squares_.assign(static_cast<size_t>(c.ring + 1), 0.0f);
+    ring_.assign(static_cast<size_t>(c.ring), 0.0f);
+    bandLog_.assign(static_cast<size_t>(kBands * c.change), 0.0f);
+    bandLevel_.assign(bandLog_.size(), 0.0f);
     reset();
 }
 
 void Rhythm::reset() {
-    const int rate = sampleRateHz_;
-    const int hop = hop_;
-    const float hopHz = hopHz_;
-    const int lagMin = lagMin_;
-    const int lagMax = lagMax_;
+    // Everything but the configuration and the buffers' memory starts over.
+    const Config cfg = cfg_;
     std::vector<float> ac = std::move(ac_);
+    std::vector<float> line = std::move(line_);
+    std::vector<float> squares = std::move(squares_);
+    std::vector<float> ring = std::move(ring_);
+    std::vector<float> bandLog = std::move(bandLog_);
+    std::vector<float> bandLevel = std::move(bandLevel_);
     *this = Rhythm();
-    sampleRateHz_ = rate;
-    hop_ = hop;
-    hopHz_ = hopHz;
-    lagMin_ = lagMin;
-    lagMax_ = lagMax;
+    cfg_ = cfg;
     ac_ = std::move(ac);
+    line_ = std::move(line);
+    squares_ = std::move(squares);
+    ring_ = std::move(ring);
+    bandLog_ = std::move(bandLog);
+    bandLevel_ = std::move(bandLevel);
+    std::fill(ring_.begin(), ring_.end(), 0.0f);
+    std::fill(bandLog_.begin(), bandLog_.end(), 0.0f);
+    std::fill(bandLevel_.begin(), bandLevel_.end(), 0.0f);
     barInPhrase_ = 7;  // the first downbeat starts phrase one
+    sinceTempo_ = kTempoEvery;  // the first estimate and measurement come as soon as they may
+    sincePhase_ = kPhaseEvery;
 }
 
 void Rhythm::hop(const std::array<float, kBands>& power) {
     hops_++;
-    const float meanK = 1.0f - std::exp(-kHopSeconds / kBandMeanSeconds);
+    const float dt = cfg_.hopSeconds;
+    const float meanK = 1.0f - std::exp(-dt / kBandMeanSeconds);
     float loudest = 0.0f;
     for (float p : power) loudest = std::max(loudest, p);
-    dbRef_ = std::max(loudest, dbRef_ * std::exp(-kHopSeconds / kBandMeanSeconds));
+    dbRef_ = std::max(loudest, dbRef_ * std::exp(-dt / kBandMeanSeconds));
     const float ref = std::max(dbRef_, kRefFloor);
     std::array<float, kBands> change{};
     float odf = 0.0f;
@@ -85,41 +120,44 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
         float& mean = bandMean_[b];
         if (p > 1e-12f) mean = mean > 0.0f ? mean + meanK * (p - mean) : p;
         // Log over the band's own mean, so a quiet master and a loud one give the same envelope, and the
-        // change from two hops back (20 ms), the time the 15 ms power envelope takes to rise.
+        // change from cfg_.change hops back (kChangeSeconds).
+        const size_t slot = static_cast<size_t>(b * cfg_.change + changeHead_);
         const float x = mean > 0.0f ? std::log1p(100.0f * p / mean) : 0.0f;
-        change[b] = std::max(0.0f, x - bandLog_[b][1]);
-        bandLog_[b][1] = bandLog_[b][0];
-        bandLog_[b][0] = x;
+        for (size_t i = 0; i < kAccentBands.size(); i++) {
+            if (kAccentBands[i] == b) hopLog_[i] = x;
+        }
+        change[b] = std::max(0.0f, x - bandLog_[slot]);
+        bandLog_[slot] = x;
         // The beat's evidence is the same change against the shared reference: each band over its own
         // mean (above, what the drum accents and band flux read) makes a hat 20 dB down rise as far as
         // the kick.
         const float level = std::log1p(kCompress * p / ref);
-        odf += std::max(0.0f, level - bandLevel_[b][1]);
-        bandLevel_[b][1] = bandLevel_[b][0];
-        bandLevel_[b][0] = level;
+        odf += std::max(0.0f, level - bandLevel_[slot]);
+        bandLevel_[slot] = level;
     }
+    changeHead_ = (changeHead_ + 1) % cfg_.change;
     odf /= static_cast<float>(kBands);
     bandFluxPeak_[0] = std::max(bandFluxPeak_[0], change[kLow]);
     bandFluxPeak_[1] = std::max(bandFluxPeak_[1], change[kMiddle]);
     bandFluxPeak_[2] = std::max(bandFluxPeak_[2], change[kHigh]);
-    hopKick_ = change[kKick] + 0.5f * change[kLow];
-    hopSnare_ = std::min(change[kSnareBody], change[kSnareNoise]);
 
-    localMean_ += (1.0f - std::exp(-kHopSeconds / kLocalMeanSeconds)) * (odf - localMean_);
-    ring_[ringHead_] = std::max(0.0f, odf - localMean_);
-    ringHead_ = (ringHead_ + 1) % kRing;
+    localMean_ += (1.0f - std::exp(-dt / kLocalMeanSeconds)) * (odf - localMean_);
+    ring_[static_cast<size_t>(ringHead_)] = std::max(0.0f, odf - localMean_);
+    ringHead_ = (ringHead_ + 1) % cfg_.ring;
 
     // Predict, then correct: the oscillator steps to this hop first, so the pulse measured at this hop is
     // compared with the oscillator at the same instant (#373; compared before the step, every beat ran a
     // hop early).
     advance();
-    if (hops_ >= kTempoAfter && hops_ % kTempoEvery == 0) estimateTempo();
-    if (period_ > 0.0f && hops_ % kPhaseEvery == 0) measurePhase();
+    // Both cadences on the samples' clock, so they keep their time whatever the hop's length.
+    if (hops_ >= cfg_.tempoAfter && due(sinceTempo_, kTempoEvery, dt)) estimateTempo();
+    if (period_ > 0.0f && due(sincePhase_, kPhaseEvery, dt)) measurePhase();
 }
 
 void Rhythm::estimateTempo() {
-    const int n = static_cast<int>(std::min<int64_t>(hops_, kRing));
-    for (int i = 0; i < n; i++) line_[i] = ring_[(ringHead_ - n + i + 2 * kRing) % kRing];
+    const int ringLen = cfg_.ring;
+    const int n = static_cast<int>(std::min<int64_t>(hops_, ringLen));
+    for (int i = 0; i < n; i++) line_[i] = ring_[(ringHead_ - n + i + 2 * ringLen) % ringLen];
     float mean = 0.0f;
     for (int i = 0; i < n; i++) mean += line_[i];
     mean /= static_cast<float>(n);
@@ -144,9 +182,9 @@ void Rhythm::estimateTempo() {
     }
     // A lag is a candidate once kPeriodsHeard of its periods are in the window, so its double is
     // measured too.
-    const int hi = std::min(lagMax_, n / kPeriodsHeard);
+    const int hi = std::min(cfg_.lagMax, n / kPeriodsHeard);
     const int top = 2 * hi + 2;
-    for (int lag = lagMin_ - 1; lag <= top; lag++) {
+    for (int lag = cfg_.lagMin - 1; lag <= top; lag++) {
         float sum = 0.0f;
         for (int i = lag; i < n; i++) sum += line_[i] * line_[i - lag];
         // Normalised by the energy of the two overlapping stretches: a periodic envelope scores the same
@@ -155,28 +193,64 @@ void Rhythm::estimateTempo() {
         ac_[lag] = norm > 1e-12f ? sum / norm : 0.0f;
     }
     auto score = [&](int lag) { return (std::max(0.0f, ac_[lag]) + kComb * std::max(0.0f, ac_[2 * lag])) / (1.0f + kComb); };
+    // A peak's lag to a fraction of a hop, from its neighbours.
+    auto refine = [&](int lag) {
+        const float a = score(lag - 1);
+        const float b = score(lag);
+        const float c = score(lag + 1);
+        const float curve = a - 2.0f * b + c;
+        return static_cast<float>(lag) + (curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f);
+    };
+    // How much of the envelope falls on one phase of a period: its Fourier coefficient there, over the
+    // same window for every lag, so the magnitudes compare as they are.
+    auto pulse = [&](float period) {
+        const std::complex<float> rot = std::polar(1.0f, 2.0f * std::numbers::pi_v<float> / period);
+        std::complex<float> z(1.0f, 0.0f);
+        std::complex<float> sum(0.0f, 0.0f);
+        for (int i = 0; i < n; i++) {
+            sum += line_[i] * z;
+            z *= rot;
+        }
+        return std::abs(sum);
+    };
+    auto isPeak = [&](int lag) {
+        const float s = score(lag);
+        return s > 0.0f && s >= score(lag - 1) && s >= score(lag + 1);
+    };
+    // The evidence picks the level: first the most periodic peak, then, among the levels of its family (its
+    // multiples and divisors, any of which a pulse repeats at) about as periodic as it, the one whose onsets
+    // fall most on one phase. A slower level's onsets spread over several of its phases and cancel; a
+    // faster level's grid holds every onset only if the music plays on it. Neither the order of the lags nor
+    // any tempo enters the choice.
     float strongest = 0.0f;
-    for (int lag = lagMin_; lag <= hi; lag++) {
-        const float s = score(lag);
-        if (s > strongest && s >= score(lag - 1) && s >= score(lag + 1)) strongest = s;
+    float strongestAt = 0.0f;
+    for (int lag = cfg_.lagMin; lag <= hi; lag++) {
+        if (isPeak(lag) && score(lag) > strongest) {
+            strongest = score(lag);
+            strongestAt = refine(lag);
+        }
     }
-    // The beat is the fastest level about as periodic as the strongest one: a pulse repeats at every
-    // multiple of its period, so the strongest peak alone could be any of them. The rule names no tempo.
     int best = -1;
-    for (int lag = lagMin_; lag <= hi && best < 0; lag++) {
-        const float s = score(lag);
-        if (s > 0.0f && s >= kLevel * strongest && s >= score(lag - 1) && s >= score(lag + 1)) best = lag;
+    float found = 0.0f;
+    float most = -1.0f;
+    for (int lag = cfg_.lagMin; lag <= hi && strongest > 0.0f; lag++) {
+        if (!isPeak(lag) || score(lag) < kLevel * strongest) continue;
+        const float at = refine(lag);
+        const float ratio = std::max(at / strongestAt, strongestAt / at);
+        const float k = std::round(ratio);
+        if (std::fabs(ratio - k) >= kFamily * k) continue;
+        const float evidence = pulse(at);
+        if (evidence > most) {
+            most = evidence;
+            best = lag;
+            found = at;
+        }
     }
     if (best < 0) {
         acConf_ = 0.0f;
         return;
     }
     acConf_ = std::clamp(ac_[best], 0.0f, 1.0f);
-    const float a = score(best - 1);
-    const float b = score(best);
-    const float c = score(best + 1);
-    const float curve = a - 2.0f * b + c;
-    const float found = static_cast<float>(best) + (curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f);
     if (acConf_ < 0.05f) return;
 
     if (period_ <= 0.0f) {
@@ -218,7 +292,7 @@ void Rhythm::measurePhase() {
     // not depend on which note came last. A window that fades with age weighs the newest notes most, so
     // with a kick on the beat and another sound on the "and" the angle swung with the bar position.
     const float p = period_;
-    const int avail = static_cast<int>(std::min<int64_t>(hops_, kPhaseWindow));
+    const int avail = static_cast<int>(std::min<int64_t>(hops_, cfg_.phaseWindow));
     const int bars = static_cast<int>(static_cast<float>(avail) / (static_cast<float>(meter_) * p));
     const int halves = static_cast<int>(static_cast<float>(avail) / (2.0f * p));
     const int m = bars >= 1    ? static_cast<int>(std::lround(static_cast<float>(bars * meter_) * p))
@@ -229,19 +303,29 @@ void Rhythm::measurePhase() {
     std::complex<float> sum(0.0f, 0.0f);
     float mass = 0.0f;
     for (int i = 0; i < m; i++) {
-        const float o = ring_[(ringHead_ - 1 - i + kRing) % kRing];
+        const float o = ring_[static_cast<size_t>((ringHead_ - 1 - i + cfg_.ring) % cfg_.ring)];
         sum += o * z;
         mass += o;
         z *= rot;
     }
     plpConf_ = mass > 1e-9f ? std::clamp(std::abs(sum) / mass, 0.0f, 1.0f) : 0.0f;
     if (mass > 1e-9f) {
-        measured_ = frac(std::arg(sum) / (2.0 * std::numbers::pi) + kLatencyHops / p);
+        measured_ = frac(std::arg(sum) / (2.0 * std::numbers::pi) + cfg_.latencyHops / p);
     }
 
-    const float dt = kPhaseEvery * kHopSeconds;
+    const float dt = kPhaseEvery;  // the cadence's mean, which due() keeps exact
     const float raw = std::clamp((acConf_ - 0.05f) / 0.35f, 0.0f, 1.0f) * std::clamp((plpConf_ - 0.1f) / 0.4f, 0.0f, 1.0f);
     conf_ += (1.0f - std::exp(-dt / 1.0f)) * (raw - conf_);
+    // A tempo is the music's: once the window it was measured over holds no beat any more (unlocked and under
+    // the unlock line for all of it), nothing is left to hold, so it is unknown again, bpm 0.
+    beatlessSeconds_ = !locked_ && conf_ < kLockOff ? beatlessSeconds_ + dt : 0.0f;
+    if (beatlessSeconds_ >= static_cast<float>(cfg_.ring) * cfg_.hopSeconds) {
+        period_ = 0.0f;
+        candidate_ = 0.0f;
+        candidateVotes_ = 0;
+        beatlessSeconds_ = 0.0f;
+        return;
+    }
     if (!locked_) {
         lockSeconds_ = conf_ > kLockOn ? lockSeconds_ + dt : 0.0f;
         if (lockSeconds_ >= kLockAfter) {
@@ -257,6 +341,7 @@ void Rhythm::measurePhase() {
             pendingDownSlot_ = -1;
             accentBeats_ = 0;
             meterVotes_ = 0;
+            downHeard_ = false;
             return;
         }
     } else {
@@ -304,10 +389,19 @@ void Rhythm::advance() {
         accentBeat_ = nearest;
         kickAccent_ = 0.0f;
         snareAccent_ = 0.0f;
+        accentLow_.fill(kNoLevel);
+        accentRise_ = {};
     }
     if (std::fabs(theta_ - static_cast<double>(nearest)) < 0.15) {
-        kickAccent_ = std::max(kickAccent_, hopKick_);
-        snareAccent_ = std::max(snareAccent_, hopSnare_);
+        // Each band's rise within the beat's window, from its lowest level there: a hit's full rise wherever
+        // it falls between two hops, where a change over a fixed span of hops shorter than the band's rise
+        // measured more or less of it with the hit's place on the hop grid.
+        for (size_t i = 0; i < hopLog_.size(); i++) {
+            accentLow_[i] = std::min(accentLow_[i], hopLog_[i]);
+            accentRise_[i] = std::max(accentRise_[i], hopLog_[i] - accentLow_[i]);
+        }
+        kickAccent_ = accentRise_[0] + 0.5f * accentRise_[1];
+        snareAccent_ = std::min(accentRise_[2], accentRise_[3]);
     }
 
     const int64_t beat = static_cast<int64_t>(std::floor(theta_));
@@ -358,8 +452,14 @@ void Rhythm::finishBeatAccent(int64_t beat) {
         if (slotScore_[i] > slotScore_[best]) best = i;
         scale = std::max(scale, std::fabs(slotScore_[i]));
     }
-    // A new downbeat slot must lead by a clear margin for a whole bar of evaluations before the bar moves.
-    if (best != downSlot_ && slotScore_[best] - slotScore_[downSlot_] > 0.15f * scale) {
+    if (!downHeard_ && accentBeats_ >= meter_) {
+        // The first whole bar heard since the lock places the bar: until then there is no bar to keep.
+        downSlot_ = best;
+        downHeard_ = true;
+        pendingVotes_ = 0;
+        pendingDownSlot_ = -1;
+    } else if (best != downSlot_ && slotScore_[best] - slotScore_[downSlot_] > 0.15f * scale) {
+        // A new downbeat slot must lead by a clear margin for a whole bar of evaluations before the bar moves.
         pendingVotes_ = best == pendingDownSlot_ ? pendingVotes_ + 1 : 1;
         pendingDownSlot_ = best;
         if (pendingVotes_ >= 4) {
@@ -386,7 +486,7 @@ void Rhythm::measureMeter(int64_t beat) {
     mean /= static_cast<float>(n);
     float spread = 0.0f;
     for (int i = 0; i < n; i++) spread += (accent(beat - i) - mean) * (accent(beat - i) - mean);
-    if (spread < 1e-6f) return;
+    if (spread < kMeterFloor * kMeterFloor * static_cast<float>(n)) return;
     auto explained = [&](int m) {
         std::array<float, 4> slot{};
         for (int i = 0; i < n; i++) slot[static_cast<size_t>(((beat - i) % m + m) % m)] += accent(beat - i);
@@ -413,6 +513,7 @@ void Rhythm::measureMeter(int64_t beat) {
         slotScore_[static_cast<size_t>(slotOf(beat - i))] += accent(beat - i) * static_cast<float>(meter_) / static_cast<float>(n) / 0.15f;
     }
     downSlot_ = 0;
+    downHeard_ = true;
     for (int r = 1; r < meter_; r++) {
         if (slotScore_[static_cast<size_t>(r)] > slotScore_[static_cast<size_t>(downSlot_)]) downSlot_ = r;
     }
@@ -420,7 +521,7 @@ void Rhythm::measureMeter(int64_t beat) {
 
 void Rhythm::harmonyAccent(float strength) {
     if (period_ <= 0.0f) return;
-    const double back = kHarmonyLatency * hopHz_ / period_;
+    const double back = kHarmonyLatency * cfg_.hopHz / period_;
     const int slot = slotOf(static_cast<int64_t>(std::llround(theta_ - back)));
     float scale = 1e-3f;
     for (float s : slotScore_) scale = std::max(scale, std::fabs(s));
@@ -449,6 +550,7 @@ void Rhythm::dropHere() {
     pendingDownSlot_ = -1;
     const bool wasDown = slotOf(nearest - downSlot_) == 0;
     downSlot_ = slot;
+    downHeard_ = true;
     if (nearest > lastBeat_) {
         phrasePending_ = true;  // the beat just ahead ticks as the downbeat that starts the phrase
         return;
@@ -468,7 +570,7 @@ std::array<float, 3> Rhythm::takeBandFlux() {
 }
 
 void Rhythm::read(int sinceHop, float hitTime, GeodeSoundFrame& out) {
-    out.bpm = period_ > 0.0f ? 60.0f * hopHz_ / period_ : 0.0f;
+    out.bpm = period_ > 0.0f ? 60.0f * cfg_.hopHz / period_ : 0.0f;
     out.beatConf = std::clamp(conf_, 0.0f, 1.0f);
     out.beatCount = std::fmod(static_cast<float>(lastBeat_ % 4096), kCountWrap);
     out.barCount = static_cast<float>(bars_ % 4096);

@@ -2,6 +2,8 @@
 #include <EGL/egl.h>
 #include <android/native_window.h>
 
+#include <cstdint>
+
 // The stage's EGL: one display connection, the config GLSurfaceView picks by default for an ES 3 view, one context
 // and at most one window surface (docs/agents/native-stage.md). Stage thread only. It decides nothing: the stage
 // lifecycle (core/stage/StageLifecycle) says when each call happens, and every failure goes back to it.
@@ -29,6 +31,9 @@ public:
     void releaseCurrent();
     // EGL_SUCCESS, or the error eglSwapBuffers left.
     EGLint swap();
+    // The next swap's presentation time, CLOCK_MONOTONIC ns, for the system to hold the frame to; 0: none. Used by
+    // that swap alone. Does nothing where EGL_ANDROID_presentation_time is missing.
+    void presentAt(int64_t presentNs) { presentNs_ = presentNs; }
     void destroySurface();
     void destroyContext();
 
@@ -39,6 +44,9 @@ private:
     EGLSurface surface_ = EGL_NO_SURFACE;
     ANativeWindow* window_ = nullptr;
     bool surfaceless_ = false;
+    // eglPresentationTimeANDROID, from EGL_ANDROID_presentation_time; null without it.
+    EGLBoolean (*presentationTime_)(EGLDisplay, EGLSurface, int64_t) = nullptr;
+    int64_t presentNs_ = 0;
 };
 
 }  // namespace geode::stage::platform

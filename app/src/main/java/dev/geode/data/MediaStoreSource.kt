@@ -56,7 +56,7 @@ class MediaStoreSource(
     /** Keeps read and write access to the picked folder [tree]; false when the provider refuses. */
     suspend fun keepFolderAccess(tree: Uri): Boolean =
         withContext(io) {
-            resolver.persistGrant(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            resolver.persistGrant(tree, FOLDER_FLAGS)
         }
 
     /**
@@ -91,6 +91,32 @@ class MediaStoreSource(
         }
     }
 
+    /**
+     * Gives back the read grants [keepReadAccess] kept for [uris], except any [held] names: Android
+     * keeps one grant per URI, so a song the library also holds keeps it.
+     */
+    suspend fun releaseReadAccess(
+        uris: List<Uri>,
+        held: Set<String>,
+    ) {
+        withContext(io) {
+            uris.filter { it.toString() !in held }.forEach { resolver.releaseGrant(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
+    }
+
+    /**
+     * Gives back the grant [keepFolderAccess] kept for the folder [tree], unless one of the app's
+     * folders ([keptFolders]) is still it; [preset] is the preset folder as just chosen.
+     */
+    suspend fun releaseFolderAccess(
+        tree: String,
+        preset: String?,
+    ) {
+        withContext(io) {
+            if (tree !in keptFolders(context, preset = preset)) resolver.releaseGrant(Uri.parse(tree), FOLDER_FLAGS)
+        }
+    }
+
     /** False when the document at [uri] no longer opens (deleted, or its grant is gone). */
     suspend fun isReadable(uri: Uri): Boolean =
         withContext(io) {
@@ -116,13 +142,14 @@ class MediaStoreSource(
     suspend fun displayName(uri: Uri): String? = withContext(io) { resolver.displayNameOf(uri) }
 
     /**
-     * Whether [uri], handed over by another app, is one the app may read: a content uri, or a file
-     * uri outside this app's own data (another app must never make us read our own files).
+     * Whether [uri], handed over by another app, is one the app may read: a content uri the sender
+     * granted that is not one of this app's own providers ([refusesSentUri], the opened-audio checks),
+     * or a file uri outside this app's own data (another app must never make us read our own files).
      */
     suspend fun isForeignDocument(uri: Uri): Boolean =
         withContext(io) {
             when (uri.scheme) {
-                ContentResolver.SCHEME_CONTENT -> true
+                ContentResolver.SCHEME_CONTENT -> !refusesSentUri(context, uri)
                 ContentResolver.SCHEME_FILE -> {
                     val path = uri.path
                     val own = File(context.applicationInfo.dataDir).canonicalPath
@@ -194,3 +221,6 @@ class MediaStoreSource(
         }
     }
 }
+
+/** What a picked folder is kept with: read and write, for the preset mirror and Record. */
+private const val FOLDER_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION

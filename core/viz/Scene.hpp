@@ -21,7 +21,11 @@ enum class SceneFamily { Shader, Milkdrop, Fluid };
 // A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
 public:
+    Scene() = default;
     virtual ~Scene() = default;
+    // A scene owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
     virtual const std::string& id() const = 0;
     virtual SceneFamily family() const = 0;
     virtual void init() = 0;
@@ -61,7 +65,7 @@ public:
     // The fluid scene runs its own flow field.
     virtual bool isFluid() const { return false; }
     virtual void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) { (void) forceSrc; (void) dyeSrc; }
-    // The surface size in pixels, which MilkDrop renders at rather than the supersampled target.
+    // The surface size in pixels, which MilkDrop renders at rather than the render-scaled target.
     virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
     virtual void queueMilkPreset(const std::string& path) { (void) path; }
     // The last preset that compiled anywhere in this renderer: what a rebuilt MilkDrop scene falls

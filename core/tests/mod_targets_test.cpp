@@ -9,6 +9,7 @@
 // The fixture pins the table's text. The expected scopes below are each target's reach as first shipped,
 // so no target's reach moves unseen; since the scopes are read from the params schema's meta rows
 // (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -153,6 +154,38 @@ void everyTargetKeepsItsNameAndScope() {
     for (LfoTarget t : {LfoTarget::PaletteAmount1, LfoTarget::PaletteAmount3, LfoTarget::PaletteAmount8, LfoTarget::PaletteShift}) {
         check(isLuminanceTarget(t), std::string(modtargets::name(t)) + " is held to the flash rate and the route floors");
     }
+}
+
+// The targets as data (viz/ModTable.hpp, the mod rows of viz/ParamTable.inc) keep what the hand-written tables said:
+// the luminance set (held to the flash rate and the route floors) and every target's scale, as first shipped.
+void legacyTargetsKeepTheirLightAndScale() {
+    using T = LfoTarget;
+    const std::vector<T> light = {T::ColorShift, T::PaletteMix, T::Saturation, T::Brightness, T::Intensity, T::Bloom, T::Temperature,
+                                  T::Vignette, T::PaletteAmount1, T::PaletteAmount3, T::PaletteAmount4, T::PaletteAmount5,
+                                  T::PaletteAmount6, T::PaletteAmount7, T::PaletteAmount8, T::PaletteShift, T::LayerMix,
+                                  T::SimFluid, T::SimParticles, T::SimLayerOrder, T::Shadow, T::EscapeColor};
+    for (int i = 0; i <= static_cast<int>(T::Life); ++i) {
+        const auto t = static_cast<T>(i);
+        const bool want = std::find(light.begin(), light.end(), t) != light.end();
+        check(isLuminanceTarget(t) == want, std::string(modtargets::name(t)) + ": the luminance set is unchanged");
+    }
+    const std::vector<std::pair<T, float>> scales = {
+        {T::Rotation, 1.5f}, {T::Tile, 2.0f}, {T::ColorShift, 0.5f}, {T::FluidCurl, 25.0f}, {T::FluidRadius, 0.15f},
+        {T::FluidForce, 1.5f}, {T::FluidFade, 1.5f}, {T::FluidCatchPull, 1.5f}, {T::FluidCatchRadius, 0.12f}, {T::FlowCurl, 25.0f},
+        {T::FlowForce, 1.5f}, {T::EndlessZoomSpeed, 0.5f}, {T::DiveTwist, 0.5f}, {T::DiveAimX, 0.5f}, {T::DiveAimY, 0.5f},
+        {T::PaletteShift, 0.5f}, {T::KaleidoFolds, 8.0f}};
+    for (int i = 0; i <= static_cast<int>(T::Life); ++i) {
+        const auto t = static_cast<T>(i);
+        const int slot = paramSlotOf(t);
+        if (slot < 0) continue;
+        float want = 1.0f;
+        for (const auto& [target, scale] : scales) {
+            if (target == t) want = scale;
+        }
+        check(kParamMods[static_cast<size_t>(slot)].scale == want, std::string(modtargets::name(t)) + " keeps its scale");
+    }
+    check(paramSlotOf(T::None) < 0 && paramSlotOf(T::Macro) < 0 && paramSlotOf(T::Lfo1Rate) < 0 && paramSlotOf(T::Retired25) < 0,
+          "None, Macro, the chained and the retired targets write no field");
 }
 
 bool retired(LfoTarget t) {
@@ -358,6 +391,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     everyTargetKeepsItsNameAndScope();
+    legacyTargetsKeepTheirLightAndScale();
     onlyTheRetiredSlotsAreHidden();
     targetsFollowTheirMetaRow();
     reachFollowsTheScope();

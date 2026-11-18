@@ -142,7 +142,7 @@ float nebula(vec3 p) {
 float nebulaGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 6; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(6); i++) {
         if (shellPass3(i)) r = shellKeepDensity3(i, nebula(shellAt3(i)));
     }
     return r;
@@ -272,30 +272,33 @@ void main() {
         id.z = id.z & STAR_Z_MASK;
         uint h = uhash3(uvec3(id));
         float hOcc = uhashUnit(h);
-        uint h2 = uhash(h);
-        uint h3 = uhash(h2);
-        uint h4 = uhash(h3);
-        uint h5 = uhash(h4);
-        // Jittered inside the cell with a margin, so a glow is never cut by a wall the ray did not cross.
-        vec3 star = vec3(cell) + vec3(0.25 + 0.5 * uhashUnit(h2), 0.25 + 0.5 * uhashUnit(h3), 0.45 + 0.1 * uhashUnit(h4));
-        float hue = uhashUnit(h5);
+        // step(hOcc, starDensity) is 1 exactly when hOcc <= starDensity: an empty cell adds nothing, so it is skipped.
+        if (hOcc <= starDensity) {
+            uint h2 = uhash(h);
+            uint h3 = uhash(h2);
+            uint h4 = uhash(h3);
+            uint h5 = uhash(h4);
+            // Jittered inside the cell with a margin, so a glow is never cut by a wall the ray did not cross.
+            vec3 star = vec3(cell) + vec3(0.25 + 0.5 * uhashUnit(h2), 0.25 + 0.5 * uhashUnit(h3), 0.45 + 0.1 * uhashUnit(h4));
+            float hue = uhashUnit(h5);
 
-        vec3 rel = star - o;
-        float tc = max(dot(rel, rd), 0.0);
-        vec3 dv = rd * tc - rel;
-        float size = starSize + tc * pixAngle * 1.4;
-        // The onset streak: an ellipsoid along z, the travel axis, which on
-        // screen is a radial smear from the vanishing point.
-        dv.z *= size / (size + streak);
-        float glow = exp(-dot(dv, dv) / (size * size));
+            vec3 rel = star - o;
+            float tc = max(dot(rel, rd), 0.0);
+            vec3 dv = rd * tc - rel;
+            float size = starSize + tc * pixAngle * 1.4;
+            // The onset streak: an ellipsoid along z, the travel axis, which on
+            // screen is a radial smear from the vanishing point.
+            dv.z *= size / (size + streak);
+            float glow = exp(-dot(dv, dv) / (size * size));
 
-        float fade = (1.0 - smoothstep(far * 0.35, far, tc)) * smoothstep(0.05, 0.7, tc);
-        float twinkle = 1.0 + 1.8 * hat * step(0.86, fract(hue * 7.31 + twinkleSeed));
-        float lit = (0.35 + sndSpectrum(hue)) * twinkle;
-        // Fogged by the gas in front of it: optical depth taken as linear in
-        // depth across the marched span, a cheap stand-in for the true profile.
-        float fog = exp(-tau * clamp(tc / (STAR_SCALE * tEnd), 0.0, 1.0));
-        stars += pal(hue + tc * 0.01) * glow * fade * lit * fog * step(hOcc, starDensity);
+            float fade = (1.0 - smoothstep(far * 0.35, far, tc)) * smoothstep(0.05, 0.7, tc);
+            float twinkle = 1.0 + 1.8 * hat * step(0.86, fract(hue * 7.31 + twinkleSeed));
+            float lit = (0.35 + sndSpectrum(hue)) * twinkle;
+            // Fogged by the gas in front of it: optical depth taken as linear in
+            // depth across the marched span, a cheap stand-in for the true profile.
+            float fog = exp(-tau * clamp(tc / (STAR_SCALE * tEnd), 0.0, 1.0));
+            stars += pal(hue + tc * 0.01) * glow * fade * lit * fog;
+        }
 
         // Step into whichever neighbouring cell the ray reaches first.
         vec3 m = step(side, side.yzx) * step(side, side.zxy);

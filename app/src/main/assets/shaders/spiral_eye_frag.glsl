@@ -89,19 +89,14 @@ float seNoise(vec3 p, int wz) {
     int z0 = i.z - wz * int(floor(f.z / float(wz)));
     int z1 = z0 + 1 == wz ? 0 : z0 + 1;
 
-    float c000 = hashCell(ivec3(i.x, i.y, z0));
-    float c100 = hashCell(ivec3(i.x + 1, i.y, z0));
-    float c010 = hashCell(ivec3(i.x, i.y + 1, z0));
-    float c110 = hashCell(ivec3(i.x + 1, i.y + 1, z0));
-    float c001 = hashCell(ivec3(i.x, i.y, z1));
-    float c101 = hashCell(ivec3(i.x + 1, i.y, z1));
-    float c011 = hashCell(ivec3(i.x, i.y + 1, z1));
-    float c111 = hashCell(ivec3(i.x + 1, i.y + 1, z1));
+    vec4 lo;
+    vec4 hi;
+    hashCellCube(ivec3(i.x, i.y, z0), ivec3(i.x + 1, i.y + 1, z1), lo, hi);
 
-    float x00 = mix(c000, c100, w.x);
-    float x10 = mix(c010, c110, w.x);
-    float x01 = mix(c001, c101, w.x);
-    float x11 = mix(c011, c111, w.x);
+    float x00 = mix(lo.x, lo.y, w.x);
+    float x10 = mix(lo.z, lo.w, w.x);
+    float x01 = mix(hi.x, hi.y, w.x);
+    float x11 = mix(hi.z, hi.w, w.x);
     return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
 }
 
@@ -176,7 +171,7 @@ float seField(vec3 p) {
 float seFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 6; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(6); i++) {
         if (shellPass3(i)) r = shellKeepDensity3(i, seField(shellAt3(i)));
     }
     return r;

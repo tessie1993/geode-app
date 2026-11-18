@@ -1,13 +1,13 @@
 name: Architecture gates
 
 # The layer rule, the engine Kotlin rule, the audio Kotlin rule, the no-BPM-bias rule, the action pin rule,
-# the network rule, JNI parity and the notices copy, each gate with its self-test.
+# the network rule, JNI parity, hand declarations and the notices copy, each gate with its self-test.
+# Also the store listing text (tools/store-check.sh).
 # Also the self-test of the docs-only check the other pull-request workflows skip on.
 # No path filter, so the check reports on every PR.
 
 on:
   pull_request:
-    branches: ["main"]
     types: [opened, synchronize, reopened, edited]
 
 permissions:
@@ -59,7 +59,10 @@ jobs:
           echo 'static constexpr float kFastestBpm = 300.0f;' >> "$t/core/sound/Rhythm.hpp"
           echo 'const double bpm = 93.0;' > "$t/core/tests/musical_test.cpp"
           echo 'for (int i = 0; i < 60 * 120; ++i) e.tick(1.0f / 120.0f);  // 30/60/120 fps, a 120 Hz panel' >> "$t/core/tests/musical_test.cpp"
+          echo 'run(d, Song{"aeolian", 4, 0.85f, 93.0f, 0.6f, 0.2f}, 120.0f, t); frame(f, r, 90.0f, 120.0f);' >> "$t/core/tests/musical_test.cpp"
           echo 'private const val BEAT_SECONDS = 60.0 / BPM' > "$t/app/src/androidTest/Groove.kt"
+          echo 'val bpm = state.bpm ?: 0f' >> "$t/app/src/androidTest/Groove.kt"
+          echo 'const float period = bpm > 0.0f ? 60.0f / bpm : 0.0f;' >> "$t/core/sound/Rhythm.hpp"
           bash tools/no-bpm-bias-gate.sh "$t" >/dev/null || { echo "::error::no-BPM-bias gate self-test: clean tree failed"; exit 1; }
           plant() {
             printf '%s\n' "$2" > "$t/$1"
@@ -78,9 +81,22 @@ jobs:
           plant core/tests/Bias.cpp 'const double bpm = 120.0;'
           plant core/tests/Bias.cpp '// A steady groove at 120 BPM.'
           plant core/tests/Bias.cpp 'f.beatPhase = std::fmod(t * 120.0 / 60.0, 1.0);'
+          plant core/tests/Bias.cpp '    const Song song{120.0};'
+          plant core/tests/Bias.cpp '    checkGroove({"four on the floor", 120.0, {{Voice::kKick, 0.8, fours}}});'
+          plant core/tests/Bias.cpp '    const auto pcm = clicks(48000, 120.0, 5.0);'
+          plant core/tests/Bias.cpp '        m.frame(0.0, 0.0f, 120.0f, 0.8f, 1.0f);'
           plant app/src/androidTest/Bias.kt '        private const val BEAT_SECONDS = 0.5'
           plant app/src/main/java/Bias.kt 'val beatSeconds = 60.0f / 120.0f'
           plant tools/glslcheck/bias.mjs '  0.5, 0.4, 120, 0.3, //        EVENNESS RUN_DENSITY BPM BEAT_PHASE'
+          plant core/tests/Bias.cpp '// Weight the lag with a tempo prior.'
+          plant core/tests/Bias.cpp '    const float bpm = std::max(detected.bpm, 60.0f);'
+          plant app/src/main/java/Bias.kt '        val bpm = state.bpm ?: 93f'
+          plant app/src/main/java/Bias.kt '        val bpm = maxOf(60f, state.bpm)'
+          plant core/sound/Bias.cpp 'const float b = bpm_ > 0.0f ? bpm_ : 100.0f;'
+          plant core/sound/Bias.cpp 'const float b = bpm_ <= 0.0f ? 100.0f : bpm_;'
+          plant docs/bias.sh 'bpm="${BPM:-93}"'
+          plant app/src/main/java/Bias.java '    float lastBpm = 93f;'
+          plant app/src/main/java/bias.xml '    <integer name="default_bpm">93</integer>'
           echo "no-BPM-bias gate self-test passed"
 
       - name: No tempo prior, preferred tempo or default BPM
@@ -145,6 +161,15 @@ jobs:
         shell: bash
         run: bash tools/network-gate.sh
 
+      # The sound analysis is a library of its own (geode_sound): it includes itself and the PCM ring only.
+      - name: Self-test the sound module gate
+        shell: bash
+        run: bash tools/sound-module-gate.sh --self-test
+
+      - name: The sound analysis includes only itself and the ring
+        shell: bash
+        run: bash tools/sound-module-gate.sh
+
       # Pins the audio Kotlin gate: each way Kotlin can touch samples (AudioRecord, AudioTrack, codec, extractor and
       # muxer buffers, Media3 audio classes, Visualizer capture, buffer-carrying natives and their callers) must
       # fail it; video-only MediaCodec, an image ByteBuffer and a listed hit must pass; a stale or malformed
@@ -194,6 +219,18 @@ jobs:
         shell: bash
         run: bash tools/jni-parity-gate.sh
 
+      # Pins the hand declaration gate: a forward declaration of a function the file defines, static and
+      # anonymous-namespace declarations, a variable built from arguments and declarations in a class, a function,
+      # a comment or a string must pass; a function another file defines, declared by hand in a namespace, at file
+      # scope, in extern "C" or across lines, must each fail it.
+      - name: Self-test the hand declaration gate
+        shell: bash
+        run: bash tools/hand-declaration-gate.sh --self-test
+
+      - name: No .cpp declares by hand a function another .cpp defines
+        shell: bash
+        run: bash tools/hand-declaration-gate.sh
+
       # Pins the docs-only check build-lint.yml and native-host-tests.yml skip on: documents alone must read
       # "true"; code, a workflow, the privacy policy a unit test reads, or no change at all must read "false".
       - name: Self-test the docs-only check
@@ -206,6 +243,11 @@ jobs:
         shell: bash
         run: cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt
 
+      # The Play listing text: Play's lengths and metadata policy, no tempo claim, no old name.
+      - name: The store listing text passes its checks
+        shell: bash
+        run: bash tools/store-check.sh
+
       # Pins the engine Kotlin gate: growth in an engine path must fail it, shrinking must pass.
       - name: Self-test the engine Kotlin gate
         shell: bash
@@ -215,7 +257,7 @@ jobs:
           ok() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh >/dev/null; }
           ok "5${T}40${T}engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt" || { echo "::error::shrink failed"; exit 1; }
           ok "30${T}0${T}app/src/main/java/dev/geode/ui/AppShell.kt" || { echo "::error::ui change failed"; exit 1; }
-          ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
+          ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/VizNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
           if ok "40${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PlayoutClock.kt"; then echo "::error::new engine Kotlin passed"; exit 1; fi
           if ok "20${T}5${T}app/src/main/java/dev/geode/export/LoopRender.kt"; then echo "::error::export growth passed"; exit 1; fi
           # Spec 3.0 areas (#461): Record and the timeline, the Scene model, glTF and pack import, the render job.
@@ -231,11 +273,11 @@ jobs:
           ok "40${T}0${T}$A/editor/StudioProject.kt" || { echo "::error::project list failed"; exit 1; }
           ok "40${T}0${T}$A/ui/StudioRender.kt" || { echo "::error::Studio screen failed"; exit 1; }
           if ok "12${T}0${T}engine/scenes/src/main/kotlin/dev/geode/render/scene/ParamSchema.kt"; then echo "::error::engine growth passed"; exit 1; fi
-          # The list: a listed file passes, a new file in an engine module fails, and so does a new entry.
+          # The list is empty: a tree with only engine tests passes, a new file in an engine module fails, and so does a new entry.
           t=$(mktemp -d)
           mkdir -p "$t/engine/audio-core/src/main/kotlin/dev/geode/engine/bridge" "$t/engine/scenes/src/main/kotlin/dev/geode/render" "$t/engine/scenes/src/test/kotlin"
-          touch "$t/engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" "$t/engine/scenes/src/test/kotlin/NewTest.kt"
-          bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a listed file failed"; exit 1; }
+          touch "$t/engine/scenes/src/test/kotlin/NewTest.kt"
+          bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a tree with no engine Kotlin failed"; exit 1; }
           touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/NewEngine.kt"
           if bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null; then echo "::error::an unlisted engine file passed"; exit 1; fi
           grew() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh --list-grew >/dev/null; }

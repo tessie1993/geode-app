@@ -1,7 +1,7 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.VizNative
+import dev.geode.model.SceneParams
 
 /**
  * The look snapshot: everything the user set that decides what a renderer draws, as one immutable value
@@ -47,7 +47,7 @@ data class LookSnapshot(
  */
 object NativeLookDefaults {
     @Volatile
-    private var read: () -> String = { GeodeNative.vizLookDefaults() }
+    private var read: () -> String = { VizNative.vizLookDefaults() }
 
     @Volatile
     private var lines: List<String>? = null

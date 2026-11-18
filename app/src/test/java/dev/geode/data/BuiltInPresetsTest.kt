@@ -1,7 +1,7 @@
 package dev.geode.data
 
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.TestParams
+import dev.geode.model.SceneParams
+import dev.geode.model.TestParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test

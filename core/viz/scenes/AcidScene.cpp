@@ -6,6 +6,7 @@
 
 #include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz {
 
@@ -175,10 +176,14 @@ void AcidScene::draw(float timeSeconds) {
     resetFrameState();
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    SceneTarget::read(prevFbo, prevViewport);
     fluid::DoubleFbo* loop = ensureState();
-    if (!loop) return;
+    if (!loop) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
     const GeodeSoundFrame& f = last_;

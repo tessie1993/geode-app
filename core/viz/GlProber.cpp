@@ -144,7 +144,11 @@ std::string glString(GLenum name) {
 // Owns every GL object the probe creates so teardown has one place to go.
 class GlArena {
 public:
+    GlArena() = default;
     ~GlArena() { releaseAll(); }
+    // Owns every name it made: neither copied nor moved (viz/GlHandle.hpp).
+    GlArena(const GlArena&) = delete;
+    GlArena& operator=(const GlArena&) = delete;
 
     GLuint vertexArray() {
         GLuint id = 0;

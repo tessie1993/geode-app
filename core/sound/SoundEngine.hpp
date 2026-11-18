@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "sound/AnalysisSettings.hpp"
 #include "sound/FilterBank.hpp"
 #include "sound/Decimate.hpp"
 #include "sound/Emotion.hpp"
@@ -29,7 +30,7 @@ namespace geode::sound {
 // through Lag and Trigger (low, middle, high and the drums).
 //
 // The clock is the samples, not the frame: one analysis per fixed hop of samples. write() counts
-// samples, and every kHop of them (Rhythm::kHopSeconds, 10 ms: 441 at 44.1 kHz, 480 at 48 kHz) it runs one
+// samples, and every hop of them (AnalysisSettings: fftSize / overlap, 512 by default at every rate) it runs one
 // whole analysis hop with dt = hop / rate: the filter bank's slice, the window, the FFT, every level and
 // descriptor, the drums and events, the melody, then the musical layer (Rhythm, Harmony, Form) and the
 // feeling (Emotion). Nothing in the analysis knows the frame rate, so the screen at 60 fps, a phone at 40
@@ -43,12 +44,12 @@ namespace geode::sound {
 //   step(dt) ─► the newest hop's frame, its triggers held since the last step (max), the beat, bar and
 //               phrase phases moved on to the frame's own sample, and the waveform (a drawing, per frame)
 //
-// Why 10 ms: it is Rhythm's hop already (the onset envelope needs 100 Hz), so one clock serves everything
-// and a beat, its kick and the frame's levels come from the same instant; it is the 100 frames a second
-// that online beat trackers in the literature run their activations at (on one 2048-sample frame, the window
-// here), where a common analysis default (512 at 22.05 kHz) is 23 ms; the 2048-point window overlaps
-// ~78 %; and it is shorter than any frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
-// FFTs) a second, ~1.7× the old per-frame analysis at 60 fps and ~0.8× at 120 fps.
+// Why a quarter of the window: one clock serves everything (Rhythm's onset envelope included), so a beat, its
+// kick and the frame's levels come from the same instant; every sample is in four windows; and at 10.7 ms
+// (48 kHz) to 11.6 ms (44.1 kHz) a frame never reads a value more than one hop old. The step is a sample
+// count, never a time: every detector takes the hop's duration at construction and counts its own durations
+// in hops of that length, so another FFT size or overlap changes the cadence and nothing else. The cost at
+// the default: 94 FFTs (and pitch FFTs) a second at 48 kHz, 86 at 44.1.
 //
 // step() runs the analysis only when the writer has stopped (> 0.25 s without audio): it feeds silence,
 // dt worth, so the levels fall and silence fires instead of the last window being read forever.
@@ -57,9 +58,9 @@ namespace geode::sound {
 // construction.
 class SoundEngine {
 public:
-    explicit SoundEngine(int sampleRateHz);
+    explicit SoundEngine(int sampleRateHz, AnalysisSettings settings = {});
 
-    // About 40 ms of audio at the rate analysed: 2048 at 44.1/48 kHz.
+    // About 40 ms of audio at the rate analysed: 2048 at 44.1/48 kHz. The engine's window is its settings'.
     static int fftSizeFor(int sampleRateHz);
     // The rate the analysis runs at: the input's, halved while it is 88.2 kHz or more (HalfBand), so
     // 88.2/96 and 176.4/192 kHz are analysed at 44.1/48 kHz.
@@ -73,6 +74,8 @@ public:
     void write(const float* interleaved, int frames, int channels);
     // The newest hop's frame, as of the samples written so far; dt only times the writer's silence.
     void step(float dtSeconds, GeodeSoundFrame& out);
+    // step()'s clock alone: the writer's silence is counted and fed, no frame is read. The analysis thread's pass.
+    void starve(float dtSeconds);
 
     // Hops by sample position. A position counts samples at the input rate (sampleRateHz(), before any
     // halving), as handed to write() since construction or reset(): the count a ring of the source's own
@@ -87,8 +90,9 @@ public:
     // The newest and oldest kept hop's position, -1 before the first hop.
     int64_t newestHopSample() const;
     int64_t oldestHopSample() const;
-    // Hops kept: over a second at every rate (a hop is 10 ms, rounded to whole samples).
-    static constexpr int kHistoryHops = 128;
+    // Hops kept: kHistorySeconds of them, rounded up to whole hops of this engine's length.
+    static constexpr float kHistorySeconds = 1.25f;
+    int historyHops() const { return historyHops_; }
     // One kept hop as the analysis computed it: its position, the oscillator its phases move on from
     // (Rhythm::phases), its frame (phases at the hop's own sample, triggers its own) and the feeling after it
     // (its own degree accent, not held). What a reader on another thread needs to answer frameAt itself
@@ -115,8 +119,11 @@ public:
         emotionOut_ = emotion_.state();
         accentHeld_ = 0.0f;
     }
-    // Samples per analysis hop.
+    // Samples per analysis hop, at the analysis rate: the settings' fftSize / overlap.
     int hopSamples() const { return rhythm_.hopSamples(); }
+    // The hop's duration, hopSamples() over the analysis rate: what a consumer counts time in hops by.
+    float hopSeconds() const { return hopDt_; }
+    const AnalysisSettings& settings() const { return settings_; }
     // The one-hop triggers held from hop to step (kick … drop, transient): > 0 on the frame that follows their hop.
     static constexpr int kTriggers = 24;
     static constexpr double kHitFloorLufs = -45.0;
@@ -223,7 +230,7 @@ private:
 
     BinRange bins(float loHz, float hiHz) const;
     static float sum(const std::vector<float>& mag, BinRange r);
-    void readWindow(int count, float* mono, float* left, float* right) const;
+    void readWindow(int count, float* mono, float* left, float* right, int oldest = -1) const;
     void feed(float l, float r);
     void analyse();
     void feedSilence(float dt);
@@ -249,6 +256,7 @@ private:
     int inputRateHz_;
     int halvings_;     // HalfBand stages between write() and the analysis
     int sampleRateHz_;  // the analysis rate
+    AnalysisSettings settings_;
     int n_;
     float binHz_;
     GeodeSoundTuning tuning_;
@@ -257,6 +265,7 @@ private:
     std::vector<float> pitchHann_;
     std::array<BinRange, kBands> bandBins_;
     std::array<BinRange, GEODE_SOUND_EQ_BANDS> eqBins_;
+    std::array<float, GEODE_SOUND_EQ_BANDS> eqSum_{};  // each EQ band's summed magnitude this hop
     std::array<BinRange, GEODE_SOUND_SPECTRUM_POINTS> spectrumBins_;
     BinRange audible_{};    // 20 Hz–20 kHz
     BinRange musical_{};    // 100 Hz–10 kHz
@@ -287,14 +296,15 @@ private:
     Transient transient_;  // per sample on the bank's low, middle and high bands and the whole mix
     double silenceCarry_ = 0.0;  // the fraction of a sample of silence still owed while starved
 
-    // The analysis hop.
-    float hopDt_ = 0.01f;
+    // The analysis hop: hopSamples() / sampleRateHz_, set at construction.
+    float hopDt_ = 0.0f;
     GeodeSoundFrame hopFrame_{};           // the newest hop's frame
     std::array<float, kTriggers> held_{};  // the triggers since the last step
     Emotion emotion_;
     Emotion::State emotionOut_{};
     float accentHeld_ = 0.0f;
-    // Every hop as it was computed, a ring of kHistoryHops, the newest at historyHead_ - 1.
+    // Every hop as it was computed, a ring of historyHops_, the newest at historyHead_ - 1.
+    int historyHops_ = 1;
     std::vector<Hop> history_;
     int historyHead_ = 0;
     int historyCount_ = 0;
@@ -308,11 +318,11 @@ private:
     std::vector<float> windowed_;
     std::vector<float> mag_;  // |X|·2/Σw: a full-scale sine reads 1
     std::vector<float> tilted_;
-    // The last fluxLag_ hops' log spectra, so flux compares against the one ~30 ms old.
+    // The last fluxLag_ hops' log spectra, so flux compares against the one kFluxLag (1/30 s) old.
     std::vector<float> logMag_;      // this hop's, n/2 + 1
     std::vector<float> prevLogMag_;  // fluxLag_ × (n/2 + 1), oldest at fluxHead_, each maximum-filtered (sound/OnsetFlux)
     std::vector<int> fluxReach_;     // per bin, how far that filter reaches either way
-    int fluxLag_ = 3;
+    int fluxLag_ = 1;
     int fluxHead_ = 0;
     int fluxCount_ = 0;
     std::vector<float> pitchMono_;

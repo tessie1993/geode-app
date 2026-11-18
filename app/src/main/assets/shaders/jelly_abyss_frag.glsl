@@ -203,7 +203,7 @@ float mapField(vec3 p) {
 float mapFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
     }
     return r;
@@ -313,6 +313,13 @@ void main() {
     // ---- march, integrating the jellies' glow on the way ---------------------
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitAlive = 0.0;
+    float hitSeed = 0.0;
+    float hitLen = 0.0;
+    vec3 hitQ = vec3(0.0);
+    float hitDB = 0.0;
+    float hitDT = 0.0;
     float glowAmt = 0.0;
     vec2 hueVec = vec2(0.0);
     for (int i = 0; i < JA_MAX_STEPS; i++) {
@@ -335,6 +342,12 @@ void main() {
         }
         if (d < 0.002 * t + 0.004) {
             hitT = t;
+            hitAlive = gAlive;
+            hitSeed = gSeed;
+            hitLen = gLen;
+            hitQ = gQ;
+            hitDB = gDB;
+            hitDT = gDT;
             break;
         }
         t += stepLen;
@@ -348,7 +361,12 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.001 * hitT + 0.002);
-        map(p);
+        gAlive = hitAlive;
+        gSeed = hitSeed;
+        gLen = hitLen;
+        gQ = hitQ;
+        gDB = hitDB;
+        gDT = hitDT;
         float fresh;
         float hue = jellyHue(gSeed, fresh);
         float glowMul = 1.0 + 0.6 * kick + 2.0 * fresh + 1.5 * drop;
@@ -356,7 +374,8 @@ void main() {
         if (gDB <= gDT) {
             // The bell: see-through in the middle, bright at grazing and at
             // the rim, with four radial canals that ride the high bands.
-            float fr = pow(1.0 - abs(dot(n, -rd)), 2.0);
+            float fr = 1.0 - abs(dot(n, -rd));
+            fr *= fr;
             float ang = atan(gQ.z, gQ.x + 1e-7);
             float canal = smoothstep(0.55, 1.0, 0.5 + 0.5 * cos(ang * 4.0)) * (1.0 - smoothstep(0.15, 0.75, length(gQ.xz))) * step(0.0, gQ.y);
             float rim = exp(-max(gQ.y + 0.08, 0.0) * 10.0);

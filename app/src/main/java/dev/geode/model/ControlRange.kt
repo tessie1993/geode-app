@@ -1,6 +1,6 @@
 package dev.geode.model
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ParamsNative
 
 /**
  * The range Customize's slider offers for a scene param. Native decides it (core/viz/ControlRange,
@@ -17,7 +17,7 @@ object ControlRange {
     fun of(name: String): ClosedFloatingPointRange<Float> =
         ranges.getOrPut(name) {
             val out = FloatArray(2)
-            require(GeodeNative.paramsControlRange(name, out)) { "no scene param named $name in the params schema" }
+            require(ParamsNative.paramsControlRange(name, out)) { "no scene param named $name in the params schema" }
             out[0]..out[1]
         }
 }

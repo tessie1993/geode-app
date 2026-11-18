@@ -11,8 +11,10 @@ namespace {
 
 // Takes per pass before the thread looks at stop and the controls again.
 constexpr int kTakesPerPass = 16;
-// Hops one write to the engine may run, far below SoundEngine::kHistoryHops, so none is gone before it is published.
-constexpr int kChunkHops = 32;
+// One write to the engine runs at most this share of the hops it keeps, so none is gone before it is published.
+constexpr int kChunkShare = 4;
+// The highest analysis rate: SoundEngine::analysisRateFor halves from here.
+constexpr double kTopAnalysisRate = 88200.0;
 // While audio is flowing the wait has this timeout, so a writer that stops still lets step() feed silence.
 constexpr std::chrono::milliseconds kStarvedTick{50};
 // While a listen limit holds back audio already in the ring: the limit moves with time, not with writes.
@@ -36,8 +38,15 @@ static_assert(std::atomic<uint64_t>::is_always_lock_free);
 
 }  // namespace
 
-AnalysisThread::AnalysisThread(const audio::ingest::PcmRing& ring, bool silenceWhenStarved)
-    : ring_(ring), silenceWhenStarved_(silenceWhenStarved), cursor_(ring), slots_(std::make_unique<Slot[]>(kPublished)) {}
+AnalysisThread::AnalysisThread(const audio::ingest::PcmRing& ring, bool silenceWhenStarved, AnalysisSettings settings)
+    : ring_(ring),
+      silenceWhenStarved_(silenceWhenStarved),
+      settings_(settings.checked()),
+      capacity_(static_cast<uint64_t>(
+          std::max(2.0, std::ceil(kPublishedSeconds * kTopAnalysisRate / static_cast<double>(settings_.hopSamples()))))),
+      readable_(capacity_ - 1),
+      cursor_(ring),
+      slots_(std::make_unique<Slot[]>(capacity_)) {}
 
 AnalysisThread::~AnalysisThread() { stop(); }
 
@@ -65,9 +74,13 @@ void AnalysisThread::stop() {
     idle_.store(false, std::memory_order_release);
 }
 
+// No lost wake (every access below and in run()'s untimed wait is seq_cst, so they fall in one order): if this
+// load of waiting_ misses the flag, it comes before the thread's store of it, so the thread's wait then compares
+// against the signal this call already moved and returns at once. If it sees the flag, the notify follows the
+// add, which reaches a wait that compared against an older value.
 void AnalysisThread::notify() {
     signal_.fetch_add(1, std::memory_order_seq_cst);
-    signal_.notify_one();
+    if (waiting_.load(std::memory_order_seq_cst)) signal_.notify_one();
     if (timedWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
 }
 
@@ -92,7 +105,9 @@ void AnalysisThread::run() {
                 break;
             case Next::kWait:
                 idle_.store(true, std::memory_order_release);
+                waiting_.store(true, std::memory_order_seq_cst);
                 signal_.wait(seen, std::memory_order_seq_cst);
+                waiting_.store(false, std::memory_order_seq_cst);
                 idle_.store(false, std::memory_order_release);
                 break;
         }
@@ -138,9 +153,9 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
         quietSeconds_ = 0.0f;
     }
     if (engine_ && silenceWhenStarved_ && flowing_ && !heldBack) {
-        // step() is what feeds a starved engine silence (> 0.25 s without audio); the frame it reads is unused. Only
-        // from audio until the engine says silence, so an idle thread woken by a control publishes nothing.
-        engine_->step(dtSeconds, stepped_);
+        // starve() is what feeds a starved engine silence (> 0.25 s without audio), step()'s clock without its frame.
+        // Only from audio until the engine says silence, so an idle thread woken by a control publishes nothing.
+        engine_->starve(dtSeconds);
         publishNew();
     }
     // The timed waits run only from audio until the engine says silence (or a cap), then the thread sleeps untimed.
@@ -254,7 +269,7 @@ bool AnalysisThread::ensureEngine(int sampleRateHz) {
     // SoundEngine clamps its rate to 8 kHz: compare the clamped rate, or a lower one rebuilds every take.
     if (engine_ && engine_->sampleRateHz() == std::max(8000, sampleRateHz)) return true;
     try {
-        engine_ = std::make_unique<SoundEngine>(sampleRateHz);
+        engine_ = std::make_unique<SoundEngine>(sampleRateHz, settings_);
     } catch (...) {
         // No memory: this take is lost, the next one tries again.
         engine_.reset();
@@ -269,7 +284,8 @@ bool AnalysisThread::ensureEngine(int sampleRateHz) {
 }
 
 void AnalysisThread::write(const float* interleaved, int frames, int channels) {
-    const int chunk = std::max(1, (engine_->hopSamples() << engine_->halvings()) * kChunkHops);
+    const int chunkHops = std::max(1, engine_->historyHops() / kChunkShare);
+    const int chunk = std::max(1, (engine_->hopSamples() << engine_->halvings()) * chunkHops);
     for (int done = 0; done < frames;) {
         const int n = std::min(frames - done, chunk);
         engine_->write(interleaved + static_cast<size_t>(done) * static_cast<size_t>(channels), n, channels);
@@ -281,7 +297,7 @@ void AnalysisThread::write(const float* interleaved, int frames, int channels) {
 
 void AnalysisThread::publishNew() {
     const int64_t run = engine_->hopsRun();
-    const int64_t fresh = std::min<int64_t>(run - hopsSeen_, SoundEngine::kHistoryHops);
+    const int64_t fresh = std::min<int64_t>(run - hopsSeen_, engine_->historyHops());
     for (int64_t age = fresh - 1; age >= 0; --age) publish(*engine_->keptHop(static_cast<int>(age)));
     hopsSeen_ = run;
 }
@@ -306,27 +322,32 @@ void AnalysisThread::publish(const SoundEngine::Hop& hop) {
     h.frame.fadeGain = playerApplied_ ? clampFade(fadeApplied_) : 1.0f;
     h.emotion = hop.emotion;
     std::memcpy(staging_.data(), &h, sizeof h);
-    Slot& slot = slots_[index % kPublished];
+    Slot& slot = slots_[index % capacity_];
     const uint32_t seq = slot.seq.load(std::memory_order_relaxed);
     slot.seq.store(seq + 1, std::memory_order_relaxed);
     // Release on every store after the odd seq: a reader that loads any of them (acquire) then sees seq odd or
     // newer, so its check fails. No standalone fence, which ThreadSanitizer cannot follow.
     slot.position.store(h.position, std::memory_order_release);
-    for (int i = 0; i < kWords; ++i) slot.words[static_cast<size_t>(i)].store(staging_[static_cast<size_t>(i)], std::memory_order_release);
+    for (int i = 0; i < kWords; ++i) {
+        if (i >= kWaveFirst && i < kWaveEnd) continue;
+        slot.words[static_cast<size_t>(i)].store(staging_[static_cast<size_t>(i)], std::memory_order_release);
+    }
     slot.seq.store(seq + 2, std::memory_order_release);
     published_.store(index + 1, std::memory_order_release);
 }
 
 bool AnalysisThread::read(uint64_t index, Heard& out) const {
-    const Slot& slot = slots_[index % kPublished];
+    const Slot& slot = slots_[index % capacity_];
     auto* bytes = reinterpret_cast<unsigned char*>(&out);
     for (int attempt = 0; attempt < kReadTries; ++attempt) {
         const uint32_t before = slot.seq.load(std::memory_order_acquire);
         if ((before & 1u) != 0) continue;
         for (int i = 0; i < kWords; ++i) {
+            if (i >= kWaveFirst && i < kWaveEnd) continue;
             const uint32_t word = slot.words[static_cast<size_t>(i)].load(std::memory_order_acquire);
             std::memcpy(bytes + static_cast<size_t>(i) * sizeof word, &word, sizeof word);
         }
+        std::memset(bytes + static_cast<size_t>(kWaveFirst) * sizeof(uint32_t), 0, GEODE_SOUND_WAVEFORM_POINTS * sizeof(uint32_t));
         // After the acquire loads above, so it cannot be read before them.
         if (slot.seq.load(std::memory_order_relaxed) != before) continue;
         // A whole copy, but of a later lap when the writer passed this slot again.
@@ -336,9 +357,9 @@ bool AnalysisThread::read(uint64_t index, Heard& out) const {
 }
 
 uint64_t AnalysisThread::firstAfter(int64_t from, uint64_t count) const {
-    const uint64_t oldest = count > kReadable ? count - kReadable : 0;
+    const uint64_t oldest = count > readable_ ? count - readable_ : 0;
     uint64_t i = count;
-    while (i > oldest && slots_[(i - 1) % kPublished].position.load(std::memory_order_acquire) > from) --i;
+    while (i > oldest && slots_[(i - 1) % capacity_].position.load(std::memory_order_acquire) > from) --i;
     return i;
 }
 
@@ -346,14 +367,14 @@ bool AnalysisThread::hopAt(int64_t position, Heard& out) const {
     for (int attempt = 0; attempt < kLapTries; ++attempt) {
         const uint64_t count = published_.load(std::memory_order_acquire);
         if (count == 0) return false;
-        const uint64_t oldest = count > kReadable ? count - kReadable : 0;
+        const uint64_t oldest = count > readable_ ? count - readable_ : 0;
         const uint64_t after = firstAfter(position, count);
         const uint64_t pick = after > oldest ? after - 1 : oldest;
         if (!read(pick, out)) continue;
         // The search passed over the slots of pick + 1 … count - 1 by their positions. The writer starts on a slot's
-        // next lap only once published_ reaches pick + 1 + kPublished, so below that every position it read was the
+        // next lap only once published_ reaches pick + 1 + capacity_, so below that every position it read was the
         // hop it stood for, and pick is the newest at or before `position`.
-        if (published_.load(std::memory_order_acquire) <= pick + kPublished) return true;
+        if (published_.load(std::memory_order_acquire) <= pick + capacity_) return true;
     }
     // Lapped on every try: the reader stalled for about a whole window. No hop it could trust.
     return false;
@@ -366,7 +387,7 @@ bool AnalysisThread::hopAfter(int64_t position, Heard& out) const {
         if (after >= count) return false;
         if (!read(after, out) || out.position <= position) continue;
         // As hopAt: the slots the search read (after - 1 … count - 1) were the hops they stood for.
-        if (published_.load(std::memory_order_acquire) < after + kPublished) return true;
+        if (published_.load(std::memory_order_acquire) < after + capacity_) return true;
     }
     return false;
 }
@@ -386,7 +407,7 @@ bool AnalysisThread::frameAt(int64_t position, GeodeSoundFrame& out, Emotion::St
 int64_t AnalysisThread::newestPosition() const {
     const uint64_t count = published_.load(std::memory_order_acquire);
     if (count == 0) return -1;
-    return slots_[(count - 1) % kPublished].position.load(std::memory_order_acquire);
+    return slots_[(count - 1) % capacity_].position.load(std::memory_order_acquire);
 }
 
 float AnalysisThread::fadeNow() const {

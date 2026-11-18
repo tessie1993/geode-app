@@ -373,8 +373,8 @@ void testHeldBetweenDecisions() {
 }
 
 // A look glides in over bars of the tempo the tracker hears (how many is the feeling's, changeBars). With
-// no tempo heard none is assumed (no stand-in tempo): the bar is a plain 2 s, the middle of its 1..4 s
-// range, and the glide is the same whatever stale bpm the frame carries. Form names the section on the
+// no tempo heard none is assumed (no stand-in tempo, no bar): the glide is the tuning's plain seconds
+// (changeSeconds), the same whatever stale bpm the frame carries. Form names the section on the
 // frame after the event here (with no beat there is no downbeat to wait for), and the look lands from there.
 void testNoTempoAssumed() {
     float glides[3] = {};
@@ -401,9 +401,9 @@ void testNoTempoAssumed() {
         const Director::Look before = d.look();
         d.step(f, kDt);
         glides[n] = kDt;
-        expected[n] = std::max(0.25f, 2.0f * Director::changeBars(d.emotion()));
+        expected[n] = std::max(0.25f, Director::changeSeconds(d.emotion()));
         check(d.commits() == 2, "named, the section is decided");
-        check(std::fabs(d.glideSeconds() - expected[n]) < 1e-5f, "the glide is the feeling's bars of a plain 2 s bar");
+        check(std::fabs(d.glideSeconds() - expected[n]) < 1e-5f, "the glide is the feeling's seconds from the tuning");
         const float goal = d.target().axes[kEnergy];
         const float start = before.axes[kEnergy];
         for (int i = 0; i < 600 && std::fabs(d.look().axes[kEnergy] - goal) > 1e-4f * (1.0f + std::fabs(goal - start)); ++i) {
@@ -1013,6 +1013,10 @@ void testFeelingPicksTheGlide() {
     between.gems[Emotion::kJoy] = 0.3f;
     check(Director::changeBars(between) < 2.0f && Director::changeBars(between) > 0.25f, "a mix lands between");
     const vd::Tuning wide = vd::parseTuning("glide_calm_bars=4\nglide_driven_bars=0.5\n");
+    check(Director::changeSeconds(calm) == 2.0f * Director::changeBars(calm) &&
+              Director::changeSeconds(driven) == 2.0f * Director::changeBars(driven) &&
+              Director::changeSeconds(wonder) == 2.0f * Director::changeBars(wonder),
+          "with no tempo the default seconds are the old two-second bar's glide, so behaviour does not shift");
     check(Director::changeBars(calm, wide) == 4.0f && Director::changeBars(driven, wide) == 0.5f, "the glide's two ends are settings");
 
     const float bar = 240.0f / 141.0f;
@@ -1218,12 +1222,24 @@ void testStyleIntents() {
     p.play(4.0f);
     newSection(p, 1);
     check(d.styleIntent().kind == Kind::Progress && d.styleIntent().from == "first_style" && d.styleIntent().progress, "a new section: the next along");
+    const uint64_t firstDraw = d.styleIntent().draw;
+    {
+        // Another play of the same song draws its own (which .milk a moment lands on, viz/DirectorStyle).
+        Director other;
+        other.configure({1.0f, 32});
+        Player o{other, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
+        o.direct({1.0f, 32}, nullptr, "first_style");
+        o.play(16.0f);
+        newSection(o, 1);
+        check(other.styleIntent().kind == Kind::Progress && other.styleIntent().draw != firstDraw, "another play's moment draws anew");
+    }
     p.style = "second_style";  // the shell switched
     p.play(8.0f);
     newSection(p, 0);
     check(d.styleIntent().kind == Kind::Return && d.styleIntent().remembered == "first_style" && d.styleIntent().step == 1 &&
               d.styleIntent().from == "second_style",
           "the first section returns: its own first style, one step on");
+    check(d.styleIntent().draw != firstDraw, "each moment draws anew");
     p.style = "third_style";
     p.play(8.0f);
     newSection(p, 1);

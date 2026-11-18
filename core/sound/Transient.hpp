@@ -2,9 +2,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 // Transients: the sharp start of any sound (a pluck, a click, a consonant, a struck chord, a drum), heard
-// per sample in a few milliseconds. The frame's `onset` is a spectral-flux peak on the 10 ms hop and lands
+// per sample in a few milliseconds. The frame's `onset` is a spectral-flux peak on the analysis hop and lands
 // ~70 ms late; the drums listen to their own bands only. This listens to every sound, at the speed of its
 // attack.
 //
@@ -19,11 +21,12 @@
 // 10 to 40 here). An instant step from quiet reaches it; how close an attack came to it is its sharpness. The slow follower is short (20–30 ms), so a swell, a fade-in or a filter sweep, which only
 // rises a fraction of a dB per millisecond, lags it by a few dB at most and never fires.
 //
-// The threshold adapts to the music: from the last second of the detection function (each 10 ms hop's
-// peak, per band) its median plus a margin plus a multiple of its median absolute deviation, and never under
-// a fixed jump. Median and MAD, not mean and deviation, so the transients themselves do not lift the bar;
-// the history is a fixed ring and the statistics run on a stack copy, so nothing allocates. A steady tone's
-// ripple (a low note's waveform shows in the fast follower) raises its own band's bar above it.
+// The threshold adapts to the music: from the last second of the detection function (each hop's peak, per
+// band) its median plus a margin plus a multiple of its median absolute deviation, and never under a fixed
+// jump. Median and MAD, not mean and deviation, so the transients themselves do not lift the bar; the
+// history is a ring sized at configure() with its values kept in order beside it, so nothing allocates
+// after that. A steady tone's ripple (a low note's waveform shows in the fast follower) raises its
+// own band's bar above it.
 //
 // Then the trigger rule, per sample: fire past the threshold, re-arm only once the band that
 // fired is back under half of it (in dB), and not again within the refractory time, so one attack seen in
@@ -32,9 +35,10 @@
 // the threshold, as Trigger does) and the sharpness.
 //
 // No tempo anywhere: nothing here expects a beat or an interval between attacks. Time constants are in
-// seconds and turned into samples at configure(), so 44.1 and 48 kHz hear alike; the statistics count
-// hops, which are 10 ms at every rate. Whether a transient is heard at all (the silence gate, the hit
-// floor) and what it is worth (the drive) is the engine's call, as for every hit (SoundEngine::transients).
+// seconds and turned into samples at configure(), so 44.1 and 48 kHz hear alike; the statistics' second is
+// turned into hops of the hop's true duration there too. Whether a transient is heard at all (the silence
+// gate, the hit floor) and what it is worth (the drive) is the engine's call, as for every hit
+// (SoundEngine::transients).
 namespace geode::sound {
 
 class Transient {
@@ -54,8 +58,8 @@ public:
     // The threshold sits this far over the last second's median hop peak, plus kSpread of its MAD.
     static constexpr float kMarginDb = 3.0f;
     static constexpr float kSpread = 3.0f;
-    // One second of hop peaks (Rhythm's 10 ms hop at every rate).
-    static constexpr int kHistory = 100;
+    // The hop peaks the threshold is read from: this long, rounded to whole hops.
+    static constexpr float kHistorySeconds = 1.0f;
     // A hat roll's spacing, the drums' shortest.
     static constexpr float kRefractorySeconds = 0.03f;
     // How long after the crossing the attack is measured before it is reported.
@@ -67,8 +71,12 @@ public:
         float sharpness = 0.0f;
     };
 
-    void configure(int sampleRateHz) {
+    // `hopSeconds`: the duration of the hop that calls hop().
+    void configure(int sampleRateHz, float hopSeconds) {
         const float fs = static_cast<float>(std::max(8000, sampleRateHz));
+        history_ = std::max(1, static_cast<int>(std::lround(kHistorySeconds / hopSeconds)));
+        peaks_.assign(static_cast<size_t>(kBands * history_), 0.0f);
+        sorted_.assign(static_cast<size_t>(kBands * history_), 0.0f);
         for (int b = 0; b < kBands; b++) {
             fastK_[b] = 1.0f - std::exp(-1.0f / (kFastSeconds[b] * fs));
             slowK_[b] = 1.0f - std::exp(-1.0f / (kSlowSeconds[b] * fs));
@@ -83,7 +91,8 @@ public:
         fast_ = {};
         slow_ = {};
         hopPeak_ = {};
-        history_ = {};
+        std::fill(peaks_.begin(), peaks_.end(), 0.0f);
+        std::fill(sorted_.begin(), sorted_.end(), 0.0f);
         head_ = 0;
         filled_ = 0;
         for (int b = 0; b < kBands; b++) setThreshold(b, kMinJumpDb);
@@ -110,10 +119,14 @@ public:
             const float r = (fast_[b] + kFloorPower) / (slow_[b] + kFloorPower);
             ratio[b] = r;
             hopPeak_[b] = std::max(hopPeak_[b], r);
-            const float over = r / threshold_[b];
-            if (over > bestOver) {
-                bestOver = over;
-                best = b;
+            // Divided only past the threshold: for positive finite values r / t > 1 exactly when r > t, and
+            // bestOver is never under 1, so a band at or under its threshold could never win.
+            if (r > threshold_[b]) {
+                const float over = r / threshold_[b];
+                if (over > bestOver) {
+                    bestOver = over;
+                    best = b;
+                }
             }
         }
         if (attackLeft_ > 0) {
@@ -134,20 +147,47 @@ public:
     // Closes a hop: its peaks join the last second, every band's threshold is read again from it, and the
     // attack whose measurement ended in this hop (if one did) is handed over.
     Hit hop() {
+        const int before = filled_;
         for (int b = 0; b < kBands; b++) {
-            history_[static_cast<size_t>(b)][static_cast<size_t>(head_)] = 10.0f * std::log10(std::max(hopPeak_[b], 1e-6f));
+            const auto bi = static_cast<size_t>(b);
+            const float value = 10.0f * std::log10(std::max(hopPeak_[b], 1e-6f));
+            float* sorted = sorted_.data() + bi * static_cast<size_t>(history_);
+            float* ring = peaks_.data() + bi * static_cast<size_t>(history_);
+            int count = before;
+            // The window is kept sorted: the value the ring is about to overwrite leaves it, the new one joins.
+            if (count == history_) {
+                float* gone = std::lower_bound(sorted, sorted + count, ring[head_]);
+                std::copy(gone + 1, sorted + count, gone);
+                count--;
+            }
+            float* at = std::upper_bound(sorted, sorted + count, value);
+            std::copy_backward(at, sorted + count, sorted + count + 1);
+            *at = value;
+            ring[head_] = value;
             hopPeak_[b] = 0.0f;
         }
-        head_ = (head_ + 1) % kHistory;
-        filled_ = std::min(filled_ + 1, kHistory);
+        head_ = (head_ + 1) % history_;
+        filled_ = std::min(filled_ + 1, history_);
         for (int b = 0; b < kBands; b++) {
-            std::array<float, kHistory> v = history_[static_cast<size_t>(b)];
-            const auto mid = v.begin() + filled_ / 2;
-            std::nth_element(v.begin(), mid, v.begin() + filled_);
-            const float median = *mid;
-            for (int i = 0; i < filled_; i++) v[static_cast<size_t>(i)] = std::fabs(v[static_cast<size_t>(i)] - median);
-            std::nth_element(v.begin(), mid, v.begin() + filled_);
-            const float mad = *mid;
+            // The median is the middle of the sorted window; the median absolute deviation is the same rank of
+            // the distances to it, read by walking outward from it on both sides in order of distance.
+            const float* sorted = sorted_.data() + static_cast<size_t>(b) * static_cast<size_t>(history_);
+            const int mid = filled_ / 2;
+            const float median = sorted[mid];
+            int below = mid - 1;
+            int above = mid;
+            float mad = 0.0f;
+            for (int i = 0; i <= mid; i++) {
+                const float down = below >= 0 ? std::fabs(sorted[below] - median) : INFINITY;
+                const float up = above < filled_ ? std::fabs(sorted[above] - median) : INFINITY;
+                if (down < up) {
+                    mad = down;
+                    below--;
+                } else {
+                    mad = up;
+                    above++;
+                }
+            }
             setThreshold(b, std::max(kMinJumpDb, median + kMarginDb + kSpread * mad));
         }
         const Hit out = pending_;
@@ -183,7 +223,9 @@ private:
     std::array<float, kBands> fast_{};
     std::array<float, kBands> slow_{};
     std::array<float, kBands> hopPeak_{};
-    std::array<std::array<float, kHistory>, kBands> history_{};
+    int history_ = 1;           // hops in kHistorySeconds
+    std::vector<float> peaks_;   // per band (band-major), the last history_ hop peaks in dB
+    std::vector<float> sorted_;  // the same values, each band's in order
     int head_ = 0;
     int filled_ = 0;
     std::array<float, kBands> thresholdDb_{};

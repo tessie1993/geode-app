@@ -206,15 +206,19 @@ void WebRtcLink::video(const uint8_t* data, size_t size, int64_t ptsUs, bool key
         const rule::H264 inBand = rule::profileOf(data, size);
         if (inBand.ok()) profile_ = inBand;
     }
-    std::vector<uint8_t> unit;
+    // unit_ keeps its storage from frame to frame: one buffer for the stream, not a new one per frame.
+    bool built = false;
     for (auto& p : peers_) {
         if (!p->video || !live(*p) || !p->video->isOpen()) continue;
         if (!rule::admitFrame(p->started, key)) continue;
-        if (unit.empty()) unit = rule::accessUnit(config_.data(), config_.size(), data, size, key);
+        if (!built) {
+            rule::accessUnit(config_.data(), config_.size(), data, size, key, unit_);
+            built = true;
+        }
         if (p->videoOriginUs == INT64_MIN) p->videoOriginUs = ptsUs;
         const uint32_t ts = rule::rtpTimestamp(ptsUs, p->videoOriginUs, p->videoRtp->startTimestamp, rule::kVideoClockRate);
         try {
-            p->video->sendFrame(reinterpret_cast<const rtc::byte*>(unit.data()), unit.size(), rtc::FrameInfo(ts));
+            p->video->sendFrame(reinterpret_cast<const rtc::byte*>(unit_.data()), unit_.size(), rtc::FrameInfo(ts));
         } catch (const std::exception&) {
         }
     }

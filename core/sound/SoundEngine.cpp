@@ -49,7 +49,7 @@ constexpr int kWaveSlack = 32;
 constexpr float kRunTau = 1.0f;
 constexpr float kEase = 0.06f;
 constexpr float kLn2 = 0.69314718f;
-// Flux compares each hop's spectrum against the one this long before (rounded to whole hops: 3 at 10 ms).
+// Flux compares each hop's spectrum against the one this long before, rounded to whole hops of the true length.
 constexpr float kFluxLag = 1.0f / 30.0f;
 
 // The one-hop triggers, held from the hop that fired them to the next step() as the strongest since the
@@ -104,11 +104,12 @@ void SoundEngine::setTuning(const GeodeSoundTuning& t) {
     trimGain_ = std::pow(10.0f, tuning_.inputTrimDb / 20.0f);
 }
 
-SoundEngine::SoundEngine(int sampleRateHz)
+SoundEngine::SoundEngine(int sampleRateHz, AnalysisSettings settings)
     : inputRateHz_(std::max(8000, sampleRateHz)),
       halvings_(static_cast<int>(std::lround(std::log2(static_cast<double>(inputRateHz_) / analysisRateFor(inputRateHz_))))),
       sampleRateHz_(analysisRateFor(inputRateHz_)),
-      n_(fftSizeFor(sampleRateHz_)),
+      settings_(settings.checked()),
+      n_(settings_.fftSize),
       binHz_(static_cast<float>(sampleRateHz_) / static_cast<float>(n_)),
       tuning_(defaultTuning()),
       hann_(static_cast<size_t>(n_)),
@@ -153,17 +154,20 @@ SoundEngine::SoundEngine(int sampleRateHz)
     // The filter bank: low/middle/high on the same edges as bass/mid/treble, then the drum bands.
     static constexpr std::array<std::array<float, 2>, kSlices> kSliceHz = {{
         {0, 250}, {250, 4000}, {4000, 0}, {40, 120}, {150, 300}, {2500, 6000}, {7000, 16000}, {0, 0}}};
-    for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_);
-    transient_.configure(sampleRateHz_);
+    // Punch is read for the drum bands (drums()) and the whole mix (melody()'s level jump) only.
+    static constexpr std::array<bool, kSlices> kSlicePunch = {false, false, false, true, true, true, true, true};
+    for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_, kSlicePunch[i]);
     audible_ = bins(20, 20000);
     musical_ = bins(100, 10000);
     fluxBins_ = bins(30, 16000);
     dcR_ = std::exp(-2.0f * std::numbers::pi_v<float> * kDcCornerHz / static_cast<float>(sampleRateHz_));
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
-    rhythm_.configure(sampleRateHz_);
-    meter_.configure(sampleRateHz_, rhythm_.hopSamples());
+    // The hop is a sample count; every detector gets its duration and counts its own durations in it.
+    rhythm_.configure(sampleRateHz_, settings_.hopSamples());
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
+    meter_.configure(sampleRateHz_, rhythm_.hopSamples());
+    transient_.configure(sampleRateHz_, hopDt_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
     fluxReach_.resize(logMag_.size());
@@ -176,7 +180,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
         const float tri = i < GEODE_SOUND_WAVEFORM_POINTS / 2 ? 2.0f * i / c : 2.0f * (c - 1.0f - i) / c;
         waveWeight_[i] = clamp01(5.0f * tri - 3.2f);
     }
-    history_.resize(kHistoryHops);
+    historyHops_ = std::max(1, static_cast<int>(std::ceil(kHistorySeconds / hopDt_)));
+    history_.resize(static_cast<size_t>(historyHops_));
     reset();
 }
 
@@ -239,7 +244,7 @@ void SoundEngine::feed(float l, float r) {
     const size_t cap = ringL_.size();
     ringL_[writePos_] = l;
     ringR_[writePos_] = r;
-    writePos_ = (writePos_ + 1) % cap;
+    if (++writePos_ == cap) writePos_ = 0;  // writePos_ < cap always: the same as % cap, without a divide
     written_++;
     const float m = 0.5f * (l + r);
     for (auto& band : bank_) band.process(m);
@@ -250,10 +255,14 @@ void SoundEngine::feed(float l, float r) {
         meter_.hop();
         std::array<float, Rhythm::kBands> power{};
         // Behind the closed gate the tracker hears nothing, so the beat does not hunt in the noise floor.
-        if (meter_.open()) {
-            for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
+        const bool gateOpen = meter_.open();
+        for (int b = 0; b < kSlices; b++) {
+            const float p = bank_[b].takeHopPower();
+            if (gateOpen && b < Rhythm::kBands) power[static_cast<size_t>(b)] = p;
         }
-        rhythm_.hop(power);
+        // A pause or a stall holds the song: the zeros a starved engine is fed are not music, so the beat,
+        // bar and phrase counters and the tempo ring wait for the audio to come back.
+        if (!starved_) rhythm_.hop(power);
         analyse();
     }
 }
@@ -266,24 +275,27 @@ void SoundEngine::feedSilence(float dt) {
     for (int i = 0; i < count; i++) feed(0.0f, 0.0f);
 }
 
-void SoundEngine::readWindow(int count, float* mono, float* left, float* right) const {
+void SoundEngine::readWindow(int count, float* mono, float* left, float* right, int oldest) const {
     const size_t cap = ringL_.size();
-    for (int i = 0; i < count; i++) {
+    if (oldest < 0) oldest = count;
+    // The ring index of the oldest sample (age `count`), then one step on per sample.
+    size_t idx = (writePos_ + cap - static_cast<size_t>(count) % cap) % cap;
+    for (int i = 0; i < oldest; i++) {
         const int64_t age = count - i;  // 1 = newest
         float l = 0.0f;
         float r = 0.0f;
         if (!starved_ && age <= written_) {
-            const size_t idx = (writePos_ + cap - static_cast<size_t>(age)) % cap;
             l = ringL_[idx];
             r = ringR_[idx];
         }
+        if (++idx == cap) idx = 0;
         mono[i] = 0.5f * (l + r);
         if (left != nullptr) left[i] = l;
         if (right != nullptr) right[i] = r;
     }
 }
 
-void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
+void SoundEngine::starve(float dtSeconds) {
     const float dt = std::clamp(dtSeconds, 1e-4f, 0.25f);
     starvedSeconds_ = fresh_ ? 0.0f : starvedSeconds_ + dt;
     fresh_ = false;
@@ -291,6 +303,10 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
         starved_ = true;
         feedSilence(dt);
     }
+}
+
+void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
+    starve(dtSeconds);
     // The newest hop, as it is: at the same sample every frame rate reads the same frame.
     out = hopFrame_;
     for (int k = 0; k < kTriggers; k++) out.*kTriggerFields[k] = held_[k];
@@ -381,8 +397,8 @@ void SoundEngine::analyse() {
     kept.frame = out;
     kept.emotion = emotion_.state();
     hopsRun_++;
-    historyHead_ = (historyHead_ + 1) % kHistoryHops;
-    historyCount_ = std::min(historyCount_ + 1, kHistoryHops);
+    historyHead_ = (historyHead_ + 1) % historyHops_;
+    historyCount_ = std::min(historyCount_ + 1, historyHops_);
 }
 
 bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
@@ -391,7 +407,7 @@ bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
     // samplePos leaves the oldest.
     const Hop* hop = nullptr;
     for (int age = 0; age < historyCount_; age++) {
-        hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+        hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + historyHops_) % historyHops_)];
         if (hop->sample <= samplePos) break;
     }
     out = hop->frame;
@@ -404,17 +420,17 @@ bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
 
 const SoundEngine::Hop* SoundEngine::keptHop(int age) const {
     if (age < 0 || age >= historyCount_) return nullptr;
-    return &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+    return &history_[static_cast<size_t>((historyHead_ - 1 - age + historyHops_) % historyHops_)];
 }
 
 int64_t SoundEngine::newestHopSample() const {
     if (historyCount_ == 0) return -1;
-    return history_[static_cast<size_t>((historyHead_ - 1 + kHistoryHops) % kHistoryHops)].sample;
+    return history_[static_cast<size_t>((historyHead_ - 1 + historyHops_) % historyHops_)].sample;
 }
 
 int64_t SoundEngine::oldestHopSample() const {
     if (historyCount_ == 0) return -1;
-    return history_[static_cast<size_t>((historyHead_ - historyCount_ + kHistoryHops) % kHistoryHops)].sample;
+    return history_[static_cast<size_t>((historyHead_ - historyCount_ + historyHops_) % historyHops_)].sample;
 }
 
 void SoundEngine::rewarm() {
@@ -487,7 +503,8 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.level = out.loudness;
 
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        s.eq[i].step(sum(mag_, eqBins_[i]), dt, warm, silent, bandFloor);
+        eqSum_[i] = sum(mag_, eqBins_[i]);
+        s.eq[i].step(eqSum_[i], dt, warm, silent, bandFloor);
         out.eq[i] = s.eq[i].ratio();
     }
 }
@@ -603,7 +620,7 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.densityFast = s.densityFast;
     out.densitySlow = s.densitySlow;
 
-    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (~30 ms), on a log scale, as a
+    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (kFluxLag), on a log scale, as a
     // relative level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
     // The earlier spectrum is kept maximum-filtered along frequency (sound/OnsetFlux), so a note whose pitch only
     // wobbles (vibrato, a slide) does not read as a new start on every wobble.
@@ -621,10 +638,16 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     for (int k = fluxBins_.from; k < fluxBins_.to; k++) now[k] = std::log1p(knee * mag_[k]);
     float rise = 0.0f;
     if (then) {
+        int prevFrom = -1;
+        int prevTo = -1;
         for (const BinRange& r : spectrumBins_) {
             const int from = std::max(r.from, fluxBins_.from);
             const int to = std::min(r.to, fluxBins_.to);
             if (from >= to) continue;
+            // Low log bands clamp to the same bin: a range the last band already counted is weighted once.
+            if (from == prevFrom && to == prevTo) continue;
+            prevFrom = from;
+            prevTo = to;
             float band = 0.0f;
             for (int k = from; k < to; k++) band += std::max(0.0f, now[k] - then[k]);
             rise += band / static_cast<float>(to - from);
@@ -802,7 +825,9 @@ constexpr int kHarmonics = 5;  // partials in the pitch estimator's harmonic sum
 }  // namespace
 
 void SoundEngine::estimatePitch(float held, float& midi, float& confidence, float& evenness) {
-    readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr);
+    // The newest n_ samples are the window analyse() read into mono_ this hop; only the older half is read here.
+    readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr, n_);
+    std::copy(mono_.begin(), mono_.end(), pitchMono_.begin() + n_);
     for (int i = 0; i < 2 * n_; i++) pitchMono_[i] *= pitchHann_[i];
     pitchFft_.magnitudes(pitchMono_.data(), pitchMag_.data());
     const float binHz = static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_);
@@ -875,7 +900,11 @@ void SoundEngine::melody(float dt, GeodeSoundFrame& out) {
     float midi = 0.0f;
     float confidence = 0.0f;
     float evenness = 0.0f;
-    estimatePitch(s.note >= 0 ? static_cast<float>(s.note) : -1.0f, midi, confidence, evenness);
+    // The 4096-point pitch FFT is skipped while nothing can use it: below the silence level the note is never
+    // taken, and with the meter's gate closed Harmony (the other reader of its spectrum) holds still too.
+    if (out.rms > silenceOn || meter_.open()) {
+        estimatePitch(s.note >= 0 ? static_cast<float>(s.note) : -1.0f, midi, confidence, evenness);
+    }
     out.pitchConfidence = confidence;
     s.runRate *= std::exp(-dt / kRunTau);
     if (confidence >= t.pitchThreshold && out.rms > silenceOn) {
@@ -998,7 +1027,7 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
 
     Form::Input in{};
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        const float db = 20.0f * std::log10(std::max(sum(mag_, eqBins_[i]), 1e-9f) / kEqReference);
+        const float db = 20.0f * std::log10(std::max(eqSum_[i], 1e-9f) / kEqReference);
         in.eq[i] = clamp01((db + 60.0f) / 60.0f);
     }
     in.centroid = out.centroid;

@@ -161,12 +161,27 @@ void theMusicClockDrivesEverything() {
 
 void theGridsOutliveAShortDip() {
     physics::Keep keep;
-    check(!keep.step(false), "nothing is kept before a layer was on");
-    check(keep.step(true), "a layer on keeps its grids");
-    for (int i = 0; i < physics::kIdleFrames; ++i) check(keep.step(false), "a dip to 0 keeps them for the idle window");
-    check(!keep.step(false), "then they are freed");
-    check(!keep.step(false), "and stay freed");
-    check(keep.step(true), "a layer on again keeps them again");
+    const float dt = 1.0f / 60.0f;
+    const int frames = static_cast<int>(physics::kIdleSeconds * 60.0f);
+    check(!keep.step(false, dt), "nothing is kept before a layer was on");
+    check(keep.step(true, dt), "a layer on keeps its grids");
+    for (int i = 0; i < frames; ++i) check(keep.step(false, dt), "a dip to 0 keeps them for the idle window");
+    check(!keep.step(false, dt), "then they are freed");
+    check(!keep.step(false, dt), "and stay freed");
+    check(keep.step(true, dt), "a layer on again keeps them again");
+}
+
+// The idle window is a time, so it is the same two seconds at 30, 60 and 120 fps, and a stopped music clock does not stretch it.
+void theIdleWindowIsTwoSecondsAtAnyRate() {
+    for (const int fps : {30, 60, 120}) {
+        physics::Keep keep;
+        const float dt = 1.0f / static_cast<float>(fps);
+        check(keep.step(true, dt), "a layer on keeps its grids");
+        int kept = 0;
+        while (keep.step(false, dt) && kept < fps * 10) ++kept;
+        check(kept == static_cast<int>(physics::kIdleSeconds * static_cast<float>(fps)), "off, they stay for kIdleSeconds of frames");
+        check(!keep.step(false, dt), "then they stay freed");
+    }
 }
 
 void theParticlesAreBornOverTheWholeFrame() {
@@ -190,12 +205,17 @@ void theParticlesAreBornOverTheWholeFrame() {
     check(physics::spawns(std::nanf(""))[0] == physics::spawns(1.0f)[0], "an unknown aspect is square");
 }
 
+SceneParams lfoMoved(SceneParams r, LfoTarget target, float v) {
+    geode::viz::applyLfoTargetInPlace(r, target, v);
+    return r;
+}
+
 void theParamsAreTargetsTheSafetyRulesHold() {
     const SceneParams base{};
-    check(geode::viz::applyLfoTarget(base, LfoTarget::SimFluid, 0.5f).simFluid == 0.5f, "a wave turns the fluid layer up");
-    check(geode::viz::applyLfoTarget(base, LfoTarget::SimParticles, 2.0f).simParticles == 1.0f, "a route holds the particles to full");
-    check(geode::viz::applyLfoTarget(base, LfoTarget::SimLayerOrder, 1.0f).simLayerOrder == 1.0f, "a knob moves the fluid over the style");
-    check(geode::viz::applyLfoTarget(base, LfoTarget::SimForce, -5.0f).simForce == 0.0f, "an envelope stills the force at 0");
+    check(lfoMoved(base, LfoTarget::SimFluid, 0.5f).simFluid == 0.5f, "a wave turns the fluid layer up");
+    check(lfoMoved(base, LfoTarget::SimParticles, 2.0f).simParticles == 1.0f, "a route holds the particles to full");
+    check(lfoMoved(base, LfoTarget::SimLayerOrder, 1.0f).simLayerOrder == 1.0f, "a knob moves the fluid over the style");
+    check(lfoMoved(base, LfoTarget::SimForce, -5.0f).simForce == 0.0f, "an envelope stills the force at 0");
     for (LfoTarget t : {LfoTarget::SimFluid, LfoTarget::SimParticles, LfoTarget::SimLayerOrder}) {
         check(safety::limitLfoRate(10.0f, t) == safety::kWcagFlashesPerSecond, "a wave on a physics mix runs at 3 Hz at most");
     }
@@ -217,6 +237,7 @@ int main() {
     theLayersStackBackToFront();
     theMusicClockDrivesEverything();
     theGridsOutliveAShortDip();
+    theIdleWindowIsTwoSecondsAtAnyRate();
     theParticlesAreBornOverTheWholeFrame();
     theParamsAreTargetsTheSafetyRulesHold();
     if (failures) {

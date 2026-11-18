@@ -61,13 +61,21 @@ object ArtworkCache {
         px: Int,
     ) = "$uri@$px"
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun load(
         context: Context,
         uri: String,
         px: Int = LARGE_PX,
     ): ImageBitmap? =
-        cache.get(key(uri, px)) {
-            withContext(decodeDispatcher) { MediaArtwork.decodeEmbedded(context, uri, px)?.asImageBitmap() }
+        // A decode that threw (lost grant, I/O error, out of memory) is not cached as "no picture", so it is tried again.
+        try {
+            cache.get(key(uri, px)) {
+                withContext(decodeDispatcher) { MediaArtwork.decodeEmbeddedOrThrow(context, uri, px)?.asImageBitmap() }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            null
         }
 
     fun peek(
@@ -82,6 +90,8 @@ fun TrackArtwork(
     modifier: Modifier = Modifier,
     corner: Dp = 14.dp,
     decodeSize: Dp? = null,
+    /** Artwork already in hand (another app's, from its media session): shown in place of [uri]'s. */
+    image: ImageBitmap? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -97,7 +107,7 @@ fun TrackArtwork(
                 .RoundedCornerShape(corner),
         ),
     ) {
-        val bitmap = art
+        val bitmap = image ?: art
         if (bitmap != null) {
             Image(
                 bitmap = bitmap,

@@ -25,7 +25,7 @@ std::vector<float> frameOf(JNIEnv* env, jfloatArray array) {
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_panelRoll(JNIEnv* env, jobject, jstring styleId, jstring category, jstring kept,
+Java_dev_geode_engine_bridge_PanelNative_panelRoll(JNIEnv* env, jobject, jstring styleId, jstring category, jstring kept,
                                                    jboolean basicsOnly, jfloatArray in, jfloatArray out) {
     if (!frameFits(env, in) || !frameFits(env, out)) return 0;
     Utf8Chars style(env, styleId);
@@ -39,7 +39,7 @@ Java_dev_geode_engine_bridge_GeodeNative_panelRoll(JNIEnv* env, jobject, jstring
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_panelRollAll(JNIEnv* env, jobject, jstring styleId, jstring kept, jboolean basicsOnly,
+Java_dev_geode_engine_bridge_PanelNative_panelRollAll(JNIEnv* env, jobject, jstring styleId, jstring kept, jboolean basicsOnly,
                                                       jlong seed, jfloatArray before, jfloatArray base, jfloatArray out) {
     if (!frameFits(env, before) || !frameFits(env, base) || !frameFits(env, out)) return 0;
     Utf8Chars style(env, styleId);
@@ -53,20 +53,17 @@ Java_dev_geode_engine_bridge_GeodeNative_panelRollAll(JNIEnv* env, jobject, jstr
     return bits;
 }
 
-// Null when the roll changed nothing.
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modWavesRoll(JNIEnv* env, jobject, jstring styleId, jstring locked, jboolean all,
-                                                      jfloatArray params, jstring lfos) {
-    if (!frameFits(env, params)) return nullptr;
+// Rolls the waves the app holds, with the keep set it holds; an event, nothing back.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_PanelNative_modStateWavesRoll(JNIEnv* env, jobject, jstring styleId, jboolean all, jfloatArray params) {
+    if (!frameFits(env, params)) return;
     Utf8Chars style(env, styleId);
-    Utf8Chars keys(env, locked);
-    Utf8Chars saved(env, lfos);
     const std::vector<float> look = frameOf(env, params);
-    return utf8String(env, geode_mod_waves_roll(style.get(), keys.get(), all ? 1 : 0, look.data(), saved.get()));
+    geode_mod_state_waves_roll(style.get(), all ? 1 : 0, look.data());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsRerollReactions(JNIEnv* env, jobject, jfloatArray in, jfloatArray out) {
+Java_dev_geode_engine_bridge_PanelNative_paramsRerollReactions(JNIEnv* env, jobject, jfloatArray in, jfloatArray out) {
     if (!frameFits(env, in) || !frameFits(env, out)) return;
     const std::vector<float> input = frameOf(env, in);
     std::vector<float> output(input.size());
@@ -75,29 +72,31 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRerollReactions(JNIEnv* env, jobj
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramHistoryRecord(JNIEnv* env, jobject, jfloatArray before, jstring palette, jlong nowMs,
-                                                            jboolean discrete) {
+Java_dev_geode_engine_bridge_PanelNative_paramHistoryRecord(JNIEnv* env, jobject, jfloatArray before, jstring palette, jstring style,
+                                                            jlong nowMs, jboolean discrete) {
     if (!frameFits(env, before)) return geode_param_history_state();
     Utf8Chars id(env, palette);
+    Utf8Chars styleId(env, style);
     const std::vector<float> was = frameOf(env, before);
-    return geode_param_history_record(was.data(), static_cast<int>(was.size()), id.get(), nowMs, discrete ? 1 : 0);
+    return geode_param_history_record(was.data(), static_cast<int>(was.size()), id.get(), styleId.get(), nowMs, discrete ? 1 : 0);
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramHistoryStep(JNIEnv* env, jobject, jboolean redo, jfloatArray current, jstring palette,
-                                                          jfloatArray out) {
+Java_dev_geode_engine_bridge_PanelNative_paramHistoryStep(JNIEnv* env, jobject, jboolean redo, jfloatArray current, jstring palette,
+                                                          jstring style, jfloatArray out) {
     if (!frameFits(env, current) || !frameFits(env, out)) return nullptr;
     Utf8Chars id(env, palette);
+    Utf8Chars styleId(env, style);
     const std::vector<float> now = frameOf(env, current);
     std::vector<float> back(now.size());
-    const char* backId = geode_param_history_step(redo ? 1 : 0, now.data(), static_cast<int>(now.size()), id.get(), back.data());
+    const char* backId = geode_param_history_step(redo ? 1 : 0, now.data(), static_cast<int>(now.size()), id.get(), styleId.get(), back.data());
     if (!backId) return nullptr;
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(back.size()), back.data());
     return utf8String(env, backId);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramHistoryState(JNIEnv*, jobject) {
+Java_dev_geode_engine_bridge_PanelNative_paramHistoryState(JNIEnv*, jobject) {
     return geode_param_history_state();
 }
 

@@ -151,7 +151,7 @@ float rodField(vec3 p) {
 float rodFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, rodField(shellAt3(i)));
     }
     return r;
@@ -229,6 +229,10 @@ void main() {
 
     float t = 0.02;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no second map(p) to recover it.
+    float hitCellA = 0.0;
+    float hitCellZ = 0.0;
+    float hitLife = 0.0;
     float near = 1e9;
     for (int i = 0; i < ROD_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
@@ -238,6 +242,9 @@ void main() {
         float eps = 0.0008 * t + 0.0004;
         if (d < eps) {
             hitT = t;
+            hitCellA = gCellA;
+            hitCellZ = gCellZ;
+            hitLife = gLife;
             break;
         }
         near = min(near, d);
@@ -258,7 +265,9 @@ void main() {
     vec3 col;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        map(p);
+        gCellA = hitCellA;
+        gCellZ = hitCellZ;
+        gLife = hitLife;
         float cellA = gCellA;
         float cellZ = gCellZ;
         float life = gLife;

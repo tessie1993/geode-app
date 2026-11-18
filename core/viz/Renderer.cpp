@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "output/PreRoll.hpp"
+#include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
@@ -22,8 +23,10 @@ constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
 constexpr int kPcmCapacity = 512 * 8;
-// A renderer's own ring (Renderer::hearOwn): over a second at 48 kHz, published a runway at a time.
-constexpr int kOwnRingFrames = 1 << 16;
+// A renderer's own ring (Renderer::hearOwn): a second at the capture rate, published a runway at a time.
+constexpr int kOwnRingMs = 1000;
+constexpr int kOwnRingFrames = sound::budget::ringFrames(kOwnRingMs, sound::budget::kCaptureRateHz);
+static_assert(kOwnRingFrames == 1 << 16, "a renderer's own ring changed size");
 constexpr int kOwnRingRunway = 1 << 14;
 }  // namespace
 
@@ -40,7 +43,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
                           [this] { return settling(); },
-                          [this] { return paletteRamp_.active() ? paletteRampTex_ : GLuint{0}; },
+                          [this] { return paletteRamp_.active() ? paletteRampTex_.get() : GLuint{0}; },
                           [this] { return &shapeGraph_.packed(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
@@ -270,7 +273,7 @@ void Renderer::applyMilkRequests() {
     if (!milk) return;
     // A preset picked in silence still loads and shows: about a second of redraws.
     if (!preset.empty() || reload || !textureDir.empty()) {
-        redrawFrames_ = 60;
+        redrawSeconds_ = kRedrawSeconds;
         noteSettling();  // projectM compiles the preset's shaders on this thread
     }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
@@ -386,6 +389,10 @@ void Renderer::fail(const std::string& message) {
         heldErrors_.push_back(message);
         return;
     }
+    // A broken preset left on screen reports the same message every frame. Only this (GL) thread
+    // writes lastError_, so reading it here without the lock races nothing; an unchanged message
+    // takes no lock and logs no line.
+    if (message == lastError_) return;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         lastError_ = message;
@@ -449,18 +456,9 @@ void Renderer::onSurfaceCreated() {
     divePass_.release();
     physicsLayers_.release();
     overlays_.release();
-    if (paletteLutTex_ != 0) {
-        glDeleteTextures(1, &paletteLutTex_);
-        paletteLutTex_ = 0;
-    }
-    if (paletteRampTex_ != 0) {
-        glDeleteTextures(1, &paletteRampTex_);
-        paletteRampTex_ = 0;
-    }
-    if (quadVao_ != 0) {
-        glDeleteVertexArrays(1, &quadVao_);
-        quadVao_ = 0;
-    }
+    paletteLutTex_.reset();
+    paletteRampTex_.reset();
+    quadVao_.reset();
     touchField_.reset();
     smearTrail_.reset();
     smearLinger_.reset();
@@ -507,8 +505,8 @@ void Renderer::onSurfaceCreated() {
     // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
     if (palette && palette->size() >= static_cast<size_t>(kPaletteSize * kPaletteRows * 3)) {
-        glGenTextures(1, &paletteLutTex_);
-        glBindTexture(GL_TEXTURE_2D, paletteLutTex_);
+        paletteLutTex_.reset(gl_gen::texture());
+        glBindTexture(GL_TEXTURE_2D, paletteLutTex_.get());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -518,7 +516,7 @@ void Renderer::onSurfaceCreated() {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     }
 
-    glGenVertexArrays(1, &quadVao_);
+    quadVao_.reset(gl_gen::vertexArray());
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
     resolver_.reset();
@@ -574,12 +572,10 @@ void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
 
 void Renderer::applyRenderScale() {
     appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
-    // A user scale below 1 also drops the small-screen supersample: someone who asked for fewer
-    // pixels did not mean 1.4x of fewer pixels.
-    const float supersample = appliedUserScale_ < 1.0f ? 1.0f : supersampleFactor(width_, height_);
-    const float scale = supersample * appliedUserScale_;
-    renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
-    renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
+    // The scene target is the surface's pixels times the user's scale and never more: a scale of 1 draws
+    // each pixel once.
+    renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);
+    renderHeight_ = std::max(static_cast<int>(height_ * appliedUserScale_), 1);
     // Spares over the budget go before anything is resized (#378). Then only the scenes drawn this frame
     // are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
     // resize per scene shown, not one per scene ever built.
@@ -594,14 +590,7 @@ void Renderer::applyRenderScale() {
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
-    fboB_.ensure(renderWidth_, renderHeight_);
-}
-
-float Renderer::supersampleFactor(int width, int height) {
-    const int longest = std::max(width, height);
-    if (longest >= 2200) return 1.0f;
-    if (longest >= 1600) return 1.25f;
-    return 1.4f;
+    if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
 }
 
 bool Renderer::setScene(const std::string& sceneId) {
@@ -670,6 +659,7 @@ void Renderer::dropScene(const std::string& id) {
         s->release();
         scenes_.erase(it);
         residency_.remove(id);
+        appliedShaders_.erase(id);
         return;
     }
 }
@@ -694,7 +684,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
     };
     if (shed.passTargets) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
-        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        // sides and their display alone are five screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
         divePass_.releaseTarget();
         trailPass_.releaseTargets();
@@ -718,6 +708,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
             scenes_.erase(it);
             break;
         }
+        appliedShaders_.erase(victim);
     }
 }
 
@@ -810,6 +801,7 @@ Scene* Renderer::attemptScene(const std::string& id) {
     errors.swap(heldErrors_);
     if (deferred) {
         if (scene) scene->release();
+        appliedShaders_.erase(id);
         // Placeholders are unlinked programs; whatever the setup asked of them raised GL errors.
         prober::drainErrors();
         return nullptr;
@@ -851,6 +843,7 @@ Scene* Renderer::admitBuilt(const std::string& id, std::unique_ptr<Scene> scene)
     if (!scene || scene->buildFailed()) {
         if (scene) scene->release();
         prep_.fail(id);
+        appliedShaders_.erase(id);
         return nullptr;
     }
     Scene* raw = scene.get();
@@ -880,7 +873,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
         goodPreset = lastGoodMilkPreset_;
         textureDir = milkTextureDir_;
     }
-    if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
+    if (paletteLutTex_) scene->setPaletteLut(paletteLutTex_.get());
     scene->setTouchField(&touchField_);
     scene->setCamera(&camera_.pose());
     scene->init();
@@ -905,6 +898,7 @@ void Renderer::releaseScenes() {
     prep_.done();
     for (auto& entry : scenes_) entry.second->release();
     scenes_.clear();
+    appliedShaders_.clear();
     residency_.clear();
     activeScene_ = nullptr;
     heldScene_ = nullptr;

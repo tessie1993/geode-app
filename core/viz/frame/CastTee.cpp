@@ -210,9 +210,10 @@ void CastTee::publish(GLuint sourceFbo, int sourceWidth, int sourceHeight, int64
         if (slot < 0) return;
         readFence = std::exchange(read_[slot], nullptr);
     }
-    // The cast's last blit out of this slot must be done before it is drawn over. Never a long wait here: this
-    // is the stage's frame; a copy that cannot go now is skipped.
-    if (!settle(readFence, 2'000'000) || !bindSide(writer_, slot)) {
+    // The cast's last blit out of this slot must be done before it is drawn over. The CPU never waits here: this
+    // is the stage's frame. The GPU waits for the blit where EGL can make it (settle); otherwise a blit not done
+    // yet skips this copy, and the next publish tries again.
+    if (!settle(readFence, 0) || !bindSide(writer_, slot)) {
         std::lock_guard<std::mutex> lock(lock_);
         if (readFence) read_[slot] = readFence;
         box_.abandon(slot);

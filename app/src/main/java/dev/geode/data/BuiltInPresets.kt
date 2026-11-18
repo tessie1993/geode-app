@@ -1,12 +1,13 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.model.SceneParams
 
 /**
  * The bundled looks, read from the engine. Which looks ship, on which styles, and every value they set
  * are native (core/viz/CataloguePresets, the catalogue's presets section, #648): the shell asks once
- * through [GeodeNative.cataloguePresetsText] and reads the rows. Each look is a set of values by param
+ * through [CatalogueNative.cataloguePresetsText] and reads the rows. Each look is a set of values by param
  * name, set over [SceneParams.DEFAULT] by native, so a look reads back
  * exactly the params the old Kotlin literal built; core/tests/presets_test.cpp pins those values.
  */
@@ -14,9 +15,9 @@ object BuiltInPresets {
     /** The table version this shell reads; core/viz/CataloguePresets.hpp's `kPresetsTextVersion`. */
     private const val VERSION: Int = 1
 
-    val ALL: List<Preset> by lazy { parse(GeodeNative.cataloguePresetsText()) }
+    val ALL: List<Preset> by lazy { parse(CatalogueNative.cataloguePresetsText()) }
 
-    fun isBuiltIn(name: String): Boolean = GeodeNative.presetIsBuiltIn(name)
+    fun isBuiltIn(name: String): Boolean = LooksNative.presetIsBuiltIn(name)
 
     /**
      * Reads the `geode_catalogue_presets_text` table: a `presets|<version>|<looks>|<presets>` header,

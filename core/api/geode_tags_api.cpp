@@ -20,10 +20,12 @@ void setIfPresent(std::optional<std::string>& field, const char* value) {
 
 extern "C" {
 
-geode_tags* geode_tags_read(int fd) {
+geode_tags* geode_tags_read(int fd) try {
     auto handle = std::make_unique<geode_tags>();
     if (!geode::library::readTags(fd, handle->tags)) return nullptr;
     return handle.release();
+} catch (...) {
+    return nullptr;
 }
 
 void geode_tags_destroy(geode_tags* h) { std::unique_ptr<geode_tags> owned(h); }
@@ -67,7 +69,7 @@ int geode_tags_replaygain(const geode_tags* h, float* track_gain_db, float* trac
     return mask;
 }
 
-int geode_tags_write(int fd, const char* const* texts, int year, int track) {
+int geode_tags_write(int fd, const char* const* texts, int year, int track) try {
     geode::library::TrackTagEdit edit;
     if (texts) {
         setIfPresent(edit.title, texts[GEODE_TAG_TITLE]);
@@ -80,6 +82,8 @@ int geode_tags_write(int fd, const char* const* texts, int year, int track) {
     edit.year = year;
     edit.track = track;
     return geode::library::writeTags(fd, edit) ? 1 : 0;
+} catch (...) {
+    return 0;
 }
 
 }  // extern "C"

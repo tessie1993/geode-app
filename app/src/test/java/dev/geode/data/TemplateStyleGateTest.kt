@@ -1,11 +1,11 @@
 package dev.geode.data
 
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
+import dev.geode.model.TestCatalogue
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -54,6 +54,7 @@ public:
         return s_.nextEvents;
     }
     void trimSpares() override { s_.log.push_back("trim"); }
+    void letSoundGo() override { s_.log.push_back("let sound go"); }
     void releaseScenes() override { s_.log.push_back("release scenes"); }
     void warmTransition(const std::string& id) override { s_.log.push_back("warm " + id); }
     bool recordStart(const RecordAsk&) override {
@@ -107,7 +108,12 @@ void soundAndSurface() {
     r.client.frame(60.0f, 60.0f);
     check(r.seen.rings == std::vector<const void*>({nullptr, &ringA, &ringB, nullptr}), "each frame hears the ring set last");
     r.client.trimSpares();
-    check(r.seen.log == std::vector<std::string>({"created", "size 1080x2400", "trim"}), "the surface calls reach the renderer in order");
+    // Leaving drawing also lets the ring's analysis go, so it stops while nothing draws from it.
+    check(r.seen.log == std::vector<std::string>({"created", "size 1080x2400", "trim", "let sound go"}),
+          "the surface calls reach the renderer in order, and a stage that stops drawing stops listening");
+    r.client.setSound(&ringA);
+    r.client.frame(60.0f, 60.0f);
+    check(r.seen.rings.back() == &ringA, "the next frame hears its ring again");
 }
 
 void frameReports() {
@@ -148,6 +154,9 @@ void frameReports() {
     check(r.client.frame(0.0f, 0.0f) == kFrameStillReady, "a still read is reported");
     check(r.client.takeStill(still) && still.width == 2 && still.height == 1 && still.rgba.size() == 8, "and handed over");
     check(!r.client.takeStill(still), "once");
+    r.client.frame(0.0f, 0.0f);
+    r.client.release(true);
+    check(!r.client.takeStill(still), "a still never taken is dropped when the client releases");
 }
 
 void warmUps() {

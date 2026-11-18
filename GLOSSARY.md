@@ -44,7 +44,7 @@ The one flag every detector reads: opens when the momentary loudness reaches -55
 How dense the music is, 0..1, on fixed scales: onsets a second (8 = 1), kicks and snares a second, and how sure the beat is.
 
 **Drive**:
-How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.5 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
+How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`core/sound/DriveGain`: 0.15 at no drive, 1 at 0.5 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
 _Avoid_: Audio drive (the user's Customize amount, which scales the reach of the music further)
 
 **Feature timeline**:
@@ -368,11 +368,11 @@ How far the auto-director goes past its director look, one native setting (Visua
 _Avoid_: Auto level, auto-randomize, shuffle mode
 
 **Look snapshot**:
-Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `render/look/LookSnapshot`.
+Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `core/viz/LookSnapshot`.
 _Avoid_: Live state, look (that is the auto-director's)
 
 **Note & key reactions**:
-Settings › Behaviour's switch that reads notes, chords, key and mood into the six style knobs each style spends on its own geometry (drums weighted by how percussive the track is). It writes no scene param and no colour. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
+Settings › Behaviour's switch that reads notes, chords, key and mood into the six style knobs each style spends on its own geometry (drums weighted by how percussive the track is). It writes no scene param and no colour. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style.
 _Avoid_: Note mode, melody mode
 
 **Bloom (note bloom)**:
@@ -409,7 +409,7 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam later steps rebuild behind (#344).
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (the user's quality tier and post-FX) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam later steps rebuild behind (#344).
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:

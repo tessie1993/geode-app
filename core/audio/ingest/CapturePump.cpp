@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "sound/Silence.hpp"
+#include "util/Log.hpp"
 
 namespace geode::audio::ingest {
 
@@ -28,9 +29,16 @@ struct CapturePump::Run {
     std::mutex doneLock;
     std::condition_variable doneSignal;
     bool done = false;
+    // doneLock: stop left the thread behind, so it counts in gStuck until it ends.
+    bool detached = false;
 };
 
 namespace {
+
+constexpr const char* kTag = "GeodeCapture";
+
+// CapturePump::stuck: threads stop left behind that have not ended yet.
+std::atomic<int> gStuck{0};
 
 void pump(const std::shared_ptr<CapturePump::Run>& run) {
     CaptureReader& reader = *run->reader;
@@ -52,6 +60,10 @@ void pump(const std::shared_ptr<CapturePump::Run>& run) {
     {
         std::lock_guard<std::mutex> lock(run->doneLock);
         run->done = true;
+        if (run->detached) {
+            const int left = gStuck.fetch_sub(1, std::memory_order_acq_rel) - 1;
+            GEODE_LOGI(kTag, "a capture thread left behind has ended; %d still stuck", left);
+        }
     }
     run->doneSignal.notify_all();
 }
@@ -62,6 +74,11 @@ std::unique_ptr<CapturePump> CapturePump::start(std::unique_ptr<CaptureReader> r
                                                 Clock nowMs) {
     if (!reader) return nullptr;
     if (!write || readBytes <= 0 || !nowMs) {
+        reader->end();
+        return nullptr;
+    }
+    if (const int waiting = gStuck.load(std::memory_order_acquire); waiting >= kMaxStuck) {
+        GEODE_LOGW(kTag, "capture refused: %d earlier capture threads are still stuck in a platform read", waiting);
         reader->end();
         return nullptr;
     }
@@ -88,16 +105,26 @@ void CapturePump::stop() {
     { std::lock_guard<std::mutex> lock(run_->writeLock); }
     run_->reader->interrupt();
     bool done = false;
+    int leftBehind = 0;
     {
         std::unique_lock<std::mutex> lock(run_->doneLock);
         done = run_->doneSignal.wait_for(lock, std::chrono::milliseconds(kStopWaitMs), [this] { return run_->done; });
+        // Under doneLock, so the thread's end sees the mark and takes itself off the count.
+        if (!done) {
+            run_->detached = true;
+            leftBehind = gStuck.fetch_add(1, std::memory_order_acq_rel) + 1;
+        }
     }
     if (done) {
         thread_.join();
     } else {
         thread_.detach();
+        GEODE_LOGW(kTag, "capture read did not let go within %lld ms; thread left behind (%d stuck)",
+                   static_cast<long long>(kStopWaitMs), leftBehind);
     }
 }
+
+int CapturePump::stuck() { return gStuck.load(std::memory_order_acquire); }
 
 bool CapturePump::active() const { return run_->running.load(std::memory_order_acquire); }
 

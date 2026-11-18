@@ -28,6 +28,7 @@
 #include "viz/DivePass.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
+#include "viz/GlHandle.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
@@ -145,7 +146,6 @@ public:
     void hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis);
     void setListenPosition(int64_t position) { listenPosition_ = position; }
     // Where the last frame's triggers fired (sound/interp/Hits). Render thread only.
-    const sound::interp::Hits& soundHits() const { return soundHits_; }
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
@@ -255,12 +255,12 @@ private:
     // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
     void applyStyleSchedule(float dt);
     void applyRenderScale();
-    static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
     // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
+    const GeodeSoundFrame& trimmedSound(const SceneParams& p);
     void uploadPaletteRamp(const SceneParams& p);
     void stepShapeGraph(const SceneParams& p, float dt, float wallDt);
     bool holds(const Scene& scene, const Scene* held) const;
@@ -272,8 +272,9 @@ private:
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
-    // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
-    void drawUiBlur(GLuint targetFbo);
+    // After the composite: the UI blur region, live surfaces only; nothing at strength 0. Its targets go after
+    // a short spell without a draw (wallDt, the frame's wall step).
+    void drawUiBlur(GLuint targetFbo, float wallDt);
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
@@ -296,7 +297,7 @@ private:
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
-    GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
+    GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
     // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame time
     // says nothing about what the phone can draw, so the fluid quality monitor sits out until a moment after
@@ -400,9 +401,15 @@ private:
     bool sectionChangeOwed_ = false;  // a boundary: the next frame fires sectionChange, as the engine's step did
     sound::interp::FrameReader soundReader_;
     sound::interp::Hits soundHits_;
+    // On the analysis settings every engine here runs (SharedAnalysis's thread takes AnalysisSettings{}).
     sound::interp::Waveform soundWave_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The frame the scenes and the resolver hear: soundFrame_ with the band trims of the params asked about
+    // (viz/BandTrim.hpp), made once per distinct trim per frame. A frame with no trim is soundFrame_ itself.
+    GeodeSoundFrame trimmedSound_{};
+    std::array<float, 3> trimmedKey_{};
+    bool trimmedValid_ = false;
     // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
     // at the current one: an engine built after a boundary is already fresh. Live renderers only.
     uint64_t boundarySeen_ = sound::player::boundary().epoch;
@@ -415,15 +422,18 @@ private:
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
+    // The outgoing style's target: made while a transition runs, released when none does (ensureTargets).
     Framebuffer fboB_{"sceneB"};
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.
     Framebuffer fboL_{"sceneLayer"};
-    GLuint quadVao_ = 0;
-    GLuint paletteLutTex_ = 0;
+    // Handles (viz/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
+    // made again during a cast) deletes them, as its targets and passes do; onSurfaceCreated resets them.
+    GlVertexArray quadVao_;
+    GlTexture paletteLutTex_;
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
-    GLuint paletteRampTex_ = 0;
+    GlTexture paletteRampTex_;
     // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
     // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
@@ -471,7 +481,9 @@ private:
     // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     // GL thread: the shader override each built scene was last given ("" = its built-in source), and
-    // the ShaderOverrides generation syncShaderOverrides last applied.
+    // the ShaderOverrides generation syncShaderOverrides last applied. An entry lives as long as its
+    // scene: a scene built again reads its override afresh in buildScene, so a dropped, evicted, deferred
+    // or failed build takes its entry (and its copy of the edited source) with it.
     std::map<std::string, std::string> appliedShaders_;
     uint64_t shaderGeneration_ = 0;
     std::string fluidForceSrc_;
@@ -535,8 +547,8 @@ private:
     float divePhase_ = 0.0f;
     // 0 the plain picture .. 1 the dive: the switch fades over kDiveFadeSeconds, never cuts.
     float diveMix_ = 0.0f;
-    // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
-    int feedbackIdleFrames_ = 0;
+    // Seconds (the wall step) since the feedback pass last drew; its targets are freed once this reaches kFeedbackIdleSeconds.
+    float feedbackIdleSeconds_ = 0.0f;
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
 
@@ -573,6 +585,12 @@ private:
     int heldWidth_ = 0;
     int heldHeight_ = 0;
     int redrawFrames_ = 0;
+    // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's
+    // build and first load, a MilkDrop preset. redrawFrames_ stays the count for "one more frame".
+    static constexpr float kRedrawSeconds = 1.0f;
+    float redrawSeconds_ = 0.0f;
+    // The id read from stateLock_ each frame: assigned in place, so it keeps its buffer.
+    std::string requestedIdScratch_;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing pinLayer()/setTransition() on

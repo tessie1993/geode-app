@@ -912,6 +912,11 @@
     <string name="customize_card_collapse">Collapse</string>
     <!-- Customize TalkBack labels (content descriptions, states, click and custom actions), issue #554's audit -->
     <string name="customize_collapse_all">Collapse all</string>
+    <string name="customize_expand_all_in">Expand all groups in %1$s</string>
+    <string name="customize_a11y_previous">Previous tab</string>
+    <string name="customize_a11y_next">Next tab</string>
+    <string name="customize_a11y_previous_named">Previous tab, %1$s</string>
+    <string name="customize_a11y_next_named">Next tab, %1$s</string>
     <string name="customize_collapse_all_in">Collapse all groups in %1$s</string>
     <string name="customize_a11y_pro">Pro</string>
     <string name="customize_a11y_unlock_pro">Unlock with Pro</string>

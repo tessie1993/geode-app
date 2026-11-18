@@ -179,6 +179,7 @@ internal fun CustomizePanel(
                         onToggleGroup = { groups.toggle(it.path) },
                         // This tab only; groups.collapseAll(null) would close every tab's.
                         onCollapseAll = { groups.collapseAll(it.name) },
+                        onExpandAll = { c -> sectionsOf(c).forEach { groups.expand(it.path) } },
                         sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
                         modifier = Modifier.fillMaxSize(),
                         header = header,

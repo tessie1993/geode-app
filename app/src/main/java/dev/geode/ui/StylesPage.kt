@@ -183,7 +183,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else CustomizeNative.styleFamilyLabel(it) }
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(start = GeodeSpacing.M, end = GeodeSpacing.XS),
+            Modifier.fillMaxWidth().padding(start = GeodeSpacing.S, end = GeodeSpacing.XXS),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LibraryDropdownRow(
@@ -206,7 +206,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
                 detail = { (if (it == YOURS) mine else families[it].orEmpty()).size.toString() },
             )
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.S)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.XS)) {
             TextButton(onClick = shuffleStyle) {
                 StoneIconArt(StoneIcon.SHUFFLE, contentDescription = null, tint = accentTextColor())
                 Text(stringResource(R.string.styles_random), Modifier.padding(start = GeodeSpacing.XS), color = accentTextColor())
@@ -219,7 +219,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
         NowPlaying(labels[viz.sceneId] ?: sceneDisplayLabel(viz.sceneId))
         LazyColumn(
             state = list,
-            contentPadding = PaddingValues(bottom = GeodeSpacing.L),
+            contentPadding = PaddingValues(bottom = GeodeSpacing.S),
             modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
             if (ids.isEmpty()) {
@@ -249,7 +249,7 @@ private fun NowPlaying(label: String) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS)
+            .padding(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XXS)
             .semantics(mergeDescendants = true) {
                 contentDescription = "$caption: $label"
             },
@@ -271,7 +271,7 @@ private fun NowPlaying(label: String) {
 private fun StylesHint(text: String) {
     Text(
         text,
-        Modifier.padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
+        Modifier.padding(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -336,12 +336,12 @@ private fun StyleRow(
                                 true
                             }
                         }
-                }.padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
+                }.padding(start = GeodeSpacing.M, end = GeodeSpacing.XXS),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 entry.label,
-                Modifier.weight(1f).padding(end = GeodeSpacing.M),
+                Modifier.weight(1f).padding(end = GeodeSpacing.S),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (chosen) accentTextColor() else cs.onSurface,
                 maxLines = 1,

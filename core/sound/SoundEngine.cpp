@@ -253,7 +253,9 @@ void SoundEngine::feed(float l, float r) {
         if (meter_.open()) {
             for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
         }
-        rhythm_.hop(power);
+        // A pause or a stall holds the song: the zeros a starved engine is fed are not music, so the beat,
+        // bar and phrase counters and the tempo ring wait for the audio to come back.
+        if (!starved_) rhythm_.hop(power);
         analyse();
     }
 }

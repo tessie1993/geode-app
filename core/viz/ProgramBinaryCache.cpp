@@ -89,7 +89,10 @@ void ProgramBinaryCache::prime() {
     if (state_ != State::Unprimed || root_.empty()) return;
     openStore();
     // Once per process: a later renderer's prune would delete the first one's in-flight temp files.
-    if (state_ == State::On && firstInProcess_) submit([this] { prune(); });
+    // Off as well as on: other drivers' folders are dead weight either way, and an off namespace keeps
+    // its own folder (its disabled mark). A driver with no binary formats never opens a namespace, so
+    // firstInProcess_ stays false and nothing is pruned for it.
+    if (firstInProcess_) submit([this] { prune(); });
 }
 
 std::optional<ProgramKey> ProgramBinaryCache::keyFor(const std::string& vertexSrc, const std::string& fragmentSrc) {

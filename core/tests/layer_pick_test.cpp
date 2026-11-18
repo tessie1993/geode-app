@@ -138,6 +138,17 @@ void thePickerFollowsItsSource() {
     check(k.pick(knob, active, 0, 1, 1.0f) == pool.back(), "turned up, the last");
     check(k.pick(knob, pool.back(), 0, 1, 1.0f) == pool.front(), "the step on the style on screen draws the next one along");
     check(k.pick(knob, active, 0, 1, std::nanf("")) == pick::suggest(active), "no knob on screen picks as nothing picked does");
+
+    // The suggestion is kept between frames for the style on screen it was made for: a change of style makes it
+    // again, for the User source with nothing picked and a knob with no turn alike, and going back gives the first.
+    pick::Picker kept;
+    const ls::Layer nothing = on(ls::Source::User);
+    for (const std::string& style : {pool[3], pool[3], pool[9], pool[9], pool[3], std::string("not-a-style")}) {
+        check(kept.pick(nothing, style, 0, 1, 0.0f) == pick::suggest(style), "nothing picked follows the style on screen: " + style);
+        check(kept.pick(knob, style, 0, 1, std::nanf("")) == pick::suggest(style), "no knob follows the style on screen: " + style);
+    }
+    kept.reset();
+    check(kept.pick(nothing, pool[9], 0, 1, 0.0f) == pick::suggest(pool[9]), "a reset keeps the suggestion right");
 }
 
 void theEditorHoldsWhatThePageShows() {

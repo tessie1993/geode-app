@@ -28,6 +28,7 @@
 #include "viz/DivePass.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
+#include "viz/GlHandle.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
@@ -426,11 +427,13 @@ private:
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.
     Framebuffer fboL_{"sceneLayer"};
-    GLuint quadVao_ = 0;
-    GLuint paletteLutTex_ = 0;
+    // Handles (viz/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
+    // made again during a cast) deletes them, as its targets and passes do; onSurfaceCreated resets them.
+    GlVertexArray quadVao_;
+    GlTexture paletteLutTex_;
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
-    GLuint paletteRampTex_ = 0;
+    GlTexture paletteRampTex_;
     // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
     // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
@@ -478,7 +481,9 @@ private:
     // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     // GL thread: the shader override each built scene was last given ("" = its built-in source), and
-    // the ShaderOverrides generation syncShaderOverrides last applied.
+    // the ShaderOverrides generation syncShaderOverrides last applied. An entry lives as long as its
+    // scene: a scene built again reads its override afresh in buildScene, so a dropped, evicted, deferred
+    // or failed build takes its entry (and its copy of the edited source) with it.
     std::map<std::string, std::string> appliedShaders_;
     uint64_t shaderGeneration_ = 0;
     std::string fluidForceSrc_;

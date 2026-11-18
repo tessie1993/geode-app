@@ -468,7 +468,10 @@ void ShaderScene::compilePendingIfAny() {
     }
     if (!pending) return;
     std::string error;
-    const GLuint built = program::build(vertexSrc_, *pending, cache_, &error);
+    // A user's edit is not cached: each edit would store a binary and evict built-in styles from the
+    // cache, so the next cold start compiled them again. The built-in source still is.
+    ProgramBinaryCache* const cache = *pending == stockFragment_ ? cache_ : nullptr;
+    const GLuint built = program::build(vertexSrc_, *pending, cache, &error);
     if (built == 0) {
         host_.onShaderError(error);
         return;

@@ -1,11 +1,11 @@
 // Host test for core/audio/ingest/CapturePump: a capture read on a native thread of its own over a fake
 // reader. Blocks reach the write as read, begin and end run once each on the pump's thread, a read error or a
 // refused begin ends the capture, stop interrupts a waiting read and nothing is written after it returns, a read
-// that never lets go is left behind without a later write, a bad start lets go of the reader, and quiet follows
-// digital zero for 4 s.
+// that never lets go is left behind without a later write, a bad start lets go of the reader, quiet follows
+// digital zero for 4 s, and once kMaxStuck threads are left behind a new capture is refused until one ends.
 //
-// Build and run (one command):
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/capture_pump_test.cpp
+// Build and run (one command; core/tests/fakegl only for its <android/log.h>, defined below):
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/fakegl core/tests/capture_pump_test.cpp
 //   core/audio/ingest/CapturePump.cpp -o capture_pump_test && ./capture_pump_test
 #include <atomic>
 #include <chrono>
@@ -24,6 +24,9 @@
 
 using geode::audio::ingest::CapturePump;
 using geode::audio::ingest::CaptureReader;
+
+// The logcat boundary CapturePump logs through: nothing to see on the host.
+extern "C" int __android_log_print(int, const char*, const char*, ...) { return 0; }
 
 static int failures = 0;
 #define CHECK(cond, ...)                                             \
@@ -261,6 +264,46 @@ void quietAfterFourSecondsOfZeros() {
     CHECK(!pump->quiet(), "a stopped capture is not quiet");
 }
 
+// Each stuck pump is stopped (waiting its limit) and left behind. At kMaxStuck a new capture is refused and its
+// reader let go of on the caller; once one stuck read returns and its thread ends, a capture starts again.
+void stuckThreadsCapNewCaptures() {
+    CHECK(waitFor([] { return CapturePump::stuck() == 0; }), "no thread left behind before: %d", CapturePump::stuck());
+    auto sink = std::make_shared<Sink>();
+    std::vector<std::shared_ptr<std::atomic<bool>>> releases;
+    std::vector<std::shared_ptr<Seen>> seens;
+    for (int i = 0; i < CapturePump::kMaxStuck; ++i) {
+        auto seen = std::make_shared<Seen>();
+        auto reader = std::make_unique<FakeReader>(seen);
+        reader->stuck = true;
+        releases.push_back(reader->release);
+        seens.push_back(seen);
+        auto pump = CapturePump::start(std::move(reader), writeInto(sink), 16, fakeNow);
+        CHECK(pump != nullptr, "stuck pump %d starts", i);
+        if (!pump) return;
+        CHECK(waitFor([&] { return seen->reads.load() == 1; }), "pump %d's read is stuck", i);
+        pump->stop();
+        CHECK(CapturePump::stuck() == i + 1, "left behind: %d", CapturePump::stuck());
+    }
+    auto refused = std::make_shared<Seen>();
+    CHECK(CapturePump::start(std::make_unique<FakeReader>(refused), writeInto(sink), 16, fakeNow) == nullptr,
+          "at the limit a new capture is refused");
+    CHECK(refused->ends == 1 && refused->endOnCaller && refused->begins == 0,
+          "the refused reader is let go of on the caller, never begun");
+
+    releases.front()->store(true);
+    CHECK(waitFor([] { return CapturePump::stuck() == CapturePump::kMaxStuck - 1; }), "an ended thread leaves the count");
+    auto again = std::make_shared<Seen>();
+    auto pump = CapturePump::start(std::make_unique<FakeReader>(again), writeInto(sink), 16, fakeNow);
+    CHECK(pump != nullptr, "below the limit a capture starts again");
+    if (pump) pump->stop();
+    const int written = sink->writes.load();
+
+    for (auto& release : releases) release->store(true);
+    CHECK(waitFor([] { return CapturePump::stuck() == 0; }), "every stuck thread ends and leaves the count");
+    for (const auto& s : seens) CHECK(s->ends == 1, "each stuck reader ends once");
+    CHECK(sink->writes.load() == written, "no stuck read's late block is written");
+}
+
 }  // namespace
 
 int main() {
@@ -271,6 +314,7 @@ int main() {
     aStuckReadIsLeftBehindWithoutAWrite();
     aBadStartLetsGoOfTheReader();
     quietAfterFourSecondsOfZeros();
+    stuckThreadsCapNewCaptures();
     if (failures) {
         std::fprintf(stderr, "%d failure(s)\n", failures);
         return 1;

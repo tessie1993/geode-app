@@ -44,6 +44,12 @@ int familyOf(const std::string& id) {
     return it == kFamilyOf.end() ? -1 : it->second;
 }
 
+// The user's pick when it is a known style other than `active` (already resolved), else null.
+const std::string* chosen(const std::string& pickedId, const std::string& active) {
+    const std::string& picked = catalogue::resolveId(pickedId);
+    return !picked.empty() && catalogue::knows(picked) && picked != active ? &picked : nullptr;
+}
+
 }  // namespace
 
 const std::vector<std::string>& pool() {
@@ -77,8 +83,7 @@ std::string suggest(const std::string& activeId) {
 }
 
 std::string userPick(const std::string& pickedId, const std::string& activeId) {
-    const std::string& picked = catalogue::resolveId(pickedId);
-    if (!picked.empty() && catalogue::knows(picked) && picked != catalogue::resolveId(activeId)) return picked;
+    if (const std::string* picked = chosen(pickedId, catalogue::resolveId(activeId))) return *picked;
     return suggest(activeId);
 }
 
@@ -102,9 +107,11 @@ const std::string& Picker::pick(const Layer& layer, const std::string& activeId,
     }
     const std::string& active = catalogue::resolveId(activeId);
     switch (layer.source) {
-        case Source::User:
-            picked_ = userPick(layer.sceneId, active);
+        case Source::User: {
+            const std::string* chose = chosen(layer.sceneId, active);
+            picked_ = chose ? *chose : suggestion(active);
             break;
+        }
         case Source::Director: {
             // The play's seed: a replay draws anew, and an export that pinned the play's seed draws the same film.
             if (!seeded_ || seed != seed_) {
@@ -114,7 +121,7 @@ const std::string& Picker::pick(const Layer& layer, const std::string& activeId,
                 directed_.clear();
             }
             if (directed_.empty()) {
-                directed_ = suggest(active);
+                directed_ = suggestion(active);
             } else if (moments > 0 || directed_ == active) {
                 // A new one at each moment, never the one it had or the style on screen while the pool holds another.
                 std::vector<const std::string*> choices;
@@ -131,7 +138,7 @@ const std::string& Picker::pick(const Layer& layer, const std::string& activeId,
             const auto& all = pool();
             if (!std::isfinite(turn) || all.empty()) {
                 macroIndex_ = -1;
-                picked_ = suggest(active);
+                picked_ = suggestion(active);
                 break;
             }
             const int count = static_cast<int>(all.size());
@@ -143,6 +150,18 @@ const std::string& Picker::pick(const Layer& layer, const std::string& activeId,
         }
     }
     return picked_;
+}
+
+// suggest() walks the whole pool, and the User source with nothing picked or a Macro source with no knob asks
+// for it every frame. It reads only the style on screen and the catalogue, which is fixed, so it is made again
+// only when that style changes.
+const std::string& Picker::suggestion(const std::string& active) {
+    if (!suggestedYet_ || active != suggestedFor_) {
+        suggestedFor_ = active;
+        suggested_ = suggest(active);
+        suggestedYet_ = true;
+    }
+    return suggested_;
 }
 
 void Picker::reset() {

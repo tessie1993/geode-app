@@ -119,6 +119,18 @@ void testNal() {
           "a delta frame is sent as it is");
     check(rtc::accessUnit(nullptr, 0, kIdr.data(), kIdr.size(), true) == kIdr, "no config yet: the frame alone");
     check(rtc::accessUnit(kConfigHigh.data(), kConfigHigh.size(), nullptr, 0, true).empty(), "no frame: nothing");
+
+    // Into a kept buffer, as the link sends every frame: the same bytes, and a smaller frame after a larger one
+    // reuses the buffer's storage instead of making a new one.
+    std::vector<uint8_t> kept;
+    rtc::accessUnit(kConfigHigh.data(), kConfigHigh.size(), kIdr.data(), kIdr.size(), true, kept);
+    check(kept == unit, "into a buffer: the keyframe with the config in front");
+    const uint8_t* storage = kept.data();
+    rtc::accessUnit(kConfigHigh.data(), kConfigHigh.size(), kSlice.data(), kSlice.size(), false, kept);
+    check(kept == kSlice, "into a buffer: the delta frame alone, nothing of the frame before");
+    check(kept.data() == storage, "the buffer's storage is kept frame to frame");
+    rtc::accessUnit(kConfigHigh.data(), kConfigHigh.size(), nullptr, 0, true, kept);
+    check(kept.empty(), "into a buffer: no frame leaves it empty");
 }
 
 void testCompatible() {

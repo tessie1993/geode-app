@@ -199,8 +199,9 @@ jobs:
             core/audio/ingest/CapturePlan.cpp core/audio/ingest/PcmRing.cpp -o mic_input_test
           ./mic_input_test
           # Another app's audio and the output mix (CapturePump) over a fake reader: blocks written as read on the pump's
-          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/capture_pump_test.cpp \
+          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet, and
+          # new captures refused while kMaxStuck threads are left behind. fakegl only for its <android/log.h>.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/fakegl core/tests/capture_pump_test.cpp \
             core/audio/ingest/CapturePump.cpp -o capture_pump_test
           ./capture_pump_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written

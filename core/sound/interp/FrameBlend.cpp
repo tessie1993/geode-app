@@ -95,9 +95,10 @@ bool FrameReader::read(const AnalysisThread& analysis, int64_t position, GeodeSo
     emotion = a.emotion;
     emotion.degreeAccent = 0.0f;
     if (!primed_) {
-        // A first read hears from here on: nothing fired before it.
-        lastIndex_ = static_cast<int64_t>(a.index);
-        lastHopPosition_ = a.position;
+        // A first read hears from here on: nothing fired before it. Older than every kept hop, `a` is still to come.
+        const bool ahead = a.position > position;
+        lastIndex_ = static_cast<int64_t>(a.index) - (ahead ? 1 : 0);
+        lastHopPosition_ = ahead ? position : a.position;
         primed_ = true;
         return true;
     }

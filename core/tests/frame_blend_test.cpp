@@ -270,12 +270,21 @@ int runHits(double fps, Lcg* jitter, bool analysisLags, const std::vector<float>
             bool any = false;
             for (size_t t = 0; t < triggers.size(); t++) {
                 const float got = floats(out)[triggers[t]];
-                if (got != expect[t] || hits.at[static_cast<size_t>(triggers[t])] != where[t]) bad++;
+                const int64_t firedAt = hits.at[static_cast<size_t>(triggers[t])];
+                if (got != expect[t] || firedAt != where[t]) {
+                    if (bad == 0) {
+                        std::printf("  fps %.0f: first miss at sample %lld, trigger %d: fired %g at %lld, expected %g at %lld\n",
+                                    fps, static_cast<long long>(speaker), triggers[t], static_cast<double>(got),
+                                    static_cast<long long>(firedAt), static_cast<double>(expect[t]), static_cast<long long>(where[t]));
+                    }
+                    bad++;
+                }
                 any = any || got > 0.0f;
             }
             fired += any ? 1 : 0;
         }
     }
+    if (bad > 0) std::printf("  fps %.0f: %d trigger reads differ, %d frames fired\n", fps, bad, fired);
     if (firedFrames) *firedFrames = fired;
     return bad;
 }

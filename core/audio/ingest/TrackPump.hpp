@@ -84,10 +84,18 @@ struct DecodedChunk {
     bool endOfStream = false;
 };
 
+// What the container says of the track before anything is decoded; 0 where it does not say.
+struct DeclaredTrack {
+    int64_t durationUs = 0;
+    int sampleRate = 0;
+    int channels = 0;
+};
+
 // A platform decoder over its extractor. A failure of the codec itself throws (std::runtime_error).
 class DecodePort {
 public:
     virtual ~DecodePort() = default;
+    virtual DeclaredTrack declared() const { return {}; }
     // When the codec has an input buffer free: the extractor's next sample into it, or end of stream once the
     // extractor has none. True once end of stream is queued; never called again after that.
     virtual bool feedInput() = 0;
@@ -112,6 +120,10 @@ private:
 // Opens the platform decoder over a span, decoding from startMs; null when the bytes hold no audio track it
 // can decode.
 using DecoderOpener = std::function<std::unique_ptr<DecodePort>(const TrackSpan& span, int64_t startMs)>;
+
+// The span as an AIFF, through its own duplicate of the descriptor read from the span's start; null when the bytes
+// are not one (the duplicate is closed then).
+std::unique_ptr<AiffReader> openAiff(const TrackSpan& span);
 
 // The track at `span` from startMs: an AIFF through its own reader when the bytes are one, else the platform
 // decoder; null when neither reads it. Each open reads from the span's start again, through its own duplicate of

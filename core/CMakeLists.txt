@@ -114,6 +114,7 @@ add_library(geode_core STATIC
     output/ExportFrame.cpp
     output/LoopPlan.cpp
     output/LoopRender.cpp
+    output/AacTranscode.cpp
     output/VideoExport.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp

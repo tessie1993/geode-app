@@ -19,7 +19,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 
 ## 2. Sound input
 
-- `PlaybackSession.sampleRing` is published as `AudioBus.soundInput`.
+- `PlaybackSession.sampleRing` is the live ring while a session holds it (`IngestNative.pcmRingSetLive`); `AudioBus.heard` is the phone's output mix while on, else that ring.
 - The rate travels with the samples, so there is no rate beside the ring.
 - The tap writes a sample when the sink takes it, up to its buffer and the output's latency before it is heard.
 - So behind the player's sink a renderer's cursor reads only up to the sample the speaker plays now (`core/sound/interp/SpeakerSync`).
@@ -67,6 +67,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - `StageView` feeds the camera's look while the stage says it listens (`geode_stage_gyro_listens`): the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
+- The ring (`AudioBus.heard`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every 10 ms of samples; `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
 - The ring (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every hop of samples (fftSize / overlap, `sound/AnalysisSettings`); `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
 - So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
@@ -77,7 +78,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - Auto's wait is the interval plus a random spread per look (a quarter of it, 10 s at most).
 - A `.milk` preset's `progress` runs 0→1 over that wait (`core/viz/MilkProgress`).
 - With Auto off or in an export, `progress` runs over projectM's 30 s from the preset's load, then holds at 1.
-- The wallpaper and dream read the same `AudioBus.soundInput`.
+- The wallpaper and dream read the same ring (`IngestNative.pcmRingLive()`).
 
 ## 4. Export
 

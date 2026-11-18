@@ -173,6 +173,9 @@ jobs:
           # over the player and never freed; the output mix's stitched and its owner's, a reader outliving its destroy.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_kinds_test.cpp $INGEST_SRCS -o pcm_ring_kinds_test
           ./pcm_ring_kinds_test
+          # The player's Media3 tap on the ring (what PcmTap decided in Kotlin): the format of the last flush, an epoch at every flush, the closed gate.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_tap_test.cpp $INGEST_SRCS -o pcm_tap_test
+          ./pcm_tap_test
           # An export's track audio (TrackFeed) and the AIFF reader, pinned to the Kotlin TrackAudio and AiffPcm: every
           # sample width and byte order, the header walk, the codec pre-roll and AIFF lead-in cuts, each video frame
           # hearing exactly its audio, an fd span.

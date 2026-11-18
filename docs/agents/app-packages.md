@@ -162,6 +162,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - That includes the native-output switch: on, and not bit-perfect, it lets `audio/TapRenderersFactory` hand the sink the Oboe output.
 - `BitPerfectOutput` is USB DAC bit-perfect via `setPreferredMixerAttributes`, API 34+.
 - `PlaybackService` is a MediaLibraryService.
+- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and each flush's format to the native ring (`geode_pcm_ring_tap_*`) and reads no sample; the epoch at a flush, the format and the gate are native's.
+- `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; it sets native's gate, and while another source writes the ring the tap writes nothing.
 - Media browsers (Bluetooth, Assistant; Android Auto is not declared in 1.0) browse `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Queue, sleep timer and ReplayGain live here.
 - `AutoDirectorFeed` is the auto-director's play feed: a seed per track, the position for the free taste.
@@ -180,7 +182,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `AudioBus`, `PlaybackCapture`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
 - Capture sources: mic, other apps' audio.
-- `AudioBus` holds the session's player ring handle (0 for none) for the wallpaper and dream.
+- Which ring is live is native: `IngestNative.pcmRingLive()` (`geode_pcm_ring_live`) is the player's ring while a playback session holds it, 0 otherwise, for the stage, wallpaper, dream and cast.
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
@@ -190,11 +192,6 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `AudioFxController`'s band and dB labels are native (`core/audio/dsp/FxRanges`, `geode_dsp_band_label`, `geode_dsp_db_label`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
-
-## `engine/audioandroid`
-
-- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
-- `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; while another source writes the ring the tap writes nothing.
 
 ## `render` (removed)
 

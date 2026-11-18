@@ -17,7 +17,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 - `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
 - `:app` is the only module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
-- The Media3 PCM tap is `app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt`, in `:app`.
+- The Media3 PCM tap is `app/src/main/java/dev/geode/playback/PcmTap.kt`, in `:app`: a forwarder; the format, the epoch and the gate are native (`geode_pcm_ring_tap_*`).
 
 ## Native core (`core/`)
 
@@ -34,6 +34,8 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/tests`: host tests, built by `.github/workflows/native-host-tests.yml`.
 - Shaders are in `app/src/main/assets/shaders`.
 - The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/MacroBank.cpp`).
+- The analysis runs on one thread per ring, shared by every surface that hears the ring (`core/sound/hop/SharedAnalysis.hpp`, `AnalysisThread`); a renderer reads it at the speaker's sample (`core/sound/interp/FrameBlend`). An export runs the same analysis inline.
+- The parameter resolver still runs on the drawing thread (`core/viz/RendererFrame.cpp`).
 - Live analysis runs on its own thread per ring (`core/sound/hop/AnalysisThread.cpp`); an export runs it inline. The parameter resolver runs on the drawing thread (`core/viz/RendererFrame.cpp`).
 
 ## App packages (`app/src/main/java/dev/geode/`)
@@ -83,6 +85,9 @@ A line records what was done; it is not a rule.
 - 2026-11-18: Pull requests that change only documents skip the build and the host tests through a `Changed paths` job (`tools/ci-docs-only.sh`, `build-lint.yml`, `native-host-tests.yml`, self-test in `arch-map.yml`); a pull request's `pages.yml` run cancels the one it replaces.
 - 2026-11-18: Workflow comments, headers and the pre-release notes match what the workflows do: the debug APK's own application id in the release notes, no mention of jobs `android.yml` no longer has (`.github/workflows/*.yml`).
 - 2026-11-18: One Android build setup for every Gradle job (`.github/actions/android-build-setup`, used by seven workflows); `build-lint.yml` and `ship-apk.yml` share one ccache (`ccache-debug-`); `tools/actions-pin-gate.sh` and Dependabot cover `.github/actions`; `ship-apk.yml` and `render-thumbs.yml` give write permission to the one job that writes.
+- 2026-11-18: Which ring a surface with no playback session hears is native (`geode_pcm_ring_set_live`, `geode_pcm_ring_live`, `core/api/geode_ingest_api.cpp`, `pcm_ring_kinds_test.cpp`); `AudioBus` keeps only the phone's output-mix ring (`deviceInput`) and `heard`, which falls back to the native live ring (`playback/PlaybackEngine.kt`, `wallpaper/SoundSource.kt`, `cast/CastStream.kt`, `cast/CastFallback.kt`, `ui/EnginePlumbing.kt`).
+- 2026-11-18: `audio/OutputMixCapture.kt` no longer imports `Visualizer` (native builds it); its debt line left `tools/audio-kotlin-allowlist.txt`.
+- 2026-11-18: A paused speaker fires only the hops the starved engine ran on silence; the hits the sink still held fire when the speaker plays them (`FrameReader::readStill`, `core/sound/interp/FrameBlend.*`, `core/viz/RendererFrame.cpp`, `frame_blend_test.cpp`).
 - 2026-11-18: Added the native engine architecture and plan (`docs/superpowers/specs/2026-11-18-native-engine-architecture.md`); corrected the line on where analysis runs (`AGENTS.md` › Native core).
 - 2026-11-18: Native engine plan: module interfaces and seams added, `surface` became the one frame driver `run`, `shader` narrowed to catalogue and source (`docs/superpowers/specs/2026-11-18-native-engine-architecture.md` sections 4.1, 4.7, phase 4).
 
@@ -155,6 +160,7 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `MilkdropScene` writes its load-debounce clock `lastLoadSeconds_` only under `presetLock_` (after a load and in `init()` it was written outside it), and the header names the members `presetLock_` guards; `core/viz/scenes/MilkdropScene.{hpp,cpp}`.
 - 2026-11-18: The camera rig cannot latch a NaN or an infinity: `CameraRig::step` reads every camera param and the look input through `finiteOr` (a move reads as none, the lens as 1, the smoothing as its default), and `Spring::step` / `Spring::reset` refuse a non-finite target, value or result; `core/viz/CameraRig.{hpp,cpp}`, test `nonFiniteCameraInputsDoNotLatch` in `core/tests/viz_math_test.cpp`.
 - 2026-11-18: The id tables in `core/viz/Catalogue.cpp` that had a hand-written size (`kLooseShaders`, `kLooseMarched`, `kMarchedOffRig`, `kLooseLooks`, `kFormLoose`, `kSpinning`) take it from their entries (`std::to_array`, same sizes as before), and a `static_assert` per table next to `listed()` refuses a null entry; test `everyIdIsNonEmptyAndUnique` in `core/tests/catalogue_test.cpp`.
+- 2026-11-18: Merged main into the live-ring change: the live ring's JNI is on `IngestNative` (`pcmRingSetLive`, `pcmRingLive`), `AudioBus.soundInput` is gone and `AudioBus.heard` reads the native ring when the phone's mix is off (`audio/AudioBus.kt`, `playback/PlaybackEngine.kt`, `wallpaper/SoundSource.kt`).
 - 2026-11-18: The analysis hop is a sample count, `AnalysisSettings` fftSize / overlap (512 by default at every rate), not 10 ms: `Rhythm`, `Transient`, `LufsMeter` and `SoundEngine` take the hop's duration at `configure` and count their own seconds in it, `FilterBank::takeHopPower` gives the hop's mean power, and `AnalysisThread` sizes its slots from `kPublishedSeconds` (`core/sound/`, `core/tests/sound_hop_test.cpp`, #1246).
 - 2026-11-18: `core/tests/sound_golden.txt` is rewritten for the 512-sample hop (`sound_golden_test --write`, run on CI), so every pinned value moved by the hop's new length.
 - 2026-11-18: GL names have one owner, part two: `GlHandle` gains `swap()`, the `gl_gen` helpers and `GlSampler`; `OwnedProgram` (a `UniformCache` that owns its program, `core/viz/Program.hpp`); `Framebuffer`, `Texture`, `TrailPass`, `UiBlurPass`, `DivePass`, `CompositePass` and `TransitionPrograms` hold handles instead of raw names and `glDelete*` calls, and the passes gain `forget()` (nothing calls it yet: `Renderer::onSurfaceCreated` still releases first). `core/tests/gl_ownership_test.cpp` checks them.
@@ -194,3 +200,5 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `PresetRepository.save` returns whether the file was written, which `PresetLibraryController.renamePreset` already tested; `data/PresetRepository.kt`.
 - 2026-11-18: Documents corrected to the code: no `render` package, no thermal or load-shedding step in the pacer (the pacer divides by the fps cap only), the stage thread's priority, `ExportScene`, the Android Auto and minSdk lines in `README.md`, Studio without a timeline, counts replaced by descriptions, and `core/player`, `core/shell`, `core/backup` added to the directory list (`AGENTS.md`, `README.md`, `GLOSSARY.md`, `docs/agents/*.md`, `.claude/skills/geode-*/SKILL.md`, `core/viz/frame/README.md`, `tools/glslcheck/README.md`, the two specs under `docs/superpowers/specs/`).
 - 2026-11-18: `Rhythm` measures its beatless window as `cfg_.ring * cfg_.hopSeconds` now that the ring and hop are configured, not constants; `core/sound/Rhythm.cpp`.
+- 2026-11-18: The Media3 PCM tap keeps nothing but the call: the format of the last flush, the epoch at every flush and the closed gate are native (`geode_pcm_ring_tap_set_owner`, `_flush`, `_write` in `core/api/geode_ingest_api.cpp`, `pcmTapWrite`/`pcmTapFlush`/`pcmTapSetOwner` on `IngestNative`, test `core/tests/pcm_tap_test.cpp`); `PcmTap` moved from `engine/audioandroid` (package gone) to `playback/PcmTap.kt`.
+- 2026-11-18: `LfoStore` is prefs I/O only: `saveReactions` no longer defaults the hand mask to `HAND_ALL` (the mask is native's, `geode_mod_hand_load`; every caller passes it); `data/LfoStore.kt`, `data/prefs/PrefsSchemaTest.kt`.

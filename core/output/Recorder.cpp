@@ -141,6 +141,8 @@ int64_t Recorder::eatPad(int64_t frames) {
 }
 
 void Recorder::fillGap(int64_t frames) {
+    // Never past the hold's limit: an encoder that stops taking audio must not let the silence grow without bound.
+    frames = std::min(frames, framesOf(kHoldMaxMs) - held());
     if (frames <= 0) return;
     const int64_t head = emitted_ + held();
     // Silence that follows silence is one stretch, so a burst can be laid back over all of it.

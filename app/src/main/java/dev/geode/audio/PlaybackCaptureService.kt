@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import dev.geode.RingLog
 import dev.geode.appLaunchIntent
 import dev.geode.startedInForeground
 import dev.geode.util.bestEffort
@@ -138,16 +139,19 @@ class PlaybackCaptureService : Service() {
         private const val EXTRA_RESULT_CODE = "resultCode"
         private const val EXTRA_RESULT_DATA = "resultData"
 
+        /** True when the service was started; false when Android refused (the refusal is logged). */
         fun start(
             context: Context,
             resultCode: Int,
             data: Intent,
-        ) {
+        ): Boolean {
             val intent =
                 Intent(context, PlaybackCaptureService::class.java)
                     .putExtra(EXTRA_RESULT_CODE, resultCode)
                     .putExtra(EXTRA_RESULT_DATA, data)
-            context.startForegroundService(intent)
+            return runCatching { context.startForegroundService(intent) }
+                .onFailure { RingLog.note(TAG, "start refused: $it") }
+                .isSuccess
         }
 
         fun stop(context: Context) {

@@ -222,10 +222,11 @@ geode_stage* geode_stage_create(int kind, const geode_stage_client* client, floa
 geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir, const char* milk_texture_dir,
                                      float cap_fps) {
     if (kind != GEODE_STAGE_KIND_VIEW && kind != GEODE_STAGE_KIND_SURFACE) return nullptr;
-    geode_viz* viz = geode_viz_create(assets, cache_dir);
-    if (!viz) return nullptr;
+    geode_viz* viz = nullptr;
     std::shared_ptr<stage::LiveClient> live;
     try {
+        viz = geode_viz_create(assets, cache_dir);
+        if (!viz) return nullptr;
         geode_viz_set_milk_texture_dir(viz, milk_texture_dir);
         auto s = std::make_shared<Stage>();
         s->viz = viz;

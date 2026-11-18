@@ -119,3 +119,19 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `GlVersion::parse` reads the version numbers with `std::from_chars`: a number too long for an int makes the string unparseable instead of throwing (`core/viz/GlCaps.cpp`).
 - 2026-11-18: Morph World frees its shape and map bytes once they are uploaded or refused (`ShaderScene::uploadWorld`, `core/viz/scenes/ShaderScene.cpp`).
 - 2026-11-18: `ShaderScene::set1f` makes no `glUniform1f` call for a uniform the style linked away (location -1); the comment above `uploadMotion` says what that costs (`core/viz/scenes/ShaderScene.cpp`).
+- 2026-11-18: A recording in progress is finished and kept when the session shuts down: `RecordController` runs in `container.appScope` and `shutdown()` stops it (`ui/PlayerSession.kt`).
+- 2026-11-18: Loop extend discards its half-written file on any failure, including the plain `RuntimeException` `MediaMuxer.stop()` throws on a full disk, and no longer turns a cancellation into a failure (`export/LoopExtend.kt`).
+- 2026-11-18: Backup export packs the zip into `cacheDir` and copies it over the destination only once it is whole, so a failed pack no longer truncates the previous backup (`data/backup/BackupRepository.kt`).
+- 2026-11-18: A batch render that throws outside a track (pinning the look, building its state) ends as failed instead of crashing the process (`ui/ExportController.kt`).
+- 2026-11-18: A refused `ExportService` foreground start is logged to `RingLog` (`export/ExportService.kt`).
+- 2026-11-18: `PlaybackCaptureService.start` returns whether Android accepted the foreground start and logs a refusal; its two callers report a refusal as a denied consent (`audio/PlaybackCaptureService.kt`, `ui/ExternalAudioSettings.kt`, `ui/LibraryEmpty.kt`).
+- 2026-11-18: `AtomicWrite.stream` logs the throwable that made a write fail (`data/AtomicWrite.kt`).
+- 2026-11-18: `HistoryStore.writeNow` clears `dirty` before it snapshots and sets it again when the write fails or throws, so a listen added meanwhile is not lost (`data/HistoryStore.kt`).
+- 2026-11-18: Artwork cache: `ByteBudgetCache.clear()` also forgets recorded misses, and a decode that threw (lost grant, I/O error, out of memory) is no longer cached as "no picture" (`data/ByteBudgetCache.kt`, `playback/MediaArtwork.kt`, `ui/ArtworkCache.kt`, test in `ByteBudgetCacheTest`).
+- 2026-11-18: `LiveSegments` clears its header when a new `ftyp` starts, so a second init is not appended to the first; `live_segments_test` covers it (`core/cast/LiveSegments.cpp`, `core/tests/live_segments_test.cpp`).
+- 2026-11-18: `JavaReader::end` attaches the thread to the VM when `begin` could not, so the `AudioRecord` and its global references are released (`core/audio/ingest/android/JavaCapture.cpp`).
+- 2026-11-18: `LiveServer` closes the process-wide typed-path pairing only when it is the server that opened it, so a Cast stream still stopping cannot close the pairing a new one opened (`core/cast/LiveServer.cpp`; no host test reaches it, it is POSIX-socket code outside `native-host-tests.yml`).
+- 2026-11-18: Loop extend opens every loop reader on one shared direct sample buffer instead of one buffer per loop (`export/LoopExtend.kt`).
+- 2026-11-18: `RecordController` waits at most 5 s for the stage to let go before finishing the file (the handles are kept, not freed, when it never does), and a stop that arrives while the recording is still opening takes effect once it exists (`ui/RecordController.kt`).
+- 2026-11-18: glTF import charges the vertices and indices it unpacks against one `kMaxDecodedBytes` budget before allocating them; the cap is unchanged and the one `malloc` was already checked (`core/scene/object/GltfImport.cpp`).
+- 2026-11-18: `geode_stage_create_live` calls `geode_viz_create` inside its `try`, so a C++ throw from it returns null instead of reaching the JNI frame (`core/api/geode_stage_api.cpp`).

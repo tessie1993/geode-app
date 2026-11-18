@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -38,9 +39,8 @@ data class RecordUiState(
  * hands every block its sound engine took (the song, the mic layer, another app's audio) to the
  * native clock (`core/output/Recorder`), which times the whole file; the native session
  * (`core/output/RecordSession`) encodes and muxes on its own thread. This class only starts and
- * stops it, polls it, says why it ended, and saves the result:
- * straight into the place chosen in `RecordSaveSheet`, asked after the first recording, and onto
- * My videos as a project ([Host.keep]).
+ * stops it, polls it, says why it ended, and saves the result: straight into the place chosen in
+ * `RecordSaveSheet`, asked after the first recording, and onto My videos as a project ([Host.keep]).
  *
  * Main thread; the tee is a command to the stage.
  */
@@ -80,9 +80,8 @@ internal class RecordController(
         val stage: Stage,
         val mark: RecordMark,
         val track: TrackRef?,
-    ) {
-        val teeClosing = AtomicBoolean(false)
-    }
+        val teeClosing: AtomicBoolean = AtomicBoolean(false),
+    )
 
     private class Waiting(
         val file: File,
@@ -98,6 +97,8 @@ internal class RecordController(
     private var active: Active? = null
     private var waiting: Waiting? = null
     private var ticker: Job? = null
+    /** A stop that came while the recording was still opening: it takes effect once it exists. */
+    private var stopRequested = false
 
     /** The stage on screen, or null once it goes; a recording without its stage stops. */
     fun attach(next: Stage?) {
@@ -115,6 +116,7 @@ internal class RecordController(
         val width = view.surfaceWidth
         val height = view.surfaceHeight
         if (width <= 0 || height <= 0) return
+        stopRequested = false
         _state.update { it.copy(recording = true, recordedMs = 0L, note = null) }
         scope.launch {
             val started = open(view, width, height)
@@ -125,6 +127,7 @@ internal class RecordController(
             }
             active = started
             tee(started)
+            if (stopRequested) stop()
             ticker =
                 scope.launch {
                     while (isActive) {
@@ -135,9 +138,7 @@ internal class RecordController(
                             break
                         }
                         _state.update {
-                            it.copy(
-                                recordedMs = RecorderNative.recorderRecordedMs(started.recorder, RecorderNative.recordNowNs()),
-                            )
+                            it.copy(recordedMs = RecorderNative.recorderRecordedMs(started.recorder, RecorderNative.recordNowNs()))
                         }
                         delay(TICK_MS)
                     }
@@ -147,7 +148,7 @@ internal class RecordController(
 
     /** Ends the recording; the session finishes the file and [finished] saves it. */
     fun stop() {
-        val a = active ?: return
+        val a = active ?: return run { stopRequested = _state.value.recording }
         RecorderNative.recorderStop(a.recorder, RecorderNative.RECORD_STOP_USER, RecorderNative.recordNowNs())
         closeTee(a)
     }
@@ -192,14 +193,15 @@ internal class RecordController(
     ) {
         ticker?.cancel()
         ticker = null
-        val now = RecorderNative.recordNowNs()
-        val recordedMs = RecorderNative.recorderRecordedMs(a.recorder, now)
+        val recordedMs = RecorderNative.recorderRecordedMs(a.recorder, RecorderNative.recordNowNs())
         val why = RecorderNative.recorderStopped(a.recorder)
         val limitMs = RecorderNative.recorderLimitMs(a.recorder)
-        // The handles go only once the stage holds neither; a stage that is gone holds none.
-        while (!a.stage.recordClosed) delay(TICK_MS)
-        RecorderNative.recordSessionDestroy(a.session)
-        RecorderNative.recorderDestroy(a.recorder)
+        // The handles go once the stage holds neither (a stage that is gone holds none); one that never does keeps them.
+        val closed = withTimeoutOrNull(CLOSE_WAIT_MS) { while (!a.stage.recordClosed) delay(TICK_MS) } != null
+        if (closed) {
+            RecorderNative.recordSessionDestroy(a.session)
+            RecorderNative.recorderDestroy(a.recorder)
+        }
         if (active === a) active = null
         _state.update { it.copy(recording = false, recordedMs = 0L) }
         val keep = saved && RecorderNative.recordWorthKeeping(recordedMs)
@@ -267,11 +269,8 @@ internal class RecordController(
     ) {
         waiting = null
         val uri = withContext(Dispatchers.IO) { files.place(w.file, target) }
-        if (uri == null) {
-            showNote(application.getString(R.string.record_failed))
-        } else {
-            host.keep(w.track, ProjectRender(uri.toString(), w.title, System.currentTimeMillis(), w.durationMs))
-        }
+        uri?.let { host.keep(w.track, ProjectRender(it.toString(), w.title, System.currentTimeMillis(), w.durationMs)) }
+            ?: showNote(application.getString(R.string.record_failed))
     }
 
     private fun showNote(note: String) {
@@ -285,6 +284,7 @@ internal class RecordController(
     private companion object {
         const val TICK_MS = 250L
         const val NOTE_MS = 4_000L
+        const val CLOSE_WAIT_MS = 5_000L
         const val MS_PER_SECOND = 1_000L
     }
 }

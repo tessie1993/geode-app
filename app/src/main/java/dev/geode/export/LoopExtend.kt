@@ -201,15 +201,17 @@ class LoopExtend(
         return try {
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
             finish(target, completed, plan)
-        } catch (e: IllegalStateException) {
+        } catch (e: Exception) {
+            // MediaMuxer.stop() throws a plain RuntimeException when the disk is full.
             discard(target)
-            Result.Failed(e.message ?: context.getString(R.string.export_error_extend_assemble))
-        } catch (e: IllegalArgumentException) {
-            discard(target)
-            Result.Failed(context.getString(R.string.export_error_extend_copy, e.message))
-        } catch (e: IOException) {
-            discard(target)
-            Result.Failed(context.getString(R.string.export_error_extend_write, e.message))
+            if (e is CancellationException) throw e
+            Result.Failed(
+                when (e) {
+                    is IllegalArgumentException -> context.getString(R.string.export_error_extend_copy, e.message)
+                    is IllegalStateException -> e.message ?: context.getString(R.string.export_error_extend_assemble)
+                    else -> context.getString(R.string.export_error_extend_write, e.message)
+                },
+            )
         }
     }
 
@@ -221,11 +223,7 @@ class LoopExtend(
         if (completed && !publish(target)) {
             Result.Failed(context.getString(R.string.export_error_library_publish))
         } else if (completed) {
-            Result.Saved(
-                uri = target.uri,
-                durationMs = plan.totalDurationUs / 1000,
-                plan = plan,
-            )
+            Result.Saved(uri = target.uri, durationMs = plan.totalDurationUs / 1000, plan = plan)
         } else {
             discard(target)
             Result.Cancelled
@@ -250,7 +248,7 @@ class LoopExtend(
         var started = false
         var stopped = false
         try {
-            reel.loops.forEach { readers += LoopReader.open(it.file) }
+            reel.loops.forEach { readers += LoopReader.open(it.file, readers.firstOrNull()?.buffer) }
             checkOneEncoding(readers)
             val writer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxer = it }
             val videoTrack = writer.addTrack(readers.first().format)
@@ -462,8 +460,8 @@ class LoopExtend(
     private class LoopReader private constructor(
         private val extractor: MediaExtractor,
         val format: MediaFormat,
+        val buffer: ByteBuffer,
     ) : Closeable {
-        private val buffer: ByteBuffer = ByteBuffer.allocateDirect(sampleBufferBytes(format))
         private val info = MediaCodec.BufferInfo()
 
         /** Identifies the encoder configuration this loop carries: width, height, mime and csd. */
@@ -507,7 +505,10 @@ class LoopExtend(
         }
 
         companion object {
-            fun open(file: File): LoopReader {
+            fun open(
+                file: File,
+                shared: ByteBuffer?,
+            ): LoopReader {
                 val extractor = MediaExtractor()
                 val opened =
                     runCatching {
@@ -517,7 +518,8 @@ class LoopExtend(
                                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
                             } ?: error("The rendered loop has no video track.")
                         extractor.selectTrack(track)
-                        LoopReader(extractor, extractor.getTrackFormat(track))
+                        val format = extractor.getTrackFormat(track)
+                        LoopReader(extractor, format, shared ?: ByteBuffer.allocateDirect(sampleBufferBytes(format)))
                     }
                 return opened.getOrElse { failure ->
                     bestEffort(TAG, "extractor.release()") { extractor.release() }

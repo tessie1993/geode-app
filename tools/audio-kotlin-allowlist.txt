@@ -32,16 +32,6 @@ debt app/src/main/java/dev/geode/viz/NativeViz.kt native-call:vizWriteAudio pass
 debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:vizWriteAudio JNI declaration taking a FloatArray of samples
 
 # ---- debt: export, loop render and Studio audio ----
-debt app/src/main/java/dev/geode/export/AudioTranscoder.kt codec-buffer decodes and encodes AAC through MediaCodec input and output buffers
-debt app/src/main/java/dev/geode/export/AudioTranscoder.kt extractor-sample reads compressed audio samples from MediaExtractor
-debt app/src/main/java/dev/geode/export/AudioTranscoder.kt native-call:aiffReadS16 reads AIFF PCM into a ShortArray
-debt app/src/main/java/dev/geode/export/AudioTranscoder.kt native-call:pcmDownmixS16 downmixes a ShortArray of PCM
-debt app/src/main/java/dev/geode/export/AudioTranscoder.kt native-call:pcmFloatToS16 converts a FloatArray of PCM to shorts
-debt app/src/main/java/dev/geode/export/PcmResampler.kt native-call:resamplerProcess resamples a ShortArray of PCM
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:aiffReadS16 JNI declaration returning PCM in a ShortArray
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmDownmixS16 JNI declaration taking and returning a ShortArray of PCM
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmFloatToS16 JNI declaration taking a FloatArray, returning a ShortArray of PCM
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:resamplerProcess JNI declaration taking and returning a ShortArray of PCM
 debt app/src/main/java/dev/geode/export/LoopExtend.kt extractor-sample copies the soundtrack's compressed samples through MediaExtractor
 debt app/src/main/java/dev/geode/export/LoopExtend.kt muxer-sample writes AAC samples to the MediaMuxer
 

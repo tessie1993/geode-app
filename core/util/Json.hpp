@@ -59,6 +59,9 @@ std::optional<Value> parse(const std::string& text);
 // parse() taking only standard JSON numbers, plus org.json's NaN, Infinity and -Infinity: a document org.json
 // read and this reads, both read alike (no octal, hex, leading '+' or bare-point numbers).
 std::optional<Value> parseStandard(const std::string& text);
+// The first value of `text`, leading whitespace skipped and whatever follows it ignored, as org.json's
+// JSONObject(String) read: a template pasted with a sentence after it still reads.
+std::optional<Value> parseLeading(const std::string& text);
 
 // org.json's reading of a value as another type (Android's JSONObject opt*, through its JSON.to* coercions):
 // nullopt wherever org.json falls back to the caller's default.
@@ -71,6 +74,8 @@ std::optional<Value> parseStandard(const std::string& text);
 std::optional<bool> asBoolean(const Value& v);
 std::optional<double> asDouble(const Value& v);
 std::optional<int> asInt(const Value& v);
+// asLong: a whole number as its long, any other number or a string Double.valueOf reads cast as Java's (long) does.
+std::optional<long long> asLong(const Value& v);
 std::optional<std::string> asString(const Value& v);
 
 // Java's Double.valueOf(String): trimmed, a sign, NaN, Infinity, decimal or hex digits, an f/F/d/D suffix.
@@ -87,5 +92,8 @@ std::string quoted(std::string_view s);
 // A value as org.json's toString() prints it: compact, keys in their order, numbers by numberText (a whole
 // literal as its long). nullopt for a non-finite number anywhere inside, where org.json's toString gives null.
 std::optional<std::string> orgJsonText(const Value& v);
+// orgJsonText as org.json's toString(indent) prints it: one member or element per line, `indent` spaces a level
+// deeper than `level`, "key": value, an empty object or array as {} or [].
+std::optional<std::string> orgJsonIndented(const Value& v, int indent, int level = 0);
 
 }  // namespace geode::json

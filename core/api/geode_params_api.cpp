@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <optional>
@@ -13,6 +14,7 @@
 #include "viz/Config.hpp"
 #include "viz/ModDocument.hpp"
 #include "viz/ParamRandomizer.hpp"
+#include "viz/PanelRoll.hpp"
 #include "viz/Params.hpp"
 #include "viz/ParamsPalette.hpp"
 #include "viz/TouchGesture.hpp"
@@ -199,6 +201,43 @@ int geode_mod_waves_randomize(const char* style_id, const char* locked, uint64_t
     }
     const std::string now = doc.lfosText();
     return geode::api::textOut(now == was ? std::string() : now, out, capacity);
+}
+
+const char* geode_mod_waves_roll(const char* style_id, const char* locked, int all, const float* params, const char* lfos) {
+    thread_local std::string rolled;
+    const uint64_t seed = geode::viz::panel_roll::nextSeed();
+    const int need = geode_mod_waves_randomize(style_id, locked, seed, all ? 0 : 1, params, lfos, nullptr, 0);
+    if (need <= 0) return nullptr;
+    rolled.assign(static_cast<size_t>(need) + 1, '\0');
+    geode_mod_waves_randomize(style_id, locked, seed, all ? 0 : 1, params, lfos, rolled.data(), need + 1);
+    rolled.resize(static_cast<size_t>(need));
+    return rolled.c_str();
+}
+
+int geode_panel_roll(const char* style_id, const char* category, const char* kept, int basics_only, const float* in,
+                     float* out) {
+    namespace roll = geode::viz::panel_roll;
+    const std::string keys = roll::locks(kept ? kept : "", basics_only != 0);
+    const uint64_t seed = roll::nextSeed();
+    const int changed = category ? geode_customize_randomize(style_id, category, keys.c_str(), seed, in, out)
+                                 : geode_params_randomize(style_id, nullptr, keys.c_str(), seed, in, out);
+    return roll::bits(changed != 0, category == nullptr, basics_only != 0);
+}
+
+int geode_panel_roll_all(const char* style_id, const char* kept, int basics_only, uint64_t seed, const float* before,
+                         const float* base, float* out) {
+    namespace roll = geode::viz::panel_roll;
+    const std::string keys = roll::locks(kept ? kept : "", basics_only != 0);
+    const int changed = geode_randomize_all_roll(style_id, keys.c_str(), seed, 1, before, base, out);
+    return roll::bits(changed != 0, true, basics_only != 0);
+}
+
+void geode_params_reroll_reactions(const float* in, float* out) {
+    if (!in || !out) return;
+    SceneParams look = SceneParams::fromWire(in);
+    const int slot = SceneParams::slotOf("reactSeed");
+    if (slot >= 0) look.setSlot(slot, static_cast<float>(std::lround(look.getSlot(slot)) + 1));
+    look.toWire(out);
 }
 
 void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) {

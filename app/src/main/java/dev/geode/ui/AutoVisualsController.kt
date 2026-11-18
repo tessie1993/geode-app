@@ -1,15 +1,20 @@
 package dev.geode.ui
 
+import android.os.SystemClock
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * Auto visuals' shell: the settings, the playlist as the user edits it, and the change native names. When the
+ * playlist steps and to which entry, when the timed draw is due, what a director moment brings and what a draw
+ * picks are native (core/viz/AutoPlan); this lists the sources, polls and puts the pick up.
+ */
 internal class AutoVisualsController(
     private val prefsStore: AutoVisualsPrefsStore,
     private val host: Host,
@@ -46,41 +51,18 @@ internal class AutoVisualsController(
         fun relistMilk()
     }
 
-    private var vizPlaylistIndex = 0
-
     /** Whether [Host.relistMilk] was asked once; Auto's switches come back from the prefs, not a toggle. */
     private var milkListed = false
 
-    /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
-    private var leftAs: Pair<String, SceneParams>? = null
-
-    /**
-     * Customize is open. Auto holds every change meanwhile (a moment, the timer, the playlist), as
-     * MilkDrop locks the preset while a menu is up, and its timers start over when it closes.
-     */
+    /** Customize is open: native holds every change meanwhile and starts its waits over when it closes. */
     var editing = false
         set(value) {
-            if (field && !value) {
-                val now = android.os.SystemClock.elapsedRealtime()
-                GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, now)
-                GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, now)
-            }
             field = value
+            GeodeNative.autoEditingSet(value, SystemClock.elapsedRealtime())
         }
 
-    /**
-     * The user picked a style, a preset or a .milk by hand: Auto's wait starts over, as MilkDrop's does
-     * on any load, so the timer does not replace the pick a moment later and a .milk's `progress` runs
-     * over the wait that now applies to it.
-     */
-    fun noteHandPick() {
-        val now = android.os.SystemClock.elapsedRealtime()
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, now)
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, now)
-    }
-
-    /** Auto changes nothing now: Customize is open or nothing plays. */
-    private val holding get() = editing || !host.isPlaying
+    /** The user picked a style, a preset or a .milk by hand: native starts Auto's waits over. */
+    fun noteHandPick() = GeodeNative.autoHandPick(SystemClock.elapsedRealtime())
 
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
@@ -130,22 +112,20 @@ internal class AutoVisualsController(
                 randomEnabled = if (enabled) false else it.randomEnabled,
             )
         }
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, android.os.SystemClock.elapsedRealtime())
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, SystemClock.elapsedRealtime())
         persistAutoVisuals()
     }
 
     fun setVizPlaylistInterval(seconds: Int) {
-        host.updateViz { it.copy(vizPlaylistIntervalSec = seconds.coerceIn(AutoVisualsPrefsStore.INTERVAL_SEC)) }
+        host.updateViz { it.copy(vizPlaylistIntervalSec = GeodeNative.autoIntervalSeconds(seconds)) }
         persistAutoVisuals()
     }
 
     fun advanceVizPlaylist() {
         val s = host.vizState.value
-        val running = s.vizPlaylistEnabled && s.vizPlaylist.size >= 2 && !holding
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (!GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_PLAYLIST, now, s.vizPlaylistIntervalSec, running)) return
-        vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
-        applyVizEntry(s.vizPlaylist[vizPlaylistIndex], automatic = true)
+        val now = SystemClock.elapsedRealtime()
+        val index = GeodeNative.autoPlaylistTick(s.vizPlaylist.size, s.vizPlaylistEnabled, host.isPlaying, s.vizPlaylistIntervalSec, now)
+        if (index >= 0) applyVizEntry(s.vizPlaylist[index], automatic = true)
     }
 
     /**
@@ -159,10 +139,9 @@ internal class AutoVisualsController(
         automatic: Boolean = false,
     ): Boolean {
         val s = host.vizState.value
-        if (s.vizPlaylist.size < 2) return false
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, android.os.SystemClock.elapsedRealtime())
-        vizPlaylistIndex = Math.floorMod(vizPlaylistIndex + if (step < 0) -1 else 1, s.vizPlaylist.size)
-        applyVizEntry(s.vizPlaylist[vizPlaylistIndex], automatic)
+        val index = GeodeNative.autoPlaylistStep(s.vizPlaylist.size, step, SystemClock.elapsedRealtime())
+        if (index < 0) return false
+        applyVizEntry(s.vizPlaylist[index], automatic)
         return true
     }
 
@@ -173,7 +152,7 @@ internal class AutoVisualsController(
                 vizPlaylistEnabled = if (enabled) false else it.vizPlaylistEnabled,
             )
         }
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, android.os.SystemClock.elapsedRealtime())
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, SystemClock.elapsedRealtime())
         // The poll first, so the timer is running before the first look loads.
         advanceRandomMode()
         if (enabled && host.vizState.value.randomIncludeMilk) refreshMilkCache()
@@ -182,7 +161,7 @@ internal class AutoVisualsController(
     }
 
     fun setRandomInterval(seconds: Int) {
-        host.updateViz { it.copy(randomIntervalSec = seconds.coerceIn(AutoVisualsPrefsStore.INTERVAL_SEC)) }
+        host.updateViz { it.copy(randomIntervalSec = GeodeNative.autoIntervalSeconds(seconds)) }
         persistAutoVisuals()
     }
 
@@ -218,62 +197,55 @@ internal class AutoVisualsController(
      * minute for free), so the style changes follow the same rule.
      */
     fun onDirectorMoment() {
-        if (holding) return
-        // A style picked or a control moved since Auto's last change: this moment is the user's
-        // (MilkDrop restarts its timer on a manual load and holds while a menu is up). While they
-        // keep editing every moment is skipped; Auto picks up again at the first one after they stop.
-        val now = host.vizState.value.let { it.sceneId to it.params }
-        val touched = leftAs != null && leftAs != now
-        leftAs = now
-        if (touched) return
-        // A moment changes the style, never the look: a preset would replace every Customize value.
-        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist(automatic = true) else randomStepNow(keepLook = true)
+        val s = host.vizState.value
+        when (GeodeNative.autoMoment(s.sceneId, s.params.frame(), s.params.customPaletteId, host.isPlaying, s.vizPlaylistEnabled)) {
+            GeodeNative.AUTO_MOMENT_PLAYLIST -> stepVizPlaylist(automatic = true)
+            GeodeNative.AUTO_MOMENT_RANDOM -> randomStepNow(keepLook = true)
+        }
     }
 
     fun advanceRandomMode() {
         val s = host.vizState.value
         // "MilkDrop presets" restored on at start draws from the list too, not only after a toggle.
         if (s.randomIncludeMilk && !milkListed) refreshMilkCache()
-        val running = s.randomEnabled && !holding
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_RANDOM, now, s.randomIntervalSec, running)) randomStepNow()
+        if (GeodeNative.autoRandomTick(s.randomEnabled, host.isPlaying, s.randomIntervalSec, SystemClock.elapsedRealtime())) randomStepNow()
     }
 
     /**
      * A draw from Auto's sources, among the styles the user may keep. With [keepLook] (a director
-     * moment) only the style changes: no preset, so Customize stays as set.
+     * moment) only the style changes: no preset, so Customize stays as set. Native draws.
      */
     fun randomStepNow(keepLook: Boolean = false) {
         val s = host.vizState.value
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, android.os.SystemClock.elapsedRealtime())
-        val choices = mutableListOf<VizPlaylistEntry>()
-        // The entry on screen, if it is in the pool: the native draw never brings it back while there is another.
-        var onScreen = -1
-        val sceneIds = StyleCatalogue.ids(GeodeNative.STYLE_AUTO_DRAW)
-        // Locked styles are left out of the draw: a pick the gate then refused was a moment with no change.
-        if (s.randomIncludeStyles) {
-            sceneIds.filter(host::allowsStyle).forEach {
-                if (it == s.sceneId && onScreen < 0) onScreen = choices.size
-                choices += VizPlaylistEntry(sceneId = it, label = it)
+        val milk = host.milkFiles
+        var sources = 0
+        if (s.randomIncludeStyles) sources = sources or GeodeNative.AUTO_DRAW_STYLES
+        if (s.randomIncludePresets) sources = sources or GeodeNative.AUTO_DRAW_PRESETS
+        if (s.randomIncludeMilk) sources = sources or GeodeNative.AUTO_DRAW_MILK
+        if (keepLook) sources = sources or GeodeNative.AUTO_DRAW_KEEP_LOOK
+        val styles = StyleCatalogue.ids + s.presets.map { it.sceneId } + GeodeNative.STYLE_MILKDROP
+        val out = IntArray(2)
+        val sceneId =
+            GeodeNative.autoDraw(
+                styles.distinct().filterNot(host::allowsStyle).joinToString("\n"),
+                s.sceneId,
+                s.presets.joinToString("\n") { it.sceneId },
+                s.presets.indexOfFirst { it.sceneId == s.sceneId && it.params == s.params },
+                milk.size,
+                milk.indexOfFirst { it.path == host.activeMilkPath },
+                GeodeNative.STYLE_MILKDROP,
+                sources,
+                SystemClock.elapsedRealtime(),
+                out,
+            ) ?: return
+        val i = out[1]
+        val entry =
+            when (out[0]) {
+                GeodeNative.AUTO_KIND_PRESET -> VizPlaylistEntry(sceneId, presetName = s.presets[i].name, label = s.presets[i].name)
+                GeodeNative.AUTO_KIND_MILK -> VizPlaylistEntry(sceneId, milkPath = milk[i].path, label = milk[i].name)
+                else -> VizPlaylistEntry(sceneId = sceneId, label = sceneId)
             }
-        }
-        if (s.randomIncludePresets && !keepLook) {
-            s.presets.filter { host.allowsStyle(it.sceneId) }.forEach {
-                if (it.sceneId == s.sceneId && it.params == s.params && onScreen < 0) onScreen = choices.size
-                choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name)
-            }
-        }
-        if (s.randomIncludeMilk && host.allowsStyle(GeodeNative.STYLE_MILKDROP)) {
-            val playing = host.activeMilkPath.takeIf { s.sceneId == GeodeNative.STYLE_MILKDROP }
-            host.milkFiles.forEach {
-                if (it.path == playing && onScreen < 0) onScreen = choices.size
-                choices += VizPlaylistEntry(sceneId = GeodeNative.STYLE_MILKDROP, milkPath = it.path, label = it.name)
-            }
-        }
-        // Native picks: at a director moment the style the Auto Director asks for (-1 keeps the one on screen).
-        val pick = GeodeNative.autoPickAmong(choices.joinToString("\n") { it.sceneId }, onScreen, directorMoment = keepLook)
-        if (pick < 0) return
-        applyVizEntry(choices[pick], automatic = true)
+        applyVizEntry(entry, automatic = true)
     }
 
     /** [automatic]: Auto's own change, which native fades for longer than one by hand. */
@@ -295,6 +267,6 @@ internal class AutoVisualsController(
             host.applyMilk(entry.milkPath, entry.sceneId)
         }
         // Auto's own change (a moment, the timer, the playlist) is not the user's hand.
-        leftAs = host.vizState.value.let { it.sceneId to it.params }
+        host.vizState.value.let { GeodeNative.autoLeftAs(it.sceneId, it.params.frame(), it.params.customPaletteId) }
     }
 }

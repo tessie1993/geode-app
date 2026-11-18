@@ -724,6 +724,25 @@ GEODE_API const char* geode_template_unique_name(const char* base, const char* c
 GEODE_API int         geode_template_starter_count(void);
 GEODE_API const char* geode_template_starter(int index);
 GEODE_API int         geode_template_is_starter(const char* id);
+/* The template file (viz/TemplateFile): the shell hands the text in and keeps the text out. read: 1 when `text` is a
+ * template, out_text[7] = the file text this build writes for it, id, name, scene id, custom shader and milk preset
+ * (NULL when absent), saved palette id, the params into out_frame (n at least geode_viz_param_count) and attack and
+ * decay into out_envelope[2]; 0 when it is JSON but no template and -1 when it cannot be read, out_text[0] the reason
+ * either way. create: a new template's text (fresh id, every other section at its default) for the look given;
+ * NULL for a short frame. renamed: the text with `name`; new_copy: with a fresh id, `name`, no author and
+ * created_at_ms (NULL when `text` is no template). link_in: the geode://template link in `text` as the
+ * geode://preset link of the same payload, or NULL; link_of: a geode://preset link as the template link, NULL when
+ * it is no preset link or longer than max_length. share_name: the file name a shared copy arrives under. Text out
+ * valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API int         geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
+GEODE_API const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack,
+                                            float decay, const char* custom_shader, const char* milk_preset,
+                                            const float* frame, int n, const char* custom_palette_id);
+GEODE_API const char* geode_template_renamed(const char* text, const char* name);
+GEODE_API const char* geode_template_new_copy(const char* text, const char* name, long long created_at_ms);
+GEODE_API const char* geode_template_link_in(const char* text);
+GEODE_API const char* geode_template_link_of(const char* preset_link, int max_length);
+GEODE_API const char* geode_template_share_name(const char* name);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
@@ -973,6 +992,31 @@ GEODE_API int         geode_randomize_all_pick(uint64_t seed, const char* curren
                                                int* look_out, int* milk_out);
 GEODE_API int         geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories,
                                                const float* before, const float* base, float* out);
+/* Customize's dice (core/viz/PanelRoll), seeded natively per roll. kept is the user's lock set (keys and "#CATEGORY"
+ * lines); basics_only is the roll without Pro. geode_panel_roll rolls category (a CustomizeMap name), or with NULL
+ * everything, as geode_customize_randomize / geode_params_randomize. geode_panel_roll_all is geode_randomize_all_roll
+ * with roll_categories 1 and the gesture's seed. Both return GEODE_PANEL_ROLL_* bits: CHANGED when out differs from
+ * the look, WAVES when the steady waves are to roll next (geode_mod_waves_roll with all 0). */
+#define GEODE_PANEL_ROLL_CHANGED 1
+#define GEODE_PANEL_ROLL_WAVES   2
+GEODE_API int         geode_panel_roll(const char* style_id, const char* category, const char* kept, int basics_only,
+                                       const float* in, float* out);
+GEODE_API int         geode_panel_roll_all(const char* style_id, const char* kept, int basics_only, uint64_t seed,
+                                           const float* before, const float* base, float* out);
+/* Music's "new personality": in with the reaction DNA's seed one further, into out. */
+GEODE_API void        geode_params_reroll_reactions(const float* in, float* out);
+/* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
+ * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
+ * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
+ * put up instead of current (redo 1: the last undone), its frame into out (count floats) and its palette id returned,
+ * valid until this thread's next step; NULL when there is none. Both report GEODE_PARAM_HISTORY_* bits through state
+ * (record returns them too). */
+#define GEODE_PARAM_HISTORY_UNDO 1
+#define GEODE_PARAM_HISTORY_REDO 2
+GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms,
+                                                 int discrete);
+GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out);
+GEODE_API int         geode_param_history_state(void);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
  * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
@@ -1314,6 +1358,46 @@ GEODE_API void            geode_auto_mark_change(const char* key);
 /* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
  * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
+/* Auto visuals' decisions (core/viz/AutoPlan), process-wide over the two timers above. now_ms as above; playing 0
+ * (nothing plays) and Customize open (editing_set 1) hold every change.
+ * interval_s: a timer interval held to its range. editing_set: Customize opened (1) or closed (0, both waits start
+ * over). hand_pick: a style, a look or a .milk picked by hand (both waits start over). playlist_tick: the playlist
+ * entry (of count) to put up now, or -1; it runs while enabled with two entries or more. playlist_step: a step by
+ * hand or a moment's (step < 0 back): the entry, or -1 with fewer than two. random_tick: 1 when the timed draw is due.
+ * moment: a director moment on the look on screen (style, count floats of its params, its saved palette id): a
+ * GEODE_AUTO_MOMENT_*; NONE when the user changed the look since Auto's last change. left_as: Auto's own change is on
+ * screen now (after the shell put it up).
+ * draw: Auto's draw (restarting the timed wait) among the sources (GEODE_AUTO_DRAW_* bits): the AutoDraw styles,
+ * the saved looks (preset_styles, each one's style id a line), the .milk files (milk_count, shown as milk_style),
+ * none in locked_styles (one a line, what the entitlement refuses). preset_on_screen is the first saved look equal
+ * to the one on screen, milk_on_screen the .milk playing (-1 for none). KEEP_LOOK is a moment's draw: no saved look,
+ * and the style the director asks for (geode_auto_pick_among). Writes the entry's kind (GEODE_AUTO_KIND_*) and its
+ * index in that list (the AutoDraw list for a style) to out2 and returns its style id, valid until this thread's
+ * next draw; NULL for none. */
+#define GEODE_AUTO_MOMENT_NONE               0
+#define GEODE_AUTO_MOMENT_PLAYLIST           1
+#define GEODE_AUTO_MOMENT_RANDOM             2
+#define GEODE_AUTO_DRAW_STYLES               1
+#define GEODE_AUTO_DRAW_PRESETS              2
+#define GEODE_AUTO_DRAW_MILK                 4
+#define GEODE_AUTO_DRAW_KEEP_LOOK            8
+#define GEODE_AUTO_KIND_STYLE                0
+#define GEODE_AUTO_KIND_PRESET               1
+#define GEODE_AUTO_KIND_MILK                 2
+#define GEODE_AUTO_INTERVAL_MIN_S 5
+#define GEODE_AUTO_INTERVAL_MAX_S 300
+GEODE_API int             geode_auto_interval_s(int requested_s);
+GEODE_API void            geode_auto_editing_set(int on, long long now_ms);
+GEODE_API void            geode_auto_hand_pick(long long now_ms);
+GEODE_API int             geode_auto_playlist_tick(int count, int enabled, int playing, int interval_s, long long now_ms);
+GEODE_API int             geode_auto_playlist_step(int count, int step, long long now_ms);
+GEODE_API int             geode_auto_random_tick(int enabled, int playing, int interval_s, long long now_ms);
+GEODE_API int             geode_auto_moment(const char* style, const float* frame, int count, const char* palette_id,
+                                            int playing, int playlist_enabled);
+GEODE_API void            geode_auto_left_as(const char* style, const float* frame, int count, const char* palette_id);
+GEODE_API const char*     geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
+                                          int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style,
+                                          int sources, long long now_ms, int* out2);
 /* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
  * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
  * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for

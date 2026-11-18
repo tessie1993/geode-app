@@ -334,4 +334,75 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateIsSt
     return geode_template_is_starter(textOf(ident)) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateRead(JNIEnv* env, jobject, jstring text, jfloatArray frame,
+                                                                           jobjectArray strings, jfloatArray envelope) {
+    constexpr jsize kStrings = 7;
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!frame || env->GetArrayLength(frame) < count || !strings || env->GetArrayLength(strings) < kStrings || !envelope ||
+        env->GetArrayLength(envelope) < 2) {
+        return -1;
+    }
+    Utf8Chars chars(env, text);
+    std::vector<float> values(static_cast<size_t>(count));
+    const char* read[kStrings] = {};
+    float pair[2] = {};
+    const int status = geode_template_read(textOf(chars), values.data(), count, read, pair);
+    if (status == 1) {
+        env->SetFloatArrayRegion(frame, 0, count, values.data());
+        env->SetFloatArrayRegion(envelope, 0, 2, pair);
+    }
+    const jsize filled = status == 1 ? kStrings : 1;
+    for (jsize i = 0; i < filled; ++i) {
+        jstring s = utf8String(env, read[i]);
+        if (env->ExceptionCheck()) return -1;
+        env->SetObjectArrayElement(strings, i, s);
+        if (s) env->DeleteLocalRef(s);
+    }
+    return status;
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateCreate(JNIEnv* env, jobject, jstring name, jlong createdAtMs,
+                                                                                jstring sceneId, jfloat attack, jfloat decay,
+                                                                                jstring customShader, jstring milkPreset,
+                                                                                jfloatArray frame, jstring customPaletteId) {
+    Utf8Chars label(env, name);
+    Utf8Chars scene(env, sceneId);
+    Utf8Chars shader(env, customShader);
+    Utf8Chars milk(env, milkPreset);
+    Utf8Chars paletteId(env, customPaletteId);
+    FloatElements values(env, frame);
+    if (!values.get()) return nullptr;
+    return utf8String(env, geode_template_create(textOf(label), static_cast<long long>(createdAtMs), textOf(scene), attack, decay,
+                                                 shader.get(), milk.get(), values.get(), values.length(), textOf(paletteId)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateRenamed(JNIEnv* env, jobject, jstring text, jstring name) {
+    Utf8Chars chars(env, text);
+    Utf8Chars label(env, name);
+    return utf8String(env, geode_template_renamed(textOf(chars), textOf(label)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_templateNewCopy(JNIEnv* env, jobject, jstring text, jstring name, jlong createdAtMs) {
+    Utf8Chars chars(env, text);
+    Utf8Chars label(env, name);
+    return utf8String(env, geode_template_new_copy(textOf(chars), textOf(label), static_cast<long long>(createdAtMs)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateLinkIn(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_template_link_in(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_templateLinkOf(JNIEnv* env, jobject, jstring presetLink, jint maxLength) {
+    Utf8Chars chars(env, presetLink);
+    return utf8String(env, geode_template_link_of(textOf(chars), maxLength));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_templateShareName(JNIEnv* env, jobject, jstring name) {
+    Utf8Chars chars(env, name);
+    return utf8String(env, geode_template_share_name(textOf(chars)));
+}
+
 }

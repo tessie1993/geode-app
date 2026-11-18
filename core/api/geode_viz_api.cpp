@@ -24,6 +24,7 @@
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/AutoDraw.hpp"
+#include "viz/AutoPlan.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
 #include "viz/DirectorStyle.hpp"
@@ -607,8 +608,10 @@ int geode_mod_reactions_edit(const char* style_id, int seed, const char* reactio
                              float value, char* out, int capacity, unsigned* out_mask) {
     ModDocument doc = reactionsOf(reactions, mask);
     if (style_id) doc.editReactions(dnaOf(style_id, seed), style_id, op, a, b, value);
-    if (out_mask) *out_mask = doc.handMask();
-    return geode::api::textOut(doc.reactionsText(), out, capacity);
+    const std::string routes = doc.reactionsText();
+    // No routes of the user's own: every moment is the style's DNA again.
+    if (out_mask) *out_mask = routes.empty() ? 0u : doc.handMask();
+    return geode::api::textOut(routes, out, capacity);
 }
 
 int geode_mod_music_state(const char* style_id, int seed, const char* reactions, unsigned mask, float* out, int capacity) {
@@ -674,6 +677,39 @@ int geode_auto_pick_among(const char* ids, int on_screen, int director_moment) {
     }
     const int count = pool.empty() ? 0 : static_cast<int>(std::count(pool.begin(), pool.end(), '\n')) + 1;
     return auto_draw::pick(count, on_screen);
+}
+
+const char* geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
+                            int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style, int sources,
+                            long long now_ms, int* out2) {
+    thread_local std::string picked;
+    auto_timer::restart(auto_timer::kRandom, now_ms);
+    const auto lines = [](const char* s) {
+        std::vector<std::string> out;
+        const std::string all = text(s);
+        if (all.empty()) return out;
+        size_t at = 0;
+        for (size_t nl; (nl = all.find('\n', at)) != std::string::npos; at = nl + 1) out.push_back(all.substr(at, nl - at));
+        if (at < all.size()) out.push_back(all.substr(at));
+        return out;
+    };
+    const auto locked = lines(locked_styles);
+    const auto pool = auto_plan::pool(lines(geode_catalogue_style_ids(GEODE_STYLE_AUTO_DRAW)),
+                                      std::set<std::string>(locked.begin(), locked.end()), text(current_style),
+                                      lines(preset_styles), preset_on_screen, milk_count, milk_on_screen, text(milk_style),
+                                      sources);
+    const int pick = geode_auto_pick_among(pool.ids.c_str(), pool.onScreen, (sources & GEODE_AUTO_DRAW_KEEP_LOOK) ? 1 : 0);
+    if (pick < 0 || pick >= static_cast<int>(pool.entries.size())) return nullptr;
+    const auto [kind, index] = pool.entries[static_cast<size_t>(pick)];
+    if (out2) {
+        out2[0] = kind;
+        out2[1] = index;
+    }
+    const std::string_view ids = pool.ids;
+    size_t at = 0;
+    for (int i = 0; i < pick; ++i) at = ids.find('\n', at) + 1;
+    picked = std::string(ids.substr(at, ids.find('\n', at) - at));
+    return picked.c_str();
 }
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }

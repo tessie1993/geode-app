@@ -431,6 +431,9 @@ void theEditorCopiesMovesAndResets() {
           "an unlinkable target or an unknown knob adds nothing");
     check(macrobank::decode(geode_macro_bank_add_link(macrobank::encode(mine).c_str(), made, "ZOOM")) == linked, "geode_macro_bank_add_link");
     check(macrobank::resetKnob(def, 4242) == def, "resetting an unknown knob changes nothing");
+    const Bank all = macrobank::resetAll(mine);
+    check(all.knobs == def.knobs && all.nextId == mine.nextId, "reset all is the default knobs with the spent ids kept");
+    check(macrobank::resetAll(def) == def, "reset all of the default bank is the default bank");
 }
 
 std::vector<std::vector<std::string>> rowsOf(const std::string& text, const std::string& tag) {
@@ -1350,6 +1353,8 @@ void modulationTurnsAKnobWithoutRewritingIt() {
     KnobMods big;
     big.add(colour, 5.0f, KnobMods::kWave);
     check(macrobank::effective(bank.knobs[2], &big) == 1.0f, "held to a full turn");
+    check(macrobank::modulated(0.25f, 0.5f) == 0.75f && macrobank::modulated(0.75f, 0.5f) == 1.0f && macrobank::modulated(-0.75f, -0.5f) == -1.0f,
+          "modulated is the turn plus the offset, held to a full turn");
     KnobMods bad;
     bad.add(colour, std::numeric_limits<float>::quiet_NaN(), KnobMods::kWave);
     check(macrobank::effective(bank.knobs[2], &bad) == 0.25f, "a non-finite modulation adds nothing");

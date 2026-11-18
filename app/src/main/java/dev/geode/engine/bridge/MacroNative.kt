@@ -50,6 +50,9 @@ object MacroNative {
         knobId: Int,
     ): String
 
+    /** The default bank, keeping the ids [bank] already spent so no old reference finds a new knob. */
+    external fun macroBankResetAll(bank: String): String
+
     /** The knob [delta] places along the bank, negative earlier. */
     external fun macroBankMoveKnob(
         bank: String,
@@ -107,6 +110,12 @@ object MacroNative {
      * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.
      */
     external fun macroBankLiveMods(): String
+
+    /** A knob's [turn] plus what modulation adds ([add]), held to -1..1 by native, as the engine draws it. */
+    external fun macroBankModulated(
+        turn: Float,
+        add: Float,
+    ): Float
 
     /** New ranges and curves for the links the knob has, their params kept; the same [seed], the same ranges. */
     external fun macroBankRollRanges(

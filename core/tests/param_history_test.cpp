@@ -30,7 +30,7 @@ void check(bool ok, const char* what) {
     }
 }
 
-history::Look look(float v, const char* id = "") { return history::Look{{v, v + 1.0f}, id}; }
+history::Look look(float v, const char* id = "", const char* style = "") { return history::Look{{v, v + 1.0f}, id, style}; }
 
 float valueOf(const std::optional<history::Look>& l) { return l ? l->frame[0] : -1.0f; }
 
@@ -133,13 +133,13 @@ void api() {
     const float a[3] = {0.25f, 0.5f, 0.75f};
     const float b[3] = {1.0f, 2.0f, 3.0f};
     float out[3] = {};
-    check(geode_param_history_step(0, b, 3, "", out) == nullptr, "nothing to undo at start");
-    check(geode_param_history_record(a, 3, "kept", 93'000, 1) == GEODE_PARAM_HISTORY_UNDO, "record reports the bits");
-    const char* id = geode_param_history_step(0, b, 3, nullptr, out);
+    check(geode_param_history_step(0, b, 3, "", "", out) == nullptr, "nothing to undo at start");
+    check(geode_param_history_record(a, 3, "kept", "", 93'000, 1) == GEODE_PARAM_HISTORY_UNDO, "record reports the bits");
+    const char* id = geode_param_history_step(0, b, 3, nullptr, nullptr, out);
     check(id && std::string(id) == "kept", "the palette id comes back");
     check(out[0] == 0.25f && out[2] == 0.75f, "the frame comes back");
     check(geode_param_history_state() == GEODE_PARAM_HISTORY_REDO, "state after an undo");
-    id = geode_param_history_step(1, a, 3, "kept", out);
+    id = geode_param_history_step(1, a, 3, "kept", "", out);
     check(id && std::string(id).empty() && out[1] == 2.0f, "redo; a NULL palette id was \"\"");
 }
 
@@ -157,7 +157,20 @@ void rollRules() {
 
 }  // namespace
 
+// A look made on one style is never put up on another: its entries are dropped, the style's own are kept.
+void styleScopesTheUndo() {
+    history::History h;
+    h.record(look(1, "", "zoom"), 0, true);
+    h.record(look(2, "", "spin"), 0, true);
+    auto onSpin = h.step(false, look(3, "", "spin"));
+    check(valueOf(onSpin) == 2.0f, "undo on a style puts up that style's look");
+    auto onZoom = h.step(false, look(4, "", "fractal"));
+    check(!onZoom, "an entry from another style is not put up");
+    check(!h.step(false, look(4, "", "zoom")), "and it was dropped, not kept for later");
+}
+
 int main() {
+    styleScopesTheUndo();
     foldsADrag();
     gapStartsAnEntry();
     exactlyTheGapFolds();

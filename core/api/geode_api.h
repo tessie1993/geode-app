@@ -963,7 +963,7 @@ GEODE_API const char* geode_panel_text(const char* id);
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);
 /* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
- * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * params' own colours (its stops, else its hue ramp), _from_look the same, for the editor to start over from them, _open a saved palette's stops
  * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
  * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
  * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next
@@ -1017,14 +1017,15 @@ GEODE_API void        geode_params_reroll_reactions(const float* in, float* out)
 /* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
  * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
  * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
- * put up instead of current (redo 1: the last undone), its frame into out (count floats) and its palette id returned,
+ * put up instead of current (redo 1: the last undone; entries recorded on another style_id are dropped, never applied), its frame into out (count floats) and its palette id returned,
  * valid until this thread's next step; NULL when there is none. Both report GEODE_PARAM_HISTORY_* bits through state
  * (record returns them too). */
 #define GEODE_PARAM_HISTORY_UNDO 1
 #define GEODE_PARAM_HISTORY_REDO 2
-GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms,
-                                                 int discrete);
-GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out);
+GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, const char* style_id,
+                                                 long long now_ms, int discrete);
+GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette,
+                                               const char* style_id, float* out);
 GEODE_API int         geode_param_history_state(void);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
@@ -1064,6 +1065,8 @@ GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id
 GEODE_API const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta);
 GEODE_API const char* geode_macro_bank_reset_knob(const char* bank, int knob_id);
+/* The default bank, keeping the ids the given bank already spent. */
+GEODE_API const char* geode_macro_bank_reset_all(const char* bank);
 GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
 GEODE_API const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target);
 GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
@@ -1080,6 +1083,8 @@ GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_live_mods(void);
+/* A knob's turn plus what modulation adds to it, held to -1..1: what the engine draws it at. */
+GEODE_API float       geode_macro_bank_modulated(float turn, float add);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish

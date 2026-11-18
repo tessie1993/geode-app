@@ -57,6 +57,7 @@ import dev.geode.data.MacroBankState
 import dev.geode.data.MacroEditorKnob
 import dev.geode.data.MacroLiveMod
 import dev.geode.data.MacroStore
+import dev.geode.engine.bridge.MacroNative
 import dev.geode.model.KnobSize
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.LocalReducedMotion
@@ -184,12 +185,12 @@ private fun DrawScope.drawModulation(
     val arcSize = Size(size.width - 2f * inset, size.height - 2f * inset)
     val topLeft = Offset(inset, inset)
     val line = Stroke(stroke * MOD_STROKE, cap = StrokeCap.Round)
-    val low = (turn + live.low).coerceIn(-1f, 1f)
-    val high = (turn + live.high).coerceIn(-1f, 1f)
+    val low = MacroNative.macroBankModulated(turn, live.low)
+    val high = MacroNative.macroBankModulated(turn, live.high)
     val start = CENTRE_DEG + low * HALF_SWEEP_DEG
     drawArc(colour.copy(alpha = MOD_RANGE_ALPHA), start, (high - low) * HALF_SWEEP_DEG, false, topLeft, arcSize, style = line)
     if (reduced) return
-    val now = (turn + live.add).coerceIn(-1f, 1f)
+    val now = MacroNative.macroBankModulated(turn, live.add)
     drawArc(colour, CENTRE_DEG + turn * HALF_SWEEP_DEG, (now - turn) * HALF_SWEEP_DEG, false, topLeft, arcSize, style = line)
 }
 

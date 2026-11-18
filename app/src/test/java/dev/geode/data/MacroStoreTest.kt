@@ -47,6 +47,20 @@ class MacroStoreTest {
         }
 
     @Test
+    fun `an edit before the bank is read changes and saves nothing`() =
+        runTest {
+            val prefs = MemoryPrefs()
+            prefs.values["macro_bank"] = EDITED
+            val codec = MacroBankCodec(normalizeBank = { it.ifEmpty { DEFAULT } })
+            val repository = PrefsSettingsRepository(prefs, codec, backgroundScope, StandardTestDispatcher(testScheduler))
+            val store = MacroStore(repository, backgroundScope, push = { pushes += it })
+            store.edit { DEFAULT }
+            settle()
+            assertEquals(EDITED, prefs.values["macro_bank"])
+            assertEquals(EDITED, store.state.value.text)
+        }
+
+    @Test
     fun `an edit is drawn, pushed and saved, and a new store loads it`() =
         runTest {
             val prefs = MemoryPrefs()

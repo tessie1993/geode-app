@@ -11,6 +11,7 @@
 //   core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp
 //   core/api/geode_ingest_api.cpp -o pcm_ring_test && ./pcm_ring_test
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -649,6 +650,43 @@ void testAbi() {
     CHECK(geode_pcm_cursor_take_s16(nullptr, pcm.data(), 256, nullptr, nullptr) == -1, "abi null s16 take");
 }
 
+// setListener returns only once a write already inside the old listener has left it, and the old listener is
+// never called after: so the owner may destroy it as soon as setListener(nullptr) returns.
+struct HoldingListener final : geode::audio::ingest::RingListener {
+    std::atomic<bool> inside{false};
+    std::atomic<bool> release{false};
+    std::atomic<bool> left{false};
+    std::atomic<int> calls{0};
+    void ringWritten() override {
+        ++calls;
+        inside = true;
+        while (!release.load()) std::this_thread::yield();
+        left = true;
+    }
+};
+
+void testSetListenerWaitsForTheWriteInside() {
+    PcmRing ring(1024, 1);
+    HoldingListener listener;
+    ring.setListener(&listener);
+    const float one[4] = {0.1f, 0.2f, 0.3f, 0.4f};
+    std::thread writer([&] { ring.writeFloat(one, 4, 1, 48000); });
+    while (!listener.inside.load()) std::this_thread::yield();
+    std::atomic<bool> returned{false};
+    std::thread unregister([&] {
+        ring.setListener(nullptr);
+        returned = true;
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    CHECK(!returned.load(), "setListener returned while a write was still inside the listener");
+    listener.release = true;
+    unregister.join();
+    writer.join();
+    CHECK(listener.left.load(), "the write left the listener before setListener returned");
+    ring.writeFloat(one, 4, 1, 48000);
+    CHECK(listener.calls.load() == 1, "an unregistered listener was called again");
+}
+
 }  // namespace
 
 int main() {
@@ -671,6 +709,7 @@ int main() {
     testTwoWriters();
     testSnapshotAcrossTheWrap();
     testAbi();
+    testSetListenerWaitsForTheWriteInside();
     if (failures) {
         std::fprintf(stderr, "pcm_ring_test: %d failure(s)\n", failures);
         return EXIT_FAILURE;

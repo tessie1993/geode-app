@@ -75,22 +75,24 @@ Java_dev_geode_engine_bridge_PanelNative_paramsRerollReactions(JNIEnv* env, jobj
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_PanelNative_paramHistoryRecord(JNIEnv* env, jobject, jfloatArray before, jstring palette, jlong nowMs,
-                                                            jboolean discrete) {
+Java_dev_geode_engine_bridge_PanelNative_paramHistoryRecord(JNIEnv* env, jobject, jfloatArray before, jstring palette, jstring style,
+                                                            jlong nowMs, jboolean discrete) {
     if (!frameFits(env, before)) return geode_param_history_state();
     Utf8Chars id(env, palette);
+    Utf8Chars styleId(env, style);
     const std::vector<float> was = frameOf(env, before);
-    return geode_param_history_record(was.data(), static_cast<int>(was.size()), id.get(), nowMs, discrete ? 1 : 0);
+    return geode_param_history_record(was.data(), static_cast<int>(was.size()), id.get(), styleId.get(), nowMs, discrete ? 1 : 0);
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_PanelNative_paramHistoryStep(JNIEnv* env, jobject, jboolean redo, jfloatArray current, jstring palette,
-                                                          jfloatArray out) {
+                                                          jstring style, jfloatArray out) {
     if (!frameFits(env, current) || !frameFits(env, out)) return nullptr;
     Utf8Chars id(env, palette);
+    Utf8Chars styleId(env, style);
     const std::vector<float> now = frameOf(env, current);
     std::vector<float> back(now.size());
-    const char* backId = geode_param_history_step(redo ? 1 : 0, now.data(), static_cast<int>(now.size()), id.get(), back.data());
+    const char* backId = geode_param_history_step(redo ? 1 : 0, now.data(), static_cast<int>(now.size()), id.get(), styleId.get(), back.data());
     if (!backId) return nullptr;
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(back.size()), back.data());
     return utf8String(env, backId);

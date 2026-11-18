@@ -151,7 +151,7 @@ void main() {
     vec2 folded = vec2(cos(ka), sin(ka)) * length(kv);
     vec2 kuv = (folded - vec2(0.62, 0.0)) * 1.25;
     camAround(kuv, KN_CAM_R * (1.0 + 0.4 * kSpace), 0.0, ro, rd);
-    vec3 col = glassEnv(rd, lk);
+    vec3 col = vec3(0.0);
 
     float hitT = -1.0;
     float used = 0.0;
@@ -209,6 +209,9 @@ void main() {
         col = (refr * (1.0 - frC) + refl * frC) * glassStepAO(used * 0.5);
         col += glassRim(cosI, hue + 0.1, 1.0);
         col += vec3(1.0) * glassGlint(gOrient * p, 9.0, ear.hat) * (0.3 + fr);
+    } else {
+        // The environment is only the picture on a miss: a hit overwrites it.
+        col = glassEnv(rd, lk);
     }
 
     col *= 0.85 + 0.15 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

@@ -56,11 +56,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.CustomizeNative
-import dev.geode.engine.bridge.ParamScope
 import dev.geode.engine.bridge.ParamsNative
-import dev.geode.engine.bridge.SceneParams
-import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.ControlRange
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 
 val LocalParamLocks =

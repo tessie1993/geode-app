@@ -15,8 +15,8 @@ package dev.geode.data
 import android.content.Context
 import dev.geode.RingLog
 import dev.geode.engine.bridge.LooksNative
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.model.PresetLink
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

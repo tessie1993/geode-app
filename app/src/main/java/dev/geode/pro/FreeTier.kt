@@ -1,7 +1,7 @@
 package dev.geode.pro
 
 import dev.geode.engine.bridge.CatalogueNative
-import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.model.StyleCatalogue
 
 /**
  * The shape of the free tier, in one place, meant to be edited by hand.

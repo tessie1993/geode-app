@@ -46,9 +46,7 @@ import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.IngestNative
 import dev.geode.engine.bridge.ParamsNative
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -59,6 +57,8 @@ import dev.geode.model.LibraryTrack
 import dev.geode.model.MilkFile
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue

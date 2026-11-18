@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.res.AssetManager
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.VizNative
+import dev.geode.model.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
 

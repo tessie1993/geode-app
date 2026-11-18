@@ -57,7 +57,7 @@ import dev.geode.data.PaletteStore
 import dev.geode.data.SavedPaletteFiles
 import dev.geode.data.withSavedPalette
 import dev.geode.engine.bridge.CustomizeNative
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope

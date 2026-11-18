@@ -122,6 +122,14 @@ float SceneParams::getSlot(int slot) const {
     return kAccess[static_cast<size_t>(slot)].get(*this);
 }
 
+int SceneParams::asInt(float value) {
+    if (std::isnan(value)) return 0;
+    constexpr float kLimit = 2147483000.0f;  // inside int, where lround cannot overflow
+    return static_cast<int>(std::lround(std::clamp(value, -kLimit, kLimit)));
+}
+
+bool SceneParams::asFlag(float value) { return value > 0.5f; }
+
 bool SceneParams::set(std::string_view name, float value) { return setSlot(slotOf(name), value); }
 
 float SceneParams::get(std::string_view name) const { return getSlot(slotOf(name)); }

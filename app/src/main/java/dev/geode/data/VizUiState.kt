@@ -1,6 +1,6 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.SceneParams
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FreeTier
 

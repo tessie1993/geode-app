@@ -105,7 +105,7 @@ float cbField(vec3 p) {
     // warp bound here (rather than at the step) lets it sit in one min() with
     // the satellites, which need no correction.
     float host = body(q) / gLip;
-    float sat = dmtSatellites(p, gSatCount, CB_SAT_ORBIT, CB_SAT_RADIUS, CB_SAT_PERIOD);
+    float sat = dmtSatellites(p);
     gHitSat = sat < host ? 1.0 : 0.0;
     return min(host, sat);
 }
@@ -190,6 +190,7 @@ void main() {
     gMorph = uFormPhase;
     // Detail buys population: three satellites at the floor, six at the top.
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
+    dmtSatPrepare(gSatCount, CB_SAT_ORBIT, CB_SAT_RADIUS, CB_SAT_PERIOD);
 
     // The camera orbits on two unrelated slow rates, so the body is seen from
     // a new angle every second even in silence. Both turns run on uTime alone:

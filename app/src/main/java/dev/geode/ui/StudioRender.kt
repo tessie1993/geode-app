@@ -271,7 +271,7 @@ internal fun StudioRenderTab(
     val studioViewModel: StudioViewModel = geodeViewModel()
     val player by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val export by studioViewModel.exportState.collectAsStateWithLifecycle()
+    val export = studioViewModel.exportState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val store = remember { ExportPrefsStore(context.geodeContainer.prefsFiles.general) }
     val studioPrefs = remember { StudioPrefsStore(context.geodeContainer.prefsFiles.general) }
@@ -421,7 +421,7 @@ internal fun StudioRenderTab(
             }
         }
         RenderBar(
-            export = export,
+            exportState = export,
             scope = { modifier ->
                 Text(
                     stringResource(

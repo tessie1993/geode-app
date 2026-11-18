@@ -121,3 +121,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `LiveSegments` clears its header when a new `ftyp` starts, so a second init is not appended to the first; `live_segments_test` covers it (`core/cast/LiveSegments.cpp`, `core/tests/live_segments_test.cpp`).
 - 2026-11-18: `JavaReader::end` attaches the thread to the VM when `begin` could not, so the `AudioRecord` and its global references are released (`core/audio/ingest/android/JavaCapture.cpp`).
 - 2026-11-18: `LiveServer` closes the process-wide typed-path pairing only when it is the server that opened it, so a Cast stream still stopping cannot close the pairing a new one opened (`core/cast/LiveServer.cpp`; no host test reaches it, it is POSIX-socket code outside `native-host-tests.yml`).
+- 2026-11-18: Loop extend opens every loop reader on one shared direct sample buffer instead of one buffer per loop (`export/LoopExtend.kt`).

@@ -248,7 +248,7 @@ class LoopExtend(
         var started = false
         var stopped = false
         try {
-            reel.loops.forEach { readers += LoopReader.open(it.file) }
+            reel.loops.forEach { readers += LoopReader.open(it.file, readers.firstOrNull()?.buffer) }
             checkOneEncoding(readers)
             val writer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4).also { muxer = it }
             val videoTrack = writer.addTrack(readers.first().format)
@@ -460,8 +460,8 @@ class LoopExtend(
     private class LoopReader private constructor(
         private val extractor: MediaExtractor,
         val format: MediaFormat,
+        val buffer: ByteBuffer,
     ) : Closeable {
-        private val buffer: ByteBuffer = ByteBuffer.allocateDirect(sampleBufferBytes(format))
         private val info = MediaCodec.BufferInfo()
 
         /** Identifies the encoder configuration this loop carries: width, height, mime and csd. */
@@ -505,7 +505,10 @@ class LoopExtend(
         }
 
         companion object {
-            fun open(file: File): LoopReader {
+            fun open(
+                file: File,
+                shared: ByteBuffer?,
+            ): LoopReader {
                 val extractor = MediaExtractor()
                 val opened =
                     runCatching {
@@ -515,7 +518,8 @@ class LoopExtend(
                                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true
                             } ?: error("The rendered loop has no video track.")
                         extractor.selectTrack(track)
-                        LoopReader(extractor, extractor.getTrackFormat(track))
+                        val format = extractor.getTrackFormat(track)
+                        LoopReader(extractor, format, shared ?: ByteBuffer.allocateDirect(sampleBufferBytes(format)))
                     }
                 return opened.getOrElse { failure ->
                     bestEffort(TAG, "extractor.release()") { extractor.release() }

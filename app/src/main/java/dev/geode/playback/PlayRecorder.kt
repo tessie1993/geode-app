@@ -39,10 +39,21 @@ import kotlinx.coroutines.launch
  */
 class PlayRecorder(
     private val source: Source,
-    private val history: HistoryStore,
+    private val history: History,
     private val scope: CoroutineScope,
     private val save: (SessionStore.Saved) -> Unit,
 ) : Player.Listener {
+    /** Where plays go ([HistoryStore], whose rules are native); a seam so a JVM test needs no native library. */
+    interface History {
+        fun recordPlay(
+            uri: String,
+            title: String,
+            artist: String,
+        )
+
+        fun flush()
+    }
+
     /** The player's state, read on the main thread; a seam so a test needs no ExoPlayer. */
     interface Source {
         /** The track now current, or null when the queue is empty or the item has no uri. */
@@ -149,6 +160,18 @@ class PlayRecorder(
     }
 
     companion object {
+        /** [History] over the process's one [HistoryStore]. */
+        fun historyOf(store: HistoryStore): History =
+            object : History {
+                override fun recordPlay(
+                    uri: String,
+                    title: String,
+                    artist: String,
+                ) = store.recordPlay(uri, title, artist)
+
+                override fun flush() = store.flush()
+            }
+
         /**
          * [Source] over the real player: the queue's uris and metadata, as [PlaybackService] rebuilds them.
          * A file another app opened ([OpenedAudio]) is left out like an item without a uri: its grant

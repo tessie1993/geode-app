@@ -1252,7 +1252,7 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/FontColorChoice.kt` (25) | shell | none (UI font colours, ARGB list `:13-23`) | n/a | none | n/a | UI |
 | `data/GeneralSettings.kt` (217) | shell | none (UI look; clamps of UI values `:179-183`) | IO via repository | none | n/a | prefs |
 | `data/GeodePrefsFiles.kt` (66) | shell | none (registry of the 12 prefs file names `:42-58`) | caller | none | n/a | SharedPreferences |
-| `data/HistoryStore.kt` (172) | shell | none (play history; keeps 200 most recent ∪ 200 most played `:137-146`) | constructor reads the file on the constructing thread `:28-30`; writes on `geode-history` | none | n/a | filesDir |
+| `data/HistoryStore.kt` | shell | none: the play history's rules (stamps, counts, listened time, the 200 most recent ∪ 200 most played kept on disk, newest first) are native (`core/library/History`, `geode_history_*`); it holds the file's text | constructor reads the file on the constructing thread; writes on `geode-history` | `LibraryNative.history*` | done | filesDir |
 | `data/LfoStore.kt` (208) | mixed | **Kotlin defaults and rules for LFO and envelope slots.** `fromJson` `:153-166`: defaults source `LFO`, target `NONE`, wave `SINE`, depth `0.3`, polarity `BIPOLAR`, curve `LINEAR`, `beats` only if in `LfoConfig.BEAT_CHOICES` `:163`. `adsrFromJson` `:116-137`: attack `0.05`, decay `0.25`, sustain `0.5`, release `0.35`, amount `0.5`, band `BASS`, gate `0.25`, retrigger `true`. `readRateSeconds` `:175-188`: clamp to `ModTable.minRateSeconds..maxRateSeconds`, and the `rateHz` → period migration. Slot counts pad/cut to `LfoEngine.SLOTS` / `AdsrEngine.COUNT` `:34-36`, `:51-53`. `loadHandMask` `:73-83` decides the hand mask (0 / `HAND_ALL`) and deletes undecodable routes. `saveReactions` `:94` packs routes with `BuildStyleReactionsUseCase.packExact` | caller: main (`ui/ModulationController`), wallpaper/dream main, Cast executor (through `LookStore`) | `reactionsTextEncode` `:27`, `reactionsTextDecode` `:28`; constant `HAND_ALL` | `core/viz/Lfo.*`, `core/viz/Adsr.*`, `core/viz/ReactionText.*` (reactions already native text); new: a native `modulation text` codec for `lfos`/`adsrs` that also reads the old JSON | prefs I/O of four keys |
 | `data/LibraryPrefsStore.kt` (50) | shell | none (`MinTrackLength.keeps` `:22-25` is a library filter) | caller | none | n/a | prefs |
 | `data/LibraryRepository.kt` (102) | shell | interface only | n/a | none | n/a | n/a |
@@ -1265,7 +1265,7 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/MilkPackImporter.kt` (92) | mixed (thin) | `missesATexture` `:76-91` applies the sampler grammar to decide whether a preset lacks a texture | caller (import controllers) | none | new: `core/viz` milk-pack helper beside the projectM adapter | zip/SAF streams |
 | `data/MilkTextureLinks.kt` (273) | mixed | decides which texture file a `.milk` preset's `sampler_x` gets: `referencedTextures` `:79-89`, `resolve` ladder `:161-187` (override, exact, normalized, stand-in), `SAMPLER_REFERENCE` regex `:243`, `BUILTIN_SAMPLERS` `:245-257`, `normalize` / `stripRenameSuffix` / `commonPrefix` `:259-271`; materializes symlinks `:197-216` | caller (`ui/MilkImportController`, `ui/TextureController`; thread not traced) | none | new: `core/viz` (projectM texture search path resolver); only files and `Os.symlink`, both available in the NDK | nothing Android-only; the override picker UI |
 | `data/MusicLibraryRepository.kt` (547) | shell | none (library scan, tags, playlists) | IO, a 1-lane IO dispatcher, main for publishes | via `NativeTags` | n/a | MediaStore, SAF, ContentObserver |
-| `data/MusicPlaylistStore.kt` (141) | shell | none | IO lane | none | n/a | filesDir |
+| `data/MusicPlaylistStore.kt` | shell | none: the file format, the order, every edit (free names by file stem) and the legacy rename plan are native (`core/library/PlaylistRules`, `geode_music_playlist_*`); it lists, reads and writes the files | IO lane | `LibraryNative.musicPlaylist*` (through `MusicPlaylistStore.Rules`) | done | filesDir |
 | `data/NativeTags.kt` (168) | shell | none (marshals fd + arrays to TagLib) | IO | `tagsRead` `:72`, `tagsWrite` `:113` | TagLib behind the JNI (not located) | `ContentResolver.openFileDescriptor`, scoped-storage consent |
 | `data/NoteResponseStore.kt` (79) | shell | none (one switch; default `true` `:67`) | container scope | `noteResponseSet` `:33` | `core/viz/NoteResponse.hpp` | prefs |
 | `data/OpenedAudioSource.kt` (66) | shell | none | IO | none | n/a | ContentProvider checks |
@@ -1282,8 +1282,8 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/RecordPrefs.kt` (70) | shell | none; fps must be in `EXPORT_FPS_OPTIONS` `:42`; length snap is native | caller | `recordSnapMaxLength` `:35` | `core/output/RecordPlan.*` | prefs |
 | `data/RecordSaveStore.kt` (78) | shell | none | caller | none | n/a | persisted URI grants |
 | `data/SessionRepository.kt` (22) | shell | none | IO | none | n/a | n/a |
-| `data/SessionStore.kt` (107) | shell | none (queue + position) | IO | none | n/a | filesDir |
-| `data/SmartPlaylistStore.kt` (167) | shell | none about engine (`SmartPlaylistMatcher.resolve` `:53-71` filters library tracks) | caller (`ui/PlayerSession`) | none | n/a | library feature |
+| `data/SessionStore.kt` | shell | none: which text is a session, the version gate, the clamps and what is written are native (`core/library/SessionDoc`, `geode_session_*`); it reads, writes, deletes and quarantines the file | IO | `LibraryNative.sessionRead`, `sessionWrite` | done | filesDir |
+| `data/SmartPlaylistStore.kt` | shell | none: the file format, the order and which tracks a rule set picks are native (`core/library/SmartPlaylist`, `geode_smart_*`); it lists and writes the files and splits the wire | caller (`ui/PlayerSession`) | `LibraryNative.smartList`, `smartSaveText`, `smartResolve` | done | library feature |
 | `data/SoundInputSettings.kt` (59) | shell | none; the tuning is a float list made and read by `engine/audio-core` `SoundTuning` (`savedFloats`, `fromFloats`) `:45-46`, `:50-58` | IO | none direct | sound engine tuning schema (`core/sound`, via `SoundTuning`) | prefs |
 | `data/StillFiles.kt` (49) | shell | none | worker | none | n/a | MediaStore, `Bitmap.compress` |
 | `data/StudioPrefsStore.kt` (42) | shell | none | caller | none | n/a | prefs |
@@ -1426,11 +1426,11 @@ None in this scope. The nearest:
 | `projects/<id>/project.json` | `"version": 1` (folder) with `edit.version: 1`; keys `id`, `name`, `kind{type: standard|loop, targetLengthMs, loopLengthMs}`, `destination` (`ExportDestination` name), `export{quality, fps, ratio, loopSafe, codec, loudnessTargetId, saveTo}`, `createdAtMs`, `updatedAtMs`, `templateId`, `renders[{uri,label,createdAtMs,durationMs}]`, `edit{timeline{durationMs, lanes[{id, kind: visual|media|text|overlay|audio, name, muted, locked, clips[…]}]}, markers[], keyframes[]}`; clip `content.type` = `scene|video|still|text|overlay|audio`; keyframe `value.kind` = `scalar|vector2|colour|toggle|choice`; `interpolation.type` = `hold|linear|ease|custom`; marker `origin.type` = `manual|tapped|detected`. A newer version is refused; unknown tags fail the read and the file is quarantined | `data/EditorProjectJson.kt:45-48`, `:54-67`, `:101-106`; `data/EditorProjectStore.kt:105-108` | Kotlin |
 | `project-templates/<id>/template.json` | same shape minus renders, plus `lengthMs` (`data/EditorProjectJson.kt:86-99`); **read only: no writer in this scope** | `data/EditorProjectStore.kt:106`, `:108` | Kotlin |
 | `editor/`, `takes/`, `project-takes/` | legacy; deleted on store construction | `data/EditorProjectStore.kt:110-122` | n/a |
-| `music-playlists/<safeFileName(name)>.json` | `{name, tracks:[uri…]}` | `data/MusicPlaylistStore.kt:16`, `:127-131` | Kotlin |
-| `smart-playlists/<safeFileName(name)>.json` | `{name, matchAll, limit, rules:[{field: RuleField name, op: RuleOp name, value}]}` | `data/SmartPlaylistStore.kt:121`, `:138-146` | Kotlin |
+| `music-playlists/<safeFileName(name)>.json` | `{name, tracks:[uri…]}` | `core/library/PlaylistRules.cpp` (`playlistParse`, `playlistToJson`); the file name `data/MusicPlaylistStore.kt` | native |
+| `smart-playlists/<safeFileName(name)>.json` | `{name, matchAll, limit, rules:[{field: RuleField name, op: RuleOp name, value}]}` | `core/library/SmartPlaylist.cpp` (`smartParse`, `smartToJson`); the file name `data/SmartPlaylistStore.kt` | native |
 | `library.json` | `{version: 3, tracks:[{uri,title,artist,durationMs,album,genre,year,trackNo,comment,fileName,sizeBytes}]}`; a bare array is also read | `data/TrackLibrary.kt:12`, `:64`, `:125-150` | Kotlin |
-| `history.json` | `{tracks:[{uri,last,count,title,artist,ms}]}`; a bare array is also read | `data/HistoryStore.kt:10`, `:45-51`, `:147-158` | Kotlin |
-| `session.json` | `{version: 1, tracks:[{uri,title,artist}], index, positionMs}`; newer version → quarantined | `data/SessionStore.kt:93-103` | Kotlin |
+| `history.json` | `{tracks:[{uri,last,count,title,artist,ms}]}`; a bare array is also read | `core/library/History.cpp` (`historyParse`, `fileOf`); `data/HistoryStore.kt` reads and writes the text | native |
+| `session.json` | `{version: 1, tracks:[{uri,title,artist}], index, positionMs}`; newer version → quarantined | `core/library/SessionDoc.cpp` (`sessionParse`, `sessionWrite`); `data/SessionStore.kt` reads and writes the text | native |
 | `lyrics/<sha1(track uri) hex>.lrc` | LRC text | `data/Lyrics.kt:44-54`, `:79` | Kotlin |
 | `*.tmp`, `*.corrupt` | AtomicWrite in-flight / quarantined | `data/AtomicWrite.kt:9-11` | n/a |
 
@@ -1479,11 +1479,11 @@ All under `app/src/test/java/dev/geode/` (JVM). No test for this scope exists un
 | `data/ExportPresetFillTest.kt` | `filledFrom` sets only quality, fps, ratio, loop; every platform preset is an offered combination |
 | `data/backup/BackupArchiveTest.kt` | **saved format:** manifest round trip, pack/unpack, newer version, wrong format id, zip-slip, allowlist → section, checksum, caps, migration chain, typed prefs JSON, device-local keys, macro bank rides with Creative |
 | `data/BackupRulesCoverageTest.kt` | Android auto-backup XML rules (`backup_rules.xml`, `data_extraction_rules.xml`) |
-| `data/MusicPlaylistStoreTest.kt` | legacy file-name migration happens on first use, not in the constructor |
+| `data/MusicPlaylistStoreTest.kt` | legacy file-name migration happens on first use, not in the constructor; an edit hands native the named file and writes what it answers (stand-in `MusicPlaylistStore.Rules`) |
 | `data/EditorProjectStoreFoldersTest.kt` | project folder per id; delete is scoped |
 | `data/FavouritesRepositoryTest.kt` | toggle saved under the URI; external write reloads; newest first |
 | `data/ByteBudgetCacheTest.kt`, `data/ReadCapTest.kt`, `data/PendingPublishTest.kt`, `data/MinTrackLengthTest.kt`, `data/DeviceTrackTagTest.kt`, `data/NotificationButtonTest.kt`, `data/SystemMotionTest.kt`, `data/TemplateStyleGateTest.kt` | helper behaviour (cache accounting, caps, publish retry, min length, tag fallback, button room, reduced motion = scale 0, template → Pro gate) |
-| `ui/SavedPalettesTest.kt`, `playback/PlayRecorderTest.kt`, `playback/ResumeSourceTest.kt` | use `PaletteStore`, `HistoryStore`, `SessionStore` through their callers |
+| `ui/SavedPalettesTest.kt`, `playback/PlayRecorderTest.kt`, `playback/ResumeSourceTest.kt` | use `PaletteStore` and `SessionStore.Saved` through their callers; `PlayRecorderTest` fakes the history (`PlayRecorder.History`) and records the sessions handed to its writer |
 
 **Saved formats with no test on their text** (Grep of `app/src/test` and `app/src/androidTest` for the class names): the `lfos` / `adsrs` JSON and the `rateHz` migration (`LfoStore` appears only in `PrefsSchemaTest` for key names); `EditorProjectJson` (project.json); `TemplateFormat` round trip and unknown-key carry (only `SharedLinkNumbersTest` touches it); palette JSON; `auto_playlist_entries`; `library.json`; `history.json`; `session.json` versions; `PlaylistFormats`; LRC parsing; `MilkTextureLinks`; `texture-links.json`.
 
@@ -1502,7 +1502,7 @@ All under `app/src/test/java/dev/geode/` (JVM). No test for this scope exists un
 - `AutoVisualsPrefsStore.applyTo` always restores the timer as off and removes the legacy key on the next save (`data/AutoVisualsPrefsStore.kt:31`, `:45`).
 - The template's layout, text and export sections are stored and round-tripped but not rendered (`data/VideoTemplate.kt:9-10`).
 - `project-templates/<id>/template.json` has a reader (`data/EditorProjectJson.kt:86`) and no writer in this scope.
-- `HistoryStore` reads `history.json` in its constructor on the constructing thread (`data/HistoryStore.kt:28-30`); `VizStateStore.flushIfDirty` does a `commit()` on the caller's thread (`data/VizStateStore.kt:74-76`, `:88`).
+- `HistoryStore` reads `history.json` in its constructor on the constructing thread (`data/HistoryStore.kt`, `init`); `VizStateStore.flushIfDirty` does a `commit()` on the caller's thread (`data/VizStateStore.kt:74-76`, `:88`).
 - Dead code (Grep over `app/src` and `engine`): `TrackLibrary.remove` (`data/TrackLibrary.kt:39`) has no caller; `EditorProjectJson.toJson` / `fromJson` (`data/EditorProjectJson.kt:50-52`) have no production caller.
 
 ### Not verified
@@ -3310,7 +3310,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/data/MacroStoreTest.kt` (145, 7) | `MacroStore`, `MacroBankCodec` | bank saved under prefs key `"macro_bank"` as native text; edit pushes then saves; drag saves once at commit; draft not saved until `saveDraft`; `RETIRED_KEYS` removed on load | FMT + shell | `core/tests/macro_bank_test.cpp` (the bank text itself) | stays |
 | `test/data/MemoryPrefs.kt` (97, 0) | helper | in-memory `SharedPreferences` | helper | – | stays |
 | `test/data/MinTrackLengthTest.kt` (41, 5) | `MinTrackLength` | default 30 s; `keeps(ms, s)`; unknown length (≤0) kept | shell (library filter) | `core/tests/library_search_test.cpp` (search, not this) | stays |
-| `test/data/MusicPlaylistStoreTest.kt` (59, 3) | `MusicPlaylistStore` | legacy file `old-name.json` with `{"name":"Road","tracks":["a"]}` is renamed `Road.json` on first read/write, not in the constructor | FMT (playlist files) | – | stays |
+| `test/data/MusicPlaylistStoreTest.kt` (6) | `MusicPlaylistStore` with a stand-in `Rules` | the legacy rename runs on first read/write, not in the constructor; the named file (or none) reaches native; a rename writes the new file before deleting the old; a refused edit writes nothing | shell (I/O) | `core/tests/library_playlist_test.cpp` (the rules) | stays |
 | `test/data/NoteResponseStoreTest.kt` (167, 4) | `NoteResponseStore`, `NoteResponseCodec` | default on; saved `KEY_ENABLED` wins; pushed to the engine once per change | FMT + shell | `core/tests/note_response_test.cpp` (the response itself) | stays |
 | `test/data/NotificationButtonTest.kt` (37, 4) | `NotificationButton` | order SHUFFLE, REPEAT, FAVOURITE; room for `ROOM` (two) | shell | – | stays |
 | `test/data/PendingPublishTest.kt` (43, 3) | `publishPending` | retry once, delete row on failure | shell (MediaStore) | – | stays |
@@ -3345,7 +3345,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/model/StyleShelfTest.kt` (54, 5) | `main/model/StyleShelf` | recents newest first, no repeats, `RECENT_LIMIT`; favourites toggle; `randomFamilyOnly`; `yours(order, onScreen)` = on screen, favourites, recents, each once, unknown ids dropped | UI + FMT (shelf) | `core/tests/style_pick_test.cpp` (the random pick itself) | stays |
 | `test/model/TabLabelsTest.kt` (32, 3) | `TabLabels` | `AUTO/ALWAYS/SELECTED/NEVER.shows`; unknown name → `AUTO` | UI + FMT | – | stays |
 | `test/model/TourTest.kt` (236, 23) | `main/model/Tour`, `TourProgress`, `TourChapter`, `TourSpot` | tour step rules; `placeCard` geometry; `TourProgress.decode(done, resume, tips, legacySeen, off)`: unknown names ignored; legacy chapter names map (`WELCOME`→`START`; `PLAYER`, `LIBRARY`, `LIVE_VIEW`, `PRO`, `SETTINGS` dropped); legacy resume `"CUSTOMIZE:3"` → none; `legacySeen=true` → every chapter done | UI + FMT (tour progress strings) | – | stays |
-| `test/playback/PlayRecorderTest.kt` (123, 3) | `main/playback/PlayRecorder`, `HistoryStore`, `SessionStore` | a restored paused queue is not a play; queue re-read only on timeline change; service alone keeps session (tracks, index 5, 42 000 ms) and history newest first | shell (Media3 listener, storage) | – | stays |
+| `test/playback/PlayRecorderTest.kt` (3) | `main/playback/PlayRecorder` (a fake `PlayRecorder.History`, its writer recorded) | a restored paused queue is not a play; queue re-read only on timeline change; service alone hands the writer the session (tracks, index 5, 42 000 ms; the file round trip is `library_session_test`) and records every play in order (newest first is `library_history_test`) | shell (Media3 listener, storage) | – | stays |
 | `test/playback/PlaybackQueueTest.kt` (111, 11) | `main/playback/PlaybackQueue` (`window`, `around`, `contextFor`, `MAX_QUEUE`) | window of `MAX_QUEUE` centred on the tapped track, clamped at both ends; browse list > device list > library; unknown track plays alone | shell (queue building for Media3) | – | stays |
 | `test/playback/ResumeSourceTest.kt` (34, 4) | `ResumeSource.of` | null/empty → `Nothing`; index and position clamped | shell | – | stays |
 | `test/playback/VoiceSearchTest.kt` (39, 3) | `VoiceSearch.of` | item with `searchQuery` and no id is a search; empty/null query = `""`; a browse id is not | shell | – | stays |
@@ -3359,7 +3359,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/ui/LibraryDuplicatesTest.kt` (28, 1) | `main/ui/LibraryDuplicates.find` | same title+artist split by length (180 000/180 500 vs 240 000/240 900 ms) gives 2 groups with distinct keys | UI/data | none | stays |
 | `test/ui/LibraryRescansTest.kt` (39, 2) | `main/data` `libraryRescans(quietMs)` | debounce: a burst = 1 rescan | shell | – | stays |
 | `test/ui/LibraryViewModelTest.kt` (188, 5) | `main/ui/LibraryViewModel` | 15 000 tracks: grouping runs on the compute dispatcher; keystroke burst filters once (`QUERY_DEBOUNCE_MS`); cleared box answers at once; duplicates over the whole library; `showEmptyLibrary` only after first load | UI (ViewModel) | – | stays |
-| `test/ui/MusicLibraryPlaylistEditsTest.kt` (66, 3) | `main/data/MusicLibraryRepository` | playlist edits off the caller's thread, in order, tracks deduped | shell/data | – | stays |
+| `test/ui/MusicLibraryPlaylistEditsTest.kt` (3) | `main/data/MusicLibraryRepository` with a stand-in `MusicPlaylistStore.Rules` | playlist edits off the caller's thread, in order (deduping and free names are `library_playlist_test`'s) | shell/data | – | stays |
 | `test/ui/PendingDeletesTest.kt` (106, 4) | `main/ui/PendingDeletes` | delete commits after a 4 000 ms window even if the UI scope dies; undo keeps | UI | – | stays |
 | `test/ui/PermissionStatusTest.kt` (40, 4) | `statusAfterRefusal` | DENIED vs PERMANENTLY_DENIED rule | shell | – | stays |
 | `test/ui/PipAspectTest.kt` (38, 4) | `pipAspectFraction`, `PIP_MIN_ASPECT`, `PIP_MAX_ASPECT` | aspect clamped to the platform range, orientation kept | shell (platform rule) | – | stays |
@@ -3435,7 +3435,7 @@ Prefs keys and stored values asserted literally:
 
 Files and backup:
 
-- Playlist file `music-playlists/old-name.json` = `{"name":"Road","tracks":["a"]}` (`test/data/MusicPlaylistStoreTest.kt:25`).
+- Playlist file `music-playlists/old-name.json` = `{"name":"Road","tracks":["a"]}` (`test/data/MusicPlaylistStoreTest.kt`, `legacyFile`).
 - Project folder `projects/<id>/project.json` = `{}` (`test/data/EditorProjectStoreFoldersTest.kt:21`).
 - Backup: format id `"muzviz-backup"` (`main/data/backup/BackupFormat.kt:112`), version 2 (:118), `manifest.json` (:120); paths `presets/a.json` = `{"name":"Kyanite"}`, `prefs/geode-prefs.json` = `PrefsJson.encode(mapOf("gui_opacity" to 0.4f))`, `prefs/geode-mod.json`, `prefs/geode-favourites.json`, `prefs/geode-wallpaper.json`, `history.json`, `milk/textures/cloud.png` (`test/data/backup/BackupArchiveTest.kt:27,37-44,112-122`); file name `beatrealms-backup-20261030.zip` (:223).
 - Purchase JSON: `{"orderId":"GPA.1","packageName":"com.beatrealms3d.app","productId":"<beatrealms3d_pro>","purchaseTime":1,"purchaseState":0,"purchaseToken":"t","quantity":1,"acknowledged":true}` (`test/billing/CachedEntitlementTest.kt:106-107`).

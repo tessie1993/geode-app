@@ -55,10 +55,22 @@ std::vector<int> smartResolve(const SmartPlaylist& playlist, const std::vector<S
                               const std::function<int(const std::string&)>& playCountOf,
                               const std::vector<std::string>& favourites, long long nowMs);
 
-// smartResolve for a playlist file's text and the history document's text (counts read from it, see History.hpp).
-// nullopt when the playlist text does not read.
+// smartResolve with the play counts read from the history document's text (see History.hpp).
+std::vector<int> smartResolveHistory(const SmartPlaylist& playlist, const std::vector<SmartTrack>& tracks,
+                                     const std::string& historyJson, const std::vector<std::string>& favourites,
+                                     long long nowMs);
+
+// smartResolveHistory for a playlist file's text. nullopt when the playlist text does not read.
 std::optional<std::vector<int>> smartResolveText(const std::string& smartJson, const std::vector<SmartTrack>& tracks,
                                                  const std::string& historyJson,
                                                  const std::vector<std::string>& favourites, long long nowMs);
+
+// A rule from the tokens a file holds (field and op as the enum names smartToJson writes); nullopt for a token this
+// build does not know, as smartParse drops such a rule.
+std::optional<SmartRule> smartRuleOf(const std::string& field, const std::string& op, const std::string& value);
+
+// The wire the shell splits: per playlist its name, matchAll ("1" or "0"), limit, then each rule's field token, op
+// token and value, all split by U+001F; each playlist ended by U+001E. Those two characters are dropped from text.
+std::string smartWire(const std::vector<SmartPlaylist>& playlists);
 
 }  // namespace geode::library

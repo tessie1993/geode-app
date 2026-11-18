@@ -29,7 +29,8 @@ std::string playlistToJson(const MusicPlaylist& playlist);
 std::vector<MusicPlaylist> playlistList(const std::vector<std::string>& fileTexts);
 
 enum class PlaylistEditKind {
-    Create,       // name + tracks: a new playlist of the distinct tracks, the name trimmed; a blank name does nothing
+    Create,       // name + tracks: a new playlist of the distinct tracks under the first free name from the trimmed
+                  // name (playlistUniqueName); a blank name does nothing
     Import,       // name (a base) + tracks: the playlist under the first free name from the base, tracks as given
     AddTrack,     // name + track: appended unless already in it
     RemoveTrack,  // name + track: every copy taken out
@@ -68,8 +69,9 @@ struct PlaylistOutcome {
 // of that name, unwritten, so the file is never overwritten.
 PlaylistOutcome playlistApply(const PlaylistFolder& folder, const PlaylistEdit& edit, const StemFn& stem);
 
-// The first of base, "base (2)", "base (3)", ... not among the names taken.
-std::string playlistUniqueName(const std::vector<std::string>& taken, const std::string& base);
+// The first of base, "base (2)", "base (3)", ... whose file stem no taken name has: two names that share a stem
+// are one file on disk, so a create or import never overwrites a playlist.
+std::string playlistUniqueName(const std::vector<std::string>& taken, const std::string& base, const StemFn& stem);
 
 // The name an imported file's playlist starts from: the playlist's own name, else the file's name, else
 // `untitled` (ifBlank, ifBlank), each kept as it is when not blank.
@@ -89,5 +91,15 @@ struct PlaylistRename {
 // whose name's stem is not the file's own, moves to "<stem>.json" unless that file exists (or an earlier
 // rename of this plan made it). Files are taken in the order given.
 std::vector<PlaylistRename> playlistMigrationPlan(const std::vector<PlaylistFileText>& files, const StemFn& stem);
+
+// The wires the shell splits. Fields are split by U+001F, records ended by U+001E; those two characters are dropped
+// from names and uris (JSON never holds them raw).
+// playlistWire: per playlist its name, then its track uris.
+std::string playlistWire(const std::vector<MusicPlaylist>& playlists);
+// playlistOutcomeWire: one record of write ("1" or "0"), ok ("1" or "0"), the name to write under, deleteName and
+// json.
+std::string playlistOutcomeWire(const PlaylistOutcome& outcome);
+// playlistRenameWire: per rename its from and to file names.
+std::string playlistRenameWire(const std::vector<PlaylistRename>& plan);
 
 }  // namespace geode::library

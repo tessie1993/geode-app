@@ -1222,12 +1222,24 @@ void testStyleIntents() {
     p.play(4.0f);
     newSection(p, 1);
     check(d.styleIntent().kind == Kind::Progress && d.styleIntent().from == "first_style" && d.styleIntent().progress, "a new section: the next along");
+    const uint64_t firstDraw = d.styleIntent().draw;
+    {
+        // Another play of the same song draws its own (which .milk a moment lands on, viz/DirectorStyle).
+        Director other;
+        other.configure({1.0f, 32});
+        Player o{other, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
+        o.direct({1.0f, 32}, nullptr, "first_style");
+        o.play(16.0f);
+        newSection(o, 1);
+        check(other.styleIntent().kind == Kind::Progress && other.styleIntent().draw != firstDraw, "another play's moment draws anew");
+    }
     p.style = "second_style";  // the shell switched
     p.play(8.0f);
     newSection(p, 0);
     check(d.styleIntent().kind == Kind::Return && d.styleIntent().remembered == "first_style" && d.styleIntent().step == 1 &&
               d.styleIntent().from == "second_style",
           "the first section returns: its own first style, one step on");
+    check(d.styleIntent().draw != firstDraw, "each moment draws anew");
     p.style = "third_style";
     p.play(8.0f);
     newSection(p, 1);

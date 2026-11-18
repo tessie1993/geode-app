@@ -4,7 +4,9 @@
 // leaps to the next family; with Styles progress off a return brings back its own style and anything else
 // keeps the style on screen. Never a random draw while an intent waits; a timer tick (no intent) still draws.
 // Built by CI (.github/workflows/native-host-tests.yml) with DirectorStyle.cpp and the catalogue.
+#include <cstdint>
 #include <cstdio>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -114,6 +116,66 @@ void testStay() {
     check(director::pickFor(intent(Intent::Kind::Return, all[2], all[5], 2, false), pool, 2) == 5, "a return brings back its own style");
 }
 
+Intent drawn(Intent i, uint64_t draw) {
+    i.draw = draw;
+    return i;
+}
+
+// MilkDrop is in Auto's pool once per .milk file, every entry under its one id. A moment that lands on MilkDrop
+// draws one of them from the intent (the play's seed and the moment), never the one playing; the first entry
+// used to stand for them all, so every moment put the same .milk up again, and with only .milk files in the
+// pool a new section or a drop kept the one playing.
+void testMilkFilesAreDrawn() {
+    const auto& all = catalogue::allIds();
+    std::string milk;
+    int at = -1;
+    for (size_t i = 0; i < all.size(); ++i) {
+        if (catalogue::kindOf(all[i]) == catalogue::Kind::Milkdrop) {
+            milk = all[i];
+            at = static_cast<int>(i);
+        }
+    }
+    check(!milk.empty() && all.size() > 2, "the catalogue lists MilkDrop among other styles");
+    if (milk.empty()) return;
+
+    const std::string only = lines(std::vector<std::string>(5, milk));
+    std::set<int> seen;
+    for (uint64_t draw = 0; draw < 16; ++draw) {
+        const int pick = director::pickFor(drawn(intent(Intent::Kind::Progress, milk), draw), only, 2);
+        check(pick >= 0 && pick < 5 && pick != 2, "a new section on .milk files alone puts up another .milk");
+        seen.insert(pick);
+        const int leapt = director::pickFor(drawn(intent(Intent::Kind::Leap, milk), draw), only, 2);
+        check(leapt >= 0 && leapt < 5 && leapt != 2, "and a drop too");
+        const int back = director::pickFor(drawn(intent(Intent::Kind::Return, milk, milk, 1), draw), only, 2);
+        check(back >= 0 && back < 5 && back != 2, "and a return");
+    }
+    check(seen.size() > 1, "not the same .milk at every moment");
+    check(director::pickFor(drawn(intent(Intent::Kind::Progress, milk), 9), only, 2) ==
+              director::pickFor(drawn(intent(Intent::Kind::Progress, milk), 9), only, 2),
+          "the same draw lands on the same .milk, so an export draws as the screen");
+
+    // Auto's pool with styles and .milk files: a step onto MilkDrop from the style before it.
+    std::vector<std::string> mixed;
+    for (const auto& id : all) {
+        if (id != milk) mixed.push_back(id);
+    }
+    const size_t styles = mixed.size();
+    for (int i = 0; i < 4; ++i) mixed.push_back(milk);
+    const int count = static_cast<int>(all.size());
+    const std::string& before = all[static_cast<size_t>((at - 1 + count) % count)];
+    int shown = -1;
+    for (size_t i = 0; i < styles; ++i) {
+        if (mixed[i] == before) shown = static_cast<int>(i);
+    }
+    std::set<int> landed;
+    for (uint64_t draw = 0; draw < 16; ++draw) {
+        const int pick = director::pickFor(drawn(intent(Intent::Kind::Progress, before), draw), lines(mixed), shown);
+        check(pick >= static_cast<int>(styles) && pick < static_cast<int>(mixed.size()), "the step after " + before + " lands on a .milk");
+        landed.insert(pick);
+    }
+    check(landed.size() > 1, "on one drawn from the moment, not always the first .milk");
+}
+
 void testTheSlot() {
     const auto& all = catalogue::allIds();
     const std::string pool = lines(all);
@@ -133,6 +195,7 @@ int main() {
     testReturnStepsThroughItsOwnFamily();
     testLeapIsTheNextFamily();
     testStay();
+    testMilkFilesAreDrawn();
     testTheSlot();
     if (failures) {
         std::printf("director_style_test: %d failed\n", failures);

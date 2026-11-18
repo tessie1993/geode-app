@@ -25,8 +25,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.PaletteStackStore
 import dev.geode.engine.bridge.CustomizeNative
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 
 /**

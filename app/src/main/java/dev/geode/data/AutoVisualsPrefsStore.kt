@@ -4,7 +4,7 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.AutoNative
-import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.model.StyleCatalogue
 import dev.geode.model.VizPlaylistEntry
 import org.json.JSONArray
 import org.json.JSONObject

@@ -10,7 +10,6 @@ import dev.geode.data.ExportPrefsStore
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookSource
 import dev.geode.engine.bridge.RenderPlanNative
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.StudioNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -28,6 +27,7 @@ import dev.geode.export.VideoExporter
 import dev.geode.geodeContainer
 import dev.geode.model.LoudnessAdvice
 import dev.geode.model.LoudnessTarget
+import dev.geode.model.SceneParams
 import dev.geode.model.WatermarkChoice
 import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope

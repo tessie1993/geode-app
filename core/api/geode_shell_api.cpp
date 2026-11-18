@@ -44,7 +44,7 @@ int linesOut(const std::vector<std::string>& ids, char* out, int capacity) {
 
 shell::StyleShelf shelfApply(std::vector<std::string> favourites, std::vector<std::string> recents,
                              shell::StyleShelfEvent::Kind kind, const char* id) {
-    return shell::styleShelfApply({std::move(favourites), std::move(recents), false}, {kind, id ? id : "", false});
+    return shell::styleShelfApply({std::move(favourites), std::move(recents)}, {kind, id ? id : "", false});
 }
 
 std::vector<shell::PresetEntry> presetRows(const char* const* names, const char* const* folders, const int* flags,
@@ -179,7 +179,7 @@ int geode_style_shelf_remove_recent(const char* const* recents, int count, const
 
 int geode_style_shelf_yours(const char* const* favourites, int favourite_count, const char* const* recents, int recent_count,
                             const char* const* order, int order_count, const char* on_screen, char* out, int capacity) {
-    const shell::StyleShelf shelf{idsOf(favourites, favourite_count), idsOf(recents, recent_count), false};
+    const shell::StyleShelf shelf{idsOf(favourites, favourite_count), idsOf(recents, recent_count)};
     const std::optional<std::string> screen = on_screen ? std::optional<std::string>(on_screen) : std::nullopt;
     return linesOut(shell::styleShelfYours(shelf, idsOf(order, order_count), screen), out, capacity);
 }

@@ -82,6 +82,15 @@ public:
     StyleDna dna;
     // How many routes the layers being drawn may fill: the groove's room, then the whole DNA's.
     int cap = StyleDna::kGrooveRoutes;
+    // The style's own, kept off the draw stream so no other layer's draw moves: it sets which way each of its
+    // followed twists winds (twistSign).
+    std::uint32_t twistSalt = 0u;
+
+    // A followed twist only rises from rest, so its sign is its direction, and one sign for every style stamped the
+    // same S of one hand on all of them. Each source of a style winds its own way; a jump already draws its own.
+    float twistSign(ReactSource source) const {
+        return (mix(twistSalt ^ (static_cast<std::uint32_t>(source) + 1u) * 0x9E3779B9u) & 0x10000u) != 0u ? 1.0f : -1.0f;
+    }
 
     void add(ReactSource source, LfoTarget target, ReactMode mode, float amount, float attack, float release,
              ModCurve curve = ModCurve::Linear) {
@@ -219,6 +228,7 @@ float structuralAmount(Draw& d, LfoTarget target) {
 StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& traits) {
     Draw d(mix(fnv1a(styleId) ^ (static_cast<std::uint32_t>(seed) * 0x9E3779B9u)));
     Builder b;
+    b.twistSalt = mix(fnv1a(styleId) + 0x51ed270bu * (static_cast<std::uint32_t>(seed) + 1u));
 
     // The pulse: one personality on the kick side, one from another group on the snare side, so
     // the two halves of a groove look different. Which kick and which snare is the style's own:
@@ -238,7 +248,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     b.add(big, LfoTarget::CamFly, ReactMode::Follow, d.range(0.8f, 1.4f), 0.25f, 2.2f);
     switch (b.freeTarget(d, std::array{LfoTarget::Bloom, LfoTarget::Twist, LfoTarget::CamFov, LfoTarget::ColorShift}, traits)) {
         case LfoTarget::Bloom: b.add(big, LfoTarget::Bloom, ReactMode::Follow, d.range(0.5f, 0.8f), 0.2f, 2.0f); break;
-        case LfoTarget::Twist: b.add(big, LfoTarget::Twist, ReactMode::Follow, d.range(0.4f, 0.7f), 0.2f, 2.0f, ModCurve::Smooth); break;
+        case LfoTarget::Twist: b.add(big, LfoTarget::Twist, ReactMode::Follow, b.twistSign(big) * d.range(0.4f, 0.7f), 0.2f, 2.0f, ModCurve::Smooth); break;
         case LfoTarget::CamFov: b.add(big, LfoTarget::CamFov, ReactMode::Follow, d.range(0.2f, 0.4f), 0.15f, 1.8f); break;
         case LfoTarget::ColorShift: b.add(big, LfoTarget::ColorShift, ReactMode::Step, d.range(0.4f, 0.6f), 0.3f, 0.3f); break;
         default: break;
@@ -346,7 +356,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
         switch (hit) {
             case LfoTarget::Ripple: b.add(attack, LfoTarget::Ripple, ReactMode::Follow, d.range(0.25f, 0.45f), 0.01f, 0.25f); break;
             case LfoTarget::Warp: b.add(attack, LfoTarget::Warp, ReactMode::Follow, d.range(0.2f, 0.35f), 0.01f, 0.3f, ModCurve::Smooth); break;
-            case LfoTarget::Twist: b.add(attack, LfoTarget::Twist, ReactMode::Follow, d.range(0.15f, 0.3f), 0.01f, 0.3f, ModCurve::Smooth); break;
+            case LfoTarget::Twist: b.add(attack, LfoTarget::Twist, ReactMode::Follow, b.twistSign(attack) * d.range(0.15f, 0.3f), 0.01f, 0.3f, ModCurve::Smooth); break;
             case LfoTarget::ChromaAb: b.add(attack, LfoTarget::ChromaAb, ReactMode::Follow, d.range(0.3f, 0.6f), 0.01f, 0.2f); break;
             case LfoTarget::Zoom: b.add(attack, LfoTarget::Zoom, ReactMode::Follow, d.range(0.1f, 0.2f), 0.01f, 0.25f); break;
             default: break;

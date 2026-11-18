@@ -99,6 +99,7 @@ void LifeScene::init() {
     vao_ = 0;
     censusPbo_ = 0;
     censusFence_ = nullptr;
+    censusContext_ = EGL_NO_CONTEXT;
     programOk_ = false;
     formats_.reset();
     state_.reset();
@@ -270,11 +271,14 @@ void LifeScene::startCensus(fluid::DoubleFbo& field, GLint restoreFbo) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(restoreFbo));
     censusFence_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    censusContext_ = eglGetCurrentContext();
 }
 
 void LifeScene::dropCensus() {
-    if (censusFence_ != nullptr) glDeleteSync(censusFence_);
+    // A fence of a lost context is not this one's to delete: the name means nothing here.
+    if (censusFence_ != nullptr && censusContext_ == eglGetCurrentContext()) glDeleteSync(censusFence_);
     censusFence_ = nullptr;
+    censusContext_ = EGL_NO_CONTEXT;
 }
 
 void LifeScene::finishCensus() {

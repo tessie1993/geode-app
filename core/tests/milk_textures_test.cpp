@@ -72,14 +72,14 @@ bool image(const std::string& name, const Bytes& b, int w = -1, int h = -1) {
 
 void testHeaders() {
     check(image("a.dds", dds(256, 128)), "a DDS with its magic and a size that fits");
-    check(image("a.DDS", dds(4096, 4096)), "the extension is caseless and 4096 a side fits");
+    check(image("a.DDS", dds(2048, 2048)), "the extension is caseless and 2048 a side fits");
     check(!image("a.dds", dds(256, 128, 127)), "a DDS shorter than its 128-byte header is refused");
     Bytes wrong = dds(256, 128);
     wrong[3] = 'X';
     check(!image("a.dds", wrong), "a DDS without its magic is refused");
     check(!image("a.dds", dds(0, 128)), "a DDS of no width is refused");
-    check(!image("a.dds", dds(4097, 128)), "a DDS past 4096 wide is refused");
-    check(!image("a.dds", dds(128, 4097)), "a DDS past 4096 high is refused");
+    check(!image("a.dds", dds(2049, 128)), "a DDS past 2048 wide is refused");
+    check(!image("a.dds", dds(128, 2049)), "a DDS past 2048 high is refused");
     check(!image("a.dds", dds(128, 0xFFFFFFFFu)), "a DDS height that was negative to the Kotlin reader is refused");
     check(image("a.dds", dds(256, 128), -1, -1), "a DDS is judged by its header, not the bounds decode");
 
@@ -90,7 +90,7 @@ void testHeaders() {
     for (const uint8_t depth : {0, 1, 12, 48}) check(!image("a.tga", tga(64, 64, 2, depth)), "no TGA depth " + std::to_string(depth));
     check(image("a.tga", tga(64, 64, 1, 8, 1)), "a colour-mapped TGA");
     check(!image("a.tga", tga(64, 64, 2, 32, 2)), "a TGA colour map type past 1 is refused");
-    check(!image("a.tga", tga(5000, 64)), "a TGA past 4096 wide is refused");
+    check(!image("a.tga", tga(5000, 64)), "a TGA past 2048 wide is refused");
     check(!image("a.tga", tga(64, 0)), "a TGA of no height is refused");
     check(!image("a.tga", tga(64, 64, 2, 32, 0, 17)), "a TGA shorter than its 18-byte header is refused");
 
@@ -98,7 +98,7 @@ void testHeaders() {
     check(image("a.png", any, 512, 256), "a PNG takes the bounds decode's size");
     check(image("a.JPEG", any, 1, 1), "so does a JPEG");
     check(!image("a.png", any, -1, -1), "a picture the decode could not read is refused");
-    check(!image("a.bmp", any, 4097, 16), "a picture past 4096 a side is refused");
+    check(!image("a.bmp", any, 2049, 16), "a picture past 2048 a side is refused");
 
     check(milk::admitsTexture("a.dib", 0), "an undeclared size is read");
     check(milk::admitsTexture("a.PNG", milk::kTextureMaxBytes), "exactly the cap is read");

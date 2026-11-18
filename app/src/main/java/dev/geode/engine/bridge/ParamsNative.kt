@@ -15,6 +15,18 @@ object ParamsNative {
         name: String,
     ): Float
 
+    /** Param [name] of [frame] as the int native reads it as; 0 for a name with no live row (`geode_params_get_int`). */
+    external fun paramsGetInt(
+        frame: FloatArray,
+        name: String,
+    ): Int
+
+    /** Param [name] of [frame] as the flag native reads it as; false for a name with no live row (`geode_params_get_flag`). */
+    external fun paramsGetFlag(
+        frame: FloatArray,
+        name: String,
+    ): Boolean
+
     /** [frame] with param [name] at [value], as a new frame; null for a name with no live row (`geode_params_set`). */
     external fun paramsSet(
         frame: FloatArray,

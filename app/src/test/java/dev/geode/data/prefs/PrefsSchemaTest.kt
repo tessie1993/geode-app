@@ -55,12 +55,12 @@ import dev.geode.data.VizUiState
 import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.engine.bridge.TestCatalogue
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
+import dev.geode.model.SceneParams
 import dev.geode.model.StyleShelf
+import dev.geode.model.TestCatalogue
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
 import dev.geode.ui.ModulationController
@@ -135,7 +135,7 @@ class PrefsSchemaTest {
                 val store = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
-                store.saveReactions("reactions/2")
+                store.saveReactions("reactions/2", 0)
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))

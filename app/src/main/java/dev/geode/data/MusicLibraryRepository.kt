@@ -373,6 +373,13 @@ internal class MusicLibraryRepository(
 
     override fun removeMediaRoot(uriStr: String) {
         _mediaRoots.update { it - uriStr }
+        // Gives back the grant importFolder kept; one never released is a permission leak.
+        runCatching {
+            application.contentResolver.releasePersistableUriPermission(
+                Uri.parse(uriStr),
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
         libraryPrefs.edit().putStringSet(KEY_ROOTS, _mediaRoots.value).apply()
     }
 
@@ -461,7 +468,8 @@ internal class MusicLibraryRepository(
         uris: List<String>,
     ) {
         if (name.isBlank()) return
-        editPlaylists { musicPlaylists.save(MusicPlaylist(name.trim(), uris.distinct())) }
+        // A name whose file is already taken gets a free one: save() would overwrite that playlist.
+        editPlaylists { musicPlaylists.save(MusicPlaylist(uniquePlaylistName(name.trim()), uris.distinct())) }
     }
 
     override fun renameMusicPlaylist(
@@ -536,10 +544,11 @@ internal class MusicLibraryRepository(
 
     /** Never overwrites an existing playlist quietly — appends "(2)", "(3)", ... until the name is free. */
     private fun uniquePlaylistName(base: String): String {
-        val taken = musicPlaylists.list().map { it.name }.toSet()
-        if (base !in taken) return base
+        // Compared by file name: two names that sanitise to the same file are the same playlist on disk.
+        val taken = musicPlaylists.list().map { PresetStore.safeFileName(it.name) }.toSet()
+        if (PresetStore.safeFileName(base) !in taken) return base
         var suffix = 2
-        while ("$base ($suffix)" in taken) suffix++
+        while (PresetStore.safeFileName("$base ($suffix)") in taken) suffix++
         return "$base ($suffix)"
     }
 }

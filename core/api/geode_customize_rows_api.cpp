@@ -79,7 +79,10 @@ const char* geode_palette_maker_start(const float* params) try {
 
 const char* geode_palette_maker_from_look(const float* params) try {
     const SceneParams p = look(params);
-    return handOut(palettepanel::encode(palettepanel::open(nullptr, 0, p.paletteBase(), p.paletteRange())));
+    // The look's own colours, as geode_palette_maker_start has them: its stops are the user's and are not narrowed
+    // to a hue ramp.
+    const auto stops = p.paletteStops();
+    return handOut(palettepanel::encode(palettepanel::open(stops.data(), p.paletteStopCount(), p.paletteBase(), p.paletteRange())));
 } catch (...) {
     return nullptr;
 }

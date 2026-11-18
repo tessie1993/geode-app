@@ -95,7 +95,8 @@ class BackupViewModel
                         block()
                     } catch (e: BackupException) {
                         RingLog.note("Backup", "${e.problem}: ${e.message}")
-                        BackupUiState.Failed(e.problem)
+                        // Some sections are already on disk while the stores keep the old copy: restart.
+                        if (e.wroteSomething) BackupUiState.Restored else BackupUiState.Failed(e.problem)
                     }
             }
         }

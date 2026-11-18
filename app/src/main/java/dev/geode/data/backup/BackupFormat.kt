@@ -34,6 +34,8 @@ class BackupException(
     val problem: BackupProblem,
     message: String,
     cause: Throwable? = null,
+    /** A restore that failed after at least one section was already swapped in: the app must restart. */
+    val wroteSomething: Boolean = false,
 ) : Exception(message, cause)
 
 internal fun fail(

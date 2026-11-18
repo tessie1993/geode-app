@@ -35,7 +35,8 @@ namespace geode::viz {
 //   the bar     a look lands on a downbeat whenever a beat is heard (a drop cuts in at once, a quarter
 //               second, where Form has moved the downbeat). How it lands is the feeling's: peace,
 //               tenderness and transcendence glide in over up to two bars, power and joy over a beat
-//               (changeBars). The bar is whatever the tracker hears; no tempo is preferred
+//               (changeBars). The bar is whatever the tracker hears; no tempo is preferred,
+//               and with none heard the look lands over the tuning's plain seconds (changeSeconds)
 //   the build   while Form says the song is in a build, the look leans toward the drop over four bars:
 //               faster, closer, rougher. The drop's cut takes it away; a build that fades without one
 //               lets go over a bar. It follows Form's state, never a level or a hit
@@ -176,6 +177,8 @@ public:
     // transcendence) at the tuning's calm glide, one bar between, the driven end (power, joy) at its
     // driven glide. Never the tempo's: the bar is whatever the tracker hears.
     static float changeBars(const sound::Emotion::State& s, const director::Tuning& tuning = director::defaultTuning());
+    // The same blend in seconds, for when no tempo is heard and there is no bar: the tuning's own times.
+    static float changeSeconds(const sound::Emotion::State& s, const director::Tuning& tuning = director::defaultTuning());
     // A remembered look grown on for its `returns`-th return: further the way it was heading, plus a
     // seeded turn of its own, both growing with the returns, held to each dial's range. Pure.
     static Look grow(const Look& look, const Look& heading, int returns, float growth, uint64_t seed, int section);

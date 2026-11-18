@@ -34,6 +34,11 @@ enum class Tune : int {
     ArcBars,          // bars the arc takes to move to a new section's level
     LongSeconds,      // seconds with no section or drop before a new look anyway
     StylesProgress,   // 1: sections step the style along the catalogue; 0: it stays (a return brings its own back)
+    // With no tempo heard there is no bar: a look lands over these plain times, the same four ends as above.
+    GlideDrivenSeconds,   // the most driven feeling
+    GlideCalmSeconds,     // the calmest
+    GlideNeutralSeconds,  // neither: between the two
+    ReturnMorphSeconds,   // the shortest morph into a returning section's look
     kCount
 };
 constexpr int kTunes = static_cast<int>(Tune::kCount);

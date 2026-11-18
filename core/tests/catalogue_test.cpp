@@ -580,7 +580,7 @@ void theShellsQuestionsAgreeWithTheTables() {
         check(catalogue::scopeNamed(catalogue::name(scope)) == scope, std::string("scope by name: ") + catalogue::name(scope));
     }
     check(!catalogue::scopeNamed("") && !catalogue::scopeNamed("universal"), "any other text names no scope");
-    // The scopes a screen names outright (engine/bridge/StyleCatalogue.kt): a rename here would hide nothing there.
+    // The scopes a screen names outright (model/StyleCatalogue.kt): a rename here would hide nothing there.
     const std::pair<const char*, Scope> shell[] = {
         {"UNIVERSAL", Scope::Universal},
         {"BAND_GAINS", Scope::BandGains},

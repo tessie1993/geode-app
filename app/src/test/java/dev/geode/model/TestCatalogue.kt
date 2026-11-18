@@ -1,14 +1,14 @@
-package dev.geode.engine.bridge
+package dev.geode.model
 
 import dev.geode.data.NativeLookDefaults
+import dev.geode.engine.bridge.CatalogueNative
 
 /**
  * A small catalogue for JVM tests, which cannot load the native library: a few real styles of each
  * kind, two families with their openers, the retired id and the one held control. A test that reaches
  * [StyleCatalogue] calls [install] first.
  *
- * It answers in the shape native does (a list is its items each followed by a newline), so the shell's
- * reading is what runs. What the real catalogue holds is `core/tests/catalogue_test.cpp`'s to prove;
+ * What the real catalogue holds is `core/tests/catalogue_test.cpp`'s to prove;
  * this only gives the shell's own rules (the free tier, the saved formats) something to work on.
  */
 object TestCatalogue : StyleCatalogue.Reads {
@@ -55,7 +55,7 @@ object TestCatalogue : StyleCatalogue.Reads {
         NativeLookDefaults.install { "neon_chrome_sea\nfade\n1200\n0.6\n0.12\n20\n30\n8\n" }
     }
 
-    override fun styleIds(trait: Int): String =
+    override fun styleIds(trait: Int): List<String> =
         when (trait) {
             CatalogueNative.STYLE_ANY -> all
             CatalogueNative.STYLE_SHADER -> shader
@@ -64,16 +64,16 @@ object TestCatalogue : StyleCatalogue.Reads {
             CatalogueNative.STYLE_FLUID -> fluid
             CatalogueNative.STYLE_CYMATICS -> cymatics
             else -> emptyList()
-        }.let(::listText)
+        }
 
     override fun styleHas(
         trait: Int,
         styleId: String,
-    ): Boolean = styleId in styleIds(trait).lines()
+    ): Boolean = styleId in styleIds(trait)
 
-    override fun pickerNames(): String = listText(picker.keys)
+    override fun pickerNames(): List<String> = picker.keys.toList()
 
-    override fun pickerIds(family: String): String = listText(picker[family].orEmpty())
+    override fun pickerIds(family: String): List<String> = picker[family].orEmpty()
 
     override fun resolve(styleId: String): String = if (styleId == "water") "pool" else styleId
 
@@ -92,10 +92,13 @@ object TestCatalogue : StyleCatalogue.Reads {
         styleId: String,
     ): Boolean = true
 
+    override fun holds(
+        styleId: String,
+        paramKey: String,
+    ): Boolean = styleId == "kundt_tube" && paramKey == "Geometry"
+
     override fun held(
         styleId: String,
         paramKey: String,
-    ): Float = if (styleId == "kundt_tube" && paramKey == "Geometry") 1f else Float.NaN
-
-    private fun listText(items: Collection<String>): String = items.joinToString("") { "$it\n" }
+    ): Float = if (holds(styleId, paramKey)) 1f else Float.NaN
 }

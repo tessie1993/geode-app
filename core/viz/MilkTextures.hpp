@@ -17,8 +17,8 @@ namespace geode::viz::milk {
 
 // Comfortably above any real MilkDrop texture, far below what exhausts the heap.
 inline constexpr int64_t kTextureMaxBytes = 16LL * 1024 * 1024;
-// The engine decodes a texture whole, to RGBA, on the GL thread: 4096 px a side is 64 MB decoded.
-inline constexpr int kTextureMaxSide = 4096;
+// The engine decodes a texture whole, to RGBA, on the GL thread: 2048 px a side is 16 MB decoded.
+inline constexpr int kTextureMaxSide = 2048;
 
 // After the last '.', lowercased; "" when there is none.
 std::string extensionOf(const std::string& name);

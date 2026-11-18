@@ -30,7 +30,10 @@ struct ShaderStage {
 class ProgramStager {
 public:
     explicit ProgramStager(ProgramBinaryCache* cache) : cache_(cache) {}
-    ~ProgramStager() = default;
+    // Deletes what it holds, as clear() does: a renderer destroyed while its context lives (the cast's
+    // fallback, freed and made again during a cast) took its staged programs with it before. Without a
+    // context the deletes are no-ops, as for the renderer's other owners.
+    ~ProgramStager() { clear(); }
     ProgramStager(const ProgramStager&) = delete;
     ProgramStager& operator=(const ProgramStager&) = delete;
 

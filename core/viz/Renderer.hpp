@@ -28,6 +28,7 @@
 #include "viz/DivePass.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
+#include "viz/GlHandle.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
@@ -425,11 +426,13 @@ private:
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.
     Framebuffer fboL_{"sceneLayer"};
-    GLuint quadVao_ = 0;
-    GLuint paletteLutTex_ = 0;
+    // Handles (viz/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
+    // made again during a cast) deletes them, as its targets and passes do; onSurfaceCreated resets them.
+    GlVertexArray quadVao_;
+    GlTexture paletteLutTex_;
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
-    GLuint paletteRampTex_ = 0;
+    GlTexture paletteRampTex_;
     // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
     // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an

@@ -313,11 +313,11 @@ void Renderer::uploadPaletteRamp(const SceneParams& p) {
     const bool changed = paletteRamp_.update(frameSettings_.palettes, palette::amountsOf(p));
     // A still frame is drawn again with the new colours.
     if (changed) redrawFrames_ = std::max(redrawFrames_, 1);
-    if (!paletteRamp_.active() || (!changed && paletteRampTex_ != 0)) return;
+    if (!paletteRamp_.active() || (!changed && paletteRampTex_)) return;
     // The storage and the sampler are made once; a change only rewrites the texels.
-    const bool created = paletteRampTex_ == 0;
-    if (created) glGenTextures(1, &paletteRampTex_);
-    glBindTexture(GL_TEXTURE_2D, paletteRampTex_);
+    const bool created = !paletteRampTex_;
+    if (created) paletteRampTex_.reset(gl_gen::texture());
+    glBindTexture(GL_TEXTURE_2D, paletteRampTex_.get());
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     if (created) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -466,7 +466,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
     if (keep > 0.0f && !sceneJustSwitched_) {
-        trailPass_.apply(p, keep, timeSeconds_, dt, fboA_, quadVao_, renderWidth_, renderHeight_);
+        trailPass_.apply(p, keep, timeSeconds_, dt, fboA_, quadVao_.get(), renderWidth_, renderHeight_);
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
@@ -506,7 +506,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = postRotationAngle_;
     in.postBirths = births::compute(lifeClock_, fx.life);
-    in.quadVao = quadVao_;
+    in.quadVao = quadVao_.get();
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
     Scene* other = outgoingScene_ ? outgoingScene_ : activeScene_;
@@ -652,7 +652,7 @@ void Renderer::drawUiBlur(GLuint targetFbo, float wallDt) {
         std::lock_guard<std::mutex> lock(stateLock_);
         region = uiBlurRegion_;
     }
-    uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_);
+    uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_.get());
 }
 
 void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
@@ -809,7 +809,7 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     f.bornGain = 0.0f;
     f.feedback = true;
     f.time = timeSeconds_;
-    f.quadVao = quadVao_;
+    f.quadVao = quadVao_.get();
     return liquidPass_.run(f);
 }
 
@@ -841,7 +841,7 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
     const GLuint dived =
         divePass_.run(plain ? fboA_.tex() : shown, plain ? renderWidth_ : liquidPass_.width(),
                       plain ? renderHeight_ : liquidPass_.height(), renderWidth_, renderHeight_, divePhase_,
-                      diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_);
+                      diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_.get());
     return dived != 0 ? dived : shown;
 }
 
@@ -856,7 +856,7 @@ GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuin
     f.wallDt = wallDt;
     f.time = timeSeconds_;
     f.zeroTex = compositePass_.zeroTex();
-    f.quadVao = quadVao_;
+    f.quadVao = quadVao_.get();
     f.blocking = blockingBuilds_.load(std::memory_order_relaxed);
     const GLuint layered = physicsLayers_.run(physics::planFor(p), f);
     if (physicsLayers_.building()) noteSettling();
@@ -901,7 +901,7 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.shimmer = std::clamp(soundFrame_.high, 0.0f, 1.0f) * 0.8f;
     f.light = std::clamp(soundFrame_.level, 0.0f, 1.0f);
     f.time = timeSeconds_;
-    f.quadVao = quadVao_;
+    f.quadVao = quadVao_.get();
     return liquidPass_.run(f);
 }
 

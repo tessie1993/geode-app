@@ -3,8 +3,7 @@ package dev.geode.model
 import dev.geode.engine.bridge.ShellNative
 
 /**
- * The user's own shelf on the Styles page: the styles they starred, the ones they chose last, and
- * whether Random stays in the family on screen ([randomFamilyOnly], off by default).
+ * The user's own shelf on the Styles page: the styles they starred, the ones they chose last.
  *
  * The rules (newest first, no repeats, a short memory, the order of "yours") are native's
  * (core/shell/StyleShelf, asked through [Rules]); the prefs file that keeps it is `data/StyleShelfStore`.
@@ -12,7 +11,6 @@ import dev.geode.engine.bridge.ShellNative
 data class StyleShelf(
     val favourites: Set<String> = emptySet(),
     val recents: List<String> = emptyList(),
-    val randomFamilyOnly: Boolean = false,
 ) {
     fun isFavourite(id: String): Boolean = id in favourites
 
@@ -20,8 +18,6 @@ data class StyleShelf(
 
     /** [id] moves to the front; the list never repeats a style and keeps native's short memory. */
     fun pushRecent(id: String): StyleShelf = copy(recents = Rules.reads.pushRecent(recents, id))
-
-    fun withRandomFamilyOnly(on: Boolean): StyleShelf = copy(randomFamilyOnly = on)
 
     /** [id] leaves Recent (the row menu's "Remove from Recent"); favourites are untouched. */
     fun removeRecent(id: String): StyleShelf = copy(recents = Rules.reads.removeRecent(recents, id))

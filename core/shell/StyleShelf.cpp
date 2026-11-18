@@ -36,7 +36,6 @@ StyleShelf styleShelfApply(const StyleShelf& shelf, const StyleShelfEvent& event
             if (it != out.recents.end()) out.recents.erase(it);
             break;
         }
-        case StyleShelfEvent::SetRandomFamilyOnly: out.randomFamilyOnly = event.flag; break;
     }
     return out;
 }

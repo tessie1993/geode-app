@@ -235,8 +235,8 @@ void ShaderScene::uploadParams() {
     set1f(Uniform::uTile, p.tile);
     set1f(Uniform::uTwist, p.twist);
     {
-        const TwistShape twist = twistShape(styleVariantSeed(id_), shaderTime_);
-        glUniform2f(uniforms_.loc(Uniform::uTwistCentre), twist.x, twist.y);
+        const TwistShape twist = twistShape(styleVariantSeed(id_), static_cast<float>(shaderTime_));
+        uniforms_.set2f(Uniform::uTwistCentre, twist.x, twist.y);
         set1f(Uniform::uTwistBend, twist.bend);
     }
     set1f(Uniform::uTemperature, p.temperature);

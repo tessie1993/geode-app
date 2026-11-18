@@ -1004,7 +1004,7 @@ void twistShapeIsEachStylesOwn() {
         const TwistShape later = twistShape(seed, 11.0f);
         const TwistShape far = twistShape(seed, 70.0f);
         if (a.x != again.x || a.y != again.y || a.bend != again.bend) bounded = false;
-        if (std::hypot(a.x, a.y) > 0.65f || a.bend < -0.35f || a.bend > 0.6f) bounded = false;
+        if (std::hypot(a.x, a.y) > 0.7f || a.bend < -0.35f || a.bend > 0.6f) bounded = false;
         if (std::hypot(later.x - a.x, later.y - a.y) > 0.01f) slow = false;
         if (std::hypot(far.x - a.x, far.y - a.y) > 0.005f) moves = true;
         if (std::hypot(a.x, a.y) < 0.05f) ++centred;

@@ -178,7 +178,7 @@ const SHADER_VALUES = {
   uInvert: 0, uIntensity: 1, uMirrorX: 0, uTurbulence: 0, uPalBase: 0, uPalRange: 1,
   uContrast: 1, uGamma: 1, uDuotone: 0, uBloom: 0, uWarp: 0,
   uRipple: 0, uSymmetry: 6, uKaleido: 0, uMorph: 0, uPixelate: 0, uPosterize: 0, uSway: 0,
-  uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTemperature: 0, uSolarize: 0,
+  uDriftX: 0, uDriftY: 0, uTile: 1, uTwist: 0, uTwistCentre: [0, 0], uTwistBend: 0, uTemperature: 0, uSolarize: 0,
   // Grow and layers (lib_scene_uniforms) at their defaults, where every family library draws as before.
   uSpawn: 0, uFractal: 0, uFrontLayer: 0, uBackLayer: 0, uFormula: 0,
   // Shapes (lib_scene_uniforms) at its default: off, every style its own form, and the graph as a renderer

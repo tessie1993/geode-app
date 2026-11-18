@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of TagsNative (CLAUDE.md).
+// The JNI declarations of geode_tags_jni.cpp (CLAUDE.md).
 object TagsNative {
     init {
         GeodeNative.ensureLoaded()

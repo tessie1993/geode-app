@@ -134,7 +134,11 @@ internal class RecordController(
                             scope.launch { finished(started, phase == RecorderNative.RECORD_SESSION_SAVED) }
                             break
                         }
-                        _state.update { it.copy(recordedMs = RecorderNative.recorderRecordedMs(started.recorder, RecorderNative.recordNowNs())) }
+                        _state.update {
+                            it.copy(
+                                recordedMs = RecorderNative.recorderRecordedMs(started.recorder, RecorderNative.recordNowNs()),
+                            )
+                        }
                         delay(TICK_MS)
                     }
                 }

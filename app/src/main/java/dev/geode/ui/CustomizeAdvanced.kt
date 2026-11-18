@@ -48,11 +48,11 @@ import dev.geode.RingLog
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
-import dev.geode.engine.bridge.ParamsNative
-import dev.geode.engine.bridge.VizNative
 import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.ParamsNative
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.engine.bridge.VizNative
 import dev.geode.geodeContainer
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
@@ -264,7 +264,8 @@ private fun ReactionCard(
                         }
                     } else {
                         // Native lists what a route may move on this style.
-                        val offered = remember(sceneId) { ModulationNative.modTargetsOffered(sceneId, ModulationNative.MOD_PICKER_REACTION) }
+                        val offered =
+                            remember(sceneId) { ModulationNative.modTargetsOffered(sceneId, ModulationNative.MOD_PICKER_REACTION) }
                         offered.forEach { t ->
                             val label = ModCatalog.label("target", t)
                             TextButton(onClick = {
@@ -301,7 +302,10 @@ internal fun ModulatorCard(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            Switch(checked = v.flagAt(ModulationNative.MOD_LFO_ENABLED), onCheckedChange = { onChange(ModulationNative.MOD_LFO_ENABLED, it.wire()) })
+            Switch(
+                checked = v.flagAt(ModulationNative.MOD_LFO_ENABLED),
+                onCheckedChange = { onChange(ModulationNative.MOD_LFO_ENABLED, it.wire()) },
+            )
         }
         if (v.flagAt(ModulationNative.MOD_LFO_ENABLED)) {
             TextButton(onClick = { showTargetPicker = true }) { Text(stringResource(R.string.customize_moves, targetLabel)) }
@@ -321,9 +325,16 @@ internal fun ModulatorCard(
                     onChange(ModulationNative.MOD_LFO_BEATS, timing[it].name.toFloatOrNull() ?: 0f)
                 }
                 val moment = v.intAt(ModulationNative.MOD_LFO_MOMENT)
-                MomentTriggerRow(moment, stringResource(R.string.mod_moment_free)) { onChange(ModulationNative.MOD_LFO_MOMENT, it.toFloat()) }
+                MomentTriggerRow(
+                    moment,
+                    stringResource(R.string.mod_moment_free),
+                ) { onChange(ModulationNative.MOD_LFO_MOMENT, it.toFloat()) }
                 val rate = v.getOrElse(ModulationNative.MOD_LFO_RATE_SECONDS) { 0f }
-                if (shows and ModulationNative.MOD_SHOWS_RATE != 0) RateSecondsSlider(rate) { onChange(ModulationNative.MOD_LFO_RATE_SECONDS, it) }
+                if (shows and ModulationNative.MOD_SHOWS_RATE !=
+                    0
+                ) {
+                    RateSecondsSlider(rate) { onChange(ModulationNative.MOD_LFO_RATE_SECONDS, it) }
+                }
             }
             LabeledSlider(MOD_DEPTH, v.getOrElse(ModulationNative.MOD_LFO_DEPTH) { 0f }, ModCatalog.range("lfo.depth")) {
                 onChange(ModulationNative.MOD_LFO_DEPTH, it)
@@ -397,7 +408,10 @@ internal fun AdsrCard(
     val sceneId = LocalSceneId.current
     val v = remember(adsrs, index) { ModulationNative.modAdsrValues(adsrs, index) }
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        CheckRow("Envelope ${index + 1} on", v.flagAt(ModulationNative.MOD_ADSR_ENABLED)) { onChange(ModulationNative.MOD_ADSR_ENABLED, it.wire()) }
+        CheckRow(
+            "Envelope ${index + 1} on",
+            v.flagAt(ModulationNative.MOD_ADSR_ENABLED),
+        ) { onChange(ModulationNative.MOD_ADSR_ENABLED, it.wire()) }
         if (!v.flagAt(ModulationNative.MOD_ADSR_ENABLED)) return@Column
         // What it moves: one row and a checkable menu, in place of a chip per target and a "+" chip.
         // The ones already chosen stay listed even where this style ignores them, so they can be unticked (native's list).

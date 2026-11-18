@@ -491,6 +491,12 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
+    if (targetFbo == 0) {
+        // The composite's full-screen triangle writes every pixel of the surface, so a tiler need not reload
+        // last frame's colour (or any depth) into tile memory first.
+        static constexpr GLenum kSurfaceAttachments[] = {GL_COLOR, GL_DEPTH};
+        glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, kSurfaceAttachments);
+    }
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = fboA_.tex();
     in.texB = physicsOutgoingTex_ != 0 ? physicsOutgoingTex_ : fboB_.tex();
@@ -504,7 +510,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     // The Layers page's mix (base) plus what waves, envelopes, routes and knobs add (the layerMix param).
     in.layerMix = safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_));
     in.blendOrdinal = frameLayerBlend_;
-    in.hasLayer = layerScene_ != nullptr;
+    // At mix 0 the composite shows the base alone, so the layer's post chain is not worth running per pixel.
+    in.hasLayer = layerScene_ != nullptr && in.layerMix > 0.0f;
     in.texL = layerScene_ ? fboL_.tex() : compositePass_.zeroTex();
     in.hasOutgoing = outgoingScene_ != nullptr;
     const std::string& transitionId = outgoingScene_ ? switchTransitionId_ : frameTransitionId_;

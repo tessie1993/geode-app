@@ -172,8 +172,8 @@ class PrefsSchemaTest {
                 BackgroundPrefsStore(it[GeodePrefsFiles.BACKGROUND]).save(BackgroundPrefs(uri = "content://image"))
             },
             Owner("$DATA/KeepSetStore.kt", KeepSetStore.PREF_KEYS) {
-                // The toggle that wrote this is native (core/viz/CustomizeMap keepToggle); the store saves what it returns.
-                KeepSetStore(it[GeodePrefsFiles.MODULATION]) { document -> document }.save("speed\n")
+                // The toggle that wrote this is native (core/viz/ModState); the store saves what native then holds.
+                KeepSetStore(it[GeodePrefsFiles.MODULATION], load = {}, toggle = {}, held = { "speed\n" }).tap("speed")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)

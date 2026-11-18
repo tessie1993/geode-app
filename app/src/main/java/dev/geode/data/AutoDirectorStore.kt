@@ -50,8 +50,8 @@ import kotlin.random.Random
 class AutoDirectorStore internal constructor(
     private val repository: SettingsRepository<AutoDirectorSettings>,
     private val scope: CoroutineScope,
-    /** Customize's keep set as saved ([KeepSetStore.document]), read once (on IO) when the store starts. */
-    keptAtStart: suspend () -> String,
+    /** Reads Customize's saved keep set into native ([KeepSetStore.start]) once, on IO; native hands it to the director. */
+    keepAtStart: suspend () -> Unit,
 ) {
     val enabled: StateFlow<Boolean> =
         repository.value
@@ -80,7 +80,7 @@ class AutoDirectorStore internal constructor(
 
     init {
         scope.launch {
-            setKept(keptAtStart())
+            keepAtStart()
             repository.loaded()
             loaded = true
             repository.value.collect {
@@ -94,14 +94,6 @@ class AutoDirectorStore internal constructor(
     /** The native level (DirectorNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
     fun setReach(level: Int) {
         scope.launch { repository.update { it.copy(reach = level) } }
-    }
-
-    /**
-     * Customize's locked controls and kept categories, as native's keep document ([KeepSetStore]): the saved one
-     * at start, then each change `ModulationController` saves. The one writer of the native keep set.
-     */
-    fun setKept(document: String) {
-        bestEffort(TAG, "push keep set") { DirectorNative.directorKeepSet(document) }
     }
 
     /** The settings text as native wrote it for an edit; saved and handed over as it is. */

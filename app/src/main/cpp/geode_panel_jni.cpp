@@ -53,16 +53,13 @@ Java_dev_geode_engine_bridge_PanelNative_panelRollAll(JNIEnv* env, jobject, jstr
     return bits;
 }
 
-// Null when the roll changed nothing.
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_PanelNative_modWavesRoll(JNIEnv* env, jobject, jstring styleId, jstring locked, jboolean all,
-                                                      jfloatArray params, jstring lfos) {
-    if (!frameFits(env, params)) return nullptr;
+// Rolls the waves the app holds, with the keep set it holds; an event, nothing back.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_PanelNative_modStateWavesRoll(JNIEnv* env, jobject, jstring styleId, jboolean all, jfloatArray params) {
+    if (!frameFits(env, params)) return;
     Utf8Chars style(env, styleId);
-    Utf8Chars keys(env, locked);
-    Utf8Chars saved(env, lfos);
     const std::vector<float> look = frameOf(env, params);
-    return utf8String(env, geode_mod_waves_roll(style.get(), keys.get(), all ? 1 : 0, look.data(), saved.get()));
+    geode_mod_state_waves_roll(style.get(), all ? 1 : 0, look.data());
 }
 
 JNIEXPORT void JNICALL

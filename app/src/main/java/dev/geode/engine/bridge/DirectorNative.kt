@@ -26,12 +26,6 @@ object DirectorNative {
     external fun directorReachSet(level: Int)
 
     /**
-     * Customize's keep set, which the director's reach never moves: one control key or `#CATEGORY` per
-     * line, the lock set [PanelNative.panelRoll] takes.
-     */
-    external fun directorKeepSet(keys: String)
-
-    /**
      * The Auto Director's settings (core/viz/DirectorTuning), process-wide like [directorSet] and pinned with
      * it by an export: [text] as [directorTuningWith] gave it ("" is every default).
      */

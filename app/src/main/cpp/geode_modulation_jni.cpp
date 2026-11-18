@@ -79,27 +79,11 @@ Java_dev_geode_engine_bridge_ModulationNative_modLfoValues(JNIEnv* env, jobject,
     return floatsOf(env, out, geode_mod_lfo_values(saved.get(), slot, id.get(), out, GEODE_MOD_LFO_VALUES));
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_ModulationNative_modLfoEdit(JNIEnv* env, jobject, jstring lfos, jint slot, jint field, jfloat value) {
-    Utf8Chars saved(env, lfos);
-    return textOf(env, false, [&](char* out, int capacity) {
-        return geode_mod_lfo_edit(saved.get(), slot, field, value, out, capacity);
-    });
-}
-
 JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_ModulationNative_modAdsrValues(JNIEnv* env, jobject, jstring adsrs, jint slot) {
     Utf8Chars saved(env, adsrs);
     float out[GEODE_MOD_ADSR_VALUES + kMaxTargets] = {};
     return floatsOf(env, out, geode_mod_adsr_values(saved.get(), slot, out, GEODE_MOD_ADSR_VALUES + kMaxTargets));
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_ModulationNative_modAdsrEdit(JNIEnv* env, jobject, jstring adsrs, jint slot, jint field, jfloat value) {
-    Utf8Chars saved(env, adsrs);
-    return textOf(env, false, [&](char* out, int capacity) {
-        return geode_mod_adsr_edit(saved.get(), slot, field, value, out, capacity);
-    });
 }
 
 JNIEXPORT jintArray JNICALL
@@ -168,6 +152,62 @@ JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_ModulationNative_modHandLoad(JNIEnv* env, jobject, jstring reactions, jboolean hasMask, jint savedMask) {
     Utf8Chars saved(env, reactions);
     return geode_mod_hand_load(saved.get(), hasMask ? 1 : 0, savedMask);
+}
+
+// The modulation the app holds (geode_mod_state_*): each edit is an event and returns nothing.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateLoad(JNIEnv* env, jobject, jstring lfos, jstring adsrs, jstring reactions,
+                                                      jint mask) {
+    Utf8Chars waves(env, lfos);
+    Utf8Chars envelopes(env, adsrs);
+    Utf8Chars routes(env, reactions);
+    geode_mod_state_load(waves.get(), envelopes.get(), routes.get(), static_cast<unsigned>(mask));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateLfoSet(JNIEnv*, jobject, jint slot, jint field, jfloat value) {
+    geode_mod_state_lfo_set(slot, field, value);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateAdsrSet(JNIEnv*, jobject, jint slot, jint field, jfloat value) {
+    geode_mod_state_adsr_set(slot, field, value);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateReactionsEdit(JNIEnv* env, jobject, jstring styleId, jint seed, jint op, jint a,
+                                                               jint b, jfloat value) {
+    Utf8Chars id(env, styleId);
+    geode_mod_state_reactions_edit(id.get(), seed, op, a, b, value);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateKeepLoad(JNIEnv* env, jobject, jstring document) {
+    Utf8Chars text(env, document);
+    geode_mod_state_keep_load(text.get());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateKeepToggle(JNIEnv* env, jobject, jstring key) {
+    Utf8Chars name(env, key);
+    geode_mod_state_keep_toggle(name.get());
+}
+
+// A text held; null for the routes while Auto. Asked again when an edit on another thread grew it in between.
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateText(JNIEnv* env, jobject, jint which) {
+    std::vector<char> text(2048);
+    for (;;) {
+        const int need = geode_mod_state_text(which, text.data(), static_cast<int>(text.size()));
+        if (need == 0 && which == GEODE_MOD_STATE_REACTIONS) return nullptr;
+        if (need < static_cast<int>(text.size())) return utf8String(env, text.data());
+        text.resize(static_cast<size_t>(need) + 1);
+    }
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_ModulationNative_modStateHandMask(JNIEnv*, jobject) {
+    return static_cast<jint>(geode_mod_state_hand_mask());
 }
 
 JNIEXPORT jint JNICALL

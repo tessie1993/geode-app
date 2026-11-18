@@ -16,18 +16,6 @@ object CustomizeNative {
     /** Every control a roll can move (control keys, one per line), so the panel offers to keep it; ask once. */
     external fun customizeLockableKeys(): String
 
-    /**
-     * The saved keep document [document] (one key a line) with every key it may not hold dropped and each kept key
-     * once, sorted (core/viz/CustomizeMap `keepNormalize`).
-     */
-    external fun customizeKeepNormalize(document: String): String
-
-    /** [document] normalised, with [key] taken out when it is kept and put in when it is not (`keepToggle`). */
-    external fun customizeKeepToggle(
-        document: String,
-        key: String,
-    ): String
-
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
     external fun customizeShown(styleId: String): String
 

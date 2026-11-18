@@ -34,8 +34,6 @@ import dev.geode.ui.PlayerViewModel
 import dev.geode.ui.geodeViewModel
 import dev.geode.ui.pro.PaywallViewModel
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.merge
 
 /**
  * The Cast button: Media3's route button, which lists the TVs on the network and starts a session.
@@ -98,10 +96,8 @@ fun CastHost() {
     val player: PlayerViewModel = geodeViewModel()
     DisposableEffect(player) {
         // Here, composed on every screen, not in the Cast button: a cast started from the Player's Share to PC tile
-        // or the system's output switcher left the background renderer on the saved look and the remembered .milk.
-        // A .milk reaches the stage as a request (a preset, Auto, the dice) or as a load the stage reports.
-        val milk = merge(player.activeMilkPath, player.vizApply.mapNotNull { it.milkPath })
-        val following = CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }, milk)
+        // or the system's output switcher left the background renderer on the saved look.
+        val following = CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) })
         onDispose { CastMirror.unfollow(following) }
     }
     val context = LocalContext.current

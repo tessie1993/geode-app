@@ -11,6 +11,7 @@
 #include "viz/GlHandle.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/UniformId.hpp"
+#include "viz/UniformMemo.hpp"
 
 namespace geode::viz {
 
@@ -42,12 +43,56 @@ public:
         return std::min(slot, declared);
     }
 
+    // Uploads that skip the driver call when the value is the one this program already holds (UniformMemo). A
+    // location of -1 (the program never reads the name) is skipped too. A uniform written through these must not
+    // also be written with a bare glUniform*, or the memo would not see that write.
+    void set1f(Uniform id, float v) {
+        const GLint at = loc(id);
+        if (at >= 0 && memo_.changed(index(id), &v, sizeof v)) glUniform1f(at, v);
+    }
+    void set2f(Uniform id, float a, float b) {
+        const GLint at = loc(id);
+        const float v[2] = {a, b};
+        if (at >= 0 && memo_.changed(index(id), v, sizeof v)) glUniform2f(at, a, b);
+    }
+    void set3f(Uniform id, float a, float b, float c) {
+        const GLint at = loc(id);
+        const float v[3] = {a, b, c};
+        if (at >= 0 && memo_.changed(index(id), v, sizeof v)) glUniform3f(at, a, b, c);
+    }
+    void set4f(Uniform id, float a, float b, float c, float d) {
+        const GLint at = loc(id);
+        const float v[4] = {a, b, c, d};
+        if (at >= 0 && memo_.changed(index(id), v, sizeof v)) glUniform4f(at, a, b, c, d);
+    }
+    void set1i(Uniform id, GLint v) {
+        const GLint at = loc(id);
+        if (at >= 0 && memo_.changed(index(id), &v, sizeof v)) glUniform1i(at, v);
+    }
+    // `count` vectors of `components` floats (glUniform{1..4}fv).
+    void setFloats(Uniform id, int components, GLsizei count, const float* data) {
+        const GLint at = loc(id);
+        if (at < 0 || count <= 0) return;
+        const size_t bytes = sizeof(float) * static_cast<size_t>(components) * static_cast<size_t>(count);
+        if (!memo_.changed(index(id), data, bytes)) return;
+        switch (components) {
+            case 1: glUniform1fv(at, count, data); break;
+            case 2: glUniform2fv(at, count, data); break;
+            case 3: glUniform3fv(at, count, data); break;
+            default: glUniform4fv(at, count, data); break;
+        }
+    }
+    // Every remembered value is unknown again (the program's uniforms were written some other way).
+    void forgetValues() { memo_.clear(); }
+
 private:
+    static size_t index(Uniform id) { return static_cast<size_t>(id); }
     static constexpr GLint kUnresolved = -2;
     // The live length of an array uniform, or `declared` when the program does not report one.
     GLsizei arraySize(std::string_view name, GLsizei declared);
 
     GLuint program_;
+    UniformMemo memo_{static_cast<size_t>(Uniform::kCount)};
     std::array<GLint, static_cast<size_t>(Uniform::kCount)> slots_;
     std::array<GLsizei, static_cast<size_t>(Uniform::kCount)> arraySlots_;
     std::unordered_map<std::string, GLint, UniformNameHash, std::equal_to<>> locations_;

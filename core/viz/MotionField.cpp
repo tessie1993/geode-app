@@ -21,6 +21,8 @@ void MotionField::reset() {
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
     driftAngle_ = 0.0;
+    flowPhaseD_ = 0.0;
+    flowTimeD_ = 0.0;
     driftRate_ = 0.0f;
     state_ = State{};
     seedState_ = 0x51ed270bu;
@@ -162,9 +164,13 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
 
     // ---- flow phase: monotonic, rate set by loudness, never the sign --------
     const float flowRate = kFlowBaseHz + kFlowEnergyHz * state_.energyRel;
-    state_.flowPhase = std::fmod(state_.flowPhase + dt * flowRate, kTimeWrapSeconds);
+    // Both integrate in double (a float clock stalls at a slow rate late in a session); the state's floats
+    // are the uniforms, cast once.
+    flowPhaseD_ = std::fmod(flowPhaseD_ + dt * flowRate, static_cast<double>(kTimeWrapSeconds));
     // The same rate times Speed: bit-for-bit flowPhase at Speed 1 (SpeedClock::advance).
-    state_.flowTime = speedclock::advance(state_.flowTime, speed, flowRate, dt, kTimeWrapSeconds);
+    flowTimeD_ = speedclock::advance(flowTimeD_, speed, flowRate, dt, kTimeWrapSeconds);
+    state_.flowPhase = static_cast<float>(flowPhaseD_);
+    state_.flowTime = static_cast<float>(flowTimeD_);
 }
 
 // Reshapes every family's parameters from the continuous state step() just

@@ -21,7 +21,7 @@ import dev.geode.R
 /**
  * The pages of the Visuals panel, in tab order. [STYLES] is always the root of the route and
  * every other page sits on it, so system back retraces the route to the styles before it leaves
- * Visuals. [TEXTURES] has no tab: MilkDrop opens it, since textures only matter to MilkDrop presets.
+ * Visuals. [SETTINGS] has no tab: it opens over the tab it was opened from.
  */
 internal enum class VisualsPage(
     @param:StringRes val titleRes: Int,
@@ -29,12 +29,10 @@ internal enum class VisualsPage(
     STYLES(R.string.visuals_tab_styles),
     CUSTOMIZE(R.string.visuals_tab_customize),
     PRESETS(R.string.visuals_tab_presets),
-    MILKDROP(R.string.visuals_tab_milkdrop),
-    TEXTURES(R.string.visuals_tab_textures),
     SETTINGS(R.string.visuals_qs_title),
 }
 
-internal val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS, VisualsPage.MILKDROP)
+internal val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS)
 
 /**
  * One step of the route through Visuals: a page. Each has exactly one key, so the route
@@ -132,13 +130,12 @@ internal class VisualsNavState(
     val top: VisualsPage get() = history.top.page
 
     /**
-     * The lit tab: Textures belongs to MilkDrop (it opens it), so MilkDrop stays lit there; Settings
-     * has no tab, so the tab it was opened over stays lit.
+     * The lit tab: Settings has no tab, so the tab it was opened over stays lit.
      */
     val selectedTab: Int
         get() =
             route
-                .map { if (it.page == VisualsPage.TEXTURES) VisualsPage.MILKDROP else it.page }
+                .map { it.page }
                 .lastOrNull { it in VisualsTabs }
                 .let { VisualsTabs.indexOf(it ?: VisualsPage.STYLES) }
 
@@ -149,11 +146,6 @@ internal class VisualsNavState(
         history.open(VisualsKey.Page(page))
         // A page wants room to show: a sheet down to its tabs rises to half.
         if (sheet == SheetHeight.PEEK || sheet == SheetHeight.HIDDEN) settleSheet(SheetHeight.HALF)
-    }
-
-    /** A page with no tab of its own (Textures), on top of the one that opened it. */
-    fun push(page: VisualsPage) {
-        openTab(page)
     }
 
     /** One step back along the route; false at Styles, where back leaves Visuals. */

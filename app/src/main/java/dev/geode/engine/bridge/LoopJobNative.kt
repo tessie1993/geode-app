@@ -58,9 +58,7 @@ object LoopJobNative {
     external fun loopJobSetScene(
         job: Long,
         assets: Any,
-        milkTextureDir: String,
         sceneId: String,
-        milkPath: String?,
         entitled: Boolean,
     )
 

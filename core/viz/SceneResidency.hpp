@@ -10,8 +10,7 @@
 //
 // Why: the renderer kept every style it ever built. A shader style holds a linked program, a VAO and a
 // sound texture; a fluid style holds a whole FluidSim (at Ultra the dye grid alone is tens of MB, #999's
-// arithmetic gave 67.5 MiB, plus velocity, pressure, multigrid, particles and bloom); a MilkDrop style holds
-// a projectM instance with its own screen-size textures (the main pair, the blurs, its frame target). An hour of Auto, the wallpaper or the dream
+// arithmetic gave 67.5 MiB, plus velocity, pressure, multigrid, particles and bloom). An hour of Auto, the wallpaper or the dream
 // visits dozens of styles, so resident memory grew until the memory limiter or LMK killed the process,
 // or GL allocations failed. And every scale change resized all of them in one frame.
 //
@@ -20,7 +19,7 @@
 //    requested) are never released. The heaviest of them is free; the others count against the spare
 //    budget (#999), so a fluid fading into a fluid over a fluid layer leaves no room for spares.
 //  - The rest, most recent first, keep their place while their weight fits the spare budget.
-//    A fluid or MilkDrop scene weighs kHeavyWeight: one of them costs what several shader styles cost.
+//    A fluid scene weighs kHeavyWeight: one of them costs what several shader styles cost.
 //  - A few spares stay, so back and forth between two looks (a beat cut, ‹ ›) stays a cache hit; under
 //    memory pressure none do, since a rebuild is cheaper than the memory and a later resize.
 //  - Resizes are lazy: a scale change bumps the size stamp, only scenes drawn this frame are resized,
@@ -89,8 +88,8 @@ public:
     // What one fluid-solver scene weighs against a shader style in the spare budget.
     static constexpr int kHeavyWeight = 3;
 
-    // A scene's weight: a fluid solver or a projectM instance is heavy, a shader style is not.
-    static bool heavy(bool fluid, bool milkdrop) { return fluid || milkdrop; }
+    // A scene's weight: a fluid solver is heavy, a shader style is not.
+    static bool heavy(bool fluid) { return fluid; }
 
     // What a trim sheds. A renderer that goes on drawing (the signal read by a frame: a visible wallpaper,
     // the dream, Cast, an export) drops its spares only: the passes' targets hold the picture's history

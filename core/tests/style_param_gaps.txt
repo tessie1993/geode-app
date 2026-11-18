@@ -41,7 +41,6 @@ acid_mirror: noteChords noteDrums noteIntervals notePitch noteTension
 acid_smear: noteChords noteDrums noteIntervals notePitch noteTension
 morph_world: midGain
 pool: midGain
-milkdrop: noteChords noteDrums noteIntervals notePitch noteTension
 fluid: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_ink: noteChords noteDrums noteIntervals notePitch noteTension
 fluid_oilslick: noteChords noteDrums noteIntervals notePitch noteTension

@@ -94,7 +94,7 @@ void defaults() {
     check(t.look.sceneId == viz::catalogue::allIds().front(), "the default style");
     check(t.look.attack == 0.6f && t.look.decay == 0.12f, "the default envelope");
     check(t.look.params.speed == SceneParams{}.speed && t.look.customPaletteId.empty(), "default params");
-    check(!t.look.customShader && !t.look.milkPreset, "no shader, no milk preset");
+    check(!t.look.customShader, "no shader");
     check(t.layout.artworkScale == 0.62f && t.layout.safeArea == 0.06f, "layout numbers");
     check(t.layout.accent == -1 && t.layout.backdrop == static_cast<int>(0xFF000000u), "white accent on black");
     check(t.slots.size() == 2 && t.slots[0].offsetY == -0.06f && t.slots[0].sizeSp == 34.0f && t.slots[1].sizeSp == 22.0f,
@@ -112,6 +112,8 @@ void defaults() {
     const files::VideoTemplate trimmed = parsed(R"({"format":"geode.template","id":" abc ","name":" Night ","look":{"sceneId":"water"}})", "trims");
     check(trimmed.id == "abc" && trimmed.name == "Night", "id and name trimmed");
     check(trimmed.look.sceneId == viz::catalogue::resolveId("water") && trimmed.look.sceneId != "water", "a retired style resolves");
+    const files::VideoTemplate gone = parsed(R"({"format":"geode.template","id":"abc","name":"Old","look":{"sceneId":"no_such_style"}})", "unknown style");
+    check(gone.look.sceneId == viz::catalogue::allIds().front(), "a style this build does not have opens on the default style");
 }
 
 // The exact text org.json's toString(2) wrote for a template at its defaults, after the look.
@@ -201,7 +203,6 @@ void roundTrip() {
     t.look.params.trails = false;
     t.look.customPaletteId = "dusk";
     t.look.customShader = "void main(){}";
-    t.look.milkPreset = "[preset00]\nzoom=1.01";
     t.layout.ratio = "R1_1";
     t.layout.accent = static_cast<int>(0x80FF0000u);
     t.slots = {files::TemplateSlot{}};
@@ -219,7 +220,7 @@ void roundTrip() {
     check(back.look.sceneId == "fluid" && back.look.attack == 0.3f && back.look.decay == 0.9f, "the look's envelope");
     check(back.look.params.speed == 1.7f && !back.look.params.trails, "the look's params");
     check(back.look.customPaletteId == "dusk", "the saved palette id");
-    check(back.look.customShader == t.look.customShader && back.look.milkPreset == t.look.milkPreset, "shader and milk preset");
+    check(back.look.customShader == t.look.customShader, "the shader");
     check(back.layout.ratio == "R1_1" && back.layout.accent == static_cast<int>(0x80FF0000u), "layout");
     check(text.find("\"accent\": \"#80FF0000\"") != std::string::npos, "colours as #AARRGGBB");
     check(back.slots.size() == 1 && back.slots[0].pattern == "{title}" && back.slots[0].color == 0x0000FF00, "the slot");
@@ -395,14 +396,14 @@ void api() {
     params.speed = 0.5f;
     std::vector<float> wire(static_cast<size_t>(SceneParams::kFieldCount));
     params.toWire(wire.data());
-    const char* made = geode_template_create("Made", 7, "fluid", 0.2f, 0.3f, nullptr, "milk", wire.data(), SceneParams::kFieldCount, "p1");
+    const char* made = geode_template_create("Made", 7, "fluid", 0.2f, 0.3f, nullptr, wire.data(), SceneParams::kFieldCount, "p1");
     check(made != nullptr, "create");
     const files::VideoTemplate m = files::readTemplate(made ? made : "").value;
     check(m.name == "Made" && m.createdAtMs == 7 && m.id.size() == 36, "a new template's identity");
     check(m.look.sceneId == "fluid" && m.look.attack == 0.2f && m.look.decay == 0.3f && m.look.params.speed == 0.5f, "its look");
-    check(!m.look.customShader && m.look.milkPreset == std::string("milk") && m.look.customPaletteId == "p1", "its strings");
+    check(!m.look.customShader && m.look.customPaletteId == "p1", "its strings");
     check(m.slots.size() == 2 && m.exportSettings.segment.kind == "WHOLE_TRACK", "every other section at its default");
-    check(geode_template_create("x", 0, "fluid", 0, 0, nullptr, nullptr, wire.data(), 1, "") == nullptr, "a short frame");
+    check(geode_template_create("x", 0, "fluid", 0, 0, nullptr, wire.data(), 1, "") == nullptr, "a short frame");
 
     check(orEmpty(geode_template_share_name("a:b")) == "a_b.geode.json", "share name");
     check(geode_template_link_in("nothing") == nullptr, "no link");

@@ -27,6 +27,7 @@ enum StageCommand : uint16_t {
     kStageFrameRate = 9,   // LastWins, from the vsync thread: f = the window's hint
     kStageQuit = 10,       // Ordered
     kStageService = 11,    // LastWins: the client has work for the stage thread (StageClient::service)
+    kStageTrim = 12,       // LastWins: the system wants memory back (Lifecycle::trimRequested)
 };
 
 // The platform a stage runs on, called on the stage thread only. A window is opaque here.
@@ -85,6 +86,7 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
+    bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
 private:
     void runActions();

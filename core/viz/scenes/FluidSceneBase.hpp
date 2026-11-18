@@ -23,6 +23,7 @@ public:
     SceneFamily family() const override { return SceneFamily::Fluid; }
     void setParams(const SceneParams& params) override { params_ = params; }
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
+    bool readsPcm() const override { return true; }
     void update(const GeodeSoundFrame& features, float dt) override;
 
 protected:

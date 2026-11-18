@@ -3,13 +3,9 @@ package dev.geode.cast
 import android.content.Context
 import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
-import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.MilkNative
 import dev.geode.engine.bridge.StageNative
-import dev.geode.geodeContainer
 import dev.geode.viz.NativeViz
-import java.io.File
 
 /**
  * The renderer a cast draws with while the app's stage does not: straight into the encoder's own EGL context,
@@ -21,7 +17,6 @@ internal class CastFallback(
     height: Int,
 ) {
     private val appContext = context.applicationContext
-    private val prefs = appContext.geodeContainer.prefsFiles.viz
     private val viz = NativeViz(appContext)
 
     /** What it draws; only the parts that are new objects are pushed. */
@@ -32,20 +27,10 @@ internal class CastFallback(
         }
 
     init {
-        MilkPathPrefs.seed(prefs)
-        // A new renderer starts on the preset the stage showed last, not on MilkDrop's idle one.
-        viz.onCreated = {
-            MilkNative.milkMemoryRestorePath(appContext.assets, File(appContext.filesDir, "milk").path)?.let(viz::loadMilkPreset)
-        }
         viz.setLook(look)
         PerformanceSettings.HIGH.run { viz.setQuality(renderScale, marchScale, postFx) }
         viz.surfaceCreated()
         viz.surfaceChanged(width, height)
-    }
-
-    fun loadMilkPreset(path: String) {
-        MilkNative.milkMemoryRequest(path)
-        viz.loadMilkPreset(path)
     }
 
     /**
@@ -55,9 +40,6 @@ internal class CastFallback(
     fun draw() {
         val fps = CastStream.FPS.toFloat()
         val events = viz.frame(AudioBus.heard, fps, fps)
-        if (events and StageNative.FRAME_MILK_LOADED != 0) {
-            viz.takeMilkPresetLoaded()?.let { if (MilkNative.milkMemoryLoaded(it)) MilkPathPrefs.save(prefs, it) }
-        }
         if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && viz.takeDirectorStyleMoments() > 0) CastMirror.directorMoment()
     }
 

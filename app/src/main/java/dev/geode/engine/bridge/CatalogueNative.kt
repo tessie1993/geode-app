@@ -69,9 +69,6 @@ object CatalogueNative {
     const val STYLE_FLUID: Int = 4
     const val STYLE_CYMATICS: Int = 5
 
-    /** The MilkDrop renderer's one style id, which the shell names to open the preset browser. */
-    const val STYLE_MILKDROP: String = "milkdrop"
-
     /**
      * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
      * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (data/BuiltInPresets does).

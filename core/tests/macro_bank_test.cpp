@@ -2,7 +2,7 @@
 // scene params. Centre is the identity, a full turn each way moves every linked field by its weight
 // and never past its range, a link the style cannot show is skipped, the offset rides on a moved
 // base, every edit validates, the text survives a round trip and garbage, and the four built-in
-// knobs move a flat style, a 3D style, Fluid and MilkDrop both ways, hard, within the safety clamp, and a bank
+// knobs move a flat style, a 3D style and Fluid both ways, hard, within the safety clamp, and a bank
 // saved with the first built-in knobs loads with today's. A knob goes off screen into the bank's library and back,
 // a bank saved before the library keeps every knob on screen, and the dice rolls the turns of the knobs on screen. The
 // process-wide bank (geode_macro_bank_set) starts as the default, is replaced whole, never in place. Every float
@@ -95,7 +95,6 @@ struct EngineStyles {
     std::string flat;
     std::string threeD;
     std::string fluid;
-    std::string milkdrop;
 };
 
 EngineStyles engineStyles() {
@@ -105,7 +104,6 @@ EngineStyles engineStyles() {
         if (kind == catalogue::Kind::Shader && catalogue::isMarched(id) && s.threeD.empty()) s.threeD = id;
         if (kind == catalogue::Kind::Shader && !catalogue::isMarched(id) && s.flat.empty()) s.flat = id;
         if (kind == catalogue::Kind::Fluid && s.fluid.empty()) s.fluid = id;
-        if (kind == catalogue::Kind::Milkdrop && s.milkdrop.empty()) s.milkdrop = id;
     }
     return s;
 }
@@ -222,22 +220,18 @@ void theOffsetRidesOnTheBase() {
 
 void aLinkOutOfReachIsSkipped() {
     const EngineStyles s = engineStyles();
-    check(!s.flat.empty() && !s.threeD.empty() && !s.fluid.empty() && !s.milkdrop.empty(), "the catalogue has each engine");
+    check(!s.flat.empty() && !s.threeD.empty() && !s.fluid.empty(), "the catalogue has each engine");
     const Bank bank = oneKnob({Link{LfoTarget::Speed, 0.5f, 0.0f}, Link{LfoTarget::Morph, 0.5f, 0.0f},
                                Link{LfoTarget::FluidForce, 0.5f, 0.0f}, Link{LfoTarget::Warp, 0.5f, 0.0f}},
                               1.0f);
     const SceneParams base;
-    const SceneParams milk = macrobank::apply(base, bank, s.milkdrop);
-    check(milk.speed == base.speed && milk.morph == base.morph && milk.fluidSplatForce == base.fluidSplatForce,
-          "MilkDrop skips the scene clock, the shader look and the emitters");
-    check(milk.warp > base.warp, "MilkDrop still takes the composite's Warp");
     const SceneParams flat = macrobank::apply(base, bank, s.flat);
     check(flat.speed > base.speed && flat.morph > base.morph && flat.warp > base.warp, "a shader style takes its own");
     check(flat.fluidSplatForce == base.fluidSplatForce, "a shader style skips the emitters");
     const SceneParams fluid = macrobank::apply(base, bank, s.fluid);
     check(fluid.fluidSplatForce > base.fluidSplatForce && fluid.speed > base.speed && fluid.morph == base.morph,
           "Fluid takes the emitters and the clock, not the shader look");
-    for (const std::string& id : {s.flat, s.threeD, s.fluid, s.milkdrop}) {
+    for (const std::string& id : {s.flat, s.threeD, s.fluid}) {
         const macrobank::Reach mask = macrobank::reachMask(id);
         for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
             const Target t = Target::ofSlot(slot);
@@ -973,7 +967,7 @@ void theDefaultBankIsFourLiveKnobs() {
 
     const EngineStyles s = engineStyles();
     const SceneParams base;
-    for (const std::string& id : {s.flat, s.threeD, s.fluid, s.milkdrop}) {
+    for (const std::string& id : {s.flat, s.threeD, s.fluid}) {
         for (const Knob& knob : def.knobs) {
             Bank up = def;
             Bank down = def;
@@ -1004,7 +998,7 @@ void theDefaultBankIsFourLiveKnobs() {
     }
     // A knob with nothing in reach says so.
     const Bank fluidOnly = oneKnob({Link{LfoTarget::FluidCurl, 0.5f, 0.0f}}, 0.0f);
-    check(macrobank::liveText(fluidOnly, s.milkdrop) == "knob|1|0|0\n", "a knob MilkDrop cannot show is not live there");
+    check(macrobank::liveText(fluidOnly, s.flat) == "knob|1|0|0\n", "a knob a flat style cannot show is not live there");
     check(macrobank::liveText(fluidOnly, s.fluid) == "knob|1|1|0\n", "and is live upward on Fluid");
 }
 
@@ -1039,22 +1033,17 @@ Strength strengthOf(const Knob& knob, bool up, const std::string& styleId) {
 }
 
 // The owner's report (2026-11-11): the four built-in knobs "dont change visuals much". Each built-in knob, each
-// way, must move at least kStrongLinks params every engine reads (a flat shader style, a 3D one, a simulation
-// and MilkDrop) by kStrongShare of their range or more, kStrongSum in all; the knobs that shipped first (Glow,
+// way, must move at least kStrongLinks params every engine reads (a flat shader style, a 3D one, a simulation)
+// by kStrongShare of their range or more, kStrongSum in all; the knobs that shipped first (Glow,
 // Heat, Bend, Flow) did not, which is what this pins against.
 void theBuiltInKnobsMoveThePictureHard() {
     const EngineStyles s = engineStyles();
     const Bank& def = macrobank::defaultBank();
     for (const Knob& knob : def.knobs) {
-        for (const std::string& id : {s.flat, s.threeD, s.fluid, s.milkdrop}) {
+        for (const std::string& id : {s.flat, s.threeD, s.fluid}) {
             for (const bool up : {true, false}) {
                 const Strength st = strengthOf(knob, up, id);
-                // MilkDrop runs on projectM's own clock (Speed does not reach it), so a knob that slows the picture
-                // down can only still the camera there: one param, hard, is what that engine has to give.
-                bool slows = false;
-                for (const Link& link : knob.links) slows = slows || (link.target == LfoTarget::Speed && (up ? link.up : link.down) < 0.0f);
-                const bool clockless = slows && !modtargets::reaches(LfoTarget::Speed, id);
-                check(clockless ? st.strong >= 1 : st.enough(), knob.name + (up ? " up" : " down") + " moves " + std::to_string(st.strong) + " params hard on " + id +
+                check(st.enough(), knob.name + (up ? " up" : " down") + " moves " + std::to_string(st.strong) + " params hard on " + id +
                                        " (sum " + std::to_string(st.sum) + ")");
             }
         }
@@ -1074,7 +1063,7 @@ void theBuiltInKnobsMoveThePictureHard() {
     for (const auto& links : first) {
         const Knob old = oneKnob(links, 0.0f).knobs[0];
         bool weak = false;
-        for (const std::string& id : {s.flat, s.threeD, s.fluid, s.milkdrop}) {
+        for (const std::string& id : {s.flat, s.threeD, s.fluid}) {
             weak = weak || !strengthOf(old, true, id).enough() || !strengthOf(old, false, id).enough();
         }
         check(weak, "the rule catches a first-shipped knob: " + macrobank::name(links[0].target));
@@ -1372,10 +1361,14 @@ void modulationTurnsAKnobWithoutRewritingIt() {
     for (int id = 1; id <= macrobank::kMaxKnobs + 4; ++id) many.add(id, 0.1f, KnobMods::kWave);
     check(many.count == macrobank::kMaxKnobs, "modulation holds at most a bank's knobs");
     macrobank::publishLive(mods);
-    check(macrobank::liveModsText() == "mod|" + std::to_string(colour) + "|0.625|3|-0.5|1.25\nmod|4242|1|1|0|0\n", "the live text lists who turns which knob");
-    check(std::string(geode_macro_bank_live_mods()) == macrobank::liveModsText(), "geode_macro_bank_live_mods");
+    float rows[macrobank::kMaxKnobs * macrobank::kLiveModFloats] = {};
+    const float want[] = {static_cast<float>(colour), 0.625f, 3.0f, -0.5f, 1.25f, 4242.0f, 1.0f, 1.0f, 0.0f, 0.0f};
+    check(macrobank::liveModsPacked(rows, macrobank::kMaxKnobs) == 2 && std::equal(std::begin(want), std::end(want), rows),
+          "the live rows list who turns which knob");
+    float again[macrobank::kLiveModFloats] = {};
+    check(geode_macro_bank_live_mods(again, 1) == 1 && std::equal(std::begin(want), std::begin(want) + 5, again), "geode_macro_bank_live_mods, held to its capacity");
     macrobank::publishLive(KnobMods{});
-    check(macrobank::liveModsText().empty(), "and nothing when nothing does");
+    check(macrobank::liveModsPacked(rows, macrobank::kMaxKnobs) == 0, "and nothing when nothing does");
 }
 
 }  // namespace

@@ -20,7 +20,7 @@
 #                                      the Record shell that replaces them. Drop them after.
 #   - the Scene model:                 A/scene/ (model types only; the Scene itself is geode::scene)
 #   - glTF and pack import:            A/gltf/, any *Gltf*.kt or *Glb*.kt, any *Pack*Import*.kt
-#                                      (MilkPackImporter today); import is C++ (cgltf, meshoptimizer,
+#                                      (import is C++: cgltf, meshoptimizer,
 #                                      Basis Universal)
 #   - the render job:                  A/ui/ExportController.kt, the whole file: the render job sits
 #                                      beside its UI state there (target: core/output)

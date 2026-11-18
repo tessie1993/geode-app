@@ -36,7 +36,6 @@ object TestCatalogue : StyleCatalogue.Reads {
                 ),
             "arbor" to listOf("arbor_grove", "arbor_willow", "arbor_coral"),
             "terrain" to listOf("terra_ridge", "terra_dunes"),
-            "milkdrop" to listOf(CatalogueNative.STYLE_MILKDROP),
             "fluid" to listOf("fluid", "fluid_ink", "curlflow"),
             "cymatics" to listOf("cymatics", "kundt_tube"),
         )

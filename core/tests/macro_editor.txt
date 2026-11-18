@@ -112,7 +112,6 @@ target|density|0|Density
 target|marchDetail|0|Detail
 target|trailZoom|1|Trail zoom (echo in/out)
 target|trailWarp|1|Trail warp (liquid echo)
-target|milkdropPaletteTint|0|MilkDrop palette tint
 target|hueRange|1|Hue range
 target|contrast|1|Contrast
 target|gamma|1|Gamma

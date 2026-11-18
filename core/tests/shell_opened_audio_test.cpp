@@ -1,8 +1,7 @@
 // Host-side checks for core/shell/OpenedAudio: the rules for an audio file another app opens in this one
 // ("Open with"): the intent-routing decision, the provider refusals and the display-name sanitising. Every case
 // of the Kotlin OpenedAudioTest (app/src/test/java/dev/geode/model/OpenedAudioTest.kt) is here with the same
-// expected result, plus the JVM string behaviours the Kotlin leans on (Unicode whitespace, the case folding of
-// ".milk", modified UTF-8 from JNI), and the C ABI the app calls them through (core/api/geode_shell_api.h). Text
+// expected result, plus the JVM string behaviours the Kotlin leans on (Unicode whitespace, modified UTF-8 from JNI), and the C ABI the app calls them through (core/api/geode_shell_api.h). Text
 // is UTF-8 here; non-ASCII is written as byte escapes.
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_opened_audio_test.cpp
@@ -33,8 +32,8 @@ const char* const kView = "android.intent.action.VIEW";
 const std::string kOwn = "com.beatrealms3d.app";
 
 OpenedRoute route(S action = std::string(kView), S scheme = std::string("content"), S type = std::string("audio/mpeg"),
-                  S segment = std::string("song.mp3"), bool fromHistory = false) {
-    return openedAudioRoute(action, scheme, type, segment, fromHistory);
+                  bool fromHistory = false) {
+    return openedAudioRoute(action, scheme, type, fromHistory);
 }
 
 void contentViewWithAudioTypeOpens() {
@@ -45,17 +44,8 @@ void contentViewWithAudioTypeOpens() {
     check(route(kView, std::string("content"), std::string("application/x-flac")) == OpenedRoute::Open, "application/x-flac");
 }
 
-void untypedOpensUnlessMilk() {
-    check(route(kView, std::string("content"), std::nullopt, std::string("1234")) == OpenedRoute::Open, "untyped number");
-    check(route(kView, std::string("content"), std::nullopt, std::string("Aderack - Space.MILK")) == OpenedRoute::NotOurs, "untyped milk");
-    // ignoreCase in Kotlin folds a char through uppercase then lowercase: the Kelvin sign is a K, a dotless or dotted I an I.
-    check(route(kView, std::string("content"), std::nullopt, std::string("x.mil\xE2\x84\xAA")) == OpenedRoute::NotOurs, "Kelvin sign");
-    check(route(kView, std::string("content"), std::nullopt, std::string("x.m\xC4\xB1lk")) == OpenedRoute::NotOurs, "dotless i");
-    check(route(kView, std::string("content"), std::nullopt, std::string("x.m\xC4\xB0lk")) == OpenedRoute::NotOurs, "dotted I");
-    // The segment is trimmed with Kotlin's trim (Unicode whitespace) first.
-    check(route(kView, std::string("content"), std::nullopt, std::string("x.milk\xC2\xA0 ")) == OpenedRoute::NotOurs, "trailing no-break space");
-    check(route(kView, std::string("content"), std::nullopt, std::nullopt) == OpenedRoute::Open, "no segment is not a milk");
-    check(route(kView, std::string("content"), std::nullopt, std::string("milk")) == OpenedRoute::Open, "no dot");
+void untypedOpens() {
+    check(route(kView, std::string("content"), std::nullopt) == OpenedRoute::Open, "untyped");
 }
 
 void othersAreLeftToOtherHandlers() {
@@ -67,13 +57,13 @@ void othersAreLeftToOtherHandlers() {
     check(route(kView, std::nullopt) == OpenedRoute::NotOurs, "no scheme");
     check(route(kView, std::string("content"), std::string("video/mp4")) == OpenedRoute::NotOurs, "video");
     check(route(kView, std::string("content"), std::string("audio/")) == OpenedRoute::NotOurs, "audio/ alone");
-    check(route(kView, std::string("content"), std::string("application/octet-stream"), std::string("x.milk")) == OpenedRoute::NotOurs, "octet-stream milk");
+    check(route(kView, std::string("content"), std::string("application/octet-stream")) == OpenedRoute::NotOurs, "octet-stream");
     check(route(kView, std::string("content"), std::string("*/*")) == OpenedRoute::NotOurs, "*/*");
 }
 
 void replayedFromRecentsIsDropped() {
-    check(route(kView, std::string("content"), std::string("audio/mpeg"), std::string("song.mp3"), true) == OpenedRoute::Stale, "stale");
-    check(route(kView, std::string("content"), std::string("video/mp4"), std::string("song.mp3"), true) == OpenedRoute::NotOurs, "video from history");
+    check(route(kView, std::string("content"), std::string("audio/mpeg"), true) == OpenedRoute::Stale, "stale");
+    check(route(kView, std::string("content"), std::string("video/mp4"), true) == OpenedRoute::NotOurs, "video from history");
 }
 
 bool refuses(S scheme = std::string("content"), S authority = std::string("com.example.files.provider"),
@@ -186,12 +176,11 @@ std::string nameOut(const char* raw) {
 
 void openedAudioThroughTheAbi() {
     const char* view = "android.intent.action.VIEW";
-    check(geode_opened_audio_route(view, "content", "audio/mpeg", "x", 0) == GEODE_OPENED_OPEN, "abi: open");
-    check(geode_opened_audio_route(view, "content", "audio/mpeg", "x", 1) == GEODE_OPENED_STALE, "abi: stale");
-    check(geode_opened_audio_route(view, "content", nullptr, "a.milk", 0) == GEODE_OPENED_NOT_OURS, "abi: milk untyped");
-    check(geode_opened_audio_route(view, "content", nullptr, nullptr, 0) == GEODE_OPENED_OPEN, "abi: untyped, no name");
-    check(geode_opened_audio_route(nullptr, "content", "audio/mpeg", "x", 0) == GEODE_OPENED_NOT_OURS, "abi: no action");
-    check(geode_opened_audio_route(view, "file", "audio/mpeg", "x", 0) == GEODE_OPENED_NOT_OURS, "abi: a file uri");
+    check(geode_opened_audio_route(view, "content", "audio/mpeg", 0) == GEODE_OPENED_OPEN, "abi: open");
+    check(geode_opened_audio_route(view, "content", "audio/mpeg", 1) == GEODE_OPENED_STALE, "abi: stale");
+    check(geode_opened_audio_route(view, "content", nullptr, 0) == GEODE_OPENED_OPEN, "abi: untyped");
+    check(geode_opened_audio_route(nullptr, "content", "audio/mpeg", 0) == GEODE_OPENED_NOT_OURS, "abi: no action");
+    check(geode_opened_audio_route(view, "file", "audio/mpeg", 0) == GEODE_OPENED_NOT_OURS, "abi: a file uri");
 
     check(geode_opened_audio_refuses("content", "com.other.files", "dev.geode", "com.other", 1) == 0, "abi: granted plays");
     check(geode_opened_audio_refuses("content", "com.other.files", "dev.geode", "com.other", 0) == 1, "abi: ungranted");
@@ -207,7 +196,7 @@ void openedAudioThroughTheAbi() {
     check(nameOut("ab\xED\xA0\x80" "c") == "abc", "abi: a lone surrogate dropped");
     // A NUL from the JVM comes as C0 80 (a plain NUL would end the C string): dropped, the rest kept.
     check(nameOut("ab\xC0\x80" "cd") == "abcd", "abi: a NUL dropped");
-    check(geode_opened_audio_route(view, "content", "audio/\xC0\x80" "x", "x", 0) == GEODE_OPENED_OPEN, "abi: a NUL in the type");
+    check(geode_opened_audio_route(view, "content", "audio/\xC0\x80" "x", 0) == GEODE_OPENED_OPEN, "abi: a NUL in the type");
     char small[3] = {'z', 'z', 'z'};
     check(geode_opened_audio_display_name("Song.mp3", small, 3) == 4 && std::string(small) == "So", "abi: a short buffer");
 
@@ -226,7 +215,7 @@ void openedAudioThroughTheAbi() {
 
 int main() {
     contentViewWithAudioTypeOpens();
-    untypedOpensUnlessMilk();
+    untypedOpens();
     othersAreLeftToOtherHandlers();
     replayedFromRecentsIsDropped();
     grantedUriOfAnotherAppPlays();

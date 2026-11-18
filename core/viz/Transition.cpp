@@ -151,6 +151,8 @@ void TransitionPrograms::warm(const std::string& id) {
 void TransitionPrograms::uploadParamsIfNeeded(UniformCache& program, const TransitionCatalog::Def* def) {
     if (def && (&program != uploadedFor_ || def != uploadedDef_)) {
         TransitionCatalog::uploadParams(program.program(), *def);
+        // The params wrote the program's uniforms by name, behind the cache's back.
+        program.forgetValues();
         uploadedFor_ = &program;
         uploadedDef_ = def;
     }

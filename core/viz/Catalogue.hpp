@@ -22,15 +22,15 @@ namespace geode::viz::catalogue {
 constexpr int kTextVersion = 3;
 
 // Which scene class an id builds. One per renderer, not per style.
-enum class Kind { Shader, Silk, Life, Mycelium, Acid, Milkdrop, Fluid, CurlFlow, Cymatics };
-constexpr int kKindCount = 9;
+enum class Kind { Shader, Silk, Life, Mycelium, Acid, Fluid, CurlFlow, Cymatics };
+constexpr int kKindCount = 8;
 
 // Which styles a Customize parameter can move (R4: no dead controls; a control that cannot move
 // the style on screen is hidden). The shell names a scope by name(Scope).
 enum class Scope {
     Universal,      // applied to the finished frame by the composite pass, so every style
-    SceneClock,     // MilkDrop presets pace themselves
-    AudioDrive,     // MilkDrop takes raw PCM
+    SceneClock,     // the scene clock: every style
+    AudioDrive,     // the audio drive: every style
     BassBand,
     MidBand,
     TrebleBand,
@@ -44,7 +44,6 @@ enum class Scope {
     TrailLength,
     TrailEcho,      // TrailPass zoom/warp
     ParticleSprite,
-    Milkdrop,
     FluidSim,
     Emitters,       // Fluid splats
     Journey,        // spawn/catch choreography: Fluid, Curl Flow
@@ -57,7 +56,7 @@ enum class Scope {
     Shadow,         // per STYLE: the raymarched styles whose key-lit surface casts soft shadows (uShadow, lib_shade)
     Escape,         // per STYLE: the styles whose fractal folds colour by escape (uEscapeColor, lib_shade)
 };
-constexpr int kScopeCount = 28;
+constexpr int kScopeCount = 27;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
 // (the owner's groups, 2026-11-02). Per-style metadata is engine data, so the tags live here beside the
@@ -94,7 +93,7 @@ constexpr Range kTouchRotation{-3.0f, 3.0f};
 constexpr float kTouchRotationPerDegree = 0.012f;
 
 // Every id, in the order the picker lists them: silk, life, mycelium, acid, shaders (loose, then
-// the families in family order), milkdrop, fluid, curl flow, cymatics.
+// the families in family order), fluid, curl flow, cymatics.
 const std::vector<std::string>& allIds();
 bool knows(const std::string& id);
 // A retired id and the style that replaced it, so a look, playlist entry, take or template saved on

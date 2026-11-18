@@ -39,13 +39,13 @@ void SoundUniforms::step(const GeodeSoundFrame& frame, float dt) {
 // shape them themselves.
 void SoundUniforms::upload(UniformCache& locs, float drive, int unit) {
     // A name the program never reads has location -1: its work (the copy, the resample, the texture upload) is skipped.
-    const GLint soundLoc = locs.loc("uSound");
+    const GLint soundLoc = locs.loc(Uniform::uSound);
     if (soundLoc >= 0) {
         const float* scalars = reinterpret_cast<const float*>(&frame_);
         std::copy(scalars, scalars + GEODE_SOUND_SCALARS, scalars_.begin());
         glUniform4fv(soundLoc, kVec4s, scalars_.data());
     }
-    const GLint texLoc = locs.loc("uSoundTex");
+    const GLint texLoc = locs.loc(Uniform::uSoundTex);
     if (texLoc >= 0) {
         resampleRow(frame_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, texData_.data(), kTexWidth);
         resampleRow(frame_.waveform, GEODE_SOUND_WAVEFORM_POINTS, texData_.data() + kTexWidth, kTexWidth);
@@ -54,19 +54,14 @@ void SoundUniforms::upload(UniformCache& locs, float drive, int unit) {
         glActiveTexture(GL_TEXTURE0 + unit);
         glBindTexture(GL_TEXTURE_2D, tex_.id());
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kTexWidth, kTexRows, GL_RED, GL_FLOAT, texData_.data());
-        glUniform1i(texLoc, unit);
+        locs.set1i(Uniform::uSoundTex, unit);
         glActiveTexture(GL_TEXTURE0);
     }
-    const GLint driveLoc = locs.loc("uSoundDrive");
-    if (driveLoc >= 0) glUniform1f(driveLoc, std::max(drive, 0.0f));
+    locs.set1f(Uniform::uSoundDrive, std::max(drive, 0.0f));
     const ReactSignals& r = signals_;
-    const GLint eventsLoc = locs.loc("uSoundEvents");
-    if (eventsLoc >= 0) {
-        glUniform4f(eventsLoc, r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
-                    r.value(ReactSource::NoteChange));
-    }
-    const GLint countsLoc = locs.loc("uSoundCounts");
-    if (countsLoc >= 0) glUniform2f(countsLoc, r.onsetCount(), r.cutCount());
+    locs.set4f(Uniform::uSoundEvents, r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
+               r.value(ReactSource::NoteChange));
+    locs.set2f(Uniform::uSoundCounts, r.onsetCount(), r.cutCount());
 }
 
 }  // namespace geode::viz

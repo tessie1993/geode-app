@@ -36,9 +36,9 @@ import java.util.concurrent.locks.LockSupport
  *
  * Only while the stage draws nothing (the app in the background, the screen off: casting keeps going then,
  * owner 2026-11-02) does a renderer of its own draw here, made on first need and freed after a stretch unused:
- * the saved live look, the stage's style and params as last seen ([CastMirror]), the MilkDrop preset it last
- * picked ([CastMirror.milkPath]) and the same sound ([AudioBus.heard]). It is a second engine, so its
- * Auto, director and MilkDrop randomness can drift from what the phone last showed; nobody sees the phone then.
+ * the saved live look, the stage's style and params as last seen ([CastMirror]), and the same sound ([AudioBus.heard]).
+ * It is a second engine, so its Auto and director randomness can drift from what the phone last showed;
+ * nobody sees the phone then.
  * The saved look is read off this thread and only the parts that changed are handed over, so a store write (a
  * track change, a slider) never stalls the encoder's clock or restarts modulation.
  *
@@ -202,9 +202,6 @@ internal class CastStream(
     private var applied: LookSnapshot? = null
     private var mirrored: CastMirror.Look? = null
 
-    /** The .milk last handed to the fallback renderer; render thread only. */
-    private var mirroredMilk: String? = null
-
     /** Milliseconds since the last segment was cut, 0 before the first; [CastService]'s watchdog reads it. */
     val segmentAgeMs: Long get() = server.msSinceLastSegment
 
@@ -275,10 +272,9 @@ internal class CastStream(
     /** The renderer that draws while the stage does not; made on this thread, its context current. */
     private fun fallbackRenderer(): CastFallback {
         val renderer = CastFallback(appContext, WIDTH, HEIGHT)
-        // A new renderer starts from the whole look and the stage's preset.
+        // A new renderer starts from the whole look.
         applied = null
         mirrored = null
-        mirroredMilk = null
         return renderer
     }
 
@@ -293,12 +289,6 @@ internal class CastStream(
                     sceneId = mirrored?.sceneId ?: saved.sceneId,
                     params = mirrored?.params ?: saved.params,
                 )
-        }
-        // The renderer restores the remembered preset only when it is built; every later pick is followed here.
-        val milk = CastMirror.milkPath
-        if (milk != null && milk != mirroredMilk) {
-            mirroredMilk = milk
-            renderer.loadMilkPreset(milk)
         }
         val look = CastMirror.look ?: return
         if (look === mirrored) return

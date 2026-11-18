@@ -25,10 +25,18 @@ class TrackBookmarks(
         if (GeodeNative.bookmarkResumesFrom(player.currentPosition)) player.seekTo(position)
     }
 
-    fun onPoll(player: Player) {
+    fun onPoll(player: Player) = save(player, force = false)
+
+    /** Playback paused or stopped: the position is written now, so the slower poll loses nothing. */
+    fun flush(player: Player) = save(player, force = true)
+
+    private fun save(
+        player: Player,
+        force: Boolean,
+    ) {
         if (!enabled()) return
         val now = System.currentTimeMillis()
-        if (now - lastSavedAtMs < SAVE_EVERY_MS) return
+        if (!force && now - lastSavedAtMs < SAVE_EVERY_MS) return
         val uri =
             player.currentMediaItem
                 ?.localConfiguration
@@ -42,6 +50,6 @@ class TrackBookmarks(
     }
 
     private companion object {
-        const val SAVE_EVERY_MS = 5_000L
+        const val SAVE_EVERY_MS = 20_000L
     }
 }

@@ -36,7 +36,7 @@ export const SAFE_MOTION =
 
 export const FEATURES = [
   { label: 'Visuals that listen', scene: 'Sound made visible: neon waveforms and spectrum bars rise out of darkness and bend into a deep 3D tunnel of light.' },
-  { label: '334 styles', scene: 'Glowing portals floating in a dark void, each one opening onto a different luminous world: a fractal cathedral, a nebula, a glass sphere, a field of light.' },
+  { label: '333 styles', scene: 'Glowing portals floating in a dark void, each one opening onto a different luminous world: a fractal cathedral, a nebula, a glass sphere, a field of light.' },
   { label: 'Auto mode', scene: 'A slow glide through a landscape of neon light whose form changes from one region to the next, like the sections of a song.' },
   { label: 'Customize', scene: 'Four round control knobs made of neon glass floating above a pool of swirling liquid light that bends where they turn.' },
   { label: 'Music player', scene: 'Floating rounded squares of glowing glass like album covers, orbiting a soft circle of light, over a dark indigo void.' },

@@ -132,9 +132,9 @@ Java_dev_geode_engine_bridge_SoundNative_stagePresents(JNIEnv*, jobject, jint fl
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_SoundNative_stageStepTarget(JNIEnv*, jobject, jint page, jint flags, jint milkCount,
+Java_dev_geode_engine_bridge_SoundNative_stageStepTarget(JNIEnv*, jobject, jint page, jint flags,
                                                          jint lookCount) {
-    return geode_stage_step_target(page, static_cast<unsigned>(flags), milkCount, lookCount);
+    return geode_stage_step_target(page, static_cast<unsigned>(flags), lookCount);
 }
 
 JNIEXPORT jint JNICALL
@@ -146,26 +146,6 @@ Java_dev_geode_engine_bridge_SoundNative_stageStepIndex(JNIEnv* env, jobject, jb
     if (count > 0) env->GetBooleanArrayRegion(open, 0, count, raw.data());
     std::vector<unsigned char> flags(raw.begin(), raw.end());
     return geode_stage_step_index(flags.data(), count, here, step);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_SoundNative_stageStepMilk(JNIEnv* env, jobject, jobjectArray paths, jstring current,
-                                                       jint step) {
-    if (paths == nullptr) return -1;
-    const jsize count = env->GetArrayLength(paths);
-    std::vector<std::string> texts;
-    texts.reserve(static_cast<size_t>(count));
-    for (jsize i = 0; i < count; ++i) {
-        auto path = static_cast<jstring>(env->GetObjectArrayElement(paths, i));
-        const geode::jni::Utf8Chars chars(env, path);
-        texts.emplace_back(chars.get() != nullptr ? chars.get() : "");
-        env->DeleteLocalRef(path);
-    }
-    std::vector<const char*> ptrs;
-    ptrs.reserve(texts.size());
-    for (const auto& t : texts) ptrs.push_back(t.c_str());
-    const geode::jni::Utf8Chars on(env, current);
-    return geode_stage_step_milk(ptrs.data(), count, on.get() != nullptr ? on.get() : "", step);
 }
 
 JNIEXPORT jboolean JNICALL

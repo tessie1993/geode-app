@@ -12,7 +12,7 @@ import { useGlobalStyles } from './lib/globalStyles';
 import { isVideoKind, makeJob, runJob } from './lib/jobs';
 import { buildPrompt, taskLabel } from './lib/prompts';
 import { downloadZip } from './lib/zip';
-import type { MediaResult, ProjectMedia, Settings, Task } from './types';
+import type { MediaResult, ProjectAsset, Settings, Task } from './types';
 
 type FinishedTask = Task & { result: MediaResult };
 
@@ -34,7 +34,7 @@ export default function App() {
   useGlobalStyles();
 
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [logo, setLogo] = useState<ProjectMedia | null>(null);
+  const [logo, setLogo] = useState<ProjectAsset | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -182,7 +182,7 @@ export interface MediaResult {
   mimeType: string;
 }
 
-export interface ProjectMedia extends MediaResult {
+export interface ProjectAsset extends MediaResult {
   type: 'image' | 'video' | 'audio';
   name: string;
 }
@@ -269,7 +269,7 @@ export const SAFE_MOTION =
 
 export const FEATURES = [
   { label: 'Visuals that listen', scene: 'Sound made visible: neon waveforms and spectrum bars rise out of darkness and bend into a deep 3D tunnel of light.' },
-  { label: '334 styles', scene: 'Glowing portals floating in a dark void, each one opening onto a different luminous world: a fractal cathedral, a nebula, a glass sphere, a field of light.' },
+  { label: '333 styles', scene: 'Glowing portals floating in a dark void, each one opening onto a different luminous world: a fractal cathedral, a nebula, a glass sphere, a field of light.' },
   { label: 'Auto mode', scene: 'A slow glide through a landscape of neon light whose form changes from one region to the next, like the sections of a song.' },
   { label: 'Customize', scene: 'Four round control knobs made of neon glass floating above a pool of swirling liquid light that bends where they turn.' },
   { label: 'Music player', scene: 'Floating rounded squares of glowing glass like album covers, orbiting a soft circle of light, over a dark indigo void.' },
@@ -468,7 +468,7 @@ import {
   VIDEO_MODELS,
 } from '../constants';
 import { isVideoKind, needsLogo } from '../lib/jobs';
-import type { ProjectMedia, Settings } from '../types';
+import type { ProjectAsset, Settings } from '../types';
 import { Icon, IconButton, PillButton, SectionLabel, SegmentedControl, SelectField, TextAreaField } from './Primitives';
 
 const EXTRA_MAX_CHARS = 600;
@@ -476,7 +476,7 @@ const EXTRA_MAX_CHARS = 600;
 interface SettingsPanelProps {
   settings: Settings;
   onChange: (patch: Partial<Settings>) => void;
-  logo: ProjectMedia | null;
+  logo: ProjectAsset | null;
   onChooseLogo: () => void;
   onClearLogo: () => void;
   prompt: string;

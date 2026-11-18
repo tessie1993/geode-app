@@ -33,7 +33,6 @@ struct BeatCut {
 struct SceneContent {
     std::string sceneId;
     std::optional<std::string> presetId;
-    std::optional<std::string> milkPath;
     std::optional<BeatCut> beatCut;
 };
 struct VideoContent {
@@ -192,7 +191,6 @@ struct Song {
 // The look on stage when a render was made, drawn as one clip over the song or the render, whichever is longer.
 struct Look {
     std::string sceneId;
-    std::optional<std::string> milkPath;
     long long renderMs = 0;
 };
 using IdSource = std::function<std::string()>;

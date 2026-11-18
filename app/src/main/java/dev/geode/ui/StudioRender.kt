@@ -322,7 +322,7 @@ internal fun StudioRenderTab(
     val lookPresets =
         remember(viz.presets) {
             (viz.presets + BuiltInPresets.ALL)
-                .filter { it.customShader == null && it.milkPreset == null }
+                .filter { it.customShader == null }
                 .distinctBy { it.name }
         }
 
@@ -330,8 +330,7 @@ internal fun StudioRenderTab(
     val renderOne: (ExportDefaults, Boolean) -> Unit = { chosen, keep ->
         val track = studioViewModel.currentTrack(player.title)
         if (keep && track != null) {
-            val milkPath = visualizerView.stage.exportSceneFactory(viz.sceneId).milkPresetPath
-            studioViewModel.keepNextRenderAsProject(track, viz.sceneId, milkPath)
+            studioViewModel.keepNextRenderAsProject(track, viz.sceneId)
         }
         val range = length.rangeFor(player.durationMs)
         startExport(
@@ -629,8 +628,8 @@ private val RenderSelectionSaver =
 /**
  * The look a render uses: the current one (null) or a preset. For one song the preset is put on
  * stage, so the video is what the user sees; a batch uses it for every track. Presets that draw
- * through a custom shader or a Milkdrop file are left out: the offscreen export renders a scene id
- * and its parameters, and those two need the live view's own shader state.
+ * through a custom shader are left out: the offscreen export renders a scene id
+ * and its parameters, and that needs the live view's own shader state.
  */
 @Composable
 private fun RenderLookGroup(

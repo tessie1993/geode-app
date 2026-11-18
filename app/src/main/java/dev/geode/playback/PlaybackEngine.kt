@@ -33,7 +33,7 @@ class PlaybackSession internal constructor(
 ) {
     /**
      * Where the tap or a capture writes, and what every surface's sound engine reads: the process's one
-     * native player ring, MilkDrop's raw PCM included. Each block carries its source's rate. Native keeps
+     * native player ring. Each block carries its source's rate. Native keeps
      * it for the process and sizes it, so a surface still reading it after [release] is safe.
      */
     val sampleRing: Long = IngestNative.pcmRingShared(IngestNative.PCM_RING_PLAYER)

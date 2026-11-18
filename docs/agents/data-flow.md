@@ -15,7 +15,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - Each block is written with its own rate and converted to float inside the ring: Kotlin loops over no sample.
 - The mic is a layer, never a switch: it writes its own ring (`PlaybackSession.micRing`, `geode_pcm_ring_set_layer`) and never pauses the player.
 - Each renderer mixes the two rings at its reader (`core/audio/ingest/LayerMix`, `layer_mix_test.cpp`): the mic resampled onto the player's blocks, alone once the player has stopped for 0.3 s.
-- MilkDrop's raw PCM is no second ring: each native renderer mixes the samples its engine heard this frame to mono (`core/viz/PcmHandoff`, in `Renderer::writeAudio`), so live, cast, wallpaper and dream all feed projectM.
+- The raw PCM the scenes read is no second ring: each native renderer mixes the samples its engine heard this frame to mono (`core/viz/PcmHandoff`, in `Renderer::writeAudio`), so live, cast, wallpaper and dream all feed the scenes that read raw PCM.
 
 ## 2. Sound input
 
@@ -73,11 +73,9 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
 - Auto is one mode: each new section or drop the director commits a look at is counted natively (`geode_viz_take_director_style_moments`).
 - `Stage.onDirectorStyleMoment`, polled on the main thread, hands the moment to `AutoVisualsController.onDirectorMoment`, which steps the visual playlist or draws a new style from Auto's sources.
-- While Customize is open Auto holds every change (MilkDrop's menu rule), and its timers start over on close.
+- While Customize is open Auto holds every change (a menu rule), and its timers start over on close.
 - Auto's timer is native (`core/viz/AutoTimer`, `geode_auto_timer_*`), polled by `AutoVisualsController`.
 - Auto's wait is the interval plus a random spread per look (a quarter of it, 10 s at most).
-- A `.milk` preset's `progress` runs 0→1 over that wait (`core/viz/MilkProgress`).
-- With Auto off or in an export, `progress` runs over projectM's 30 s from the preset's load, then holds at 1.
 - The wallpaper and dream read the same ring (`IngestNative.pcmRingLive()`).
 
 ## 4. Export

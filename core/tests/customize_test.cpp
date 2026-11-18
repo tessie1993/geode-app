@@ -210,7 +210,7 @@ void randomizeStaysInsideItsCategory() {
     }
 }
 
-// A kept category (MilkDrop's locked mash-up bin) holds through a roll of everything.
+// A kept category (a locked mash-up bin) holds through a roll of everything.
 void aKeptCategoryHoldsThroughARollOfEverything() {
     const auto kept = customize::expandLocks({"#MOTION", "Bloom", "#NO_SUCH"});
     check(kept.count("Speed") && kept.count("Drift X"), "#MOTION expands to Motion's controls");
@@ -235,7 +235,7 @@ void aKeptCategoryHoldsThroughARollOfEverything() {
 }
 
 // One style of each engine kind the panel treats differently, and the looks a roll starts from.
-const char* const kRollStyles[] = {"julia", "crystal_canyon", "silk_web", "life_orbium", "milkdrop",
+const char* const kRollStyles[] = {"julia", "crystal_canyon", "silk_web", "life_orbium",
                                    "fluid", "curlflow",       "pool",     "cymatics"};
 
 std::set<std::string> movedControls(const SceneParams& from, const SceneParams& to) {
@@ -292,7 +292,7 @@ void everyRollMovesWhatThePanelShows() {
     }
     check(!customize::rolls(Category::QuickKnobs, "julia"), "the knobs are the user's: no roll");
     check(!customize::rolls(Category::Engine, "julia") && customize::rolls(Category::Engine, "fluid") &&
-              customize::rolls(Category::Engine, "milkdrop") && !customize::rolls(Category::Expert, "fluid"),
+              !customize::rolls(Category::Expert, "fluid"),
           "Engine rolls where the style has one; Expert's layers and shader code have no roll");
 }
 
@@ -423,7 +423,7 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     check(customize::changedCount(SceneParams::fromWire(wire)) == 1, "the wire frame counts the same");
 }
 
-// MilkDrop's mash-up: one category of another look laid over this one.
+// A mash-up: one category of another look laid over this one.
 void borrowTakesOnlyItsCategory() {
     SceneParams from;
     from.speed = 2.0f;   // Motion
@@ -455,7 +455,7 @@ void categoriesAndSectionsFollowTheStyle() {
     check(shownSection("life_orbium", "CAMERA/framing") && shownSection("life_orbium", "CAMERA/feel") &&
               shownSection("life_orbium", "SHAPE/basics"),
           "life_orbium: presented in 3D on the rig, its Morph and Detail shown");
-    for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
+    for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web"}) {
         check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
     }
     // Pool spends Morph, Warp, Turbulence and Intensity on its water, so Shape and Look reach it.
@@ -471,17 +471,15 @@ void categoriesAndSectionsFollowTheStyle() {
     check(shownSection("fluid", "SHAPE/emitters") && shownSection("fluid", "SHAPE/stirrers") &&
               shownSection("fluid", "SHAPE/fluid_quality"),
           "Fluid's emitters, stirrers and quality in Shape");
-    check(!shownSection("fluid", "ENGINE/plate") && !shownSection("fluid", "ENGINE/milkdrop"), "only its own engine on Fluid");
-    check(shownSection("milkdrop", "ENGINE/milkdrop"), "MilkDrop's engine in Engine");
+    check(!shownSection("fluid", "ENGINE/plate"), "only its own engine on Fluid");
     check(customize::shows(Category::Engine, "cymatics") && !customize::shows(Category::Engine, "julia") &&
               !customize::shows(Category::Engine, "curlflow"),
           "Engine only on a style with an engine to tune");
-    check(!shownSection("julia", "ENGINE/fluid_flow") && !shownSection("julia", "ENGINE/plate") && !shownSection("julia", "ENGINE/milkdrop"),
+    check(!shownSection("julia", "ENGINE/fluid_flow") && !shownSection("julia", "ENGINE/plate"),
           "no engine section on a shader style");
     // Shader code holds only Fluid's force and dye editors: the style's own shader box left Customize.
     check(shownSection("fluid", "EXPERT/shader_code"), "Fluid's shaders in Expert");
     check(!shownSection("julia", "EXPERT/shader_code"), "no shader code section on a shader style");
-    check(!shownSection("milkdrop", "EXPERT/shader_code"), "no shader code on MilkDrop");
     check(shownSection("julia", "LOOK/basics"), "Look's Basics everywhere");
     check(customize::shows(Category::Expert, "julia"), "Expert always has Layers");
     // Any style (the empty id) shows everything: Kotlin's previews and tests.

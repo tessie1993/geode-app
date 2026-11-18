@@ -35,8 +35,8 @@ inline std::vector<int> pool(const int* family, const unsigned char* open, int c
 inline constexpr int kRollInside = -2;
 
 // Owner, 2026-11-12, on "Family only" in a family of one style: "Random style within family". The toggle never
-// leaves the family, so a family of one rolls inside its style when that style has variety of its own (MilkDrop:
-// its .milk presets). [innerCount] is how many the style on screen has (0 for none, or while it cannot play
+// leaves the family, so a family of one rolls inside its style when that style has variety of its own (a style with
+// presets of its own). [innerCount] is how many the style on screen has (0 for none, or while it cannot play
 // them) and [innerOnScreen] the one showing (-1 for none); it rolls only when one of them is not on screen.
 inline bool rollsInside(const int* family, int count, int onScreen, bool familyOnly, int innerCount,
                         int innerOnScreen) {

@@ -134,9 +134,9 @@ object ParamsNative {
 
     /**
      * Randomize everything (core/viz/RandomizeAll), the two-circle gesture: a style among every catalogue
-     * style not in [lockedStyles] (newline-joined ids), not [current] while another is open, MilkDrop
-     * only when [milkCount] > 0. [picks] gets the index into [lookStyles] (each preset's style id, one
-     * per line) of a preset made for it, or -1, then on MilkDrop with no preset a .milk index, or -1.
+     * style not in [lockedStyles] (newline-joined ids), not [current] while another is open.
+     * [picks] gets, at 0, the index into [lookStyles] (each preset's style id, one
+     * per line) of a preset made for it, or -1.
      * Null when no style is open. Pass the same [seed] to [PanelNative.panelRollAll].
      */
     external fun randomizeAllPick(
@@ -144,7 +144,6 @@ object ParamsNative {
         current: String,
         lockedStyles: String,
         lookStyles: String,
-        milkCount: Int,
         picks: IntArray,
     ): String?
 

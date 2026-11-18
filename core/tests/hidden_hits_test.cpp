@@ -13,7 +13,7 @@
 // transientEnv, kick, kickEnv, kick16, kickToggle, ...). Comments do not count. Three rules:
 //
 // 1. Nothing in core/ reads the retired beatResponse field (SceneParams::retired). It only ever scaled
-//    the hidden hit reactions: MilkDrop's zoom kick and the simulations' beat pulses, glitches, drum
+//    the hidden hit reactions: the simulations' beat pulses, glitches, drum
 //    forces and droplets, all removed with it.
 // 2. Under core/viz, a hit is read only where the user decides it moves something: kAllowed, each with
 //    the control that says so.

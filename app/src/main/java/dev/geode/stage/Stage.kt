@@ -4,23 +4,19 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
+import android.os.MessageQueue
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
-import android.view.Choreographer
 import android.view.Surface
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
-import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.DirectorNative
-import dev.geode.engine.bridge.MilkNative
 import dev.geode.engine.bridge.StageNative
 import dev.geode.export.SceneFactory
-import dev.geode.geodeContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
 import java.lang.ref.Cleaner
 import java.nio.ByteBuffer
 
@@ -29,19 +25,19 @@ import java.nio.ByteBuffer
  * handle. This hands values across and reads events back; every rule (pacing, when it draws, what a look
  * change restarts) is native.
  *
- * Native never calls up, so the events are polled on the main thread, once per display frame while the
- * stage draws. Every callback therefore runs on the main thread.
+ * Native never calls up. The stage hands the main looper a descriptor that is readable while frame events wait, so
+ * the main thread wakes for an event, never for a vsync that has none; the sound ring is looked at on a timer.
+ * Every callback therefore runs on the main thread.
  */
 class Stage(
     context: Context,
     kind: Int,
     capFps: Float,
-) : Choreographer.FrameCallback {
+) {
     private val appContext = context.applicationContext
 
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets = appContext.assets
-    private val prefs = appContext.geodeContainer.prefsFiles.viz
     private val main = Handler(Looper.getMainLooper())
 
     // The Cleaner's copy of the handle: a stage nobody closed still ends its thread and renderer once this
@@ -51,7 +47,6 @@ class Stage(
             StageNative.stageCreate(
                 assets,
                 appContext.cacheDir.absolutePath,
-                File(appContext.filesDir, "milk/textures").absolutePath,
                 kind,
                 capFps,
             ),
@@ -86,7 +81,6 @@ class Stage(
         }
 
     var onShaderError: (String?) -> Unit = {}
-    var onMilkPresetLoaded: (String) -> Unit = {}
 
     /** The auto-director chose a new look at a new section or a drop; the app's Auto changes style on it. */
     var onDirectorStyleMoment: () -> Unit = {}
@@ -125,27 +119,32 @@ class Stage(
     private var stillThen: ((Bitmap) -> Unit)? = null
     private var posted = false
     private var pollUntilMs = 0L
+    private var eventFd: ParcelFileDescriptor? = null
+    private val ringTick = Runnable { ringPoll() }
 
     init {
         CLEANER.register(this, owned)
-        MilkPathPrefs.seed(prefs)
         pushLook(look)
+        listenForEvents()
         performance = PerformanceSettings.HIGH
-        milkRestorePath()?.let { StageNative.stageLoadMilkPreset(handle, it) }
     }
 
     /** Ends the stage for good: its thread frees the renderer, and every later call does nothing. */
     fun close() {
         val h = handle
         handle = 0L
+        main.removeCallbacks(ringTick)
+        eventFd?.let {
+            main.looper.queue.removeOnFileDescriptorEventListener(it.fileDescriptor)
+            it.close()
+        }
+        eventFd = null
         owned.handle = 0L
         if (h == 0L) return
         StageNative.stageSetSound(h, 0L)
         heard = 0L
         StageNative.stageDestroy(h)
     }
-
-    val milkdropAvailable: Boolean get() = StageNative.stageKnows(handle, CatalogueNative.STYLE_MILKDROP)
 
     fun availableSceneIds(): List<String> = StageNative.stageSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
@@ -161,14 +160,6 @@ class Stage(
         force: String?,
         dye: String?,
     ) = StageNative.stageSetFluidInjection(handle, force, dye)
-
-    fun loadMilkPreset(path: String) {
-        MilkNative.milkMemoryRequest(path)
-        StageNative.stageLoadMilkPreset(handle, path)
-        poll()
-    }
-
-    fun reloadCurrentMilkPreset() = StageNative.stageReloadMilkPreset(handle)
 
     fun warmTransition(id: String) = StageNative.stageWarmTransition(handle, id)
 
@@ -278,15 +269,10 @@ class Stage(
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
-        val preset = milkRestorePath()
         return object : SceneFactory {
             override val sceneId: String = id
-
-            override val milkPresetPath: String? = preset
         }
     }
-
-    private fun milkRestorePath(): String? = MilkNative.milkMemoryRestorePath(assets, File(appContext.filesDir, "milk").path)
 
     private fun sized(
         width: Int,
@@ -329,37 +315,50 @@ class Stage(
         pollUntilMs = SystemClock.uptimeMillis() + POLL_LINGER_MS
         if (posted || handle == 0L) return
         posted = true
-        Choreographer.getInstance().postFrameCallback(this)
+        ringPoll()
     }
 
-    override fun doFrame(frameTimeNanos: Long) {
-        posted = false
+    /** Native's event descriptor on the main looper: [takeEvents] runs when a frame left events, and not otherwise. */
+    private fun listenForEvents() {
+        val fd = StageNative.stageEventFd(handle)
+        if (fd < 0) return
+        val pfd = ParcelFileDescriptor.adoptFd(fd)
+        eventFd = pfd
+        main.looper.queue.addOnFileDescriptorEventListener(
+            pfd.fileDescriptor,
+            MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT,
+        ) { _, _ ->
+            takeEvents()
+            MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT
+        }
+    }
+
+    /** Hands native the ring the app hears now; goes on while the stage draws or just did. */
+    private fun ringPoll() {
         val h = handle
         if (h == 0L) return
+        posted = false
         val ring = soundInput()
         if (ring != heard) {
             StageNative.stageSetSound(h, ring)
             heard = ring
         }
-        val events = StageNative.stageTakeEvents(h)
-        if (events and StageNative.FRAME_LIQUID_CHANGED != 0) liquid.value = StageNative.stageLiquidMode(h)
-        if (events and StageNative.FRAME_ERROR_CHANGED != 0) onShaderError(StageNative.stageError(h)?.ifEmpty { null })
-        if (events and StageNative.FRAME_MILK_LOADED != 0) milkLoaded(h)
-        if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && StageNative.stageTakeDirectorMoments(h) > 0) onDirectorStyleMoment()
-        if (events and StageNative.FRAME_STILL_READY != 0) deliverStill(h)
+        if (eventFd == null) takeEvents()
         val draws = StageNative.stageState(h) and StageNative.STAGE_STATE_VSYNC != 0
         if (draws || SystemClock.uptimeMillis() < pollUntilMs) {
             posted = true
-            Choreographer.getInstance().postFrameCallback(this)
+            main.postDelayed(ringTick, RING_POLL_MS)
         }
     }
 
-    private fun milkLoaded(h: Long) {
-        while (true) {
-            val path = StageNative.stageTakeMilkLoaded(h) ?: return
-            if (MilkNative.milkMemoryLoaded(path)) MilkPathPrefs.save(prefs, path)
-            onMilkPresetLoaded(path)
-        }
+    private fun takeEvents() {
+        val h = handle
+        if (h == 0L) return
+        val events = StageNative.stageTakeEvents(h)
+        if (events and StageNative.FRAME_LIQUID_CHANGED != 0) liquid.value = StageNative.stageLiquidMode(h)
+        if (events and StageNative.FRAME_ERROR_CHANGED != 0) onShaderError(StageNative.stageError(h)?.ifEmpty { null })
+        if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && StageNative.stageTakeDirectorMoments(h) > 0) onDirectorStyleMoment()
+        if (events and StageNative.FRAME_STILL_READY != 0) deliverStill(h)
     }
 
     /** The still to whoever asked; one that cannot be read is asked for again. */
@@ -389,6 +388,9 @@ class Stage(
     private companion object {
         /** Long enough for a stopped stage's one frame (a redraw, a still) to finish and be read. */
         const val POLL_LINGER_MS = 5_000L
+
+        /** How often the sound ring is looked at while the stage draws: a session that comes or goes is picked up within this. */
+        const val RING_POLL_MS = 50L
 
         /** One daemon thread for every stage in the process. */
         val CLEANER: Cleaner = Cleaner.create()

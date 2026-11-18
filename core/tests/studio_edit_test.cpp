@@ -48,7 +48,7 @@ const char* kFull = R"({
         "presetId": "p1", "beatCut": {"sceneIds": ["silk", "pool"], "everyBeats": 8}},
         "transition": {"id": "fade", "durationMs": 400, "onBeat": true}},
       {"id": "c1", "startMs": 0, "durationMs": 5000, "sourceInMs": 0, "sourceDurationMs": 0, "label": "intro",
-        "enabled": false, "content": {"type": "scene", "sceneId": "silk", "milkPath": "milk/a.milk"}}]},
+        "enabled": false, "content": {"type": "scene", "sceneId": "silk"}}]},
     {"id": "m", "kind": "media", "clips": [
       {"id": "c3", "startMs": 0, "durationMs": 1000, "sourceInMs": 250, "sourceDurationMs": 9000,
         "content": {"type": "video", "uri": "content://v/1", "edit": {"grade": 1}}},
@@ -313,11 +313,11 @@ void newProjectsHoldTheirSong() {
     const Edit shortest = newEdit(Song{"u", "", kMinClipMs}, std::nullopt, counter());
     check(shortest.lanes[0].clips.size() == 1, "a song exactly the shortest clip long gets one");
 
-    const Edit look = newEdit(Song{"u", "t", 93'000}, Look{"pool", std::string("milk/x.milk"), 141'000}, counter());
+    const Edit look = newEdit(Song{"u", "t", 93'000}, Look{"pool", 141'000}, counter());
     check(look.lanes.size() == 2 && look.lanes[0].kind == LaneKind::Visual && look.lanes[1].kind == LaneKind::Audio,
           "the look's lane is in front of the song's");
     const auto* scene = std::get_if<SceneContent>(&look.lanes[0].clips.at(0).content);
-    check(scene && scene->sceneId == "pool" && scene->milkPath == std::optional<std::string>("milk/x.milk") &&
+    check(scene && scene->sceneId == "pool" &&
               !scene->presetId && !scene->beatCut,
           "the look clip draws the style on stage");
     check(look.lanes[0].clips[0].durationMs == 141'000 && look.durationMs == 141'000 &&
@@ -363,10 +363,10 @@ void cAbi() {
     check(std::strcmp(geode_studio_text_get(nullptr), "") == 0, "no text reads as empty");
     geode_studio_text_destroy(nullptr);
 
-    const auto made = readEdit(textOf(geode_studio_edit_new("content://a/2", "Song", 77'000, "silk", nullptr, 93'000)));
+    const auto made = readEdit(textOf(geode_studio_edit_new("content://a/2", "Song", 77'000, "silk", 93'000)));
     check(made && made->lanes.size() == 2 && made->durationMs == 93'000, "a new edit over a song with a look");
     check(made && made->lanes[0].id != made->lanes[1].id && made->lanes[0].id.size() == 36, "fresh UUIDs");
-    const auto bare = readEdit(textOf(geode_studio_edit_new(nullptr, nullptr, 0, nullptr, nullptr, 141'000)));
+    const auto bare = readEdit(textOf(geode_studio_edit_new(nullptr, nullptr, 0, nullptr, 141'000)));
     check(bare && bare->lanes.empty(), "a new edit without a song or a look is empty");
 }
 

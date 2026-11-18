@@ -82,17 +82,20 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
+/* A new file descriptor, readable while frame events wait and until geode_stage_take_events takes them, for the
+   shell's main looper to sleep on; the caller owns and closes it. -1 when there is none. */
+GEODE_API int      geode_stage_event_fd(const geode_stage*);
 /* The frame events since the last call, OR-ed. */
 GEODE_API unsigned geode_stage_take_events(geode_stage*);
 /* Quits the stage: the client is released on the stage thread, with its context current where one can be.
    Waits at most 200 ms in all; a stage still busy then finishes on its own. The handle is gone either way. */
 GEODE_API void     geode_stage_destroy(geode_stage*);
 
-/* A live stage: one that owns its renderer (a geode_viz made here from the assets and the shader cache folder,
-   with MilkDrop's texture folder) and frees it at its release. This is the app's view, the wallpaper and the
+/* A live stage: one that owns its renderer (a geode_viz made here from the assets and the shader cache folder)
+   and frees it at its release. This is the app's view, the wallpaper and the
    dream. NULL when the renderer could not be made. The assets must outlive the stage. */
 GEODE_API geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir,
-                                               const char* milk_texture_dir, float cap_fps);
+                                               float cap_fps);
 /* The renderer for one any-thread geode_viz_* call (the ones geode_api.h marks "any thread", and the queries),
    or NULL once the stage released it. Every non-NULL answer is followed by geode_stage_viz_unlock on the same
    thread; the stage's release waits for it. */
@@ -122,9 +125,8 @@ GEODE_API void     geode_stage_record_stop(geode_stage*);
 GEODE_API int      geode_stage_record_closed(const geode_stage*);
 
 /* What frames reported, kept until read. The texts answer their length and copy at most capacity - 1 bytes
-   and a NUL; take_milk_loaded hands each loaded preset's path out once, in order, 0 when none waits. */
+   and a NUL. */
 GEODE_API size_t   geode_stage_error(const geode_stage*, char* out, size_t capacity);
-GEODE_API size_t   geode_stage_take_milk_loaded(geode_stage*, char* out, size_t capacity);
 GEODE_API int      geode_stage_take_director_moments(geode_stage*);
 GEODE_API int      geode_stage_liquid_mode(const geode_stage*);
 /* The still a frame read after geode_viz_still_request (GEODE_FRAME_STILL_READY): its size (1 when one waits),

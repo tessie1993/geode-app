@@ -51,7 +51,7 @@ class OpenedAudioSource(
 
 /**
  * The checks of "Abuse based on untrusted content:// URI" (developer.android.com, ContentResolver risks)
- * for a uri another app handed over: shared by opened audio and opened `.milk` presets, so neither can
+ * for a uri another app handed over: used for opened audio, so it cannot
  * be steered at the app's own providers or at a uri nobody granted. Blocking: call it off the main thread.
  */
 internal fun refusesSentUri(

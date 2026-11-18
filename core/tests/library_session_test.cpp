@@ -57,6 +57,27 @@ void roundTrip() {
     check(back && same(back->tracks, album(6)) && back->index == 5 && back->positionMs == 42000, "a session reads back as written");
 }
 
+void positionFile() {
+    check(sessionPositionWrite(2, 61000) == R"({"version":1,"index":2,"positionMs":61000})", "the position file holds the track and the position");
+    check(sessionPositionWrite(-3, -9) == R"({"version":1,"index":0,"positionMs":0})", "negative values are written as 0");
+    SavedSession s{album(4), 2, 0};
+    sessionApplyPosition(s, sessionPositionWrite(2, 61000));
+    check(s.index == 2 && s.positionMs == 61000, "the position is taken");
+    SavedSession moved{album(4), 3, 500};
+    sessionApplyPosition(moved, sessionPositionWrite(1, 61000));
+    check(moved.index == 1 && moved.positionMs == 61000, "the track the tick last saw wins over the queue file's");
+    SavedSession past{album(4), 3, 500};
+    sessionApplyPosition(past, sessionPositionWrite(9, 7));
+    check(past.index == 3 && past.positionMs == 7, "an index past the end is clamped to the last track");
+    SavedSession kept{album(4), 1, 700};
+    sessionApplyPosition(kept, "");
+    sessionApplyPosition(kept, "not json");
+    sessionApplyPosition(kept, R"({"version":2,"index":1,"positionMs":9})");
+    check(kept.positionMs == 700, "no file, garbage or a newer version change nothing");
+    sessionApplyPosition(kept, R"({"index":1,"positionMs":-5})");
+    check(kept.positionMs == 0, "a negative position reads as 0");
+}
+
 void clamps() {
     const auto high = sessionParse(R"({"version":1,"tracks":[{"uri":"a"},{"uri":"b"},{"uri":"c"},{"uri":"d"}],"index":9,"positionMs":5})");
     check(high && high->index == 3, "an index past the end reads as the last track");
@@ -122,6 +143,7 @@ void wire() {
 int main() {
     writing();
     roundTrip();
+    positionFile();
     clamps();
     fields();
     gate();

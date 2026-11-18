@@ -20,10 +20,6 @@ import kotlinx.coroutines.launch
  * (core/viz/frame/CastTee). The fallback follows what the phone's visual last showed (owner, 2026-11-02),
  * a style only previewed in the Styles grid included, which the saved live state deliberately leaves out.
  *
- * The MilkDrop preset is mirrored too ([milkPath]): the cast renderer restores the process's
- * remembered preset only when it is built, so without it a .milk picked on the phone, or drawn by
- * Auto while the app is in the background, never reached the TV.
- *
  * The UI feeds it ([follow], from `ui/cast/CastHost`, on every screen); `cast/` can't read the UI's state itself
  * (the layer rule keeps the UI package out of every other package). It follows that flow while the
  * screen is composed, the app in the background included, and keeps the last values once it goes
@@ -38,11 +34,6 @@ object CastMirror {
 
     @Volatile
     var look: Look? = null
-        private set
-
-    /** The .milk the stage last asked for or showed; null before one, or once it was deleted. */
-    @Volatile
-    var milkPath: String? = null
         private set
 
     private val streamingFlow = MutableStateFlow(false)
@@ -82,27 +73,22 @@ object CastMirror {
     private var following: Job? = null
 
     /**
-     * Follows [source] and [milk] (each preset the stage asks for or reports loaded) from now on;
-     * called again (a new Activity), it replaces the old sources. The job it returns is what
-     * [unfollow] takes.
+     * Follows [source] from now on; called again (a new Activity), it replaces the old source. The
+     * job it returns is what [unfollow] takes.
      */
     @Synchronized
-    fun follow(
-        source: Flow<Look>,
-        milk: Flow<String?>,
-    ): Job {
+    fun follow(source: Flow<Look>): Job {
         following?.cancel()
         return scope
             .launch {
-                launch { milk.collect { milkPath = it } }
                 source.collect { look = it }
             }.also { following = it }
     }
 
     /**
      * Stops following once the UI that fed [follow] goes: the collector held its flows, and through
-     * them that screen's state, for the life of the process. [look] and [milkPath] keep the last
-     * values. A [job] another [follow] already replaced is left alone, so an old screen going
+     * them that screen's state, for the life of the process. [look] keeps the last
+     * value. A [job] another [follow] already replaced is left alone, so an old screen going
      * after a new one came never stops the new one.
      */
     @Synchronized

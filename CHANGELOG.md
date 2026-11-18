@@ -96,7 +96,6 @@ a partial reconstruction, rebuilt from the references in these entries, is at
     Events (more recipes); the A/B compare is removed (#173, #176, #170).
   - **Visuals is a stage** (#171): the live canvas over a panel that runs the
     app's first Navigation 3 back stack.
-  - **MilkDrop keeps the shown preset** across renderers and restarts (#178).
 - **Form drive: the superformula as the one driver every visual is fed
   through.** *Superseded: `FormDrive` was removed later; `core/viz/MotionField`
   replaced it, and `formDrive` is an inert parameter.* `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
@@ -104,8 +103,8 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   `SceneParams` pass through it: the fragment styles read the result through
   the shared `view()` uniforms, the particle and simulation families through
   the composite pass and their own speed/turbulence/particle/trail reads,
-  Fluid, Water and Cymatics through their solver parameters, MilkDrop
-  through zoom, rotation and hue. No style file changes. The driver is the
+  Fluid, Water and Cymatics through their solver parameters.
+  No style file changes. The driver is the
   Gielis superformula `r(θ) = (|cos(mθ/4)/a|^n2 + |sin(mθ/4)/b|^n3)^(-1/n1)`
   redrawn by the music: snares walk the lobe count `m` (upward through a
   buildup), a drop resets it to a bold low count, a section boundary re-rolls
@@ -279,10 +278,8 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 - **`tools/hostlink`**, a host link check for the native renderer. Every
   translation unit `core/CMakeLists.txt` lists under `viz/` and `util/` is
   compiled with the project's own flags and linked into one shared object
-  with `--no-undefined` against Mesa's `libGLESv2`/`libEGL`; projectM's public
-  headers come from the pinned submodule commit with the repo's render-fbo
-  backport applied, and the only stubs are the extern "C" entry points of
-  projectM, the asset manager and the logger, generated from `nm`. A changed
+  with `--no-undefined` against Mesa's `libGLESv2`/`libEGL`; the only stubs are the extern "C" entry points of
+  the asset manager and the logger, generated from `nm`. A changed
   constructor or a declaration with no definition fails here as it fails in
   the NDK link, with no SDK or device. It says nothing about clang, the
   NDK's libc++ or the audio and library trees.
@@ -407,22 +404,6 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   every style through the shared FlowField, so a second read of that texture
   here would apply one velocity field twice.
 
-- **MilkDrop: the repeating logcat error, and the preset that did not come back
-  from the background.** Both were the same failure seen from two ends.
-  `ensureEngine()` runs once per frame from `draw()`, and its
-  `projectm_create returned NULL` line sat outside the `reportedCreateFailure_`
-  guard, so a single failed create wrote roughly sixty error lines a second for
-  as long as the scene was on screen. It also never recovered, which is why the
-  preset stayed gone: nothing backed the retry off and nothing re-armed the
-  preset when a later attempt would have worked. A failed create now waits two
-  seconds before the next attempt, logs once rather than once per frame, and
-  clears its latch when it succeeds. `armLastPreset()` re-queues the preset the
-  scene last had on screen AND clears the load debounce, so a rebuilt engine
-  loads it on the next frame instead of having the 0.4s debounce swallow the
-  restore. `onPresetSwitchFailed` writes a line only when the message has
-  changed, and `init()` resets the debounce, the GL-error latch and the log
-  dedupe along with the rest of the per-context state.
-
 - **The Beam style is gone**, with its scene, its two shaders, its four
   parameters (`beamXy`, `beamWidth`, `beamIntensity`, `beamTail`), its Shape-tab
   section, its Styles tab, its `ParamScope` group and the woscope third-party
@@ -512,7 +493,7 @@ run on a device. This section folds the build ledger that tracked the work
   visual safety and flash budget, frame pacing, thermal tiers, transitions,
   and every scene family: fragment styles, cymatics, fluid/curl-flow/water,
   the particle and simulation scenes, the compute path with its fragment
-  fallback, and MilkDrop with projectM owned by the scene. The Kotlin scenes,
+  fallback, and the preset-script style, since removed. The Kotlin scenes,
   passes and the `:engine:gl` module were deleted once each port completed;
   `VisualizerRenderer` and `OffscreenSceneRenderer` are adapters.
 - **Analysis core (3).** Every producer in `engine/audio-core` ported to
@@ -526,7 +507,7 @@ run on a device. This section folds the build ledger that tracked the work
 - **Reference looks (2).** Three fragment styles: `orb_lattice`,
   `rod_tunnel` (raymarched, on the kifs march budget) and `neon_tiles`, with
   built-in presets. Not yet run on a device.
-- **Native skeleton (1).** projectM v4.1.7 as a git submodule built in-tree
+- **Native skeleton (1).** A third-party engine as a git submodule built in-tree
   by the root `CMakeLists.txt` (16 KB page alignment, `-fvisibility=hidden`,
   LTO in release); `core/api/geode_api.h` as the only ABI JNI calls;
   `GeodeNative` in `:engine:audio-core`; the prebuilt `.so` blobs, vendored

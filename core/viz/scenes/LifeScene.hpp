@@ -46,6 +46,7 @@ public:
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
+    bool readsPcm() const override { return true; }
     void setTouchField(const TouchField* field) override { touch_ = field; }
     void prepare() override { present_.prepare(); }
     bool buildFailed() const override { return !programOk_ || present_.buildFailed(); }

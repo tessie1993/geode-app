@@ -19,7 +19,7 @@ object AutoNative {
         nowMs: Long,
     )
 
-    /** A style, a look or a .milk picked by hand: both of Auto's waits start over. */
+    /** A style or a look picked by hand: both of Auto's waits start over. */
     external fun autoHandPick(nowMs: Long)
 
     /** The visual playlist's entry (of [count]) to put up now, or -1 (core/viz/AutoPlan). */
@@ -65,17 +65,14 @@ object AutoNative {
     /**
      * Auto's draw (core/viz/AutoPlan over core/viz/AutoDraw and DirectorStyle) among [sources] ([AUTO_DRAW_STYLES]
      * etc.): the entry's style id, its kind ([AUTO_KIND_STYLE] etc.) in `out[0]` and its index in that list in
-     * `out[1]`; null for none. [lockedStyles] (one a line) are what the entitlement refuses; [presetOnScreen] and
-     * [milkOnScreen] the saved look and .milk on screen, -1 for none.
+     * `out[1]`; null for none. [lockedStyles] (one a line) are what the entitlement refuses; [presetOnScreen] the
+     * saved look on screen, -1 for none.
      */
     external fun autoDraw(
         lockedStyles: String,
         current: String,
         presetStyles: String,
         presetOnScreen: Int,
-        milkCount: Int,
-        milkOnScreen: Int,
-        milkStyle: String,
         sources: Int,
         nowMs: Long,
         out: IntArray,
@@ -86,9 +83,7 @@ object AutoNative {
     const val AUTO_MOMENT_RANDOM: Int = 2
     const val AUTO_DRAW_STYLES: Int = 1
     const val AUTO_DRAW_PRESETS: Int = 2
-    const val AUTO_DRAW_MILK: Int = 4
     const val AUTO_DRAW_KEEP_LOOK: Int = 8
     const val AUTO_KIND_STYLE: Int = 0
     const val AUTO_KIND_PRESET: Int = 1
-    const val AUTO_KIND_MILK: Int = 2
 }

@@ -5,6 +5,7 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.AutoNative
 import dev.geode.engine.bridge.ShellNative
+import dev.geode.model.StyleCatalogue
 import dev.geode.model.VizPlaylistEntry
 
 /**
@@ -44,13 +45,17 @@ class AutoVisualsPrefsStore(
 
     private object NativeRules : Rules {
         override fun entriesFromJson(json: String): List<VizPlaylistEntry> =
-            ShellNative.autoPlaylistRead(json).asList().chunked(ShellNative.AUTO_ENTRY_FIELDS).map { f ->
-                VizPlaylistEntry(sceneId = f[0].orEmpty(), presetName = f[1], milkPath = f[2], label = f[3].orEmpty())
-            }
+            ShellNative
+                .autoPlaylistRead(json)
+                .asList()
+                .chunked(ShellNative.AUTO_ENTRY_FIELDS)
+                .map { f -> VizPlaylistEntry(sceneId = f[0].orEmpty(), presetName = f[1], label = f[2].orEmpty()) }
+                // An entry of a style this build no longer has is dropped, never played.
+                .filter { it.sceneId in StyleCatalogue.ids }
 
         override fun entriesToJson(entries: List<VizPlaylistEntry>): String =
             ShellNative.autoPlaylistToJson(
-                entries.flatMap { listOf(it.sceneId, it.presetName, it.milkPath, it.label) }.toTypedArray(),
+                entries.flatMap { listOf(it.sceneId, it.presetName, it.label) }.toTypedArray(),
             )
 
         override fun apply(
@@ -69,7 +74,6 @@ class AutoVisualsPrefsStore(
                 state.randomIntervalSec,
                 bit(state.randomIncludeStyles),
                 bit(state.randomIncludePresets),
-                bit(state.randomIncludeMilk),
                 bit(state.vizPlaylistEnabled),
                 state.vizPlaylistIntervalSec,
             )
@@ -89,7 +93,6 @@ class AutoVisualsPrefsStore(
             randomIntervalSec = read[ShellNative.AUTO_SAVED_RANDOM_INTERVAL],
             randomIncludeStyles = read[ShellNative.AUTO_SAVED_RANDOM_STYLES] != 0,
             randomIncludePresets = read[ShellNative.AUTO_SAVED_RANDOM_PRESETS] != 0,
-            randomIncludeMilk = read[ShellNative.AUTO_SAVED_RANDOM_MILK] != 0,
             vizPlaylist = entries,
             vizPlaylistEnabled = read[ShellNative.AUTO_SAVED_PLAYLIST_ON] != 0,
             vizPlaylistIntervalSec = read[ShellNative.AUTO_SAVED_PLAYLIST_INTERVAL],
@@ -103,7 +106,6 @@ class AutoVisualsPrefsStore(
             .putInt(KEY_RANDOM_INTERVAL, state.randomIntervalSec)
             .putBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles)
             .putBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets)
-            .putBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk)
             .putBoolean(KEY_PLAYLIST_ENABLED, state.vizPlaylistEnabled)
             .putInt(KEY_PLAYLIST_INTERVAL, state.vizPlaylistIntervalSec)
             .putString(KEY_PLAYLIST_ENTRIES, rules.entriesToJson(state.vizPlaylist))
@@ -119,7 +121,6 @@ class AutoVisualsPrefsStore(
         private const val KEY_RANDOM_INTERVAL = "auto_random_interval_sec"
         private const val KEY_RANDOM_STYLES = "auto_random_include_styles"
         private const val KEY_RANDOM_PRESETS = "auto_random_include_presets"
-        private const val KEY_RANDOM_MILK = "auto_random_include_milk"
         private const val KEY_PLAYLIST_ENABLED = "auto_playlist_enabled"
         private const val KEY_PLAYLIST_INTERVAL = "auto_playlist_interval_sec"
         private const val KEY_PLAYLIST_ENTRIES = "auto_playlist_entries"
@@ -131,7 +132,6 @@ class AutoVisualsPrefsStore(
                 KEY_RANDOM_INTERVAL,
                 KEY_RANDOM_STYLES,
                 KEY_RANDOM_PRESETS,
-                KEY_RANDOM_MILK,
                 KEY_PLAYLIST_ENABLED,
                 KEY_PLAYLIST_INTERVAL,
             )
@@ -141,7 +141,7 @@ class AutoVisualsPrefsStore(
         internal val PREF_KEYS =
             prefKeys(GeodePrefsFiles.VIZ) {
                 portable(PrefType.INT, KEY_RANDOM_INTERVAL, KEY_PLAYLIST_INTERVAL)
-                portable(PrefType.BOOLEAN, KEY_RANDOM_STYLES, KEY_RANDOM_PRESETS, KEY_RANDOM_MILK, KEY_PLAYLIST_ENABLED)
+                portable(PrefType.BOOLEAN, KEY_RANDOM_STYLES, KEY_RANDOM_PRESETS, KEY_PLAYLIST_ENABLED)
                 portable(PrefType.STRING, KEY_PLAYLIST_ENTRIES)
                 retired(null, LEGACY_KEY_RANDOM_ENABLED)
             }

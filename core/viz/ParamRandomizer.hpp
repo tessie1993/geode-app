@@ -19,7 +19,7 @@
 namespace geode::viz::randomizer {
 
 // The tabs that own parameters. Names match Kotlin's CustomizeTab; EVENTS owns none.
-enum class Tab { Shape, Color, Motion, Fx, Reactivity, Scene, Fluid, Cymatics };
+enum class Tab { Shape, Color, Motion, Fx, Reactivity, Fluid, Cymatics };
 
 // The lock and roll key of the style's reaction DNA seed (the Reactivity tab's Re-roll button).
 constexpr const char* kReactionDna = "Reaction DNA";

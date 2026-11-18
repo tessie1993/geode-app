@@ -2,7 +2,7 @@
 // threads that talk to it (docs/agents/native-stage.md). The renderer is a model that records every call.
 //
 // What is pinned: a frame hears the ring set last and none after it is cleared; what a frame reported is kept
-// until polled (an error text only when it differs, each loaded preset once and in order, director moments summed,
+// until polled (an error text only when it differs, director moments summed,
 // the liquid mode, a still, asked for again when it could not be read); a transition's warm-up waits for a
 // context; a tee opens on the stage thread, fails without a context, and closes exactly once, on its stop or on
 // the stage's release; nothing is queued after the release, and a renderer released is no longer handed to other
@@ -33,7 +33,6 @@ struct Seen {
     std::vector<const void*> rings;
     uint32_t nextEvents = 0;
     std::string error;
-    std::vector<std::string> loaded;
     int moments = 0;
     int liquid = 0;
     bool stillReads = true;
@@ -64,12 +63,6 @@ public:
     void recordFailed(const RecordAsk&) override { s_.fails++; }
     void recordStop(const RecordAsk&) override { s_.stops++; }
     std::string error() override { return s_.error; }
-    std::string takeMilkLoaded() override {
-        if (s_.loaded.empty()) return {};
-        std::string path = s_.loaded.front();
-        s_.loaded.erase(s_.loaded.begin());
-        return path;
-    }
     int takeDirectorMoments() override {
         const int n = s_.moments;
         s_.moments = 0;
@@ -130,19 +123,15 @@ void frameReports() {
     check(r.client.frame(0.0f, 0.0f) == kFrameErrorChanged && r.client.error() == "bad shader", "a new error text is");
     check(r.client.frame(0.0f, 0.0f) == 0, "the same text again is not");
 
-    r.seen.nextEvents = kFrameMilkLoaded | kFrameDirectorMoment | kFrameLiquidChanged;
-    r.seen.loaded = {"a.milk"};
+    r.seen.nextEvents = kFrameDirectorMoment | kFrameLiquidChanged;
     r.seen.moments = 2;
     r.seen.liquid = 3;
-    check(r.client.frame(0.0f, 0.0f) == r.seen.nextEvents, "a loaded preset, director moments and the liquid mode are passed on");
-    r.seen.loaded = {"b.milk"};
+    check(r.client.frame(0.0f, 0.0f) == r.seen.nextEvents, "director moments and the liquid mode are passed on");
     r.seen.moments = 1;
     r.client.frame(0.0f, 0.0f);
-    check(r.client.takeMilkLoaded() == "a.milk" && r.client.takeMilkLoaded() == "b.milk" && r.client.takeMilkLoaded().empty(),
-          "each loaded preset once, in order");
     check(r.client.takeDirectorMoments() == 3 && r.client.takeDirectorMoments() == 0, "moments are summed until taken");
     check(r.client.liquidMode() == 3, "the liquid mode is the last frame's");
-    r.seen.nextEvents = kFrameMilkLoaded | kFrameDirectorMoment;
+    r.seen.nextEvents = kFrameDirectorMoment;
     check(r.client.frame(0.0f, 0.0f) == 0, "a bit with nothing behind it is dropped");
 
     Still still;

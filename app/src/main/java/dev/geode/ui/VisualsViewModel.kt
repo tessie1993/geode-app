@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.geode.data.BackgroundPrefs
-import dev.geode.data.MilkTexture
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetStore
@@ -21,7 +20,6 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.model.PresetLink
 import dev.geode.model.SceneParams
 import kotlinx.coroutines.Dispatchers
@@ -76,12 +74,6 @@ sealed interface SharedLinkOffer {
         override val name: String,
         val replaces: String?,
     ) : SharedLinkOffer
-
-    /** A .milk another app opened in this one; [link] is its uri. */
-    data class MilkFile(
-        override val link: String,
-        override val name: String,
-    ) : SharedLinkOffer
 }
 
 @HiltViewModel
@@ -97,12 +89,8 @@ class VisualsViewModel
 
         val vizState: StateFlow<VizUiState> get() = visualizer.viz
 
-        val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
-
         /** What Liquid mode is doing now (0 off, 1 full); see [VisualizerRepository.liquidMode]. */
         val liquidMode: StateFlow<Int> get() = visualizer.liquidMode
-
-        val textures: StateFlow<List<MilkTexture>> get() = session.textureController.textures
 
         val lfos: StateFlow<String> get() = session.modulation.lfos
 
@@ -202,18 +190,6 @@ class VisualsViewModel
 
         fun rerollReactions() = session.modulation.rerollReactions()
 
-        fun importTextures(
-            uris: List<Uri>,
-            onImported: () -> Unit,
-        ) = session.importTextures(uris, onImported)
-
-        fun removeTexture(name: String) = session.textureController.removeTexture(name)
-
-        fun useTexture(
-            name: String,
-            onReady: (String) -> Unit,
-        ) = session.useTexture(name, onReady)
-
         fun applyPreset(preset: Preset) = session.applyPreset(preset)
 
         fun savePreset(
@@ -230,32 +206,6 @@ class VisualsViewModel
         ): String? = session.renamePreset(from, to)
 
         fun duplicatePreset(name: String): String? = session.presetLibrary.duplicatePreset(name)
-
-        /** A .milk another app opened here, named for the confirm dialog; null when it is no .milk we read. */
-        fun offerMilkFile(
-            uri: Uri,
-            onDone: (SharedLinkOffer?) -> Unit,
-        ) = session.milkImport.offerOpenedMilkAsync(uri) { name ->
-            onDone(name?.let { SharedLinkOffer.MilkFile(uri.toString(), it.removeSuffix(".milk")) })
-        }
-
-        /**
-         * A .milk the user agreed to open: imported as the MilkDrop page's picker imports one (under a
-         * new name, never over a preset already there), then chosen like a tap on it (MilkDrop through
-         * the style gate, which opens the paywall if locked).
-         */
-        fun openMilkFile(
-            uri: Uri,
-            onDone: (Boolean) -> Unit,
-        ) = session.milkImport.importOpenedMilkAsync(uri) { path ->
-            if (path != null) {
-                session.selectScene(CatalogueNative.STYLE_MILKDROP)
-                if (session.allowsStyle(CatalogueNative.STYLE_MILKDROP)) {
-                    session.visual.emitApply(VizApply(milkPath = path, sceneId = CatalogueNative.STYLE_MILKDROP))
-                }
-            }
-            onDone(path != null)
-        }
 
         fun presetFile(name: String): File? = session.presetLibrary.presetFile(name)
 
@@ -289,16 +239,6 @@ class VisualsViewModel
             name: String,
             folder: String,
         ) = session.presetLibrary.movePresetToFolder(name, folder)
-
-        /**
-         * The user's .milk presets, newest first: the MilkDrop page's list, the one the stage's step walks
-         * and Auto draws from (MilkImportController.files). [relistMilk] reads it again.
-         */
-        val milkFiles: StateFlow<List<dev.geode.model.MilkFile>> get() = session.milkImport.files
-
-        fun relistMilk() = session.milkImport.relist()
-
-        fun noteMilkPreset(path: String) = session.vizStateStore.noteMilkPreset(path)
 
         val templates: StateFlow<List<VideoTemplate>> get() = session.templateLibrary.library
 

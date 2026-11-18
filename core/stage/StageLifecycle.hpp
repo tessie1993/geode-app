@@ -98,6 +98,9 @@ public:
     void pause();
     void resume();
     void redrawNeeded();
+    // The system asked for memory back. A stage that paces reads the process signal in its own frame; any
+    // other with a built client sheds its spares here, as it would at a stop.
+    void trimRequested();
     void contextLost();
     void surfaceBad();
     void frameDrawn();

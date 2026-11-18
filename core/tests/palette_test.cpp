@@ -274,23 +274,23 @@ void unsetDrawsTheStyleDefault() {
 
 void theTextRoundTrips() {
     pl::Stack s = pl::addLayer({}, two(0x123456, 0xABCDEF));
-    pl::Palette milk = pl::fromColours(pl::Source::Milk, "Geiss - Cosmic Dust.milk", "Cosmic|Dust", std::vector<int>{0x112233}.data(), 1);
-    pl::setOption(milk, "TO_BLACK");
-    pl::setOption(milk, "STEPS");
-    s = pl::addLayer(s, milk);
+    pl::Palette tinted = pl::fromColours(pl::Source::Style, "silk_web", "Cosmic|Dust", std::vector<int>{0x112233}.data(), 1);
+    pl::setOption(tinted, "TO_BLACK");
+    pl::setOption(tinted, "STEPS");
+    s = pl::addLayer(s, tinted);
     s.blend = pl::Blend::Mix;
     s.edge = pl::Edge::Hard;
     s.fullRange = true;
     const std::string text = pl::encode(s);
     check(pl::decode(text) == pl::normalized(s), "a stack reads back as written");
     check(pl::encode(pl::decode(text)) == text, "and writes the same text again");
-    check(milk.name == "CosmicDust" && pl::decode(text).layers[1].name == "CosmicDust", "a name loses the field separator");
+    check(tinted.name == "CosmicDust" && pl::decode(text).layers[1].name == "CosmicDust", "a name loses the field separator");
     check(text.rfind("palettes|1|MIX|1|HARD\n", 0) == 0, "the header names the blend, the full-range switch and the edge");
     check(pl::decode(text).edge == pl::Edge::Hard, "the edge reads back");
-    check(pl::isUnset(pl::decode("palettes|1|SHARE|0|FUZZY\n" + pl::encode(milk) + "\n")), "an unknown edge: unset");
-    check(pl::isUnset(pl::decode("palettes|1|SHARE|0\n" + pl::encode(milk) + "\n")), "no edge: unset");
+    check(pl::isUnset(pl::decode("palettes|1|SHARE|0|FUZZY\n" + pl::encode(tinted) + "\n")), "an unknown edge: unset");
+    check(pl::isUnset(pl::decode("palettes|1|SHARE|0\n" + pl::encode(tinted) + "\n")), "no edge: unset");
     check(pl::isUnset(pl::decode("")) && pl::isUnset(pl::decode("palettes|2|SHARE|0\n")), "no header, or another version: unset");
-    check(pl::decode("palettes|1|SHARE|0|SOFT\nsomething|new\n" + pl::encode(milk) + "\n").layers.size() == 1, "an unknown row is skipped");
+    check(pl::decode("palettes|1|SHARE|0|SOFT\nsomething|new\n" + pl::encode(tinted) + "\n").layers.size() == 1, "an unknown row is skipped");
     check(!pl::valid(pl::decodePalette("palette|YOURS||x|SMOOTH|MIRROR|OKLAB|SHADES|nothing")), "a line with no readable stop is no palette");
     check(pl::encode(pl::Stack{}) == "palettes|1|SHARE|0|SOFT\n" && std::string(geode_palette_stack_unset()) == "palettes|1|SHARE|0|SOFT\n",
           "the unset stack's text");

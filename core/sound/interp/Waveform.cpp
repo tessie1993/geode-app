@@ -24,9 +24,13 @@ Waveform::Waveform(AnalysisSettings settings) : fftSize_(settings.checked().fftS
     }
 }
 
-void Waveform::setTrimDb(float db) { trim_ = std::isfinite(db) ? std::pow(10.0f, db / 20.0f) : 1.0f; }
+void Waveform::setTrimDb(float db) {
+    std::lock_guard<std::mutex> guard(lock_);
+    trim_ = std::isfinite(db) ? std::pow(10.0f, db / 20.0f) : 1.0f;
+}
 
 void Waveform::reset() {
+    std::lock_guard<std::mutex> guard(lock_);
     mono_.fill(0.0f);
     head_ = 0;
     dcX_ = dcY_ = 0.0f;
@@ -35,6 +39,7 @@ void Waveform::reset() {
 
 void Waveform::write(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (interleaved == nullptr || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
+    std::lock_guard<std::mutex> guard(lock_);
     if (sampleRateHz != rateHz_) {
         rateHz_ = sampleRateHz;
         // The engine's block (its configured window / 512 analysis samples, SoundEngine's waveBlock_) in input
@@ -61,6 +66,7 @@ void Waveform::write(const float* interleaved, int frames, int channels, int sam
 }
 
 void Waveform::draw(float* out) {
+    std::lock_guard<std::mutex> guard(lock_);
     const int count = kPoints + kSlack;
     int at = (head_ - count * block_ + kHistory) % kHistory;
     for (int p = 0; p < count; p++) {

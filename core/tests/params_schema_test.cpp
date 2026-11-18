@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 }
 // The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 202;
+constexpr int kWireFloats = 200;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -66,27 +66,27 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
-    check(static_cast<int>(ParamSlot::flowCurl) == 108, "flowCurl keeps its slot");
-    check(static_cast<int>(ParamSlot::reactSeed) == 153, "reactSeed keeps its slot");
-    check(static_cast<int>(ParamSlot::camFlat) == 163, "camFlat keeps its slot");
-    check(static_cast<int>(ParamSlot::paletteStop4) == 168, "paletteStop4 keeps its slot");
-    check(static_cast<int>(ParamSlot::diveFollow) == 177, "diveFollow keeps its slot");
-    check(static_cast<int>(ParamSlot::paletteAmount0) == 178 && static_cast<int>(ParamSlot::paletteAmount7) == 185,
+    check(static_cast<int>(ParamSlot::flowCurl) == 106, "flowCurl keeps its slot");
+    check(static_cast<int>(ParamSlot::reactSeed) == 151, "reactSeed keeps its slot");
+    check(static_cast<int>(ParamSlot::camFlat) == 161, "camFlat keeps its slot");
+    check(static_cast<int>(ParamSlot::paletteStop4) == 166, "paletteStop4 keeps its slot");
+    check(static_cast<int>(ParamSlot::diveFollow) == 175, "diveFollow keeps its slot");
+    check(static_cast<int>(ParamSlot::paletteAmount0) == 176 && static_cast<int>(ParamSlot::paletteAmount7) == 183,
           "the palette amounts follow it, the primary first");
-    check(static_cast<int>(ParamSlot::paletteShift) == 186, "paletteShift keeps its slot");
-    check(static_cast<int>(ParamSlot::kaleidoFolds) == 187, "kaleidoFolds keeps its slot");
-    check(static_cast<int>(ParamSlot::layerMix) == 188, "layerMix keeps its slot");
-    check(static_cast<int>(ParamSlot::simFluid) == 189 && static_cast<int>(ParamSlot::simParticles) == 190 &&
-              static_cast<int>(ParamSlot::simForce) == 191 && static_cast<int>(ParamSlot::simLayerOrder) == 192,
+    check(static_cast<int>(ParamSlot::paletteShift) == 184, "paletteShift keeps its slot");
+    check(static_cast<int>(ParamSlot::kaleidoFolds) == 185, "kaleidoFolds keeps its slot");
+    check(static_cast<int>(ParamSlot::layerMix) == 186, "layerMix keeps its slot");
+    check(static_cast<int>(ParamSlot::simFluid) == 187 && static_cast<int>(ParamSlot::simParticles) == 188 &&
+              static_cast<int>(ParamSlot::simForce) == 189 && static_cast<int>(ParamSlot::simLayerOrder) == 190,
           "the physics layers follow it");
-    check(static_cast<int>(ParamSlot::spawn) == 193 && static_cast<int>(ParamSlot::fractal) == 194 &&
-              static_cast<int>(ParamSlot::frontLayer) == 195,
+    check(static_cast<int>(ParamSlot::spawn) == 191 && static_cast<int>(ParamSlot::fractal) == 192 &&
+              static_cast<int>(ParamSlot::frontLayer) == 193,
           "Grow and layers follow them");
-    check(static_cast<int>(ParamSlot::backLayer) == 196, "backLayer keeps its slot");
-    check(static_cast<int>(ParamSlot::formula) == 197, "formula keeps its slot");
-    check(static_cast<int>(ParamSlot::shapes) == 198, "shapes keeps its slot");
-    check(static_cast<int>(ParamSlot::shadow) == 199, "shadow follows it");
-    check(static_cast<int>(ParamSlot::escapeColor) == 200, "escapeColor keeps its slot");
+    check(static_cast<int>(ParamSlot::backLayer) == 194, "backLayer keeps its slot");
+    check(static_cast<int>(ParamSlot::formula) == 195, "formula keeps its slot");
+    check(static_cast<int>(ParamSlot::shapes) == 196, "shapes keeps its slot");
+    check(static_cast<int>(ParamSlot::shadow) == 197, "shadow follows it");
+    check(static_cast<int>(ParamSlot::escapeColor) == 198, "escapeColor keeps its slot");
     check(static_cast<int>(ParamSlot::life) == kWireFloats - 1, "life is the wire's last float");
 }
 

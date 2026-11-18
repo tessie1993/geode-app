@@ -237,8 +237,7 @@ jobs:
         shell: bash
         run: bash tools/ci-docs-only.sh --self-test
 
-      # The repository's notices and the copy the app ships are one text (LGPL-2.1 2a: the
-      # projectM modification notice must not differ between them).
+      # The repository's notices and the copy the app ships are one text.
       - name: The notices file equals the shipped asset
         shell: bash
         run: cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt
@@ -264,7 +263,7 @@ jobs:
           A=app/src/main/java/dev/geode
           for f in ui/RecordController.kt record/RecordEncoder.kt editor/Timeline.kt editor/Keyframes.kt \
                    record/RecordClock.kt scene/SceneModel.kt gltf/GltfLimits.kt data/GlbImport.kt \
-                   data/StylePackImporter.kt data/MilkPackImporter.kt ui/ExportController.kt; do
+                   data/StylePackImporter.kt ui/ExportController.kt; do
             if ok "10${T}2${T}$A/$f"; then echo "::error::growth in $f passed"; exit 1; fi
           done
           ok "10${T}10${T}$A/ui/ExportController.kt" || { echo "::error::even UI edit in ExportController failed"; exit 1; }

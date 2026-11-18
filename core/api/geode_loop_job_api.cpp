@@ -126,15 +126,12 @@ void geode_loop_job_set_track(geode_loop_job* h, int fd, int64_t offset, int64_t
     h->setup.trackLength = length;
 }
 
-void geode_loop_job_set_scene(geode_loop_job* h, AAssetManager* assets, const char* milk_texture_dir,
-                              const char* scene_id, const char* milk_path, int entitled) {
+void geode_loop_job_set_scene(geode_loop_job* h, AAssetManager* assets,
+                              const char* scene_id, int entitled) {
     if (!h) return;
     try {
         h->setup.assets = assets;
-        h->setup.milkTextureDir = milk_texture_dir ? milk_texture_dir : "";
         h->setup.sceneId = scene_id ? scene_id : "";
-        h->setup.hasMilkPath = milk_path != nullptr;
-        h->setup.milkPath = milk_path ? milk_path : "";
         h->setup.entitled = entitled != 0;
     } catch (...) {
     }

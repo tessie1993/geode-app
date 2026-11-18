@@ -26,14 +26,12 @@ enum class OpenedRoute : int {
     Open,     // an opened audio file to play
 };
 
-// Routes a delivered intent from its action, its data uri's scheme and last path segment, and the type the
+// Routes a delivered intent from its action, its data uri's scheme and the type the
 // sender declared; nothing else in the intent is read. Only a "content" scheme is taken, exactly (case
 // sensitive). The type only routes: an audio/ type with something after the slash, application/ogg or
-// application/x-flac (any case, parameters after ';' ignored); an untyped view is taken unless its name ends
-// in ".milk", the one other file the app opens. (OpenedAudio.route)
+// application/x-flac (any case, parameters after ';' ignored); an untyped view is taken. (OpenedAudio.route)
 OpenedRoute openedAudioRoute(const std::optional<std::string>& action, const std::optional<std::string>& scheme,
-                             const std::optional<std::string>& type, const std::optional<std::string>& lastSegment,
-                             bool fromHistory);
+                             const std::optional<std::string>& type, bool fromHistory);
 
 // Whether the app must refuse to play the uri. providerPackage: the package that owns the uri's authority
 // (nullopt when no provider answers to it); readGranted: whether this app holds an explicit read grant on it.

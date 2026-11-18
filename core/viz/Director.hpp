@@ -99,7 +99,7 @@ struct StyleIntent {
     std::string remembered;  // Return: the style the section was first shown on
     int step = 0;            // Return: how many times the section has come back
     bool progress = true;    // the Styles progress setting; off, a return brings its own style back and else it stays
-    // Which entry a step lands on when the pool lists the style more than once (MilkDrop, once per .milk file):
+    // Which entry a step lands on when the pool lists the style more than once (a saved look of it, once per look):
     // from the play's seed and the moment's commit, so each moment draws anew and an export draws as the screen.
     uint64_t draw = 0;
 };
@@ -164,7 +164,7 @@ public:
     // The glide the look on screen lands with, in seconds.
     float glideSeconds() const { return glideSeconds_; }
     // Whether the last commit should change the style: a new section, a drop, or a long stretch with
-    // neither (MilkDrop's timer: music with no clear sections still gets a new style now and then), and
+    // neither (music with no clear sections still gets a new style now and then), and
     // only while the director drives (Auto on). It steps with Auto off too, for its feeling (Note & key
     // reactions read it), and those commits must not step the user's chosen style.
     bool styleMoment() const {

@@ -15,7 +15,7 @@ namespace geode::viz::layer_pick {
 
 // The styles Auto Director and a knob pick a layer from, in the catalogue's order: Auto's own draw (the
 // generative renderers and the shader styles, catalogue::Trait::AutoDraw), so a layer never starts a fluid
-// solver, a cymatics plate or a MilkDrop preset on its own. Built once.
+// solver or a cymatics plate on its own. Built once.
 const std::vector<std::string>& pool();
 
 // The style a layer over `activeId` starts on when none is picked: one of the same look group (catalogue::Look,

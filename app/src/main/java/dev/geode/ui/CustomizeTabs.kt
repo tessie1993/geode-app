@@ -176,7 +176,11 @@ internal fun visible(
 /** True when a whole section can be drawn: it applies here, and no search is narrowing the panel. */
 @Composable
 internal fun sectionVisible(scope: ParamScope = ParamScope.UNIVERSAL): Boolean =
-    LocalParamQuery.current.isBlank() && scope.appliesTo(LocalSceneId.current)
+    queryBlank(LocalParamQuery.current) && scope.appliesTo(LocalSceneId.current)
+
+/** Whether the panel's search has nothing in it, asked of native once per text. */
+@Composable
+private fun queryBlank(query: String): Boolean = remember(query) { CustomizeNative.customizeQueryBlank(query) }
 
 @Composable
 internal fun SectionHeader(
@@ -682,7 +686,7 @@ internal fun LabeledIntSlider(
     if (!visible(label, scope, display)) return
     ProGated(label, display, "$value") {
         Column(Modifier.padding(vertical = GeodeSpacing.XXS)) {
-            ControlLabelRow("$display · $value", label)
+            ControlLabelRow(panelFormat("customize_label_value", display, "$value"), label)
             Slider(
                 value = value.toFloat(),
                 onValueChange = { onChange(ParamsNative.sliderIntValue(it, range.first, range.last)) },

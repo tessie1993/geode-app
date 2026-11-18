@@ -55,7 +55,6 @@ import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VizUiState
 import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
-import dev.geode.data.backup.BackupSection
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
@@ -152,7 +151,6 @@ class PrefsSchemaTest {
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
                 StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf(favourites = setOf("plasma")))
             },
-            Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
                 PlayerPrefsStore(it[player]).save(PlayerPrefs())
                 BookmarkStore(it[player]).save("content://track", 20L * 60_000L)
@@ -214,7 +212,6 @@ class PrefsSchemaTest {
             "$DATA/PerformanceStore.kt" to "its first load and its fallback read the native tier table",
             "$DATA/LookStore.kt" to "VizStateStore writes these, and builds on the native bundled presets",
             "$DATA/MusicLibraryRepository.kt" to "needs an Application, MediaStore and a folder scan",
-            "$DATA/MilkPathPrefs.kt" to "the preset memory it saves for is native",
         )
 
     /**
@@ -293,28 +290,18 @@ class PrefsSchemaTest {
     }
 
     @Test
-    fun everyBackupClassIsWhatTheManualBackupDoesToday() {
-        for (key in allKeys) {
-            val restored = BackupFormat.sectionOfKey(key.file, key.name) != null
-            assertEquals("${key.file}/${key.name} is ${key.backup}", restored, key.backup == BackupClass.PORTABLE)
-        }
-    }
-
-    @Test
-    fun theBackupNamesOnlyDeclaredKeysAndFiles() {
-        val declared = allKeys.map { it.file to it.name }.toSet()
-        val named =
-            (BackupFormat.deviceLocalKeys.entries + BackupSection.entries.flatMap { it.borrowedKeys.entries })
-                .flatMap { (file, keys) -> keys.map { file to it } }
-        assertEquals(emptyList<Pair<String, String>>(), named.filterNot { it in declared })
-        val files = allKeys.map { it.file }.toSet()
-        assertEquals(emptyList<String>(), BackupSection.entries.flatMap { it.prefsFiles }.filterNot { it in files })
-    }
-
-    @Test
     fun aRestoreChecksTypesAgainstEveryKeyOfTheFilesItWrites() {
-        val restored = BackupSection.entries.flatMap { it.prefsFiles + it.borrowedKeys.keys }.toSet()
-        assertEquals(allKeys.filter { it.file in restored }.toSet(), BackupFormat.declaredKeys.toSet())
+        // Which files a backup writes is core/backup's table (backup_format_test); here, that every file holding a
+        // portable key is checked and that each checked file is checked whole.
+        val checked = BackupFormat.declaredKeys.map { it.file }.toSet()
+        assertEquals(
+            emptyList<String>(),
+            allKeys.filter { it.backup == BackupClass.PORTABLE && it.file !in checked }.map {
+                it.file to
+                    it.name
+            },
+        )
+        assertEquals(allKeys.filter { it.file in checked }.toSet(), BackupFormat.declaredKeys.toSet())
     }
 
     @Test

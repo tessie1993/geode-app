@@ -175,7 +175,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     float speedTarget = std::clamp(finiteOr(p.camFly, 0.0f), -2.5f, 2.5f) * kBaseSpeed;
     const int path = std::clamp(p.camPath, 0, kPathCount - 1);
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------
-    // Sources: the zoom on bass_att that MilkDrop presets use; lag-shaped
+    // Sources: a zoom on a bass envelope; lag-shaped
     // levels; Eiserloh (GDC 2016) for trauma shake. Every offset is eased by the springs below and
     // scaled by amp, so quiet passages move little, silence fades it all out, and the Motion dial
     // and reduced motion turn it down like the rest of the motion layer.

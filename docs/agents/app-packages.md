@@ -49,7 +49,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 ### Customize
 
 - Customize is `CustomizePanel` over `CustomizeBrowser`.
-- It is a scrollable row of category tabs (`CustomizeCategory`, the native map's names and titles): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's, Cymatics' or MilkDrop's own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
+- It is a scrollable row of category tabs (`CustomizeCategory`, the native map's names and titles): Quick knobs, Look, Shape, Motion, Dive (the endless zoom), Camera, Music (with the reaction editor), Effects (with transitions), Liquid, Engine (Fluid's or Cymatics' own, only on those), Expert (the wave and envelope editors, layers, shader code); a tab makes no back entry.
 - Each tab is a list of collapsible groups (the native sections: free Basics, then Pro ones), all collapsed until opened.
 - An opened group stays open across leaving and restarts (`data/CustomizeGroupsStore`, with the tab); Collapse all sits beside the tabs.
 - Look has one palette list per style: the Palettes card on the shader styles (they draw the stack), else `PaletteDropdown` (the listed built-ins, then the user's own).
@@ -65,7 +65,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - ⋮ › Randomize every group rolls every category; Quick knobs' dice rolls the knobs' turns.
 - Without Pro the lock `#PRO` holds all but the Basics, for the dice and the two-circle gesture alike.
 - The waves' own Randomize, which randomize-everything runs for the waves already on (Expert has no roll of its own), is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
-- A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
+- A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - The header's changed count is native (`customize::changedCount`, `geode_customize_changed_count`): live fields off their defaults.
 - `CustomizeMapTable` splits the map's rows, titles included.
@@ -210,10 +210,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `VideoTemplate.kt` ends with `TemplateRepository`, the template library's folder I/O and StateFlow; file names, an import's name and the starter set are native (`geode_template_*`).
 - Stores (SharedPreferences, JSON files) and their repositories.
 - The live state's stores: `VizStateStore`, `AutoVisualsPrefsStore`.
-- `MilkPathPrefs`: the last MilkDrop preset's path (`geode-viz`, key `milk_path`).
 - The bundled looks: `BuiltInPresets`.
 - `MediaStoreSource`: the screens' consent requests and picked-folder grants; main-safe on IO.
-- `MediaStoreSource` also owns the controllers' picked-document I/O: the background image's grant and readability, preset, template and .milk reads, a .milk folder walk, the preset mirror folder's copies and deletes, a queued file's display name. No `*Controller` in `ui/` calls the `ContentResolver` (#896 step 1).
+- `MediaStoreSource` also owns the controllers' picked-document I/O: the background image's grant and readability, preset and template reads, the preset mirror folder's copies and deletes, a queued file's display name. No `*Controller` in `ui/` calls the `ContentResolver` (#896 step 1).
 - Template and preset formats.
 - What was `GuiPrefs`, split by subject: `GeneralSettings`, `SoundInputSettings`, `VisualsSettings`, `LibrarySettings`, and `AppState` (onboarding and the tour, not a preference); each a codec over `geode-prefs` under its old keys.
 - Track favourites: `FavouritesRepository` over `FavouritesStore`, file `geode-favourites`, keyed by the track's URI.
@@ -256,7 +255,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Settings › Export's per-destination defaults are `ExportPrefsStore` and `ExportDestination`.
 - `data/prefs/PrefKey` is the prefs schema (#1009): every owner of a SharedPreferences key lists it once as `PREF_KEYS` (file, name, type, `BackupClass`).
 - `BackupClass` is portable, device, state or cache, as Settings › Backup treats it today.
-- `PREF_KEYS` is read by nothing at run time yet; `PrefsSchemaTest` holds it to the stores and `BackupFormat`.
+- `PREF_KEYS` is read by nothing at run time yet; `PrefsSchemaTest` holds it to the stores and `BackupFormat.declaredKeys`.
 - `data/prefs/SettingsRepository` is the one settings repository shape: `PrefsSettingsRepository` over a `PrefsCodec`, a `StateFlow`, `loaded()`, `update(transform)` under one lock, IO inside; `current()` for the few synchronous readers on main.
 - So far on it: Playback's (`PlayerPrefsRepository`).
 - So far on it: Settings › Preferences' watermark (`WatermarkPrefsRepository`, `WatermarkPrefsCodec`; general prefs, portable).
@@ -265,7 +264,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `model`
 
-- Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
+- Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
 - Pure value types shared across layers, staged for `:core:model`. No `android.*`.
 - `PresetShelf` holds the Presets list's row and chip types; which chips show, which rows a chip leaves and the applied mark are native's (`core/shell/PresetList`, asked by `PresetFiltering`).
 - `model/StyleCatalogue` asks the native catalogue (ids, picker families, retired ids, param scopes as `ParamScope`) and keeps nothing; it decides nothing.
@@ -279,11 +278,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `data/backup`
 
-- Open first: `BackupFormat`, `BackupArchive`, `BackupRepository`.
+- Open first: `BackupRepository`, `BackupArchive`, `BackupWire`.
 - The manual backup zip (Settings › Backup).
-- Format, allowlist, checks and migrations are pure Kotlin.
-- Creative borrows the macro bank, LFO and reaction keys of `geode-prefs` (`BackupSection.borrowedKeys`, its own slice); the old knobs' keys are skipped.
-- `BackupRepository` does the picker, filesDir and prefs I/O.
+- Format, allowlist, checks, migrations and the plans are native's (`core/backup`, through `geode_backup_*` and `BackupNative`): one call per plan.
+- Creative borrows the macro bank, LFO and reaction keys of `geode-prefs` (its own slice); the old knobs' keys are skipped.
+- `BackupRepository` and `BackupArchive` do the picker, zip, SHA-256, filesDir and prefs I/O; `BackupFormat` keeps the stores' declared key types (`hasDeclaredType`).
 
 ## `editor`
 
@@ -298,7 +297,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Visualizer export: MediaCodec + offscreen GL.
 - `VideoExporter` and `LoopRender` open the track's descriptor and hand the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
 - Loop render.
-- `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
+- `SceneFactory` is what an offscreen render knows of its scene (id); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
 - The rate a mix's clips share is native (`ExportNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
@@ -326,7 +325,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `Stage`, `StageView`.
 - The Kotlin shell of the native stage (`core/stage`, [native-stage.md](native-stage.md)); it decides nothing.
-- `Stage` holds one opaque stage handle, hands it the look, sound, touch and tilt, and polls its events on the main thread (a `Choreographer` callback).
+- `Stage` holds one opaque stage handle, hands it the look, sound, touch and tilt, and reads its events on the main thread when native's event descriptor is readable (the sound ring on a 50 ms timer).
 - `StageView` is a `SurfaceView` with its `SurfaceHolder.Callback2`: window, size, redraw and visibility go to the stage as they arrive.
 - `RecordMark` rasterises the free tier's mark for Record's tee.
 - A `Cleaner` destroys a stage nobody closed.
@@ -372,7 +371,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - While a cast streams the stage keeps drawing on every tab, even before Visuals was laid out, in its whole rect with no bars (`CastMirror.streaming`, `ui/Crystal`'s `VisualizerCanvasHost`, the rule native: `geode_stage_host`).
 - The tee fills the 16:9 stream with no bars or stretch: a portrait stage turned a quarter turn counter-clockwise (its top on the receiver's left), both centre-cropped (`tee::place`).
 - A new stream waits up to 3 s for the stage's first copy (`geode_cast_tee_await_stage`).
-- Only while the stage draws nothing (the app in the background) does a fallback renderer (`CastFallback`, a `NativeViz` in the encoder's context) draw the saved look and the stage's last style and .milk (`CastMirror`).
+- Only while the stage draws nothing (the app in the background) does a fallback renderer (`CastFallback`, a `NativeViz` in the encoder's context) draw the saved look and the stage's last style (`CastMirror`).
 - The encoder is paced by the native `core/viz/frame/FixedRateClock`.
 - `LiveLink` is the shell's handle on the native server: it hands the muxer's fragmented MP4 over and reads back the URLs and the stream's health.
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.

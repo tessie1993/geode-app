@@ -6,20 +6,20 @@
 
 namespace geode::viz {
 
-// MilkDrop's raw PCM (projectM's waveform input, and every scene's PcmPulse): the mono mix of exactly the
+// The raw PCM (every scene's PcmPulse): the mono mix of exactly the
 // samples this renderer's sound engine heard since the last frame. Renderer::writeAudio hands each block it
 // writes into the engine here as well, so the raw tail comes from the same ring and the same each-sample-once
 // cursor as the sound frame, on every surface that hears sound (live, cast, wallpaper, dream), with no
 // second Kotlin ring and no push from the app (#360). The GL thread takes it once per frame; take() empties
 // it, so a frame with no new samples (paused, starved, silent source gone) hands the scenes nothing:
-// re-delivering the last block would hold every PcmPulse at its last peak and feed projectM the same
+// re-delivering the last block would hold every PcmPulse at its last peak and feed a consumer the same
 // samples again. Not locked: Renderer guards it with stateLock_.
 class PcmHandoff {
 public:
     explicit PcmHandoff(int capacity)
         : pending_(static_cast<size_t>(std::max(capacity, 0)), 0.0f), side_(static_cast<size_t>(std::max(capacity, 0)), 0.0f) {}
 
-    // How many source frames make one sample for projectM: its buffers and bands are sized for 44.1-48 kHz,
+    // How many source frames make one sample: the buffers and bands are sized for 44.1-48 kHz,
     // so 88.2 and 96 kHz are halved and 176.4 and 192 kHz quartered. An unknown rate (0) passes through.
     static int decimationFor(int sampleRateHz) {
         const int ratio = sampleRateHz / 44100;
@@ -29,8 +29,8 @@ public:
     // Appends the mono mix (the mean of the channels, so mono passes through unchanged and stereo is
     // (L + R) / 2) of `frames` interleaved frames, averaged over decimationFor(sampleRateHz) frames; frames
     // short of one sample wait for the next write, so chunk sizes drop nothing. Several writes in one frame
-    // (an export delivering in pieces) add up; only the newest capacity() samples are kept, as projectM
-    // only wants the tail.
+    // (an export delivering in pieces) add up; only the newest capacity() samples are kept, as only
+    // the tail is wanted.
     void write(const float* interleaved, int frames, int channels, int sampleRateHz = 0) {
         if (!interleaved || frames <= 0 || channels <= 0 || capacity() == 0) return;
         const int factor = decimationFor(sampleRateHz);
@@ -49,7 +49,7 @@ public:
             std::copy(side_.begin() + (count_ - keep), side_.begin() + count_, side_.begin());
         }
         // The side signal, (L - R) / 2 of the first two channels: with the mono mix it gives stereo back
-        // (L = mono + side, R = mono - side) for the one consumer that draws left against right, MilkDrop.
+        // (L = mono + side, R = mono - side) for a consumer that draws left against right.
         const float sideScale = channels >= 2 ? 0.5f / static_cast<float>(factor) : 0.0f;
         const float scale = 1.0f / static_cast<float>(channels * factor);
         int made = 0;
@@ -101,8 +101,8 @@ private:
     float heldSide_ = 0.0f;
 };
 
-// When the raw PCM stops (paused, starved, the source gone), projectM keeps redrawing the last block it
-// was given: its waveform freezes and its spectrum stays lit. MilkDrop itself draws a flat line then.
+// When the raw PCM stops (paused, starved, the source gone), a consumer that keeps the last block it
+// was given keeps drawing it: its waveform freezes and its spectrum stays lit.
 // tick() says, once per gap, that the engine should be handed silence: after kSeconds without samples,
 // the same wait core/sound's engine gives a starved source.
 class PcmStarve {

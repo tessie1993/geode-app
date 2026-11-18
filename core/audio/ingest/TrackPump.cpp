@@ -1,10 +1,19 @@
 #include "audio/ingest/TrackPump.hpp"
 
+#include <chrono>
 #include <cstring>
 #include <stdexcept>
 #include <unistd.h>
 
 namespace geode::audio::ingest {
+
+namespace {
+
+// How long a track may take to tell its rate: a decoder that produces nothing for this long is stuck, and the
+// delivery says false, as for a track that never tells its rate, instead of waiting for ever.
+constexpr std::chrono::seconds kRateWait{10};
+
+}  // namespace
 
 bool isAudioMime(const char* mime) { return mime != nullptr && std::strncmp(mime, "audio/", 6) == 0; }
 
@@ -46,7 +55,11 @@ void TrackPump::step() {
 
 bool TrackPump::rateKnown() {
     // The rate is only known once the source has produced something.
-    while (!feed_.hasRate() && !ended_) step();
+    const auto until = std::chrono::steady_clock::now() + kRateWait;
+    while (!feed_.hasRate() && !ended_) {
+        if (std::chrono::steady_clock::now() >= until) return false;
+        step();
+    }
     return feed_.hasRate();
 }
 

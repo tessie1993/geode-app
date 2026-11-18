@@ -713,7 +713,7 @@ SceneParams ReactionEngine::apply(const SceneParams& p) const {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
         ModChain chain{};
         if (!r.enabled || r.target == LfoTarget::None || chainOf(r.target, chain)) continue;
-        o = applyLfoTarget(o, r.target, out_[static_cast<size_t>(i)] * scale);
+        applyLfoTargetInPlace(o, r.target, out_[static_cast<size_t>(i)] * scale);
     }
     return o;
 }

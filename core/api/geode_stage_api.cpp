@@ -18,6 +18,11 @@
 #include "util/Log.hpp"
 #include "viz/SurfaceRun.hpp"
 
+// Defined in core/api/geode_viz_api.cpp; not part of the C ABI. geode_viz_frame at a vsync's frame time (0: none).
+namespace geode::api {
+int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs);
+}  // namespace geode::api
+
 namespace stage = geode::stage;
 using geode::stage::platform::StageThread;
 
@@ -68,8 +73,10 @@ public:
     void surfaceCreated() override { geode_viz_surface_created(v_); }
     void surfaceChanged(int width, int height) override { geode_viz_surface_changed(v_, width, height); }
     uint32_t frame(const void* ring, float pacedFps, float capFps) override {
-        return static_cast<uint32_t>(geode_viz_frame(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps));
+        return static_cast<uint32_t>(
+            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_));
     }
+    void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void trimSpares() override { geode_viz_trim_spares(v_); }
     void releaseScenes() override { geode_viz_release_scenes(v_); }
     void warmTransition(const std::string& id) override { geode_viz_warm_transition(v_, id.c_str()); }
@@ -127,6 +134,7 @@ private:
     geode_viz* v_;
     AAssetManager* assets_;
     geode_export_pass* mark_ = nullptr;  // stage thread
+    int64_t vsyncNs_ = 0;  // stage thread: the next frame's vsync time (frameTime), 0 for none
 };
 
 struct Stage {

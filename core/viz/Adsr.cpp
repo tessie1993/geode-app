@@ -114,7 +114,7 @@ SceneParams AdsrEngine::apply(const SceneParams& p, const std::array<AdsrConfig,
         for (const LfoTarget t : c.targets) {
             ModChain chain{};
             if (t == LfoTarget::None || chainOf(t, chain)) continue;
-            r = applyLfoTarget(r, t, envs[i] * c.amount);
+            applyLfoTargetInPlace(r, t, envs[i] * c.amount);
         }
     }
     return r;

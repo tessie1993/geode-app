@@ -296,7 +296,7 @@ private:
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
-    GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
+    GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
     // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame time
     // says nothing about what the phone can draw, so the fluid quality monitor sits out until a moment after
@@ -535,8 +535,8 @@ private:
     float divePhase_ = 0.0f;
     // 0 the plain picture .. 1 the dive: the switch fades over kDiveFadeSeconds, never cuts.
     float diveMix_ = 0.0f;
-    // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
-    int feedbackIdleFrames_ = 0;
+    // Seconds (the wall step) since the feedback pass last drew; its targets are freed once this reaches kFeedbackIdleSeconds.
+    float feedbackIdleSeconds_ = 0.0f;
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
 
@@ -573,6 +573,12 @@ private:
     int heldWidth_ = 0;
     int heldHeight_ = 0;
     int redrawFrames_ = 0;
+    // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's
+    // build and first load, a MilkDrop preset. redrawFrames_ stays the count for "one more frame".
+    static constexpr float kRedrawSeconds = 1.0f;
+    float redrawSeconds_ = 0.0f;
+    // The id read from stateLock_ each frame: assigned in place, so it keeps its buffer.
+    std::string requestedIdScratch_;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing pinLayer()/setTransition() on

@@ -182,7 +182,10 @@ private fun ReactionCard(
     val amount = route.getOrElse(GeodeNative.MOD_ROUTE_AMOUNT) { 0f }
     // The whole range native accepts: the style's own reactions draw drop surges above 1. Below zero, so signed.
     val amountRange = ModCatalog.range("route.amount")
-    val amountText = GeodeNative.paramText("", ParamUnit.PERCENT.ordinal, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
+    val amountText =
+        remember(amount, amountRange) {
+            GeodeNative.paramText("", ParamUnit.PERCENT.ordinal, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
+        }
     val sourceLabel = ModCatalog.label("react", source)
     val targetLabel = ModCatalog.label("target", target)
     val modeLabel = ModCatalog.label("mode", route.intAt(GeodeNative.MOD_ROUTE_MODE))
@@ -363,8 +366,8 @@ private fun RateSecondsSlider(
     val range = ModCatalog.range("lfo.rateSeconds")
     val lo = range.start
     val hi = range.endInclusive
-    val t = GeodeNative.sliderLogPosition(seconds, lo, hi)
-    val shown = GeodeNative.paramText("", ParamUnit.SECONDS.ordinal, seconds, 0f, 0f, Float.NaN)
+    val t = remember(seconds, lo, hi) { GeodeNative.sliderLogPosition(seconds, lo, hi) }
+    val shown = remember(seconds) { GeodeNative.paramText("", ParamUnit.SECONDS.ordinal, seconds, 0f, 0f, Float.NaN) }
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text(stringResource(R.string.customize_one_cycle_value, shown), style = MaterialTheme.typography.bodyMedium)
@@ -479,17 +482,19 @@ internal fun LayersPage() {
     CheckRow(LAYERS_ENABLED, on, scope = ParamScope.UNIVERSAL) { edit(GeodeNative.LAYER_ON, if (it) 1f else 0f, "") }
     if (!on || !sectionVisible()) return
     val source = values[GeodeNative.LAYER_SOURCE].toInt()
-    DropdownRow(stringResource(R.string.customize_layer_from), list(GeodeNative.LAYER_LIST_SOURCES), source) {
+    val sources = remember(active, values) { list(GeodeNative.LAYER_LIST_SOURCES) }
+    DropdownRow(stringResource(R.string.customize_layer_from), sources, source) {
         edit(GeodeNative.LAYER_SOURCE, it.toFloat(), "")
     }
     when (source) {
         GeodeNative.LAYER_SOURCE_USER -> {
-            val families = list(GeodeNative.LAYER_LIST_FAMILIES).map { GeodeNative.styleFamilyLabel(it) }
-            val styles = list(GeodeNative.LAYER_LIST_STYLES)
+            val families = remember(active, values) { list(GeodeNative.LAYER_LIST_FAMILIES).map { GeodeNative.styleFamilyLabel(it) } }
+            val styles = remember(active, values) { list(GeodeNative.LAYER_LIST_STYLES) }
+            val styleLabels = remember(styles) { styles.map { GeodeNative.styleLabel(it) } }
             DropdownRow(stringResource(R.string.customize_layer_family), families, values[GeodeNative.LAYER_FAMILY].toInt()) { family = it }
             DropdownRow(
                 stringResource(R.string.customize_layer_pick),
-                styles.map { GeodeNative.styleLabel(it) },
+                styleLabels,
                 values[GeodeNative.LAYER_STYLE].toInt(),
                 placeholder = stringResource(R.string.customize_layer_suits),
             ) { edit(GeodeNative.LAYER_STYLE, 0f, styles[it]) }
@@ -500,7 +505,8 @@ internal fun LayersPage() {
         GeodeNative.LAYER_SOURCE_DIRECTOR -> ControlHint(stringResource(R.string.customize_layer_director_hint))
         GeodeNative.LAYER_SOURCE_MACRO -> {
             val knob = values[GeodeNative.LAYER_KNOB].toInt()
-            DropdownRow(stringResource(R.string.customize_layer_knob), list(GeodeNative.LAYER_LIST_KNOBS), knob) {
+            val knobs = remember(active, values) { list(GeodeNative.LAYER_LIST_KNOBS) }
+            DropdownRow(stringResource(R.string.customize_layer_knob), knobs, knob) {
                 edit(GeodeNative.LAYER_KNOB, it.toFloat(), "")
             }
             ControlHint(stringResource(R.string.customize_layer_macro_hint))
@@ -508,7 +514,8 @@ internal fun LayersPage() {
     }
     if (shown.isNotEmpty()) ControlHint(stringResource(R.string.customize_layer_style, sceneDisplayLabel(shown)))
     val blend = values[GeodeNative.LAYER_BLEND].toInt()
-    DropdownRow("Blend", list(GeodeNative.LAYER_LIST_BLENDS), blend) { edit(GeodeNative.LAYER_BLEND, it.toFloat(), "") }
+    val blends = remember(active, values) { list(GeodeNative.LAYER_LIST_BLENDS) }
+    DropdownRow("Blend", blends, blend) { edit(GeodeNative.LAYER_BLEND, it.toFloat(), "") }
     LabeledSlider(LAYER_MIX, values[GeodeNative.LAYER_MIX], 0f..1f, scope = ParamScope.UNIVERSAL) { edit(GeodeNative.LAYER_MIX, it, "") }
 }
 

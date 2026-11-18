@@ -15,6 +15,10 @@ void LiveClient::surfaceChanged(int width, int height) {
     if (viz_) viz_->surfaceChanged(width, height);
 }
 
+void LiveClient::frameTime(int64_t vsyncNs) {
+    if (viz_) viz_->frameTime(vsyncNs);
+}
+
 uint32_t LiveClient::frame(float pacedFps, float capFps) {
     if (!viz_) return 0;
     runJobs(true);

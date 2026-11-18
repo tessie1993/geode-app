@@ -270,7 +270,7 @@ void Renderer::applyMilkRequests() {
     if (!milk) return;
     // A preset picked in silence still loads and shows: about a second of redraws.
     if (!preset.empty() || reload || !textureDir.empty()) {
-        redrawFrames_ = 60;
+        redrawSeconds_ = kRedrawSeconds;
         noteSettling();  // projectM compiles the preset's shaders on this thread
     }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);

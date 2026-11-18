@@ -369,7 +369,11 @@ void Renderer::resolveLayerScene() {
 
 bool Renderer::ensureTargets() {
     if (!fboA_.ensure(renderWidth_, renderHeight_)) return false;
-    if (!fboB_.ensure(renderWidth_, renderHeight_)) {
+    // The outgoing style's target lives only while a transition runs, as the layer's (fboL_) lives only
+    // while a layer draws: made when one starts, released on the frame after it ends.
+    if (!outgoingScene_) {
+        fboB_.release();
+    } else if (!fboB_.ensure(renderWidth_, renderHeight_)) {
         layerScene_ = nullptr;
         outgoingScene_ = nullptr;
         outgoingParams_.reset();

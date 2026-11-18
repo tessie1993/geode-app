@@ -414,6 +414,7 @@ private:
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
+    // The outgoing style's target: made while a transition runs, released when none does (ensureTargets).
     Framebuffer fboB_{"sceneB"};
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.

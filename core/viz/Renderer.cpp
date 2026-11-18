@@ -597,7 +597,7 @@ void Renderer::applyRenderScale() {
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
-    fboB_.ensure(renderWidth_, renderHeight_);
+    if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
 }
 
 float Renderer::supersampleFactor(int width, int height) {

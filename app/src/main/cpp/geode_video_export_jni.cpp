@@ -21,15 +21,15 @@ geode_video_export* jobOf(jlong handle) { return reinterpret_cast<geode_video_ex
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportCreate(JNIEnv*, jobject) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportCreate(JNIEnv*, jobject) {
     return reinterpret_cast<jlong>(geode_video_export_create());
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportDestroy(JNIEnv*, jobject, jlong job) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportDestroy(JNIEnv*, jobject, jlong job) {
     geode_video_export_destroy(jobOf(job));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetOutput(JNIEnv* env, jobject, jlong job,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetOutput(JNIEnv* env, jobject, jlong job,
                                                                                      jint outputFd, jstring cacheDir,
                                                                                      jint width, jint height,
                                                                                      jint bitRate, jint fps) {
@@ -37,19 +37,19 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetOu
     geode_video_export_set_output(jobOf(job), outputFd, dir.get(), width, height, bitRate, fps);
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportAddCodec(JNIEnv* env, jobject, jlong job,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportAddCodec(JNIEnv* env, jobject, jlong job,
                                                                                     jstring mime, jint topFps) {
     Utf8Chars type(env, mime);
     geode_video_export_add_codec(jobOf(job), type.get(), topFps);
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetTrack(JNIEnv*, jobject, jlong job,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetTrack(JNIEnv*, jobject, jlong job,
                                                                                     jint fd, jlong offset, jlong length,
                                                                                     jlong rangeStartMs) {
     geode_video_export_set_track(jobOf(job), fd, offset, length, rangeStartMs);
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetScene(JNIEnv* env, jobject, jlong job,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetScene(JNIEnv* env, jobject, jlong job,
                                                                                     jobject assetManager,
                                                                                     jstring milkTextureDir,
                                                                                     jstring sceneId, jstring milkPath,
@@ -62,7 +62,7 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetSc
 }
 
 // As vizSetLook: a look whose routes' text could not be read is not handed over.
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetLook(
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetLook(
     JNIEnv* env, jobject, jlong job, jfloatArray params, jstring lfos, jstring adsrs, jfloatArray tuning,
     jstring reactions, jboolean reducedMotion, jstring transitionId, jlong transitionMs) {
     geode::jni::LookArgs look(env, nullptr, params, lfos, adsrs, tuning, reactions, reducedMotion, transitionId,
@@ -70,7 +70,7 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetLo
     if (look.ok()) geode_video_export_set_look(jobOf(job), look.get());
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetUnderlay(JNIEnv* env, jobject,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetUnderlay(JNIEnv* env, jobject,
                                                                                        jlong job, jintArray pixels,
                                                                                        jint width, jint height,
                                                                                        jint blend, jfloat amount) {
@@ -82,7 +82,7 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetUn
 
 // A direct buffer's address, or null for a heap buffer or one shorter than the tile (the job then carries no
 // mark, and the shell fails the render rather than ship it unmarked).
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetMark(JNIEnv* env, jobject, jlong job,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetMark(JNIEnv* env, jobject, jlong job,
                                                                                        jobject rgba, jint tileWidth,
                                                                                        jint tileHeight, jint placement,
                                                                                        jint corner) {
@@ -93,7 +93,7 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportS
     return whole ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportSetAudio(JNIEnv* env, jobject,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetAudio(JNIEnv* env, jobject,
                                                                                         jlong job, jstring path,
                                                                                         jlongArray samples) {
     Utf8Chars file(env, path);
@@ -105,7 +105,7 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportS
                : JNI_FALSE;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportAddAudioKey(
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportAddAudioKey(
     JNIEnv* env, jobject, jlong job, jstring key, jint type, jlong whole, jfloat real, jstring text,
     jbyteArray bytes) {
     Utf8Chars name(env, key);
@@ -117,31 +117,31 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportAddAu
                                      static_cast<int>(length));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportRun(JNIEnv*, jobject, jlong job) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportRun(JNIEnv*, jobject, jlong job) {
     geode_video_export_run(jobOf(job));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportCancel(JNIEnv*, jobject, jlong job) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportCancel(JNIEnv*, jobject, jlong job) {
     geode_video_export_cancel(jobOf(job));
 }
 
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportProgress(JNIEnv*, jobject, jlong job) {
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportProgress(JNIEnv*, jobject, jlong job) {
     return geode_video_export_progress(jobOf(job));
 }
 
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportLeadIn(JNIEnv*, jobject, jfloat done) {
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportLeadIn(JNIEnv*, jobject, jfloat done) {
     return geode_video_export_lead_in(done);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportState(JNIEnv*, jobject, jlong job) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportState(JNIEnv*, jobject, jlong job) {
     return geode_video_export_state(jobOf(job));
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportFailure(JNIEnv*, jobject, jlong job) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportFailure(JNIEnv*, jobject, jlong job) {
     return geode_video_export_failure(jobOf(job));
 }
 
-JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_videoExportDetail(JNIEnv* env, jobject, jlong job) {
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportDetail(JNIEnv* env, jobject, jlong job) {
     return geode::jni::utf8String(env, geode_video_export_detail(jobOf(job)));
 }
 

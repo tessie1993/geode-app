@@ -7,7 +7,7 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.MacroNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +60,7 @@ data class MacroBankState(
 class MacroStore internal constructor(
     private val repository: SettingsRepository<String>,
     private val scope: CoroutineScope,
-    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push macro bank") { GeodeNative.macroBankSet(text) } },
+    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push macro bank") { MacroNative.macroBankSet(text) } },
 ) {
     private val _state = MutableStateFlow(MacroBankState())
     val state: StateFlow<MacroBankState> = _state
@@ -76,34 +76,34 @@ class MacroStore internal constructor(
 
     /** What the knob editor draws and offers on [styleId], as native lists it for the bank as it is now. */
     fun editor(styleId: String): MacroEditorState =
-        runCatching { MacroEditorTable.parse(GeodeNative.macroBankEditor(_state.value.working, styleId)) }
+        runCatching { MacroEditorTable.parse(MacroNative.macroBankEditor(_state.value.working, styleId)) }
             .onFailure { RingLog.note(TAG, "macro editor read failed", it) }
             .getOrDefault(MacroEditorState())
 
     /** Which Customize sliders a knob can move, and which knobs move each, for the bank as it is now. */
     fun controls(): Map<String, MacroControl> =
-        runCatching { MacroControlsTable.parse(GeodeNative.macroBankControls(_state.value.working)) }
+        runCatching { MacroControlsTable.parse(MacroNative.macroBankControls(_state.value.working)) }
             .onFailure { RingLog.note(TAG, "macro controls read failed", it) }
             .getOrDefault(emptyMap())
 
     /** What the waves and envelopes on each knob add to its turn on the visual now; the knob's second arc polls it. */
-    fun liveMods(): Map<Int, MacroLiveMod> = runCatching { MacroLiveTable.parse(GeodeNative.macroBankLiveMods()) }.getOrDefault(emptyMap())
+    fun liveMods(): Map<Int, MacroLiveMod> = runCatching { MacroLiveTable.parse(MacroNative.macroBankLiveMods()) }.getOrDefault(emptyMap())
 
     fun rename(
         id: Int,
         name: String,
-    ) = edit { GeodeNative.macroBankRename(it, id, name) }
+    ) = edit { MacroNative.macroBankRename(it, id, name) }
 
     /** A new empty knob as a draft (any earlier draft dropped); its id, or null when the bank is full. */
-    fun newDraft(): Int? = drafted { GeodeNative.macroBankAddKnob(it, "") }
+    fun newDraft(): Int? = drafted { MacroNative.macroBankAddKnob(it, "") }
 
     /** A draft knob that already moves the Customize slider [control]; its id, or null when the bank is full. */
-    fun newDraftFor(control: String): Int? = drafted { GeodeNative.macroBankAddKnobFor(it, control) }
+    fun newDraftFor(control: String): Int? = drafted { MacroNative.macroBankAddKnobFor(it, control) }
 
     /** The draft saved as a knob named [name] (native cleans it, and keeps its own name for an empty one). */
     fun saveDraft(name: String) {
         val draft = _state.value.draft ?: return
-        val text = runCatching { GeodeNative.macroBankRename(draft.text, draft.id, name) }.getOrDefault(draft.text)
+        val text = runCatching { MacroNative.macroBankRename(draft.text, draft.id, name) }.getOrDefault(draft.text)
         _state.value = stateOf(text)
         push(text)
         write()
@@ -116,47 +116,47 @@ class MacroStore internal constructor(
     }
 
     /** The name native offers when the knob is saved. */
-    fun autoName(id: Int): String = runCatching { GeodeNative.macroBankAutoName(_state.value.working, id) }.getOrDefault("")
+    fun autoName(id: Int): String = runCatching { MacroNative.macroBankAutoName(_state.value.working, id) }.getOrDefault("")
 
     /** New ranges and curves for the links the knob has, a new roll each call. */
-    fun rollRanges(id: Int) = edit { GeodeNative.macroBankRollRanges(it, id, Random.nextLong()) }
+    fun rollRanges(id: Int) = edit { MacroNative.macroBankRollRanges(it, id, Random.nextLong()) }
 
     /** Up to [count] more params on the knob, picked at random on [styleId], a new roll each call. */
     fun addRandom(
         id: Int,
         styleId: String,
         count: Int,
-    ) = edit { GeodeNative.macroBankAddRandom(it, id, styleId, count, Random.nextLong()) }
+    ) = edit { MacroNative.macroBankAddRandom(it, id, styleId, count, Random.nextLong()) }
 
     /** A new turn for every knob on screen that moves something on [styleId], a new roll each call. */
-    fun rollValues(styleId: String) = edit { GeodeNative.macroBankRollValues(it, styleId, Random.nextLong()) }
+    fun rollValues(styleId: String) = edit { MacroNative.macroBankRollValues(it, styleId, Random.nextLong()) }
 
     /** Off screen into the bank's library; Add macro offers it back. */
-    fun hide(id: Int) = edit { GeodeNative.macroBankHideKnob(it, id) }
+    fun hide(id: Int) = edit { MacroNative.macroBankHideKnob(it, id) }
 
     /** From the library back on screen, last. */
-    fun show(id: Int) = edit { GeodeNative.macroBankShowKnob(it, id) }
+    fun show(id: Int) = edit { MacroNative.macroBankShowKnob(it, id) }
 
     /** The copy's id, or null when the bank is full. */
-    fun duplicate(id: Int): Int? = added { GeodeNative.macroBankDuplicateKnob(it, id) }
+    fun duplicate(id: Int): Int? = added { MacroNative.macroBankDuplicateKnob(it, id) }
 
-    fun remove(id: Int) = edit { GeodeNative.macroBankRemoveKnob(it, id) }
+    fun remove(id: Int) = edit { MacroNative.macroBankRemoveKnob(it, id) }
 
     fun move(
         id: Int,
         delta: Int,
-    ) = edit { GeodeNative.macroBankMoveKnob(it, id, delta) }
+    ) = edit { MacroNative.macroBankMoveKnob(it, id, delta) }
 
     /** A built-in knob's name and links as built. */
-    fun resetKnob(id: Int) = edit { GeodeNative.macroBankResetKnob(it, id) }
+    fun resetKnob(id: Int) = edit { MacroNative.macroBankResetKnob(it, id) }
 
     /** The four built-in knobs alone, as built and centred. */
-    fun resetAll() = edit { GeodeNative.macroBankDefault() }
+    fun resetAll() = edit { MacroNative.macroBankDefault() }
 
     fun addLink(
         id: Int,
         target: String,
-    ) = edit { GeodeNative.macroBankAddLink(it, id, target) }
+    ) = edit { MacroNative.macroBankAddLink(it, id, target) }
 
     /** A drag moves the link live; [commit] once the gesture ends, like [setValue]. */
     fun setLink(
@@ -165,18 +165,18 @@ class MacroStore internal constructor(
         up: Float,
         down: Float,
         persist: Boolean = true,
-    ) = edit(persist) { GeodeNative.macroBankSetLink(it, id, target, up, down) }
+    ) = edit(persist) { MacroNative.macroBankSetLink(it, id, target, up, down) }
 
     fun removeLink(
         id: Int,
         target: String,
-    ) = edit { GeodeNative.macroBankRemoveLink(it, id, target) }
+    ) = edit { MacroNative.macroBankRemoveLink(it, id, target) }
 
     fun setCurve(
         id: Int,
         target: String,
         curve: String,
-    ) = edit { GeodeNative.macroBankSetCurve(it, id, target, curve) }
+    ) = edit { MacroNative.macroBankSetCurve(it, id, target, curve) }
 
     private fun added(change: (String) -> String): Int? {
         val before = knobsOf(_state.value.working).mapTo(mutableSetOf()) { it.id }
@@ -200,13 +200,13 @@ class MacroStore internal constructor(
         value: Float,
         persist: Boolean = true,
     ) {
-        edit(persist) { GeodeNative.macroBankSetValue(it, id, value) }
+        edit(persist) { MacroNative.macroBankSetValue(it, id, value) }
     }
 
     /** Every knob back to centre; the knobs and what they move stay. */
     fun centreAll() {
         val ids = knobsOf(_state.value.working).map { it.id }
-        edit(persist = true) { text -> ids.fold(text) { bank, id -> GeodeNative.macroBankSetValue(bank, id, 0f) } }
+        edit(persist = true) { text -> ids.fold(text) { bank, id -> MacroNative.macroBankSetValue(bank, id, 0f) } }
     }
 
     /** Saves what a drag left behind (see [setValue]). */
@@ -281,7 +281,7 @@ class MacroStore internal constructor(
  * bank becomes the built-in one). Reading also drops the six old knobs' keys, as the store's load did.
  */
 class MacroBankCodec(
-    private val normalizeBank: (String) -> String = { GeodeNative.macroBankNormalize(it) },
+    private val normalizeBank: (String) -> String = { MacroNative.macroBankNormalize(it) },
 ) : PrefsCodec<String> {
     override val defaults = ""
 

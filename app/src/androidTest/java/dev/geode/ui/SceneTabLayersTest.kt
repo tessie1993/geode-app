@@ -18,7 +18,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.VizNative
 import dev.geode.geodeContainer
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -37,7 +37,7 @@ class SceneTabLayersTest {
     @After
     fun layerOff() {
         val looks = ApplicationProvider.getApplicationContext<Context>().geodeContainer.looks
-        GeodeNative.layerEdit(GeodeNative.LAYER_ON, 0f, "").takeIf { it.isNotEmpty() }?.let(looks::saveLayer)
+        VizNative.layerEdit(VizNative.LAYER_ON, 0f, "").takeIf { it.isNotEmpty() }?.let(looks::saveLayer)
     }
 
     @Test
@@ -55,7 +55,7 @@ class SceneTabLayersTest {
         compose.onNodeWithText("Layers enabled").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Layers enabled").performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
-        assertTrue(GeodeNative.layerValues("kifs", -1)[GeodeNative.LAYER_ON] > 0f)
+        assertTrue(VizNative.layerValues("kifs", -1)[VizNative.LAYER_ON] > 0f)
 
         query = "layer"
         compose.onNodeWithText("Layers enabled").performScrollTo().assertIsDisplayed()

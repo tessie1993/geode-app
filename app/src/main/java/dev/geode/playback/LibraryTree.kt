@@ -9,7 +9,7 @@ import dev.geode.data.FavouritesStore
 import dev.geode.data.HistoryStore
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.TrackLibrary
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TagsNative
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 
@@ -123,7 +123,7 @@ class LibraryTree(
         }
         val out = IntArray(rows.size)
         val request = asked.map { it?.encodeToByteArray() }.toTypedArray()
-        val count = GeodeNative.librarySearch(cells, request, out).coerceIn(0, out.size)
+        val count = TagsNative.librarySearch(cells, request, out).coerceIn(0, out.size)
         return (0 until minOf(count, max)).map { rows[out[it]] }
     }
 

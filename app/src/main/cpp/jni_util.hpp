@@ -99,7 +99,7 @@ private:
     jsize length_;
 };
 
-// A look from Java (GeodeNative.vizSetLook, stageSetLook), held for one call. Not ok() when the routes' text
+// A look from Java (VizNative.vizSetLook, stageSetLook), held for one call. Not ok() when the routes' text
 // could not be read: the caller then keeps the last look.
 class LookArgs {
 public:

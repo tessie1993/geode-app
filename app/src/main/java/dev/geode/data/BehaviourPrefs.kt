@@ -6,7 +6,7 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 
 // What the app does by itself, what each screen does, and what each gesture on the visual means
 // (Settings spreads these rows over seven of its tabs). The owner decided every default here (wave 1, 1C). Kept in `geode-prefs`, so
@@ -143,9 +143,9 @@ data class BehaviourPrefs(
     val dreamHearOtherApps: Boolean = false,
     /**
      * Behaviour › Dream's frame rate, its own and not Settings › Performance's: 30 unless
-     * the user picks another. The allowed rates and the snap are native (`GeodeNative.surfaceFpsChoice`).
+     * the user picks another. The allowed rates and the snap are native (`SoundNative.surfaceFpsChoice`).
      */
-    val dreamFps: Int = GeodeNative.SURFACE_DEFAULT_FPS,
+    val dreamFps: Int = SoundNative.SURFACE_DEFAULT_FPS,
     /** Every canvas gesture's action. A gesture missing from the map is [GestureAction.OFF]. */
     val gestures: Map<CanvasGesture, GestureAction> = DEFAULT_GESTURES,
 ) {

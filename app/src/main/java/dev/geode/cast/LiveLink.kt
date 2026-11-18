@@ -1,7 +1,7 @@
 package dev.geode.cast
 
 import dev.geode.RingLog
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -31,14 +31,14 @@ internal class LiveLink(
 ) {
     private val lock = ReentrantReadWriteLock()
     private var handle: Long =
-        GeodeNative.castServerOpen(address.hostAddress.orEmpty(), ipv4(address), prefix, webrtc.native)
+        CastNative.castServerOpen(address.hostAddress.orEmpty(), ipv4(address), prefix, webrtc.native)
 
     /** The native server, which the cast's encoders write into; 0 once stopped. */
     val native: Long get() = lock.read { handle }
 
     /** Binds and starts serving; throws when the address cannot be bound. */
     fun start() {
-        val port = lock.read { if (handle != 0L) GeodeNative.castServerStart(handle) else 0 }
+        val port = lock.read { if (handle != 0L) CastNative.castServerStart(handle) else 0 }
         if (port == 0) throw IOException("the cast server could not bind")
     }
 
@@ -51,33 +51,33 @@ internal class LiveLink(
         forTv: Boolean,
         forLink: Boolean,
     ) = lock.read {
-        val wants = (if (forTv) GeodeNative.LINK_WANT_TV else 0) or (if (forLink) GeodeNative.LINK_WANT_LINK else 0)
-        if (handle != 0L) GeodeNative.castServerAdmit(handle, ipv4(tv), wants)
+        val wants = (if (forTv) CastNative.LINK_WANT_TV else 0) or (if (forLink) CastNative.LINK_WANT_LINK else 0)
+        if (handle != 0L) CastNative.castServerAdmit(handle, ipv4(tv), wants)
     }
 
     /** The playlist's URL, as the receiver loads it; valid after [start]. */
-    val playlistUrl: String get() = text(GeodeNative.CAST_TEXT_PLAYLIST_URL)
+    val playlistUrl: String get() = text(CastNative.CAST_TEXT_PLAYLIST_URL)
 
     /** "Show on a computer"'s link as the user sees, copies and shares it (the host as one number, not dotted). */
-    val shareUrl: String get() = text(GeodeNative.CAST_TEXT_SHARE_URL)
+    val shareUrl: String get() = text(CastNative.CAST_TEXT_SHARE_URL)
 
     /** The short link a computer types, with no token in it; its page asks for the code the sheet shows. */
-    val pairUrl: String get() = text(GeodeNative.CAST_TEXT_PAIR_URL)
+    val pairUrl: String get() = text(CastNative.CAST_TEXT_PAIR_URL)
 
     /** A short name for this link ("Blue Comet") to show beside its QR code. */
-    val label: String get() = text(GeodeNative.CAST_TEXT_LABEL)
+    val label: String get() = text(CastNative.CAST_TEXT_LABEL)
 
     /** When the TV last got a file (SystemClock.elapsedRealtime, 0 = never): [CastService] asks if it still plays. */
-    val lastReceiverFetchMs: Long get() = state()[GeodeNative.CAST_STATE_LAST_FETCH_MS]
+    val lastReceiverFetchMs: Long get() = state()[CastNative.CAST_STATE_LAST_FETCH_MS]
 
     /** True once the playlist lists enough segments for the receiver to start on. */
-    val isReady: Boolean get() = state()[GeodeNative.CAST_STATE_READY] != 0L
+    val isReady: Boolean get() = state()[CastNative.CAST_STATE_READY] != 0L
 
     /** Milliseconds since the last segment was cut; 0 before the first. */
-    val msSinceLastSegment: Long get() = state()[GeodeNative.CAST_STATE_SEGMENT_AGE_MS]
+    val msSinceLastSegment: Long get() = state()[CastNative.CAST_STATE_SEGMENT_AGE_MS]
 
     /** Ends every connection and serves nobody more, freeing nothing: the encoders may still write in. */
-    fun halt() = lock.read { if (handle != 0L) GeodeNative.castServerStop(handle) }
+    fun halt() = lock.read { if (handle != 0L) CastNative.castServerStop(handle) }
 
     /**
      * Ends every connection and frees the server. What it refused and what it could not find are noted once,
@@ -86,24 +86,24 @@ internal class LiveLink(
     fun stop() =
         lock.write {
             if (handle == 0L) return@write
-            GeodeNative.castServerStop(handle)
-            val refusals = GeodeNative.castServerText(handle, GeodeNative.CAST_TEXT_REFUSALS).orEmpty()
+            CastNative.castServerStop(handle)
+            val refusals = CastNative.castServerText(handle, CastNative.CAST_TEXT_REFUSALS).orEmpty()
             if (refusals.isNotEmpty()) RingLog.note(TAG, refusals)
-            val state = LongArray(GeodeNative.CAST_STATE)
-            GeodeNative.castServerState(handle, state)
-            val asMuxed = state[GeodeNative.CAST_STATE_AS_MUXED]
+            val state = LongArray(CastNative.CAST_STATE)
+            CastNative.castServerState(handle, state)
+            val asMuxed = state[CastNative.CAST_STATE_AS_MUXED]
             if (asMuxed > 0L) RingLog.note(TAG, "$asMuxed fragments served as muxed")
-            if (state[GeodeNative.CAST_STATE_BROKEN] != 0L) RingLog.note(TAG, "the muxer's output could not be cut")
-            GeodeNative.castServerClose(handle)
+            if (state[CastNative.CAST_STATE_BROKEN] != 0L) RingLog.note(TAG, "the muxer's output could not be cut")
+            CastNative.castServerClose(handle)
             handle = 0L
         }
 
-    private fun text(which: Int): String = lock.read { if (handle != 0L) GeodeNative.castServerText(handle, which).orEmpty() else "" }
+    private fun text(which: Int): String = lock.read { if (handle != 0L) CastNative.castServerText(handle, which).orEmpty() else "" }
 
     private fun state(): LongArray =
         lock.read {
-            val out = LongArray(GeodeNative.CAST_STATE)
-            if (handle != 0L) GeodeNative.castServerState(handle, out)
+            val out = LongArray(CastNative.CAST_STATE)
+            if (handle != 0L) CastNative.castServerState(handle, out)
             out
         }
 

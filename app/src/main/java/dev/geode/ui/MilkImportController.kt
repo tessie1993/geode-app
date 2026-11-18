@@ -9,7 +9,7 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
 import dev.geode.data.ReadCap
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.MilkNative
 import dev.geode.model.MilkFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,7 +61,7 @@ internal class MilkImportController(
                         builtInDir().deleteRecursively()
                         File(importDir(), "textures").mkdirs()
                     }
-                    GeodeNative.milkStarterInstall(application.assets, importDir().path)
+                    MilkNative.milkStarterInstall(application.assets, importDir().path)
                     // Idempotent refresh: catches textures imported before a preset existed,
                     // presets from older installs that predate linking, and starter presets.
                     if (relink) textureLinks.relinkAll()
@@ -132,7 +132,7 @@ internal class MilkImportController(
     ): String? =
         try {
             val dir = importDir().apply { mkdirs() }
-            val file = File(dir, GeodeNative.milkImportFileName(dir.path, displayNameOf(uri).orEmpty(), keepExisting))
+            val file = File(dir, MilkNative.milkImportFileName(dir.path, displayNameOf(uri).orEmpty(), keepExisting))
             // A .milk is text, tens of KB; anything past the cap is not one, and the write is dropped.
             val written =
                 mediaStore.read(uri) { input ->

@@ -8,7 +8,8 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.LookSnapshot
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
+import dev.geode.engine.bridge.LoopJobNative
 import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.util.bestEffort
@@ -38,20 +39,20 @@ data class LoopSpec(
 ) {
     /** Native (`core/output/LoopPlan`, tested by `core/tests/output_test.cpp`). */
     val loopDurationUs: Long by lazy {
-        val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
-        GeodeNative.loopSpecDerive(loopMs, crossfadeMs, fps, out)
-        out[GeodeNative.LOOP_SPEC_LOOP_DURATION_US]
+        val out = LongArray(ExportNative.LOOP_SPEC_LONGS)
+        ExportNative.loopSpecDerive(loopMs, crossfadeMs, fps, out)
+        out[ExportNative.LOOP_SPEC_LOOP_DURATION_US]
     }
 
     companion object {
         // The ranges the controls offer are native's (`core/output/LoopPlan`).
-        private val limits: LongArray by lazy { GeodeNative.loopLimits() }
-        val minLoopMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MIN_LOOP_MS]
-        val maxLoopMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MAX_LOOP_MS]
-        val minCrossfadeMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MIN_CROSSFADE_MS]
-        val maxCrossfadeMs: Long get() = limits[GeodeNative.LOOP_LIMIT_MAX_CROSSFADE_MS]
-        val defaultCrossfadeMs: Long get() = limits[GeodeNative.LOOP_LIMIT_DEFAULT_CROSSFADE_MS]
-        val maxDriftStops: Int get() = limits[GeodeNative.LOOP_LIMIT_MAX_DRIFT_STOPS].toInt()
+        private val limits: LongArray by lazy { ExportNative.loopLimits() }
+        val minLoopMs: Long get() = limits[ExportNative.LOOP_LIMIT_MIN_LOOP_MS]
+        val maxLoopMs: Long get() = limits[ExportNative.LOOP_LIMIT_MAX_LOOP_MS]
+        val minCrossfadeMs: Long get() = limits[ExportNative.LOOP_LIMIT_MIN_CROSSFADE_MS]
+        val maxCrossfadeMs: Long get() = limits[ExportNative.LOOP_LIMIT_MAX_CROSSFADE_MS]
+        val defaultCrossfadeMs: Long get() = limits[ExportNative.LOOP_LIMIT_DEFAULT_CROSSFADE_MS]
+        val maxDriftStops: Int get() = limits[ExportNative.LOOP_LIMIT_MAX_DRIFT_STOPS].toInt()
 
         /** Parses loose UI numbers into a spec, clamping instead of failing (natively, `core/output/LoopPlan`). */
         fun of(
@@ -59,12 +60,12 @@ data class LoopSpec(
             crossfadeMs: Long,
             fps: Int,
         ): LoopSpec {
-            val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
-            GeodeNative.loopSpecOf(loopMs, crossfadeMs, fps, out)
+            val out = LongArray(ExportNative.LOOP_SPEC_LONGS)
+            ExportNative.loopSpecOf(loopMs, crossfadeMs, fps, out)
             return LoopSpec(
-                out[GeodeNative.LOOP_SPEC_LOOP_MS],
-                out[GeodeNative.LOOP_SPEC_CROSSFADE_MS],
-                out[GeodeNative.LOOP_SPEC_FPS].toInt(),
+                out[ExportNative.LOOP_SPEC_LOOP_MS],
+                out[ExportNative.LOOP_SPEC_CROSSFADE_MS],
+                out[ExportNative.LOOP_SPEC_FPS].toInt(),
             )
         }
     }
@@ -199,7 +200,7 @@ class LoopRender(
         longFormMs: Long = 0L,
     ): Result =
         withContext(Dispatchers.Default) {
-            val job = GeodeNative.loopJobCreate()
+            val job = LoopJobNative.loopJobCreate()
             if (job == 0L) return@withContext failed(R.string.export_error_loop_stopped)
             try {
                 setOutput(job, aspect, spec, drift, codec, longFormMs)
@@ -211,23 +212,23 @@ class LoopRender(
                         launch {
                             try {
                                 while (isActive) {
-                                    if (isCancelled()) GeodeNative.loopJobCancel(job)
-                                    onProgress(GeodeNative.loopJobProgress(job))
+                                    if (isCancelled()) LoopJobNative.loopJobCancel(job)
+                                    onProgress(LoopJobNative.loopJobProgress(job))
                                     delay(POLL_MS)
                                 }
                             } finally {
                                 // A cancel of the caller ends this poll while the run below still blocks its
                                 // thread: only this stops the job. After the run has ended it changes nothing.
-                                GeodeNative.loopJobCancel(job)
+                                LoopJobNative.loopJobCancel(job)
                             }
                         }
                     // Blocks this worker thread for the whole render; the poll above runs on another.
-                    GeodeNative.loopJobRun(job)
+                    LoopJobNative.loopJobRun(job)
                     poll.cancelAndJoin()
                 }
                 resultOf(job, aspect, spec).also { if (it is Result.Rendered) onProgress(1f) }
             } finally {
-                GeodeNative.loopJobDestroy(job)
+                LoopJobNative.loopJobDestroy(job)
             }
         }
 
@@ -239,7 +240,7 @@ class LoopRender(
         codec: ExportCodec,
         longFormMs: Long,
     ) {
-        GeodeNative.loopJobSetOutput(
+        LoopJobNative.loopJobSetOutput(
             job,
             context.cacheDir.absolutePath,
             aspect.width,
@@ -250,8 +251,8 @@ class LoopRender(
             spec.fps,
             longFormMs,
         )
-        GeodeNative.loopJobSetDrift(job, drift.hueTurns, drift.warmth, drift.stops)
-        codec.candidates().forEach { GeodeNative.loopJobAddCodec(job, it.mimeType, it.topFps(aspect)) }
+        LoopJobNative.loopJobSetDrift(job, drift.hueTurns, drift.warmth, drift.stops)
+        codec.candidates().forEach { LoopJobNative.loopJobAddCodec(job, it.mimeType, it.topFps(aspect)) }
     }
 
     /** The renderer's inputs and the pinned look, each part in the frame the live renderer takes it in. */
@@ -260,7 +261,7 @@ class LoopRender(
         sceneFactory: SceneFactory,
         look: LookSnapshot,
     ) {
-        GeodeNative.loopJobSetScene(
+        LoopJobNative.loopJobSetScene(
             job,
             context.assets,
             File(context.filesDir, "milk/textures").absolutePath,
@@ -268,14 +269,14 @@ class LoopRender(
             sceneFactory.milkPresetPath,
             ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
         )
-        GeodeNative.loopJobSetParams(job, look.params.frame())
-        GeodeNative.loopJobSetLfos(job, look.lfos)
-        GeodeNative.loopJobSetAdsrs(job, look.adsrs)
-        GeodeNative.loopJobSetSoundTuning(job, look.soundTuning?.toFloatArray())
-        GeodeNative.loopJobSetReactions(job, look.reactions)
-        GeodeNative.loopJobSetMotion(job, look.reducedMotion, look.transitionId, look.transitionMs)
+        LoopJobNative.loopJobSetParams(job, look.params.frame())
+        LoopJobNative.loopJobSetLfos(job, look.lfos)
+        LoopJobNative.loopJobSetAdsrs(job, look.adsrs)
+        LoopJobNative.loopJobSetSoundTuning(job, look.soundTuning?.toFloatArray())
+        LoopJobNative.loopJobSetReactions(job, look.reactions)
+        LoopJobNative.loopJobSetMotion(job, look.reducedMotion, look.transitionId, look.transitionMs)
         val u = look.underlay
-        GeodeNative.loopJobSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+        LoopJobNative.loopJobSetUnderlay(job, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
     }
 
     /** Hands the track's descriptor to the job, which closes it; false when the track cannot be opened. */
@@ -293,7 +294,7 @@ class LoopRender(
         if (afd == null) return false
         val length = afd.declaredLength
         val offset = if (length == AssetFileDescriptor.UNKNOWN_LENGTH) 0L else afd.startOffset
-        GeodeNative.loopJobSetTrack(job, afd.parcelFileDescriptor.detachFd(), offset, length)
+        LoopJobNative.loopJobSetTrack(job, afd.parcelFileDescriptor.detachFd(), offset, length)
         return true
     }
 
@@ -304,7 +305,7 @@ class LoopRender(
         aspect: ExportAspect,
     ): Boolean {
         val tile = WatermarkOverlay(watermark, context, WatermarkChoice.USE_LOOP).tile(aspect.width, aspect.height) ?: return true
-        return GeodeNative.loopJobSetMark(job, tile.pixels, tile.width, tile.height, tile.placement, tile.corner)
+        return LoopJobNative.loopJobSetMark(job, tile.pixels, tile.width, tile.height, tile.placement, tile.corner)
     }
 
     /** What the finished job says, in the shell's words. */
@@ -313,29 +314,29 @@ class LoopRender(
         aspect: ExportAspect,
         spec: LoopSpec,
     ): Result {
-        val detail = GeodeNative.loopJobDetail(job).orEmpty()
-        val state = GeodeNative.loopJobState(job)
-        if (state != GeodeNative.LOOP_JOB_RENDERED && state != GeodeNative.LOOP_JOB_CANCELLED) {
-            RingLog.note(TAG, "loop render failed (${GeodeNative.loopJobFailure(job)}): $detail")
+        val detail = LoopJobNative.loopJobDetail(job).orEmpty()
+        val state = LoopJobNative.loopJobState(job)
+        if (state != LoopJobNative.LOOP_JOB_RENDERED && state != LoopJobNative.LOOP_JOB_CANCELLED) {
+            RingLog.note(TAG, "loop render failed (${LoopJobNative.loopJobFailure(job)}): $detail")
         }
         return when (state) {
-            GeodeNative.LOOP_JOB_RENDERED -> {
-                val files = List(GeodeNative.loopJobFileCount(job)) { RenderedLoop(File(GeodeNative.loopJobFile(job, it).orEmpty())) }
-                val kept = spec.copy(crossfadeMs = GeodeNative.loopJobCrossfadeMs(job), fps = GeodeNative.loopJobFps(job))
+            LoopJobNative.LOOP_JOB_RENDERED -> {
+                val files = List(LoopJobNative.loopJobFileCount(job)) { RenderedLoop(File(LoopJobNative.loopJobFile(job, it).orEmpty())) }
+                val kept = spec.copy(crossfadeMs = LoopJobNative.loopJobCrossfadeMs(job), fps = LoopJobNative.loopJobFps(job))
                 Result.Rendered(LoopReel(loops = files, spec = kept, width = aspect.width, height = aspect.height))
             }
-            GeodeNative.LOOP_JOB_CANCELLED -> Result.Cancelled
+            LoopJobNative.LOOP_JOB_CANCELLED -> Result.Cancelled
             else ->
-                when (GeodeNative.loopJobFailure(job)) {
-                    GeodeNative.LOOP_FAILURE_ENCODER_REJECTED ->
+                when (LoopJobNative.loopJobFailure(job)) {
+                    LoopJobNative.LOOP_FAILURE_ENCODER_REJECTED ->
                         failed(R.string.export_error_loop_encoder_rejected, aspect.width, aspect.height)
-                    GeodeNative.LOOP_FAILURE_SHADER_COMPILE -> failed(R.string.export_error_loop_shader_compile, detail)
-                    GeodeNative.LOOP_FAILURE_LOW_GPU_MEMORY ->
+                    LoopJobNative.LOOP_FAILURE_SHADER_COMPILE -> failed(R.string.export_error_loop_shader_compile, detail)
+                    LoopJobNative.LOOP_FAILURE_LOW_GPU_MEMORY ->
                         failed(R.string.export_error_loop_low_gpu_memory, aspect.width, aspect.height)
-                    GeodeNative.LOOP_FAILURE_NO_OUTPUT -> failed(R.string.export_error_loop_no_output)
-                    GeodeNative.LOOP_FAILURE_STALLED -> failed(R.string.export_error_loop_stalled)
-                    GeodeNative.LOOP_FAILURE_ENCODER_FAILED -> failed(R.string.export_error_loop_encoder_failed, detail)
-                    GeodeNative.LOOP_FAILURE_CACHE_WRITE -> failed(R.string.export_error_loop_cache_write, detail)
+                    LoopJobNative.LOOP_FAILURE_NO_OUTPUT -> failed(R.string.export_error_loop_no_output)
+                    LoopJobNative.LOOP_FAILURE_STALLED -> failed(R.string.export_error_loop_stalled)
+                    LoopJobNative.LOOP_FAILURE_ENCODER_FAILED -> failed(R.string.export_error_loop_encoder_failed, detail)
+                    LoopJobNative.LOOP_FAILURE_CACHE_WRITE -> failed(R.string.export_error_loop_cache_write, detail)
                     else -> if (detail.isEmpty()) failed(R.string.export_error_loop_stopped) else Result.Failed(detail)
                 }
         }

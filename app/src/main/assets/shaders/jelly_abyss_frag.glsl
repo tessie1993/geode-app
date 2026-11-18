@@ -313,6 +313,13 @@ void main() {
     // ---- march, integrating the jellies' glow on the way ---------------------
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitAlive = 0.0;
+    float hitSeed = 0.0;
+    float hitLen = 0.0;
+    vec3 hitQ = vec3(0.0);
+    float hitDB = 0.0;
+    float hitDT = 0.0;
     float glowAmt = 0.0;
     vec2 hueVec = vec2(0.0);
     for (int i = 0; i < JA_MAX_STEPS; i++) {
@@ -335,6 +342,12 @@ void main() {
         }
         if (d < 0.002 * t + 0.004) {
             hitT = t;
+            hitAlive = gAlive;
+            hitSeed = gSeed;
+            hitLen = gLen;
+            hitQ = gQ;
+            hitDB = gDB;
+            hitDT = gDT;
             break;
         }
         t += stepLen;
@@ -348,7 +361,12 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.001 * hitT + 0.002);
-        map(p);
+        gAlive = hitAlive;
+        gSeed = hitSeed;
+        gLen = hitLen;
+        gQ = hitQ;
+        gDB = hitDB;
+        gDT = hitDT;
         float fresh;
         float hue = jellyHue(gSeed, fresh);
         float glowMul = 1.0 + 0.6 * kick + 2.0 * fresh + 1.5 * drop;

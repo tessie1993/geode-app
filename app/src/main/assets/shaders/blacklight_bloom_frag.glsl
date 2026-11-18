@@ -381,6 +381,10 @@ void main() {
     bool bent = false;
     float hitT = -1.0;
     float used = 0.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map() after the normal taps.
+    float hitMat = 0.0;
+    vec3 hitLocal = vec3(0.0);
+    float hitSeed = 0.0;
     for (int i = 0; i < BB_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -390,6 +394,9 @@ void main() {
         float eps = 0.0007 * (done + t) + 0.0005;
         if (d < eps) {
             hitT = t;
+            hitMat = gMat;
+            hitLocal = gLocal;
+            hitSeed = gSeed;
             break;
         }
         float adv = max(d * 0.8, eps);
@@ -413,7 +420,9 @@ void main() {
         vec3 p = o + dir * hitT;
         vec3 n = normalAt(p, max(0.0012, 0.0009 * total));
         // Restore the hit's globals after the normal taps.
-        map(p);
+        gMat = hitMat;
+        gLocal = hitLocal;
+        gSeed = hitSeed;
         float mat = gMat;
         float ndv = clamp(dot(n, -dir), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);

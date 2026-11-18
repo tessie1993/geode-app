@@ -444,6 +444,8 @@ void main() {
 
     float t = 0.03;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitMat = 0.0;
     float limit = min(WI_FAR, tPlane);
     for (int i = 0; i < WI_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
@@ -452,6 +454,7 @@ void main() {
         float d = map(ro + rd * t);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
+            hitMat = gMat;
             break;
         }
         t += d * 0.9;
@@ -529,7 +532,7 @@ void main() {
             }
             float ao = clamp(1.0 - 1.6 * occ, 0.25, 1.0);
             // Restore the hit's material after the normal and AO taps.
-            map(p);
+            gMat = hitMat;
 
             float dif = max(dot(n, moon), 0.0);
             float amb = 0.06 + 0.10 * clamp(n.y, 0.0, 1.0);

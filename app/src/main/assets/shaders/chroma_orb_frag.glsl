@@ -287,6 +287,10 @@ void main() {
     float hitT = -1.0;
     float used = 0.0;
     float nearest = 1e3;
+    // What map() leaves at the hit, kept so the shading needs no extra map() after the normal taps.
+    float hitMat = 0.0;
+    float hitCz = 0.0;
+    float hitIdx = 0.0;
     for (int i = 0; i < CO_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -297,6 +301,9 @@ void main() {
         float eps = 0.0007 * t + 0.0005;
         if (d < eps) {
             hitT = t;
+            hitMat = gMat;
+            hitCz = gCz;
+            hitIdx = gIdx;
             break;
         }
         t += max(d * 0.9, eps);
@@ -312,7 +319,9 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
+        gMat = hitMat;
+        gCz = hitCz;
+        gIdx = hitIdx;
         vec3 l = vec3(p.xy, p.z - gCz);
         float orbHue = hue + 0.04 * (gIdx - 3.5) / 3.5;
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);

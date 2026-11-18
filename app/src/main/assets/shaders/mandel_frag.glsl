@@ -302,6 +302,11 @@ void main() {
     // The glow's depth, weighted like the glow, so it can be coloured by how far off it hangs.
     float glowT = 0.0;
     float used = 0.0;
+    // What map() leaves at a hit, kept so the shading needs no extra map() after the normal taps.
+    bool marched = false;
+    float hitMat = 0.0;
+    float hitInside = 0.0;
+    float hitIter = 0.0;
     for (int i = 0; i < MB_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -311,6 +316,10 @@ void main() {
         float eps = 0.0012 * t + 0.0006;
         if (d < eps) {
             hitT = t;
+            marched = true;
+            hitMat = gMat;
+            hitInside = gInside;
+            hitIter = gIter;
             break;
         }
         // The filaments' rims shine through the gaps between the cliffs: light
@@ -335,8 +344,14 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.0015 * hitT + 0.0008);
-        // Restore the hit's escape picture after the normal taps.
-        map(p);
+        // Restore the hit's escape picture after the normal taps (a ray out of budget never read map() here).
+        if (marched) {
+            gMat = hitMat;
+            gInside = hitInside;
+            gIter = hitIter;
+        } else {
+            map(p);
+        }
         vec3 L = normalize(vec3(0.35, 0.8, 0.45));
         float dif = max(dot(n, L), 0.0);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0);

@@ -379,6 +379,11 @@ vec3 rsTrace(vec3 ro, vec3 rd) {
     vec3 col = rsSky(ro, rd);
     float n = RS_STEPS;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float keptRib = 0.0;
+    float keptU = 0.0;
+    float keptPart = 0.0;
+    float keptEdge = 0.0;
     float bOff = dot(ro, rd);
     float bDisc = bOff * bOff - (dot(ro, ro) - RS_BOUND * RS_BOUND);
     if (bDisc > 0.0 && gCount > 0) {
@@ -391,6 +396,10 @@ vec3 rsTrace(vec3 ro, vec3 rd) {
             float eps = 0.0008 * (1.0 + t);
             if (d < eps) {
                 hitT = t;
+                keptRib = gHitRib;
+                keptU = gHitU;
+                keptPart = gHitPart;
+                keptEdge = gHitEdge;
                 break;
             }
             t += max(d * 0.9, 0.25 * eps);
@@ -401,7 +410,10 @@ vec3 rsTrace(vec3 ro, vec3 rd) {
         vec3 p = ro + rd * hitT;
         vec3 nor = rsNormal(p, rd, 0.001 * (1.0 + hitT));
         // Restore the hit's globals after the normal's taps.
-        map(p);
+        gHitRib = keptRib;
+        gHitU = keptU;
+        gHitPart = keptPart;
+        gHitEdge = keptEdge;
         float fi = float(clamp(int(gHitRib + 0.5), 0, RS_RIBBONS - 1));
         float part = min(gHitPart, 1.0);
         vec3 c = rsCol(gRsTone + fi * 0.17 + 0.25 * gHitU + 0.1 * gHitPart);

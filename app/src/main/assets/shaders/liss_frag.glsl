@@ -289,6 +289,10 @@ void main() {
     float bound = LS_BOUND + SHELL_SLACK(LS_BOUND);
     float bh = bt * bt - (dot(ro, ro) - bound * bound);
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitS = 0.0;
+    float hitShapeHue = 0.0;
+    float hitShapeShare = 0.0;
     float md = LS_CULL;
     float mdS = 0.0;
     float haze = 0.0;
@@ -307,6 +311,9 @@ void main() {
             haze += exp(-max(d, 0.0) * 9.0) * min(max(d, 0.02), 0.25);
             if (d < 0.001) {
                 hitT = t;
+                hitS = gS;
+                hitShapeHue = gShapeHue;
+                hitShapeShare = gShapeShare;
                 break;
             }
             t += d * 0.9;
@@ -351,7 +358,9 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p);
-        map(p);
+        gS = hitS;
+        gShapeHue = hitShapeHue;
+        gShapeShare = hitShapeShare;
         float sAt = gS;
         float facing = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - facing, 3.0);

@@ -323,6 +323,12 @@ void main() {
 
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitMat = 0.0;
+    vec3 hitLocal = vec3(0.0);
+    float hitSize = 0.0;
+    float hitSeed = 0.0;
+    float hitVert = 0.0;
     float glow = 0.0;
     for (int i = 0; i < MG_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
@@ -333,6 +339,11 @@ void main() {
         glow += exp(-t * fogK) / (1.0 + 90.0 * gVert * gVert);
         if (d < 0.0012 + 0.0008 * t) {
             hitT = t;
+            hitMat = gMat;
+            hitLocal = gLocal;
+            hitSize = gSize;
+            hitSeed = gSeed;
+            hitVert = gVert;
             break;
         }
         t += d * 0.9;
@@ -356,7 +367,11 @@ void main() {
         }
         float ao = clamp(1.0 - 1.4 * occ, 0.25, 1.0);
         // Restore the hit's globals after the normal and AO taps.
-        map(p);
+        gMat = hitMat;
+        gLocal = hitLocal;
+        gSize = hitSize;
+        gSeed = hitSeed;
+        gVert = hitVert;
 
         vec3 L = normalize(vec3(0.15, 0.9, 0.4));
         float dif = max(dot(n, L), 0.0);

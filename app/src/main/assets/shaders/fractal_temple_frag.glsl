@@ -354,6 +354,12 @@ void main() {
 
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitMat = 0.0;
+    float hitRingD = 0.0;
+    vec3 hitSQ = vec3(0.0);
+    float hitSH = 0.0;
+    float hitSHue = 0.0;
     float used = 0.0;
     float halo = 0.0;
     for (int i = 0; i < TF_MAX_STEPS; i++) {
@@ -365,6 +371,11 @@ void main() {
         float eps = 0.0008 * t + 0.0008;
         if (d < eps) {
             hitT = t;
+            hitMat = gMat;
+            hitRingD = gRingD;
+            hitSQ = gSQ;
+            hitSH = gSH;
+            hitSHue = gSHue;
             break;
         }
         float stepLen = max(d * 0.8, eps);
@@ -384,7 +395,11 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
+        gMat = hitMat;
+        gRingD = hitRingD;
+        gSQ = hitSQ;
+        gSH = hitSH;
+        gSHue = hitSHue;
         float mat = gMat;
         vec3 b = vec3(p.x - bendAt(p.z), p.y, p.z);
         float z0 = floor(b.z / TF_BAY) * TF_BAY + TF_BAY * 0.5;

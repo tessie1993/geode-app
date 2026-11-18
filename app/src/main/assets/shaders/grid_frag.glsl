@@ -295,12 +295,21 @@ void main() {
 
     float t = 0.02;
     float hitT = -1.0;
+    // What bars() leaves at the hit, kept so the shading needs no extra bars(p) after the normal taps.
+    float hitBand = 0.0;
+    float hitLevel = 0.0;
+    float hitBarH = 0.0;
+    float hitQy = 0.0;
     for (int i = 0; i < GR_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         float d = bars(ro + rd * t);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
+            hitBand = gBand;
+            hitLevel = gLevel;
+            hitBarH = gBarH;
+            hitQy = gQy;
             break;
         }
         t += d * 0.85;
@@ -316,7 +325,10 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         // Restore the hit cell's globals after the normal taps.
-        bars(p);
+        gBand = hitBand;
+        gLevel = hitLevel;
+        gBarH = hitBarH;
+        gQy = hitQy;
         float e = 1.0 - 0.7 * clamp(gQy / max(gBarH, 0.01), 0.0, 1.0);
         float tip = smoothstep(gBarH - 0.1, gBarH, gQy);
         vec3 toLane = normalize(vec3(-sign(p.x - bendX(p.z)), -sign(p.y) * 0.3, 0.4));

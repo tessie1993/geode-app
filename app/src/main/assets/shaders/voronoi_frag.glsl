@@ -295,12 +295,25 @@ void main() {
 
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitB = 0.0;
+    float hitMd = 0.0;
+    float hitH = 0.0;
+    float hitE = 0.0;
+    float hitMat = 0.0;
+    float hitTop = 0.0;
     for (int i = 0; i < VC_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         float d = map(ro + rd * t);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
+            hitB = gB;
+            hitMd = gMd;
+            hitH = gH;
+            hitE = gE;
+            hitMat = gMat;
+            hitTop = gTop;
             break;
         }
         t += d * 0.9;
@@ -323,7 +336,12 @@ void main() {
         }
         float ao = clamp(1.0 - 1.6 * occ, 0.25, 1.0);
         // Restore the hit cell's globals after the normal and AO taps.
-        map(p);
+        gB = hitB;
+        gMd = hitMd;
+        gH = hitH;
+        gE = hitE;
+        gMat = hitMat;
+        gTop = hitTop;
 
         vec3 L = normalize(vec3(-0.35, 0.85, 0.4));
         float dif = 0.5 + 0.5 * dot(n, L);

@@ -575,6 +575,11 @@ void main() {
     int steps = 0;
     vec3 glow = vec3(0.0);
     vec3 air = vec3(0.0);
+    // What map() leaves at the hit, kept so the shading needs no extra map() after the normal taps.
+    float hitMat = 0.0;
+    float hitRibD = 0.0;
+    float hitRibKind = 0.0;
+    vec4 hitTrap = vec4(0.0);
     for (int i = 0; i < MC_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         vec3 p = ro + rd * t;
@@ -584,6 +589,10 @@ void main() {
         glow += ribColour(p.z, gRibKind, hot) * ribLight(p.z, gRibKind, ribBase, snare) / (1.0 + gRibD * gRibD * 900.0) * exp(-t * 0.07);
         if (d < 0.0012 * (1.0 + t)) {
             hit = true;
+            hitMat = gMat;
+            hitRibD = gRibD;
+            hitRibKind = gRibKind;
+            hitTrap = gTrap;
             break;
         }
         float stepLen = d * 0.85;
@@ -610,7 +619,10 @@ void main() {
     if (hit) {
         vec3 p = ro + rd * t;
         vec3 n = calcNormal(p, t);
-        map(p);
+        gMat = hitMat;
+        gRibD = hitRibD;
+        gRibKind = hitRibKind;
+        gTrap = hitTrap;
         float mat = gMat;
         vec2 q = p.xy - naveAxis(p.z);
         float zl = mod(p.z, MC_BAY) - 0.5 * MC_BAY;

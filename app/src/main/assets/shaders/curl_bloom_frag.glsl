@@ -206,6 +206,11 @@ void main() {
     // ---- the march ---------------------------------------------------------
     float t = 0.0;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no second map(p) to recover it.
+    float hitSat = 0.0;
+    float hitDmtSatHue = 0.0;
+    float hitDmtSatLife = 0.0;
+    float hitDmtSatBand = 0.0;
     // How close the ray ever came without hitting: the glow around the body.
     float near = 1e9;
     for (int i = 0; i < CB_MAX_STEPS; i++) {
@@ -217,6 +222,10 @@ void main() {
         near = min(near, d);
         if (d < eps) {
             hitT = t;
+            hitSat = gHitSat;
+            hitDmtSatHue = gDmtSatHue;
+            hitDmtSatLife = gDmtSatLife;
+            hitDmtSatBand = gDmtSatBand;
             break;
         }
         // map() already divided the host's term by the warp bound.
@@ -231,7 +240,10 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         // Which body was hit is captured BEFORE the normal taps overwrite it.
-        map(p);
+        gHitSat = hitSat;
+        gDmtSatHue = hitDmtSatHue;
+        gDmtSatLife = hitDmtSatLife;
+        gDmtSatBand = hitDmtSatBand;
         float isSat = gHitSat;
         float satHue = gDmtSatHue;
         float satLife = gDmtSatLife;

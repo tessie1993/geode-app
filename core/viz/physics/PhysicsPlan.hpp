@@ -25,8 +25,6 @@ inline constexpr float kOn = 1.0f / 256.0f;
 // How long the grids and targets outlive a layer going off, on the wall clock: a wave or a route that dips to 0
 // each cycle must not free and allocate them every time.
 inline constexpr float kIdleSeconds = 2.0f;
-// That window counted in frames at 60 Hz, the step Keep::step assumes when it is not told one.
-inline constexpr int kIdleFrames = 120;
 
 // What one frame asks of the layers.
 struct Plan {
@@ -79,7 +77,7 @@ struct Clock {
 // frame's wall step, so the window is the same time at 30, 60 and 120 fps; silence does not stretch it.
 struct Keep {
     float idle = kIdleSeconds + 1.0f;  // nothing to keep before the first frame on
-    bool step(bool on, float wallDt = 1.0f / 60.0f);
+    bool step(bool on, float wallDt);
 };
 
 // The composite's maths, which physics_layer_frag.glsl and physics_particle_frag.glsl draw: kept here so the host

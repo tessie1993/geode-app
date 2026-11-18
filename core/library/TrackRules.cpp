@@ -317,14 +317,6 @@ std::u16string toUtf16(std::string_view utf8) {
     return out;
 }
 
-// String.compareTo: UTF-16 code units in order (so a supplementary character sorts before U+E000..U+FFFF).
-int compareUtf16(std::string_view a, std::string_view b) {
-    const std::u16string x = toUtf16(a);
-    const std::u16string y = toUtf16(b);
-    const int c = x.compare(y);
-    return c < 0 ? -1 : (c > 0 ? 1 : 0);
-}
-
 LibraryTrack tagFallbacks(const TagRead& tags, const FileFacts& file) {
     // MediaMetadataRetriever tag: trimmed, a blank one is none.
     auto tag = [](const std::optional<std::string>& raw) -> std::optional<std::string> {

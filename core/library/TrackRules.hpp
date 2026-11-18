@@ -87,11 +87,10 @@ PlaylistResolution resolvePlaylistEntries(const std::vector<std::string>& baseNa
                                           const std::vector<std::string>& libraryFileNames,
                                           const std::vector<std::string>& libraryUris);
 
-// Shared by TrackLibraryDoc.cpp: Kotlin's String.lowercase() (ROOT), isBlank(), and compareTo (UTF-16 order).
+// Shared by TrackLibraryDoc.cpp: Kotlin's String.lowercase() (ROOT), isBlank(), and its UTF-16 code units.
 std::string lowerRoot(std::string_view utf8);
 bool isBlank(std::string_view utf8);
 std::string trimKotlin(std::string_view utf8);
-int compareUtf16(std::string_view a, std::string_view b);
 std::u16string toUtf16(std::string_view utf8);
 
 }  // namespace geode::library

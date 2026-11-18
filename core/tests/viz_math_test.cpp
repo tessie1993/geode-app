@@ -981,8 +981,32 @@ void twistRoutesDrawTheirOwnDirection() {
             }
         }
     }
-    check(turned > 30, "styles draw followed twist routes");
+    check(turned > 10, "styles draw followed twist routes");
     check(positive * 10 >= turned * 3 && negative * 10 >= turned * 3, "followed twists wind both ways, none of one hand only");
+}
+
+// The owner: the same S bend shows across many styles. The big moment's, the accent's and the transient's Twist
+// are drawn by a minority of styles only (about one in four), each still a plain route in the route list.
+void twistIsRareAcrossStyles() {
+    int pairs = 0;
+    int twisted = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 8; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, true});
+            ++pairs;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                const bool layer = route.source == ReactSource::HardCut || route.source == ReactSource::Surge ||
+                                   route.source == ReactSource::Transient || route.source == ReactSource::TransientEnv;
+                if (route.target == LfoTarget::Twist && layer) {
+                    ++twisted;
+                    break;
+                }
+            }
+        }
+    }
+    check(twisted > 0, "some styles still draw a twist on a big moment or a transient");
+    check(twisted * 100 <= pairs * 35, "a twist on a big moment or a transient is drawn by a minority of styles");
 }
 
 // A zoom personality (Pulse, Lens) zooms on the beat it hears, by a fixed amount, beside its push or bulge.
@@ -2760,6 +2784,7 @@ int main() {
     stylesGetDifferentPersonalities();
     zoomPersonalitiesZoomOnTheBeat();
     twistRoutesDrawTheirOwnDirection();
+    twistIsRareAcrossStyles();
     kickAndSnareSidesAnswerDifferently();
     everyStyleAnswersTheDrums();
     dnaSourcesVaryAcrossStyles();

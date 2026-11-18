@@ -86,6 +86,11 @@ public:
     // followed twists winds (twistSign).
     std::uint32_t twistSalt = 0u;
 
+    // Only a minority of styles may draw a Twist route of their own (the big moment's, the accent's, the
+    // transient's): a twist winds the picture into an S, and a style in four is plenty of it. Decided from the
+    // salt alone, off the draw stream, so freeTarget skips Twist for the rest and no other draw moves.
+    bool twistAllowed() const { return (mix(twistSalt ^ 0x7157u) & 0x30000u) == 0u; }
+
     // A followed twist only rises from rest, so its sign is its direction, and one sign for every style stamped the
     // same S of one hand on all of them. Each source of a style winds its own way; a jump already draws its own.
     float twistSign(ReactSource source) const {
@@ -124,6 +129,7 @@ public:
             const LfoTarget target = options[(static_cast<size_t>(start) + k) % N];
             if ((target == LfoTarget::Morph || target == LfoTarget::PaletteMix) && !t.shaderLook) continue;
             if ((target == LfoTarget::Rotation || target == LfoTarget::CamRoll) && t.spinRate == 0.0f) continue;
+            if (target == LfoTarget::Twist && !twistAllowed()) continue;
             if (!uses(target)) return target;
         }
         return LfoTarget::None;

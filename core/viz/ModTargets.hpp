@@ -20,8 +20,11 @@ namespace geode::viz::modtargets {
 // Bumped whenever a row type or field changes meaning.
 constexpr int kTextVersion = 3;
 constexpr int kTargetCount = static_cast<int>(kLastLfoTarget) + 1;
+// The most targets a picker's answer can carry (app/src/main/cpp/geode_modulation_jni.cpp sizes its buffers to it).
+constexpr int kMaxTargets = 256;
+static_assert(kTargetCount <= kMaxTargets, "the modulation targets fit the pickers' buffers");
 
-// The wire name; "" outside the enum.
+// The wire name (a legacy target's frozen NAME, a later one its field's name); "" outside the targets.
 const char* name(LfoTarget target);
 // The names a saved wave carries for its source, direction, curve and shape; "" outside the enum.
 const char* sourceName(ModSource source);

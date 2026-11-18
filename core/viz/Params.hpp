@@ -86,6 +86,24 @@ enum class Scope;
 // A meta row's flags (ParamTable.inc): kMod, an LfoTarget writes the field.
 inline constexpr unsigned kMod = 1u << 0;
 
+// A mod row's flags (ParamTable.inc GEODE_PARAM_MOD): kModLight, the field changes the picture's light or colour.
+inline constexpr unsigned kModLight = 1u << 0;
+
+// A field's mod row (ParamTable.inc): whether it has one, how far one unit of modulation moves it, and its flags.
+// viz/ModTable.hpp turns these rows into the modulation targets.
+struct ParamMod {
+    bool on;
+    float scale;
+    unsigned flags;
+};
+inline constexpr std::array<ParamMod, static_cast<size_t>(ParamSlot::kCount)> kParamMods = [] {
+    std::array<ParamMod, static_cast<size_t>(ParamSlot::kCount)> out{};
+#define GEODE_PARAM_MOD(name, scale, flags) out[static_cast<size_t>(ParamSlot::name)] = ParamMod{true, scale, flags};
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM_MOD
+    return out;
+}();
+
 // A live row's meta row, as the engine's tables read it (ParamTable.inc says what each column means).
 // A retired row's is empty: no label, Universal, no flags, no roll range, live false.
 struct ParamMeta {

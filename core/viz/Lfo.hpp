@@ -4,6 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Config.hpp"
+#include "viz/ModTable.hpp"
 #include "viz/Params.hpp"
 
 namespace geode::viz {
@@ -54,8 +55,11 @@ enum class LfoTarget {
     // Appended: how much the picture is born and dies (viz/ParamTable.inc life, viz/Births), ordinal 82.
     Life,
 };
+// The names above are the targets as first shipped (viz/ModTable.hpp kLegacy). Every later ordinal is a field with a mod
+// row in viz/ParamTable.inc, in slot order, with no name here: a target is data, not an enumerator.
+static_assert(static_cast<int>(LfoTarget::Life) == modtable::kLegacyCount - 1, "the named targets are the legacy table's");
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Life;
+inline constexpr LfoTarget kLastLfoTarget = static_cast<LfoTarget>(modtable::kCount - 1);
 
 struct ModChain {
     int slot;
@@ -67,6 +71,7 @@ inline constexpr float kChainRateHz = 4.0f;
 
 // The chained targets steer another slot; everything else writes a scene parameter.
 bool chainOf(LfoTarget target, ModChain& out);
+// A target whose field's mod row has kModLight.
 bool isLuminanceTarget(LfoTarget target);
 
 // One slot. Defaults and the period's range are the lfo rows of
@@ -95,9 +100,10 @@ struct LfoConfig {
 
 float polarized(float raw, ModPolarity polarity);
 float shape(float value, ModCurve curve);
-// Moves `r` itself: the per-frame chains (waves, envelopes, routes) use it so no frame copies the whole set.
+// Moves `r` itself: the per-frame chains (waves, envelopes, routes) use it so no frame copies the whole set. The field
+// moves by v times its mod row's scale, held to its range (a Circular field adds unclamped).
 void applyLfoTargetInPlace(SceneParams& r, LfoTarget target, float v);
-// The wire slot of the field a target writes; -1 for None, the retired slot and the chained targets.
+// The wire slot of the field a target writes; -1 for None, the retired slots, Macro and the chained targets.
 int paramSlotOf(LfoTarget target);
 
 class LfoEngine {

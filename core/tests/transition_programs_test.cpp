@@ -267,12 +267,41 @@ void anInternedUniformIsResolvedOncePerProgram() {
     check(fake::gl.locationQueries == before + 1, "a new UniformCache resolves again instead of reusing another program's slot");
 }
 
+bool toldItsUnits(GLuint program) {
+    const auto& uniforms = fake::gl.uniforms[program];
+    auto is = [&](const char* name, int unit) {
+        const auto it = uniforms.find(name);
+        return it != uniforms.end() && it->second == std::vector<float>{static_cast<float>(unit)};
+    };
+    return is("uTexA", composite_unit::kTexA) && is("uTexB", composite_unit::kTexB) && is("uFlow", composite_unit::kFlow) &&
+           is("uNoise", composite_unit::kNoise) && is("uUnderlay", composite_unit::kUnderlay) && is("uTexL", composite_unit::kTexL);
+}
+
+// CompositePass binds its textures to composite_unit's units and no longer sets the samplers each frame, so every
+// program the composite can draw with is told them when it is built: the base, a library transition, and one
+// built again after its eviction (a new program, its uniforms at zero).
+void everyBuiltProgramIsToldItsSamplerUnits() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    check(toldItsUnits(programs.programFor("fade").program()), "the base program is told its sampler units when built");
+    const GLuint first = programs.programFor("a").program();
+    check(toldItsUnits(first), "a library transition's program is told them when built");
+    for (const char* id : {"b", "c", "d", "e"}) programs.programFor(id);
+    check(fake::gl.programs.count(first) == 0, "a fifth transition evicts the oldest program");
+    const GLuint rebuilt = programs.programFor("a").program();
+    check(rebuilt != first && toldItsUnits(rebuilt), "a program built again is told them again");
+}
+
 }  // namespace
 
 int main() {
     aTransitionThatFailsToBuildIsTriedOncePerContext();
     aRebuiltTransitionGetsItsParamsAgain();
     anInternedUniformIsResolvedOncePerProgram();
+    everyBuiltProgramIsToldItsSamplerUnits();
     if (failures != 0) {
         std::printf("%d transition programs check(s) failed\n", failures);
         return 1;

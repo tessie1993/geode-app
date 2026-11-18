@@ -281,7 +281,7 @@ void Rhythm::measurePhase() {
     // A tempo is the music's: once the window it was measured over holds no beat any more (unlocked and under
     // the unlock line for all of it), nothing is left to hold, so it is unknown again, bpm 0.
     beatlessSeconds_ = !locked_ && conf_ < kLockOff ? beatlessSeconds_ + dt : 0.0f;
-    if (beatlessSeconds_ >= static_cast<float>(kRing) * kHopSeconds) {
+    if (beatlessSeconds_ >= static_cast<float>(cfg_.ring) * cfg_.hopSeconds) {
         period_ = 0.0f;
         candidate_ = 0.0f;
         candidateVotes_ = 0;

@@ -236,6 +236,23 @@ Java_dev_geode_engine_bridge_SoundNative_stylesRandom(JNIEnv* env, jobject, jint
                                innerOnScreen);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_SoundNative_stylesRandomFamily(JNIEnv* env, jobject, jintArray family, jbooleanArray open,
+                                                            jint onScreen) {
+    if (family == nullptr || open == nullptr) return -1;
+    const jsize count = env->GetArrayLength(family);
+    if (env->GetArrayLength(open) != count) return -1;
+    std::vector<jint> families(static_cast<size_t>(count));
+    std::vector<jboolean> raw(static_cast<size_t>(count));
+    if (count > 0) {
+        env->GetIntArrayRegion(family, 0, count, families.data());
+        env->GetBooleanArrayRegion(open, 0, count, raw.data());
+    }
+    std::vector<int> fam(families.begin(), families.end());
+    std::vector<unsigned char> flags(raw.begin(), raw.end());
+    return geode_styles_random_family(fam.data(), flags.data(), count, onScreen);
+}
+
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_SoundNative_stylesLead(JNIEnv* env, jobject, jint count, jint lead) {
     const jsize n = count > 0 ? count : 0;

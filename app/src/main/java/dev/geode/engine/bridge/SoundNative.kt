@@ -280,6 +280,17 @@ object SoundNative {
 
     const val STYLES_ROLL_INSIDE = -2
 
+    /**
+     * Visuals > Styles' Random family (core/viz/StylePick): a family other than the one [onScreen] is in (each equally
+     * likely), then a style in it; the index among the page's styles, never [onScreen], a kept style while there
+     * is one; -1 for none.
+     */
+    external fun stylesRandomFamily(
+        family: IntArray,
+        open: BooleanArray,
+        onScreen: Int,
+    ): Int
+
     /** The order a Styles list shows its [count] items: [lead] (what is on screen) first, the rest in order. */
     external fun stylesLead(
         count: Int,

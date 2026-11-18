@@ -112,6 +112,8 @@ float gWarp;
 vec2 gGlide;
 float gCs;
 float gTerrF;
+/** The escape iterations this frame may spend: MB_ITERS whenever the march has 64 steps or more (every Detail at full quality), fewer on a scaled-down march. */
+int gIters;
 
 /**
  * A hashed point in the unit disc for event number `n` (PCG integer hash, so
@@ -149,7 +151,7 @@ float setDistance(vec2 c) {
     gIter = 1.0;
     gInside = 1.0;
     // Exact interior tests for the main cardioid and the period-2 bulb: the
-    // whole mesa top skips its 64 iterations.
+    // whole mesa top skips its iterations.
     vec2 q = c - vec2(0.25, 0.0);
     float qq = dot(q, q);
     if (qq * (qq + q.x) < 0.25 * c.y * c.y) return 0.0;
@@ -161,6 +163,7 @@ float setDistance(vec2 c) {
     float n = 0.0;
     float r2 = 0.0;
     for (int i = 0; i < MB_ITERS; i++) {
+        if (i >= gIters) break;
         // z' = 2 z z' + 1, then z = z^2 + c.
         dz = 2.0 * vec2(z.x * dz.x - z.y * dz.y, z.x * dz.y + z.y * dz.x) + vec2(1.0, 0.0);
         z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
@@ -263,6 +266,7 @@ void main() {
     float glowK = shellMap(nBuild, 0.5, 0.8, 1.1);
     float fogK = shellMap(nSpace, 0.049, 0.035, 0.021);
     gCs = shellMap(nSpace, 0.12, MB_CS, 0.085);
+    gIters = min(MB_ITERS, int(uSteps));
     float steep = shellMap(nMorph, 3.4, 3.4, 2.0);
     gWarp = shellMap(nWarp, 0.0, 0.0, 1.0);
     float terrTurb = shellMap(nTurb, 0.0, 0.0, 0.6);

@@ -21,7 +21,11 @@ enum class SceneFamily { Shader, Milkdrop, Fluid };
 // A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
 public:
+    Scene() = default;
     virtual ~Scene() = default;
+    // A scene owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
     virtual const std::string& id() const = 0;
     virtual SceneFamily family() const = 0;
     virtual void init() = 0;

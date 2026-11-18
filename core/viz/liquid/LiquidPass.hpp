@@ -47,7 +47,11 @@ public:
         GLuint quadVao = 0;
     };
 
+    LiquidPass() = default;
     ~LiquidPass() { release(); }
+    // Owns its program and targets: neither copied nor moved (viz/GlHandle.hpp).
+    LiquidPass(const LiquidPass&) = delete;
+    LiquidPass& operator=(const LiquidPass&) = delete;
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& vert, bool halfFloat, std::string* error);
     void release();
     // Sizes the targets; a new size starts the liquid over (black, filled by the next pours).

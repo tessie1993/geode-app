@@ -201,15 +201,17 @@ class LoopExtend(
         return try {
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
             finish(target, completed, plan)
-        } catch (e: IllegalStateException) {
+        } catch (e: Exception) {
+            // MediaMuxer.stop() throws a plain RuntimeException when the disk is full.
             discard(target)
-            Result.Failed(e.message ?: context.getString(R.string.export_error_extend_assemble))
-        } catch (e: IllegalArgumentException) {
-            discard(target)
-            Result.Failed(context.getString(R.string.export_error_extend_copy, e.message))
-        } catch (e: IOException) {
-            discard(target)
-            Result.Failed(context.getString(R.string.export_error_extend_write, e.message))
+            if (e is CancellationException) throw e
+            Result.Failed(
+                when (e) {
+                    is IllegalArgumentException -> context.getString(R.string.export_error_extend_copy, e.message)
+                    is IllegalStateException -> e.message ?: context.getString(R.string.export_error_extend_assemble)
+                    else -> context.getString(R.string.export_error_extend_write, e.message)
+                },
+            )
         }
     }
 
@@ -221,11 +223,7 @@ class LoopExtend(
         if (completed && !publish(target)) {
             Result.Failed(context.getString(R.string.export_error_library_publish))
         } else if (completed) {
-            Result.Saved(
-                uri = target.uri,
-                durationMs = plan.totalDurationUs / 1000,
-                plan = plan,
-            )
+            Result.Saved(uri = target.uri, durationMs = plan.totalDurationUs / 1000, plan = plan)
         } else {
             discard(target)
             Result.Cancelled

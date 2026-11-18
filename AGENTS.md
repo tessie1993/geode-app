@@ -110,3 +110,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `tools/audio-kotlin-allowlist.txt` names `audio/OutputMixCapture.kt` (the file moved from `wallpaper/`).
 - 2026-11-18: waves and envelopes, step 1 (no behaviour change): `LfoEngine::apply`, `AdsrEngine::apply` and `ReactionEngine::apply` move the params in place; one `kChainRateHz` (`core/viz/Lfo.hpp`); `chainOf` reads the slot and field from the ordinal; the envelope stages are `AdsrEngine::Stage`; `DirectorReach`, `resolver_test`'s `OldChain` and `viz_math_test` call them in place.
 - 2026-11-18: A recording in progress is finished and kept when the session shuts down: `RecordController` runs in `container.appScope` and `shutdown()` stops it (`ui/PlayerSession.kt`).
+- 2026-11-18: Loop extend discards its half-written file on any failure, including the plain `RuntimeException` `MediaMuxer.stop()` throws on a full disk, and no longer turns a cancellation into a failure (`export/LoopExtend.kt`).

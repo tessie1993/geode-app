@@ -4,6 +4,7 @@
 #include <array>
 
 #include "util/Log.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz::sim {
 
@@ -118,8 +119,7 @@ public:
         if (vao_ == 0) glGenVertexArrays(1, &vao_);
         GLint previousFramebuffer = 0;
         GLint previousViewport[4] = {0, 0, 0, 0};
-        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previousFramebuffer);
-        glGetIntegerv(GL_VIEWPORT, previousViewport);
+        SceneTarget::read(previousFramebuffer, previousViewport);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state_->writeFramebuffer());
         glViewport(0, 0, state_->width(), state_->height());
         const GLenum attachments[1] = {GL_COLOR_ATTACHMENT0};

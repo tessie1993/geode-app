@@ -1,10 +1,10 @@
 #pragma once
 #include <array>
 #include <cstdint>
-#include <vector>
 
 #include "api/geode_api.h"
 #include "viz/Config.hpp"
+#include "viz/ModTable.hpp"
 #include "viz/Params.hpp"
 
 namespace geode::viz {
@@ -55,16 +55,23 @@ enum class LfoTarget {
     // Appended: how much the picture is born and dies (viz/ParamTable.inc life, viz/Births), ordinal 82.
     Life,
 };
+// The names above are the targets as first shipped (viz/ModTable.hpp kLegacy). Every later ordinal is a field with a mod
+// row in viz/ParamTable.inc, in slot order, with no name here: a target is data, not an enumerator.
+static_assert(static_cast<int>(LfoTarget::Life) == modtable::kLegacyCount - 1, "the named targets are the legacy table's");
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Life;
+inline constexpr LfoTarget kLastLfoTarget = static_cast<LfoTarget>(modtable::kCount - 1);
 
 struct ModChain {
     int slot;
     ModChainField field;
 };
 
+// How far one unit of a chained target (a wave's speed) moves the slot it steers, in Hz; waves and envelopes alike.
+inline constexpr float kChainRateHz = 4.0f;
+
 // The chained targets steer another slot; everything else writes a scene parameter.
 bool chainOf(LfoTarget target, ModChain& out);
+// A target whose field's mod row has kModLight.
 bool isLuminanceTarget(LfoTarget target);
 
 // One slot. Defaults and the period's range are the lfo rows of
@@ -93,8 +100,10 @@ struct LfoConfig {
 
 float polarized(float raw, ModPolarity polarity);
 float shape(float value, ModCurve curve);
-SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v);
-// The wire slot of the field a target writes; -1 for None, the retired slot and the chained targets.
+// Moves `r` itself: the per-frame chains (waves, envelopes, routes) use it so no frame copies the whole set. The field
+// moves by v times its mod row's scale, held to its range (a Circular field adds unclamped).
+void applyLfoTargetInPlace(SceneParams& r, LfoTarget target, float v);
+// The wire slot of the field a target writes; -1 for None, the retired slots, Macro and the chained targets.
 int paramSlotOf(LfoTarget target);
 
 class LfoEngine {
@@ -112,11 +121,11 @@ public:
     // `moments` is the bit per Moment that came this frame (MomentWatch).
     const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
                                           const float* extDepthAdd = nullptr, std::uint32_t moments = 0);
-    SceneParams apply(const SceneParams& p, const std::array<float, kSlots>& values) const;
+    // Adds each enabled slot's value to its target's field in `p`, in place.
+    void apply(SceneParams& p, const std::array<float, kSlots>& values) const;
 
 private:
     static constexpr float kTau = 6.2831853f;
-    static constexpr float kChainRateHz = 4.0f;
     static constexpr float kMinRateHz = 0.01f;
     static constexpr float kMaxRateHz = 30.0f;
     static constexpr float kFollowRiseSeconds = 0.02f;

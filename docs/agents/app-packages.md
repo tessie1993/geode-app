@@ -180,14 +180,14 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `audio`
 
-- Open first: `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
+- Open first: `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
 - Capture sources: mic, other apps' audio.
-- Which ring is live is native: `GeodeNative.pcmRingLive()` (`geode_pcm_ring_live`) is the player's ring while a playback session holds it, 0 otherwise, for the stage, wallpaper, dream and cast.
+- Which ring is live is native: `IngestNative.pcmRingLive()` (`geode_pcm_ring_live`) is the player's ring while a playback session holds it, 0 otherwise, for the stage, wallpaper, dream and cast.
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
 - `OboeAudioOutput` keeps the channel-mask check (`MONO` or `STEREO` exactly): native sees only a channel count, which would also take two channels that are not a stereo pair.
-- `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
+- `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`AiffHeaderScan` in `core/audio/ingest/AiffReader.hpp`, `geode_aiff_*`).
 - The extractor's read sizes, the gap to the samples and the whole-frame cut of what it holds are native too (`aiffReadBytes`, `aiffGapBytes`, `aiffWholeBytes`).
 - `AudioFxController`'s band and dB labels are native (`core/audio/dsp/FxRanges`, `geode_dsp_band_label`, `geode_dsp_db_label`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
@@ -242,7 +242,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Customize › Layers' layer is native's (`core/viz/LayerState`); Kotlin keeps no layer state.
 - `LookStore` saves the line native hands back after each Layers edit (`customize_layer` in `geode-prefs`, Creative in a backup).
 - `LookStore.pushLayer` hands native the saved line: the container on IO at process start, `pushProcessWide` for the wallpaper and the dream.
-- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws native's values and lists (`GeodeNative.layerValues`, `layerList`, `layerShown`) and hands each choice back by place (`layerEdit`).
+- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws native's values and lists (`VizNative.layerValues`, `layerList`, `layerShown`) and hands each choice back by place (`layerEdit`).
 - Each macro edit is saved as made; a new knob is a draft until saved.
 - A knob off screen is kept in the bank's library for Add macro to put back.
 - `MacroEditorTable` reads the knob editor's rows.
@@ -274,8 +274,8 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
 - Pure value types shared across layers, staged for `:core:model`. No `android.*`.
 - `PresetShelf` holds the Presets grid filters and naming.
-- `render/scene/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
-- A style's and a family's display name are native (`GeodeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
+- `engine/bridge/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
+- A style's and a family's display name are native (`CustomizeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
@@ -307,7 +307,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
-- The rate a mix's clips share is native (`GeodeNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
+- The rate a mix's clips share is native (`ExportNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
 - The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
 - A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.
 - The watermark: `WatermarkOverlay` rasterises the tile.

@@ -203,6 +203,42 @@ jobs:
             core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp \
             core/output/FrameClock.cpp -o track_pump_test
           ./track_pump_test
+          # The player's queue and transport (core/player, pure logic): next and previous across the repeat modes, a
+          # seeded shuffle, edits around the current track, the previous-restarts rule, end of queue, seek and the A-B loop.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/player_queue_test.cpp core/player/*.cpp -o player_queue_test
+          ./player_queue_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/player_transport_test.cpp core/player/*.cpp -o player_transport_test
+          ./player_transport_test
+          # The music library's rules ported from Kotlin (core/library): tag fallbacks and the library document, playlist
+          # edits, the smart-playlist matcher, play history and its retention, the saved session. Not called by the app yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_tracks_test.cpp core/library/TrackRules.cpp core/library/TrackLibraryDoc.cpp core/util/Json.cpp -o library_tracks_test
+          ./library_tracks_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_playlist_test.cpp core/library/PlaylistRules.cpp core/util/Json.cpp -o library_playlist_test
+          ./library_playlist_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_smart_playlist_test.cpp core/library/SmartPlaylist.cpp core/library/History.cpp core/util/Json.cpp -o library_smart_playlist_test
+          ./library_smart_playlist_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_history_test.cpp core/library/History.cpp core/util/Json.cpp -o library_history_test
+          ./library_history_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_session_test.cpp core/library/SessionDoc.cpp core/util/Json.cpp -o library_session_test
+          ./library_session_test
+          # The shell's own rules ported from Kotlin (core/shell): the tour, the style shelf, preset filtering, opened-audio
+          # routing, notification buttons, the saved Auto visuals and the export fps list. Not called by the app yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_tour_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_tour_test
+          ./shell_tour_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_lists_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_lists_test
+          ./shell_lists_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_opened_audio_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_opened_audio_test
+          ./shell_opened_audio_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_prefs_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_prefs_test
+          ./shell_prefs_test
+          # The backup's rules ported from Kotlin (core/backup): sections and keys, the path-escape check, the size and
+          # count caps, version migration, the manifest, and the export, unpack and restore plans. Not called by the app yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/backup_format_test.cpp core/backup/*.cpp core/util/Json.cpp -o backup_format_test
+          ./backup_format_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/backup_archive_test.cpp core/backup/*.cpp core/util/Json.cpp -o backup_archive_test
+          ./backup_archive_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/backup_restore_test.cpp core/backup/*.cpp core/util/Json.cpp -o backup_restore_test
+          ./backup_restore_test
           # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
           # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
@@ -273,6 +309,10 @@ jobs:
           # lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp -o edge_glow_pass_test
           ./edge_glow_pass_test
+          # Who deletes a GL name (core/viz/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
+          # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/gl_ownership_test.cpp core/viz/Compute.cpp core/viz/Quad.cpp -o gl_ownership_test
+          ./gl_ownership_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
           ./transition_library_test
@@ -317,6 +357,9 @@ jobs:
           # The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp -o milk_memory_test
           ./milk_memory_test
+          # MilkDrop textures: header checks and caps, stored names and the rename strip, the show preset, the sampler scan and every rung of the link ladder, pack kinds, import collision names.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_textures_test.cpp core/viz/MilkTextures.cpp core/viz/Sha256.cpp -o milk_textures_test
+          ./milk_textures_test
           # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test
@@ -564,10 +607,10 @@ jobs:
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
           # The shell's raw block (geode_dsp_process_bytes): whole frames from encoding and channels, run as the
-          # typed calls run them, part frames dropped; plus the encodings and GeodeNative's event bits, pinned.
+          # typed calls run them, part frames dropped; plus the encodings and AudioOutNative's event bits, pinned.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_bytes_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_bytes_test
-          ./dsp_bytes_test engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt
+          ./dsp_bytes_test app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt
           # Which formats the playback DSP runs (16-bit or float, mono or stereo); any other passes through.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_runs_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_runs_test

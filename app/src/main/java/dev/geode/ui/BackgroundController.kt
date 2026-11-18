@@ -6,7 +6,7 @@ import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.MediaStoreSource
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.VizNative
 import dev.geode.viz.BackgroundImage
 import dev.geode.viz.BackgroundPixels
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +44,7 @@ internal class BackgroundController(
     val prefs: StateFlow<BackgroundPrefs> = _prefs
 
     private val _push =
-        MutableStateFlow(BackgroundPushState(null, GeodeNative.underlayBlendOf(_prefs.value.blend), _prefs.value.amount))
+        MutableStateFlow(BackgroundPushState(null, VizNative.underlayBlendOf(_prefs.value.blend), _prefs.value.amount))
     val push: StateFlow<BackgroundPushState> = _push
 
     // Read/written on scope (Main.immediate) only.
@@ -75,16 +75,16 @@ internal class BackgroundController(
         setPrefs(_prefs.value.copy(uri = null))
     }
 
-    fun setBlend(blend: Int) = setPrefs(_prefs.value.copy(blend = GeodeNative.underlayBlendName(blend)), redecode = false)
+    fun setBlend(blend: Int) = setPrefs(_prefs.value.copy(blend = VizNative.underlayBlendName(blend)), redecode = false)
 
-    fun setAmount(amount: Float) = setPrefs(_prefs.value.copy(amount = GeodeNative.underlayClampAmount(amount)), redecode = false)
+    fun setAmount(amount: Float) = setPrefs(_prefs.value.copy(amount = VizNative.underlayClampAmount(amount)), redecode = false)
 
     // Debounced: CrystalSlider reports every point of a drag, and a full decode (bitmap decode,
     // crop, scale, blur) is too heavy to redo for each of them - see redecode()'s debounceMs.
     fun setBlurRadius(radius: Int) =
-        setPrefs(_prefs.value.copy(blurRadius = GeodeNative.underlayClampBlur(radius)), debounceMs = SLIDER_DEBOUNCE_MS)
+        setPrefs(_prefs.value.copy(blurRadius = VizNative.underlayClampBlur(radius)), debounceMs = SLIDER_DEBOUNCE_MS)
 
-    fun setDim(dim: Float) = setPrefs(_prefs.value.copy(dim = GeodeNative.underlayClampDim(dim)), debounceMs = SLIDER_DEBOUNCE_MS)
+    fun setDim(dim: Float) = setPrefs(_prefs.value.copy(dim = VizNative.underlayClampDim(dim)), debounceMs = SLIDER_DEBOUNCE_MS)
 
     /** The GL surface's (or an offscreen target's) current pixel size; redecodes on a real change. */
     fun setRenderSize(
@@ -116,7 +116,7 @@ internal class BackgroundController(
         } else {
             // Blend/amount are not baked into the decoded pixels (see BackgroundImage), so a
             // change to either only needs a re-push, never a re-decode.
-            _push.value = _push.value.copy(blend = GeodeNative.underlayBlendOf(next.blend), amount = next.amount)
+            _push.value = _push.value.copy(blend = VizNative.underlayBlendOf(next.blend), amount = next.amount)
         }
     }
 
@@ -126,7 +126,7 @@ internal class BackgroundController(
         val uri = p.uri
         val generation = ++decodeGeneration
         if (uri == null || renderWidth <= 0 || renderHeight <= 0) {
-            _push.value = BackgroundPushState(null, GeodeNative.underlayBlendOf(p.blend), p.amount)
+            _push.value = BackgroundPushState(null, VizNative.underlayBlendOf(p.blend), p.amount)
             return
         }
         redecodeJob =
@@ -145,7 +145,7 @@ internal class BackgroundController(
                         RingLog.note(TAG, "background image failed to decode, clearing")
                         clear()
                     } else {
-                        _push.value = BackgroundPushState(decoded, GeodeNative.underlayBlendOf(p.blend), p.amount)
+                        _push.value = BackgroundPushState(decoded, VizNative.underlayBlendOf(p.blend), p.amount)
                     }
                 }
             }

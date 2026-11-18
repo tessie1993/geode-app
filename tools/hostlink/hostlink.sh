@@ -88,7 +88,7 @@ int __android_log_print(int, const char*, const char*, ...);
 HDR
 
 # ---- compile, with the project's flags ----------------------------------------
-mapfile -t SRCS < <(sed -n '/add_library(geode_core STATIC/,/^)/p' "$ROOT/core/CMakeLists.txt" | grep -E '^\s+(viz|sound|util)/' | tr -d ' ')
+mapfile -t SRCS < <(sed -n '/add_library(geode_\(core\|sound\) STATIC/,/^)/p' "$ROOT/core/CMakeLists.txt" | grep -E '^\s+(viz|sound|util)/' | tr -d ' ')
 echo "hostlink: compiling ${#SRCS[@]} translation units"
 fail=0
 for f in "${SRCS[@]}"; do

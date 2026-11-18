@@ -13,7 +13,8 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.RenderPlanNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -26,7 +27,6 @@ import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -205,11 +205,20 @@ class PlayerViewModel
 
         fun playQueueIndex(index: Int) = session.queueController.playQueueIndex(index)
 
-        fun next() = session.queueController.next()
+        /** The other app is the sound source and its media session answers ([ExternalAudioState.driven]). */
+        private val drivesOtherApp: Boolean get() = externalAudio.value.driven != null
 
-        fun previous() = session.queueController.previous()
+        fun next() {
+            if (drivesOtherApp) session.captureController.externalNext() else session.queueController.next()
+        }
 
-        fun togglePlayPause() = session.togglePlayPause()
+        fun previous() {
+            if (drivesOtherApp) session.captureController.externalPrevious() else session.queueController.previous()
+        }
+
+        fun togglePlayPause() {
+            if (drivesOtherApp) session.captureController.externalPlayPause() else session.togglePlayPause()
+        }
 
         fun seekToMs(positionMs: Long) = session.queueController.seekToMs(positionMs)
 
@@ -237,8 +246,6 @@ class PlayerViewModel
         fun reportShaderError(error: String?) = session.visual.reportShaderError(error)
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
-
-        fun applyCustomShader(source: String) = session.visual.applyCustomShader(source)
 
         fun setTransitionId(id: String) = session.visual.setTransitionId(id)
 
@@ -326,7 +333,7 @@ class PlayerViewModel
             capMs: Long?,
         ): ExportRange? {
             val out = LongArray(2)
-            GeodeNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
+            RenderPlanNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
             return if (out[1] > 0) ExportRange(out[0], out[1]) else null
         }
 

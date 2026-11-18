@@ -38,23 +38,35 @@ void SoundUniforms::step(const GeodeSoundFrame& frame, float dt) {
 // No drive, clamp or slew here; the engine's values are already dt-scaled and bounded, and styles
 // shape them themselves.
 void SoundUniforms::upload(UniformCache& locs, float drive, int unit) {
-    const float* scalars = reinterpret_cast<const float*>(&frame_);
-    std::copy(scalars, scalars + GEODE_SOUND_SCALARS, scalars_.begin());
-    glUniform4fv(locs.loc("uSound"), kVec4s, scalars_.data());
-    resampleRow(frame_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, texData_.data(), kTexWidth);
-    resampleRow(frame_.waveform, GEODE_SOUND_WAVEFORM_POINTS, texData_.data() + kTexWidth, kTexWidth);
-    resampleRow(frame_.eq, GEODE_SOUND_EQ_BANDS, texData_.data() + 2 * kTexWidth, kTexWidth);
-    for (int i = 0; i < kTexWidth; ++i) texData_[3 * kTexWidth + i] = frame_.chroma[i * GEODE_SOUND_CHROMA / kTexWidth];
-    glActiveTexture(GL_TEXTURE0 + unit);
-    glBindTexture(GL_TEXTURE_2D, tex_.id());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kTexWidth, kTexRows, GL_RED, GL_FLOAT, texData_.data());
-    glUniform1i(locs.loc("uSoundTex"), unit);
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1f(locs.loc("uSoundDrive"), std::max(drive, 0.0f));
+    // A name the program never reads has location -1: its work (the copy, the resample, the texture upload) is skipped.
+    const GLint soundLoc = locs.loc("uSound");
+    if (soundLoc >= 0) {
+        const float* scalars = reinterpret_cast<const float*>(&frame_);
+        std::copy(scalars, scalars + GEODE_SOUND_SCALARS, scalars_.begin());
+        glUniform4fv(soundLoc, kVec4s, scalars_.data());
+    }
+    const GLint texLoc = locs.loc("uSoundTex");
+    if (texLoc >= 0) {
+        resampleRow(frame_.spectrum, GEODE_SOUND_SPECTRUM_POINTS, texData_.data(), kTexWidth);
+        resampleRow(frame_.waveform, GEODE_SOUND_WAVEFORM_POINTS, texData_.data() + kTexWidth, kTexWidth);
+        resampleRow(frame_.eq, GEODE_SOUND_EQ_BANDS, texData_.data() + 2 * kTexWidth, kTexWidth);
+        for (int i = 0; i < kTexWidth; ++i) texData_[3 * kTexWidth + i] = frame_.chroma[i * GEODE_SOUND_CHROMA / kTexWidth];
+        glActiveTexture(GL_TEXTURE0 + unit);
+        glBindTexture(GL_TEXTURE_2D, tex_.id());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, kTexWidth, kTexRows, GL_RED, GL_FLOAT, texData_.data());
+        glUniform1i(texLoc, unit);
+        glActiveTexture(GL_TEXTURE0);
+    }
+    const GLint driveLoc = locs.loc("uSoundDrive");
+    if (driveLoc >= 0) glUniform1f(driveLoc, std::max(drive, 0.0f));
     const ReactSignals& r = signals_;
-    glUniform4f(locs.loc("uSoundEvents"), r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
-                r.value(ReactSource::NoteChange));
-    glUniform2f(locs.loc("uSoundCounts"), r.onsetCount(), r.cutCount());
+    const GLint eventsLoc = locs.loc("uSoundEvents");
+    if (eventsLoc >= 0) {
+        glUniform4f(eventsLoc, r.value(ReactSource::HardCut), r.value(ReactSource::Surge), r.value(ReactSource::Returned),
+                    r.value(ReactSource::NoteChange));
+    }
+    const GLint countsLoc = locs.loc("uSoundCounts");
+    if (countsLoc >= 0) glUniform2f(countsLoc, r.onsetCount(), r.cutCount());
 }
 
 }  // namespace geode::viz

@@ -266,24 +266,27 @@ void SoundEngine::feedSilence(float dt) {
     for (int i = 0; i < count; i++) feed(0.0f, 0.0f);
 }
 
-void SoundEngine::readWindow(int count, float* mono, float* left, float* right) const {
+void SoundEngine::readWindow(int count, float* mono, float* left, float* right, int oldest) const {
     const size_t cap = ringL_.size();
-    for (int i = 0; i < count; i++) {
+    if (oldest < 0) oldest = count;
+    // The ring index of the oldest sample (age `count`), then one step on per sample.
+    size_t idx = (writePos_ + cap - static_cast<size_t>(count) % cap) % cap;
+    for (int i = 0; i < oldest; i++) {
         const int64_t age = count - i;  // 1 = newest
         float l = 0.0f;
         float r = 0.0f;
         if (!starved_ && age <= written_) {
-            const size_t idx = (writePos_ + cap - static_cast<size_t>(age)) % cap;
             l = ringL_[idx];
             r = ringR_[idx];
         }
+        if (++idx == cap) idx = 0;
         mono[i] = 0.5f * (l + r);
         if (left != nullptr) left[i] = l;
         if (right != nullptr) right[i] = r;
     }
 }
 
-void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
+void SoundEngine::starve(float dtSeconds) {
     const float dt = std::clamp(dtSeconds, 1e-4f, 0.25f);
     starvedSeconds_ = fresh_ ? 0.0f : starvedSeconds_ + dt;
     fresh_ = false;
@@ -291,6 +294,10 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
         starved_ = true;
         feedSilence(dt);
     }
+}
+
+void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
+    starve(dtSeconds);
     // The newest hop, as it is: at the same sample every frame rate reads the same frame.
     out = hopFrame_;
     for (int k = 0; k < kTriggers; k++) out.*kTriggerFields[k] = held_[k];
@@ -487,7 +494,8 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     out.level = out.loudness;
 
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        s.eq[i].step(sum(mag_, eqBins_[i]), dt, warm, silent, bandFloor);
+        eqSum_[i] = sum(mag_, eqBins_[i]);
+        s.eq[i].step(eqSum_[i], dt, warm, silent, bandFloor);
         out.eq[i] = s.eq[i].ratio();
     }
 }
@@ -802,7 +810,9 @@ constexpr int kHarmonics = 5;  // partials in the pitch estimator's harmonic sum
 }  // namespace
 
 void SoundEngine::estimatePitch(float held, float& midi, float& confidence, float& evenness) {
-    readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr);
+    // The newest n_ samples are the window analyse() read into mono_ this hop; only the older half is read here.
+    readWindow(2 * n_, pitchMono_.data(), nullptr, nullptr, n_);
+    std::copy(mono_.begin(), mono_.end(), pitchMono_.begin() + n_);
     for (int i = 0; i < 2 * n_; i++) pitchMono_[i] *= pitchHann_[i];
     pitchFft_.magnitudes(pitchMono_.data(), pitchMag_.data());
     const float binHz = static_cast<float>(sampleRateHz_) / static_cast<float>(2 * n_);
@@ -998,7 +1008,7 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
 
     Form::Input in{};
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        const float db = 20.0f * std::log10(std::max(sum(mag_, eqBins_[i]), 1e-9f) / kEqReference);
+        const float db = 20.0f * std::log10(std::max(eqSum_[i], 1e-9f) / kEqReference);
         in.eq[i] = clamp01((db + 60.0f) / 60.0f);
     }
     in.centroid = out.centroid;

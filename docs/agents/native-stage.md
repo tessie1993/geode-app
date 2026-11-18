@@ -140,7 +140,7 @@ One fact per line. The design of the native host every live surface draws throug
 - A live stage's reads: `_take_milk_loaded`, `_take_director_moments`, `_liquid_mode`, `_error`, `_still_size`, `_still_read`, `_record_closed`, `_gyro_listens`.
 - `LiveClient` sends only the parts of a look that changed, and keeps what a frame reported until the shell polls it.
 - `LiveClient` closes every record tee when the stage releases it; `geode_stage_record_closed` is what Record waits for, so a finish never depends on a thread that may be gone.
-- JNI: `app/src/main/cpp/geode_stage_jni.cpp`, the `stage*` `external fun`s of `GeodeNative`; it only marshals.
+- JNI: `app/src/main/cpp/geode_stage_jni.cpp`, the `stage*` `external fun`s of `StageNative`; it only marshals.
 - The Kotlin shell is `app/src/main/java/dev/geode/stage/` (`Stage`, `StageView`): one handle, the surface callbacks, raw touch and tilt values in, a poll of the events on the main thread.
 - No exception leaves the ABI or the threads: each entry point and each thread body catches at its edge.
 

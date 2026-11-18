@@ -46,6 +46,7 @@ struct Port final : StagePort {
     float vsyncCapFps = -1.0f;
     int64_t applied = 0;
     bool surfaceAtAck = false;
+    std::vector<int64_t> presented;  // each swap's presentation time, 0 for none
 
     Outcome createContext(bool& surfaceless) override {
         surfaceless = true;
@@ -86,6 +87,7 @@ struct Port final : StagePort {
         contextDestroys++;
         log.push_back("-context");
     }
+    void presentAt(int64_t presentNs) override { presented.push_back(presentNs); }
     Outcome swap() override {
         swaps++;
         const Outcome out = nextSwap;
@@ -113,6 +115,7 @@ struct Client final : StageClient {
     int width = 0, height = 0;
     float paced = -1.0f, cap = -1.0f;
     uint32_t nextEvents = 0;
+    std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
     bool lostWhileCurrent = false;
     bool releasedWithGl = false;
     bool serviceReady = false;
@@ -124,6 +127,7 @@ struct Client final : StageClient {
         width = w;
         height = h;
     }
+    void frameTime(int64_t vsyncNs) override { vsyncTimes.push_back(vsyncNs); }
     uint32_t frame(float pacedFps, float capFps) override {
         frames++;
         paced = pacedFps;
@@ -249,6 +253,19 @@ void handOvers() {
     check(r.port.released.size() == 5 && r.port.released[4] == &windowB, "closing releases the stage's own window once");
 }
 
+void vsyncTimes() {
+    Rig r;
+    r.show();
+    // t = the vsync's frame time, b = ns from it to the expected presentation.
+    r.send(command(kStageFrameDue, 0, 4'000'000, 60.0f, 60.0f, 1'000'000'000));
+    check(r.client->vsyncTimes.size() == 1 && r.client->vsyncTimes[0] == 1'000'000'000, "a frame is told the vsync it is for");
+    check(r.port.presented.size() == 1 && r.port.presented[0] == 1'004'000'000, "and presents at the vsync's expected time");
+    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f, 1'016'000'000));
+    check(r.client->vsyncTimes.back() == 1'016'000'000 && r.port.presented.back() == 0, "a vsync with no expected time presents as it can");
+    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
+    check(r.client->vsyncTimes.back() == 0 && r.port.presented.back() == 0, "a request with no vsync time says so");
+}
+
 void pauseAndLoss() {
     Rig r;
     r.show();
@@ -316,6 +333,7 @@ void endsOutOfTurn() {
 int main() {
     windowAndFrames();
     handOvers();
+    vsyncTimes();
     pauseAndLoss();
     serviceAndQuit();
     endsOutOfTurn();

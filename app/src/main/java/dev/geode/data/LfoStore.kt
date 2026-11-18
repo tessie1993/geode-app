@@ -3,7 +3,9 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.DirectorNative
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ModulationNative
 import dev.geode.util.bestEffort
 
 /**
@@ -14,8 +16,8 @@ import dev.geode.util.bestEffort
  */
 class LfoStore(
     private val prefs: SharedPreferences,
-    private val readReactions: (String) -> String? = GeodeNative::modReactionsRead,
-    private val handLoad: (String?, Boolean, Int) -> Int = GeodeNative::modHandLoad,
+    private val readReactions: (String) -> String? = ModulationNative::modReactionsRead,
+    private val handLoad: (String?, Boolean, Int) -> Int = ModulationNative::modHandLoad,
 ) {
     /** The saved waves; empty when none are, which native reads as every slot off. */
     fun load(): String = prefs.getString(KEY, null).orEmpty()
@@ -31,8 +33,8 @@ class LfoStore(
     fun loadReactions(): String? = prefs.getString(KEY_REACTIONS, null)?.let(readReactions)
 
     /**
-     * Customize › Music's hand mask, saved beside the routes ([GeodeNative.handSet] says what the bits are); native
-     * decides it ([GeodeNative.modHandLoad]). Routes that no longer read (a `reactions/1` list from before the sound
+     * Customize › Music's hand mask, saved beside the routes ([DirectorNative.handSet] says what the bits are); native
+     * decides it ([ModulationNative.modHandLoad]). Routes that no longer read (a `reactions/1` list from before the sound
      * engine's sources moved, or damaged text) are no list at all: the DNA plays, so they are dropped here and the
      * mask is 0, or a leftover HAND_ALL would have switched off every director route (#355).
      */
@@ -66,14 +68,14 @@ class LfoStore(
     }
 
     /**
-     * Pushes the hand mask process-wide ([GeodeNative.handSet]): every renderer merges the user's routes under
+     * Pushes the hand mask process-wide ([DirectorNative.handSet]): every renderer merges the user's routes under
      * it and every native director keeps off those moments. Native counts it only while [hasUser] says a list
      * exists (#355). Called where the shell loads or edits the user's routes.
      */
     fun pushHand(
         mask: Int,
         hasUser: Boolean,
-    ) = bestEffort("LfoStore", "push hand mask") { GeodeNative.handSet(mask, hasUser) }
+    ) = bestEffort("LfoStore", "push hand mask") { DirectorNative.handSet(mask, hasUser) }
 
     internal companion object {
         const val KEY = "lfos"

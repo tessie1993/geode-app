@@ -13,7 +13,7 @@
 
 namespace {
 
-// Field order of the long[] the loop-spec calls fill; GeodeNative.LOOP_SPEC_* documents the same order.
+// Field order of the long[] the loop-spec calls fill; ExportNative.LOOP_SPEC_* documents the same order.
 constexpr jsize kLoopSpecLongs = 7;
 
 void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
@@ -30,7 +30,7 @@ extern "C" {
 
 // Loops (output/LoopPlan).
 
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopLimits(JNIEnv* env, jobject) {
+JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_ExportNative_loopLimits(JNIEnv* env, jobject) {
     int64_t limits[8];
     const int count = std::min(geode_loop_limits(limits, 8), 8);
     jlong values[8];
@@ -40,14 +40,14 @@ JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopLimits
     return out;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecOf(JNIEnv* env, jobject, jlong loopMs,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportNative_loopSpecOf(JNIEnv* env, jobject, jlong loopMs,
                                                                             jlong crossfadeMs, jint fps, jlongArray out) {
     geode_loop_spec s{};
     geode_loop_spec_of(loopMs, crossfadeMs, fps, &s);
     writeLoopSpec(env, s, out);
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecDerive(JNIEnv* env, jobject, jlong loopMs,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportNative_loopSpecDerive(JNIEnv* env, jobject, jlong loopMs,
                                                                                 jlong crossfadeMs, jint fps, jlongArray out) {
     geode_loop_spec s{};
     s.loop_ms = loopMs;
@@ -57,7 +57,7 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecDerive(J
     writeLoopSpec(env, s, out);
 }
 
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopExtendPlan(JNIEnv* env, jobject, jlong loopUs,
+JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_ExportNative_loopExtendPlan(JNIEnv* env, jobject, jlong loopUs,
                                                                                       jlong totalUs, jint loops) {
     const int repeats = geode_loop_extend_plan(loopUs, totalUs, loops, nullptr, nullptr, 0);
     std::vector<int64_t> offsets(static_cast<size_t>(repeats));
@@ -73,24 +73,24 @@ JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopExtend
     return result;
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopEstimatedBytes(JNIEnv*, jobject, jlong loopUs,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_ExportNative_loopEstimatedBytes(JNIEnv*, jobject, jlong loopUs,
                                                                                      jlong totalUs, jlong loopBytes,
                                                                                      jlong soundtrackBytes) {
     return geode_loop_estimated_bytes(loopUs, totalUs, loopBytes, soundtrackBytes);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopFittingBitRate(JNIEnv*, jobject, jlong totalUs,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_loopFittingBitRate(JNIEnv*, jobject, jlong totalUs,
                                                                                     jlong limitBytes, jlong soundtrackBytes) {
     return geode_loop_fitting_bit_rate(totalUs, limitBytes, soundtrackBytes);
 }
 
 // Encoder requests (output/EncodePlan).
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportMuxerHardLimitBytes(JNIEnv*, jobject) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_ExportNative_exportMuxerHardLimitBytes(JNIEnv*, jobject) {
     return geode_export_muxer_hard_limit_bytes();
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameSize(JNIEnv* env, jobject, jint shortSide,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportNative_exportFrameSize(JNIEnv* env, jobject, jint shortSide,
                                                                                  jint wRatio, jint hRatio, jintArray out) {
     if (!out || env->GetArrayLength(out) < 2) return;
     jint size[2] = {0, 0};
@@ -99,37 +99,37 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameSize(
 }
 
 // A render's time left (output/RenderEta).
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaCreate(JNIEnv*, jobject) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_ExportNative_renderEtaCreate(JNIEnv*, jobject) {
     return reinterpret_cast<jlong>(geode_render_eta_create());
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaDestroy(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportNative_renderEtaDestroy(JNIEnv*, jobject, jlong handle) {
     geode_render_eta_destroy(reinterpret_cast<geode_render_eta*>(handle));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaSample(JNIEnv*, jobject, jlong handle,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_ExportNative_renderEtaSample(JNIEnv*, jobject, jlong handle,
                                                                                  jfloat progress, jlong atMs,
                                                                                  jboolean steady) {
     return geode_render_eta_sample(reinterpret_cast<geode_render_eta*>(handle), progress, atMs, steady ? 1 : 0);
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaReset(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportNative_renderEtaReset(JNIEnv*, jobject, jlong handle) {
     geode_render_eta_reset(reinterpret_cast<geode_render_eta*>(handle));
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(JNIEnv*, jobject,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_renderEtaPhrase(JNIEnv*, jobject,
                                                                                 jlong secondsRemaining) {
     return geode_render_eta_phrase(secondsRemaining);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhraseCount(JNIEnv*, jobject,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_renderEtaPhraseCount(JNIEnv*, jobject,
                                                                                      jlong secondsRemaining) {
     return geode_render_eta_phrase_count(secondsRemaining);
 }
 
 // A recorded take's limits (output/RecordPlan).
 
-JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordMaxLengths(JNIEnv* env, jobject) {
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ExportNative_recordMaxLengths(JNIEnv* env, jobject) {
     const jint count = geode_record_max_length_count();
     jintArray out = env->NewIntArray(count);
     if (!out) return nullptr;
@@ -140,16 +140,16 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordMaxLe
     return out;
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSnapMaxLength(JNIEnv*, jobject, jint requestedSec) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_recordSnapMaxLength(JNIEnv*, jobject, jint requestedSec) {
     return geode_record_snap_max_length(requestedSec);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordEstimateBytes(JNIEnv*, jobject, jint videoBps,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_ExportNative_recordEstimateBytes(JNIEnv*, jobject, jint videoBps,
                                                                                       jint lengthSec) {
     return geode_record_estimate_bytes(videoBps, lengthSec, nullptr);
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordRateLowered(JNIEnv*, jobject, jint videoBps,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ExportNative_recordRateLowered(JNIEnv*, jobject, jint videoBps,
                                                                                        jint lengthSec) {
     int lowered = 0;
     geode_record_estimate_bytes(videoBps, lengthSec, &lowered);
@@ -158,7 +158,7 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordRateLo
 
 // The one rate a mix's clips are brought to (audio/dsp/PcmTiming).
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_mixRateHz(JNIEnv*, jobject) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_mixRateHz(JNIEnv*, jobject) {
     return geode_mix_rate();
 }
 

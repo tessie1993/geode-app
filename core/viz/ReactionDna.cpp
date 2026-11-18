@@ -12,21 +12,29 @@ namespace {
 
 // Seeded draws on 32-bit integers only, so every platform and compiler builds
 // the same DNA from the same id and seed.
+//
+// One draw per statement: C++ leaves the order of a call's arguments and of an
+// operator's operands to the compiler (g++ on the host and clang on the phone
+// differ), so two draws in one expression (on `d` itself, or through a helper
+// that draws from it: pick, freeTarget, landing, structuralAmount) can come out
+// swapped. Draw each value into its own variable, in the order written, then
+// pass the values. (`?:`, `&&` and `||` work out their left side first, so a
+// draw there and one in the side taken are in order.)
 class Draw {
 public:
     explicit Draw(std::uint32_t seed) : x_(seed != 0u ? seed : 0x9E3779B9u) {}
 
-    std::uint32_t next() {
+    [[nodiscard]] std::uint32_t next() {
         x_ ^= x_ << 13;
         x_ ^= x_ >> 17;
         x_ ^= x_ << 5;
         return x_;
     }
-    float unit() { return static_cast<float>(next() >> 8) / 16777216.0f; }
-    float range(float from, float to) { return from + (to - from) * unit(); }
-    int below(int n) { return static_cast<int>(next() % static_cast<std::uint32_t>(n)); }
-    bool coin() { return ((next() >> 16) & 1u) != 0u; }
-    float sign() { return coin() ? 1.0f : -1.0f; }
+    [[nodiscard]] float unit() { return static_cast<float>(next() >> 8) / 16777216.0f; }
+    [[nodiscard]] float range(float from, float to) { return from + (to - from) * unit(); }
+    [[nodiscard]] int below(int n) { return static_cast<int>(next() % static_cast<std::uint32_t>(n)); }
+    [[nodiscard]] bool coin() { return ((next() >> 16) & 1u) != 0u; }
+    [[nodiscard]] float sign() { return coin() ? 1.0f : -1.0f; }
 
 private:
     std::uint32_t x_;
@@ -291,7 +299,12 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
             case LfoTarget::Ripple: b.add(accent, LfoTarget::Ripple, ReactMode::Follow, d.range(0.3f, 0.5f), 0.02f, 0.3f); break;
             case LfoTarget::ColorShift: b.add(accent, LfoTarget::ColorShift, ReactMode::Step, d.range(0.08f, 0.15f), 0.2f, 0.2f); break;
             case LfoTarget::Twist: b.add(accent, LfoTarget::Twist, ReactMode::Jump, d.range(0.15f, 0.3f), 0.03f, 0.3f); break;
-            case LfoTarget::CamRoll: b.add(accent, LfoTarget::CamRoll, ReactMode::Step, d.sign() * d.range(0.1f, 0.2f), 0.3f, 0.3f); break;
+            case LfoTarget::CamRoll: {
+                const float sign = d.sign();
+                const float size = d.range(0.1f, 0.2f);
+                b.add(accent, LfoTarget::CamRoll, ReactMode::Step, sign * size, 0.3f, 0.3f);
+                break;
+            }
             case LfoTarget::Warp: b.add(accent, LfoTarget::Warp, ReactMode::Follow, d.range(0.25f, 0.4f), 0.03f, 0.3f, ModCurve::Smooth); break;
             default: break;
         }
@@ -494,7 +507,10 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
                                                     LfoTarget::Zoom, LfoTarget::CamPitch, LfoTarget::Fisheye, LfoTarget::Ripple,
                                                     LfoTarget::Speed},
                                          traits);
-        b.add(feel, target, ReactMode::Follow, structuralAmount(d, target), d.range(0.8f, 1.5f), d.range(1.5f, 3.0f), ModCurve::Smooth);
+        const float amount = structuralAmount(d, target);
+        const float rise = d.range(0.8f, 1.5f);
+        const float fall = d.range(1.5f, 3.0f);
+        b.add(feel, target, ReactMode::Follow, amount, rise, fall, ModCurve::Smooth);
     }
 
     return b.dna;

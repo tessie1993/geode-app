@@ -74,7 +74,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.DirectorNative
 import dev.geode.geodeContainer
 import dev.geode.model.ScreenRotation
 import dev.geode.ui.cast.ComputerLinkRow
@@ -318,7 +318,7 @@ private fun DirectorTuningRows(director: AutoDirectorStore) {
     )
     if (!open) return
     val text by director.tuning.collectAsStateWithLifecycle()
-    val count = remember { GeodeNative.directorTuningCount() }
+    val count = remember { DirectorNative.directorTuningCount() }
     for (index in 0 until count) DirectorTuningRow(text, index, director::setTuning)
 }
 
@@ -329,18 +329,18 @@ private fun DirectorTuningRow(
     index: Int,
     onChange: (String) -> Unit,
 ) {
-    val label = remember(index) { GeodeNative.directorTuningLabel(index) }
-    val help = remember(index) { GeodeNative.directorTuningHelp(index) }
-    val range = remember(index) { GeodeNative.directorTuningRange(index) }
-    val value = GeodeNative.directorTuningValue(text, index)
-    val set = { to: Float -> onChange(GeodeNative.directorTuningWith(text, index, to)) }
+    val label = remember(index) { DirectorNative.directorTuningLabel(index) }
+    val help = remember(index) { DirectorNative.directorTuningHelp(index) }
+    val range = remember(index) { DirectorNative.directorTuningRange(index) }
+    val value = DirectorNative.directorTuningValue(text, index)
+    val set = { to: Float -> onChange(DirectorNative.directorTuningWith(text, index, to)) }
     if (range[TUNING_SWITCH] > 0f) {
         SwitchRow(label, checked = value > 0f, onCheckedChange = { set(if (it) 1f else 0f) }, description = help)
         return
     }
     SliderRow(
         label = label,
-        valueText = GeodeNative.directorTuningValueText(text, index),
+        valueText = DirectorNative.directorTuningValueText(text, index),
         value = value,
         valueRange = range[TUNING_MIN]..range[TUNING_MAX],
         onValueChange = set,
@@ -352,7 +352,7 @@ private fun DirectorTuningRow(
     )
 }
 
-// GeodeNative.directorTuningRange's slots.
+// DirectorNative.directorTuningRange's slots.
 private const val TUNING_MIN = 0
 private const val TUNING_MAX = 1
 private const val TUNING_SWITCH = 3

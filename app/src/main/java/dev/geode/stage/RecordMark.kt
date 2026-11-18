@@ -7,7 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
 import dev.geode.model.WatermarkChoice
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -23,7 +23,7 @@ class RecordMark(
     frameWidth: Int,
     frameHeight: Int,
 ) {
-    val placement = GeodeNative.exportWatermarkPlacement(choice.required, choice.proAdds, choice.placement, WatermarkChoice.USE_LIVE)
+    val placement = ExportNative.exportWatermarkPlacement(choice.required, choice.proAdds, choice.placement, WatermarkChoice.USE_LIVE)
     val corner = choice.corner
     var tile: ByteBuffer? = null
         private set
@@ -40,7 +40,7 @@ class RecordMark(
         text: String,
         shortSide: Int,
     ) {
-        val look = FloatArray(PAINT_FLOATS).also { GeodeNative.exportWatermarkPaint(shortSide, placement, it) }
+        val look = FloatArray(PAINT_FLOATS).also { ExportNative.exportWatermarkPaint(shortSide, placement, it) }
         val textPx = look[0]
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -53,7 +53,7 @@ class RecordMark(
             }
         val metrics = paint.fontMetrics
         val raster = FloatArray(RASTER_FLOATS)
-        GeodeNative.exportWatermarkRaster(paint.measureText(text), metrics.ascent, metrics.descent, textPx, placement, raster)
+        ExportNative.exportWatermarkRaster(paint.measureText(text), metrics.ascent, metrics.descent, textPx, placement, raster)
         width = raster[0].toInt()
         height = raster[1].toInt()
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)

@@ -5,7 +5,8 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.DirectorNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
 import dev.geode.util.bestEffort
@@ -62,7 +63,7 @@ class AutoDirectorStore internal constructor(
             .map { it.reach }
             .stateIn(scope, SharingStarted.Eagerly, repository.value.value.reach)
 
-    /** The Auto Director's settings as native wrote them (GeodeNative.directorTuningWith); "" is every default. */
+    /** The Auto Director's settings as native wrote them (DirectorNative.directorTuningWith); "" is every default. */
     val tuning: StateFlow<String> =
         repository.value
             .map { it.tuning }
@@ -90,7 +91,7 @@ class AutoDirectorStore internal constructor(
         }
     }
 
-    /** The native level (GeodeNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
+    /** The native level (DirectorNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
     fun setReach(level: Int) {
         scope.launch { repository.update { it.copy(reach = level) } }
     }
@@ -100,7 +101,7 @@ class AutoDirectorStore internal constructor(
      * each change `ModulationController` saves. The one writer of the native keep set.
      */
     fun setKept(keys: Set<String>) {
-        bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(keys.joinToString("\n")) }
+        bestEffort(TAG, "push keep set") { DirectorNative.directorKeepSet(keys.joinToString("\n")) }
     }
 
     /** The settings text as native wrote it for an edit; saved and handed over as it is. */
@@ -112,14 +113,14 @@ class AutoDirectorStore internal constructor(
         val text = repository.value.value.tuning
         if (text == pushedTuning) return
         pushedTuning = text
-        bestEffort(TAG, "push tuning") { GeodeNative.directorTuningSet(text) }
+        bestEffort(TAG, "push tuning") { DirectorNative.directorTuningSet(text) }
     }
 
     private fun pushReach() {
         val level = repository.value.value.reach
         if (level == pushedReach) return
         pushedReach = level
-        bestEffort(TAG, "push reach") { GeodeNative.directorReachSet(level) }
+        bestEffort(TAG, "push reach") { DirectorNative.directorReachSet(level) }
     }
 
     fun setEnabled(on: Boolean) {
@@ -136,7 +137,7 @@ class AutoDirectorStore internal constructor(
         seed = Random.nextLong()
         this.gate = gate
         positionMs = 0L
-        bestEffort(TAG, "track boundary") { GeodeNative.soundTrackBoundary(seed) }
+        bestEffort(TAG, "track boundary") { SoundNative.soundTrackBoundary(seed) }
         push()
     }
 
@@ -171,7 +172,7 @@ class AutoDirectorStore internal constructor(
         val next = Triple(on, amount, seed)
         if (next == pushed) return
         pushed = next
-        bestEffort(TAG, "push director") { GeodeNative.directorSet(on, amount, seed) }
+        bestEffort(TAG, "push director") { DirectorNative.directorSet(on, amount, seed) }
     }
 
     companion object {

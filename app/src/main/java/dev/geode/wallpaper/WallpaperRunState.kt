@@ -1,6 +1,6 @@
 package dev.geode.wallpaper
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 
 /** What the wallpaper's (or the dream's) stage does right now. The order is the native code. */
 enum class WallpaperRunMode {
@@ -46,32 +46,32 @@ data class WallpaperConditions(
     /** The dream: silence shows no visual rather than a still frame (owner: no sound, no visuals). */
     val darkWhenSilent: Boolean = false,
 ) {
-    /** The observations as `GeodeNative.SURFACE_*` bits, for the stage and the rule alike. */
+    /** The observations as `SoundNative.SURFACE_*` bits, for the stage and the rule alike. */
     val flags: Int
         get() {
             var f = 0
-            if (surfaceAvailable) f = f or GeodeNative.SURFACE_HAS_SURFACE
-            if (visible) f = f or GeodeNative.SURFACE_VISIBLE
-            if (preview) f = f or GeodeNative.SURFACE_PREVIEW
-            if (covered) f = f or GeodeNative.SURFACE_COVERED
-            if (batterySaver) f = f or GeodeNative.SURFACE_BATTERY_SAVER
-            if (settings.pauseInBatterySaver) f = f or GeodeNative.SURFACE_PAUSE_IN_BATTERY_SAVER
-            if (silent) f = f or GeodeNative.SURFACE_SILENT
-            if (settings.restWhenSilent) f = f or GeodeNative.SURFACE_REST_WHEN_SILENT
-            if (reducedMotion) f = f or GeodeNative.SURFACE_REDUCED_MOTION
-            if (darkWhenSilent) f = f or GeodeNative.SURFACE_DARK_WHEN_SILENT
+            if (surfaceAvailable) f = f or SoundNative.SURFACE_HAS_SURFACE
+            if (visible) f = f or SoundNative.SURFACE_VISIBLE
+            if (preview) f = f or SoundNative.SURFACE_PREVIEW
+            if (covered) f = f or SoundNative.SURFACE_COVERED
+            if (batterySaver) f = f or SoundNative.SURFACE_BATTERY_SAVER
+            if (settings.pauseInBatterySaver) f = f or SoundNative.SURFACE_PAUSE_IN_BATTERY_SAVER
+            if (silent) f = f or SoundNative.SURFACE_SILENT
+            if (settings.restWhenSilent) f = f or SoundNative.SURFACE_REST_WHEN_SILENT
+            if (reducedMotion) f = f or SoundNative.SURFACE_REDUCED_MOTION
+            if (darkWhenSilent) f = f or SoundNative.SURFACE_DARK_WHEN_SILENT
             return f
         }
 
-    fun runMode(nowMs: Long): WallpaperRunMode = WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
+    fun runMode(nowMs: Long): WallpaperRunMode = WallpaperRunMode.entries[SoundNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
 
     fun stillReason(nowMs: Long): WallpaperStillReason =
-        WallpaperStillReason.entries[GeodeNative.surfaceReason(flags, animateUntilMs, nowMs)]
+        WallpaperStillReason.entries[SoundNative.surfaceReason(flags, animateUntilMs, nowMs)]
 
-    fun listening(nowMs: Long): Boolean = GeodeNative.surfaceListening(flags, animateUntilMs, nowMs)
+    fun listening(nowMs: Long): Boolean = SoundNative.surfaceListening(flags, animateUntilMs, nowMs)
 
-    fun entitled(nowMs: Long): Boolean = GeodeNative.surfaceEntitled(animateUntilMs, nowMs)
+    fun entitled(nowMs: Long): Boolean = SoundNative.surfaceEntitled(animateUntilMs, nowMs)
 
     /** When to restate because a trial ends, or null when nothing will change on its own. */
-    fun recheckInMs(nowMs: Long): Long? = GeodeNative.surfaceRecheckInMs(animateUntilMs, nowMs).takeIf { it >= 0 }
+    fun recheckInMs(nowMs: Long): Long? = SoundNative.surfaceRecheckInMs(animateUntilMs, nowMs).takeIf { it >= 0 }
 }

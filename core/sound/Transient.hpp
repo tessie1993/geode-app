@@ -84,6 +84,7 @@ public:
         slow_ = {};
         hopPeak_ = {};
         history_ = {};
+        sorted_ = {};
         head_ = 0;
         filled_ = 0;
         for (int b = 0; b < kBands; b++) setThreshold(b, kMinJumpDb);
@@ -134,20 +135,46 @@ public:
     // Closes a hop: its peaks join the last second, every band's threshold is read again from it, and the
     // attack whose measurement ended in this hop (if one did) is handed over.
     Hit hop() {
+        const int before = filled_;
         for (int b = 0; b < kBands; b++) {
-            history_[static_cast<size_t>(b)][static_cast<size_t>(head_)] = 10.0f * std::log10(std::max(hopPeak_[b], 1e-6f));
+            const auto bi = static_cast<size_t>(b);
+            const float value = 10.0f * std::log10(std::max(hopPeak_[b], 1e-6f));
+            float* sorted = sorted_[bi].data();
+            int count = before;
+            // The window is kept sorted: the value the ring is about to overwrite leaves it, the new one joins.
+            if (count == kHistory) {
+                float* gone = std::lower_bound(sorted, sorted + count, history_[bi][static_cast<size_t>(head_)]);
+                std::copy(gone + 1, sorted + count, gone);
+                count--;
+            }
+            float* at = std::upper_bound(sorted, sorted + count, value);
+            std::copy_backward(at, sorted + count, sorted + count + 1);
+            *at = value;
+            history_[bi][static_cast<size_t>(head_)] = value;
             hopPeak_[b] = 0.0f;
         }
         head_ = (head_ + 1) % kHistory;
         filled_ = std::min(filled_ + 1, kHistory);
         for (int b = 0; b < kBands; b++) {
-            std::array<float, kHistory> v = history_[static_cast<size_t>(b)];
-            const auto mid = v.begin() + filled_ / 2;
-            std::nth_element(v.begin(), mid, v.begin() + filled_);
-            const float median = *mid;
-            for (int i = 0; i < filled_; i++) v[static_cast<size_t>(i)] = std::fabs(v[static_cast<size_t>(i)] - median);
-            std::nth_element(v.begin(), mid, v.begin() + filled_);
-            const float mad = *mid;
+            // The median is the middle of the sorted window; the median absolute deviation is the same rank of
+            // the distances to it, read by walking outward from it on both sides in order of distance.
+            const float* sorted = sorted_[static_cast<size_t>(b)].data();
+            const int mid = filled_ / 2;
+            const float median = sorted[mid];
+            int below = mid - 1;
+            int above = mid;
+            float mad = 0.0f;
+            for (int i = 0; i <= mid; i++) {
+                const float down = below >= 0 ? std::fabs(sorted[below] - median) : INFINITY;
+                const float up = above < filled_ ? std::fabs(sorted[above] - median) : INFINITY;
+                if (down < up) {
+                    mad = down;
+                    below--;
+                } else {
+                    mad = up;
+                    above++;
+                }
+            }
             setThreshold(b, std::max(kMinJumpDb, median + kMarginDb + kSpread * mad));
         }
         const Hit out = pending_;
@@ -184,6 +211,7 @@ private:
     std::array<float, kBands> slow_{};
     std::array<float, kBands> hopPeak_{};
     std::array<std::array<float, kHistory>, kBands> history_{};
+    std::array<std::array<float, kHistory>, kBands> sorted_{};  // the same values, in order
     int head_ = 0;
     int filled_ = 0;
     std::array<float, kBands> thresholdDb_{};

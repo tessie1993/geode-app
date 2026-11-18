@@ -156,6 +156,10 @@ void savedPalettes() {
     check(files::keptPaletteId("Dusk", "Dusk").empty(), "a look forgets the palette deleted");
     check(files::keptPaletteId("Dusk", "Dawn") == "Dusk", "and keeps another");
     check(files::keptPaletteId("", "").empty(), "nothing deleted, nothing named");
+
+    check(files::framePaletteId("Dusk", stopped) == "Dusk", "a frame that draws its own palette keeps the id");
+    check(files::framePaletteId("Dusk", SceneParams{}).empty(), "a frame on the built-in palette drops it");
+    check(files::framePaletteId("", stopped).empty(), "no id, none kept");
 }
 
 std::string fixture(const std::string& folder, const char* name) {

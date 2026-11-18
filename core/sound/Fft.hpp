@@ -21,7 +21,6 @@ public:
 private:
     int n_;
     std::shared_ptr<const kissfft<float>> plan_;
-    std::vector<std::complex<float>> in_;
     std::vector<std::complex<float>> out_;
 };
 

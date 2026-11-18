@@ -20,8 +20,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.ModulationNative
+import dev.geode.engine.bridge.SceneParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -55,30 +55,30 @@ class ReactivityTabTest {
         value: Float,
     ) {
         val outMask = IntArray(1)
-        val routes = GeodeNative.modReactionsEdit(sceneId, params.int("reactSeed"), reactions, handMask, op, a, b, value, outMask)
+        val routes = ModulationNative.modReactionsEdit(sceneId, params.int("reactSeed"), reactions, handMask, op, a, b, value, outMask)
         reactions = routes
         handMask = if (routes == null) 0 else outMask[0]
     }
 
-    /** The routes native plays, one list of [GeodeNative.MOD_ROUTE_VALUES] fields each. */
+    /** The routes native plays, one list of [ModulationNative.MOD_ROUTE_VALUES] fields each. */
     private fun playing(
         seed: Int,
         text: String? = reactions,
         mask: Int = handMask,
-    ): List<List<Float>> = GeodeNative.modRoutesPlaying(sceneId, seed, text, mask).toList().chunked(GeodeNative.MOD_ROUTE_VALUES)
+    ): List<List<Float>> = ModulationNative.modRoutesPlaying(sceneId, seed, text, mask).toList().chunked(ModulationNative.MOD_ROUTE_VALUES)
 
     /** The style's own routes for [seed]. */
     private fun dna(seed: Int) = playing(seed, null, 0)
 
     private fun summary(route: List<Float>): String {
-        val source = ModCatalog.label("react", route[GeodeNative.MOD_ROUTE_SOURCE].toInt())
-        val target = ModCatalog.label("target", route[GeodeNative.MOD_ROUTE_TARGET].toInt())
+        val source = ModCatalog.label("react", route[ModulationNative.MOD_ROUTE_SOURCE].toInt())
+        val target = ModCatalog.label("target", route[ModulationNative.MOD_ROUTE_TARGET].toInt())
         return "$source → $target"
     }
 
     private val seed: Int get() = params.int("reactSeed")
 
-    private fun recipeState(recipe: ModWord) = GeodeNative.modRecipeState(recipe.ordinal, sceneId, seed, reactions, handMask)
+    private fun recipeState(recipe: ModWord) = ModulationNative.modRecipeState(recipe.ordinal, sceneId, seed, reactions, handMask)
 
     private fun setTab(restoration: StateRestorationTester? = null) {
         val content: @androidx.compose.runtime.Composable () -> Unit = {
@@ -94,7 +94,7 @@ class ReactivityTabTest {
                             onEdit = ::edit,
                             // What ModulationController.rerollReactions does.
                             onReroll = {
-                                edit(GeodeNative.MOD_EDIT_CLEAR, 0, 0, 0f)
+                                edit(ModulationNative.MOD_EDIT_CLEAR, 0, 0, 0f)
                                 params = params.with("reactSeed", params.int("reactSeed") + 1)
                             },
                         )
@@ -169,7 +169,7 @@ class ReactivityTabTest {
         clickText("Mode")
         clickText(spin.label)
         val edited = userRoutes()
-        assertEquals(spin.ordinal, edited.first()[GeodeNative.MOD_ROUTE_MODE].toInt())
+        assertEquals(spin.ordinal, edited.first()[ModulationNative.MOD_ROUTE_MODE].toInt())
         assertEquals(routes.drop(1), edited.drop(1))
     }
 
@@ -199,10 +199,10 @@ class ReactivityTabTest {
         setTab()
         val before = dna(0)
         // Whichever recipe the style's DNA leaves room for and does not already play.
-        val wanted = GeodeNative.MOD_RECIPE_OFFERED or GeodeNative.MOD_RECIPE_FITS
+        val wanted = ModulationNative.MOD_RECIPE_OFFERED or ModulationNative.MOD_RECIPE_FITS
         val recipe =
             ModCatalog.words("recipe").first {
-                recipeState(it) and (wanted or GeodeNative.MOD_RECIPE_ON) == wanted
+                recipeState(it) and (wanted or ModulationNative.MOD_RECIPE_ON) == wanted
             }
         // The recipes are one checkable menu now; it stays open while ticking.
         compose
@@ -211,12 +211,12 @@ class ReactivityTabTest {
             .performSemanticsAction(SemanticsActions.OnClick)
         clickText(recipe.label)
         val on = userRoutes()
-        assertTrue(recipeState(recipe) and GeodeNative.MOD_RECIPE_ON != 0)
+        assertTrue(recipeState(recipe) and ModulationNative.MOD_RECIPE_ON != 0)
         assertTrue("the recipe should add routes", on.size > before.size)
         assertShown(on)
 
         clickText(recipe.label)
-        assertEquals(0, recipeState(recipe) and GeodeNative.MOD_RECIPE_ON)
+        assertEquals(0, recipeState(recipe) and ModulationNative.MOD_RECIPE_ON)
         assertTrue("turning it off should take routes away", userRoutes().size < on.size)
     }
 

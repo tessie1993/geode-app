@@ -1,7 +1,7 @@
 package dev.geode.pro
 
-import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.StyleCatalogue
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.StyleCatalogue
 
 /**
  * The shape of the free tier, in one place, meant to be edited by hand.
@@ -16,7 +16,7 @@ object FreeTier {
      * Every style-family style but its opener. The native catalogue says which style opens a family
      * (core/viz/Catalogue); this file is what makes the opener the free one.
      */
-    val familyProIds: Set<String> by lazy { StyleCatalogue.ids(GeodeNative.STYLE_FAMILY_FOLLOWER).toSet() }
+    val familyProIds: Set<String> by lazy { StyleCatalogue.ids(CatalogueNative.STYLE_FAMILY_FOLLOWER).toSet() }
 
     /**
      * The neon showcase styles (Glow Vortex, Neon Chrome Sea, Black Hole, Hex Hive, Mandelbox
@@ -41,7 +41,7 @@ object FreeTier {
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.
      */
-    val freeStyleIds: Set<String> by lazy { StyleCatalogue.ids(GeodeNative.STYLE_SHADER).toSet() - familyProIds - neonProIds }
+    val freeStyleIds: Set<String> by lazy { StyleCatalogue.ids(CatalogueNative.STYLE_SHADER).toSet() - familyProIds - neonProIds }
 
     /**
      * The style a fresh install opens on, for everyone: one free showpiece, not a Pro default that a

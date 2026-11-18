@@ -24,9 +24,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.PaletteStackStore
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
-import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
@@ -44,7 +44,7 @@ internal fun PaletteStackCard(
     val store = remember { context.geodeContainer.paletteStack }
     val stack by store.state.collectAsStateWithLifecycle()
     val yours = rememberSavedPalettes().items
-    val rows = remember(stack.text, p, yours.size) { nativeRows(GeodeNative.paletteStackCard(stack.text, p.frame(), yours.size)) }
+    val rows = remember(stack.text, p, yours.size) { nativeRows(CustomizeNative.paletteStackCard(stack.text, p.frame(), yours.size)) }
     val blends = rows.filter { it[0] == "blendoption" }
     val picks = rows.filter { it[0] == "pick" }
     Column(Modifier.fillMaxWidth().padding(top = GeodeSpacing.S)) {
@@ -64,7 +64,7 @@ internal fun PaletteStackCard(
                 "yours" ->
                     DropdownRow(name = f[1], options = yours.map { it.name }, selectedIndex = -1, placeholder = f[2]) {
                         val palette = yours[it]
-                        val colours = GeodeNative.paletteSavedColours(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan)
+                        val colours = CustomizeNative.paletteSavedColours(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan)
                         store.addColours(palette.name, colours.toList())
                     }
                 else -> Unit

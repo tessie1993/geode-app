@@ -11,7 +11,10 @@ import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.DirectorNative
+import dev.geode.engine.bridge.MilkNative
+import dev.geode.engine.bridge.StageNative
 import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +48,7 @@ class Stage(
     // object is unreachable.
     private val owned =
         Owned(
-            GeodeNative.stageCreate(
+            StageNative.stageCreate(
                 assets,
                 appContext.cacheDir.absolutePath,
                 File(appContext.filesDir, "milk/textures").absolutePath,
@@ -70,7 +73,7 @@ class Stage(
     var performance: PerformanceSettings = PerformanceSettings.HIGH
         set(value) {
             field = value
-            GeodeNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx)
+            StageNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx)
         }
 
     /** The surface's own fps cap; 0 or less is none. */
@@ -78,7 +81,7 @@ class Stage(
     var capFps: Float = capFps
         set(value) {
             field = value
-            GeodeNative.stageSetCap(handle, value)
+            StageNative.stageSetCap(handle, value)
         }
 
     var onShaderError: (String?) -> Unit = {}
@@ -97,7 +100,7 @@ class Stage(
     var castSource = false
         set(on) {
             field = on
-            GeodeNative.stageSetCastSource(handle, on)
+            StageNative.stageSetCastSource(handle, on)
         }
 
     /** The surface in pixels, 0 before the first one: the size Record's clock is made for. */
@@ -127,7 +130,7 @@ class Stage(
         MilkPathPrefs.seed(prefs)
         pushLook(look)
         performance = PerformanceSettings.HIGH
-        milkRestorePath()?.let { GeodeNative.stageLoadMilkPreset(handle, it) }
+        milkRestorePath()?.let { StageNative.stageLoadMilkPreset(handle, it) }
     }
 
     /** Ends the stage for good: its thread frees the renderer, and every later call does nothing. */
@@ -136,50 +139,50 @@ class Stage(
         handle = 0L
         owned.handle = 0L
         if (h == 0L) return
-        GeodeNative.stageSetSound(h, 0L)
+        StageNative.stageSetSound(h, 0L)
         heard = 0L
-        GeodeNative.stageDestroy(h)
+        StageNative.stageDestroy(h)
     }
 
-    val milkdropAvailable: Boolean get() = GeodeNative.stageKnows(handle, GeodeNative.STYLE_MILKDROP)
+    val milkdropAvailable: Boolean get() = StageNative.stageKnows(handle, CatalogueNative.STYLE_MILKDROP)
 
-    fun availableSceneIds(): List<String> = GeodeNative.stageSceneIds(handle).split('\n').filter { it.isNotEmpty() }
+    fun availableSceneIds(): List<String> = StageNative.stageSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
     /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,
-    ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
+    ) = DirectorNative.shaderOverrideSet(sceneId, fragmentSrc)
 
-    fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
+    fun customShaderFor(sceneId: String): String? = DirectorNative.shaderOverride(sceneId)
 
     fun submitFluidInjectionShaders(
         force: String?,
         dye: String?,
-    ) = GeodeNative.stageSetFluidInjection(handle, force, dye)
+    ) = StageNative.stageSetFluidInjection(handle, force, dye)
 
     fun loadMilkPreset(path: String) {
-        GeodeNative.milkMemoryRequest(path)
-        GeodeNative.stageLoadMilkPreset(handle, path)
+        MilkNative.milkMemoryRequest(path)
+        StageNative.stageLoadMilkPreset(handle, path)
         poll()
     }
 
-    fun reloadCurrentMilkPreset() = GeodeNative.stageReloadMilkPreset(handle)
+    fun reloadCurrentMilkPreset() = StageNative.stageReloadMilkPreset(handle)
 
-    fun warmTransition(id: String) = GeodeNative.stageWarmTransition(handle, id)
+    fun warmTransition(id: String) = StageNative.stageWarmTransition(handle, id)
 
     /** The pointers that are down right now, in y-up NDC; `n = 0` says every finger has lifted. */
     fun submitTouchPoints(
         xy: FloatArray,
         n: Int,
-    ) = GeodeNative.stageSetTouch(handle, xy, n)
+    ) = StageNative.stageSetTouch(handle, xy, n)
 
     fun setTouchSmear(
         on: Boolean,
         strength: Float,
-    ) = GeodeNative.stageSetTouchSmear(handle, on, strength)
+    ) = StageNative.stageSetTouchSmear(handle, on, strength)
 
-    fun beginParamMorph(seconds: Float) = GeodeNative.stageBeginParamMorph(handle, seconds)
+    fun beginParamMorph(seconds: Float) = StageNative.stageBeginParamMorph(handle, seconds)
 
     /** The glass sheet's blur region; see [StageView.setUiBlurRegion]. */
     fun setUiBlurRegion(
@@ -189,18 +192,18 @@ class Stage(
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    ) = GeodeNative.stageSetUiBlurRegion(handle, left, top, right, bottom, strength, cornerPx)
+    ) = StageNative.stageSetUiBlurRegion(handle, left, top, right, bottom, strength, cornerPx)
 
     /** The wallpaper's edge glow options (`core/viz/frame/EdgeGlowPass`). */
-    fun setEdgeGlow(options: FloatArray) = GeodeNative.stageSetEdgeGlow(handle, options)
+    fun setEdgeGlow(options: FloatArray) = StageNative.stageSetEdgeGlow(handle, options)
 
     /** Tap along: true on the tap that completes a streak on the beat this stage heard. */
-    fun tapAlong(uptimeNs: Long): Boolean = GeodeNative.stageTapAlong(handle, uptimeNs)
+    fun tapAlong(uptimeNs: Long): Boolean = StageNative.stageTapAlong(handle, uptimeNs)
 
     /** The next finished visual (no app UI), handed to [then] on the main thread. */
     fun requestStill(then: (Bitmap) -> Unit) {
         stillThen = then
-        GeodeNative.stageStillRequest(handle)
+        StageNative.stageStillRequest(handle)
         poll()
     }
 
@@ -210,7 +213,7 @@ class Stage(
         width: Int,
         height: Int,
     ) {
-        GeodeNative.stageSetWindow(handle, surface, width, height)
+        StageNative.stageSetWindow(handle, surface, width, height)
         if (surface != null) sized(width, height)
         poll()
     }
@@ -219,14 +222,14 @@ class Stage(
         width: Int,
         height: Int,
     ) {
-        GeodeNative.stageSetSize(handle, width, height)
+        StageNative.stageSetSize(handle, width, height)
         sized(width, height)
         poll()
     }
 
-    /** What the app's view sees of itself, as `GeodeNative.STAGE_VIEW_*` bits. */
+    /** What the app's view sees of itself, as `StageNative.STAGE_VIEW_*` bits. */
     fun setView(flags: Int) {
-        GeodeNative.stageSetView(handle, flags)
+        StageNative.stageSetView(handle, flags)
         poll()
     }
 
@@ -235,22 +238,22 @@ class Stage(
         flags: Int,
         animateUntilMs: Long,
         nowMs: Long,
-    ): Int = GeodeNative.stageSetSurface(handle, flags, animateUntilMs, nowMs).also { poll() }
+    ): Int = StageNative.stageSetSurface(handle, flags, animateUntilMs, nowMs).also { poll() }
 
-    fun pause() = GeodeNative.stagePause(handle)
+    fun pause() = StageNative.stagePause(handle)
 
     fun resume() {
-        GeodeNative.stageResume(handle)
+        StageNative.stageResume(handle)
         poll()
     }
 
     /** `surfaceRedrawNeeded`: one frame now, even while the vsync is stopped. */
     fun redraw() {
-        GeodeNative.stageRedraw(handle)
+        StageNative.stageRedraw(handle)
         poll()
     }
 
-    fun gyroListens(wanted: Boolean): Boolean = GeodeNative.stageGyroListens(handle, wanted)
+    fun gyroListens(wanted: Boolean): Boolean = StageNative.stageGyroListens(handle, wanted)
 
     fun gyroPush(
         x: Float,
@@ -258,19 +261,19 @@ class Stage(
         z: Float,
         w: Float,
         displayRotation: Int,
-    ) = GeodeNative.stageGyroPush(handle, x, y, z, w, displayRotation)
+    ) = StageNative.stageGyroPush(handle, x, y, z, w, displayRotation)
 
     /** Opens Record's tee; when it cannot open, native stops [recorder] as failed. False when this stage is gone. */
     fun recordStart(
         recorder: Long,
         session: Long,
         mark: RecordMark,
-    ): Boolean = GeodeNative.stageRecordStart(handle, recorder, session, mark.tile, mark.width, mark.height, mark.placement, mark.corner)
+    ): Boolean = StageNative.stageRecordStart(handle, recorder, session, mark.tile, mark.width, mark.height, mark.placement, mark.corner)
 
-    fun recordStop() = GeodeNative.stageRecordStop(handle)
+    fun recordStop() = StageNative.stageRecordStop(handle)
 
     /** True when no tee is open or waiting to open, and for a stage that is gone: the recorder and session may be freed. */
-    val recordClosed: Boolean get() = GeodeNative.stageRecordClosed(handle)
+    val recordClosed: Boolean get() = StageNative.stageRecordClosed(handle)
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
@@ -282,7 +285,7 @@ class Stage(
         }
     }
 
-    private fun milkRestorePath(): String? = GeodeNative.milkMemoryRestorePath(assets, File(appContext.filesDir, "milk").path)
+    private fun milkRestorePath(): String? = MilkNative.milkMemoryRestorePath(assets, File(appContext.filesDir, "milk").path)
 
     private fun sized(
         width: Int,
@@ -295,7 +298,7 @@ class Stage(
 
     @Synchronized
     private fun pushLook(l: LookSnapshot) {
-        GeodeNative.stageSetLook(
+        StageNative.stageSetLook(
             handle,
             l.sceneId,
             l.params.frame(),
@@ -310,7 +313,7 @@ class Stage(
         // The picture is megabytes, so it crosses only as a new object, as the stores make one for a change.
         val u = l.underlay
         if (!underlaySent || u !== sentUnderlay) {
-            GeodeNative.stageSetUnderlay(handle, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+            StageNative.stageSetUnderlay(handle, u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
             sentUnderlay = u
             underlaySent = true
         }
@@ -334,16 +337,16 @@ class Stage(
         if (h == 0L) return
         val ring = soundInput()
         if (ring != heard) {
-            GeodeNative.stageSetSound(h, ring)
+            StageNative.stageSetSound(h, ring)
             heard = ring
         }
-        val events = GeodeNative.stageTakeEvents(h)
-        if (events and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquid.value = GeodeNative.stageLiquidMode(h)
-        if (events and GeodeNative.FRAME_ERROR_CHANGED != 0) onShaderError(GeodeNative.stageError(h)?.ifEmpty { null })
-        if (events and GeodeNative.FRAME_MILK_LOADED != 0) milkLoaded(h)
-        if (events and GeodeNative.FRAME_DIRECTOR_MOMENT != 0 && GeodeNative.stageTakeDirectorMoments(h) > 0) onDirectorStyleMoment()
-        if (events and GeodeNative.FRAME_STILL_READY != 0) deliverStill(h)
-        val draws = GeodeNative.stageState(h) and GeodeNative.STAGE_STATE_VSYNC != 0
+        val events = StageNative.stageTakeEvents(h)
+        if (events and StageNative.FRAME_LIQUID_CHANGED != 0) liquid.value = StageNative.stageLiquidMode(h)
+        if (events and StageNative.FRAME_ERROR_CHANGED != 0) onShaderError(StageNative.stageError(h)?.ifEmpty { null })
+        if (events and StageNative.FRAME_MILK_LOADED != 0) milkLoaded(h)
+        if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && StageNative.stageTakeDirectorMoments(h) > 0) onDirectorStyleMoment()
+        if (events and StageNative.FRAME_STILL_READY != 0) deliverStill(h)
+        val draws = StageNative.stageState(h) and StageNative.STAGE_STATE_VSYNC != 0
         if (draws || SystemClock.uptimeMillis() < pollUntilMs) {
             posted = true
             Choreographer.getInstance().postFrameCallback(this)
@@ -352,8 +355,8 @@ class Stage(
 
     private fun milkLoaded(h: Long) {
         while (true) {
-            val path = GeodeNative.stageTakeMilkLoaded(h) ?: return
-            if (GeodeNative.milkMemoryLoaded(path)) MilkPathPrefs.save(prefs, path)
+            val path = StageNative.stageTakeMilkLoaded(h) ?: return
+            if (MilkNative.milkMemoryLoaded(path)) MilkPathPrefs.save(prefs, path)
             onMilkPresetLoaded(path)
         }
     }
@@ -362,9 +365,9 @@ class Stage(
     private fun deliverStill(h: Long) {
         val then = stillThen ?: return
         val size = IntArray(2)
-        val pixels = if (GeodeNative.stageStillSize(h, size)) ByteBuffer.allocateDirect(size[0] * size[1] * 4) else null
-        if (pixels == null || !GeodeNative.stageStillRead(h, pixels)) {
-            GeodeNative.stageStillRequest(h)
+        val pixels = if (StageNative.stageStillSize(h, size)) ByteBuffer.allocateDirect(size[0] * size[1] * 4) else null
+        if (pixels == null || !StageNative.stageStillRead(h, pixels)) {
+            StageNative.stageStillRequest(h)
             return
         }
         stillThen = null
@@ -378,7 +381,7 @@ class Stage(
         override fun run() {
             val h = handle
             handle = 0L
-            if (h != 0L) GeodeNative.stageDestroy(h)
+            if (h != 0L) StageNative.stageDestroy(h)
         }
     }
 

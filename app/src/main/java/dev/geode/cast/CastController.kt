@@ -10,7 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import com.google.android.gms.cast.framework.CastContext
 import dev.geode.R
 import dev.geode.billing.ProSnapshot
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
 import dev.geode.pro.ProFeature
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,22 +22,22 @@ enum class CastFailure(
     val linkReason: Int,
 ) {
     /** The stream couldn't start, froze, or the renderer died. */
-    STREAM(GeodeNative.LINK_REASON_STREAM),
+    STREAM(CastNative.LINK_REASON_STREAM),
 
     /** No Wi-Fi or Ethernet network to serve the TV from (cellular or a VPN alone can't reach it). */
-    NO_LAN(GeodeNative.LINK_REASON_NO_LAN),
+    NO_LAN(CastNative.LINK_REASON_NO_LAN),
 
     /** Android refused to start the cast's foreground service with the app in the background. */
-    BACKGROUND_START(GeodeNative.LINK_REASON_BACKGROUND),
+    BACKGROUND_START(CastNative.LINK_REASON_BACKGROUND),
 
     /** The Wi-Fi or Ethernet the stream was served from went away or changed address. */
-    NETWORK_CHANGED(GeodeNative.LINK_REASON_NETWORK),
+    NETWORK_CHANGED(CastNative.LINK_REASON_NETWORK),
 
     /** The TV's receiver said it could not play the stream (TV only; a link never ends this way). */
-    TV_COULD_NOT_PLAY(GeodeNative.LINK_REASON_STREAM),
+    TV_COULD_NOT_PLAY(CastNative.LINK_REASON_STREAM),
 
     /** The TV never fetched the stream, or stopped while it said it played: it can't reach the phone (TV only). */
-    TV_UNREACHABLE(GeodeNative.LINK_REASON_STREAM),
+    TV_UNREACHABLE(CastNative.LINK_REASON_STREAM),
 }
 
 /**

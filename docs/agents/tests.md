@@ -4,9 +4,9 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 
 ## Where tests live
 
-- JVM unit tests live in `app/src/test` and `engine/*/src/test`; CI runs every module's.
+- JVM unit tests live in `app/src/test`; CI runs them.
 - Instrumented tests live in `app/src/androidTest`.
-- `engine/scenes/src/test/` holds no test: the module has no Kotlin left.
+- There is no `engine/` module: every JVM test is under `app/src/test/`.
 - `app/src/androidTest/.../ui/ReactivityTabTest.kt` is a Compose UI test of the reaction editor, run by the emulator job.
 - `app/src/androidTest/.../ui/SceneTabLayersTest.kt`: "Layers enabled" on the Layers page turns native's layer on, and a search for "layer" finds it.
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
@@ -23,7 +23,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
-- `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`core/audio/ingest/AiffHeaderScan`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
+- `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`AiffHeaderScan` in `core/audio/ingest/AiffReader.hpp`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
 - `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.
 - `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
@@ -48,7 +48,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `director_test.cpp` also covers the musical spans: looks on the bar, the feeling's glide, the build's lean, sections that grow when they return, the song's arc, style intents and the settings table.
 - `director_style_test.cpp`: Auto's style at a director moment (`core/viz/DirectorStyle`): a return's own family stepped on, the next along the catalogue, a drop's leap, stay, the one-shot intent.
 - `dsp_handoff_test.cpp`: the playback DSP's format hand-off.
-- `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `GeodeNative.AUDIO_OUT_*`, pinned.
+- `dsp_bytes_test.cpp`: the shell's raw block (`geode_dsp_process_bytes`: whole frames by encoding and channels, part frames dropped), the Media3 encodings and `AudioOutNative.AUDIO_OUT_*`, pinned.
 - `dsp_runs_test.cpp`: which formats the playback DSP runs (`geode_dsp_runs`: 16-bit or float, mono or stereo); `NativeDspProcessor` steps aside for the rest.
 - `easter_eggs_test.cpp`: shake to screenshot never from walking or a set-down, one picture per shake; tap along fires once on four taps on the beat, never off it, in silence or on double taps.
 - `edge_glow_pass_test.cpp`: `frame::EdgeGlowPass`'s lifetime and what one wallpaper frame of it leaves in the target.
@@ -169,7 +169,6 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `style_schedule_test.cpp`: an export segment's style schedule, which drops the styles the entitlement locks and holds in silence.
 - `surface_motion_test.cpp`: the wallpaper's and dream's run rule under reduced motion, the still frame's settle, and each surface's fps choice.
 - `surface_run_test.cpp`: the wallpaper's and dream's run rule and the trial's end, and the stage's (`core/viz/StageRun`).
-- `thermal_test.cpp`: the process's one thermal state (`core/viz/frame/Thermal`): the fps-first ladder, the thermal cap on the pacer, every renderer reading one tier, the once-per-process "Phone is warm" note `ui/StageWarmNote` toasts, `geode_thermal_take_warm_note`.
 - `touch_smear_test.cpp`: Settings › Touch › Smear (`core/viz/TouchSmear`): the fingers' kicks, the bend, its linger, silence, reduced motion.
 - `touch_gesture_test.cpp`: the fingers on the visual (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger reading and pinch step, the stir.
 - `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.

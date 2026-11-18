@@ -57,7 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.cast.ComputerLink
 import dev.geode.cast.LinkState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.ui.CrystalButton
@@ -310,8 +310,8 @@ internal fun ComputerLinkSheet(
  */
 @Composable
 private fun LinkQrCode(url: String) {
-    val modules = remember(url) { ByteArray(GeodeNative.QR_MAX_MODULES) }
-    val side = remember(url) { GeodeNative.qrEncode(url, modules) }
+    val modules = remember(url) { ByteArray(CastNative.QR_MAX_MODULES) }
+    val side = remember(url) { CastNative.qrEncode(url, modules) }
     if (side <= 0) return
     val label = stringResource(R.string.link_qr_description)
     Canvas(

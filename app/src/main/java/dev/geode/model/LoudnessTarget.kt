@@ -21,7 +21,7 @@ enum class LoudnessTarget(
 }
 
 /**
- * What native made of a finished render's loudness for [target] (`GeodeNative.exportLoudnessMeasure`):
+ * What native made of a finished render's loudness for [target] (`ExportAudioNative.exportLoudnessMeasure`):
  * [sentence] is `core/output/LoudnessAdvice`'s `Sentence`, and the numbers are the ones its wording reads.
  * [gainDb] is advice: nothing applies it yet.
  */

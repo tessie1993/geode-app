@@ -46,8 +46,6 @@ interface GeodeMotionScheme {
 
     fun <T> fastSpatialSpec(): FiniteAnimationSpec<T>
 
-    fun <T> slowSpatialSpec(): FiniteAnimationSpec<T>
-
     fun <T> defaultEffectsSpec(): FiniteAnimationSpec<T>
 
     fun <T> fastEffectsSpec(): FiniteAnimationSpec<T>
@@ -67,8 +65,6 @@ private object ExpressiveMotionScheme : GeodeMotionScheme {
 
     override fun <T> fastSpatialSpec(): FiniteAnimationSpec<T> = spring(GeodeMotion.SPATIAL_FAST_DAMPING, GeodeMotion.SPATIAL_FAST)
 
-    override fun <T> slowSpatialSpec(): FiniteAnimationSpec<T> = spring(GeodeMotion.SPATIAL_DAMPING, GeodeMotion.SPATIAL_SLOW)
-
     override fun <T> defaultEffectsSpec(): FiniteAnimationSpec<T> = effects(GeodeMotion.EFFECTS_DEFAULT)
 
     override fun <T> fastEffectsSpec(): FiniteAnimationSpec<T> = effects(GeodeMotion.EFFECTS_FAST)
@@ -81,8 +77,6 @@ private object ReducedMotionScheme : GeodeMotionScheme {
     override fun <T> defaultSpatialSpec(): FiniteAnimationSpec<T> = snap()
 
     override fun <T> fastSpatialSpec(): FiniteAnimationSpec<T> = snap()
-
-    override fun <T> slowSpatialSpec(): FiniteAnimationSpec<T> = snap()
 
     override fun <T> defaultEffectsSpec(): FiniteAnimationSpec<T> = effects(GeodeMotion.EFFECTS_DEFAULT)
 

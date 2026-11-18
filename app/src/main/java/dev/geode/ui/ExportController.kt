@@ -3,12 +3,15 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
+import dev.geode.R
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookSource
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.RenderPlanNative
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.StudioNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -26,7 +29,6 @@ import dev.geode.geodeContainer
 import dev.geode.model.LoudnessAdvice
 import dev.geode.model.LoudnessTarget
 import dev.geode.model.WatermarkChoice
-import dev.geode.render.scene.SceneParams
 import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -164,8 +166,7 @@ internal class ExportController(
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
                     } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
+                        val detail = "${t.javaClass.simpleName}: ${t.message ?: application.getString(R.string.export_error_no_message)}"
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
@@ -194,8 +195,7 @@ internal class ExportController(
                 host.onStyleLocked()
                 ExportUiState()
             }
-            RenderResult.NothingToRender ->
-                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing)))
+            RenderResult.NothingToRender -> ExportUiState(phase = ExportPhase.Failed(application.getString(R.string.editor_export_nothing)))
         }
 
     /**
@@ -220,7 +220,7 @@ internal class ExportController(
         exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
-        ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
+        ExportRun.begin(application.getString(R.string.render_batch_label, tracks.size))
         ExportService.start(application)
         exportJob =
             ExportRun.launch {
@@ -250,11 +250,15 @@ internal class ExportController(
                 } catch (t: kotlinx.coroutines.CancellationException) {
                     _exportState.value = batch.cancelRest().toUiState()
                     throw t
+                } catch (t: Throwable) {
+                    _exportState.value = ExportUiState(phase = ExportPhase.Failed(t.message ?: t.javaClass.simpleName))
                 } finally {
                     ExportRun.finish()
                 }
             }
     }
+
+    private fun mixClip(uri: Uri) = MixClip(uri, uri.lastPathSegment.orEmpty().substringAfterLast('/'))
 
     private suspend fun renderBatchTrack(
         track: BatchTrack,
@@ -372,7 +376,7 @@ internal class ExportController(
      * always this one: a single scene clip over a single song clip of the same span, which the plan
      * always made direct. The plan, the composition and the Studio exporter went with the editor.
      *
-     * The checks keep the plan's order: a range shorter than [GeodeNative.studioMinClipMs] has no stretch of
+     * The checks keep the plan's order: a range shorter than [StudioNative.studioMinClipMs] has no stretch of
      * song to draw over (the plan skipped it), then the style is checked against the entitlement.
      */
     private suspend fun renderOneTap(
@@ -385,7 +389,7 @@ internal class ExportController(
         onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
     ): RenderResult {
-        if (range != null && range.durationMs < GeodeNative.studioMinClipMs()) return RenderResult.NothingToRender
+        if (range != null && range.durationMs < StudioNative.studioMinClipMs()) return RenderResult.NothingToRender
         val pinned = host.look.pin()
         if (!host.allowsStyle(sceneFactory.sceneId)) return RenderResult.Locked
         val result =
@@ -497,8 +501,7 @@ internal class ExportController(
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
                     } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
+                        val detail = "${t.javaClass.simpleName}: ${t.message ?: application.getString(R.string.export_error_no_message)}"
                         _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
@@ -522,13 +525,9 @@ internal class ExportController(
                 try {
                     val audio =
                         if (audioClips.isEmpty()) {
-                            LongFormAudio.SingleTrack(MixClip(trackUri, trackUri.lastPathSegment.orEmpty().substringAfterLast('/')))
+                            LongFormAudio.SingleTrack(mixClip(trackUri))
                         } else {
-                            LongFormAudio.Mix(
-                                audioClips.map { clip ->
-                                    MixClip(clip, clip.lastPathSegment.orEmpty().substringAfterLast('/'))
-                                },
-                            )
+                            LongFormAudio.Mix(audioClips.map(::mixClip))
                         }
                     val name = "beatrealms_loop_${System.currentTimeMillis()}.mp4"
                     val extended =
@@ -621,5 +620,5 @@ data class RenderBatch(
     fun cancelRest(): RenderBatch = copy(outcomes = outcomes + List(tracks.size - outcomes.size) { BatchOutcome.Cancelled })
 
     /** The whole batch's progress, with [withinCurrent] the share of the current track done (native). */
-    fun progress(withinCurrent: Float): Float = GeodeNative.renderBatchProgress(outcomes.size, tracks.size, withinCurrent)
+    fun progress(withinCurrent: Float): Float = RenderPlanNative.renderBatchProgress(outcomes.size, tracks.size, withinCurrent)
 }

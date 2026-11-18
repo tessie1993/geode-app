@@ -14,7 +14,7 @@ Export post-passes: `ExportPasses` (watermark and loop seam; #442) with their pu
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - Cast's frame timing, as the one surface that streams its frames: the fixed-rate frame clock that stamps each frame's PTS, and the HLS timing of the stream those frames become (each segment's media duration read from its fragment, the stream's fixed `EXT-X-TARGETDURATION`, the playlist text), and what the stream's server answers (`LinkShare`). Sockets and byte cutting stay in Kotlin's `cast/`, except WebRTC's, which libdatachannel owns in `core/cast/WebRtcLink`, the one native file allowed a network (`tools/network-gate.sh`).
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).
-- `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Trail, Liquid, Composite, UiBlur, and the post-passes (watermark and loop seam, still Kotlin GL; edge glow, native since #439) all implement it.
+- `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Three passes implement it today: `EdgeGlowPass`, `WatermarkPass` and `SeamPass` (`ExportPasses.hpp`). Trail, Liquid, Composite and UiBlur are not behind it yet.
 - `LayerStack`: entries of scene + params + blend + mix. Replaces the three ad-hoc slots (layer, outgoing, born; `Renderer.hpp:333-336`, `:314-318`).
 - `FrameGraph::run(FrameCtx)`: a fixed, readable pass list. `Renderer` keeps the scene cache, `ScenePrep`/`ProgramStager` and the targets, and calls it.
 
@@ -22,7 +22,7 @@ Export post-passes: `ExportPasses` (watermark and loop seam; #442) with their pu
 
 **Keep as they are:** `ScenePrep`, `ProgramStager`, `ProgramBinaryCache`, `GlCaps`/`GlProber`, `VisualSafety` (as the last step before drawing), the catalogue text table.
 
-**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block from `core/signal/params` and a generated sound block from `core/sound/schema`, pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_camera`) stay, on top of the prelude.
+**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block and a generated sound block (not built yet: no `core/signal/params` or `core/sound/schema` directory exists), pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_camera`) stay, on top of the prelude.
 
 **The idea:** one frame preparation and one frame graph that executes and composites for every surface (a headless renderer would otherwise be a third copy), layers in a stack, and append-only, layout-guarded uniforms.
 

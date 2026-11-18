@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,6 +108,9 @@ fun PlayerScreen(
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     val tick by viewModel.historyTick.collectAsStateWithLifecycle()
     val sleepRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    // Derived: only a change of scene or of running/stopped recomposes, not every parameter or timer tick.
+    val sceneId by remember { derivedStateOf { viz.sceneId } }
+    val sleepRunning by remember { derivedStateOf { sleepRemainingMs != null } }
     val canShuffle = remember(tick) { viewModel.recentlyPlayed().isNotEmpty() }
     // The secondary groups under the transport are an accordion: all closed at first, so the
     // screen opens as an overview, and at most one open, so it never grows into a long column.
@@ -152,7 +156,7 @@ fun PlayerScreen(
         PlayerHero(
             viewModel = viewModel,
             state = state,
-            styleLabel = sceneDisplayLabel(viz.sceneId),
+            styleLabel = remember(sceneId) { sceneDisplayLabel(sceneId) },
             micActive = mic.active,
             external = external,
             favourites = favourites,
@@ -194,7 +198,7 @@ fun PlayerScreen(
                 viewModel = viewModel,
                 micActive = mic.active,
                 external = external,
-                sleepRunning = sleepRemainingMs != null,
+                sleepRunning = sleepRunning,
                 canShuffle = canShuffle,
                 expanded = openCard == CARD_QUICK,
                 onToggle = { toggleCard(CARD_QUICK) },
@@ -502,7 +506,11 @@ private fun PlayerHero(
             }
         }
         if (foreign) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = CARD_INSET), horizontalArrangement = Arrangement.End) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = CARD_INSET),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 FilledTonalButton(
                     onClick = viewModel::stopExternalAudio,
                     contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
@@ -557,6 +565,10 @@ private fun TransportCard(
     showAbLoop: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    // The transport drives the other app while it is the sound source (PlayerViewModel.next and its two twins).
+    val external by viewModel.externalAudio.collectAsStateWithLifecycle()
+    val canDrive = state.hasMedia || external.driven != null
+    val playing = external.driven?.playing ?: state.isPlaying
     Column(
         modifier
             .fillMaxWidth()
@@ -615,21 +627,21 @@ private fun TransportCard(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ShuffleButton(state.shuffle, viewModel::toggleShuffle)
-            IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
+            IconButton(onClick = viewModel::previous, enabled = canDrive) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
             // 64 dp, the size the old play button drew itself at, so the transport row keeps its rhythm.
             FilledIconButton(
                 onClick = viewModel::togglePlayPause,
                 modifier = Modifier.size(64.dp),
-                enabled = state.hasMedia,
+                enabled = canDrive,
             ) {
                 StoneIconArt(
-                    if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                    stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                    if (playing) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    stringResource(if (playing) R.string.action_pause else R.string.action_play),
                 )
             }
-            IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
+            IconButton(onClick = viewModel::next, enabled = canDrive) {
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
             RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)

@@ -1,6 +1,6 @@
 package dev.geode.cast
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.WebrtcNative
 import java.net.InetAddress
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -26,7 +26,7 @@ internal class WebRtcLink(
     prefix: Int,
 ) : AutoCloseable {
     private val lock = ReentrantReadWriteLock()
-    private var handle: Long = GeodeNative.webrtcOpen(address.hostAddress.orEmpty(), ipv4(address), prefix)
+    private var handle: Long = WebrtcNative.webrtcOpen(address.hostAddress.orEmpty(), ipv4(address), prefix)
 
     /**
      * The native link, which the cast's server ([LiveLink]) asks for the answer to a browser's offer and the
@@ -36,7 +36,7 @@ internal class WebRtcLink(
 
     override fun close() =
         lock.write {
-            if (handle != 0L) GeodeNative.webrtcClose(handle)
+            if (handle != 0L) WebrtcNative.webrtcClose(handle)
             handle = 0L
         }
 }

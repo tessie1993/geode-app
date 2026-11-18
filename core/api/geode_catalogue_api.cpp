@@ -29,6 +29,15 @@ const char* geode_catalogue_style_ids(int trait) {
     }
 }
 
+int geode_catalogue_style_has(int trait, const char* style_id) {
+    if (trait < 0 || trait >= catalogue::kTraitCount || !style_id) return 0;
+    try {
+        return catalogue::has(static_cast<catalogue::Trait>(trait), style_id) ? 1 : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
 const char* geode_catalogue_picker_names(void) {
     try {
         return catalogue::pickerNamesText().c_str();

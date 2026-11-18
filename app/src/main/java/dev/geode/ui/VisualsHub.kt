@@ -59,7 +59,8 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.stage.StageView
@@ -194,7 +195,7 @@ private fun VisualsHubContent(
     val view = LocalView.current
     // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
     // The MilkDrop page shows it itself.
-    val milkError = viz.shaderError?.takeIf { viz.sceneId == GeodeNative.STYLE_MILKDROP }
+    val milkError = viz.shaderError?.takeIf { viz.sceneId == CatalogueNative.STYLE_MILKDROP }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
         if (milkError != null && !pip && !onMilkPage) {
@@ -202,7 +203,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
-    StageBuildNote(viz.shaderError?.takeIf { viz.sceneId != GeodeNative.STYLE_MILKDROP }, pip)
+    StageBuildNote(viz.shaderError?.takeIf { viz.sceneId != CatalogueNative.STYLE_MILKDROP }, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
@@ -352,7 +353,7 @@ private fun VisualsHubContent(
                 onOpenStudioRender = onOpenStudioRender,
                 onSettings = { nav.openTab(VisualsPage.SETTINGS) },
                 // ‹ › are the sideways swipe's twin: they step what it steps, styles when it steps nothing.
-                stepLabels = stageStepLabels(if (sidewaysStepsOther) GeodeNative.STAGE_STEP_STYLES else styleStepTarget),
+                stepLabels = stageStepLabels(if (sidewaysStepsOther) SoundNative.STAGE_STEP_STYLES else styleStepTarget),
                 onStep = { step ->
                     actions.run(if (sideways in STEP_ACTIONS) sideways else GestureAction.STEP_STYLE, step)
                 },

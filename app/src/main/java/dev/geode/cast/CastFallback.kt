@@ -1,10 +1,13 @@
 package dev.geode.cast
 
 import android.content.Context
+import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
 import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.audio.AudioBus
+import dev.geode.engine.bridge.MilkNative
+import dev.geode.engine.bridge.StageNative
 import dev.geode.geodeContainer
 import dev.geode.viz.NativeViz
 import java.io.File
@@ -33,7 +36,7 @@ internal class CastFallback(
         MilkPathPrefs.seed(prefs)
         // A new renderer starts on the preset the stage showed last, not on MilkDrop's idle one.
         viz.onCreated = {
-            GeodeNative.milkMemoryRestorePath(appContext.assets, File(appContext.filesDir, "milk").path)?.let(viz::loadMilkPreset)
+            MilkNative.milkMemoryRestorePath(appContext.assets, File(appContext.filesDir, "milk").path)?.let(viz::loadMilkPreset)
         }
         viz.setLook(look)
         PerformanceSettings.HIGH.run { viz.setQuality(renderScale, marchScale, postFx) }
@@ -42,7 +45,7 @@ internal class CastFallback(
     }
 
     fun loadMilkPreset(path: String) {
-        GeodeNative.milkMemoryRequest(path)
+        MilkNative.milkMemoryRequest(path)
         viz.loadMilkPreset(path)
     }
 
@@ -52,11 +55,11 @@ internal class CastFallback(
      */
     fun draw() {
         val fps = CastStream.FPS.toFloat()
-        val events = viz.frame(GeodeNative.pcmRingLive(), fps, fps)
-        if (events and GeodeNative.FRAME_MILK_LOADED != 0) {
-            viz.takeMilkPresetLoaded()?.let { if (GeodeNative.milkMemoryLoaded(it)) MilkPathPrefs.save(prefs, it) }
+        val events = viz.frame(AudioBus.heard, fps, fps)
+        if (events and StageNative.FRAME_MILK_LOADED != 0) {
+            viz.takeMilkPresetLoaded()?.let { if (MilkNative.milkMemoryLoaded(it)) MilkPathPrefs.save(prefs, it) }
         }
-        if (events and GeodeNative.FRAME_DIRECTOR_MOMENT != 0 && viz.takeDirectorStyleMoments() > 0) CastMirror.directorMoment()
+        if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && viz.takeDirectorStyleMoments() > 0) CastMirror.directorMoment()
     }
 
     fun release() = viz.destroy()

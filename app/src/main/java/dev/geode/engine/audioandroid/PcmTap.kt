@@ -4,7 +4,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.IngestNative
 import java.nio.ByteBuffer
 
 /**
@@ -31,7 +31,7 @@ class PcmTap(
         encoding: Int,
     ) {
         // Every flush starts a ring epoch, before a sample of the new format is written.
-        if (owns) GeodeNative.pcmRingBeginEpoch(ring)
+        if (owns) IngestNative.pcmRingBeginEpoch(ring)
         this.sampleRateHz = sampleRateHz
         this.channelCount = channelCount
         this.encoding = encoding
@@ -39,6 +39,6 @@ class PcmTap(
 
     override fun handleBuffer(buffer: ByteBuffer) {
         if (!owns || channelCount <= 0 || sampleRateHz <= 0) return
-        GeodeNative.pcmRingWriteDirect(ring, buffer, buffer.position(), buffer.remaining(), encoding, channelCount, sampleRateHz)
+        IngestNative.pcmRingWriteDirect(ring, buffer, buffer.position(), buffer.remaining(), encoding, channelCount, sampleRateHz)
     }
 }

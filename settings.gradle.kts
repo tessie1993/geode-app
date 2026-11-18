@@ -25,7 +25,3 @@ dependencyResolutionManagement {
 rootProject.name = "geode"
 include(":app")
 
-include(
-    ":engine:audio-core",
-    ":engine:scenes",
-)

@@ -36,7 +36,7 @@ object AtomicWrite {
                         out.fd.sync()
                     }
                     temp.renameTo(file)
-                }.getOrDefault(false)
+                }.onFailure { dev.geode.RingLog.note(TAG, "write threw: ${file.name}", it) }.getOrDefault(false)
             if (!ok) {
                 bestEffort(TAG, "temp.delete()") { temp.delete() }
                 dev.geode.RingLog.note("AtomicWrite", "write failed, previous content kept: ${file.name}")

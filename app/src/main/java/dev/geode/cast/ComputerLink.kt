@@ -5,7 +5,7 @@ import android.content.Context
 import android.os.SystemClock
 import androidx.annotation.MainThread
 import dev.geode.billing.ProSnapshot
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
 import dev.geode.pro.ProFeature
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,7 +50,7 @@ sealed interface LinkState {
  * Process-wide, on the main thread, like [CastController.state].
  */
 object ComputerLink {
-    private val machine = IntArray(GeodeNative.LINK_STATE)
+    private val machine = IntArray(CastNative.LINK_STATE)
     private var url: String? = null
     private var label: String = ""
     private var typedUrl: String = ""
@@ -63,23 +63,23 @@ object ComputerLink {
     fun start(context: Context): Boolean {
         val app = context.applicationContext
         var facts = 0
-        if (ProSnapshot.gate(app).allows(ProFeature.CAST)) facts = facts or GeodeNative.LINK_ENTITLED
-        if (CastStream.lanAddress(app) != null) facts = facts or GeodeNative.LINK_HAS_LAN
-        val actions = step(GeodeNative.LINK_EVENT_START, facts)
-        if (actions and GeodeNative.LINK_DO_START_STREAM != 0) {
+        if (ProSnapshot.gate(app).allows(ProFeature.CAST)) facts = facts or CastNative.LINK_ENTITLED
+        if (CastStream.lanAddress(app) != null) facts = facts or CastNative.LINK_HAS_LAN
+        val actions = step(CastNative.LINK_EVENT_START, facts)
+        if (actions and CastNative.LINK_DO_START_STREAM != 0) {
             val refused = CastService.start(app, CastService.Target.LINK)
             if (refused != null) {
                 val reason = if (refused is ForegroundServiceStartNotAllowedException) CastFailure.BACKGROUND_START else CastFailure.STREAM
                 onFailed(reason.linkReason)
             }
         }
-        return actions and GeodeNative.LINK_DO_PAYWALL != 0
+        return actions and CastNative.LINK_DO_PAYWALL != 0
     }
 
     /** The user stopped sharing: the link stops answering, and the phone's sound comes back unless a TV casts. */
     @MainThread
     fun stop(context: Context) {
-        if (step(GeodeNative.LINK_EVENT_STOP, 0) and GeodeNative.LINK_DO_STOP_STREAM != 0) {
+        if (step(CastNative.LINK_EVENT_STOP, 0) and CastNative.LINK_DO_STOP_STREAM != 0) {
             CastService.release(context.applicationContext, CastService.Target.LINK)
         }
     }
@@ -87,7 +87,7 @@ object ComputerLink {
     /** The UI has shown an [LinkState.Ended] share's reason. */
     @MainThread
     fun shown() {
-        step(GeodeNative.LINK_EVENT_SHOWN, 0)
+        step(CastNative.LINK_EVENT_SHOWN, 0)
     }
 
     /**
@@ -102,38 +102,38 @@ object ComputerLink {
         url = shareUrl
         label = shareLabel
         typedUrl = pairUrl
-        step(GeodeNative.LINK_EVENT_READY, 0)
+        step(CastNative.LINK_EVENT_READY, 0)
     }
 
     /**
      * The code a computer types after the short link ("ABC-DEF"), "" while nothing is shared: single-session,
      * replaced once used or after a few minutes (native, `geode_link_pair_code`), so the sheet reads it again often.
      */
-    fun pairCode(): String = GeodeNative.linkPairCode(SystemClock.elapsedRealtime())
+    fun pairCode(): String = CastNative.linkPairCode(SystemClock.elapsedRealtime())
 
     /** [CastService]: the stream ended by itself, for [reason] (GEODE_LINK_REASON_*). */
     internal fun onFailed(reason: Int) {
-        step(GeodeNative.LINK_EVENT_FAILED, reason)
+        step(CastNative.LINK_EVENT_FAILED, reason)
     }
 
     /** [CastService]: its notification's Stop ended everything. */
     internal fun onServiceStopped() {
-        step(GeodeNative.LINK_EVENT_STOP, 0)
+        step(CastNative.LINK_EVENT_STOP, 0)
     }
 
     private fun step(
         event: Int,
         arg: Int,
     ): Int {
-        val actions = GeodeNative.linkStep(machine, event, arg)
+        val actions = CastNative.linkStep(machine, event, arg)
         mutableState.value =
             when (machine[0]) {
-                GeodeNative.LINK_PHASE_STARTING -> LinkState.Starting
-                GeodeNative.LINK_PHASE_LIVE -> url?.let { LinkState.Live(it, label, typedUrl) } ?: LinkState.Starting
-                GeodeNative.LINK_PHASE_ENDED -> LinkState.Ended(machine[1])
+                CastNative.LINK_PHASE_STARTING -> LinkState.Starting
+                CastNative.LINK_PHASE_LIVE -> url?.let { LinkState.Live(it, label, typedUrl) } ?: LinkState.Starting
+                CastNative.LINK_PHASE_ENDED -> LinkState.Ended(machine[1])
                 else -> LinkState.Idle
             }
-        if (machine[0] != GeodeNative.LINK_PHASE_LIVE) url = null
+        if (machine[0] != CastNative.LINK_PHASE_LIVE) url = null
         return actions
     }
 }

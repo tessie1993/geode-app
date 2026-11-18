@@ -87,7 +87,7 @@ jintArray intsOf(JNIEnv* env, const std::vector<jint>& values) {
 extern "C" {
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_tagsRead(JNIEnv* env, jobject, jint fd, jobjectArray texts, jintArray ints,
+Java_dev_geode_engine_bridge_TagsNative_tagsRead(JNIEnv* env, jobject, jint fd, jobjectArray texts, jintArray ints,
                                                   jfloatArray gains) {
     TagsHandle tags(geode_tags_read(fd), &geode_tags_destroy);
     if (!tags || !texts || !ints || !gains) return -1;
@@ -111,7 +111,7 @@ Java_dev_geode_engine_bridge_GeodeNative_tagsRead(JNIEnv* env, jobject, jint fd,
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_tagsWrite(JNIEnv* env, jobject, jint fd, jobjectArray texts, jint year,
+Java_dev_geode_engine_bridge_TagsNative_tagsWrite(JNIEnv* env, jobject, jint fd, jobjectArray texts, jint year,
                                                    jint track) {
     // A slot beyond the caller's array, or a null element within it, means "leave this field unchanged":
     // both must reach geode_tags_write as a null pointer, not "".
@@ -127,7 +127,7 @@ Java_dev_geode_engine_bridge_GeodeNative_tagsWrite(JNIEnv* env, jobject, jint fd
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_librarySearch(JNIEnv* env, jobject, jobjectArray rows, jobjectArray request,
+Java_dev_geode_engine_bridge_TagsNative_librarySearch(JNIEnv* env, jobject, jobjectArray rows, jobjectArray request,
                                                        jintArray out) {
     // rows: 3 UTF-8 byte arrays per track (title, artist, album); request: query, focus, artist, album, title,
     // a null element meaning absent. Only marshalling here; the matching is core/library/Search.
@@ -160,7 +160,7 @@ Java_dev_geode_engine_bridge_GeodeNative_librarySearch(JNIEnv* env, jobject, job
 // The Library screen's index (core/library/Search): rows as in librarySearch, a duration and an added time
 // per track. Only marshalling here; folding, order and search are native.
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_libraryIndexCreate(JNIEnv* env, jobject, jobjectArray rows,
+Java_dev_geode_engine_bridge_TagsNative_libraryIndexCreate(JNIEnv* env, jobject, jobjectArray rows,
                                                             jlongArray durationsMs, jlongArray addedSec) {
     if (!rows) return 0;
     const jsize cells = env->GetArrayLength(rows);
@@ -178,12 +178,12 @@ Java_dev_geode_engine_bridge_GeodeNative_libraryIndexCreate(JNIEnv* env, jobject
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_libraryIndexDestroy(JNIEnv*, jobject, jlong handle) {
+Java_dev_geode_engine_bridge_TagsNative_libraryIndexDestroy(JNIEnv*, jobject, jlong handle) {
     geode_library_index_destroy(libraryIndexOf(handle));
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_libraryIndexOrder(JNIEnv* env, jobject, jlong handle, jint sort) {
+Java_dev_geode_engine_bridge_TagsNative_libraryIndexOrder(JNIEnv* env, jobject, jlong handle, jint sort) {
     const geode_library_index* index = libraryIndexOf(handle);
     std::vector<jint> rows(static_cast<size_t>(geode_library_index_order(index, sort, nullptr, 0)));
     geode_library_index_order(index, sort, rows.data(), static_cast<int>(rows.size()));
@@ -191,7 +191,7 @@ Java_dev_geode_engine_bridge_GeodeNative_libraryIndexOrder(JNIEnv* env, jobject,
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_libraryIndexSearch(JNIEnv* env, jobject, jlong handle, jbyteArray query) {
+Java_dev_geode_engine_bridge_TagsNative_libraryIndexSearch(JNIEnv* env, jobject, jlong handle, jbyteArray query) {
     std::string text;
     if (query) {
         const jsize n = env->GetArrayLength(query);
@@ -208,7 +208,7 @@ Java_dev_geode_engine_bridge_GeodeNative_libraryIndexSearch(JNIEnv* env, jobject
 // flag per track, the playlist and preset names, and the query. Only marshalling here; the buffer is sized for
 // every row, so native searches once.
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_searchSheet(JNIEnv* env, jobject, jobjectArray tracks, jbooleanArray preferred,
+Java_dev_geode_engine_bridge_TagsNative_searchSheet(JNIEnv* env, jobject, jobjectArray tracks, jbooleanArray preferred,
                                                      jobjectArray playlists, jobjectArray presets, jbyteArray query) {
     const Cells trackCells = cellsOf(env, tracks);
     const Cells playlistNames = cellsOf(env, playlists);
@@ -230,7 +230,7 @@ Java_dev_geode_engine_bridge_GeodeNative_searchSheet(JNIEnv* env, jobject, jobje
 
 // An .lrc as the wire form of core/library/Lyrics (see geode_lyrics_parse). Only marshalling here.
 JNIEXPORT jbyteArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_lyricsParse(JNIEnv* env, jobject, jbyteArray text) {
+Java_dev_geode_engine_bridge_TagsNative_lyricsParse(JNIEnv* env, jobject, jbyteArray text) {
     const std::string source = textOf(env, text);
     std::string wire(static_cast<size_t>(geode_lyrics_parse(source.c_str(), nullptr, 0)), '\0');
     geode_lyrics_parse(source.c_str(), wire.data(), static_cast<int>(wire.size()) + 1);
@@ -238,7 +238,7 @@ Java_dev_geode_engine_bridge_GeodeNative_lyricsParse(JNIEnv* env, jobject, jbyte
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_lyricsIndexAt(JNIEnv* env, jobject, jlongArray timesMs, jlong positionMs) {
+Java_dev_geode_engine_bridge_TagsNative_lyricsIndexAt(JNIEnv* env, jobject, jlongArray timesMs, jlong positionMs) {
     if (!timesMs) return -1;
     const jsize count = env->GetArrayLength(timesMs);
     const std::vector<long long> times = longsOf(env, timesMs, count);
@@ -248,7 +248,7 @@ Java_dev_geode_engine_bridge_GeodeNative_lyricsIndexAt(JNIEnv* env, jobject, jlo
 // A picked playlist file (core/library/Playlist): the file's name and bytes in, the wire text out. Only marshalling
 // here; both cross as byte[] so a name or title outside the BMP survives.
 JNIEXPORT jbyteArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_playlistParse(JNIEnv* env, jobject, jbyteArray fileName, jbyteArray data) {
+Java_dev_geode_engine_bridge_TagsNative_playlistParse(JNIEnv* env, jobject, jbyteArray fileName, jbyteArray data) {
     const std::string name = textOf(env, fileName);
     const std::string bytes = textOf(env, data);
     const auto* raw = reinterpret_cast<const unsigned char*>(bytes.data());

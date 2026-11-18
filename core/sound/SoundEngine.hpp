@@ -73,6 +73,8 @@ public:
     void write(const float* interleaved, int frames, int channels);
     // The newest hop's frame, as of the samples written so far; dt only times the writer's silence.
     void step(float dtSeconds, GeodeSoundFrame& out);
+    // step()'s clock alone: the writer's silence is counted and fed, no frame is read. The analysis thread's pass.
+    void starve(float dtSeconds);
 
     // Hops by sample position. A position counts samples at the input rate (sampleRateHz(), before any
     // halving), as handed to write() since construction or reset(): the count a ring of the source's own
@@ -223,7 +225,7 @@ private:
 
     BinRange bins(float loHz, float hiHz) const;
     static float sum(const std::vector<float>& mag, BinRange r);
-    void readWindow(int count, float* mono, float* left, float* right) const;
+    void readWindow(int count, float* mono, float* left, float* right, int oldest = -1) const;
     void feed(float l, float r);
     void analyse();
     void feedSilence(float dt);
@@ -257,6 +259,7 @@ private:
     std::vector<float> pitchHann_;
     std::array<BinRange, kBands> bandBins_;
     std::array<BinRange, GEODE_SOUND_EQ_BANDS> eqBins_;
+    std::array<float, GEODE_SOUND_EQ_BANDS> eqSum_{};  // each EQ band's summed magnitude this hop
     std::array<BinRange, GEODE_SOUND_SPECTRUM_POINTS> spectrumBins_;
     BinRange audible_{};    // 20 Hz–20 kHz
     BinRange musical_{};    // 100 Hz–10 kHz

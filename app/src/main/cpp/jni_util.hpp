@@ -1,13 +1,53 @@
 #pragma once
 #include <jni.h>
 
+#include <atomic>
 #include <cstring>
+#include <mutex>
+#include <new>
 #include <string>
 #include <vector>
 
 #include "api/geode_api.h"
 
 namespace geode::jni {
+
+namespace detail {
+
+// java.lang.String, the two methods that code text and the "UTF-8" charset name, looked up once per process and
+// held as global references. Null when the lookup failed (out of memory): the next call tries again.
+struct StringCalls {
+    jclass type;
+    jmethodID getBytes;
+    jmethodID fromBytes;
+    jstring charset;
+};
+
+inline const StringCalls* stringCalls(JNIEnv* env) {
+    static std::atomic<const StringCalls*> cached{nullptr};
+    static std::mutex building;
+    if (const StringCalls* calls = cached.load(std::memory_order_acquire)) return calls;
+    std::lock_guard<std::mutex> hold(building);
+    if (const StringCalls* calls = cached.load(std::memory_order_acquire)) return calls;
+    jclass local = env->FindClass("java/lang/String");
+    jmethodID getBytes = local ? env->GetMethodID(local, "getBytes", "(Ljava/lang/String;)[B") : nullptr;
+    jmethodID fromBytes = getBytes ? env->GetMethodID(local, "<init>", "([BLjava/lang/String;)V") : nullptr;
+    jstring name = fromBytes ? env->NewStringUTF("UTF-8") : nullptr;
+    auto* type = name ? static_cast<jclass>(env->NewGlobalRef(local)) : nullptr;
+    auto* charset = type ? static_cast<jstring>(env->NewGlobalRef(name)) : nullptr;
+    env->DeleteLocalRef(name);
+    env->DeleteLocalRef(local);
+    const StringCalls* calls = charset ? new (std::nothrow) StringCalls{type, getBytes, fromBytes, charset} : nullptr;
+    if (!calls) {
+        if (charset) env->DeleteGlobalRef(charset);
+        if (type) env->DeleteGlobalRef(type);
+        return nullptr;
+    }
+    cached.store(calls, std::memory_order_release);
+    return calls;
+}
+
+}  // namespace detail
 
 // Text crosses as standard UTF-8, coded by java.lang.String itself. JNI's own UTF calls speak Modified
 // UTF-8: GetStringUTFChars hands an emoji in a file name out as two surrogates, which names no file on
@@ -16,10 +56,8 @@ class Utf8Chars {
 public:
     Utf8Chars(JNIEnv* env, jstring str) {
         if (!str) return;
-        jclass type = env->GetObjectClass(str);
-        jmethodID getBytes = env->GetMethodID(type, "getBytes", "(Ljava/lang/String;)[B");
-        jstring charset = getBytes ? env->NewStringUTF("UTF-8") : nullptr;
-        auto* bytes = charset ? static_cast<jbyteArray>(env->CallObjectMethod(str, getBytes, charset)) : nullptr;
+        const detail::StringCalls* calls = detail::stringCalls(env);
+        auto* bytes = calls ? static_cast<jbyteArray>(env->CallObjectMethod(str, calls->getBytes, calls->charset)) : nullptr;
         // With an exception pending (out of memory) only the deletes below are legal: the text stays invalid and
         // the caller's Java frame sees the exception on return.
         if (bytes && !env->ExceptionCheck()) {
@@ -29,8 +67,6 @@ public:
             valid_ = true;
         }
         env->DeleteLocalRef(bytes);
-        env->DeleteLocalRef(charset);
-        env->DeleteLocalRef(type);
     }
     Utf8Chars(const Utf8Chars&) = delete;
     Utf8Chars& operator=(const Utf8Chars&) = delete;
@@ -48,12 +84,8 @@ inline jstring utf8String(JNIEnv* env, const char* text) {
     jbyteArray bytes = env->NewByteArray(n);
     if (!bytes) return nullptr;
     env->SetByteArrayRegion(bytes, 0, n, reinterpret_cast<const jbyte*>(text));
-    jclass type = env->FindClass("java/lang/String");
-    jmethodID fromBytes = type ? env->GetMethodID(type, "<init>", "([BLjava/lang/String;)V") : nullptr;
-    jstring charset = fromBytes ? env->NewStringUTF("UTF-8") : nullptr;
-    auto* out = charset ? static_cast<jstring>(env->NewObject(type, fromBytes, bytes, charset)) : nullptr;
-    env->DeleteLocalRef(charset);
-    env->DeleteLocalRef(type);
+    const detail::StringCalls* calls = detail::stringCalls(env);
+    auto* out = calls ? static_cast<jstring>(env->NewObject(calls->type, calls->fromBytes, bytes, calls->charset)) : nullptr;
     env->DeleteLocalRef(bytes);
     return out;
 }
@@ -68,9 +100,8 @@ inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
         entries.emplace_back(at, end);
         at = *end ? end + 1 : end;
     }
-    jclass type = env->FindClass("java/lang/String");
-    jobjectArray out = type ? env->NewObjectArray(static_cast<jsize>(entries.size()), type, nullptr) : nullptr;
-    env->DeleteLocalRef(type);
+    const detail::StringCalls* calls = detail::stringCalls(env);
+    jobjectArray out = calls ? env->NewObjectArray(static_cast<jsize>(entries.size()), calls->type, nullptr) : nullptr;
     for (size_t i = 0; out && i < entries.size(); ++i) {
         jstring entry = utf8String(env, entries[i].c_str());
         if (!entry) return nullptr;
@@ -99,7 +130,7 @@ private:
     jsize length_;
 };
 
-// A look from Java (GeodeNative.vizSetLook, stageSetLook), held for one call. Not ok() when the routes' text
+// A look from Java (VizNative.vizSetLook, stageSetLook), held for one call. Not ok() when the routes' text
 // could not be read: the caller then keeps the last look.
 class LookArgs {
 public:
@@ -137,3 +168,9 @@ private:
 };
 
 }  // namespace geode::jni
+
+// JNI's Modified UTF-8 calls end here: text crosses through Utf8Chars, utf8String and utf8Lines above, and any
+// later mention in a file that includes this header is a compile error. Only detail::stringCalls needs
+// NewStringUTF, for the ASCII charset name, and it sits above this line. Every JNI file includes this header
+// last, after <jni.h>, so no header that declares these names is read after the poison.
+#pragma GCC poison GetStringUTFChars ReleaseStringUTFChars NewStringUTF GetStringUTFRegion

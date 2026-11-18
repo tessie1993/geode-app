@@ -28,32 +28,42 @@ object MediaArtwork {
         context: Context,
         uri: String,
         maxPx: Int = DEFAULT_MAX_PX,
-    ): Bitmap? =
-        runCatching {
-            val retriever = android.media.MediaMetadataRetriever()
-            val bytes =
-                try {
-                    retriever.setDataSource(context, uri.toUri())
-                    retriever.embeddedPicture
-                } finally {
-                    retriever.release()
-                } ?: return null
-            decodeBytes(bytes, maxPx)
-        }.getOrNull()
+    ): Bitmap? = runCatching { decodeEmbeddedOrThrow(context, uri, maxPx) }.getOrNull()
+
+    /** Null only when the file has no picture; a file that cannot be read, or a decode that fails, throws. */
+    fun decodeEmbeddedOrThrow(
+        context: Context,
+        uri: String,
+        maxPx: Int = DEFAULT_MAX_PX,
+    ): Bitmap? {
+        val retriever = android.media.MediaMetadataRetriever()
+        val bytes =
+            try {
+                retriever.setDataSource(context, uri.toUri())
+                retriever.embeddedPicture
+            } finally {
+                retriever.release()
+            } ?: return null
+        return decodeBytesOrThrow(bytes, maxPx)
+    }
 
     fun decodeBytes(
         bytes: ByteArray,
         maxPx: Int = DEFAULT_MAX_PX,
-    ): Bitmap? =
-        runCatching {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            val longest = maxOf(bounds.outWidth, bounds.outHeight)
-            if (longest <= 0) return null
-            var sample = 1
-            while ((longest / (sample * 2)) >= maxPx) sample *= 2
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
-        }.getOrNull()
+    ): Bitmap? = runCatching { decodeBytesOrThrow(bytes, maxPx) }.getOrNull()
+
+    private fun decodeBytesOrThrow(
+        bytes: ByteArray,
+        maxPx: Int,
+    ): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        if (longest <= 0) return null
+        var sample = 1
+        while ((longest / (sample * 2)) >= maxPx) sample *= 2
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+    }
 
     const val DEFAULT_MAX_PX: Int = 384
 }

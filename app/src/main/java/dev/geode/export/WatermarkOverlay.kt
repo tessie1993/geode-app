@@ -7,7 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
 import dev.geode.model.WatermarkChoice
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -25,7 +25,7 @@ class WatermarkOverlay(
     use: Int = choice.use,
 ) {
     private val text = context.getString(R.string.pro_watermark_text)
-    private val placement = GeodeNative.exportWatermarkPlacement(choice.required, choice.proAdds, choice.placement, use)
+    private val placement = ExportNative.exportWatermarkPlacement(choice.required, choice.proAdds, choice.placement, use)
 
     /** The rasterised wordmark and where it goes, for a native job that draws it itself; null when these frames carry none. */
     fun tile(
@@ -49,7 +49,7 @@ class WatermarkOverlay(
 
     // Every size, colour and position is native; only the drawing is Android's.
     private fun rasteriseTile(shortSide: Int): Bitmap {
-        val look = FloatArray(PAINT_FLOATS).also { GeodeNative.exportWatermarkPaint(shortSide, placement, it) }
+        val look = FloatArray(PAINT_FLOATS).also { ExportNative.exportWatermarkPaint(shortSide, placement, it) }
         val textPx = look[0]
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -62,7 +62,7 @@ class WatermarkOverlay(
             }
         val metrics = paint.fontMetrics
         val tile = FloatArray(RASTER_FLOATS)
-        GeodeNative.exportWatermarkRaster(paint.measureText(text), metrics.ascent, metrics.descent, textPx, placement, tile)
+        ExportNative.exportWatermarkRaster(paint.measureText(text), metrics.ascent, metrics.descent, textPx, placement, tile)
         return Bitmap.createBitmap(tile[0].toInt(), tile[1].toInt(), Bitmap.Config.ARGB_8888).also { bitmap ->
             Canvas(bitmap).apply {
                 rotate(tile[2], tile[3], tile[4])

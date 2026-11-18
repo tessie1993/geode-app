@@ -42,8 +42,7 @@ bool LiquidPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, c
 }
 
 void LiquidPass::release() {
-    releaseSide(sides_[0]);
-    releaseSide(sides_[1]);
+    releaseSides();
     if (program_ != 0) glDeleteProgram(program_);
     program_ = 0;
     width_ = height_ = 0;
@@ -52,11 +51,10 @@ void LiquidPass::release() {
 
 bool LiquidPass::makeSide(Side& s) {
     s.liquid = makeTexture(width_, height_, halfFloat_);
-    s.display = makeTexture(width_, height_, false);
     glGenFramebuffers(1, &s.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, s.fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.liquid, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, s.display, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, display_, 0);
     const GLenum buffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
     glDrawBuffers(2, buffers);
     const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
@@ -75,13 +73,18 @@ bool LiquidPass::makeSide(Side& s) {
 void LiquidPass::releaseSide(Side& s) {
     if (s.fbo != 0) glDeleteFramebuffers(1, &s.fbo);
     if (s.liquid != 0) glDeleteTextures(1, &s.liquid);
-    if (s.display != 0) glDeleteTextures(1, &s.display);
     s = {};
 }
 
-void LiquidPass::releaseTargets() {
+void LiquidPass::releaseSides() {
     releaseSide(sides_[0]);
     releaseSide(sides_[1]);
+    if (display_ != 0) glDeleteTextures(1, &display_);
+    display_ = 0;
+}
+
+void LiquidPass::releaseTargets() {
+    releaseSides();
     width_ = height_ = 0;
     read_ = 0;
     fresh_ = true;
@@ -92,10 +95,10 @@ bool LiquidPass::ensure(int width, int height) {
     height = std::max(height, 1);
     if (program_ == 0) return false;
     if (width == width_ && height == height_ && sides_[0].fbo != 0 && sides_[1].fbo != 0) return true;
-    releaseSide(sides_[0]);
-    releaseSide(sides_[1]);
+    releaseSides();
     width_ = width;
     height_ = height;
+    display_ = makeTexture(width_, height_, false);
     bool ok = makeSide(sides_[0]) && makeSide(sides_[1]);
     if (!ok && halfFloat_) {
         // A driver that probed half float renderable but will not attach it beside RGBA8.
@@ -105,8 +108,7 @@ bool LiquidPass::ensure(int width, int height) {
         ok = makeSide(sides_[0]) && makeSide(sides_[1]);
     }
     if (!ok) {
-        releaseSide(sides_[0]);
-        releaseSide(sides_[1]);
+        releaseSides();
         width_ = height_ = 0;
     }
     read_ = 0;
@@ -117,7 +119,7 @@ bool LiquidPass::ensure(int width, int height) {
 GLuint LiquidPass::run(const Frame& f) {
     if (program_ == 0 || sides_[0].fbo == 0 || sides_[1].fbo == 0) return 0;
     // A stopped clock holds the picture: another pass would sharpen and fade it again with nothing moving.
-    if (!(f.dt > 0.0f) && !fresh_) return sides_[read_].display;
+    if (!(f.dt > 0.0f) && !fresh_) return display_;
     const int write = 1 - read_;
     Side& dst = sides_[write];
     glBindFramebuffer(GL_FRAMEBUFFER, dst.fbo);
@@ -176,7 +178,7 @@ GLuint LiquidPass::run(const Frame& f) {
     }
     read_ = write;
     fresh_ = false;
-    return dst.display;
+    return display_;
 }
 
 }  // namespace geode::viz::liquid

@@ -15,6 +15,11 @@
 #   onetwenty  the old centre as a tempo anywhere, tests included: "120 BPM", bpm = 120, a beat of
 #              60.0 / 120.0 s or 0.5 s. A test plays other tempos (77, 93, 141, 174), so nothing
 #              passes because of a hidden pull to 120. A 120 that is no tempo (fps, Hz, ms) passes.
+#              A 120 passed to a tempo carrier also fails, named or not: brace or paren initialisation
+#              of a type or callee that carries a tempo (Song{120.0}, const Song s{120.0},
+#              checkGroove({"x", 120.0, ...}), Tempo(120f), bpm{120}, clicks/metronome/clockAt/musicAt
+#              (..., 120, ...)) and TapAlong's frame(t, phase, 120, ...). Any 120 among such a
+#              carrier's own arguments is read as its tempo: give a time there in other units.
 #
 # Usage: tools/no-bpm-bias-gate.sh [repo-root]. The first four shapes skip host tests (core/tests,
 # */src/test, androidTest) and tools/glslcheck, where a stimulus may set any tempo it plays. The
@@ -41,6 +46,10 @@ onetwenty="(^|[^0-9.])$n120[ -]?(bpm|b\\.p\\.m|beats? (per|a) min)|(bpm|tempo)[a
 onetwenty+="|(^|[^0-9.])120\\.0*f?[[:space:]]*/[[:space:]]*60\\.0*f?$end|(^|[^0-9.])60\\.0*f?[[:space:]]*/[[:space:]]*120\\.0*f?$end"
 onetwenty+="|beat[_ ]?(seconds|secs|period|length)[a-z_]*[[:space:]]*[=:][[:space:]]*0?\\.50*f?$end"
 onetwenty+="|(^|[^0-9.])$n120[[:space:]]*,.*(//|#).*\\bbpm\\b"
+carrier='([a-z_]*(song|groove)s?|clicks?|metronome|clockat|musicat|[a-z_]*(tempo|bpm)[a-z_]*)'
+args="[({]+([^;{}()]*[^0-9.a-z_])?$n120$end"
+onetwenty+="|\\b$carrier$args|\\b$carrier[[:space:]]+[a-z_][a-z0-9_]*(\\[[0-9]*\\])?([[:space:]]*=[[:space:]]*)?$args"
+onetwenty+="|\\.frame\\([^;,()]*,[^;,()]*,[[:space:]]*$n120$end"
 
 types=(--include='*.cpp' --include='*.hpp' --include='*.h' --include='*.inc' --include='*.kt' --include='*.kts'
        --include='*.glsl' --include='*.frag' --include='*.vert' --include='*.md' --include='*.py' --include='*.mjs'

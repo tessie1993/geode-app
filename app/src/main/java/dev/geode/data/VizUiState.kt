@@ -1,8 +1,8 @@
 package dev.geode.data
 
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FreeTier
-import dev.geode.render.scene.SceneParams
 
 data class VizUiState(
     /** A fresh install (no saved live look) opens on the free showpiece, for Pro and free alike. */

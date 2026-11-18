@@ -37,7 +37,7 @@ private:
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageCreate(JNIEnv* env, jobject, jobject assetManager, jstring cacheDir,
+Java_dev_geode_engine_bridge_StageNative_stageCreate(JNIEnv* env, jobject, jobject assetManager, jstring cacheDir,
                                                      jstring milkTextureDir, jint kind, jfloat capFps) {
     Utf8Chars cache(env, cacheDir);
     Utf8Chars textures(env, milkTextureDir);
@@ -46,13 +46,13 @@ Java_dev_geode_engine_bridge_GeodeNative_stageCreate(JNIEnv* env, jobject, jobje
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageDestroy(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageDestroy(JNIEnv*, jobject, jlong stage) {
     geode_stage_destroy(stageOf(stage));
 }
 
 // The stage takes its own reference to the window, so this one is let go as soon as the call returns.
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetWindow(JNIEnv* env, jobject, jlong stage, jobject surface, jint width,
+Java_dev_geode_engine_bridge_StageNative_stageSetWindow(JNIEnv* env, jobject, jlong stage, jobject surface, jint width,
                                                         jint height) {
     ANativeWindow* window = surface ? ANativeWindow_fromSurface(env, surface) : nullptr;
     geode_stage_set_window(stageOf(stage), window, width, height);
@@ -60,59 +60,59 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetWindow(JNIEnv* env, jobject, jl
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetSize(JNIEnv*, jobject, jlong stage, jint width, jint height) {
+Java_dev_geode_engine_bridge_StageNative_stageSetSize(JNIEnv*, jobject, jlong stage, jint width, jint height) {
     geode_stage_set_size(stageOf(stage), width, height);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetView(JNIEnv*, jobject, jlong stage, jint viewFlags) {
+Java_dev_geode_engine_bridge_StageNative_stageSetView(JNIEnv*, jobject, jlong stage, jint viewFlags) {
     geode_stage_set_view(stageOf(stage), static_cast<unsigned>(viewFlags));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetSurface(JNIEnv*, jobject, jlong stage, jint surfaceFlags,
+Java_dev_geode_engine_bridge_StageNative_stageSetSurface(JNIEnv*, jobject, jlong stage, jint surfaceFlags,
                                                          jlong animateUntilMs, jlong nowMs) {
     return geode_stage_set_surface(stageOf(stage), static_cast<unsigned>(surfaceFlags), animateUntilMs, nowMs);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stagePause(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stagePause(JNIEnv*, jobject, jlong stage) {
     geode_stage_pause(stageOf(stage));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageResume(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageResume(JNIEnv*, jobject, jlong stage) {
     geode_stage_resume(stageOf(stage));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageRedraw(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageRedraw(JNIEnv*, jobject, jlong stage) {
     geode_stage_redraw(stageOf(stage));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetCap(JNIEnv*, jobject, jlong stage, jfloat capFps) {
+Java_dev_geode_engine_bridge_StageNative_stageSetCap(JNIEnv*, jobject, jlong stage, jfloat capFps) {
     geode_stage_set_cap(stageOf(stage), capFps);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageState(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageState(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_state(stageOf(stage)));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageTakeEvents(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageTakeEvents(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_take_events(stageOf(stage)));
 }
 
 // A ring handle is valid while its Kotlin holder is reachable: the shell holds the ring until it has set another.
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetSound(JNIEnv*, jobject, jlong stage, jlong ring) {
+Java_dev_geode_engine_bridge_StageNative_stageSetSound(JNIEnv*, jobject, jlong stage, jlong ring) {
     geode_stage_set_sound(stageOf(stage), reinterpret_cast<const geode_pcm_ring*>(ring));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetLook(JNIEnv* env, jobject, jlong stage, jstring sceneId, jfloatArray params,
+Java_dev_geode_engine_bridge_StageNative_stageSetLook(JNIEnv* env, jobject, jlong stage, jstring sceneId, jfloatArray params,
                                                       jstring lfos, jstring adsrs, jfloatArray tuning, jstring reactions,
                                                       jboolean reducedMotion, jstring transitionId, jlong transitionMs) {
     geode::jni::LookArgs look(env, sceneId, params, lfos, adsrs, tuning, reactions, reducedMotion, transitionId, transitionMs);
@@ -122,7 +122,7 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetLook(JNIEnv* env, jobject, jlon
 // Checked against the array's length and treated as a clear when it does not fit, so a stale width or height
 // never reads past the JVM's buffer.
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetUnderlay(JNIEnv* env, jobject, jlong stage, jintArray pixels, jint width,
+Java_dev_geode_engine_bridge_StageNative_stageSetUnderlay(JNIEnv* env, jobject, jlong stage, jintArray pixels, jint width,
                                                           jint height, jint blend, jfloat amount) {
     StageViz viz(stage);
     jint* data = pixels ? env->GetIntArrayElements(pixels, nullptr) : nullptr;
@@ -135,90 +135,90 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetUnderlay(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat renderScale, jfloat marchScale,
+Java_dev_geode_engine_bridge_StageNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat renderScale, jfloat marchScale,
                                                          jboolean postFx) {
     geode_viz_set_quality(StageViz(stage), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageBeginParamMorph(JNIEnv*, jobject, jlong stage, jfloat seconds) {
+Java_dev_geode_engine_bridge_StageNative_stageBeginParamMorph(JNIEnv*, jobject, jlong stage, jfloat seconds) {
     geode_viz_begin_param_morph(StageViz(stage), seconds);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetTouch(JNIEnv* env, jobject, jlong stage, jfloatArray xy, jint points) {
+Java_dev_geode_engine_bridge_StageNative_stageSetTouch(JNIEnv* env, jobject, jlong stage, jfloatArray xy, jint points) {
     FloatElements data(env, xy);
     const jint available = data.get() ? data.length() / 2 : 0;
     geode_viz_set_touch(StageViz(stage), data.get(), std::min(points, available));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetTouchSmear(JNIEnv*, jobject, jlong stage, jboolean on, jfloat strength) {
+Java_dev_geode_engine_bridge_StageNative_stageSetTouchSmear(JNIEnv*, jobject, jlong stage, jboolean on, jfloat strength) {
     geode_viz_set_touch_smear(StageViz(stage), on == JNI_TRUE ? 1 : 0, strength);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetFluidInjection(JNIEnv* env, jobject, jlong stage, jstring force, jstring dye) {
+Java_dev_geode_engine_bridge_StageNative_stageSetFluidInjection(JNIEnv* env, jobject, jlong stage, jstring force, jstring dye) {
     Utf8Chars forceSrc(env, force);
     Utf8Chars dyeSrc(env, dye);
     geode_viz_set_fluid_injection(StageViz(stage), forceSrc.get(), dyeSrc.get());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageLoadMilkPreset(JNIEnv* env, jobject, jlong stage, jstring path) {
+Java_dev_geode_engine_bridge_StageNative_stageLoadMilkPreset(JNIEnv* env, jobject, jlong stage, jstring path) {
     Utf8Chars file(env, path);
     geode_viz_load_milk_preset(StageViz(stage), file.get());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageReloadMilkPreset(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageReloadMilkPreset(JNIEnv*, jobject, jlong stage) {
     geode_viz_reload_milk_preset(StageViz(stage));
 }
 
 // One call: the take hands the path out once. A path longer than PATH_MAX is no file the renderer loaded.
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageTakeMilkLoaded(JNIEnv* env, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageTakeMilkLoaded(JNIEnv* env, jobject, jlong stage) {
     char path[4096];
     const size_t length = geode_stage_take_milk_loaded(stageOf(stage), path, sizeof(path));
     return length > 0 && length < sizeof(path) ? geode::jni::utf8String(env, path) : nullptr;
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageTakeDirectorMoments(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageTakeDirectorMoments(JNIEnv*, jobject, jlong stage) {
     return geode_stage_take_director_moments(stageOf(stage));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageLiquidMode(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageLiquidMode(JNIEnv*, jobject, jlong stage) {
     return geode_stage_liquid_mode(stageOf(stage));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageError(JNIEnv* env, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageError(JNIEnv* env, jobject, jlong stage) {
     std::vector<char> text(geode_stage_error(stageOf(stage), nullptr, 0) + 1, '\0');
     geode_stage_error(stageOf(stage), text.data(), text.size());
     return geode::jni::utf8String(env, text.data());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageGyroPush(JNIEnv*, jobject, jlong stage, jfloat x, jfloat y, jfloat z, jfloat w,
+Java_dev_geode_engine_bridge_StageNative_stageGyroPush(JNIEnv*, jobject, jlong stage, jfloat x, jfloat y, jfloat z, jfloat w,
                                                        jint displayRotation) {
     geode_viz_gyro_push(StageViz(stage), x, y, z, w, displayRotation);
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageGyroListens(JNIEnv*, jobject, jlong stage, jboolean wanted) {
+Java_dev_geode_engine_bridge_StageNative_stageGyroListens(JNIEnv*, jobject, jlong stage, jboolean wanted) {
     return geode_stage_gyro_listens(stageOf(stage), wanted == JNI_TRUE ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetUiBlurRegion(JNIEnv*, jobject, jlong stage, jfloat left, jfloat top,
+Java_dev_geode_engine_bridge_StageNative_stageSetUiBlurRegion(JNIEnv*, jobject, jlong stage, jfloat left, jfloat top,
                                                               jfloat right, jfloat bottom, jfloat strength, jfloat cornerPx) {
     geode_viz_set_ui_blur_region(StageViz(stage), left, top, right, bottom, strength, cornerPx);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetEdgeGlow(JNIEnv* env, jobject, jlong stage, jfloatArray opts) {
+Java_dev_geode_engine_bridge_StageNative_stageSetEdgeGlow(JNIEnv* env, jobject, jlong stage, jfloatArray opts) {
     const jsize count = opts ? std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS) : 0;
     float values[GEODE_EDGE_GLOW_FLOATS] = {};
     if (count > 0) env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
@@ -226,26 +226,26 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetEdgeGlow(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSetCastSource(JNIEnv*, jobject, jlong stage, jboolean on) {
+Java_dev_geode_engine_bridge_StageNative_stageSetCastSource(JNIEnv*, jobject, jlong stage, jboolean on) {
     geode_viz_set_cast_source(StageViz(stage), on == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageKnows(JNIEnv* env, jobject, jlong stage, jstring sceneId) {
+Java_dev_geode_engine_bridge_StageNative_stageKnows(JNIEnv* env, jobject, jlong stage, jstring sceneId) {
     Utf8Chars id(env, sceneId);
     return geode_viz_knows(StageViz(stage), id.get()) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageSceneIds(JNIEnv* env, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageSceneIds(JNIEnv* env, jobject, jlong stage) {
     StageViz viz(stage);
     std::vector<char> ids(geode_viz_scene_ids(viz, nullptr, 0) + 1, '\0');
     geode_viz_scene_ids(viz, ids.data(), ids.size());
-    return env->NewStringUTF(ids.data());
+    return geode::jni::utf8String(env, ids.data());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageWarmTransition(JNIEnv* env, jobject, jlong stage, jstring id) {
+Java_dev_geode_engine_bridge_StageNative_stageWarmTransition(JNIEnv* env, jobject, jlong stage, jstring id) {
     Utf8Chars name(env, id);
     geode_stage_warm_transition(stageOf(stage), name.get());
 }
@@ -253,7 +253,7 @@ Java_dev_geode_engine_bridge_GeodeNative_stageWarmTransition(JNIEnv* env, jobjec
 // The tile is copied by the call, so the buffer is the caller's again when it returns. A heap buffer has no
 // address: it crosses as no tile, which a recording that owes a mark fails on.
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageRecordStart(JNIEnv* env, jobject, jlong stage, jlong recorder, jlong session,
+Java_dev_geode_engine_bridge_StageNative_stageRecordStart(JNIEnv* env, jobject, jlong stage, jlong recorder, jlong session,
                                                           jobject tile, jint tileWidth, jint tileHeight, jint placement,
                                                           jint corner) {
     const jlong needed = static_cast<jlong>(tileWidth) * static_cast<jlong>(tileHeight) * 4;
@@ -267,22 +267,22 @@ Java_dev_geode_engine_bridge_GeodeNative_stageRecordStart(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageRecordStop(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageRecordStop(JNIEnv*, jobject, jlong stage) {
     geode_stage_record_stop(stageOf(stage));
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageRecordClosed(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageRecordClosed(JNIEnv*, jobject, jlong stage) {
     return geode_stage_record_closed(stageOf(stage)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageStillRequest(JNIEnv*, jobject, jlong stage) {
+Java_dev_geode_engine_bridge_StageNative_stageStillRequest(JNIEnv*, jobject, jlong stage) {
     geode_viz_still_request(StageViz(stage));
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageStillSize(JNIEnv* env, jobject, jlong stage, jintArray out) {
+Java_dev_geode_engine_bridge_StageNative_stageStillSize(JNIEnv* env, jobject, jlong stage, jintArray out) {
     if (!out || env->GetArrayLength(out) < 2) return JNI_FALSE;
     jint size[2] = {0, 0};
     if (!geode_stage_still_size(stageOf(stage), &size[0], &size[1])) return JNI_FALSE;
@@ -291,14 +291,14 @@ Java_dev_geode_engine_bridge_GeodeNative_stageStillSize(JNIEnv* env, jobject, jl
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageStillRead(JNIEnv* env, jobject, jlong stage, jobject out) {
+Java_dev_geode_engine_bridge_StageNative_stageStillRead(JNIEnv* env, jobject, jlong stage, jobject out) {
     void* bytes = out ? env->GetDirectBufferAddress(out) : nullptr;
     const jlong capacity = bytes ? env->GetDirectBufferCapacity(out) : 0;
     return bytes && capacity > 0 && geode_stage_still_read(stageOf(stage), bytes, static_cast<size_t>(capacity)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageTapAlong(JNIEnv*, jobject, jlong stage, jlong uptimeNs) {
+Java_dev_geode_engine_bridge_StageNative_stageTapAlong(JNIEnv*, jobject, jlong stage, jlong uptimeNs) {
     return geode_viz_tap_along(StageViz(stage), uptimeNs) ? JNI_TRUE : JNI_FALSE;
 }
 

@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "output/PreRoll.hpp"
+#include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
@@ -22,8 +23,10 @@ constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
 constexpr int kPcmCapacity = 512 * 8;
-// A renderer's own ring (Renderer::hearOwn): over a second at 48 kHz, published a runway at a time.
-constexpr int kOwnRingFrames = 1 << 16;
+// A renderer's own ring (Renderer::hearOwn): a second at the capture rate, published a runway at a time.
+constexpr int kOwnRingMs = 1000;
+constexpr int kOwnRingFrames = sound::budget::ringFrames(kOwnRingMs, sound::budget::kCaptureRateHz);
+static_assert(kOwnRingFrames == 1 << 16, "a renderer's own ring changed size");
 constexpr int kOwnRingRunway = 1 << 14;
 }  // namespace
 
@@ -270,7 +273,7 @@ void Renderer::applyMilkRequests() {
     if (!milk) return;
     // A preset picked in silence still loads and shows: about a second of redraws.
     if (!preset.empty() || reload || !textureDir.empty()) {
-        redrawFrames_ = 60;
+        redrawSeconds_ = kRedrawSeconds;
         noteSettling();  // projectM compiles the preset's shaders on this thread
     }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
@@ -594,7 +597,7 @@ void Renderer::applyRenderScale() {
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
-    fboB_.ensure(renderWidth_, renderHeight_);
+    if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
 }
 
 float Renderer::supersampleFactor(int width, int height) {
@@ -694,7 +697,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
     };
     if (shed.passTargets) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
-        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        // sides and their display alone are five screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
         divePass_.releaseTarget();
         trailPass_.releaseTargets();

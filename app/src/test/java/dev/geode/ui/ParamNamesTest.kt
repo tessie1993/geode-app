@@ -1,7 +1,7 @@
 package dev.geode.ui
 
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.TestParams
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.TestParams
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

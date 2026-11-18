@@ -28,7 +28,7 @@ namespace geode::viz::physics {
 //
 // The composite then shows that target in place of the picture. A plan that asks for nothing (both mixes 0, every
 // look's default) draws nothing and returns the picture itself, so the frame is the one it was; the grids,
-// particles and target are made only once a layer is on and freed kIdleFrames after both are off. Live, the
+// particles and target are made only once a layer is on and freed kIdleSeconds after both are off. Live, the
 // programs, the fluid and the particles are built one per frame, so turning a layer on never stalls a frame for
 // all of them; an export builds them whole. Everything steps on the frame's music clock, so silence holds it.
 class PhysicsLayers {
@@ -38,6 +38,7 @@ public:
         int width = 1;        // the scene target's size, which this pass's own target matches
         int height = 1;
         float dt = 0.0f;      // the frame's step on the music clock: 0 holds every layer
+        float wallDt = 0.0f;  // the frame's wall step: the idle window's clock
         float time = 0.0f;    // the picture's clock (the particles' respawn hash)
         GLuint zeroTex = 0;   // samples as zero: no velocity and no ink with the fluid off
         GLuint quadVao = 0;   // the renderer's attribute-less VAO for fade_vert.glsl

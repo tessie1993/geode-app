@@ -111,15 +111,15 @@ public:
                 case sink::Out::Sample: {
                     size_t capacity = 0;
                     const uint8_t* data = encoder_->outputBuffer(index, &capacity);
-                    if (!data) {
+                    // Bytes with no buffer, or a size the buffer cannot hold, is a broken codec: stop, never read
+                    // past the buffer. A null buffer holding nothing (the end-of-stream marker) is no failure.
+                    if (sink::brokenSample(info, data, capacity)) {
                         encoder_->releaseOutput(index);
-                        return Failure::EmptyBuffer;
+                        return data ? Failure::Stopped : Failure::EmptyBuffer;
                     }
                     bool written = true;
                     if (muxing_ && info.size > 0 && (info.flags & sink::kFlagCodecConfig) == 0) {
-                        // A sample its buffer cannot hold is a broken codec: stop, never read past the buffer.
-                        written = static_cast<size_t>(info.size) <= capacity &&
-                                  muxer_->writeSample(videoTrack_, data, info);
+                        written = muxer_->writeSample(videoTrack_, data, info);
                         if (written) wroteSample_ = true;
                     }
                     if (!encoder_->releaseOutput(index)) return Failure::EncoderFailed;

@@ -1,9 +1,9 @@
 package dev.geode.pro
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.engine.bridge.TestCatalogue
 import dev.geode.model.WatermarkChoice
-import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -57,7 +57,7 @@ class FeatureGateTest {
     @Test
     fun `each style family gives away its first style and keeps the rest for Pro`() {
         TestCatalogue.OPENERS.forEach { assertTrue(it, free.allowsStyle(it)) }
-        val followers = StyleCatalogue.ids(GeodeNative.STYLE_FAMILY_FOLLOWER)
+        val followers = StyleCatalogue.ids(CatalogueNative.STYLE_FAMILY_FOLLOWER)
         assertTrue(followers.isNotEmpty())
         followers.forEach { id ->
             assertFalse(id, free.allowsStyle(id))

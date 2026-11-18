@@ -9,7 +9,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.StageNative
 
 /**
  * The surface a [Stage] draws into. It tells native what Android tells it (the surface, its size, whether the
@@ -21,7 +21,7 @@ import dev.geode.engine.bridge.GeodeNative
  */
 class StageView(
     context: Context,
-    private val kind: Int = GeodeNative.STAGE_KIND_VIEW,
+    private val kind: Int = StageNative.STAGE_KIND_VIEW,
     capFps: Float = DEFAULT_CAP_FPS,
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
@@ -129,12 +129,12 @@ class StageView(
 
     /** What the view sees of itself, as is; a surface stage's rule is its host's ([Stage.setSurface]). */
     private fun restate(attached: Boolean) {
-        if (kind != GeodeNative.STAGE_KIND_VIEW) return
+        if (kind != StageNative.STAGE_KIND_VIEW) return
         val flags =
-            (if (attached) GeodeNative.STAGE_VIEW_ATTACHED else 0) or
-                (if (windowVisibility == VISIBLE) GeodeNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or
-                (if (isShown) GeodeNative.STAGE_VIEW_SHOWN else 0) or
-                (if (alpha > 0f) GeodeNative.STAGE_VIEW_OPAQUE else 0)
+            (if (attached) StageNative.STAGE_VIEW_ATTACHED else 0) or
+                (if (windowVisibility == VISIBLE) StageNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or
+                (if (isShown) StageNative.STAGE_VIEW_SHOWN else 0) or
+                (if (alpha > 0f) StageNative.STAGE_VIEW_OPAQUE else 0)
         stage.setView(flags)
         syncTilt()
     }
@@ -143,8 +143,13 @@ class StageView(
         val sensor = tilt ?: return
         val on = stage.gyroListens(gyroWanted)
         if (on == tiltOn) return
-        tiltOn = on
-        if (on) sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) else sensors?.unregisterListener(this)
+        // Only a registration the sensor service took counts as on, so a refused one is tried again next sync.
+        if (on) {
+            tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) == true
+        } else {
+            tiltOn = false
+            sensors?.unregisterListener(this)
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent) {

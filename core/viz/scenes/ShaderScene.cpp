@@ -250,8 +250,8 @@ void ShaderScene::uploadParams() {
 }
 
 // Every style is handed these; the ones that read none of them link them away
-// and glUniform on a -1 location is a no-op, so this costs nothing on a style
-// that has not been converted.
+// (location -1). Each still costs a cached lookup; set1f then skips the driver
+// call, and the few direct glUniform calls below make one that does nothing.
 void ShaderScene::uploadMotion() {
     // Wave three: the continuous replacement for the spike-latched state.
     // Nothing here is a trigger; every value is a running average, a
@@ -324,8 +324,6 @@ void ShaderScene::uploadWorld() {
         if (max3d < world::atlasMaxDimension() || atlas.empty()) {
             GEODE_LOGW(kTag, "Morph World shapes need a %d^3 texture, this device allows %d: drawing spheres",
                        world::atlasMaxDimension(), static_cast<int>(max3d));
-            worldShapes_.clear();
-            worldMaps_.clear();
             world_->setAssetsBound(false);
         } else {
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -350,6 +348,10 @@ void ShaderScene::uploadWorld() {
             glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
             world_->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
         }
+        // Uploaded or refused, the bytes (about 1 MB) are never read again: every release() of a scene is
+        // followed by its destruction, so there is no second upload from this object.
+        std::string().swap(worldShapes_);
+        std::string().swap(worldMaps_);
     }
     if (worldShapesTex_ != 0) {
         // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture.
@@ -443,7 +445,8 @@ void ShaderScene::specializeWorld() {
 }
 
 void ShaderScene::set1f(const char* name, float value) {
-    glUniform1f(uniforms_.loc(name), value);
+    const GLint location = uniforms_.loc(name);
+    if (location != -1) glUniform1f(location, value);
 }
 
 float ShaderScene::marchSteps(float detail) {

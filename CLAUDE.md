@@ -10,7 +10,7 @@
 
 ## Kotlin is the shell, C++ is the app
 
-- Kotlin is the main-thread shell only: Compose UI, ViewModels, Android services and platform calls, stores, and the JNI declarations in `GeodeNative`.
+- Kotlin is the main-thread shell only: Compose UI, ViewModels, Android services and platform calls, stores, and the JNI declarations in `dev.geode.engine.bridge`.
 - Everything else is C++ in `core/`: every thread off the main thread, all parameter code, modulation and reactions, the audio engine and DSP, shaders and the renderer.
 - PCM data, buffers and samples are never handled in Kotlin. Parameter changes are never computed in Kotlin.
 - ExoPlayer stays the player; its tap comes first in the chain and hands PCM to native.

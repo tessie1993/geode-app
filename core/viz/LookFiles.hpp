@@ -65,6 +65,9 @@ SceneParams applyPalette(const SceneParams& params, const SavedPalette& p);
 
 // The saved palette id a look keeps once palette `deletedId` is deleted: "" if it was that one.
 std::string keptPaletteId(std::string_view lookId, std::string_view deletedId);
+// The saved palette id a look keeps on a frame native wrote (a roll, a reset): `lookId` while the frame still
+// draws its own palette, "" once it does not, because a saved palette is its overrides.
+std::string framePaletteId(std::string_view lookId, const SceneParams& frame);
 
 // A palette file migrated to its current id rule: the text it should hold, under the stem paletteIdFor(name).
 std::optional<std::string> migratedPalette(std::string_view text);

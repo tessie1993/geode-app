@@ -79,28 +79,28 @@ int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, 
 
 extern "C" {
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingShared(JNIEnv*, jobject, jint kind) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingShared(JNIEnv*, jobject, jint kind) {
     return reinterpret_cast<jlong>(geode_pcm_ring_shared(kind));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetLive(JNIEnv*, jobject, jboolean on) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingSetLive(JNIEnv*, jobject, jboolean on) {
     geode_pcm_ring_set_live(on ? 1 : 0);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingLive(JNIEnv*, jobject) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingLive(JNIEnv*, jobject) {
     return reinterpret_cast<jlong>(geode_pcm_ring_live());
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingCreateKind(JNIEnv*, jobject, jint kind) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingCreateKind(JNIEnv*, jobject, jint kind) {
     return reinterpret_cast<jlong>(geode_pcm_ring_create_kind(kind));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingDestroy(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingDestroy(JNIEnv*, jobject, jlong handle) {
     geode_pcm_ring_destroy(ringOf(handle));
 }
 
 // The tap's buffer: a direct one read where it lies, a heap one through one bulk copy (writeHeap).
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteDirect(JNIEnv* env, jobject, jlong handle,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingWriteDirect(JNIEnv* env, jobject, jlong handle,
                                                                                    jobject buffer, jint position,
                                                                                    jint bytes, jint encoding,
                                                                                    jint channels, jint sampleRate) {
@@ -114,52 +114,52 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteDire
     return writeHeap(env, ringOf(handle), buffer, position, bytes, encoding, channels, sampleRate);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingMaxWriteFrames(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingMaxWriteFrames(JNIEnv*, jobject, jlong handle) {
     return geode_pcm_ring_max_write_frames(ringOf(handle));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {
     geode_pcm_ring_begin_epoch(ringOf(handle));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWritten(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingWritten(JNIEnv*, jobject, jlong handle) {
     return geode_pcm_ring_written(ringOf(handle));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingHead(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingHead(JNIEnv*, jobject, jlong handle) {
     return geode_pcm_ring_head(ringOf(handle));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetPlayout(JNIEnv*, jobject, jlong handle,
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingSetPlayout(JNIEnv*, jobject, jlong handle,
                                                                                   jlong playout) {
     geode_pcm_ring_set_playout(ringOf(handle), reinterpret_cast<const geode_playout*>(playout));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingHeardAt(JNIEnv*, jobject, jlong handle,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingHeardAt(JNIEnv*, jobject, jlong handle,
                                                                                 jint frames, jlong nowMs,
                                                                                 jlong heardAtMs) {
     return geode_pcm_ring_heard_at(ringOf(handle), frames, nowMs, heardAtMs);
 }
 
 // The header scan (core/audio/ingest/AiffHeaderScan) for the player's extractor, which holds the file.
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanCreate(JNIEnv*, jobject) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanCreate(JNIEnv*, jobject) {
     return reinterpret_cast<jlong>(geode_aiff_scan_create());
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanDestroy(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanDestroy(JNIEnv*, jobject, jlong handle) {
     geode_aiff_scan_destroy(reinterpret_cast<geode_aiff_scan*>(handle));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanSkip(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanSkip(JNIEnv*, jobject, jlong handle) {
     return geode_aiff_scan_skip(reinterpret_cast<const geode_aiff_scan*>(handle));
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanRead(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanRead(JNIEnv*, jobject, jlong handle) {
     return geode_aiff_scan_read(reinterpret_cast<const geode_aiff_scan*>(handle));
 }
 
 // The first n bytes of `bytes`, copied out: the scan never asks for more than GEODE_AIFF_SCAN_MAX_READ.
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanStep(JNIEnv* env, jobject, jlong handle,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanStep(JNIEnv* env, jobject, jlong handle,
                                                                              jbyteArray bytes, jint n) {
     if (!bytes || n < 0 || n > GEODE_AIFF_SCAN_MAX_READ || env->GetArrayLength(bytes) < n) return GEODE_AIFF_SCAN_INVALID;
     jbyte copy[GEODE_AIFF_SCAN_MAX_READ] = {};
@@ -168,7 +168,7 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanStep(JNI
 }
 
 // out: GEODE_AIFF_HEADER_COUNT values, in the GEODE_AIFF_HEADER_* order.
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanHeader(JNIEnv* env, jobject, jlong handle,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanHeader(JNIEnv* env, jobject, jlong handle,
                                                                                    jlongArray out) {
     if (!out || env->GetArrayLength(out) < GEODE_AIFF_HEADER_COUNT) return JNI_FALSE;
     int64_t values[GEODE_AIFF_HEADER_COUNT] = {};
@@ -178,71 +178,71 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffScanHead
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffTimeUs(JNIEnv*, jobject, jlong bytes,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffTimeUs(JNIEnv*, jobject, jlong bytes,
                                                                             jint bytesPerFrame, jint sampleRate) {
     return geode_aiff_time_us(bytes, bytesPerFrame, sampleRate);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffSeekOffset(JNIEnv*, jobject, jlong timeUs,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffSeekOffset(JNIEnv*, jobject, jlong timeUs,
                                                                                 jint bytesPerFrame, jint sampleRate,
                                                                                 jlong dataBytes) {
     return geode_aiff_seek_offset(timeUs, bytesPerFrame, sampleRate, dataBytes);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffGapBytes(JNIEnv*, jobject, jlong position,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffGapBytes(JNIEnv*, jobject, jlong position,
                                                                               jlong dataStart) {
     return geode_aiff_gap_bytes(position, dataStart);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffReadBytes(JNIEnv*, jobject, jlong position,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffReadBytes(JNIEnv*, jobject, jlong position,
                                                                               jlong dataStart, jlong dataBytes) {
     return geode_aiff_read_bytes(position, dataStart, dataBytes);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffWholeBytes(JNIEnv*, jobject, jint pending,
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffWholeBytes(JNIEnv*, jobject, jint pending,
                                                                                jint bytesPerFrame) {
     return geode_aiff_whole_bytes(pending, bytesPerFrame);
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_aiffPendingTimeUs(JNIEnv*, jobject, jlong position,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffPendingTimeUs(JNIEnv*, jobject, jlong position,
                                                                                    jlong dataStart, jint pending,
                                                                                    jint bytesPerFrame,
                                                                                    jint sampleRate) {
     return geode_aiff_pending_time_us(position, dataStart, pending, bytesPerFrame, sampleRate);
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStart(JNIEnv*, jobject, jint deviceRateHz,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_IngestNative_micStart(JNIEnv*, jobject, jint deviceRateHz,
                                                                              jboolean unprocessed) {
     return geode_mic_start(deviceRateHz, unprocessed ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_micStop(JNIEnv*, jobject) { geode_mic_stop(); }
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_micStop(JNIEnv*, jobject) { geode_mic_stop(); }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_micActive(JNIEnv*, jobject) {
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_IngestNative_micActive(JNIEnv*, jobject) {
     return geode_mic_active() ? JNI_TRUE : JNI_FALSE;
 }
 
 // The captures Android has only as Java objects (geode_capture_java_api.h): built, read and released natively.
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCapturePlayback(JNIEnv* env, jobject,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_javaCapturePlayback(JNIEnv* env, jobject,
                                                                                      jobject projection, jlong ring) {
     return reinterpret_cast<jlong>(geode_java_capture_playback(env, projection, ringOf(ring)));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureOutputMix(JNIEnv* env, jobject,
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_javaCaptureOutputMix(JNIEnv* env, jobject,
                                                                                       jlong ring) {
     return reinterpret_cast<jlong>(geode_java_capture_output_mix(env, ringOf(ring)));
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureStop(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_javaCaptureStop(JNIEnv*, jobject, jlong handle) {
     geode_java_capture_stop(reinterpret_cast<geode_java_capture*>(handle));
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureActive(JNIEnv*, jobject,
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_IngestNative_javaCaptureActive(JNIEnv*, jobject,
                                                                                      jlong handle) {
     return geode_java_capture_active(reinterpret_cast<const geode_java_capture*>(handle)) ? JNI_TRUE : JNI_FALSE;
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_javaCaptureQuiet(JNIEnv*, jobject, jlong handle) {
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_IngestNative_javaCaptureQuiet(JNIEnv*, jobject, jlong handle) {
     return geode_java_capture_quiet(reinterpret_cast<const geode_java_capture*>(handle)) ? JNI_TRUE : JNI_FALSE;
 }
 

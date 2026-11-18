@@ -19,7 +19,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 ## `core/sound`: hearing
 
 - `Silence` is the wallpaper's and dream's rest-when-silent rule, polled through `geode_silence_*`.
-- The sound engine is MilkDrop's FFT path beside a TouchDesigner-style per-sample filter bank, stepped once per rendered frame into a `GeodeSoundFrame`.
+- The sound engine is MilkDrop's FFT path beside a per-sample filter bank, analysed every 10 ms of samples on its own thread per PCM ring live (inline for an export, `core/sound/hop/AnalysisThread`); a renderer reads the newest published hop into a `GeodeSoundFrame` each frame.
 - How much the music is comes from absolute loudness, never from the song's own average.
 - `LufsMeter` gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
 - `busy` is onset and drum density, the beat.
@@ -72,7 +72,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The touch smear (`core/viz/TouchSmear`, Settings › Touch › Smear): touch play's fingers kick the shared `FlowField` and the composite bends the finished picture by it (`uFlow`).
 - The fingers' maths (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, and touch play's stir; `VisualGestures.kt` keeps the pointer loop and which gesture fired.
 - The smear runs with Liquid off, live only, as an optional pass (`geode_viz_set_touch_smear`).
-- `liquid/LiquidMath` is Liquid mode's pure maths: thermal modes, inject weight, the random endless dive, gestures, born clock.
+- `liquid/LiquidMath` is Liquid mode's pure maths: inject weight, the random endless dive, gestures, born clock.
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
 - `LiquidPass` is a full-resolution feedback ping-pong between the scene target and the composite.
 - `LiquidPass` samples the last frame through that transform (`lib_feedback`, the same maths in GLSL), then the `FlowField` velocity, folds it back at the edges, and re-pours the style through `liquid_frag`.
@@ -110,7 +110,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 ## Native stage
 
 - `core/stage` is the native stage: one render thread, EGL context and window surface per surface, and one process-wide vsync thread; its design is [native-stage.md](native-stage.md).
-- The stage's C ABI is `core/api/geode_stage_api.h`; no JNI calls it yet.
+- The stage's C ABI is `core/api/geode_stage_api.h`; `app/src/main/cpp/geode_stage_jni.cpp` is the JNI over it.
 
 ## Per-frame chain
 
@@ -161,7 +161,7 @@ The renderer runs these in order each frame.
 - The old `kaleidoscope` switch and `symmetry` count are retired rows (`kRetiredParams`); `readParamsJson` turns a look that names them into `kaleidoFolds` (`SceneParams::kaleidoFoldsOf`: off is 1, on its count held to 2..16).
 - The shaders fold by the nearest whole count of the modulated `kaleidoFolds`: `SceneParams::kaleidoUniforms` sets `uKaleido`/`uSymmetry` (ShaderScene) and `uPostKaleido`/`uPostSymmetry` (CompositePass), on from 2, the count 6 (`kDefaultSymmetryFolds`) while off.
 - A roll turns the kaleidoscope on 3 times in 10, at a count from `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`).
-- Customize's Kaleidoscope slider steps by whole folds (`GeodeNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
+- Customize's Kaleidoscope slider steps by whole folds (`ParamsNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
 - Grow and layers (Customize › Shape › Grow): `spawn`, `fractal` (0..1) and `frontLayer`, `backLayer` (-1..1), appended slots 193..196 after the physics layers, default 0, each a modulation target (`SPAWN` .. `BACK_LAYER`, ordinals 74..77, one unit per unit).
 - Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold, and the older ten through their `<FAM>_GROW` hooks), but for `kFormSkipped` (Glass Gem and Prism).
 - The loose styles on `lib_shell` reach it too (`kFormLoose`): each hands its field to the hooks through a wrapper of its own, one field read in a pass loop.
@@ -194,7 +194,7 @@ The renderer runs these in order each frame.
 ## Thermal and settling
 
 - The renderer notes settling frames (a staged build, a fresh switch, a transition, a secondary's compiles, a MilkDrop preset load).
-- The thermal governor and the fluid scenes' auto quality sit out until 1.5 s after the last settling frame (`ThermalGovernor::noteSettling`), so quick style changes do not read as a slow phone.
+- `Renderer::settling()` stays true until 1.5 s after the last settling frame (`Renderer::noteSettling`), so quick style changes do not read as a slow phone. No thermal governor is left in the code.
 
 ## `core/audio`
 
@@ -212,7 +212,7 @@ The renderer runs these in order each frame.
 - `core/audio/dsp/EqPresets` is the built-in equalizer curves; the settings save a curve by its index, so their order is saved data.
 - `core/audio/ingest/CapturePlan` orders the formats a capture asks AudioRecord for and sizes its buffer (`geode_capture_plan`, `geode_capture_buffer_bytes`); playback capture only makes the AudioRecord calls.
 - `core/audio/ingest/MicInput` is live input: an Oboe input stream on that plan, mono, writing the mic's ring from its callback (`geode_mic_*`); Kotlin only asks the permission and starts and stops it.
-- `core/audio/ingest/AiffHeaderScan` (in `AiffReader`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
+- `AiffHeaderScan` (in `core/audio/ingest/AiffReader.hpp`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
 - `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
 - `core/audio/dsp/TrackBookmark` decides whether a track position is remembered: tracks of 20 minutes or more, cleared within 10 s of either end (`core/api/geode_bookmark_api.cpp`).
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.

@@ -37,7 +37,7 @@ data class PlayerPrefs(
     /**
      * Settings › Output & devices › Picture delay: the playout clock's A/V offset in ms, positive shows
      * the picture later, for a headset that misreports its latency. Device-local: it belongs to this
-     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.GeodeNative.playoutMaxOffsetMs]).
+     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.PlayoutNative.playoutMaxOffsetMs]).
      */
     val pictureDelayMs: Int = 0,
 ) {

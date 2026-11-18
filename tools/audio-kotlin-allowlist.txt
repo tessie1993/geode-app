@@ -8,10 +8,10 @@
 # ---- permanent: Media3 playback shells (the tap, the processor, the sink and output trampolines) ----
 permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt media3-audio-type Media3's TeeAudioProcessor.AudioBufferSink: the tap, first in the chain; hands the buffer to the native ring
 permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt native-call:pcmRingWriteDirect the tap forwards Media3's buffer to the native PCM ring
-permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:pcmRingWriteDirect the tap's JNI declaration (a direct ByteBuffer from Media3)
+permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:pcmRingWriteDirect the tap's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt media3-audio-type Media3 requires a BaseAudioProcessor class; the DSP is native
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt native-call:dspProcessInto the processor forwards Media3's buffer to the native DSP chain
-permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:dspProcessInto the processor's JNI declaration (a direct ByteBuffer from Media3)
+permanent app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt external:dspProcessInto the processor's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/dsp/MvzAudioProcessorChain.kt media3-audio-type Media3 requires an AudioProcessorChain class; it orders the processors
 permanent app/src/main/java/dev/geode/audio/dsp/MvzAudioProcessorChain.kt media3-audio-new builds Media3's own Sonic and silence-skipping processors; Kotlin never reads a sample
 permanent app/src/main/java/dev/geode/audio/TapRenderersFactory.kt media3-audio-type Media3 renderers factory and output-provider trampoline; wires the tap, the DSP and the native output
@@ -19,14 +19,14 @@ permanent app/src/main/java/dev/geode/audio/TapRenderersFactory.kt media3-audio-
 permanent app/src/main/java/dev/geode/audio/PlayoutSink.kt media3-audio-type ForwardingAudioSink: only reports the sink's position to the native playout clock
 permanent app/src/main/java/dev/geode/audio/OboeAudioOutput.kt media3-audio-type Media3 AudioOutput trampoline; the Oboe stream is native
 permanent app/src/main/java/dev/geode/audio/OboeAudioOutput.kt native-call:audioOutWrite forwards Media3's buffer to the native output
-permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:audioOutWrite the output's JNI declaration (a direct ByteBuffer from Media3)
+permanent app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt external:audioOutWrite the output's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/AiffExtractor.kt media3-audio-type Media3 Extractor for AIFF; the header scan and seek map are native
 permanent app/src/main/java/dev/geode/audio/AiffExtractor.kt native-call:aiffScanStep feeds Media3's extractor input bytes to the native header scan
-permanent engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:aiffScanStep the scan's JNI declaration (ExtractorInput hands the JVM a byte array)
+permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:aiffScanStep the scan's JNI declaration (ExtractorInput hands the JVM a byte array)
 
 # ---- debt: viz feed ----
 debt app/src/main/java/dev/geode/viz/NativeViz.kt native-call:vizWriteAudio passes an interleaved FloatArray to a renderer's sound engine
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:vizWriteAudio JNI declaration taking a FloatArray of samples
+debt app/src/main/java/dev/geode/engine/bridge/VizNative.kt external:vizWriteAudio JNI declaration taking a FloatArray of samples
 
 # ---- debt: export, loop render and Studio audio ----
 debt app/src/main/java/dev/geode/export/LoopExtend.kt extractor-sample copies the soundtrack's compressed samples through MediaExtractor
@@ -34,4 +34,4 @@ debt app/src/main/java/dev/geode/export/LoopExtend.kt muxer-sample writes AAC sa
 
 # ---- debt: cast ----
 debt app/src/main/java/dev/geode/export/VideoExporter.kt native-call:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)
-debt engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt external:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)
+debt app/src/main/java/dev/geode/engine/bridge/VideoExportNative.kt external:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)

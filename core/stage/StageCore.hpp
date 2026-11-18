@@ -23,7 +23,7 @@ enum StageCommand : uint16_t {
     kStagePause = 5,       // LastWins: a = 1 paused, 0 resumed
     kStageRedraw = 6,      // LastWins
     kStageCap = 7,         // LastWins: f = cap fps
-    kStageFrameDue = 8,    // LastWins, from the vsync thread: f = paced fps, g = cap fps
+    kStageFrameDue = 8,    // LastWins, from the vsync thread: f = paced fps, g = cap fps, t = the vsync's frame time (CLOCK_MONOTONIC ns), b = ns from it to the frame's expected presentation (0: none given)
     kStageFrameRate = 9,   // LastWins, from the vsync thread: f = the window's hint
     kStageQuit = 10,       // Ordered
     kStageService = 11,    // LastWins: the client has work for the stage thread (StageClient::service)
@@ -50,6 +50,9 @@ public:
     virtual void vsyncCap(float capFps) = 0;
     // Every hand-over up to this sequence number is applied: its sender may stop waiting.
     virtual void windowApplied(int64_t sequence) = 0;
+    // The next swap's presentation time, CLOCK_MONOTONIC ns (0: none, the swap presents when it can). Set just before
+    // each swap, so it never outlives the frame it was given for.
+    virtual void presentAt(int64_t presentNs) { static_cast<void>(presentNs); }
 };
 
 class StageCore {
@@ -83,7 +86,7 @@ public:
 private:
     void runActions();
     Outcome execute(const Action& action);
-    void draw(float pacedFps, float capFps);
+    void draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs);
     void restateRate();
 
     Lifecycle lifecycle_;
@@ -94,6 +97,8 @@ private:
     bool frameDue_ = false;
     float dueFps_ = 0.0f;
     float dueCapFps_ = 0.0f;
+    int64_t dueFrameNs_ = 0;
+    int64_t duePresentNs_ = 0;
     bool serviceDue_ = false;
     int64_t seenSeq_ = 0;
     int64_t appliedSeq_ = 0;

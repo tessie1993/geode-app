@@ -1,7 +1,7 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.MilkNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -23,7 +23,7 @@ internal class VizStateStore(
 
     // Starts on the preset the last run showed: the renderer restores that one itself (from the
     // same native memory), and the Styles list, templates and takes must agree with the screen.
-    private val _activeMilkPath = MutableStateFlow(GeodeNative.milkMemoryLastShown())
+    private val _activeMilkPath = MutableStateFlow(MilkNative.milkMemoryLastShown())
     val activeMilkPath: StateFlow<String?> = _activeMilkPath
 
     /**
@@ -89,7 +89,7 @@ internal class VizStateStore(
 
     fun dropRemovedMilkPaths(paths: List<String>) {
         if (_activeMilkPath.value in paths) _activeMilkPath.value = null
-        if (GeodeNative.milkMemoryForget(paths.toTypedArray())) MilkPathPrefs.save(prefs, null)
+        if (MilkNative.milkMemoryForget(paths.toTypedArray())) MilkPathPrefs.save(prefs, null)
     }
 
     private companion object {

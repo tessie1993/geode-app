@@ -4,10 +4,12 @@ import android.os.SystemClock
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.AutoNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.MilkFile
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.StyleCatalogue
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -58,11 +60,11 @@ internal class AutoVisualsController(
     var editing = false
         set(value) {
             field = value
-            GeodeNative.autoEditingSet(value, SystemClock.elapsedRealtime())
+            AutoNative.autoEditingSet(value, SystemClock.elapsedRealtime())
         }
 
     /** The user picked a style, a preset or a .milk by hand: native starts Auto's waits over. */
-    fun noteHandPick() = GeodeNative.autoHandPick(SystemClock.elapsedRealtime())
+    fun noteHandPick() = AutoNative.autoHandPick(SystemClock.elapsedRealtime())
 
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
@@ -112,19 +114,19 @@ internal class AutoVisualsController(
                 randomEnabled = if (enabled) false else it.randomEnabled,
             )
         }
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, SystemClock.elapsedRealtime())
+        SoundNative.autoTimerRestart(SoundNative.AUTO_TIMER_PLAYLIST, SystemClock.elapsedRealtime())
         persistAutoVisuals()
     }
 
     fun setVizPlaylistInterval(seconds: Int) {
-        host.updateViz { it.copy(vizPlaylistIntervalSec = GeodeNative.autoIntervalSeconds(seconds)) }
+        host.updateViz { it.copy(vizPlaylistIntervalSec = AutoNative.autoIntervalSeconds(seconds)) }
         persistAutoVisuals()
     }
 
     fun advanceVizPlaylist() {
         val s = host.vizState.value
         val now = SystemClock.elapsedRealtime()
-        val index = GeodeNative.autoPlaylistTick(s.vizPlaylist.size, s.vizPlaylistEnabled, host.isPlaying, s.vizPlaylistIntervalSec, now)
+        val index = AutoNative.autoPlaylistTick(s.vizPlaylist.size, s.vizPlaylistEnabled, host.isPlaying, s.vizPlaylistIntervalSec, now)
         if (index >= 0) applyVizEntry(s.vizPlaylist[index], automatic = true)
     }
 
@@ -139,7 +141,7 @@ internal class AutoVisualsController(
         automatic: Boolean = false,
     ): Boolean {
         val s = host.vizState.value
-        val index = GeodeNative.autoPlaylistStep(s.vizPlaylist.size, step, SystemClock.elapsedRealtime())
+        val index = AutoNative.autoPlaylistStep(s.vizPlaylist.size, step, SystemClock.elapsedRealtime())
         if (index < 0) return false
         applyVizEntry(s.vizPlaylist[index], automatic)
         return true
@@ -152,7 +154,7 @@ internal class AutoVisualsController(
                 vizPlaylistEnabled = if (enabled) false else it.vizPlaylistEnabled,
             )
         }
-        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, SystemClock.elapsedRealtime())
+        SoundNative.autoTimerRestart(SoundNative.AUTO_TIMER_RANDOM, SystemClock.elapsedRealtime())
         // The poll first, so the timer is running before the first look loads.
         advanceRandomMode()
         if (enabled && host.vizState.value.randomIncludeMilk) refreshMilkCache()
@@ -161,7 +163,7 @@ internal class AutoVisualsController(
     }
 
     fun setRandomInterval(seconds: Int) {
-        host.updateViz { it.copy(randomIntervalSec = GeodeNative.autoIntervalSeconds(seconds)) }
+        host.updateViz { it.copy(randomIntervalSec = AutoNative.autoIntervalSeconds(seconds)) }
         persistAutoVisuals()
     }
 
@@ -198,9 +200,9 @@ internal class AutoVisualsController(
      */
     fun onDirectorMoment() {
         val s = host.vizState.value
-        when (GeodeNative.autoMoment(s.sceneId, s.params.frame(), s.params.customPaletteId, host.isPlaying, s.vizPlaylistEnabled)) {
-            GeodeNative.AUTO_MOMENT_PLAYLIST -> stepVizPlaylist(automatic = true)
-            GeodeNative.AUTO_MOMENT_RANDOM -> randomStepNow(keepLook = true)
+        when (AutoNative.autoMoment(s.sceneId, s.params.frame(), s.params.customPaletteId, host.isPlaying, s.vizPlaylistEnabled)) {
+            AutoNative.AUTO_MOMENT_PLAYLIST -> stepVizPlaylist(automatic = true)
+            AutoNative.AUTO_MOMENT_RANDOM -> randomStepNow(keepLook = true)
         }
     }
 
@@ -208,7 +210,7 @@ internal class AutoVisualsController(
         val s = host.vizState.value
         // "MilkDrop presets" restored on at start draws from the list too, not only after a toggle.
         if (s.randomIncludeMilk && !milkListed) refreshMilkCache()
-        if (GeodeNative.autoRandomTick(s.randomEnabled, host.isPlaying, s.randomIntervalSec, SystemClock.elapsedRealtime())) randomStepNow()
+        if (AutoNative.autoRandomTick(s.randomEnabled, host.isPlaying, s.randomIntervalSec, SystemClock.elapsedRealtime())) randomStepNow()
     }
 
     /**
@@ -219,21 +221,21 @@ internal class AutoVisualsController(
         val s = host.vizState.value
         val milk = host.milkFiles
         var sources = 0
-        if (s.randomIncludeStyles) sources = sources or GeodeNative.AUTO_DRAW_STYLES
-        if (s.randomIncludePresets) sources = sources or GeodeNative.AUTO_DRAW_PRESETS
-        if (s.randomIncludeMilk) sources = sources or GeodeNative.AUTO_DRAW_MILK
-        if (keepLook) sources = sources or GeodeNative.AUTO_DRAW_KEEP_LOOK
-        val styles = StyleCatalogue.ids + s.presets.map { it.sceneId } + GeodeNative.STYLE_MILKDROP
+        if (s.randomIncludeStyles) sources = sources or AutoNative.AUTO_DRAW_STYLES
+        if (s.randomIncludePresets) sources = sources or AutoNative.AUTO_DRAW_PRESETS
+        if (s.randomIncludeMilk) sources = sources or AutoNative.AUTO_DRAW_MILK
+        if (keepLook) sources = sources or AutoNative.AUTO_DRAW_KEEP_LOOK
+        val styles = StyleCatalogue.ids + s.presets.map { it.sceneId } + CatalogueNative.STYLE_MILKDROP
         val out = IntArray(2)
         val sceneId =
-            GeodeNative.autoDraw(
+            AutoNative.autoDraw(
                 styles.distinct().filterNot(host::allowsStyle).joinToString("\n"),
                 s.sceneId,
                 s.presets.joinToString("\n") { it.sceneId },
                 s.presets.indexOfFirst { it.sceneId == s.sceneId && it.params == s.params },
                 milk.size,
                 milk.indexOfFirst { it.path == host.activeMilkPath },
-                GeodeNative.STYLE_MILKDROP,
+                CatalogueNative.STYLE_MILKDROP,
                 sources,
                 SystemClock.elapsedRealtime(),
                 out,
@@ -241,8 +243,8 @@ internal class AutoVisualsController(
         val i = out[1]
         val entry =
             when (out[0]) {
-                GeodeNative.AUTO_KIND_PRESET -> VizPlaylistEntry(sceneId, presetName = s.presets[i].name, label = s.presets[i].name)
-                GeodeNative.AUTO_KIND_MILK -> VizPlaylistEntry(sceneId, milkPath = milk[i].path, label = milk[i].name)
+                AutoNative.AUTO_KIND_PRESET -> VizPlaylistEntry(sceneId, presetName = s.presets[i].name, label = s.presets[i].name)
+                AutoNative.AUTO_KIND_MILK -> VizPlaylistEntry(sceneId, milkPath = milk[i].path, label = milk[i].name)
                 else -> VizPlaylistEntry(sceneId = sceneId, label = sceneId)
             }
         applyVizEntry(entry, automatic = true)
@@ -254,8 +256,8 @@ internal class AutoVisualsController(
         automatic: Boolean = false,
     ) {
         if (automatic) {
-            GeodeNative.autoMarkChange(entry.sceneId)
-            entry.milkPath?.let(GeodeNative::autoMarkChange)
+            SoundNative.autoMarkChange(entry.sceneId)
+            entry.milkPath?.let(SoundNative::autoMarkChange)
         }
         host.selectScene(entry.sceneId)
         if (entry.presetName != null) {
@@ -267,6 +269,6 @@ internal class AutoVisualsController(
             host.applyMilk(entry.milkPath, entry.sceneId)
         }
         // Auto's own change (a moment, the timer, the playlist) is not the user's hand.
-        host.vizState.value.let { GeodeNative.autoLeftAs(it.sceneId, it.params.frame(), it.params.customPaletteId) }
+        host.vizState.value.let { AutoNative.autoLeftAs(it.sceneId, it.params.frame(), it.params.customPaletteId) }
     }
 }

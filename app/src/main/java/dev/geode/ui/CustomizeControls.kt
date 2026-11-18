@@ -13,11 +13,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CustomizeNative
+import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 
@@ -41,7 +40,7 @@ internal fun CustomizeControls(
     val transition = viz.transitionId != null
     val rows =
         remember(keys, sceneId, query, viz.params, transition, liquidMode) {
-            GeodeNative
+            CustomizeNative
                 .customizeRows(sceneId, keys.joinToString("\n"), query, transition, liquidMode, viz.params.frame())
                 .lines()
                 .drop(1)
@@ -68,7 +67,7 @@ private fun ControlRow(
                 display = f[3],
                 scope = ParamScope.UNIVERSAL,
                 default = f[7].toFloatOrNull(),
-                unit = ParamUnit.entries.getOrNull(f[8].toInt()),
+                unit = f[8].toInt(),
                 steps = f[9].toInt(),
                 onChange = edit,
             )
@@ -101,7 +100,7 @@ private fun ShellSlider(
     viz: VizUiState,
 ) {
     val range = f[4].toFloat()..f[5].toFloat()
-    val unit = ParamUnit.entries.getOrNull(f[6].toInt())
+    val unit = f[6].toInt()
     val vm = host.viewModel
     when (f[2]) {
         "ATTACK" -> LabeledSlider(f[1], viz.attack, range, f[3], ParamScope.UNIVERSAL, unit = unit) { vm.setReactivity(it, viz.decay) }

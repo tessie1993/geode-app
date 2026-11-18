@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
@@ -132,6 +133,10 @@ private:
     static_assert(sizeof(Heard) % sizeof(uint32_t) == 0);
     static constexpr int kWords = static_cast<int>(sizeof(Heard) / sizeof(uint32_t));
     static constexpr uint64_t kReadable = kPublished - 1;
+    // The frame's waveform is zero in every published hop (step() draws it, a hop does not): its words are neither
+    // stored nor loaded, and a read zeroes them.
+    static constexpr int kWaveFirst = static_cast<int>((offsetof(Heard, frame) + offsetof(GeodeSoundFrame, waveform)) / sizeof(uint32_t));
+    static constexpr int kWaveEnd = kWaveFirst + GEODE_SOUND_WAVEFORM_POINTS;
     // A seqlocked copy of one Heard: seq is odd while the analysis thread writes it. The words are atomics so
     // a reader's copy that races the writer is defined (and thrown away); position is the search's hint.
     struct Slot {
@@ -172,7 +177,6 @@ private:
     int64_t hopsSeen_ = 0;       // engine_->hopsRun() as last published
     bool flowing_ = false;       // audio came, and the engine has not reported silence since
     float quietSeconds_ = 0.0f;  // since audio last came, while flowing
-    GeodeSoundFrame stepped_{};
     std::array<Control, kControls> applying_{};
     std::array<uint32_t, kWords> staging_{};
 
@@ -191,6 +195,8 @@ private:
     std::atomic<uint32_t> signal_{0};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> timedWaiting_{false};
+    // Set before the untimed wait on signal_ and cleared after it, so notify() wakes only a thread that may sleep.
+    std::atomic<bool> waiting_{false};
     std::mutex waitLock_;
     std::condition_variable waitCv_;
     std::atomic<uint64_t> passes_{0};

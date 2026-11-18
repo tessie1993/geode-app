@@ -10,7 +10,8 @@ import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.PresetLink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -85,12 +86,12 @@ internal class PresetLibraryController(
         folder: String = "",
     ) {
         @Suppress("NAME_SHADOWING")
-        val name = GeodeNative.presetCleanName(name, application.getString(dev.geode.R.string.preset_untitled))
+        val name = LooksNative.presetCleanName(name, application.getString(dev.geode.R.string.preset_untitled))
         val s = host.vizState.value
         val milkPath = host.activeMilkPath
         storeScope.launch {
             val milkSource =
-                if (s.sceneId == GeodeNative.STYLE_MILKDROP) {
+                if (s.sceneId == CatalogueNative.STYLE_MILKDROP) {
                     milkPath?.let { src -> runCatching { java.io.File(src).readText() }.getOrNull() }
                 } else {
                     null
@@ -120,7 +121,7 @@ internal class PresetLibraryController(
         )
 
     suspend fun milkPresetPathFor(preset: Preset): String? {
-        if (preset.sceneId != GeodeNative.STYLE_MILKDROP) return null
+        if (preset.sceneId != CatalogueNative.STYLE_MILKDROP) return null
         return withContext(Dispatchers.IO) { presets.materializeMilk(preset.name, preset.milkPreset) }
     }
 
@@ -152,7 +153,7 @@ internal class PresetLibraryController(
             host.vizState.value.presets
                 .map { it.name }
                 .toTypedArray()
-        val name = GeodeNative.presetImportName(incoming.name, application.getString(dev.geode.R.string.preset_shared_untitled), existing)
+        val name = LooksNative.presetImportName(incoming.name, application.getString(dev.geode.R.string.preset_shared_untitled), existing)
         val preset = incoming.copy(name = name)
         host.updatePresets { it + preset }
         storeScope.launch {
@@ -176,7 +177,7 @@ internal class PresetLibraryController(
         to: String,
     ): String? {
         if (BuiltInPresets.isBuiltIn(from)) return null
-        val name = GeodeNative.presetCleanName(to, "")
+        val name = LooksNative.presetCleanName(to, "")
         val preset =
             host.vizState.value.presets
                 .firstOrNull { it.name == from && !BuiltInPresets.isBuiltIn(it.name) } ?: return null
@@ -203,7 +204,7 @@ internal class PresetLibraryController(
     fun duplicatePreset(name: String): String? {
         val all = host.vizState.value.presets
         val source = all.firstOrNull { it.name == name } ?: return null
-        val copyName = GeodeNative.presetCopyName(name, all.map { it.name }.toTypedArray())
+        val copyName = LooksNative.presetCopyName(name, all.map { it.name }.toTypedArray())
         val copy = source.copy(name = copyName)
         val folder = if (BuiltInPresets.isBuiltIn(name)) "" else presets.folders.value.folderOf(name)
         host.updatePresets { it + copy }
@@ -224,7 +225,7 @@ internal class PresetLibraryController(
         preset: Preset,
         oldName: String,
     ): String? {
-        if (preset.sceneId != GeodeNative.STYLE_MILKDROP) return null
+        if (preset.sceneId != CatalogueNative.STYLE_MILKDROP) return null
         return preset.milkPreset ?: runCatching { milkFileFor(oldName).takeIf { it.isFile }?.readText() }.getOrNull()
     }
 

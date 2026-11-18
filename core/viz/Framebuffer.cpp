@@ -1,5 +1,7 @@
 #include "viz/Framebuffer.hpp"
 
+#include <utility>
+
 namespace geode::viz {
 
 namespace {
@@ -35,6 +37,13 @@ void Framebuffer::release() {
     if (fbo_ != 0) glDeleteFramebuffers(1, &fbo_);
     if (tex_ != 0) glDeleteTextures(1, &tex_);
     forget();
+}
+
+void Framebuffer::swap(Framebuffer& other) {
+    std::swap(fbo_, other.fbo_);
+    std::swap(tex_, other.tex_);
+    std::swap(width_, other.width_);
+    std::swap(height_, other.height_);
 }
 
 void Framebuffer::forget() {

@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
+#include <mutex>
 #include <utility>
 
 #include "api/geode_api.h"
@@ -23,6 +24,22 @@ namespace geode::cast {
 namespace share = viz::frame::link;
 
 namespace {
+
+// The typed path's pairing is one per process. The server that opened it is the only one that may close it, so
+// a stream still stopping cannot close the pairing a newer stream just opened.
+std::mutex gPairLock;
+const void* gPairOwner = nullptr;
+
+void pairing(const void* server, bool open, int64_t nowMs) {
+    std::lock_guard<std::mutex> hold(gPairLock);
+    if (open) {
+        geode_link_pair_open(1, nowMs);
+        gPairOwner = server;
+    } else if (gPairOwner == server) {
+        geode_link_pair_open(0, 0);
+        gPairOwner = nullptr;
+    }
+}
 
 constexpr int kBacklog = 50;
 // No wait is longer than this before it looks at the stop flag again, should the wake pipe ever fail.
@@ -209,7 +226,7 @@ void LiveServer::halt() {
     {
         std::lock_guard<std::mutex> hold(lock_);
         // The typed path closes with the server, once: a later stop must not close a newer stream's pairing.
-        if (!stopping_.exchange(true)) geode_link_pair_open(0, 0);
+        if (!stopping_.exchange(true)) pairing(this, false, 0);
     }
     http_.stop();
     if (!started_) return;
@@ -239,7 +256,7 @@ void LiveServer::admit(uint32_t tv, int wants) {
     // A code to type exists only while a browser link is wanted; a stopped server opens none (lock_: not
     // while halt() closes it).
     std::lock_guard<std::mutex> hold(lock_);
-    if (!stopping_.load()) geode_link_pair_open((wants & share::kWantLink) != 0 ? 1 : 0, nowMs());
+    if (!stopping_.load()) pairing(this, (wants & share::kWantLink) != 0, nowMs());
 }
 
 void LiveServer::acceptLoop() {

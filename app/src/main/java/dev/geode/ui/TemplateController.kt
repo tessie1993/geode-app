@@ -10,7 +10,8 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.LooksNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -65,12 +66,12 @@ internal class TemplateController(
         customShader: String?,
         onResult: (TemplateWrite) -> Unit,
     ) {
-        val cleaned = GeodeNative.presetCleanName(name, application.getString(dev.geode.R.string.template_untitled))
+        val cleaned = LooksNative.presetCleanName(name, application.getString(dev.geode.R.string.template_untitled))
         val s = host.vizState.value
         val milkPath = host.activeMilkPath
         storeScope.launch {
             val milkSource =
-                if (s.sceneId == GeodeNative.STYLE_MILKDROP) {
+                if (s.sceneId == CatalogueNative.STYLE_MILKDROP) {
                     milkPath?.let { src -> runCatching { File(src).readText() }.getOrNull() }
                 } else {
                     null

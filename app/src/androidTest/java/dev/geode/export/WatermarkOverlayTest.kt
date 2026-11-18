@@ -9,7 +9,7 @@ import android.opengl.EGLSurface
 import android.opengl.GLES20
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ExportNative
 import dev.geode.model.WatermarkChoice
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -136,10 +136,10 @@ class WatermarkOverlayTest {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         val tile = WatermarkOverlay(choice, app).tile(width, height) ?: return readPixels(width, height)
-        val pass = GeodeNative.exportWatermarkCreate(app.assets, tile.pixels, tile.width, tile.height, tile.placement, tile.corner, END_MS)
-        assertEquals("", GeodeNative.exportPassError(pass))
-        GeodeNative.exportWatermarkDraw(pass, width, height, timeMs)
-        return readPixels(width, height).also { GeodeNative.exportPassDestroy(pass) }
+        val pass = ExportNative.exportWatermarkCreate(app.assets, tile.pixels, tile.width, tile.height, tile.placement, tile.corner, END_MS)
+        assertEquals("", ExportNative.exportPassError(pass))
+        ExportNative.exportWatermarkDraw(pass, width, height, timeMs)
+        return readPixels(width, height).also { ExportNative.exportPassDestroy(pass) }
     }
 
     private fun readPixels(

@@ -5,6 +5,7 @@
 
 #include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz {
 
@@ -84,8 +85,7 @@ void MycoScene::draw(float timeSeconds) {
     resetFrameState();
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    SceneTarget::read(prevFbo, prevViewport);
     if (!ensureBuffers()) return;
     fluid::DoubleFbo& colony = *agents_;
     fluid::DoubleFbo& field = *trail_;

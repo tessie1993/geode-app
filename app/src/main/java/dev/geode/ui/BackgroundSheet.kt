@@ -54,7 +54,7 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.VizNative
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -136,7 +136,7 @@ private fun BackgroundOptions(
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     val blend: @Composable () -> Unit = {
-        val blendIndex = remember(prefs.blend) { GeodeNative.underlayBlendOf(prefs.blend) }
+        val blendIndex = remember(prefs.blend) { VizNative.underlayBlendOf(prefs.blend) }
         BlendRow(blendIndex, visualsViewModel::setBackgroundBlend)
     }
     val amount: @Composable () -> Unit = {
@@ -223,7 +223,7 @@ private fun BlendRow(
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                repeat(GeodeNative.underlayBlendCount()) { option ->
+                repeat(VizNative.underlayBlendCount()) { option ->
                     DropdownMenuItem(
                         text = { Text(stringResource(blendLabel(option))) },
                         leadingIcon = {
@@ -331,7 +331,7 @@ private fun OptionSurface(content: @Composable () -> Unit) {
     )
 }
 
-/** The wording for each native blend index, in `GeodeNative.underlayBlendName` order. */
+/** The wording for each native blend index, in `VizNative.underlayBlendName` order. */
 private val BLEND_LABELS =
     listOf(R.string.background_blend_screen, R.string.background_blend_multiply, R.string.background_blend_add)
 

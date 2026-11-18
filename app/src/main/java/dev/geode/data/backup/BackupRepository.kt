@@ -61,20 +61,32 @@ class BackupRepository
             withContext(io) {
                 guarded("export") {
                     val sources = BackupSection.entries.flatMap(::sourcesFor)
-                    val out =
-                        context.contentResolver.openOutputStream(destination, "wt")
-                            ?: fail(BackupProblem.IO_FAILED, "no output stream for the chosen file")
                     val now = System.currentTimeMillis()
+                    // Packed aside first: opening the destination in "wt" truncates the previous backup at
+                    // once, so it is touched only after the new zip is whole.
+                    val temp = File.createTempFile("backup", ".zip", context.cacheDir)
                     try {
-                        val manifest = out.use { BackupArchive.pack(it, sources, BackupSection.entries, BuildConfig.VERSION_CODE, now) }
-                        RingLog.note(TAG, "exported ${manifest.entries.size} files")
-                    } catch (e: BackupException) {
-                        // A half-written zip has no manifest (it goes in last), so it could never
-                        // be restored; removing it keeps it from passing for a backup.
-                        bestEffort(TAG, "delete partial backup") {
-                            DocumentsContract.deleteDocument(context.contentResolver, destination)
+                        val manifest =
+                            temp.outputStream().use {
+                                BackupArchive.pack(it, sources, BackupSection.entries, BuildConfig.VERSION_CODE, now)
+                            }
+                        val out =
+                            context.contentResolver.openOutputStream(destination, "wt")
+                                ?: fail(BackupProblem.IO_FAILED, "no output stream for the chosen file")
+                        try {
+                            temp.inputStream().use { src -> out.use { src.copyTo(it) } }
+                        } catch (e: IOException) {
+                            // The destination was truncated on open; a half-copied zip has no manifest
+                            // (it goes in last), so it could never be restored. Removing it keeps it from
+                            // passing for a backup.
+                            bestEffort(TAG, "delete partial backup") {
+                                DocumentsContract.deleteDocument(context.contentResolver, destination)
+                            }
+                            throw e
                         }
-                        throw e
+                        RingLog.note(TAG, "exported ${manifest.entries.size} files")
+                    } finally {
+                        temp.delete()
                     }
                 }
             }

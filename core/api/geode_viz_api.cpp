@@ -20,6 +20,7 @@
 #include "api/geode_modulation_api.h"
 #include "api/geode_text_out.hpp"
 #include "api/geode_record_handles.hpp"
+#include "api/geode_viz_internal.hpp"
 #include "sound/Tuning.hpp"
 #include "sound/hop/SharedAnalysis.hpp"
 #include "viz/Catalogue.hpp"
@@ -138,6 +139,8 @@ struct geode_viz {
     // (Renderer::onSurfaceCreated forgets GL objects and the stages' motion, never what the shell set), so the
     // shell never sends the look again for a new surface.
     geode::viz::frame::LiveFrame live;
+    // The time the last live frame was drawn at (seconds, CLOCK_BOOTTIME), so the next never runs back. GL thread only.
+    double liveSeconds = 0.0;
     // The shell's whole look as set last (geode_viz_set_look), so only the parts that differ reach the renderer; a new
     // handle starts with none, so it gets the whole look. lookLock: the compare and its sets never interleave.
     std::mutex lookLock;
@@ -563,7 +566,7 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring) : v_(v), ring_(ring) {}
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs) : v_(v), ring_(ring), vsyncNs_(vsyncNs) {}
 
     void setPacedFps(float pacedFps, float capFps) override { v_.renderer.setPacedFps(pacedFps, capFps); }
     void applyQuality(const frame::UserQuality& q) override {
@@ -581,15 +584,34 @@ public:
     }
     bool setScene(const std::string& id) override { return geode_viz_set_scene(&v_, id.c_str()) != 0; }
     void feedRing() override { geode_viz_feed_ring(&v_, ring_); }
-    void render() override { geode_viz_render(&v_, bootSeconds(), 0); }
+    void render() override { geode_viz_render(&v_, frameSeconds(), 0); }
     std::string lastError() override { return v_.renderer.lastError(); }
     bool milkPresetLoaded() override { return v_.renderer.milkPresetLoadedPending(); }
     bool directorMomentsPending() override { return v_.renderer.directorStyleMomentsPending(); }
     bool stillReady() override { return std::exchange(v_.stillFresh, false); }
 
 private:
+    // The frame's time: the vsync it was asked for at, on the boot clock, so the step is the vsyncs' own spacing and
+    // not the thread hop's jitter; with no vsync (the cast's fallback) the clock at the draw. Never earlier than the
+    // last frame's, and never later than now.
+    double frameSeconds() {
+        const double boot = bootSeconds();
+        double seconds = boot;
+        if (vsyncNs_ > 0) {
+            timespec mono{};
+            clock_gettime(CLOCK_MONOTONIC, &mono);
+            const double ago = static_cast<double>(mono.tv_sec) + static_cast<double>(mono.tv_nsec) * 1e-9 -
+                               static_cast<double>(vsyncNs_) * 1e-9;
+            seconds = boot - std::max(ago, 0.0);
+        }
+        seconds = std::max(seconds, v_.liveSeconds);
+        v_.liveSeconds = seconds;
+        return seconds;
+    }
+
     geode_viz& v_;
     const geode_pcm_ring* ring_;
+    int64_t vsyncNs_;
 };
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
@@ -597,6 +619,33 @@ static_assert(kMusicActionCount == GEODE_MUSIC_ACTIONS);
 static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNCLAIMED);
 
 }  // namespace
+
+// The two below are defined by qualified name, so each must match its declaration in api/geode_viz_internal.hpp:
+// a drift is a compile error here, not a new overload that geode_stage_api.cpp fails to link against.
+
+// geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
+// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. Not part of the C ABI.
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs) {
+    if (!v) return 0;
+    try {
+        VizStages stages(*v, ring, vsyncNs);
+        return static_cast<int>(v->live.run(stages, pacedFps, capFps));
+    } catch (...) {
+        // Nothing to tell the shell this frame; the next one starts over.
+        return 0;
+    }
+}
+
+// geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is
+// handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
+bool geode::api::takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
+    if (!v || v->still.empty()) return false;
+    width = v->stillWidth;
+    height = v->stillHeight;
+    rgba = std::move(v->still);
+    v->still.clear();
+    return true;
+}
 
 extern "C" {
 
@@ -880,14 +929,7 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
 }
 
 int geode_viz_frame(geode_viz* v, const geode_pcm_ring* ring, float paced_fps, float cap_fps) {
-    if (!v) return 0;
-    try {
-        VizStages stages(*v, ring);
-        return static_cast<int>(v->live.run(stages, paced_fps, cap_fps));
-    } catch (...) {
-        // Nothing to tell the shell this frame; the next one starts over.
-        return 0;
-    }
+    return geode::api::vizFrameAt(v, ring, paced_fps, cap_fps, 0);
 }
 
 int geode_viz_liquid_mode(geode_viz* v) {

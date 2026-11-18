@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -47,12 +48,18 @@ int copyOut(const SceneParams& before, const SceneParams& after, float* out) {
     return 0;
 }
 
+// What an edit that threw hands back: the frame as it came in, and "nothing changed".
+int unchanged(const float* in, float* out) {
+    if (in && out) std::copy_n(in, SceneParams::kFieldCount, out);
+    return 0;
+}
+
 }  // namespace
 
 extern "C" {
 
 int geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed, const float* in,
-                           float* out) {
+                           float* out) try {
     const SceneParams current = SceneParams::fromWire(in);
     std::optional<randomizer::Tab> only;
     if (tab) {
@@ -66,17 +73,29 @@ int geode_params_randomize(const char* style_id, const char* tab, const char* lo
     const SceneParams rolled = only ? randomizer::randomize(current, seed, only, style, lockedSet(locked))
                                     : customize::randomizeAll(current, seed, style, lockedSet(locked));
     return copyOut(current, rolled, out);
+} catch (...) {
+    return unchanged(in, out);
 }
 
-void geode_params_reset_tab(const char* tab, const float* in, float* out) {
+void geode_params_reset_tab(const char* tab, const float* in, float* out) try {
     const SceneParams current = SceneParams::fromWire(in);
     const auto which = tab ? randomizer::tabNamed(tab) : std::nullopt;
     (which ? randomizer::resetTab(current, *which) : current).toWire(out);
+} catch (...) {
+    unchanged(in, out);
 }
 
 void geode_params_sanitize(const float* in, float* out) { SceneParams::sanitized(in).toWire(out); }
 
-const char* geode_params_schema_text(void) { return SceneParams::schemaText().c_str(); }
+void geode_params_keep_inputs(const float* current, const float* in, float* out) {
+    if (current && in && out) SceneParams::keepInputs(current, in, out);
+}
+
+const char* geode_params_schema_text(void) try {
+    return SceneParams::schemaText().c_str();
+} catch (...) {
+    return nullptr;
+}
 
 float geode_params_palette_base(int palette, float base_override) {
     SceneParams p;
@@ -115,38 +134,48 @@ void geode_params_apply_gradient(const float* in, float base, float span, float*
     geode::viz::palette_params::withGradient(SceneParams::fromWire(in), base, span).toWire(out);
 }
 
-const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }
+const char* geode_config_schema_text(void) try {
+    return geode::viz::config::schemaText().c_str();
+} catch (...) {
+    return nullptr;
+}
 
 float geode_touch_zoom(float current, float scale_factor) { return geode::viz::touch::zoom(current, scale_factor); }
 
 float geode_touch_rotation(float current, float degrees) { return geode::viz::touch::rotation(current, degrees); }
 
-int geode_params_control_range(const char* name, float* out) {
+int geode_params_control_range(const char* name, float* out) try {
     geode::viz::control::Range range{};
     if (!name || !out || !geode::viz::control::of(name, range)) return 0;
     out[0] = range.min;
     out[1] = range.max;
     return 1;
+} catch (...) {
+    return 0;
 }
 
 void geode_params_defaults(float* out) {
     if (out) SceneParams{}.toWire(out);
 }
 
-float geode_params_get(const float* frame, const char* name) {
+float geode_params_get(const float* frame, const char* name) try {
     const int slot = name ? SceneParams::slotOf(name) : -1;
     if (!frame || slot < 0 || SceneParams::retired(static_cast<geode::viz::ParamSlot>(slot))) {
         return std::numeric_limits<float>::quiet_NaN();
     }
     return SceneParams::fromWire(frame).getSlot(slot);
+} catch (...) {
+    return std::numeric_limits<float>::quiet_NaN();
 }
 
-int geode_params_set(const float* in, const char* name, float value, float* out) {
+int geode_params_set(const float* in, const char* name, float value, float* out) try {
     if (!in || !name || !out) return 0;
     SceneParams edited = SceneParams::fromWire(in);
     if (!edited.set(name, value)) return 0;
     edited.toWire(out);
     return 1;
+} catch (...) {
+    return 0;
 }
 
 void geode_touch_to_ndc(float* xy, int points, float width, float height) { geode::viz::touch::toNdc(xy, points, width, height); }
@@ -160,26 +189,38 @@ void geode_touch_pair(const float* start, const float* last, const float* now, f
 
 int geode_touch_pulse(int step, float* xy) { return geode::viz::touch::pulse(step, xy); }
 
-const char* geode_customize_text(void) { return customize::text().c_str(); }
+const char* geode_customize_text(void) try {
+    return customize::text().c_str();
+} catch (...) {
+    return nullptr;
+}
 
-int geode_customize_lockable(const char* key) {
+int geode_customize_lockable(const char* key) try {
     if (!key) return 0;
     for (const auto& roll : randomizer::rolledKeys()) {
         if (std::strcmp(roll.key, key) == 0) return 1;
     }
     return 0;
+} catch (...) {
+    return 0;
 }
 
-const char* geode_customize_lockable_keys(void) { return randomizer::lockableKeysText().c_str(); }
+const char* geode_customize_lockable_keys(void) try {
+    return randomizer::lockableKeysText().c_str();
+} catch (...) {
+    return nullptr;
+}
 
-const char* geode_customize_shown(const char* style_id) {
+const char* geode_customize_shown(const char* style_id) try {
     thread_local std::string shown;
     shown = customize::shownOn(style_id ? style_id : "");
     return shown.c_str();
+} catch (...) {
+    return nullptr;
 }
 
 int geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed, const float* in,
-                              float* out) {
+                              float* out) try {
     const SceneParams current = SceneParams::fromWire(in);
     const auto which = category ? customize::categoryNamed(category) : std::nullopt;
     if (!which) {
@@ -188,10 +229,12 @@ int geode_customize_randomize(const char* style_id, const char* category, const 
     }
     const SceneParams rolled = customize::randomize(current, seed, *which, style_id ? style_id : "", lockedSet(locked));
     return copyOut(current, rolled, out);
+} catch (...) {
+    return unchanged(in, out);
 }
 
 int geode_mod_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only,
-                              const float* params, const char* lfos, char* out, int capacity) {
+                              const float* params, const char* lfos, char* out, int capacity) try {
     geode::viz::ModDocument doc;
     doc.readLfos(lfos ? lfos : "");
     const std::string was = doc.lfosText();
@@ -201,9 +244,11 @@ int geode_mod_waves_randomize(const char* style_id, const char* locked, uint64_t
     }
     const std::string now = doc.lfosText();
     return geode::api::textOut(now == was ? std::string() : now, out, capacity);
+} catch (...) {
+    return geode::api::textOut(std::string(), out, capacity);
 }
 
-const char* geode_mod_waves_roll(const char* style_id, const char* locked, int all, const float* params, const char* lfos) {
+const char* geode_mod_waves_roll(const char* style_id, const char* locked, int all, const float* params, const char* lfos) try {
     thread_local std::string rolled;
     const uint64_t seed = geode::viz::panel_roll::nextSeed();
     const int need = geode_mod_waves_randomize(style_id, locked, seed, all ? 0 : 1, params, lfos, nullptr, 0);
@@ -212,24 +257,30 @@ const char* geode_mod_waves_roll(const char* style_id, const char* locked, int a
     geode_mod_waves_randomize(style_id, locked, seed, all ? 0 : 1, params, lfos, rolled.data(), need + 1);
     rolled.resize(static_cast<size_t>(need));
     return rolled.c_str();
+} catch (...) {
+    return nullptr;
 }
 
 int geode_panel_roll(const char* style_id, const char* category, const char* kept, int basics_only, const float* in,
-                     float* out) {
+                     float* out) try {
     namespace roll = geode::viz::panel_roll;
     const std::string keys = roll::locks(kept ? kept : "", basics_only != 0);
     const uint64_t seed = roll::nextSeed();
     const int changed = category ? geode_customize_randomize(style_id, category, keys.c_str(), seed, in, out)
                                  : geode_params_randomize(style_id, nullptr, keys.c_str(), seed, in, out);
     return roll::bits(changed != 0, category == nullptr, basics_only != 0);
+} catch (...) {
+    return unchanged(in, out);
 }
 
 int geode_panel_roll_all(const char* style_id, const char* kept, int basics_only, uint64_t seed, const float* before,
-                         const float* base, float* out) {
+                         const float* base, float* out) try {
     namespace roll = geode::viz::panel_roll;
     const std::string keys = roll::locks(kept ? kept : "", basics_only != 0);
     const int changed = geode_randomize_all_roll(style_id, keys.c_str(), seed, 1, before, base, out);
     return roll::bits(changed != 0, true, basics_only != 0);
+} catch (...) {
+    return unchanged(base, out);
 }
 
 void geode_params_reroll_reactions(const float* in, float* out) {
@@ -240,16 +291,20 @@ void geode_params_reroll_reactions(const float* in, float* out) {
     look.toWire(out);
 }
 
-void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) {
+void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) try {
     const SceneParams current = SceneParams::fromWire(in);
     const auto which = category ? customize::categoryNamed(category) : std::nullopt;
     (which ? customize::borrow(current, SceneParams::fromWire(from), *which) : current).toWire(out);
+} catch (...) {
+    unchanged(in, out);
 }
 
-void geode_customize_reset(const char* category, const float* in, float* out) {
+void geode_customize_reset(const char* category, const float* in, float* out) try {
     const SceneParams current = SceneParams::fromWire(in);
     const auto which = category ? customize::categoryNamed(category) : std::nullopt;
     (which ? customize::reset(current, *which) : current).toWire(out);
+} catch (...) {
+    unchanged(in, out);
 }
 
 int geode_customize_changed_count(const float* in) { return customize::changedCount(SceneParams::fromWire(in)); }

@@ -40,7 +40,7 @@ jintArray toJava(JNIEnv* env, const int* values, int count) {
 extern "C" {
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_customizeRows(JNIEnv* env, jobject, jstring styleId, jstring keys, jstring query,
+Java_dev_geode_engine_bridge_CustomizeNative_customizeRows(JNIEnv* env, jobject, jstring styleId, jstring keys, jstring query,
                                                        jboolean transition, jint liquidMode, jfloatArray params) {
     Utf8Chars style(env, styleId);
     Utf8Chars keyLines(env, keys);
@@ -51,75 +51,75 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeRows(JNIEnv* env, jobject, jst
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_panelText(JNIEnv* env, jobject, jstring id) {
+Java_dev_geode_engine_bridge_CustomizeNative_panelText(JNIEnv* env, jobject, jstring id) {
     Utf8Chars text(env, id);
     return utf8String(env, geode_panel_text(textOf(text)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_styleLabel(JNIEnv* env, jobject, jstring styleId) {
+Java_dev_geode_engine_bridge_CustomizeNative_styleLabel(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars id(env, styleId);
     return utf8String(env, geode_style_label(textOf(id)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_styleFamilyLabel(JNIEnv* env, jobject, jstring family) {
+Java_dev_geode_engine_bridge_CustomizeNative_styleFamilyLabel(JNIEnv* env, jobject, jstring family) {
     Utf8Chars name(env, family);
     return utf8String(env, geode_style_family_label(textOf(name)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteMakerStart(JNIEnv* env, jobject, jfloatArray params) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteMakerStart(JNIEnv* env, jobject, jfloatArray params) {
     FloatElements look(env, params);
     return utf8String(env, geode_palette_maker_start(wireOf(look)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteMakerFromLook(JNIEnv* env, jobject, jfloatArray params) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteMakerFromLook(JNIEnv* env, jobject, jfloatArray params) {
     FloatElements look(env, params);
     return utf8String(env, geode_palette_maker_from_look(wireOf(look)));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteMakerOpen(JNIEnv* env, jobject, jintArray stops, jfloat base, jfloat span) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteMakerOpen(JNIEnv* env, jobject, jintArray stops, jfloat base, jfloat span) {
     const std::vector<int> in = intsOf(env, stops);
     return utf8String(env, geode_palette_maker_open(in.data(), static_cast<int>(in.size()), base, span));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteMakerEdit(JNIEnv* env, jobject, jstring state, jint op, jint arg) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteMakerEdit(JNIEnv* env, jobject, jstring state, jint op, jint arg) {
     Utf8Chars text(env, state);
     return utf8String(env, geode_palette_maker_edit(textOf(text), op, arg));
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteMakerStops(JNIEnv* env, jobject, jstring state) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteMakerStops(JNIEnv* env, jobject, jstring state) {
     Utf8Chars text(env, state);
     int out[kMaxColours] = {};
     return toJava(env, out, geode_palette_maker_stops(textOf(text), out, kMaxColours));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteMakerView(JNIEnv* env, jobject, jstring state) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteMakerView(JNIEnv* env, jobject, jstring state) {
     Utf8Chars text(env, state);
     return utf8String(env, geode_palette_maker_view(textOf(text)));
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteSavedColours(JNIEnv* env, jobject, jintArray stops, jfloat base, jfloat span) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteSavedColours(JNIEnv* env, jobject, jintArray stops, jfloat base, jfloat span) {
     const std::vector<int> in = intsOf(env, stops);
     int out[kMaxColours] = {};
     return toJava(env, out, geode_palette_saved_colours(in.data(), static_cast<int>(in.size()), base, span, out, kMaxColours));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteSavedSwatch(JNIEnv* env, jobject, jintArray stops, jfloat base, jfloat span) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteSavedSwatch(JNIEnv* env, jobject, jintArray stops, jfloat base, jfloat span) {
     const std::vector<int> in = intsOf(env, stops);
     return utf8String(env, geode_palette_saved_swatch(in.data(), static_cast<int>(in.size()), base, span));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteListView(JNIEnv* env, jobject, jfloatArray params, jstring customId, jstring savedIds,
+Java_dev_geode_engine_bridge_CustomizeNative_paletteListView(JNIEnv* env, jobject, jfloatArray params, jstring customId, jstring savedIds,
                                                          jstring savedNames) {
     FloatElements look(env, params);
     Utf8Chars custom(env, customId);
@@ -129,7 +129,7 @@ Java_dev_geode_engine_bridge_GeodeNative_paletteListView(JNIEnv* env, jobject, j
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paletteStackCard(JNIEnv* env, jobject, jstring stack, jfloatArray params, jint savedCount) {
+Java_dev_geode_engine_bridge_CustomizeNative_paletteStackCard(JNIEnv* env, jobject, jstring stack, jfloatArray params, jint savedCount) {
     Utf8Chars text(env, stack);
     FloatElements look(env, params);
     return utf8String(env, geode_palette_stack_card(textOf(text), wireOf(look), savedCount));

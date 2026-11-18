@@ -13,7 +13,9 @@
 // last-wins frame request in the stage's inbox; a moved cap becomes a frame-rate hint there.
 //
 // Started on first use and never quit: an idle looper costs nothing, and a thread torn down on every pause would
-// race the next start. Named "GeodeFramePacer", at display priority.
+// race the next start. Named "GeodeFramePacer", at display priority. Each drawn vsync carries its frame time and its
+// expected presentation time (the callback data, API 33) to the stage, which steps the picture by the one and presents
+// at the other.
 namespace geode::stage::platform {
 
 class VsyncThread {
@@ -45,7 +47,7 @@ private:
     void apply(const Command& command);
     Sink* takeDetached();
     static void retire(Sink* sink);
-    static void onFrame(int64_t frameTimeNanos, void* data);
+    static void onFrame(const AChoreographerFrameCallbackData* callbackData, void* data);
 
     std::shared_ptr<Inbox> inbox_;
     AChoreographer* choreographer_ = nullptr;  // vsync thread only

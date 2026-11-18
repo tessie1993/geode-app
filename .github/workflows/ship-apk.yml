@@ -99,7 +99,7 @@ jobs:
       # Before the number is reserved, so a red test burns no release. On a push to main only.
       - name: Run unit tests
         if: github.event_name == 'push'
-        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
 
       # A push to main that is no longer main's tip is not published: its tests above
       # ran, and the run of the commit that replaced it ships. Asked before a number

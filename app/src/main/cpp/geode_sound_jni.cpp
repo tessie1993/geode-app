@@ -10,22 +10,22 @@
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_silenceResting(JNIEnv*, jobject, jlong nowMs, jlong heardAtMs) {
+Java_dev_geode_engine_bridge_SoundNative_silenceResting(JNIEnv*, jobject, jlong nowMs, jlong heardAtMs) {
     return geode_silence_resting(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
+Java_dev_geode_engine_bridge_SoundNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
     return geode_sound_track_boundary(seed);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundSetPlayerSource(JNIEnv*, jobject, jboolean on) {
+Java_dev_geode_engine_bridge_SoundNative_soundSetPlayerSource(JNIEnv*, jobject, jboolean on) {
     geode_sound_set_player_source(on == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundSourceStep(JNIEnv* env, jobject, jlongArray state, jlong nowMs,
+Java_dev_geode_engine_bridge_SoundNative_soundSourceStep(JNIEnv* env, jobject, jlongArray state, jlong nowMs,
                                                          jboolean ringPresent, jlong ringId, jlong ringWritten,
                                                          jboolean capturePermitted, jboolean captureRunning) {
     if (!state || env->GetArrayLength(state) < GEODE_SOUND_SOURCE_STATE_LONGS) return 0;
@@ -39,7 +39,7 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSourceStep(JNIEnv* env, jobject, j
 
 // The tuning schema in one array: every slot's default, then every minimum, then every maximum.
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundTuningSchema(JNIEnv* env, jobject) {
+Java_dev_geode_engine_bridge_SoundNative_soundTuningSchema(JNIEnv* env, jobject) {
     const int n = geode_sound_tuning_slots();
     std::vector<float> schema(static_cast<size_t>(3 * n));
     geode_sound_tuning_defaults(schema.data(), n);
@@ -51,7 +51,7 @@ Java_dev_geode_engine_bridge_GeodeNative_soundTuningSchema(JNIEnv* env, jobject)
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundSourceStartFailed(JNIEnv* env, jobject, jlongArray state, jlong nowMs) {
+Java_dev_geode_engine_bridge_SoundNative_soundSourceStartFailed(JNIEnv* env, jobject, jlongArray state, jlong nowMs) {
     if (!state || env->GetArrayLength(state) < GEODE_SOUND_SOURCE_STATE_LONGS) return;
     long long s[GEODE_SOUND_SOURCE_STATE_LONGS];
     env->GetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<jlong*>(s));
@@ -60,7 +60,7 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSourceStartFailed(JNIEnv* env, job
 }
 
 JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_soundTuningResolve(JNIEnv* env, jobject, jfloatArray saved) {
+Java_dev_geode_engine_bridge_SoundNative_soundTuningResolve(JNIEnv* env, jobject, jfloatArray saved) {
     std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
     if (!in.empty()) env->GetFloatArrayRegion(saved, 0, static_cast<jsize>(in.size()), in.data());
     float out[GEODE_SOUND_TUNING_FLOATS];
@@ -74,22 +74,22 @@ Java_dev_geode_engine_bridge_GeodeNative_soundTuningResolve(JNIEnv* env, jobject
 // The live wallpaper's and the dream's run rule (viz/SurfaceRun), beside their silence rule.
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceRunMode(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceRunMode(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
     return geode_surface_run_mode(static_cast<unsigned>(flags), animateUntilMs, nowMs);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceReason(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceReason(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
     return geode_surface_reason(static_cast<unsigned>(flags), animateUntilMs, nowMs);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageRun(JNIEnv*, jobject, jint flags) {
+Java_dev_geode_engine_bridge_SoundNative_stageRun(JNIEnv*, jobject, jint flags) {
     return static_cast<jint>(geode_stage_run(static_cast<unsigned>(flags)));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageHost(JNIEnv* env, jobject, jint flags, jintArray bounds, jint windowW,
+Java_dev_geode_engine_bridge_SoundNative_stageHost(JNIEnv* env, jobject, jint flags, jintArray bounds, jint windowW,
                                                    jint windowH, jintArray rectOut) {
     if (bounds == nullptr || rectOut == nullptr || env->GetArrayLength(bounds) < 4 || env->GetArrayLength(rectOut) < 4) {
         return GEODE_STAGE_HOST_HIDDEN;
@@ -105,12 +105,12 @@ Java_dev_geode_engine_bridge_GeodeNative_stageHost(JNIEnv* env, jobject, jint fl
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageDisplayEligible(JNIEnv*, jobject, jint flags) {
+Java_dev_geode_engine_bridge_SoundNative_stageDisplayEligible(JNIEnv*, jobject, jint flags) {
     return geode_stage_display_eligible(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stagePickDisplay(JNIEnv* env, jobject, jintArray ids, jintArray flags,
+Java_dev_geode_engine_bridge_SoundNative_stagePickDisplay(JNIEnv* env, jobject, jintArray ids, jintArray flags,
                                                           jint preferredId) {
     if (ids == nullptr || flags == nullptr) return -1;
     const jsize count = std::min(env->GetArrayLength(ids), env->GetArrayLength(flags));
@@ -127,18 +127,18 @@ Java_dev_geode_engine_bridge_GeodeNative_stagePickDisplay(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stagePresents(JNIEnv*, jobject, jint flags) {
+Java_dev_geode_engine_bridge_SoundNative_stagePresents(JNIEnv*, jobject, jint flags) {
     return geode_stage_presents(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageStepTarget(JNIEnv*, jobject, jint page, jint flags, jint milkCount,
+Java_dev_geode_engine_bridge_SoundNative_stageStepTarget(JNIEnv*, jobject, jint page, jint flags, jint milkCount,
                                                          jint lookCount) {
     return geode_stage_step_target(page, static_cast<unsigned>(flags), milkCount, lookCount);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageStepIndex(JNIEnv* env, jobject, jbooleanArray open, jint here,
+Java_dev_geode_engine_bridge_SoundNative_stageStepIndex(JNIEnv* env, jobject, jbooleanArray open, jint here,
                                                         jint step) {
     if (open == nullptr) return -1;
     const jsize count = env->GetArrayLength(open);
@@ -149,7 +149,7 @@ Java_dev_geode_engine_bridge_GeodeNative_stageStepIndex(JNIEnv* env, jobject, jb
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stageStepMilk(JNIEnv* env, jobject, jobjectArray paths, jstring current,
+Java_dev_geode_engine_bridge_SoundNative_stageStepMilk(JNIEnv* env, jobject, jobjectArray paths, jstring current,
                                                        jint step) {
     if (paths == nullptr) return -1;
     const jsize count = env->GetArrayLength(paths);
@@ -169,57 +169,56 @@ Java_dev_geode_engine_bridge_GeodeNative_stageStepMilk(JNIEnv* env, jobject, job
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
+Java_dev_geode_engine_bridge_SoundNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
                                                           jlong nowMs) {
     return geode_surface_listening(static_cast<unsigned>(flags), animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceEntitled(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceEntitled(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
     return geode_surface_entitled(animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceRecheckInMs(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceRecheckInMs(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
     return geode_surface_recheck_in_ms(animateUntilMs, nowMs);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
     return geode_surface_fps_choice(requestedFps);
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceZoomCovers(JNIEnv*, jobject, jfloat zoom) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceZoomCovers(JNIEnv*, jobject, jfloat zoom) {
     return geode_surface_zoom_covers(zoom) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceProximityNear(JNIEnv*, jobject, jfloat distanceCm, jfloat maximumRange) {
+Java_dev_geode_engine_bridge_SoundNative_surfaceProximityNear(JNIEnv*, jobject, jfloat distanceCm, jfloat maximumRange) {
     return geode_surface_proximity_near(distanceCm, maximumRange) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoTimerRestart(JNIEnv*, jobject, jint timer, jlong nowMs) {
+Java_dev_geode_engine_bridge_SoundNative_autoTimerRestart(JNIEnv*, jobject, jint timer, jlong nowMs) {
     geode_auto_timer_restart(timer, nowMs);
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoMarkChange(JNIEnv* env, jobject, jstring key) {
+Java_dev_geode_engine_bridge_SoundNative_autoMarkChange(JNIEnv* env, jobject, jstring key) {
     if (!key) return;
-    const char* chars = env->GetStringUTFChars(key, nullptr);
-    if (!chars) return;
-    geode_auto_mark_change(chars);
-    env->ReleaseStringUTFChars(key, chars);
+    const geode::jni::Utf8Chars chars(env, key);
+    if (!chars.get()) return;
+    geode_auto_mark_change(chars.get());
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoPick(JNIEnv*, jobject, jint count, jint onScreen) {
+Java_dev_geode_engine_bridge_SoundNative_autoPick(JNIEnv*, jobject, jint count, jint onScreen) {
     return geode_auto_pick(count, onScreen);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stylesRandom(JNIEnv* env, jobject, jintArray family, jbooleanArray open,
+Java_dev_geode_engine_bridge_SoundNative_stylesRandom(JNIEnv* env, jobject, jintArray family, jbooleanArray open,
                                                       jint onScreen, jboolean familyOnly, jint innerCount,
                                                       jint innerOnScreen) {
     if (family == nullptr || open == nullptr) return -1;
@@ -238,7 +237,7 @@ Java_dev_geode_engine_bridge_GeodeNative_stylesRandom(JNIEnv* env, jobject, jint
 }
 
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_stylesLead(JNIEnv* env, jobject, jint count, jint lead) {
+Java_dev_geode_engine_bridge_SoundNative_stylesLead(JNIEnv* env, jobject, jint count, jint lead) {
     const jsize n = count > 0 ? count : 0;
     std::vector<int> order(static_cast<size_t>(n));
     geode_styles_lead(n, lead, order.data());

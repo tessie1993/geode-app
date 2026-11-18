@@ -2,7 +2,7 @@ package dev.geode.ui
 
 import androidx.annotation.StringRes
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TagsNative
 import dev.geode.model.DeviceTrack
 import java.lang.ref.Cleaner
 import java.lang.ref.Reference
@@ -53,14 +53,14 @@ private class NativeLibrarySearcher(
         }
         val durations = LongArray(tracks.size) { tracks[it].durationMs }
         val added = LongArray(tracks.size) { tracks[it].addedSec }
-        handle = GeodeNative.libraryIndexCreate(cells, durations, added)
+        handle = TagsNative.libraryIndexCreate(cells, durations, added)
         val owned = handle
-        cleaner.register(this) { GeodeNative.libraryIndexDestroy(owned) }
+        cleaner.register(this) { TagsNative.libraryIndexDestroy(owned) }
     }
 
-    override fun order(sort: LibrarySort): IntArray = held { GeodeNative.libraryIndexOrder(handle, nativeSort(sort)) }
+    override fun order(sort: LibrarySort): IntArray = held { TagsNative.libraryIndexOrder(handle, nativeSort(sort)) }
 
-    override fun search(query: String): IntArray = held { GeodeNative.libraryIndexSearch(handle, query.encodeToByteArray()) }
+    override fun search(query: String): IntArray = held { TagsNative.libraryIndexSearch(handle, query.encodeToByteArray()) }
 
     /** Runs a native call with this object held past it, so the collector cannot free the index under the call. */
     private inline fun <T> held(call: () -> T): T =

@@ -145,7 +145,6 @@ public:
     void hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis);
     void setListenPosition(int64_t position) { listenPosition_ = position; }
     // Where the last frame's triggers fired (sound/interp/Hits). Render thread only.
-    const sound::interp::Hits& soundHits() const { return soundHits_; }
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
@@ -272,8 +271,9 @@ private:
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
-    // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
-    void drawUiBlur(GLuint targetFbo);
+    // After the composite: the UI blur region, live surfaces only; nothing at strength 0. Its targets go after
+    // a short spell without a draw (wallDt, the frame's wall step).
+    void drawUiBlur(GLuint targetFbo, float wallDt);
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
@@ -296,7 +296,7 @@ private:
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
-    GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
+    GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
     // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame time
     // says nothing about what the phone can draw, so the fluid quality monitor sits out until a moment after
@@ -415,6 +415,7 @@ private:
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};
+    // The outgoing style's target: made while a transition runs, released when none does (ensureTargets).
     Framebuffer fboB_{"sceneB"};
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.
@@ -535,8 +536,8 @@ private:
     float divePhase_ = 0.0f;
     // 0 the plain picture .. 1 the dive: the switch fades over kDiveFadeSeconds, never cuts.
     float diveMix_ = 0.0f;
-    // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
-    int feedbackIdleFrames_ = 0;
+    // Seconds (the wall step) since the feedback pass last drew; its targets are freed once this reaches kFeedbackIdleSeconds.
+    float feedbackIdleSeconds_ = 0.0f;
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
 
@@ -573,6 +574,12 @@ private:
     int heldWidth_ = 0;
     int heldHeight_ = 0;
     int redrawFrames_ = 0;
+    // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's
+    // build and first load, a MilkDrop preset. redrawFrames_ stays the count for "one more frame".
+    static constexpr float kRedrawSeconds = 1.0f;
+    float redrawSeconds_ = 0.0f;
+    // The id read from stateLock_ each frame: assigned in place, so it keeps its buffer.
+    std::string requestedIdScratch_;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing pinLayer()/setTransition() on

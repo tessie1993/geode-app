@@ -11,95 +11,6 @@ namespace {
 
 using catalogue::Scope;
 
-// One name per LfoTarget, in wire order: the name a saved wave, envelope or route carries. Which styles a
-// target reaches and whether it is offered are not kept here: they are the meta row of the field it
-// writes (viz/ParamTable.inc), so a target follows its Customize control.
-constexpr std::array<const char*, kTargetCount> kTargetNames{{
-    "NONE",
-    "SPEED",
-    "ZOOM",
-    "ROTATION",
-    "SWAY",
-    "RETIRED_5",  // was PULSE; a saved "PULSE" no longer resolves
-    "DRIFT_X",
-    "DRIFT_Y",
-    "WARP",
-    "RIPPLE",
-    "MORPH",
-    "TWIST",
-    "TILE",
-    "PIXELATE",
-    "POSTERIZE",
-    "COLOR_SHIFT",
-    "PALETTE_MIX",
-    "SATURATION",
-    "BRIGHTNESS",
-    "INTENSITY",
-    "BLOOM",
-    "TEMPERATURE",
-    "TURBULENCE",
-    "CHROMA_AB",
-    "VIGNETTE",
-    "RETIRED_25",  // was GLITCH; a saved "GLITCH" no longer resolves
-    "FISHEYE",
-    "PARTICLE_SIZE",
-    "TRAIL_LENGTH",
-    "FLUID_CURL",
-    "FLUID_RADIUS",
-    "FLUID_FORCE",
-    "FLUID_GLOW",
-    "FLUID_FADE",
-    "FLUID_CATCH_PULL",
-    "FLUID_CATCH_RADIUS",
-    "FLOW_STRENGTH",
-    "RETIRED_37",  // was WATER_RIPPLE (Water is gone; Pool replaced it)
-    "RETIRED_38",  // was RIPPLE_OVERLAY
-    "LFO1_RATE",
-    "LFO1_DEPTH",
-    "LFO2_RATE",
-    "LFO2_DEPTH",
-    "LFO3_RATE",
-    "LFO3_DEPTH",
-    "CAM_FLY",
-    "CAM_ORBIT",
-    "CAM_PUSH",
-    "CAM_YAW",
-    "CAM_PITCH",
-    "CAM_ROLL",
-    "CAM_FOV",
-    "CAM_SHAKE",
-    "FLOW_CURL",
-    "FLOW_FORCE",
-    "DIVE_SPEED",  // LfoTarget::EndlessZoomSpeed
-    "DIVE_TWIST",
-    "DIVE_AIM_X",
-    "DIVE_AIM_Y",
-    "MACRO",
-    "PALETTE_AMOUNT_1",
-    "PALETTE_AMOUNT_3",
-    "PALETTE_AMOUNT_4",
-    "PALETTE_AMOUNT_5",
-    "PALETTE_AMOUNT_6",
-    "PALETTE_AMOUNT_7",
-    "PALETTE_AMOUNT_8",
-    "PALETTE_SHIFT",
-    "KALEIDO_FOLDS",
-    "LAYER_MIX",
-    "SIM_FLUID",
-    "SIM_PARTICLES",
-    "SIM_FORCE",
-    "SIM_LAYER_ORDER",
-    "SPAWN",
-    "FRACTAL",
-    "FRONT_LAYER",
-    "BACK_LAYER",
-    "FORMULA",
-    "SHAPES",
-    "SHADOW",
-    "ESCAPE_COLOR",
-    "LIFE",
-}};
-
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};
 constexpr std::array kPolarityNames{"BIPOLAR", "POSITIVE", "NEGATIVE"};
 constexpr std::array kCurveNames{"LINEAR", "EXPONENTIAL", "LOGARITHMIC", "SMOOTH"};
@@ -147,7 +58,13 @@ std::string build() {
 
 }  // namespace
 
-const char* name(LfoTarget target) { return known(target) ? kTargetNames[static_cast<size_t>(target)] : ""; }
+// A legacy target's frozen name; any later one is its field's name (viz/ModTable.hpp).
+const char* name(LfoTarget target) {
+    if (!known(target)) return "";
+    const int i = static_cast<int>(target);
+    return i < modtable::kLegacyCount ? modtable::kLegacy[static_cast<size_t>(i)].name
+                                      : SceneParams::fieldNames()[static_cast<size_t>(paramSlotOf(target))];
+}
 
 namespace {
 

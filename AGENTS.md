@@ -115,3 +115,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: A batch render that throws outside a track (pinning the look, building its state) ends as failed instead of crashing the process (`ui/ExportController.kt`).
 - 2026-11-18: A refused `ExportService` foreground start is logged to `RingLog` (`export/ExportService.kt`).
 - 2026-11-18: `PlaybackCaptureService.start` returns whether Android accepted the foreground start and logs a refusal; its two callers report a refusal as a denied consent (`audio/PlaybackCaptureService.kt`, `ui/ExternalAudioSettings.kt`, `ui/LibraryEmpty.kt`).
+- 2026-11-18: `AtomicWrite.stream` logs the throwable that made a write fail (`data/AtomicWrite.kt`).

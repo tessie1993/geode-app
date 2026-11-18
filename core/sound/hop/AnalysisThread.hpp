@@ -78,6 +78,9 @@ public:
     // limit moves on with no write (playback resumed with the sink's buffer already in the ring): once the audio held
     // back has waited a second, the thread sleeps until a notify.
     void notify();
+    // The ring's writer calls this, not notify(), after each write: the same, except that a thread asleep for the
+    // listen limit to move on is not woken by audio the limit holds back anyway (the limit moves it, with time).
+    void ringWritten();
 
     // Controls, applied by the analysis thread at its next pass before it takes more audio, in the order sent.
     // False when the queue is full (32 waiting), and nothing is applied.
@@ -157,7 +160,7 @@ private:
     void write(const float* interleaved, int frames, int channels);
     void publishNew();
     void publish(const SoundEngine::Hop& hop);
-    void timedWait(uint32_t seen, std::chrono::milliseconds timeout);
+    void timedWait(uint32_t seen, std::chrono::microseconds timeout);
 
     bool read(uint64_t index, Heard& out) const;
     uint64_t firstAfter(int64_t from, uint64_t count) const;
@@ -201,6 +204,10 @@ private:
     std::atomic<uint32_t> signal_{0};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> timedWaiting_{false};
+    // In the timed wait for the listen limit to move on (set around it by the analysis thread).
+    std::atomic<bool> limitWaiting_{false};
+    // The analysis thread's: how long that wait is, set by the pass that asks for it.
+    std::chrono::microseconds limitWait_{10000};
     // Set before the untimed wait on signal_ and cleared after it, so notify() wakes only a thread that may sleep.
     std::atomic<bool> waiting_{false};
     std::mutex waitLock_;

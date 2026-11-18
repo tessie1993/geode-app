@@ -21,9 +21,10 @@ constexpr int kChunkShare = 4;
 // The highest analysis rate: SoundEngine::analysisRateFor halves from here.
 constexpr double kTopAnalysisRate = 88200.0;
 // While audio is flowing the wait has this timeout, so a writer that stops still lets step() feed silence.
-constexpr std::chrono::milliseconds kStarvedTick{50};
-// While a listen limit holds back audio already in the ring: the limit moves with time, not with writes.
-constexpr std::chrono::milliseconds kLimitTick{10};
+constexpr std::chrono::microseconds kStarvedTick{50000};
+// While a listen limit holds back audio already in the ring: the limit moves with time, not with writes, so the wait is
+// the time it takes to move on by one hop (at least this long, the hop's own length when the engine is known).
+constexpr std::chrono::microseconds kLimitTick{10000};
 // The timed waits end at this much quiet even if the engine never reports silence, and sooner while a listen limit
 // is all that holds audio back (a pause with the sink's buffer still unplayed): then only notify() resumes it.
 constexpr float kFlowCapSeconds = 5.0f;
@@ -95,6 +96,14 @@ void AnalysisThread::notify() {
     if (timedWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
 }
 
+// A write the listen limit holds back changes nothing until the limit moves, which only time does: while this thread
+// sleeps on that, the write bumps the signal (so no pass is missed) but does not wake it. Everything else wakes it.
+void AnalysisThread::ringWritten() {
+    signal_.fetch_add(1, std::memory_order_seq_cst);
+    if (waiting_.load(std::memory_order_seq_cst)) signal_.notify_one();
+    if (timedWaiting_.load(std::memory_order_seq_cst) && !limitWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
+}
+
 void AnalysisThread::run() {
 #ifdef __ANDROID__
     // Best effort: a refusal leaves the inherited priority. The work done per pass is unchanged.
@@ -116,7 +125,9 @@ void AnalysisThread::run() {
                 timedWait(seen, kStarvedTick);
                 break;
             case Next::kWaitLimit:
-                timedWait(seen, kLimitTick);
+                limitWaiting_.store(true, std::memory_order_seq_cst);
+                timedWait(seen, limitWait_);
+                limitWaiting_.store(false, std::memory_order_seq_cst);
                 break;
             case Next::kWait:
                 idle_.store(true, std::memory_order_release);
@@ -131,7 +142,7 @@ void AnalysisThread::run() {
 
 // A notify that lands between the predicate's check and the wait's sleep is late by at most `timeout`, never lost:
 // the writer cannot take waitLock_, so this is the one wait with a bound instead of a guarantee.
-void AnalysisThread::timedWait(uint32_t seen, std::chrono::milliseconds timeout) {
+void AnalysisThread::timedWait(uint32_t seen, std::chrono::microseconds timeout) {
     std::unique_lock<std::mutex> lock(waitLock_);
     timedWaiting_.store(true, std::memory_order_seq_cst);
     waitCv_.wait_for(lock, timeout, [&] { return signal_.load(std::memory_order_seq_cst) != seen; });
@@ -181,7 +192,16 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
     }
     if (more) return Next::kNow;
     if (!flowing_) return Next::kWait;
-    if (heldBack) return Next::kWaitLimit;
+    if (heldBack) {
+        limitWait_ = kLimitTick;
+        if (engine_) {
+            // One hop of the engine's input frames at the input rate: what the limit takes to admit the next hop.
+            const int64_t hopFrames = static_cast<int64_t>(engine_->hopSamples()) << engine_->halvings();
+            const int64_t micros = hopFrames * 1000000 / std::max(1, engine_->sampleRateHz());
+            limitWait_ = std::chrono::microseconds(std::max<int64_t>(kLimitTick.count(), micros));
+        }
+        return Next::kWaitLimit;
+    }
     return silenceWhenStarved_ ? Next::kWaitTimed : Next::kWait;
 }
 

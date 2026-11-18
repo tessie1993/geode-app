@@ -50,8 +50,8 @@ import kotlin.random.Random
 class AutoDirectorStore internal constructor(
     private val repository: SettingsRepository<AutoDirectorSettings>,
     private val scope: CoroutineScope,
-    /** Customize's keep set as saved ([KEY_KEPT]), read once (on IO) when the store starts. */
-    keptAtStart: suspend () -> Set<String>,
+    /** Customize's keep set as saved ([KeepSetStore.document]), read once (on IO) when the store starts. */
+    keptAtStart: suspend () -> String,
 ) {
     val enabled: StateFlow<Boolean> =
         repository.value
@@ -97,11 +97,11 @@ class AutoDirectorStore internal constructor(
     }
 
     /**
-     * Customize's locked controls and kept categories, as saved under [KEY_KEPT]: the saved set at start, then
-     * each change `ModulationController` saves. The one writer of the native keep set.
+     * Customize's locked controls and kept categories, as native's keep document ([KeepSetStore]): the saved one
+     * at start, then each change `ModulationController` saves. The one writer of the native keep set.
      */
-    fun setKept(keys: Set<String>) {
-        bestEffort(TAG, "push keep set") { DirectorNative.directorKeepSet(keys.joinToString("\n")) }
+    fun setKept(document: String) {
+        bestEffort(TAG, "push keep set") { DirectorNative.directorKeepSet(document) }
     }
 
     /** The settings text as native wrote it for an edit; saved and handed over as it is. */
@@ -179,9 +179,6 @@ class AutoDirectorStore internal constructor(
         private const val TAG = "AutoDirectorStore"
         const val DEFAULT_ENABLED = true
         const val DEFAULT_REACH = 0
-
-        /** Customize's lock set in the modulation prefs, which `ModulationController` edits. */
-        const val KEY_KEPT = "locked_params"
     }
 }
 
@@ -223,8 +220,4 @@ object AutoDirectorCodec : PrefsCodec<AutoDirectorSettings> {
             .putInt(KEY_REACH, value.reach)
             .putString(KEY_TUNING, value.tuning)
     }
-
-    /** Customize's keep set as `ModulationController` saved it in [modulation], for the store's start. */
-    fun readKept(modulation: SharedPreferences): Set<String> =
-        modulation.getStringSet(AutoDirectorStore.KEY_KEPT, emptySet()).orEmpty().toSet()
 }

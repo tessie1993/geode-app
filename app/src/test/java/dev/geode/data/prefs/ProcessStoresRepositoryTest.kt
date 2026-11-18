@@ -6,6 +6,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.CustomizeGroups
 import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.CustomizeGroupsStore
+import dev.geode.data.KeepSetStore
 import dev.geode.data.StyleShelfCodec
 import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleShelf
@@ -95,8 +96,21 @@ class ProcessStoresRepositoryTest {
     @Test
     fun theKeepSetIsReadFromTheModulationFile() {
         val modulation = RecordingPrefs()
-        assertEquals(emptySet<String>(), AutoDirectorCodec.readKept(modulation.prefs))
-        modulation.values[AutoDirectorStore.KEY_KEPT] = setOf("speed", "#CAMERA")
-        assertEquals(setOf("speed", "#CAMERA"), AutoDirectorCodec.readKept(modulation.prefs))
+        assertEquals("", KeepSetStore(modulation.prefs) { it }.document.value)
+        // The string set users have saved: handed to native as one key a line, and native's answer is kept.
+        modulation.values[KeepSetStore.KEY] = setOf("speed", "#CAMERA")
+        val normalized = KeepSetStore(modulation.prefs) { "#CAMERA\nspeed\n" }
+        assertEquals("#CAMERA\nspeed\n", normalized.document.value)
+        assertEquals(setOf("speed", "#CAMERA"), normalized.keys.value)
+    }
+
+    @Test
+    fun aToggledKeepSetIsSavedAsAStringSet() {
+        val modulation = RecordingPrefs()
+        val store = KeepSetStore(modulation.prefs) { it }
+        store.save("#LOOK\nspeed\n")
+        assertEquals(setOf("#LOOK", "speed"), modulation.values[KeepSetStore.KEY])
+        assertEquals(setOf("#LOOK", "speed"), store.keys.value)
+        assertEquals("#LOOK\nspeed\n", store.document.value)
     }
 }

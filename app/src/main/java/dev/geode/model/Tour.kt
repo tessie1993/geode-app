@@ -1,5 +1,7 @@
 package dev.geode.model
 
+import dev.geode.engine.bridge.ShellNative
+
 /** The tour's chapters, in the order it plays them. Settings › Tutorials lists exactly these. */
 enum class TourChapter { START, VISUALS, CUSTOMIZE, STUDIO }
 
@@ -66,7 +68,7 @@ data class TourCover(
  * unfinished chapter picks up at, the gesture tips already said, and whether the user turned
  * tips off ([off]: no gesture tip and no chapter of its own accord; a replay still plays).
  *
- * Plain strings, read leniently: a name a later build dropped is ignored.
+ * Plain strings in the prefs, read leniently (native's, [Tour.rules]): a name a later build dropped is ignored.
  */
 data class TourProgress(
     val done: Set<TourChapter> = emptySet(),
@@ -74,11 +76,11 @@ data class TourProgress(
     val tips: Set<GestureTip> = emptySet(),
     val off: Boolean = false,
 ) {
-    fun encodeDone(): String = done.joinToString(",") { it.name }
+    fun encodeDone(): String = Tour.rules.encodeDone(this)
 
-    fun encodeResume(): String? = resume?.name
+    fun encodeResume(): String? = Tour.rules.encodeResume(this)
 
-    fun encodeTips(): String = tips.joinToString(",") { it.name }
+    fun encodeTips(): String = Tour.rules.encodeTips(this)
 
     companion object {
         val Finished = TourProgress(done = TourChapter.entries.toSet())
@@ -95,25 +97,7 @@ data class TourProgress(
             tips: String?,
             legacySeen: Boolean = false,
             off: Boolean = false,
-        ): TourProgress =
-            TourProgress(
-                done =
-                    if (legacySeen) {
-                        TourChapter.entries.toSet()
-                    } else {
-                        names(done).mapNotNull(::chapterNamed).toSet()
-                    },
-                resume = TourSpot.entries.firstOrNull { it.name == resume },
-                tips = names(tips).mapNotNull { n -> GestureTip.entries.firstOrNull { it.name == n } }.toSet(),
-                off = off,
-            )
-
-        private fun names(joined: String?) = joined.orEmpty().split(',')
-
-        private fun chapterNamed(name: String): TourChapter? =
-            if (name == LEGACY_WELCOME) TourChapter.START else TourChapter.entries.firstOrNull { it.name == name }
-
-        private const val LEGACY_WELCOME = "WELCOME"
+        ): TourProgress = Tour.rules.decode(done, resume, tips, legacySeen, off)
     }
 }
 
@@ -140,30 +124,105 @@ data class TourStep(
     val last: Boolean get() = index == count
 }
 
-/** The tour's rules. Pure: the same run and facts always give the same step. */
+/**
+ * The tour's rules: native's (core/shell/Tour, asked through [ShellNative]). Pure: the same run and
+ * facts always give the same step. JVM tests cannot load libgeode, so they [install] a stand-in.
+ */
 object Tour {
+    /** What the tour asks; each is documented on the [Tour] function of the same name. */
+    interface Rules {
+        fun reached(
+            spot: TourSpot,
+            facts: TourFacts,
+        ): Boolean
+
+        fun step(
+            run: TourRun,
+            facts: TourFacts,
+        ): TourStep?
+
+        fun pass(
+            run: TourRun,
+            spot: TourSpot,
+        ): TourRun
+
+        fun nextChapter(run: TourRun): TourRun?
+
+        fun held(cover: TourCover): Boolean
+
+        fun shows(
+            run: TourRun?,
+            progress: TourProgress,
+            cover: TourCover,
+        ): Boolean
+
+        fun mayTip(
+            tip: GestureTip,
+            progress: TourProgress,
+            cover: TourCover,
+            run: TourRun?,
+        ): Boolean
+
+        fun due(
+            progress: TourProgress,
+            facts: TourFacts,
+        ): TourChapter?
+
+        fun resume(
+            chapter: TourChapter,
+            progress: TourProgress,
+        ): TourRun
+
+        fun replay(chapters: Collection<TourChapter>): TourRun?
+
+        fun ended(
+            progress: TourProgress,
+            run: TourRun,
+            skipped: Boolean,
+        ): TourProgress
+
+        fun offersPro(
+            run: TourRun,
+            skipped: Boolean,
+        ): Boolean
+
+        fun placeCard(
+            hole: TourRect?,
+            cardWidth: Int,
+            cardHeight: Int,
+            safe: TourRect,
+            gap: Int,
+        ): Pair<Int, Int>
+
+        fun decode(
+            done: String?,
+            resume: String?,
+            tips: String?,
+            legacySeen: Boolean,
+            off: Boolean,
+        ): TourProgress
+
+        fun encodeDone(progress: TourProgress): String
+
+        fun encodeResume(progress: TourProgress): String?
+
+        fun encodeTips(progress: TourProgress): String
+    }
+
+    @Volatile
+    internal var rules: Rules = Native
+        private set
+
+    /** Asks [next] from now on. */
+    fun install(next: Rules) {
+        rules = next
+    }
+
     /** Whether the user has already done what [spot] asks. Always false for a [TourStepKind.POINT]. */
     fun reached(
         spot: TourSpot,
         facts: TourFacts,
-    ): Boolean =
-        when (spot) {
-            TourSpot.NAV_LIBRARY -> facts.place != TourPlace.ELSEWHERE || facts.playing
-            TourSpot.PLAY_SONG -> facts.playing || facts.place == TourPlace.VISUALS
-            TourSpot.NAV_VISUALS -> facts.place == TourPlace.VISUALS
-            else -> false
-        }
-
-    /** A pointer needs its control on screen; a step already done is never asked for. */
-    fun available(
-        spot: TourSpot,
-        facts: TourFacts,
-    ): Boolean =
-        when (spot.kind) {
-            TourStepKind.POINT -> spot in facts.shown
-            TourStepKind.GO -> spot in facts.shown && !reached(spot, facts)
-            TourStepKind.WAIT -> !reached(spot, facts)
-        }
+    ): Boolean = rules.reached(spot, facts)
 
     /**
      * The step [run] is on: the first one from [TourRun.at] that can be shown. A step whose control
@@ -172,38 +231,26 @@ object Tour {
     fun step(
         run: TourRun,
         facts: TourFacts,
-    ): TourStep? {
-        val rest = run.chapter?.spots?.drop(run.at) ?: return null
-        val open = rest.filter { available(it, facts) }
-        val spot = open.firstOrNull() ?: return null
-        return TourStep(spot, index = run.seen + 1, count = run.seen + open.count { it.kind != TourStepKind.WAIT })
-    }
+    ): TourStep? = rules.step(run, facts)
 
     /** [run] with [spot] behind it. */
     fun pass(
         run: TourRun,
         spot: TourSpot,
-    ): TourRun =
-        run.copy(
-            at = spot.chapter.spots.indexOf(spot) + 1,
-            seen = run.seen + if (spot.kind == TourStepKind.WAIT) 0 else 1,
-        )
+    ): TourRun = rules.pass(run, spot)
 
     /** [run] on its next chapter, or null when that was the last. */
-    fun nextChapter(run: TourRun): TourRun? {
-        val rest = run.chapters.drop(1)
-        return if (rest.isEmpty()) null else TourRun(rest, replay = run.replay)
-    }
+    fun nextChapter(run: TourRun): TourRun? = rules.nextChapter(run)
 
     /** Whether [cover] holds the tour back: anything over the app does. */
-    fun held(cover: TourCover): Boolean = cover.firstRun || cover.paywall || cover.pip || cover.permissionRationale || cover.away
+    fun held(cover: TourCover): Boolean = rules.held(cover)
 
     /** Whether [run] may show a step now: nothing covers the app, and tips are on unless it is a replay. */
     fun shows(
         run: TourRun?,
         progress: TourProgress,
         cover: TourCover,
-    ): Boolean = !held(cover) && (run?.replay == true || !progress.off)
+    ): Boolean = rules.shows(run, progress, cover)
 
     /** Whether [tip] may be said now: not said before, tips on, no run and nothing over the app. */
     fun mayTip(
@@ -211,7 +258,7 @@ object Tour {
         progress: TourProgress,
         cover: TourCover,
         run: TourRun?,
-    ): Boolean = tip !in progress.tips && !progress.off && run == null && !held(cover)
+    ): Boolean = rules.mayTip(tip, progress, cover, run)
 
     /**
      * The chapter that should start by itself, if any. START leads once, on a new install. Each
@@ -221,24 +268,16 @@ object Tour {
     fun due(
         progress: TourProgress,
         facts: TourFacts,
-    ): TourChapter? =
-        when {
-            progress.off -> null
-            TourChapter.START !in progress.done -> TourChapter.START
-            else -> TourChapter.entries.firstOrNull { ch -> ch !in progress.done && ch.spots.any { it in facts.shown } }
-        }
+    ): TourChapter? = rules.due(progress, facts)
 
     /** A run of [chapter] started by [due], picking up where it was left. */
     fun resume(
         chapter: TourChapter,
         progress: TourProgress,
-    ): TourRun = TourRun(listOf(chapter), at = progress.resume?.takeIf { it.chapter == chapter }?.let(chapter.spots::indexOf) ?: 0)
+    ): TourRun = rules.resume(chapter, progress)
 
     /** A replay of [chapters] from Settings, in tour order. */
-    fun replay(chapters: Collection<TourChapter>): TourRun? {
-        val ordered = TourChapter.entries.filter { it in chapters }
-        return if (ordered.isEmpty()) null else TourRun(ordered, replay = true)
-    }
+    fun replay(chapters: Collection<TourChapter>): TourRun? = rules.replay(chapters)
 
     /**
      * Progress once [run]'s chapter has ended. A replay changes nothing. Skipping START turns the
@@ -248,14 +287,7 @@ object Tour {
         progress: TourProgress,
         run: TourRun,
         skipped: Boolean,
-    ): TourProgress {
-        val chapter = run.chapter
-        return when {
-            run.replay || chapter == null -> progress
-            skipped && chapter == TourChapter.START -> progress.copy(done = TourChapter.entries.toSet(), resume = null)
-            else -> progress.copy(done = progress.done + chapter, resume = null)
-        }
-    }
+    ): TourProgress = rules.ended(progress, run, skipped)
 
     /**
      * Whether the one-time Pro offer follows this ending: after the first look at Visuals, or at
@@ -264,7 +296,7 @@ object Tour {
     fun offersPro(
         run: TourRun,
         skipped: Boolean,
-    ): Boolean = !run.replay && (run.chapter == TourChapter.VISUALS || (skipped && run.chapter == TourChapter.START))
+    ): Boolean = rules.offersPro(run, skipped)
 
     /**
      * Where the card goes: the side of the lit control with the most room that fits it, a [gap]
@@ -277,21 +309,126 @@ object Tour {
         cardHeight: Int,
         safe: TourRect,
         gap: Int,
-    ): Pair<Int, Int> {
-        val maxX = (safe.right - cardWidth).coerceAtLeast(safe.left)
-        val maxY = (safe.bottom - cardHeight).coerceAtLeast(safe.top)
-        if (hole == null) return (safe.left + maxX) / 2 to (safe.top + maxY) / 2
-        val centredX = ((hole.left + hole.right - cardWidth) / 2).coerceIn(safe.left, maxX)
-        val centredY = ((hole.top + hole.bottom - cardHeight) / 2).coerceIn(safe.top, maxY)
-        val sides =
-            listOf(
-                Triple(safe.bottom - hole.bottom - gap - cardHeight, centredX, hole.bottom + gap),
-                Triple(hole.top - safe.top - gap - cardHeight, centredX, hole.top - gap - cardHeight),
-                Triple(safe.right - hole.right - gap - cardWidth, hole.right + gap, centredY),
-                Triple(hole.left - safe.left - gap - cardWidth, hole.left - gap - cardWidth, centredY),
+    ): Pair<Int, Int> = rules.placeCard(hole, cardWidth, cardHeight, safe, gap)
+
+    /** The rules as native answers them; runs, progress and facts cross as the ints `geode_shell_api.h` spells. */
+    private object Native : Rules {
+        override fun reached(
+            spot: TourSpot,
+            facts: TourFacts,
+        ) = ShellNative.tourReached(spot.ordinal, facts.mask(), facts.place.ordinal, facts.playing)
+
+        override fun step(
+            run: TourRun,
+            facts: TourFacts,
+        ) = ShellNative.tourStep(run.wire(), facts.mask(), facts.place.ordinal, facts.playing)?.let {
+            TourStep(TourSpot.entries[it[0]], index = it[1], count = it[2])
+        }
+
+        override fun pass(
+            run: TourRun,
+            spot: TourSpot,
+        ) = ShellNative.tourPass(run.wire(), spot.ordinal).toRun()
+
+        override fun nextChapter(run: TourRun) = ShellNative.tourNextChapter(run.wire())?.toRun()
+
+        override fun held(cover: TourCover) = ShellNative.tourHeld(cover.mask())
+
+        override fun shows(
+            run: TourRun?,
+            progress: TourProgress,
+            cover: TourCover,
+        ) = ShellNative.tourShows(run?.wire(), progress.wire(), cover.mask())
+
+        override fun mayTip(
+            tip: GestureTip,
+            progress: TourProgress,
+            cover: TourCover,
+            run: TourRun?,
+        ) = ShellNative.tourMayTip(tip.ordinal, progress.wire(), cover.mask(), run?.wire())
+
+        override fun due(
+            progress: TourProgress,
+            facts: TourFacts,
+        ) = TourChapter.entries.getOrNull(ShellNative.tourDue(progress.wire(), facts.mask(), facts.place.ordinal, facts.playing))
+
+        override fun resume(
+            chapter: TourChapter,
+            progress: TourProgress,
+        ) = ShellNative.tourResume(chapter.ordinal, progress.wire()).toRun()
+
+        override fun replay(chapters: Collection<TourChapter>) =
+            ShellNative.tourReplay(chapters.fold(0) { mask, chapter -> mask or (1 shl chapter.ordinal) })?.toRun()
+
+        override fun ended(
+            progress: TourProgress,
+            run: TourRun,
+            skipped: Boolean,
+        ) = ShellNative.tourEnded(progress.wire(), run.wire(), skipped).toProgress()
+
+        override fun offersPro(
+            run: TourRun,
+            skipped: Boolean,
+        ) = ShellNative.tourOffersPro(run.wire(), skipped)
+
+        override fun placeCard(
+            hole: TourRect?,
+            cardWidth: Int,
+            cardHeight: Int,
+            safe: TourRect,
+            gap: Int,
+        ): Pair<Int, Int> {
+            val at = ShellNative.tourPlaceCard(hole?.wire(), cardWidth, cardHeight, safe.wire(), gap)
+            return at[0] to at[1]
+        }
+
+        override fun decode(
+            done: String?,
+            resume: String?,
+            tips: String?,
+            legacySeen: Boolean,
+            off: Boolean,
+        ) = ShellNative.tourDecode(done, resume, tips, legacySeen, off).toProgress()
+
+        override fun encodeDone(progress: TourProgress) = ShellNative.tourEncode(progress.wire(), ShellNative.TOUR_TEXT_DONE).orEmpty()
+
+        override fun encodeResume(progress: TourProgress) = ShellNative.tourEncode(progress.wire(), ShellNative.TOUR_TEXT_RESUME)
+
+        override fun encodeTips(progress: TourProgress) = ShellNative.tourEncode(progress.wire(), ShellNative.TOUR_TEXT_TIPS).orEmpty()
+
+        private fun TourFacts.mask() = shown.fold(0) { mask, spot -> mask or (1 shl spot.ordinal) }
+
+        private fun TourCover.mask() =
+            (if (firstRun) ShellNative.TOUR_COVER_FIRST_RUN else 0) or
+                (if (paywall) ShellNative.TOUR_COVER_PAYWALL else 0) or
+                (if (pip) ShellNative.TOUR_COVER_PIP else 0) or
+                (if (permissionRationale) ShellNative.TOUR_COVER_PERMISSION_RATIONALE else 0) or
+                (if (away) ShellNative.TOUR_COVER_AWAY else 0)
+
+        private fun TourRect.wire() = intArrayOf(left, top, right, bottom)
+
+        private fun TourRun.wire() = intArrayOf(at, seen, if (replay) 1 else 0) + chapters.map { it.ordinal }
+
+        private fun IntArray.toRun() =
+            TourRun(
+                chapters = drop(ShellNative.TOUR_RUN_HEAD).map { TourChapter.entries[it] },
+                at = this[0],
+                seen = this[1],
+                replay = this[2] != 0,
             )
-        val best = sides.maxBy { it.first }
-        return if (best.first >= 0) best.second to best.third else centredX to maxY
+
+        private fun TourProgress.wire() =
+            intArrayOf(if (off) 1 else 0, resume?.ordinal ?: -1, done.size) + done.map { it.ordinal } + tips.map { it.ordinal }
+
+        private fun IntArray.toProgress(): TourProgress {
+            val rest = drop(ShellNative.TOUR_PROGRESS_HEAD)
+            return TourProgress(
+                done = rest.take(this[2]).map { TourChapter.entries[it] }.toSet(),
+                resume = TourSpot.entries.getOrNull(this[1]),
+                tips = rest.drop(this[2]).map { GestureTip.entries[it] }.toSet(),
+                off = this[0] != 0,
+            )
+        }
     }
 }
 

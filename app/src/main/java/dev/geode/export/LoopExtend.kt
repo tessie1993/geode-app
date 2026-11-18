@@ -198,14 +198,14 @@ class LoopExtend(
                 is Target.Opened -> opened
                 is Target.Failed -> return Result.Failed(opened.message)
             }
-        return try {
+        return runCatching {
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
             finish(target, completed, plan)
-        } catch (e: Exception) {
+        }.getOrElse { e ->
             discard(target)
-            if (e is CancellationException) throw e
             Result.Failed(
                 when (e) {
+                    is CancellationException, is Error -> throw e
                     is IllegalArgumentException -> context.getString(R.string.export_error_extend_copy, e.message)
                     is IllegalStateException -> e.message ?: context.getString(R.string.export_error_extend_assemble)
                     else -> context.getString(R.string.export_error_extend_write, e.message)

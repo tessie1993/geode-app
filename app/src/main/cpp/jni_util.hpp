@@ -168,3 +168,9 @@ private:
 };
 
 }  // namespace geode::jni
+
+// JNI's Modified UTF-8 calls end here: text crosses through Utf8Chars, utf8String and utf8Lines above, and any
+// later mention in a file that includes this header is a compile error. Only detail::stringCalls needs
+// NewStringUTF, for the ASCII charset name, and it sits above this line. Every JNI file includes this header
+// last, after <jni.h>, so no header that declares these names is read after the poison.
+#pragma GCC poison GetStringUTFChars ReleaseStringUTFChars NewStringUTF GetStringUTFRegion

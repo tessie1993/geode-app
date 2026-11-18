@@ -20,6 +20,7 @@
 #include "api/geode_modulation_api.h"
 #include "api/geode_text_out.hpp"
 #include "api/geode_record_handles.hpp"
+#include "api/geode_viz_internal.hpp"
 #include "sound/Tuning.hpp"
 #include "sound/hop/SharedAnalysis.hpp"
 #include "viz/Catalogue.hpp"
@@ -619,11 +620,12 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 
 }  // namespace
 
-namespace geode::api {
+// The two below are defined by qualified name, so each must match its declaration in api/geode_viz_internal.hpp:
+// a drift is a compile error here, not a new overload that geode_stage_api.cpp fails to link against.
 
-// geode_viz_frame for a frame a vsync asked for (core/api/geode_stage_api.cpp declares it): vsyncNs, CLOCK_MONOTONIC,
+// geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
 // is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. Not part of the C ABI.
-int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs) {
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs) {
     if (!v) return 0;
     try {
         VizStages stages(*v, ring, vsyncNs);
@@ -634,9 +636,9 @@ int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float c
     }
 }
 
-// geode_viz_still_read without the copy (core/api/geode_stage_api.cpp declares it): the still's buffer itself is
+// geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is
 // handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
-bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
+bool geode::api::takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
     if (!v || v->still.empty()) return false;
     width = v->stillWidth;
     height = v->stillHeight;
@@ -644,8 +646,6 @@ bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& r
     v->still.clear();
     return true;
 }
-
-}  // namespace geode::api
 
 extern "C" {
 

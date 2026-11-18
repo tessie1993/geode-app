@@ -207,10 +207,9 @@ Java_dev_geode_engine_bridge_SoundNative_autoTimerRestart(JNIEnv*, jobject, jint
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_SoundNative_autoMarkChange(JNIEnv* env, jobject, jstring key) {
     if (!key) return;
-    const char* chars = env->GetStringUTFChars(key, nullptr);
-    if (!chars) return;
-    geode_auto_mark_change(chars);
-    env->ReleaseStringUTFChars(key, chars);
+    const geode::jni::Utf8Chars chars(env, key);
+    if (!chars.get()) return;
+    geode_auto_mark_change(chars.get());
 }
 
 JNIEXPORT jint JNICALL

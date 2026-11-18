@@ -47,6 +47,14 @@ Player started(int n, int startIndex = 0) {
 
 TrackId current(const Player& p) { return p.state().current.value_or(-1); }
 
+Event::Failure lastFailure(const std::vector<Event>& events) {
+    Event::Failure out = Event::Failure::Skipped;
+    for (const Event& e : events) {
+        if (e.kind == Event::Kind::PlaybackFailed) out = e.failure;
+    }
+    return out;
+}
+
 int count(const std::vector<Event>& events, Event::Kind kind) {
     return static_cast<int>(std::count_if(events.begin(), events.end(), [&](const Event& e) { return e.kind == kind; }));
 }
@@ -326,7 +334,7 @@ void aFailingTrackIsSkippedUntilThreeInARow() {
     p.apply(TrackFailed{});
     check(!p.state().playing && current(p) == 3, "the third in a row stops it");
     const std::vector<Event> last = p.takeEvents();
-    check(count(last, Event::Kind::PlaybackFailed) == 2 && last.back().failure == Event::Failure::SourceUnavailable, "with the source named as gone");
+    check(count(last, Event::Kind::PlaybackFailed) == 2 && lastFailure(last) == Event::Failure::SourceUnavailable, "with the source named as gone");
 
     Player q = started(6, 0);
     q.apply(TrackFailed{});
@@ -338,7 +346,7 @@ void aFailingTrackIsSkippedUntilThreeInARow() {
     Player end = started(2, 1);
     end.apply(TrackFailed{});
     check(!end.state().playing && current(end) == 2, "nothing after the last track: stop");
-    check(end.takeEvents().back().failure == Event::Failure::EndOfQueue, "as the end of the queue");
+    check(lastFailure(end.takeEvents()) == Event::Failure::EndOfQueue, "as the end of the queue");
 }
 
 void emptyQueueIgnoresTransportCommands() {

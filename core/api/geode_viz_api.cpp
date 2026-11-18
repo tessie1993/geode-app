@@ -622,7 +622,7 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 namespace geode::api {
 
 // geode_viz_frame for a frame a vsync asked for (core/api/geode_stage_api.cpp declares it): vsyncNs, CLOCK_MONOTONIC,
-is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. Not part of the C ABI.
+// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. Not part of the C ABI.
 int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs) {
     if (!v) return 0;
     try {

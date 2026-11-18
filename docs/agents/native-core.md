@@ -19,7 +19,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 ## `core/sound`: hearing
 
 - `Silence` is the wallpaper's and dream's rest-when-silent rule, polled through `geode_silence_*`.
-- The sound engine is MilkDrop's FFT path beside a TouchDesigner-style per-sample filter bank, stepped once per rendered frame into a `GeodeSoundFrame`.
+- The sound engine is MilkDrop's FFT path beside a per-sample filter bank, analysed every 10 ms of samples on its own thread per PCM ring live (inline for an export, `core/sound/hop/AnalysisThread`); a renderer reads the newest published hop into a `GeodeSoundFrame` each frame.
 - How much the music is comes from absolute loudness, never from the song's own average.
 - `LufsMeter` gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
 - `busy` is onset and drum density, the beat.
@@ -72,7 +72,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The touch smear (`core/viz/TouchSmear`, Settings › Touch › Smear): touch play's fingers kick the shared `FlowField` and the composite bends the finished picture by it (`uFlow`).
 - The fingers' maths (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, and touch play's stir; `VisualGestures.kt` keeps the pointer loop and which gesture fired.
 - The smear runs with Liquid off, live only, as an optional pass (`geode_viz_set_touch_smear`).
-- `liquid/LiquidMath` is Liquid mode's pure maths: thermal modes, inject weight, the random endless dive, gestures, born clock.
+- `liquid/LiquidMath` is Liquid mode's pure maths: inject weight, the random endless dive, gestures, born clock.
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
 - `LiquidPass` is a full-resolution feedback ping-pong between the scene target and the composite.
 - `LiquidPass` samples the last frame through that transform (`lib_feedback`, the same maths in GLSL), then the `FlowField` velocity, folds it back at the edges, and re-pours the style through `liquid_frag`.
@@ -110,7 +110,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 ## Native stage
 
 - `core/stage` is the native stage: one render thread, EGL context and window surface per surface, and one process-wide vsync thread; its design is [native-stage.md](native-stage.md).
-- The stage's C ABI is `core/api/geode_stage_api.h`; no JNI calls it yet.
+- The stage's C ABI is `core/api/geode_stage_api.h`; `app/src/main/cpp/geode_stage_jni.cpp` is the JNI over it.
 
 ## Per-frame chain
 
@@ -194,7 +194,7 @@ The renderer runs these in order each frame.
 ## Thermal and settling
 
 - The renderer notes settling frames (a staged build, a fresh switch, a transition, a secondary's compiles, a MilkDrop preset load).
-- The thermal governor and the fluid scenes' auto quality sit out until 1.5 s after the last settling frame (`ThermalGovernor::noteSettling`), so quick style changes do not read as a slow phone.
+- `Renderer::settling()` stays true until 1.5 s after the last settling frame (`Renderer::noteSettling`), so quick style changes do not read as a slow phone. No thermal governor is left in the code.
 
 ## `core/audio`
 

@@ -51,6 +51,12 @@ const char* geode_customize_rows(const char* style_id, const char* keys, const c
     return nullptr;
 }
 
+int geode_customize_matches(const char* query, const char* text) try {
+    return customize::matches(query ? query : "", text ? text : "") ? 1 : 0;
+} catch (...) {
+    return 1;
+}
+
 const char* geode_panel_text(const char* id) try {
     return geode::viz::panel::text(id ? id : "");
 } catch (...) {

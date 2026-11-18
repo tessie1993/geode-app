@@ -249,7 +249,7 @@ ArborHit arborTree(vec3 p, ArborForm f, float grow) {
             g.xz = twistM * g.xz;
             // Gravity: turn the child's axis toward g's sideways part.
             float gl = length(g.xz);
-            if (gl > 1e-4) {
+            if (f.bend != 0.0 && gl > 1e-4) {
                 vec2 h = g.xz / gl;
                 float beta = f.bend * gl;
                 float cb = cos(beta);

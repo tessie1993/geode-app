@@ -49,7 +49,7 @@ constexpr int kWaveSlack = 32;
 constexpr float kRunTau = 1.0f;
 constexpr float kEase = 0.06f;
 constexpr float kLn2 = 0.69314718f;
-// Flux compares each hop's spectrum against the one this long before (rounded to whole hops: 3 at 10 ms).
+// Flux compares each hop's spectrum against the one this long before, rounded to whole hops of the true length.
 constexpr float kFluxLag = 1.0f / 30.0f;
 
 // The one-hop triggers, held from the hop that fired them to the next step() as the strongest since the
@@ -104,11 +104,12 @@ void SoundEngine::setTuning(const GeodeSoundTuning& t) {
     trimGain_ = std::pow(10.0f, tuning_.inputTrimDb / 20.0f);
 }
 
-SoundEngine::SoundEngine(int sampleRateHz)
+SoundEngine::SoundEngine(int sampleRateHz, AnalysisSettings settings)
     : inputRateHz_(std::max(8000, sampleRateHz)),
       halvings_(static_cast<int>(std::lround(std::log2(static_cast<double>(inputRateHz_) / analysisRateFor(inputRateHz_))))),
       sampleRateHz_(analysisRateFor(inputRateHz_)),
-      n_(fftSizeFor(sampleRateHz_)),
+      settings_(settings.checked()),
+      n_(settings_.fftSize),
       binHz_(static_cast<float>(sampleRateHz_) / static_cast<float>(n_)),
       tuning_(defaultTuning()),
       hann_(static_cast<size_t>(n_)),
@@ -154,16 +155,17 @@ SoundEngine::SoundEngine(int sampleRateHz)
     static constexpr std::array<std::array<float, 2>, kSlices> kSliceHz = {{
         {0, 250}, {250, 4000}, {4000, 0}, {40, 120}, {150, 300}, {2500, 6000}, {7000, 16000}, {0, 0}}};
     for (int i = 0; i < kSlices; i++) bank_[i].set(kSliceHz[i][0], kSliceHz[i][1], sampleRateHz_);
-    transient_.configure(sampleRateHz_);
     audible_ = bins(20, 20000);
     musical_ = bins(100, 10000);
     fluxBins_ = bins(30, 16000);
     dcR_ = std::exp(-2.0f * std::numbers::pi_v<float> * kDcCornerHz / static_cast<float>(sampleRateHz_));
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
-    rhythm_.configure(sampleRateHz_);
-    meter_.configure(sampleRateHz_, rhythm_.hopSamples());
+    // The hop is a sample count; every detector gets its duration and counts its own durations in it.
+    rhythm_.configure(sampleRateHz_, settings_.hopSamples());
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
+    meter_.configure(sampleRateHz_, rhythm_.hopSamples());
+    transient_.configure(sampleRateHz_, hopDt_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
     fluxReach_.resize(logMag_.size());
@@ -176,7 +178,8 @@ SoundEngine::SoundEngine(int sampleRateHz)
         const float tri = i < GEODE_SOUND_WAVEFORM_POINTS / 2 ? 2.0f * i / c : 2.0f * (c - 1.0f - i) / c;
         waveWeight_[i] = clamp01(5.0f * tri - 3.2f);
     }
-    history_.resize(kHistoryHops);
+    historyHops_ = std::max(1, static_cast<int>(std::ceil(kHistorySeconds / hopDt_)));
+    history_.resize(static_cast<size_t>(historyHops_));
     reset();
 }
 
@@ -250,8 +253,10 @@ void SoundEngine::feed(float l, float r) {
         meter_.hop();
         std::array<float, Rhythm::kBands> power{};
         // Behind the closed gate the tracker hears nothing, so the beat does not hunt in the noise floor.
-        if (meter_.open()) {
-            for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
+        const bool gateOpen = meter_.open();
+        for (int b = 0; b < kSlices; b++) {
+            const float p = bank_[b].takeHopPower();
+            if (gateOpen && b < Rhythm::kBands) power[static_cast<size_t>(b)] = p;
         }
         // A pause or a stall holds the song: the zeros a starved engine is fed are not music, so the beat,
         // bar and phrase counters and the tempo ring wait for the audio to come back.
@@ -390,8 +395,8 @@ void SoundEngine::analyse() {
     kept.frame = out;
     kept.emotion = emotion_.state();
     hopsRun_++;
-    historyHead_ = (historyHead_ + 1) % kHistoryHops;
-    historyCount_ = std::min(historyCount_ + 1, kHistoryHops);
+    historyHead_ = (historyHead_ + 1) % historyHops_;
+    historyCount_ = std::min(historyCount_ + 1, historyHops_);
 }
 
 bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
@@ -400,7 +405,7 @@ bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
     // samplePos leaves the oldest.
     const Hop* hop = nullptr;
     for (int age = 0; age < historyCount_; age++) {
-        hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+        hop = &history_[static_cast<size_t>((historyHead_ - 1 - age + historyHops_) % historyHops_)];
         if (hop->sample <= samplePos) break;
     }
     out = hop->frame;
@@ -413,17 +418,17 @@ bool SoundEngine::frameAt(int64_t samplePos, GeodeSoundFrame& out) const {
 
 const SoundEngine::Hop* SoundEngine::keptHop(int age) const {
     if (age < 0 || age >= historyCount_) return nullptr;
-    return &history_[static_cast<size_t>((historyHead_ - 1 - age + kHistoryHops) % kHistoryHops)];
+    return &history_[static_cast<size_t>((historyHead_ - 1 - age + historyHops_) % historyHops_)];
 }
 
 int64_t SoundEngine::newestHopSample() const {
     if (historyCount_ == 0) return -1;
-    return history_[static_cast<size_t>((historyHead_ - 1 + kHistoryHops) % kHistoryHops)].sample;
+    return history_[static_cast<size_t>((historyHead_ - 1 + historyHops_) % historyHops_)].sample;
 }
 
 int64_t SoundEngine::oldestHopSample() const {
     if (historyCount_ == 0) return -1;
-    return history_[static_cast<size_t>((historyHead_ - historyCount_ + kHistoryHops) % kHistoryHops)].sample;
+    return history_[static_cast<size_t>((historyHead_ - historyCount_ + historyHops_) % historyHops_)].sample;
 }
 
 void SoundEngine::rewarm() {
@@ -613,7 +618,7 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     out.densityFast = s.densityFast;
     out.densitySlow = s.densitySlow;
 
-    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (~30 ms), on a log scale, as a
+    // Flux: how much louder each bin got than its neighbourhood fluxLag_ hops ago (kFluxLag), on a log scale, as a
     // relative level so the mix's loudness divides out. A fixed lag in samples, so onsets mean the same at any rate.
     // The earlier spectrum is kept maximum-filtered along frequency (sound/OnsetFlux), so a note whose pitch only
     // wobbles (vibrato, a slide) does not read as a new start on every wobble.

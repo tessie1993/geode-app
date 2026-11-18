@@ -2,7 +2,7 @@
  *
  * Only the types, enums and entry points that core/viz/frame/EdgeGlowPass.cpp, core/viz/Program.cpp and
  * core/viz/Transition.cpp (core/tests/transition_programs_test.cpp), core/viz/Quad.cpp and core/viz/GlHandle.hpp
- * (core/tests/gl_ownership_test.cpp) and the headers they include name. Declarations only; the test defines every function as a small
+ * (core/tests/gl_ownership_test.cpp, with core/viz/Framebuffer.cpp and core/viz/Texture.cpp) and the headers they include name. Declarations only; the test defines every function as a small
  * model of a GL context: names that are generated, live and deleted, a bound program, VAO and framebuffer,
  * the blend state, and one probe pixel per framebuffer that a draw blends into. Enum values are the real
  * ones from the Khronos header, so a mixed-up enum still reads as the wrong one.
@@ -53,6 +53,21 @@ typedef unsigned int GLbitfield;
 #define GL_STATIC_DRAW 0x88E4
 #define GL_PIXEL_PACK_BUFFER 0x88EB
 #define GL_PIXEL_UNPACK_BUFFER 0x88EC
+#define GL_COLOR_BUFFER_BIT 0x00004000
+#define GL_UNSIGNED_BYTE 0x1401
+#define GL_RGBA 0x1908
+#define GL_NEAREST 0x2600
+#define GL_LINEAR 0x2601
+#define GL_TEXTURE_MAG_FILTER 0x2800
+#define GL_TEXTURE_MIN_FILTER 0x2801
+#define GL_TEXTURE_WRAP_S 0x2802
+#define GL_TEXTURE_WRAP_T 0x2803
+#define GL_RGBA8 0x8058
+#define GL_CLAMP_TO_EDGE 0x812F
+#define GL_DRAW_FRAMEBUFFER 0x8CA9
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#define GL_COLOR_ATTACHMENT1 0x8CE1
 
 typedef ptrdiff_t GLsizeiptr;
 
@@ -71,6 +86,10 @@ void glGenBuffers(GLsizei n, GLuint* buffers);
 void glDeleteBuffers(GLsizei n, const GLuint* buffers);
 void glDeleteTextures(GLsizei n, const GLuint* textures);
 void glDeleteFramebuffers(GLsizei n, const GLuint* framebuffers);
+void glGenTextures(GLsizei n, GLuint* textures);
+void glGenFramebuffers(GLsizei n, GLuint* framebuffers);
+void glGenSamplers(GLsizei count, GLuint* samplers);
+void glDeleteSamplers(GLsizei count, const GLuint* samplers);
 void glDetachShader(GLuint program, GLuint shader);
 GLenum glGetError(void);
 
@@ -117,6 +136,16 @@ void glPixelStorei(GLenum pname, GLint param);
 void glBindSampler(GLuint unit, GLuint sampler);
 void glActiveTexture(GLenum texture);
 void glBindTexture(GLenum target, GLuint texture);
+void glTexParameteri(GLenum target, GLenum pname, GLint param);
+void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
+                  const void* pixels);
+void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type,
+                     const void* pixels);
+void glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+GLenum glCheckFramebufferStatus(GLenum target);
+void glClearColor(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+void glClear(GLbitfield mask);
+void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments);
 
 #ifdef __cplusplus
 }

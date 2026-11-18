@@ -311,7 +311,8 @@ jobs:
           ./edge_glow_pass_test
           # Who deletes a GL name (core/viz/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
           # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/gl_ownership_test.cpp core/viz/Compute.cpp core/viz/Quad.cpp -o gl_ownership_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/gl_ownership_test.cpp core/viz/Compute.cpp core/viz/Quad.cpp \
+            core/viz/Framebuffer.cpp core/viz/Texture.cpp -o gl_ownership_test
           ./gl_ownership_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
@@ -797,6 +798,14 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_history_test.cpp core/sound/*.cpp -o sound_history_test
           ./sound_history_test
+
+      # The analysis hop is a sample count from the FFT settings: the same at 44.1, 48 and 96 kHz, and two settings
+      # (2048/4, 2048/8) hear the same tempo, transients and silence in time.
+      - name: Sound hop from the FFT settings
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_hop_test.cpp core/sound/*.cpp -o sound_hop_test
+          ./sound_hop_test
 
       # One engine on its own thread (core/sound/hop/AnalysisThread, #1215): inline equals a bare engine at every position,
       # across irregular blocks, a new epoch and controls mid-stream; the thread equals inline, readers never see a torn

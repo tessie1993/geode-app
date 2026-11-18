@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "audio/ingest/PcmRing.hpp"
+#include "sound/AnalysisSettings.hpp"
 #include "sound/Emotion.hpp"
 #include "sound/Rhythm.hpp"
 #include "sound/SoundEngine.hpp"
@@ -50,12 +51,15 @@ public:
     };
     static_assert(std::is_trivially_copyable_v<Heard>);
 
-    // Published hops kept: 2.5 s. One fewer can be read; the oldest slot is the one written next.
-    static constexpr int kPublished = 256;
+    // Published hops kept: at least this long at every rate, so the shortest hop (the highest analysis rate,
+    // under 88.2 kHz) sizes the slots. One fewer can be read; the oldest slot is the one written next.
+    static constexpr float kPublishedSeconds = 2.5f;
 
     // The ring must outlive this. silenceWhenStarved feeds the engine silence once its writer stops (step()'s
-    // rule), off for a run that must not depend on wall time.
-    explicit AnalysisThread(const audio::ingest::PcmRing& ring, bool silenceWhenStarved = true);
+    // rule), off for a run that must not depend on wall time. Every engine it makes runs on `settings`.
+    explicit AnalysisThread(const audio::ingest::PcmRing& ring, bool silenceWhenStarved = true, AnalysisSettings settings = {});
+    // The published slots, from kPublishedSeconds and the settings' hop.
+    int published() const { return static_cast<int>(capacity_); }
     ~AnalysisThread();
     AnalysisThread(const AnalysisThread&) = delete;
     AnalysisThread& operator=(const AnalysisThread&) = delete;
@@ -132,7 +136,6 @@ private:
 
     static_assert(sizeof(Heard) % sizeof(uint32_t) == 0);
     static constexpr int kWords = static_cast<int>(sizeof(Heard) / sizeof(uint32_t));
-    static constexpr uint64_t kReadable = kPublished - 1;
     // The frame's waveform is zero in every published hop (step() draws it, a hop does not): its words are neither
     // stored nor loaded, and a read zeroes them.
     static constexpr int kWaveFirst = static_cast<int>((offsetof(Heard, frame) + offsetof(GeodeSoundFrame, waveform)) / sizeof(uint32_t));
@@ -162,6 +165,9 @@ private:
 
     const audio::ingest::PcmRing& ring_;
     const bool silenceWhenStarved_;
+    const AnalysisSettings settings_;
+    const uint64_t capacity_;  // published slots
+    const uint64_t readable_;  // capacity_ - 1
 
     // The analysis thread's own (or pump()'s caller's).
     audio::ingest::Cursor cursor_;

@@ -1,17 +1,17 @@
 # Large files to split
 
-Kotlin files over 640 lines under `app/src/main/java/dev/geode/`, largest first, counted with `wc -l`. One file per line; update the count in the PR that changes it.
+Kotlin files over 640 lines under `app/src/main/java/dev/geode/`, largest first when this list was written. One file per line; no counts, which go stale: run `wc -l` for the current size.
 
-- `ui/LibraryScreen.kt` 1473
-- `ui/AppShell.kt` 1311
-- `ui/PlayerScreen.kt` 1031
-- `ui/PlayerSession.kt` 991
-- `ui/StudioRender.kt` 864
-- `ui/pro/PaywallScreen.kt` 856
-- `ui/VisualsQuickSettings.kt` 843
-- `ui/MacroEditor.kt` 828
-- `ui/CustomizeAdvanced.kt` 727
-- `ui/CustomizeTabs.kt` 723
-- `ui/PresetsPage.kt` 714
-- `ui/ShellChrome.kt` 663
-- `export/LoopExtend.kt` 642
+- `ui/LibraryScreen.kt`
+- `ui/AppShell.kt`
+- `ui/PlayerScreen.kt`
+- `ui/PlayerSession.kt`
+- `ui/StudioRender.kt`
+- `ui/pro/PaywallScreen.kt`
+- `ui/VisualsQuickSettings.kt`
+- `ui/MacroEditor.kt`
+- `ui/CustomizeAdvanced.kt`
+- `ui/CustomizeTabs.kt`
+- `ui/PresetsPage.kt`
+- `ui/ShellChrome.kt`
+- `export/LoopExtend.kt`

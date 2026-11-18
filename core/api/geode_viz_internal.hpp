@@ -11,4 +11,6 @@
 namespace geode::api {
 int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs);
 bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba);
+// The cap "Adapt to frame time" (viz/frame/FrameGovernor) has the stage pace to instead of the user's; 0 for none.
+float vizGovernedCapFps(const geode_viz* v);
 }  // namespace geode::api

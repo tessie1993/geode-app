@@ -74,6 +74,7 @@ class Stage(
         set(value) {
             field = value
             StageNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx)
+            StageNative.stageSetAdaptive(handle, value.adaptive)
         }
 
     /** The surface's own fps cap; 0 or less is none. */

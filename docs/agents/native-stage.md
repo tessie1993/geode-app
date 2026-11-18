@@ -87,18 +87,18 @@ One fact per line. The design of the native host every live surface draws throug
 - `AChoreographer_postFrameCallback64` (API 29) on the vsync thread's own choreographer, re-posted from each callback.
 - The pacer is fed the callback's `frameTimeNanos`, `CLOCK_MONOTONIC`: the same time base as the Java `Choreographer.FrameCallback`, so pacing stays exactly as it was.
 - `AChoreographer_postVsyncCallback` (API 33) adds frame timelines and an expected presentation time; feeding that instead would change the dt the pacer sees, so any switch is a separate, later decision.
-- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap and nothing lowers it for heat or load.
+- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap, never lowered for heat. The one thing that lowers it is "Adapt to frame time": after each frame `StageCore` asks the client for `governedCapFps` and, when it moves, sends the surface's cap under it (`StagePacing::capUnder`) to the pacer and the window's hint, the same path a cap from the shell takes.
 - A callback re-posts first, before the pacer runs, so the cadence survives a slow frame and a skipped vsync still wakes the next one.
 - There is no NDK call to remove a posted callback, so stop only clears the running flag and the pending callback lapses on its next vsync.
 - A start while a callback is still pending posts nothing, so two starts never double the callback and halve every dt.
 - A start resumes the pacer, so a resume never inherits the gap it was paused across; the period estimate survives.
 - A drawn vsync hands the stage thread one last-wins frame request carrying the paced rate and the surface's cap; requests coalesce like `requestRender` did.
-- The rate handed to the frame is the pacer's paced rate, or the cap until the first vsync after a cap change.
+- The rate handed to the frame is the pacer's paced rate, or the cap until the first vsync after a cap change; the cap handed with it is the surface's own, which the governor needs as the user's maximum.
 
 ## Frame-rate hint
 
 - `ANativeWindow_setFrameRate` (API 30) with `ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT`: the NDK documents it as the change strategy only-if-seamless, the twin of the two-argument `Surface.setFrameRate`.
-- The rate is the effective cap (`StagePacing::frameRateFor`): the surface's cap, 0 for Follow device; 0 is the platform's no preference.
+- The rate is the effective cap (`StagePacing::frameRateFor` of `StagePacing::capUnder`): the surface's cap, 0 for Follow device, or the governor's lower cap while "Adapt to frame time" has stepped the frame rate down; 0 is the platform's no preference.
 - It is stated on every new window, every size change and every cap change, and again when a vsync paces to a new cap (a new panel rate under Follow device).
 - It is called on the stage thread, which holds the window; a hint from a vsync reaches it as a last-wins command.
 

@@ -142,10 +142,11 @@ void ShaderScene::draw(float timeSeconds) {
     const GLuint ramp = host_.paletteRamp ? host_.paletteRamp() : 0;
     const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
     const bool lutSelected = ramp != 0;
+    // The sampler unit is assigned with or without a texture: left at 0 it shares a unit with another sampler.
+    glUniform1i(uniforms_.loc("uPalLut"), 2);
     if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, lut);
-        glUniform1i(uniforms_.loc("uPalLut"), 2);
         glActiveTexture(GL_TEXTURE0);
     }
     set1f("uPalLutMix", flag(lutSelected));
@@ -193,7 +194,7 @@ void ShaderScene::uploadParams() {
             rgb[static_cast<size_t>(3 * i + 2)] = c.b;
         }
         set1f("uPalStopCount", static_cast<float>(count));
-        glUniform3fv(uniforms_.loc("uPalStops"), colour::kMaxStops, rgb.data());
+        glUniform3fv(uniforms_.loc("uPalStops"), uniforms_.arrayCount("uPalStops", colour::kMaxStops), rgb.data());
     }
     set1f("uDuotone", flag(p.duotone));
     set1f("uBloom", p.bloom);
@@ -353,14 +354,15 @@ void ShaderScene::uploadWorld() {
         std::string().swap(worldShapes_);
         std::string().swap(worldMaps_);
     }
+    // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture. A 3D and an array sampler left
+    // together at unit 0 fail the draw, so the units are assigned whether or not the assets are bound.
+    glUniform1i(uniforms_.loc("uWorldShapes"), 4);
+    glUniform1i(uniforms_.loc("uWorldTex"), 5);
     if (worldShapesTex_ != 0) {
-        // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture.
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
-        glUniform1i(uniforms_.loc("uWorldShapes"), 4);
         glActiveTexture(GL_TEXTURE5);
         glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
-        glUniform1i(uniforms_.loc("uWorldTex"), 5);
         glActiveTexture(GL_TEXTURE0);
     }
     // The rig was stepped before this draw: the world's z phase and wake follow the eye.

@@ -37,30 +37,37 @@ class OpenedAudioSource(
     private val background = CoroutineScope(SupervisorJob() + io)
 
     suspend fun inspect(uri: Uri): Inspection {
-        if (withContext(io) { refused(uri) }) return Inspection.Refused
+        if (withContext(io) { refusesSentUri(context, uri) }) return Inspection.Refused
         val query = background.async { context.contentResolver.displayNameOf(uri) }
         val raw = withTimeoutOrNull(NAME_TIMEOUT_MS) { query.await() }
         if (raw == null) query.cancel()
         return Inspection.Playable(OpenedAudio.displayName(raw))
     }
 
-    /** The checks of "Abuse based on untrusted content:// URI" (developer.android.com, ContentResolver risks). */
-    private fun refused(uri: Uri): Boolean {
-        val authority = uri.authority
-        val provider =
-            authority?.let {
-                runCatching { context.packageManager.resolveContentProvider(it, PackageManager.ComponentInfoFlags.of(0L)) }
-                    .getOrNull()
-            }
-        val granted =
-            runCatching {
-                context.checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION) ==
-                    PackageManager.PERMISSION_GRANTED
-            }.getOrDefault(false)
-        return OpenedAudio.refuses(uri.scheme, authority, context.packageName, provider?.packageName, granted)
-    }
-
     private companion object {
         const val NAME_TIMEOUT_MS = 2_000L
     }
+}
+
+/**
+ * The checks of "Abuse based on untrusted content:// URI" (developer.android.com, ContentResolver risks)
+ * for a uri another app handed over: shared by opened audio and opened `.milk` presets, so neither can
+ * be steered at the app's own providers or at a uri nobody granted. Blocking: call it off the main thread.
+ */
+internal fun refusesSentUri(
+    context: Context,
+    uri: Uri,
+): Boolean {
+    val authority = uri.authority
+    val provider =
+        authority?.let {
+            runCatching { context.packageManager.resolveContentProvider(it, PackageManager.ComponentInfoFlags.of(0L)) }
+                .getOrNull()
+        }
+    val granted =
+        runCatching {
+            context.checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION) ==
+                PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
+    return OpenedAudio.refuses(uri.scheme, authority, context.packageName, provider?.packageName, granted)
 }

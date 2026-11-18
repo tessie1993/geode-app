@@ -59,7 +59,6 @@ void FluidSim::create() {
         }
         programs_[static_cast<size_t>(i)] = UniformCache(program);
     }
-    programsBuilt_ = true;
     std::lock_guard<std::mutex> lock(injectionLock_);
     injectionDirty_ = !pendingForceSrc_.empty() || !pendingDyeSrc_.empty();
 }
@@ -556,9 +555,9 @@ void FluidSim::release() {
         if (*fbo) (*fbo)->release();
         fbo->reset();
     }
-    if (programsBuilt_) {
-        for (auto& cache : programs_) glDeleteProgram(cache.program());
-        programsBuilt_ = false;
+    // Every non-zero program: a build that failed part-way leaves the earlier ones live.
+    for (auto& cache : programs_) {
+        if (cache.program() != 0) glDeleteProgram(cache.program());
     }
     programs_.fill(UniformCache(0));
     deleteCustom(customForce_);

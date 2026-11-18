@@ -99,6 +99,26 @@ inline Motion sanitize(const Motion& m) {
     return o;
 }
 
+/** This frame's share of a per-second Motion: rates times dt, factors to the power dt. */
+inline FrameMotion perFrame(const Motion& motion, float dt) {
+    const Motion m = sanitize(motion);
+    const float t = std::isfinite(dt) ? std::clamp(dt, 0.0f, kMaxDt) : 0.0f;
+    FrameMotion f;
+    f.zoom = std::pow(m.zoom, t);
+    f.zoomExp = m.zoomExp;
+    f.rot = m.rot * t;
+    f.cx = m.cx;
+    f.cy = m.cy;
+    f.dx = m.dx * t;
+    f.dy = m.dy * t;
+    f.sx = std::pow(m.sx, t);
+    f.sy = std::pow(m.sy, t);
+    f.warp = m.warp * kWarpPerSecond * t;
+    f.warpScale = m.warpScale;
+    f.warpSpeed = m.warpSpeed;
+    return f;
+}
+
 /**
  * The UV of the last frame a destination pixel samples. `uv` is GL's (v up), `aspect` is width / height,
  * `time` the clock the warp drifts on (seconds). The warp's time and its four drifting frequencies, the

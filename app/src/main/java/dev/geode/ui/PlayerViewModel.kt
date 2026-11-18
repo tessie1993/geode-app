@@ -95,12 +95,6 @@ class PlayerViewModel
 
         fun noteExternalAudioConsentDenied() = session.captureController.noteExternalAudioConsentDenied()
 
-        fun externalPlayPause() = session.captureController.externalPlayPause()
-
-        fun externalNext() = session.captureController.externalNext()
-
-        fun externalPrevious() = session.captureController.externalPrevious()
-
         fun stopExternalAudio() = session.stopExternalAudio()
 
         fun notificationAccessIntent(): Intent = session.captureController.notificationAccessIntent()
@@ -211,11 +205,20 @@ class PlayerViewModel
 
         fun playQueueIndex(index: Int) = session.queueController.playQueueIndex(index)
 
-        fun next() = session.queueController.next()
+        /** The other app is the sound source and its media session answers ([ExternalAudioState.driven]). */
+        private val drivesOtherApp: Boolean get() = externalAudio.value.driven != null
 
-        fun previous() = session.queueController.previous()
+        fun next() {
+            if (drivesOtherApp) session.captureController.externalNext() else session.queueController.next()
+        }
 
-        fun togglePlayPause() = session.togglePlayPause()
+        fun previous() {
+            if (drivesOtherApp) session.captureController.externalPrevious() else session.queueController.previous()
+        }
+
+        fun togglePlayPause() {
+            if (drivesOtherApp) session.captureController.externalPlayPause() else session.togglePlayPause()
+        }
 
         fun seekToMs(positionMs: Long) = session.queueController.seekToMs(positionMs)
 

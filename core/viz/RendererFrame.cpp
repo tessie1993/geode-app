@@ -677,10 +677,19 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
     shown = drawPhysics(p, dt, wallDt, shown);
-    composite(p, progress, targetFbo, shown);
-    drawEdgeGlow(targetFbo, timeSeconds, dt);
-    if (compositeHook_) compositeHook_(targetFbo, width_, height_);
-    drawUiBlur(targetFbo, wallDt);
+    uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
+    // With a blur running the frame is drawn into the blur's own image, which draw() then copies to the
+    // window: the window is written once and never read back.
+    UiBlurRegion blurRegion;
+    GLuint frameFbo = targetFbo;
+    if (uiBlurWanted(blurRegion)) {
+        if (const GLuint f = uiBlurPass_.beginFrame(blurRegion, width_, height_)) frameFbo = f;
+    }
+    composite(p, progress, frameFbo, shown);
+    drawEdgeGlow(frameFbo, timeSeconds, dt);
+    if (compositeHook_) compositeHook_(frameFbo, width_, height_);
+    if (frameFbo != targetFbo || blurRegion.active()) uiBlurPass_.draw(blurRegion, targetFbo, width_, height_, quadVao_.get());
+    updatePcmWanted();
     noteStillDrawn();
 }
 
@@ -724,15 +733,32 @@ void Renderer::noteStillDrawn() {
     stillPitch_ = lookPitch_.load(std::memory_order_relaxed);
 }
 
-void Renderer::drawUiBlur(GLuint targetFbo, float wallDt) {
-    uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
-    if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return;
-    UiBlurRegion region;
+// The PCM tail (PcmHandoff) is mixed down only while a built scene reads it, or a build is under way that soon will:
+// a scene built in the frame it is drawn finds the block it would always have found.
+void Renderer::updatePcmWanted() {
+    bool wanted = requestedPending_ || prep_.active() || !stager_.idle();
+    for (const auto& entry : scenes_) {
+        if (entry.second && entry.second->readsPcm()) {
+            wanted = true;
+            break;
+        }
+    }
+    if (pcmWanted_.load(std::memory_order_relaxed) == wanted) return;
+    // Reopened: a held remainder from before the gap is not part of the next block.
+    if (wanted) {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        pcm_.clear();
+    }
+    pcmWanted_.store(wanted, std::memory_order_relaxed);
+}
+
+bool Renderer::uiBlurWanted(UiBlurRegion& region) {
+    if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return false;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         region = uiBlurRegion_;
     }
-    uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_.get());
+    return region.active();
 }
 
 void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {

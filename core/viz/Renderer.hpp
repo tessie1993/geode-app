@@ -263,6 +263,7 @@ private:
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    void updatePcmWanted();
     // Under soundLock_: what writeAudio hears without a shared analysis (an export, a layered live feed).
     void hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz);
     // Under soundLock_, once a frame: the frame at this renderer's sample, its triggers, feeling and waveform.
@@ -290,7 +291,7 @@ private:
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0. Its targets go after
     // a short spell without a draw (wallDt, the frame's wall step).
-    void drawUiBlur(GLuint targetFbo, float wallDt);
+    bool uiBlurWanted(UiBlurRegion& region);
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
@@ -408,6 +409,8 @@ private:
     // because the setters are public; in practice one thread does everything.
     mutable std::mutex soundLock_;
     std::shared_ptr<sound::SharedAnalysis> sharedSound_;
+    // sharedSound_ is set, for writeAudio to look without soundLock_ (stored under it).
+    std::atomic<bool> sharedHeard_{false};
     std::shared_ptr<audio::ingest::PcmRing> ownRing_;
     std::shared_ptr<sound::SharedAnalysis> ownSound_;
     sound::SharedAnalysis::Listening ownListening_;  // after ownSound_: it lets go first
@@ -491,6 +494,8 @@ private:
     bool adsrConfigsDirty_ = false;
     bool reactionRoutesDirty_ = false;
     PcmHandoff pcm_;
+    // Whether writeAudio keeps the PCM tail: a built scene reads it, or one is being built. Set at the end of each frame.
+    std::atomic<bool> pcmWanted_{true};
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
     std::vector<float> pcmSideScratch_;

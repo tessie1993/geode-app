@@ -82,6 +82,9 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
+/* A new file descriptor, readable while frame events wait and until geode_stage_take_events takes them, for the
+   shell's main looper to sleep on; the caller owns and closes it. -1 when there is none. */
+GEODE_API int      geode_stage_event_fd(const geode_stage*);
 /* The frame events since the last call, OR-ed. */
 GEODE_API unsigned geode_stage_take_events(geode_stage*);
 /* Quits the stage: the client is released on the stage thread, with its context current where one can be.

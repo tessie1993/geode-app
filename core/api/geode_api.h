@@ -1177,7 +1177,8 @@ GEODE_API int         geode_param_history_state(void);
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
  * adds to its params each frame, after the director and the note layer and before the LFOs. geode_macro_bank_live_mods is
  * what the waves and envelopes on a knob (LfoTarget MACRO) add to its turn on the on-screen surface's last frame, one row
- * "mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>" per knob, for the knob's second arc; poll it from the UI. */
+ * 5 floats per knob (id, add, sources: 1 wave, 2 envelope, 3 both, lowest add, highest add) written to out, at most
+ * capacity rows, the row count returned, for the knob's second arc; poll it from the UI. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
 GEODE_API const char* geode_macro_bank_targets_text(void);
@@ -1206,7 +1207,7 @@ GEODE_API const char* geode_macro_bank_show_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
-GEODE_API const char* geode_macro_bank_live_mods(void);
+GEODE_API int         geode_macro_bank_live_mods(float* out, int capacity);
 /* A knob's turn plus what modulation adds to it, held to -1..1: what the engine draws it at. */
 GEODE_API float       geode_macro_bank_modulated(float turn, float add);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any

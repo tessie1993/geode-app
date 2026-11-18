@@ -4,8 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
+import android.os.MessageQueue
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
-import android.view.Choreographer
 import android.view.Surface
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
@@ -24,14 +25,15 @@ import java.nio.ByteBuffer
  * handle. This hands values across and reads events back; every rule (pacing, when it draws, what a look
  * change restarts) is native.
  *
- * Native never calls up, so the events are polled on the main thread, once per display frame while the
- * stage draws. Every callback therefore runs on the main thread.
+ * Native never calls up. The stage hands the main looper a descriptor that is readable while frame events wait, so
+ * the main thread wakes for an event, never for a vsync that has none; the sound ring is looked at on a timer.
+ * Every callback therefore runs on the main thread.
  */
 class Stage(
     context: Context,
     kind: Int,
     capFps: Float,
-) : Choreographer.FrameCallback {
+) {
     private val appContext = context.applicationContext
 
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
@@ -117,10 +119,13 @@ class Stage(
     private var stillThen: ((Bitmap) -> Unit)? = null
     private var posted = false
     private var pollUntilMs = 0L
+    private var eventFd: ParcelFileDescriptor? = null
+    private val ringTick = Runnable { ringPoll() }
 
     init {
         CLEANER.register(this, owned)
         pushLook(look)
+        listenForEvents()
         performance = PerformanceSettings.HIGH
     }
 
@@ -128,6 +133,12 @@ class Stage(
     fun close() {
         val h = handle
         handle = 0L
+        main.removeCallbacks(ringTick)
+        eventFd?.let {
+            main.looper.queue.removeOnFileDescriptorEventListener(it.fileDescriptor)
+            it.close()
+        }
+        eventFd = null
         owned.handle = 0L
         if (h == 0L) return
         StageNative.stageSetSound(h, 0L)
@@ -304,28 +315,50 @@ class Stage(
         pollUntilMs = SystemClock.uptimeMillis() + POLL_LINGER_MS
         if (posted || handle == 0L) return
         posted = true
-        Choreographer.getInstance().postFrameCallback(this)
+        ringPoll()
     }
 
-    override fun doFrame(frameTimeNanos: Long) {
-        posted = false
+    /** Native's event descriptor on the main looper: [takeEvents] runs when a frame left events, and not otherwise. */
+    private fun listenForEvents() {
+        val fd = StageNative.stageEventFd(handle)
+        if (fd < 0) return
+        val pfd = ParcelFileDescriptor.adoptFd(fd)
+        eventFd = pfd
+        main.looper.queue.addOnFileDescriptorEventListener(
+            pfd.fileDescriptor,
+            MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT,
+        ) { _, _ ->
+            takeEvents()
+            MessageQueue.OnFileDescriptorEventListener.EVENT_INPUT
+        }
+    }
+
+    /** Hands native the ring the app hears now; goes on while the stage draws or just did. */
+    private fun ringPoll() {
         val h = handle
         if (h == 0L) return
+        posted = false
         val ring = soundInput()
         if (ring != heard) {
             StageNative.stageSetSound(h, ring)
             heard = ring
         }
+        if (eventFd == null) takeEvents()
+        val draws = StageNative.stageState(h) and StageNative.STAGE_STATE_VSYNC != 0
+        if (draws || SystemClock.uptimeMillis() < pollUntilMs) {
+            posted = true
+            main.postDelayed(ringTick, RING_POLL_MS)
+        }
+    }
+
+    private fun takeEvents() {
+        val h = handle
+        if (h == 0L) return
         val events = StageNative.stageTakeEvents(h)
         if (events and StageNative.FRAME_LIQUID_CHANGED != 0) liquid.value = StageNative.stageLiquidMode(h)
         if (events and StageNative.FRAME_ERROR_CHANGED != 0) onShaderError(StageNative.stageError(h)?.ifEmpty { null })
         if (events and StageNative.FRAME_DIRECTOR_MOMENT != 0 && StageNative.stageTakeDirectorMoments(h) > 0) onDirectorStyleMoment()
         if (events and StageNative.FRAME_STILL_READY != 0) deliverStill(h)
-        val draws = StageNative.stageState(h) and StageNative.STAGE_STATE_VSYNC != 0
-        if (draws || SystemClock.uptimeMillis() < pollUntilMs) {
-            posted = true
-            Choreographer.getInstance().postFrameCallback(this)
-        }
     }
 
     /** The still to whoever asked; one that cannot be read is asked for again. */
@@ -355,6 +388,9 @@ class Stage(
     private companion object {
         /** Long enough for a stopped stage's one frame (a redraw, a still) to finish and be read. */
         const val POLL_LINGER_MS = 5_000L
+
+        /** How often the sound ring is looked at while the stage draws: a session that comes or goes is picked up within this. */
+        const val RING_POLL_MS = 50L
 
         /** One daemon thread for every stage in the process. */
         val CLEANER: Cleaner = Cleaner.create()

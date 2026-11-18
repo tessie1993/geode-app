@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <atomic>
 #include <cstdio>
+#include <thread>
 #include <vector>
 
 #include "sound/AnalysisSettings.hpp"
@@ -44,6 +46,29 @@ float clickPeak(int rate, AnalysisSettings settings, int block) {
     return peak;
 }
 
+// The player's thread writes while the frame's draws: each call holds the object's own lock, so nothing tears and nothing
+// waits on anything else (the renderer's soundLock_ is not involved). Every drawn point stays finite.
+void writerAndDrawer() {
+    Waveform w;
+    std::atomic<bool> done{false};
+    std::thread writer([&] {
+        std::vector<float> pcm(1024, 0.25f);
+        for (int i = 0; i < 4000; i++) w.write(pcm.data(), static_cast<int>(pcm.size()), 1, 48000);
+        done.store(true);
+    });
+    float out[GEODE_SOUND_WAVEFORM_POINTS];
+    bool finite = true;
+    while (!done.load()) {
+        w.draw(out);
+        for (float v : out) finite = finite && std::isfinite(v);
+    }
+    writer.join();
+    if (!finite) {
+        failures++;
+        std::printf("FAIL a drawing read while the writer wrote held a non-finite point\n");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -63,6 +88,7 @@ int main() {
                     static_cast<double>(expected));
         check(std::fabs(peak / expected - 1.0f) < 0.05f, "the drawn block is the engine's", c.rate, c.settings.fftSize, c.block, peak);
     }
+    writerAndDrawer();
     if (failures > 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;

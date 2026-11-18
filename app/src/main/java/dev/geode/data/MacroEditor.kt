@@ -88,23 +88,16 @@ data class MacroLiveMod(
     }
 }
 
-/** The knobs' live modulation (core/viz/MacroBank's liveModsText, `geode_macro_bank_live_mods`), by knob id. */
+/** The knobs' live modulation (core/viz/MacroBank's liveModsPacked, `geode_macro_bank_live_mods`), by knob id. */
 object MacroLiveTable {
-    private const val MOD_FIELDS = 6
+    private const val FLOATS = 5
 
-    fun parse(text: String): Map<Int, MacroLiveMod> =
-        text
-            .lineSequence()
-            .map { it.split('|') }
-            .filter { it.size == MOD_FIELDS && it[0] == "mod" }
-            .mapNotNull { f ->
-                val id = f[1].toIntOrNull() ?: return@mapNotNull null
-                val add = f[2].toFloatOrNull() ?: return@mapNotNull null
-                val sources = f[3].toIntOrNull() ?: return@mapNotNull null
-                val low = f[4].toFloatOrNull() ?: return@mapNotNull null
-                val high = f[5].toFloatOrNull() ?: return@mapNotNull null
-                id to MacroLiveMod(add, sources, low, high)
-            }.toMap()
+    /** Reads native's rows of (id, add, sources, low, high); a short last row is dropped. */
+    fun read(packed: FloatArray): Map<Int, MacroLiveMod> =
+        (0 until packed.size / FLOATS).associate { row ->
+            val at = row * FLOATS
+            packed[at].toInt() to MacroLiveMod(packed[at + 1], packed[at + 2].toInt(), packed[at + 3], packed[at + 4])
+        }
 }
 
 /** A Customize slider a knob can move: its modulation [target], its Customize [category] and the knobs that move it now. */

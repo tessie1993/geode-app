@@ -236,11 +236,13 @@ SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach, co
 SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId, const KnobMods* mods = nullptr);
 
 // The knobs' live modulation, for the knob's second arc: the on-screen renderer publishes each frame's mods (one
-// copy under a lock, no JNI on the GL thread), the shell polls the text. Any thread.
+// copy under a lock, no JNI on the GL thread), the shell polls the numbers. Any thread.
 void publishLive(const KnobMods& mods);
-// Rows, one per knob a wave or an envelope turns now:
-//   mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>|<lowest add>|<highest add>
-std::string liveModsText();
+// Floats per knob a wave or an envelope turns now, in liveModsPacked's rows:
+//   <knob id>, <add>, <sources: 1 wave, 2 envelope, 3 both>, <lowest add>, <highest add>
+constexpr int kLiveModFloats = 5;
+// Writes up to `capacity` rows into `out` (kLiveModFloats floats each); returns how many.
+int liveModsPacked(float* out, int capacity);
 
 // The process-wide bank every live renderer reads (geode_macro_bank_set). Any thread. A renderer takes
 // the shared copy once per frame (signal::EngineSettings), and an export keeps the one it pinned at

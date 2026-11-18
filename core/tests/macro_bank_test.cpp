@@ -1361,10 +1361,14 @@ void modulationTurnsAKnobWithoutRewritingIt() {
     for (int id = 1; id <= macrobank::kMaxKnobs + 4; ++id) many.add(id, 0.1f, KnobMods::kWave);
     check(many.count == macrobank::kMaxKnobs, "modulation holds at most a bank's knobs");
     macrobank::publishLive(mods);
-    check(macrobank::liveModsText() == "mod|" + std::to_string(colour) + "|0.625|3|-0.5|1.25\nmod|4242|1|1|0|0\n", "the live text lists who turns which knob");
-    check(std::string(geode_macro_bank_live_mods()) == macrobank::liveModsText(), "geode_macro_bank_live_mods");
+    float rows[macrobank::kMaxKnobs * macrobank::kLiveModFloats] = {};
+    const float want[] = {static_cast<float>(colour), 0.625f, 3.0f, -0.5f, 1.25f, 4242.0f, 1.0f, 1.0f, 0.0f, 0.0f};
+    check(macrobank::liveModsPacked(rows, macrobank::kMaxKnobs) == 2 && std::equal(std::begin(want), std::end(want), rows),
+          "the live rows list who turns which knob");
+    float again[macrobank::kLiveModFloats] = {};
+    check(geode_macro_bank_live_mods(again, 1) == 1 && std::equal(std::begin(want), std::begin(want) + 5, again), "geode_macro_bank_live_mods, held to its capacity");
     macrobank::publishLive(KnobMods{});
-    check(macrobank::liveModsText().empty(), "and nothing when nothing does");
+    check(macrobank::liveModsPacked(rows, macrobank::kMaxKnobs) == 0, "and nothing when nothing does");
 }
 
 }  // namespace

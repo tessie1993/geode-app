@@ -631,10 +631,16 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     for (int k = fluxBins_.from; k < fluxBins_.to; k++) now[k] = std::log1p(knee * mag_[k]);
     float rise = 0.0f;
     if (then) {
+        int prevFrom = -1;
+        int prevTo = -1;
         for (const BinRange& r : spectrumBins_) {
             const int from = std::max(r.from, fluxBins_.from);
             const int to = std::min(r.to, fluxBins_.to);
             if (from >= to) continue;
+            // Low log bands clamp to the same bin: a range the last band already counted is weighted once.
+            if (from == prevFrom && to == prevTo) continue;
+            prevFrom = from;
+            prevTo = to;
             float band = 0.0f;
             for (int k = from; k < to; k++) band += std::max(0.0f, now[k] - then[k]);
             rise += band / static_cast<float>(to - from);

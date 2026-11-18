@@ -1,6 +1,8 @@
 #include "api/geode_api.h"
 #include "audio/dsp/TrackBookmark.hpp"
 
+static_assert(geode::audio::kMaxBookmarks == GEODE_BOOKMARK_MAX, "the shell's bookmark cap is the engine's");
+
 extern "C" {
 
 int geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms) {

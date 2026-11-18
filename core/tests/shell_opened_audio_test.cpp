@@ -2,15 +2,17 @@
 // ("Open with"): the intent-routing decision, the provider refusals and the display-name sanitising. Every case
 // of the Kotlin OpenedAudioTest (app/src/test/java/dev/geode/model/OpenedAudioTest.kt) is here with the same
 // expected result, plus the JVM string behaviours the Kotlin leans on (Unicode whitespace, the case folding of
-// ".milk", modified UTF-8 from JNI). Text is UTF-8 here; non-ASCII is written as byte escapes.
+// ".milk", modified UTF-8 from JNI), and the C ABI the app calls them through (core/api/geode_shell_api.h). Text
+// is UTF-8 here; non-ASCII is written as byte escapes.
 //
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_opened_audio_test.cpp core/shell/*.cpp
-//     core/util/Json.cpp -o shell_opened_audio_test && ./shell_opened_audio_test
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_opened_audio_test.cpp
+//     core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_opened_audio_test && ./shell_opened_audio_test
 #include <array>
 #include <cstdio>
 #include <optional>
 #include <string>
 
+#include "api/geode_shell_api.h"
 #include "shell/OpenedAudio.hpp"
 
 using namespace geode::shell;
@@ -164,14 +166,60 @@ void openedIdsAreFreshMarkedAndCarryNoUri() {
         r1[static_cast<size_t>(i)] = static_cast<std::uint8_t>(i * 7 + 1);
         r2[static_cast<size_t>(i)] = static_cast<std::uint8_t>(i * 11 + 3);
     }
-    const std::string a = openedAudioMediaId(r1);
-    const std::string b = openedAudioMediaId(r2);
+    const std::string a = openedMediaId(r1);
+    const std::string b = openedMediaId(r2);
     check(openedAudioIsOpened(a), "marked");
     check(a != b, "distinct");
     check(a.size() == std::string(kOpenedMediaIdPrefix).size() + 36, "a uuid after the prefix");
     check(a[std::string(kOpenedMediaIdPrefix).size() + 14] == '4', "version 4");
     check(!openedAudioIsOpened(std::string("content://media/external/audio/media/1")), "a uri is not one");
     check(!openedAudioIsOpened(std::nullopt), "null");
+}
+
+std::string nameOut(const char* raw) {
+    char buf[512];
+    const int need = geode_opened_audio_display_name(raw, buf, static_cast<int>(sizeof buf));
+    if (need < 0) return "<none>";
+    check(need < static_cast<int>(sizeof buf), "the name fits the test's buffer");
+    return std::string(buf);
+}
+
+void openedAudioThroughTheAbi() {
+    const char* view = "android.intent.action.VIEW";
+    check(geode_opened_audio_route(view, "content", "audio/mpeg", "x", 0) == GEODE_OPENED_OPEN, "abi: open");
+    check(geode_opened_audio_route(view, "content", "audio/mpeg", "x", 1) == GEODE_OPENED_STALE, "abi: stale");
+    check(geode_opened_audio_route(view, "content", nullptr, "a.milk", 0) == GEODE_OPENED_NOT_OURS, "abi: milk untyped");
+    check(geode_opened_audio_route(view, "content", nullptr, nullptr, 0) == GEODE_OPENED_OPEN, "abi: untyped, no name");
+    check(geode_opened_audio_route(nullptr, "content", "audio/mpeg", "x", 0) == GEODE_OPENED_NOT_OURS, "abi: no action");
+    check(geode_opened_audio_route(view, "file", "audio/mpeg", "x", 0) == GEODE_OPENED_NOT_OURS, "abi: a file uri");
+
+    check(geode_opened_audio_refuses("content", "com.other.files", "dev.geode", "com.other", 1) == 0, "abi: granted plays");
+    check(geode_opened_audio_refuses("content", "com.other.files", "dev.geode", "com.other", 0) == 1, "abi: ungranted");
+    check(geode_opened_audio_refuses("content", "dev.geode.provider", "dev.geode", "dev.geode", 1) == 1, "abi: own provider");
+    check(geode_opened_audio_refuses("content", "com.other.files", "dev.geode", nullptr, 1) == 1, "abi: no provider");
+    check(geode_opened_audio_refuses("content", nullptr, "dev.geode", "com.other", 1) == 1, "abi: no authority");
+
+    check(nameOut("Mr. Blue Sky.flac") == "Mr. Blue Sky", "abi: the extension cut");
+    check(nameOut("  a\n\t  b  ") == "a b", "abi: whitespace folded");
+    check(nameOut(nullptr) == "<none>", "abi: no name");
+    check(nameOut("\xE2\x80\xAE") == "<none>", "abi: nothing visible");
+    // A lone surrogate from the JVM, as its own three bytes, is dropped like the other hidden code points.
+    check(nameOut("ab\xED\xA0\x80" "c") == "abc", "abi: a lone surrogate dropped");
+    // A NUL from the JVM comes as C0 80 (a plain NUL would end the C string): dropped, the rest kept.
+    check(nameOut("ab\xC0\x80" "cd") == "abcd", "abi: a NUL dropped");
+    check(geode_opened_audio_route(view, "content", "audio/\xC0\x80" "x", "x", 0) == GEODE_OPENED_OPEN, "abi: a NUL in the type");
+    char small[3] = {'z', 'z', 'z'};
+    check(geode_opened_audio_display_name("Song.mp3", small, 3) == 4 && std::string(small) == "So", "abi: a short buffer");
+
+    unsigned char random[16];
+    for (int i = 0; i < 16; ++i) random[i] = static_cast<unsigned char>(i * 7 + 1);
+    char id[64];
+    const int n = geode_opened_media_id(random, id, static_cast<int>(sizeof id));
+    std::array<std::uint8_t, 16> same{};
+    for (int i = 0; i < 16; ++i) same[static_cast<size_t>(i)] = random[i];
+    check(n == static_cast<int>(openedMediaId(same).size()) && std::string(id) == openedMediaId(same), "abi: the id");
+    check(geode_opened_audio_is_opened(id) == 1, "abi: marked");
+    check(geode_opened_audio_is_opened("content://media/1") == 0 && geode_opened_audio_is_opened(nullptr) == 0, "abi: not one");
 }
 
 }  // namespace
@@ -189,6 +237,7 @@ int main() {
     nothingVisibleIsNoName();
     longNameIsCappedWithoutSplittingAPair();
     openedIdsAreFreshMarkedAndCarryNoUri();
+    openedAudioThroughTheAbi();
     if (failures == 0) std::printf("shell_opened_audio_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

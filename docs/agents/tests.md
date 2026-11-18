@@ -80,6 +80,10 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `library_playlist_test.cpp`: `core/library/PlaylistRules`: the playlist file, the order, add, remove, move, rename, create and import (a free name by file stem), the legacy rename plan and the wires the shell splits.
+- `library_session_test.cpp`: `core/library/SessionDoc`: session.json written and read back, the version gate, the clamps, which texts are no session, and the wire the shell splits.
+- `library_smart_playlist_test.cpp`: `core/library/SmartPlaylist`: the file read and written, text rules (case folded in every script with case), number rules, favourites, match all or any, the limit, the order, rule tokens and the wire the shell splits.
+- `library_history_test.cpp`: `core/library/History`: how history.json reads, a play, listened time, newest first, what is kept on disk, and the wire the shell splits.
 - `look_snapshot_test.cpp`: `core/viz/LookSnapshot`, the look a renderer is handed whole: only the parts that differ pass (all on a new renderer), equal copies pass nothing, and the defaults the shell reads.
 - `lyrics_test.cpp`: the .lrc parse (stamps, fractions, headers, plain lyrics, the wire form) and the line sung at a position.
 - `playlist_test.cpp`: `core/library/Playlist`: M3U, PLS and XSPF reads, names, durations, base names, the DOCTYPE refusal and the wire text.
@@ -130,7 +134,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `pcm_ring_kinds_test.cpp`: `core/audio/ingest/RingKinds`: the process's player and mic rings (one handle from every thread, sizes, runway, the mic's layer, never freed), the output mix's stitched ring freed by its owner while a reader still reads.
 - `playback_controls_test.cpp`: Settings › Playback's rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step, the saved options' ranges and defaults (`PlayerPrefs.coerced` reads them), the crossfade slider's rounding.
 - `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
-- `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear.
+- `track_bookmark_test.cpp`: which track positions are remembered (`core/audio/dsp/TrackBookmark`): long tracks only, 10 s edges clear, the C ABI cap is the engine's.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.

@@ -1,7 +1,7 @@
 #pragma once
 // Private to core/library: the java.lang.String / Kotlin text rules the playlist, smart-playlist, history and
-// session rules were written against, over UTF-8. Exact for ASCII, a table for the common scripts beyond it
-// (Latin-1, Latin Extended-A, Greek, Cyrillic); any other character is its own lower case.
+// session rules were written against, over UTF-8. Case follows Unicode's simple mappings (JvmCase.inc, written
+// by tools/jvm_case.py from Python's Unicode tables).
 #include <algorithm>
 #include <cstdint>
 #include <string>
@@ -63,37 +63,34 @@ inline void append(std::string& out, uint32_t cp) {
     }
 }
 
-// Character.toLowerCase for the blocks above and the two signs that lower into other blocks.
-inline uint32_t lowerOf(uint32_t c) {
-    if (c < 0x80) return (c >= 'A' && c <= 'Z') ? c + 32 : c;
-    if (c >= 0xC0 && c <= 0xDE && c != 0xD7) return c + 32;
-    if (c == 0x130) return 'i';
-    if (c >= 0x100 && c <= 0x137 && c != 0x131) return (c % 2 == 0) ? c + 1 : c;
-    if (c >= 0x139 && c <= 0x148) return (c % 2 == 1) ? c + 1 : c;
-    if (c >= 0x14A && c <= 0x177) return (c % 2 == 0) ? c + 1 : c;
-    if (c == 0x178) return 0xFF;
-    if (c >= 0x179 && c <= 0x17E) return (c % 2 == 1) ? c + 1 : c;
-    if (c == 0x386) return 0x3AC;
-    if (c >= 0x388 && c <= 0x38A) return c + 37;
-    if (c == 0x38C) return 0x3CC;
-    if (c == 0x38E || c == 0x38F) return c + 63;
-    if (c >= 0x391 && c <= 0x3AB && c != 0x3A2) return c + 32;
-    if (c >= 0x400 && c <= 0x40F) return c + 80;
-    if (c >= 0x410 && c <= 0x42F) return c + 32;
-    if (c == 0x212A) return 'k';
-    if (c == 0x212B) return 0xE5;
-    return c;
+struct CaseRun {
+    uint32_t first;
+    uint32_t last;
+    int32_t delta;
+    uint32_t stride;
+};
+
+#include "library/JvmCase.inc"
+
+// The mapping of c in a run table: the run starting at or before c, when c is one of its letters.
+template <size_t N>
+uint32_t mapped(const CaseRun (&runs)[N], uint32_t c) {
+    const CaseRun* end = runs + N;
+    const CaseRun* after = std::upper_bound(runs, end, c, [](uint32_t v, const CaseRun& r) { return v < r.first; });
+    if (after == runs) return c;
+    const CaseRun& r = *(after - 1);
+    if (c > r.last || (c - r.first) % r.stride != 0) return c;
+    return static_cast<uint32_t>(static_cast<int64_t>(c) + r.delta);
 }
 
-// Char.equals(ignoreCase): equal when the upper case is, or that upper case's lower case is.
+// Character.toLowerCase(int).
+inline uint32_t lowerOf(uint32_t c) { return c < 0x80 ? ((c >= 'A' && c <= 'Z') ? c + 32 : c) : mapped(kLowerRuns, c); }
+
+// Char.equals(ignoreCase): equal when the upper cases are, or those upper cases' lower cases are; Kotlin compares
+// one UTF-16 unit at a time, so a character past the BMP (a surrogate pair) only ever equals itself.
 inline uint32_t foldOf(uint32_t c) {
-    switch (c) {
-        case 0x131: return 'i';
-        case 0x17F: return 's';
-        case 0xB5: return 0x3BC;
-        case 0x3C2: return 0x3C3;
-        default: return lowerOf(c);
-    }
+    if (c > 0xFFFF) return c;
+    return lowerOf(mapped(kUpperRuns, c));
 }
 
 // String.lowercase() (Locale.ROOT): lowerOf, except the capital I with a dot becomes i plus a combining dot.

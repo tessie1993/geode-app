@@ -1,8 +1,8 @@
 package dev.geode.data
 
 import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
+import androidx.annotation.VisibleForTesting
+import dev.geode.engine.bridge.LibraryNative
 import java.io.File
 
 data class MusicPlaylist(
@@ -10,12 +10,59 @@ data class MusicPlaylist(
     val trackUris: List<String> = emptyList(),
 )
 
+/**
+ * One JSON file per playlist under `files/music-playlists`. The file format, the order, every edit (free names
+ * included) and the one-time rename of legacy file names are native's (core/library/PlaylistRules); this lists the
+ * folder, reads and writes the files' text and does what native answers.
+ */
 class MusicPlaylistStore(
     context: Context,
 ) {
     private val dir = File(context.filesDir, "music-playlists").apply { mkdirs() }
 
     private var migrated = false
+
+    /** One edit of the folder, a `LibraryNative.MUSIC_PLAYLIST_*` [kind]. */
+    data class Edit(
+        val kind: Int,
+        val name: String,
+        val newName: String = "",
+        val track: String = "",
+        val tracks: List<String> = emptyList(),
+        val from: Int = 0,
+        val to: Int = 0,
+    )
+
+    /** What an edit does: [json] written to [name]'s file when [write], then [deleteName]'s file deleted ("" for none). */
+    data class Outcome(
+        val write: Boolean,
+        val ok: Boolean,
+        val name: String,
+        val deleteName: String,
+        val json: String,
+    )
+
+    /** The playlist rules, native's; a seam so a JVM test, which has no libgeode, can stand in for them. */
+    interface Rules {
+        fun list(texts: List<String>): List<MusicPlaylist>
+
+        fun apply(
+            edit: Edit,
+            texts: List<String>,
+            named: String?,
+        ): Outcome?
+
+        fun migration(
+            fileNames: List<String>,
+            texts: List<String>,
+        ): List<Pair<String, String>>
+
+        fun importBase(
+            parsedName: String,
+            fileName: String,
+            untitled: String,
+        ): String
+    }
 
     /**
      * Renames files saved under older name rules, once, before the first read or write of the
@@ -30,30 +77,38 @@ class MusicPlaylistStore(
     }
 
     private fun migrateLegacyFileNames() {
-        dir
-            .listFiles { f -> f.extension == "json" }
-            .orEmpty()
-            .forEach { f ->
-                val name = runCatching { fromJson(f.readText()).name }.getOrNull() ?: return@forEach
-                val stem = sanitize(name)
-                if (f.nameWithoutExtension == stem) return@forEach
-                val target = File(dir, "$stem.json")
-                if (!target.exists()) f.renameTo(target)
-            }
+        val entries = dir.listFiles().orEmpty().toList()
+        val texts = entries.map { f -> if (f.extension == "json") runCatching { f.readText() }.getOrDefault("") else "" }
+        rules.migration(entries.map { it.name }, texts).forEach { (from, to) ->
+            val target = File(dir, to)
+            // A rename replaces what it lands on: never over a file that is there.
+            if (!target.exists()) File(dir, from).renameTo(target)
+        }
     }
 
     fun list(): List<MusicPlaylist> {
         ensureMigrated()
-        return dir
-            .listFiles { f -> f.extension == "json" }
-            ?.mapNotNull { runCatching { fromJson(it.readText()) }.getOrNull() }
-            ?.sortedBy { it.name.lowercase() }
-            .orEmpty()
+        return rules.list(texts())
     }
 
-    fun save(playlist: MusicPlaylist) {
+    /** A new playlist of [uris], each once, under the first free name from [name] (nothing for a blank name). */
+    fun create(
+        name: String,
+        uris: List<String>,
+    ) {
+        edit(Edit(LibraryNative.MUSIC_PLAYLIST_CREATE, name, tracks = uris))
+    }
+
+    /** An imported file's playlist under the first free name from its own, the file's or [untitled]; the name used. */
+    fun importPlaylist(
+        parsedName: String,
+        fileName: String,
+        untitled: String,
+        uris: List<String>,
+    ): String {
         ensureMigrated()
-        AtomicWrite.text(fileOf(playlist.name), toJson(playlist))
+        val base = rules.importBase(parsedName, fileName, untitled)
+        return edit(Edit(LibraryNative.MUSIC_PLAYLIST_IMPORT, base, tracks = uris))?.name ?: base
     }
 
     fun delete(name: String) {
@@ -64,78 +119,105 @@ class MusicPlaylistStore(
     fun addTrack(
         name: String,
         uri: String,
-    ): MusicPlaylist {
-        ensureMigrated()
-        val current = current(name) ?: return MusicPlaylist(name)
-        val updated =
-            if (current.trackUris.contains(uri)) current else current.copy(trackUris = current.trackUris + uri)
-        save(updated)
-        return updated
+    ) {
+        edit(Edit(LibraryNative.MUSIC_PLAYLIST_ADD, name, track = uri))
     }
 
     fun rename(
         oldName: String,
         newName: String,
-    ): Boolean {
-        ensureMigrated()
-        val current = list().firstOrNull { it.name == oldName } ?: return false
-        if (newName.isBlank() || list().any { it.name == newName }) return false
-        if (!AtomicWrite.text(fileOf(newName), toJson(current.copy(name = newName)))) return false
-        if (sanitize(oldName) != sanitize(newName)) delete(oldName)
-        return true
-    }
+    ): Boolean = edit(Edit(LibraryNative.MUSIC_PLAYLIST_RENAME, oldName, newName = newName))?.ok == true
 
     fun move(
         name: String,
         from: Int,
         to: Int,
-    ): MusicPlaylist {
-        ensureMigrated()
-        val current = current(name) ?: return MusicPlaylist(name)
-        val uris = current.trackUris.toMutableList()
-        if (from !in uris.indices) return current
-        val target = to.coerceIn(0, uris.size - 1)
-        val item = uris.removeAt(from)
-        uris.add(target, item)
-        val updated = current.copy(trackUris = uris)
-        save(updated)
-        return updated
+    ) {
+        edit(Edit(LibraryNative.MUSIC_PLAYLIST_MOVE, name, from = from, to = to))
     }
 
     fun removeTrack(
         name: String,
         uri: String,
-    ): MusicPlaylist {
+    ) {
+        edit(Edit(LibraryNative.MUSIC_PLAYLIST_REMOVE, name, track = uri))
+    }
+
+    // Native decides; this reads the folder for it, writes what it answers, and reports a failed write as not ok.
+    private fun edit(edit: Edit): Outcome? {
         ensureMigrated()
-        val current = current(name) ?: return MusicPlaylist(name)
-        val updated = current.copy(trackUris = current.trackUris.filterNot { it == uri })
-        save(updated)
-        return updated
+        val f = fileOf(edit.name)
+        val named = if (f.exists()) runCatching { f.readText() }.getOrDefault("") else null
+        val out = rules.apply(edit, texts(), named) ?: return null
+        if (!out.write) return out
+        if (!AtomicWrite.text(fileOf(out.name), out.json)) return out.copy(ok = false)
+        if (out.deleteName.isNotEmpty()) fileOf(out.deleteName).delete()
+        return out
     }
 
-    private fun current(name: String): MusicPlaylist? {
-        list().firstOrNull { it.name == name }?.let { return it }
-        return if (readable(fileOf(name))) MusicPlaylist(name) else null
+    private fun texts(): List<String> =
+        dir
+            .listFiles { f -> f.extension == "json" }
+            ?.mapNotNull { runCatching { it.readText() }.getOrNull() }
+            .orEmpty()
+
+    private fun fileOf(name: String): File = File(dir, PresetStore.safeFileName(name) + ".json")
+
+    private object NativeRules : Rules {
+        private const val FIELD = '\u001F'
+        private const val RECORD = '\u001E'
+        private const val OUTCOME_FIELDS = 5
+
+        private fun records(wire: String?): List<List<String>> =
+            // Every record is ended by one, so the last piece is empty (an empty playlist name is a record too).
+            wire
+                .orEmpty()
+                .split(RECORD)
+                .dropLast(1)
+                .map { it.split(FIELD) }
+
+        override fun list(texts: List<String>): List<MusicPlaylist> =
+            records(LibraryNative.musicPlaylistList(texts.toTypedArray())).map { MusicPlaylist(it[0], it.drop(1)) }
+
+        override fun apply(
+            edit: Edit,
+            texts: List<String>,
+            named: String?,
+        ): Outcome? {
+            val wire =
+                LibraryNative.musicPlaylistApply(
+                    edit.kind,
+                    edit.name,
+                    edit.newName,
+                    edit.track,
+                    edit.tracks.toTypedArray(),
+                    edit.from,
+                    edit.to,
+                    texts.toTypedArray(),
+                    named,
+                )
+            val f = records(wire).firstOrNull()?.takeIf { it.size == OUTCOME_FIELDS } ?: return null
+            return Outcome(write = f[0] == "1", ok = f[1] == "1", name = f[2], deleteName = f[3], json = f[4])
+        }
+
+        override fun migration(
+            fileNames: List<String>,
+            texts: List<String>,
+        ): List<Pair<String, String>> =
+            records(LibraryNative.musicPlaylistMigration(fileNames.toTypedArray(), texts.toTypedArray()))
+                .filter { it.size == 2 }
+                .map { it[0] to it[1] }
+
+        override fun importBase(
+            parsedName: String,
+            fileName: String,
+            untitled: String,
+        ): String = LibraryNative.musicPlaylistImportBase(parsedName, fileName, untitled) ?: untitled
     }
 
-    private fun readable(f: File): Boolean = !f.exists() || runCatching { fromJson(f.readText()) }.isSuccess
-
-    private fun fileOf(name: String): File = File(dir, sanitize(name) + ".json")
-
-    private fun sanitize(name: String): String = PresetStore.safeFileName(name)
-
-    private fun toJson(p: MusicPlaylist): String {
-        val arr = JSONArray()
-        p.trackUris.forEach { arr.put(it) }
-        return JSONObject().put("name", p.name).put("tracks", arr).toString()
-    }
-
-    private fun fromJson(text: String): MusicPlaylist {
-        val o = JSONObject(text)
-        val arr = o.getJSONArray("tracks")
-        return MusicPlaylist(
-            name = o.getString("name"),
-            trackUris = (0 until arr.length()).map { arr.getString(it) },
-        )
+    companion object {
+        /** Native's rules; JVM tests, which cannot load libgeode, put their own in. */
+        @VisibleForTesting
+        internal var rules: Rules = NativeRules
     }
 }

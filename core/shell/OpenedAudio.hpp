@@ -50,7 +50,7 @@ std::optional<std::string> openedAudioDisplayName(const std::optional<std::strin
 // A queue id for an opened file: the prefix and a version 4 uuid spelled from 16 random bytes the shell
 // draws (the app keeps no random source of its own in the shell's rules), so it is distinct per open and
 // carries no part of the uri. (OpenedAudio.mediaId)
-std::string openedAudioMediaId(const std::array<std::uint8_t, 16>& random);
+std::string openedMediaId(const std::array<std::uint8_t, 16>& random);
 
 bool openedAudioIsOpened(const std::optional<std::string>& mediaId);
 

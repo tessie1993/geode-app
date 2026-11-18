@@ -63,6 +63,7 @@ import dev.geode.model.StyleShelf
 import dev.geode.model.TestCatalogue
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
 import dev.geode.widget.WidgetState
@@ -136,16 +137,18 @@ class PrefsSchemaTest {
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions("reactions/2", 0)
+                // Routes this build cannot read are kept aside before they are dropped.
+                LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> -1 }).loadHandMask()
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))
             },
             Owner("$DATA/NoteResponseStore.kt", NoteResponseCodec.keys) { NoteResponseCodec.save(it[general], false) },
             Owner("$DATA/AutoVisualsPrefsStore.kt", AutoVisualsPrefsStore.PREF_KEYS) {
-                AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ]).save(VizUiState())
+                AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ], EmptyPlaylistRules).save(VizUiState())
             },
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
-                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf().toggleFavourite("plasma"))
+                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf(favourites = setOf("plasma")))
             },
             Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
@@ -378,6 +381,20 @@ class PrefsSchemaTest {
         // Unit tests run with the module directory as the working directory.
         val root: File = listOf(File("."), File("..")).first { File(it, "app/src/main").isDirectory }
     }
+}
+
+/** Stands in for Auto's native saved-shape rules, which a JVM test cannot load: the empty playlist's text only. */
+private object EmptyPlaylistRules : AutoVisualsPrefsStore.Rules {
+    override fun entriesFromJson(json: String): List<VizPlaylistEntry> = throw UnsupportedOperationException("native's (shell_prefs_test)")
+
+    override fun entriesToJson(entries: List<VizPlaylistEntry>): String = "[]"
+
+    override fun apply(
+        state: IntArray,
+        stored: IntArray,
+        has: BooleanArray,
+        playlistCount: Int,
+    ): IntArray = throw UnsupportedOperationException("native's (shell_prefs_test)")
 }
 
 /** Stands in for the native effect ranges, which a JVM test cannot load: ten bands, every value as given. */

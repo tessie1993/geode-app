@@ -473,15 +473,14 @@ internal class MusicLibraryRepository(
         }
     }
 
-    /** A new playlist holding [uris] (each once, in order), written as one file however many there are. */
+    /**
+     * A new playlist holding [uris] (each once, in order), written as one file however many there are; a name whose
+     * file is already taken gets a free one (native's rule, `MusicPlaylistStore.create`).
+     */
     override fun createMusicPlaylist(
         name: String,
         uris: List<String>,
-    ) {
-        if (name.isBlank()) return
-        // A name whose file is already taken gets a free one: save() would overwrite that playlist.
-        editPlaylists { musicPlaylists.save(MusicPlaylist(uniquePlaylistName(name.trim()), uris.distinct())) }
-    }
+    ) = editPlaylists { musicPlaylists.create(name, uris) }
 
     override fun renameMusicPlaylist(
         oldName: String,
@@ -537,8 +536,7 @@ internal class MusicLibraryRepository(
                     // In the edits' lane, so the free name it picks is still free when it is written.
                     val name =
                         withContext(playlistEdits) {
-                            val free = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { untitled } })
-                            musicPlaylists.save(MusicPlaylist(free, resolution.uris))
+                            val free = musicPlaylists.importPlaylist(parsed.name, fileName, untitled, resolution.uris)
                             val playlists = musicPlaylists.list()
                             _library.update { it.copy(playlists = playlists) }
                             free
@@ -552,16 +550,6 @@ internal class MusicLibraryRepository(
                 }
             }
         }
-
-    /** Never overwrites an existing playlist quietly — appends "(2)", "(3)", ... until the name is free. */
-    private fun uniquePlaylistName(base: String): String {
-        // Compared by file name: two names that sanitise to the same file are the same playlist on disk.
-        val taken = musicPlaylists.list().map { PresetStore.safeFileName(it.name) }.toSet()
-        if (PresetStore.safeFileName(base) !in taken) return base
-        var suffix = 2
-        while (PresetStore.safeFileName("$base ($suffix)") in taken) suffix++
-        return "$base ($suffix)"
-    }
 }
 
 private const val TAG = "MusicLibraryRepository"

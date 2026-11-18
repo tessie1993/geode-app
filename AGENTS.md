@@ -265,3 +265,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `AtomicWrite` locks a fixed array of 64 stripes picked by the path's hash instead of a map that kept one lock per path ever written, and startup deletes `.tmp` files in `filesDir` and `no_backup` last written before the process started (`AtomicWrite.staleTemps`, `GeodeContainer.kt`, `AtomicWriteHousekeepingTest`).
 - 2026-11-18: `LyricsLoader.detach` removes the .lrc attached to a track (`filesDir/lyrics`); no screen calls it yet (`data/Lyrics.kt`, `LyricsDetachTest`).
 - 2026-11-18: `MilkTextureLinks.relinkAll` reads the texture pins once per pass instead of once per preset, and drops the pins of presets no longer in `filesDir/milk` or `milk/generated` (`dropDeadPins`, `MilkTexturePinsTest`).
+- 2026-11-18: `TemplateRepository.stageForShare` empties `cacheDir/share/templates` before writing the new share copy, so copies stop piling up one per template shared (`data/VideoTemplate.kt`).

@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -23,6 +24,8 @@ import dev.geode.data.PerformanceMode
 import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.PerfNative
 import dev.geode.geodeContainer
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /**
  * Settings › Performance › Basics: the quality preset (Saver, Balanced, High), what the live
@@ -128,8 +131,52 @@ private fun PerformanceDetailControls(
         )
         Hint(stringResource(R.string.perf_post_fx_hint))
     }
+    Column {
+        LabeledSwitch(
+            stringResource(R.string.perf_adaptive),
+            checked = settings.adaptive,
+            onCheckedChange = { onChange(settings.copy(adaptive = it)) },
+        )
+        Hint(stringResource(R.string.perf_adaptive_hint))
+        if (settings.adaptive) AdaptiveNow(settings)
+    }
     Hint(stringResource(R.string.perf_export_note))
 }
+
+/**
+ * "Adapt to frame time"'s current step, read back from native once a second (`viz/frame/FrameGovernor`, the surface
+ * that drew last): "Now: 60 fps, full quality", or what it has lowered under [settings]. Nothing before a live frame.
+ */
+@Composable
+private fun AdaptiveNow(settings: PerformanceSettings) {
+    val now by produceState<FloatArray?>(null) {
+        while (true) {
+            val out = FloatArray(PerfNative.PERF_ADAPT_NOW_FLOATS)
+            value = out.takeIf { runCatching { PerfNative.perfAdaptNow(out) }.getOrDefault(false) }
+            delay(ADAPTIVE_NOW_POLL_MS)
+        }
+    }
+    val v = now ?: return
+    val fps = v[0].roundToInt()
+    if (v[4] < 0f || fps <= 0) return
+    val lowered =
+        buildList {
+            if (v[1] < settings.renderScale) add(stringResource(R.string.perf_adaptive_now_scale, percent(v[1])))
+            if (v[2] < settings.marchScale) add(stringResource(R.string.perf_adaptive_now_march, percent(v[2])))
+            if (v[3] == 0f && settings.postFx) add(stringResource(R.string.perf_adaptive_now_no_fx))
+        }
+    Hint(
+        when {
+            v[4] == 0f -> stringResource(R.string.perf_adaptive_now, fps, stringResource(R.string.perf_adaptive_now_full))
+            lowered.isEmpty() -> stringResource(R.string.perf_adaptive_now_fps, fps)
+            else -> stringResource(R.string.perf_adaptive_now, fps, lowered.joinToString(", "))
+        },
+    )
+}
+
+private fun percent(scale: Float): String = "${(scale * 100).roundToInt()}%"
+
+private const val ADAPTIVE_NOW_POLL_MS = 1_000L
 
 /**
  * The refresh rates the display under [view] can switch to without a blank: its current mode's and that mode's

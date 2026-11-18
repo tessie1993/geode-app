@@ -52,6 +52,7 @@
 #include "viz/TouchField.hpp"
 #include "viz/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
+#include "viz/frame/FrameGovernor.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
@@ -78,6 +79,15 @@ public:
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
     // optional passes and fluid bloom.
     void setUserQuality(float renderScale, float marchScale, bool postFx);
+    // Settings › Performance's "Adapt to frame time" (frame::FrameGovernor): the user's quality, then the frame
+    // rate, stepped down while frames miss their budget. Off until the shell says. Any thread.
+    void setAdaptive(bool on) { governor_.setEnabled(on); }
+    // A recording copies this surface's frames into a fixed-rate video: the governor passes the user's settings
+    // through while it runs. Any thread.
+    void setGovernorHeld(bool held) { governorHeld_.store(held, std::memory_order_relaxed); }
+    // The cap the stage paces to instead of the user's while the governor has stepped the frame rate down; 0 for
+    // none. Any thread.
+    float governedCapFps() const { return governor_.capFps(); }
     // The rate the surface's pacer last drew at and the surface's own cap (Settings › Performance, the
     // wallpaper's, the dream's, Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
@@ -301,7 +311,7 @@ private:
     GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
     // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame time
-    // says nothing about what the phone can draw, so the fluid quality monitor sits out until a moment after
+    // says nothing about what the phone can draw, so the fluid quality monitor and the governor sit out until a moment after
     // the last such frame. GL thread.
     void noteSettling() { settleHoldSeconds_ = kSettleHoldSeconds; }
     bool settling() const { return settleHoldSeconds_ > 0.0f; }
@@ -355,6 +365,9 @@ private:
     float settleHoldSeconds_ = 0.0f;
     std::atomic<float> pacedFps_{0.0f};
     std::atomic<float> ownCapFps_{0.0f};
+    // "Adapt to frame time": fed each live frame in beginFrame; its governed() is what the frame draws with.
+    frame::FrameGovernor governor_;
+    std::atomic<bool> governorHeld_{false};
     // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;

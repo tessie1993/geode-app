@@ -136,8 +136,10 @@ struct AutoDowngrade {
     void reset() { *this = AutoDowngrade{}; }
 
     // One frame: `relief` rungs the monitor asks for (0 = none), `keepingUp` whether its window holds the
-    // target. True when the rung changed, so the caller restarts its monitor.
-    bool onFrame(int relief, bool keepingUp, float dt) {
+    // target. True when the rung changed (or a deficit was answered at the bottom), so the caller restarts its
+    // monitor. `maxSteps` is the ladder's length: the fluid tiers' by default, frame::FrameGovernor's for
+    // Settings › Performance.
+    bool onFrame(int relief, bool keepingUp, float dt, int maxSteps = kTierCount - 1) {
         if (sinceRelaxSeconds < kProbeSeconds) {
             sinceRelaxSeconds += dt;
             if (sinceRelaxSeconds >= kProbeSeconds) relaxSeconds = kRelaxSeconds;
@@ -148,7 +150,7 @@ struct AutoDowngrade {
                 sinceRelaxSeconds = kProbeSeconds;
             }
             keptUpSeconds = 0.0f;
-            steps = std::min(steps + relief, kTierCount - 1);
+            steps = std::min(steps + relief, std::max(maxSteps, 0));
             return true;
         }
         if (steps == 0 || !keepingUp) {

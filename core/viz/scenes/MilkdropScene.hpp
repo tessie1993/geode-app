@@ -83,9 +83,8 @@ private:
     int engineFps_ = 0;
     double engineClockS_ = 0.0;
     // The texture search paths the engine was last given; setting them rebuilds its texture manager.
+    // The render thread's own (ensureEngine, loadPendingPreset): not guarded by presetLock_.
     std::vector<std::string> textureDirs_;
-    // Set by a reload (under presetLock_): the next load hands the paths over again.
-    bool rescanTextures_ = false;
     Engine engine_;
     // Whether engine_ holds a preset of ours. A new engine starts on projectM's idle preset, which
     // the app never shows: until this is set the scene draws black, and the first load is a hard
@@ -105,16 +104,19 @@ private:
     UniformCache postLocs_{0};
     GLuint postVao_ = 0;
     float rotationAngle_ = 0.0f;
-    double lastLoadSeconds_ = 0.0;
     uint64_t seenAutoMark_ = 0;  // the last of Auto's marks a load here took (transition_choice::takeAuto)
     SceneParams params_;
     int diagFrames_ = 0;
     bool diagDone_ = false;
     bool reportedEngineGlError_ = false;
     std::mutex presetLock_;
+    // Guarded by presetLock_, every read and write: the preset calls (queue, fallback, reload,
+    // texture dir) may come from another thread than the render thread that loads.
     std::string pendingPresetPath_;
     std::string lastPresetPath_;
     std::string sharedTextureDir_;
+    bool rescanTextures_ = false;  // set by a reload: the next load hands the paths over again
+    double lastLoadSeconds_ = 0.0;  // the load debounce's clock
     std::mutex errorLock_;
     std::string lastError_;
     // The last message written to logcat, so a preset that fails on every frame it is retried

@@ -98,14 +98,14 @@ and compute scenes); the fluid looks and Liquid mode, which have their own
 modes (`--fluid-display`, `--liquid`) but not the gate yet; the endless zoom
 stage (`--dive <id> [--speed <octaves/s>] [--frames <n>] [--look <control>=<value>]`: the style, then
 `dive_frag.glsl` over it, n frames across one octave of travel); and frame time,
-which only a device measures (`docs/DEVICE_CHECKS.md` item 43).
+which only a device measures.
 
 ## What it cannot tell you
 
 Rendering is ANGLE over SwiftShader, which ignores precision qualifiers,
 tolerates uniform counts real ES 3.0 drivers reject, and is not a Mali or an
 Adreno. This is a lower bound on portability, not a device check.
-`docs/DEVICE_CHECKS.md` is still the authority.
+A device check is still the authority.
 
 The browser driver is `cdp.mjs`, a dependency-free Chrome DevTools Protocol
 client (Node 22's global `WebSocket` and `fetch`). The Chromium binary comes

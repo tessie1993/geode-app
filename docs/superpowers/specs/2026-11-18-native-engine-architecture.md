@@ -28,6 +28,8 @@ These are the recommended answers to the questions the owner did not answer one 
 
 ## 3. What the scans found
 
+As found at `10f984d`. Main has changed some of it since: the frame step comes from the vsync time, each live frame is given its expected presentation time and the stage thread runs at display priority (3.2); the analysis thread no longer runs a discarded `step()`, uniform lookups take a `string_view`, the sound texture uploads only where a program reads it, the palette ramp updates in place and the published hop skips the empty waveform words (3.3); the transient median and the onset maximum slide and one window read is shared (3.4); the Director leaves no stand-in bar when no tempo is heard (3.7); native calls in slider, route and layer rows are remembered (3.8); `core/player` exists (queue and transport, not wired to the app) and the sound analysis is its own library, `geode_sound` over `geode_pcm` (3.9). `AGENTS.md` › Edit log has each change.
+
 ### 3.1 Already right
 
 - Live analysis has its own thread per ring (`core/sound/hop/AnalysisThread.cpp`). The renderer only reads published hops.

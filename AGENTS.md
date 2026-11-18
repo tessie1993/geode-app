@@ -21,7 +21,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## Native core (`core/`)
 
-- Directories: `api`, `audio`, `cast`, `library`, `output`, `scene`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
+- Directories: `api`, `audio`, `backup`, `cast`, `library`, `output`, `player`, `scene`, `shell`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
 - `core/api/geode_api.h` is the C interface the JNI files call.
 - `core/sound`: the audio analysis, built as its own library `geode_sound` over `geode_pcm` (the PCM ring); it includes only itself and the ring (`tools/sound-module-gate.sh`).
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
@@ -38,7 +38,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## App packages (`app/src/main/java/dev/geode/`)
 
-- `audio`, `billing`, `cast`, `data`, `di`, `editor`, `engine`, `export`, `model`, `playback`, `pro`, `render`, `stage`, `tile`, `ui`, `util`, `viz`, `wallpaper`, `widget`.
+- `audio`, `billing`, `cast`, `data`, `di`, `editor`, `engine`, `export`, `model`, `playback`, `pro`, `stage`, `tile`, `ui`, `util`, `viz`, `wallpaper`, `widget`.
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
@@ -46,7 +46,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - Activities: `ui.MainActivity`, `ui.wallpaper.WallpaperOptionsActivity`, `tile.TileLongPressActivity`.
 - Services: `playback.PlaybackService`, `audio.PlaybackCaptureService`, `audio.GeodeNotificationListener`, `export.ExportService`, `cast.CastService`, `tile.PlaybackTileService`, `wallpaper.VisualizerWallpaperService`, `wallpaper.VisualizerDreamService`.
 - Receivers and providers: `widget.NowPlayingWidgetReceiver`, Media3's `MediaTransferReceiver`, a `FileProvider`.
-- `ui/MainActivity.kt` is the only `@AndroidEntryPoint`; there are eight `@HiltViewModel` classes.
+- `ui/MainActivity.kt` is the only `@AndroidEntryPoint`; the ViewModels are `@HiltViewModel`.
 
 ## CI (`.github/workflows/`)
 
@@ -64,7 +64,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `GLOSSARY.md`: the domain words.
 - `docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`: the proposed pipeline refactor; its section 7 lists documents that disagree with the code.
 - `docs/superpowers/specs/2026-11-18-native-engine-architecture.md`: the proposed native player, thread model, module split and end-to-end plan; newer than the pipeline refactor design where they disagree.
-- `docs/agents/`: older per-area notes. Several are known to be out of date (`modules.md`, `native-core.md`, `data-flow.md`, `large-files.md`, `engine-kotlin-audit.md`, `kotlin-logic-map.md`, `engine-deep-scan.md`); treat them as history, not as a map.
+- `docs/agents/`: older per-area notes. Several are known to be out of date (`modules.md`, `native-core.md`, `data-flow.md`, `large-files.md`, `engine-kotlin-audit.md`, `kotlin-logic-map.md`, `engine-deep-scan.md`, `ndk-refactor-research.md`); treat them as history, not as a map.
 
 ## Edit log
 

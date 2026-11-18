@@ -3,20 +3,21 @@
 Status: proposed, awaiting the owner's approval. No code has been changed.
 Basis: seven read-only investigations of the source at `f313faf` (analysis, structure, parameters, shaders, performance, Kotlin shell, layout).
 Every runtime figure here is an estimate from reading code; none is a device measurement.
+Sections 1, 2 and 7 state what the code was at that commit; where main has moved since, the line says so, and counts and line numbers are not kept current.
 `AGENTS.md`, `CLAUDE.md` and `docs/agents/*` were not used as sources of fact; section 7 lists where they contradict the code.
 
 ## 1. Why the app feels slow and late
 
-- The APK published for testing is a debug build (`.github/workflows/ship-apk.yml:143`), which slows the Kotlin screens and start-up.
-- A style averaging under 50 fps for 2.5 s is capped at 30 fps for 45 s up to 12 min (`core/viz/ThermalGovernor.cpp`, `core/viz/frame/Thermal.hpp:53-61`).
-- Scenes render at 1.25x or 1.4x per axis on screens under 2200 px or 1600 px (`core/viz/Renderer.cpp:515-546`).
+- The APK published for testing is a debug build (`.github/workflows/ship-apk.yml`, the `:app:assembleDebug` step), which slows the Kotlin screens and start-up.
+- A style averaging under 50 fps for 2.5 s was capped at 30 fps for 45 s up to 12 min (`ThermalGovernor`, `frame/Thermal.hpp`); both are gone, and the pacer divides by the fps cap only (`core/viz/frame/Pacer.hpp`).
+- Scenes render at 1.25x or 1.4x per axis on screens under 2200 px or 1600 px (`Renderer::applyRenderScale` and `supersampleFactor`, `core/viz/Renderer.cpp`).
 - 260 of 321 style programs march rays, 102 steps by default, with secondary marches per pixel.
-- The engine listens only up to the sample the speaker plays at frame start (`core/sound/interp/SpeakerSync.hpp:38`).
-- The frame is not told when it will be shown; no presentation time is used (`core/stage/android/VsyncThread.cpp:127`).
-- Route smoothing is stacked on detection: 50 ms default attack, 80 ms floor on luminance (`core/viz/Reactions.hpp:138,272`).
+- The engine listens only up to the sample the speaker plays at frame start (`core/sound/interp/SpeakerSync.hpp`).
+- The frame was not told when it will be shown; it is now: the vsync callback's expected presentation time reaches the frame (`core/stage/android/VsyncThread.cpp`) and the swap (`StageThread::presentAt`).
+- Route smoothing is stacked on detection: 50 ms default attack, 80 ms floor on luminance (`ReactRoute::attackSeconds` and `kLuminanceMinAttack`, `core/viz/Reactions.hpp`).
 - A trigger lasts one frame, so a hit's strength depends on the frame rate.
-- A 60 fps cap on a 90 Hz panel draws 45 fps (`core/viz/frame/Pacer.hpp:104-123`).
-- Analysis and the parameter chain run on the drawing thread, once per surface (`core/viz/RendererFrame.cpp:81,217`).
+- A 60 fps cap on a 90 Hz panel draws 45 fps (`Pacer::divisorFor`, `core/viz/frame/Pacer.hpp`).
+- Analysis and the parameter chain ran on the drawing thread, once per surface; the parameter chain still does (`core/viz/RendererFrame.cpp`), the analysis now runs on its own thread per ring (`core/sound/hop/AnalysisThread`).
 - Not causes: parameter-struct copies, uniform lookups and locks total tens of microseconds per frame.
 
 ## 2. Why a change touches so many files
@@ -27,10 +28,10 @@ Every runtime figure here is an estimate from reading code; none is a device mea
 - Five modulator mechanisms each have their own engine, save format and API.
 - Slot counts are fixed: 3 waves, 2 envelopes, 16 routes, 16 knobs.
 - A wave may steer only a later wave; a route may steer no wave; nothing can form a circle.
-- Each target has a hidden scale in a switch (`core/viz/Lfo.cpp:83-169`).
+- Each target has a hidden scale in a switch (the target switch in `core/viz/Lfo.cpp`).
 - A style cannot own a parameter.
 - 272 of 273 styles read sound values directly, beside the reaction matrix.
-- `MotionField::apply` is a second fixed sound-to-parameter table (`core/viz/MotionField.cpp:174-222`).
+- `MotionField::apply` is a second fixed sound-to-parameter table (`core/viz/MotionField.cpp`).
 - A shared shader feature is edited into 60 to 120 style files.
 - Host tests are 148 hand-written compile lines in one workflow file.
 - `core/viz` holds 186 top-level files; only 18 of 116 units touch the graphics API.
@@ -206,6 +207,8 @@ Each step is one pull request that leaves CI green. Later phases depend on earli
 - That audio processors run on the player's playback thread; this rests on source comments.
 
 ## 7. Documents that contradict the code
+
+As found at `f313faf`; most have since been corrected (`AGENTS.md` › Edit log).
 
 - `AGENTS.md` lists a module `:engine:audio-android`; it is not in `settings.gradle.kts`, and `PcmTap` is in `:app`.
 - `AGENTS.md` says `:engine:audio-core` holds the ring handle, frame layout and tuning; it holds one file.

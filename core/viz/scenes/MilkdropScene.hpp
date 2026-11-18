@@ -48,6 +48,7 @@ private:
     // return from the background can leave behind - is retried sixty times a second forever.
     static constexpr double kCreateRetrySeconds = 2.0;
     static constexpr int kDiagFrames = 90;
+    static constexpr int kDrainFramesAfterLoad = 2;
     static constexpr int kDiagWarmup = 20;
     static constexpr int kPcmCapacity = 8192;
     static constexpr int kEnginePcmSamples = 576;
@@ -108,6 +109,7 @@ private:
     SceneParams params_;
     int diagFrames_ = 0;
     bool diagDone_ = false;
+    int drainFramesLeft_ = 0;  // frames still to drain the engine's GL errors on
     bool reportedEngineGlError_ = false;
     std::mutex presetLock_;
     // Guarded by presetLock_, every read and write: the preset calls (queue, fallback, reload,

@@ -7,8 +7,8 @@ import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.AutoNative
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.MilkFile
+import dev.geode.model.StyleCatalogue
 import dev.geode.model.VizPlaylistEntry
 import kotlinx.coroutines.flow.StateFlow
 

@@ -2,8 +2,8 @@ package dev.geode.cast
 
 import android.os.Handler
 import android.os.Looper
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.SoundNative
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

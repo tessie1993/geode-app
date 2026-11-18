@@ -8,7 +8,7 @@ import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.LooksNative
 import dev.geode.engine.bridge.PaletteNative
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow

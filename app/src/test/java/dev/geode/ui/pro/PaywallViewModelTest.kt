@@ -5,7 +5,7 @@ import dev.geode.billing.FakePurchaseOutcome
 import dev.geode.billing.StoredTrialRepository
 import dev.geode.billing.TrialStore
 import dev.geode.billing.WallClock
-import dev.geode.engine.bridge.TestCatalogue
+import dev.geode.model.TestCatalogue
 import dev.geode.pro.BillingError
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FreeTier

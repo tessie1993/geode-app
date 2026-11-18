@@ -216,6 +216,10 @@ struct SceneParams {
     // The same by wire slot; a slot outside 0..kFieldCount-1 or a retired one is ignored (false, 0 or its default).
     bool setSlot(int slot, float value);
     float getSlot(int slot) const;
+    // A value the wire carries as a float, read as the int or the flag it stands for: the nearest int (0 for NaN,
+    // held to the int range) and value > 0.5. The shell asks these of native instead of rounding and comparing itself.
+    static int asInt(float value);
+    static bool asFlag(float value);
 
     // The geode_viz_set_params wire: kFieldCount floats in slot order. A retired slot is read as its default.
     static SceneParams fromWire(const float* values);

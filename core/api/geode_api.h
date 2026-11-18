@@ -585,6 +585,8 @@ GEODE_API const char* geode_catalogue_resolve(const char* style_id);
 GEODE_API const char* geode_catalogue_preset_style(const char* style_id);
 GEODE_API const char* geode_catalogue_scope_of(const char* param_key);
 GEODE_API int         geode_catalogue_reaches(const char* scope_name, const char* style_id);
+/* 1 when the style holds the control at a value of its own (geode_catalogue_override then gives it), 0 when it is the user's. */
+GEODE_API int         geode_catalogue_has_override(const char* style_id, const char* param_key);
 GEODE_API float       geode_catalogue_override(const char* style_id, const char* param_key);
 GEODE_API float       geode_catalogue_value(const char* name);
 
@@ -861,6 +863,10 @@ GEODE_API int         geode_params_control_range(const char* name, float* out);
  * untouched, for a name with no live row. in and out may alias. Pure, any thread. */
 GEODE_API void        geode_params_defaults(float* out);
 GEODE_API float       geode_params_get(const float* frame, const char* name);
+/* The same param as the int or the flag it stands for (SceneParams::asInt rounds, 0 for NaN; ::asFlag is value > 0.5);
+ * 0 for a NULL frame or a name with no live row. */
+GEODE_API int         geode_params_get_int(const float* frame, const char* name);
+GEODE_API int         geode_params_get_flag(const float* frame, const char* name);
 GEODE_API int         geode_params_set(const float* in, const char* name, float value, float* out);
 
 /* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,

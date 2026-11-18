@@ -56,9 +56,9 @@ import dev.geode.data.GestureAction
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.GestureTip
 import dev.geode.model.MilkFile
+import dev.geode.model.StyleCatalogue
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature

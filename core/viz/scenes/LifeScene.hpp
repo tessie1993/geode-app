@@ -1,4 +1,5 @@
 #pragma once
+#include <EGL/egl.h>
 #include <GLES3/gl3.h>
 
 #include <array>
@@ -112,6 +113,7 @@ private:
     float censusAge_ = 0.0f;
     GLuint censusPbo_ = 0;
     GLsync censusFence_ = nullptr;  // set while a census is in flight
+    EGLContext censusContext_ = EGL_NO_CONTEXT;  // the context that made censusFence_
     bool censusBytes_ = false;      // the in-flight census read RGBA8 texels, not float ones
     const TouchField* touch_ = nullptr;
 

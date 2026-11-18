@@ -6,8 +6,8 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.geode.R
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.VizNative
+import dev.geode.model.SceneParams
 import dev.geode.viz.ArtPalette
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

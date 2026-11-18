@@ -256,14 +256,12 @@ class LoopExtend(
             val audioTrack = writer.addTrack(soundtrack.format)
             writer.start()
             started = true
-            val audio = AudioReel(writer, audioTrack, soundtrack.clips).also { feed = it }
-            var done = 0
-            for (loopWrite in plan.writes) {
+            val audio = AudioReel(writer, audioTrack, soundtrack.clips, soundtrack.starts).also { feed = it }
+            for ((done, loopWrite) in plan.writes.withIndex()) {
                 if (isCancelled()) return false
                 readers[loopWrite.loopIndex].copyInto(writer, videoTrack, loopWrite.offsetUs, plan.totalDurationUs)
                 audio.writeUpTo(loopWrite.offsetUs + plan.loopDurationUs)
-                done++
-                onProgress(ExportNative.loopCopyProgress(done, plan.repeats))
+                onProgress(ExportNative.loopCopyProgress(done + 1, plan.repeats))
             }
             audio.writeUpTo(Long.MAX_VALUE)
             writer.stop()
@@ -322,11 +320,7 @@ class LoopExtend(
             if (failure is CancellationException) throw failure
             return AudioBuild.Failed(audioMessage(failure))
         }
-        // The clips play back to back: where each begins, and the total, are native.
-        val starts = LongArray(done.size + 1)
-        ExportNative.loopClipStarts(LongArray(done.size) { done[it].audio.durationUs }, starts)
-        done.forEachIndexed { index, clip -> clip.startUs = starts[index] }
-        return joinable(done, starts.last())
+        return joinable(done, ExportNative.loopClipStarts(LongArray(done.size) { done[it].audio.durationUs }))
     }
 
     /**
@@ -337,7 +331,7 @@ class LoopExtend(
      */
     private fun joinable(
         clips: List<TranscodedClip>,
-        totalUs: Long,
+        starts: LongArray,
     ): AudioBuild {
         val first = clips.first().audio.format
         val odd = clips.firstOrNull { !sameAudioShape(first, it.audio.format) }
@@ -348,7 +342,7 @@ class LoopExtend(
                     "track in this mix. Convert the tracks to match, or export them as separate videos.",
             )
         }
-        return AudioBuild.Ready(Soundtrack(clips, first, totalUs))
+        return AudioBuild.Ready(Soundtrack(clips, first, starts))
     }
 
     private fun sameAudioShape(
@@ -437,16 +431,14 @@ class LoopExtend(
     private class TranscodedClip(
         val clip: MixClip,
         val audio: AudioTranscoder.Result,
-    ) {
-        /** Where the clip begins in the soundtrack; set once every clip is transcoded ([ExportNative.loopClipStarts]). */
-        var startUs: Long = 0L
-    }
+    )
 
     private class Soundtrack(
         val clips: List<TranscodedClip>,
         val format: MediaFormat,
-        val totalUs: Long,
+        val starts: LongArray,
     ) {
+        val totalUs: Long get() = starts.last()
         val bytes: Long get() = clips.sumOf { it.audio.file.length() }
 
         fun release() {
@@ -479,24 +471,17 @@ class LoopExtend(
                 codecConfig(format, 1),
             )
 
-        // Every sample's time and extractor flags, read once; what each repeat writes, and at what time, is native.
+        // Every sample's time and extractor flags, read once; which each repeat writes, and when, is native.
         private val times: LongArray
         private val flags: IntArray
-        private val outPts: LongArray
-        private val outFlags: IntArray
-
         init {
-            val scannedTimes = ArrayList<Long>()
-            val scannedFlags = ArrayList<Int>()
+            val scanned = ArrayList<Pair<Long, Int>>()
             while (extractor.sampleTime >= 0) {
-                scannedTimes += extractor.sampleTime
-                scannedFlags += extractor.sampleFlags
-                if (!extractor.advance()) break
+                scanned += extractor.sampleTime to extractor.sampleFlags
+                extractor.advance()
             }
-            times = scannedTimes.toLongArray()
-            flags = scannedFlags.toIntArray()
-            outPts = LongArray(times.size)
-            outFlags = IntArray(times.size)
+            times = LongArray(scanned.size) { scanned[it].first }
+            flags = IntArray(scanned.size) { scanned[it].second }
         }
 
         fun copyInto(
@@ -504,21 +489,20 @@ class LoopExtend(
             track: Int,
             offsetUs: Long,
             limitUs: Long,
-        ): Int {
+        ) {
+            val outPts = LongArray(times.size)
+            val outFlags = IntArray(times.size)
             val count = ExportNative.loopRepeatSamples(times, flags, offsetUs, limitUs, outPts, outFlags)
             extractor.seekTo(0L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-            var written = 0
-            while (written < count) {
+            for (i in 0 until count) {
                 val size = readNext()
                 if (size < 0) break
-                info.set(0, size, outPts[written], outFlags[written])
+                info.set(0, size, outPts[i], outFlags[i])
                 buffer.position(0)
                 buffer.limit(size)
                 muxer.writeSampleData(track, buffer, info)
-                written++
                 extractor.advance()
             }
-            return written
         }
 
         override fun close() {
@@ -554,15 +538,12 @@ class LoopExtend(
             }
 
             /** Big enough for the loop's opening IDR, which is by far its largest sample (native). */
-            private fun sampleBufferBytes(format: MediaFormat): Int {
-                val declared =
-                    if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) else 0
-                return ExportNative.loopSampleBufferBytes(
-                    declared,
+            private fun sampleBufferBytes(format: MediaFormat): Int =
+                ExportNative.loopSampleBufferBytes(
+                    if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE) else 0,
                     format.getInteger(MediaFormat.KEY_WIDTH),
                     format.getInteger(MediaFormat.KEY_HEIGHT),
                 )
-            }
 
             private fun codecConfig(
                 format: MediaFormat,
@@ -589,30 +570,23 @@ class LoopExtend(
         private val muxer: MediaMuxer,
         private val track: Int,
         private val clips: List<TranscodedClip>,
+        private val starts: LongArray,
     ) : Closeable {
         private val info = MediaCodec.BufferInfo()
         private var scratch: ByteBuffer = ByteBuffer.allocate(SCRATCH_BYTES)
         private var reader: RandomAccessFile? = null
         private var readerClip = -1
-
-        // What native needs to say which samples are due: where each clip begins, how many samples it has and
-        // every sample's time, clip after clip. [cursor] is its (clip, sample) place, which it advances.
-        private val clipStarts = LongArray(clips.size) { clips[it].startUs }
         private val sampleCounts = IntArray(clips.size) { clips[it].audio.sampleInfos.size }
-        private val samplePts =
-            LongArray(sampleCounts.sum()).also { all ->
-                var next = 0
-                clips.forEach { clip -> clip.audio.sampleInfos.forEach { all[next++] = it.presentationTimeUs } }
-            }
+        private val samplePts = clips.flatMap { it.audio.sampleInfos }.let { all -> LongArray(all.size) { all[it].presentationTimeUs } }
         private val cursor = IntArray(2)
         private val dueClip = IntArray(DUE_BATCH)
         private val dueSample = IntArray(DUE_BATCH)
 
         fun writeUpTo(untilUs: Long) {
             do {
-                val due = ExportNative.loopAudioDue(clipStarts, sampleCounts, samplePts, cursor, untilUs, dueClip, dueSample, duePts)
+                val due = ExportNative.loopAudioDue(starts, sampleCounts, samplePts, cursor, untilUs, dueClip, dueSample, duePts)
                 for (i in 0 until due) {
-                    if (dueClip[i] != readerClip) closeReader()
+                    if (dueClip[i] != readerClip) closeReader().also { readerClip = dueClip[i] }
                     val clip = clips[dueClip[i]]
                     write(clip, clip.audio.sampleInfos[dueSample[i]], duePts[i])
                 }
@@ -643,10 +617,7 @@ class LoopExtend(
         }
 
         private fun openReader(clip: TranscodedClip): RandomAccessFile =
-            reader ?: RandomAccessFile(clip.audio.file, "r").also {
-                reader = it
-                readerClip = clips.indexOf(clip)
-            }
+            reader ?: RandomAccessFile(clip.audio.file, "r").also { reader = it }
 
         private fun closeReader() {
             bestEffort(TAG, "reader?.close()") { reader?.close() }

@@ -78,11 +78,8 @@ object ExportNative {
         outFlags: IntArray,
     ): Int
 
-    /** Where back-to-back clips of [durations] µs begin, into [out] (one longer: its last entry is the total). */
-    external fun loopClipStarts(
-        durations: LongArray,
-        out: LongArray,
-    )
+    /** Where back-to-back clips of [durations] µs begin; one entry longer, the last is the total. */
+    external fun loopClipStarts(durations: LongArray): LongArray
 
     /**
      * The soundtrack samples due before [untilUs] as ([outClip], [outSample]) pairs with their time in the soundtrack ([outPts]), from [cursor] (clip, sample),

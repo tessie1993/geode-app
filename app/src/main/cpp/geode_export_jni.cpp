@@ -107,15 +107,16 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_loopRepeatSampl
     return n;
 }
 
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportNative_loopClipStarts(JNIEnv* env, jobject, jlongArray durations,
-                                                                                jlongArray out) {
-    const jsize clips = std::min(env->GetArrayLength(durations), env->GetArrayLength(out) - 1);
-    if (clips < 0) return;
+JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_ExportNative_loopClipStarts(JNIEnv* env, jobject,
+                                                                                      jlongArray durations) {
+    const jsize clips = env->GetArrayLength(durations);
     std::vector<int64_t> d(static_cast<size_t>(clips));
     if (clips > 0) env->GetLongArrayRegion(durations, 0, clips, reinterpret_cast<jlong*>(d.data()));
     std::vector<int64_t> starts(static_cast<size_t>(clips) + 1);
     geode_loop_clip_starts(d.data(), clips, starts.data());
-    env->SetLongArrayRegion(out, 0, clips + 1, reinterpret_cast<const jlong*>(starts.data()));
+    jlongArray result = env->NewLongArray(clips + 1);
+    if (result) env->SetLongArrayRegion(result, 0, clips + 1, reinterpret_cast<const jlong*>(starts.data()));
+    return result;
 }
 
 // The sample times of the whole soundtrack are pinned, not copied: a ten-hour mix is millions of entries and this

@@ -118,6 +118,7 @@ add_library(geode_core STATIC
     shell/Behaviour.cpp
     shell/AutoVisuals.cpp
     shell/ExportFps.cpp
+    api/geode_shell_api.cpp
     shell/Text.cpp
     backup/Backup.cpp
     audio/ingest/AiffReader.cpp

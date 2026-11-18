@@ -6,6 +6,7 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.ShellNative
 import dev.geode.engine.bridge.SoundNative
 
 // What the app does by itself, what each screen does, and what each gesture on the visual means
@@ -13,7 +14,10 @@ import dev.geode.engine.bridge.SoundNative
 // Settings › Backup carries it in the Settings section.
 // "Resume last track on launch" is not here: it is PlayerPrefs.autoResume, which already existed.
 
-/** The screen the app opens on. [LAST_USED] reopens [BehaviourPrefs.lastScreen]. */
+/**
+ * The screen the app opens on. [LAST_USED] reopens [BehaviourPrefs.lastScreen]. The order is the native ABI
+ * (core/shell/Behaviour); stored choices are kept by name.
+ */
 enum class StartScreen {
     LAST_USED,
     PLAYER,
@@ -22,7 +26,10 @@ enum class StartScreen {
     STUDIO,
 }
 
-/** The extra buttons the media notification carries beside play, previous and next. */
+/**
+ * The extra buttons the media notification carries beside play, previous and next. The order is the native
+ * ABI (core/shell/Behaviour); stored choices are kept by name.
+ */
 enum class NotificationButton {
     SHUFFLE,
     REPEAT,
@@ -30,21 +37,71 @@ enum class NotificationButton {
     ;
 
     companion object {
-        /** Android's media controls draw two buttons beside previous, play and next; a third is dropped. */
-        const val ROOM = 2
+        /** The order the session offers [chosen] in (controllers fill their slots from the front): native's. */
+        fun ordered(chosen: Set<NotificationButton>): List<NotificationButton> =
+            BehaviourRules.reads.buttonsOrdered(mask(chosen)).map { entries[it] }
 
-        /** Favourite first: it is the one asked for beyond the defaults, so it is never the one dropped. */
-        private val PRIORITY = listOf(FAVOURITE, SHUFFLE, REPEAT)
-
-        /** The order the session offers [chosen] in: controllers fill their slots from the front. */
-        fun ordered(chosen: Set<NotificationButton>): List<NotificationButton> = PRIORITY.filter { it in chosen }
-
-        /** [chosen] with [button] switched; switching one on past [ROOM] switches the last other one off. */
+        /** [chosen] with [button] switched; switching one on past the notification's room switches another off (native). */
         fun toggled(
             chosen: Set<NotificationButton>,
             button: NotificationButton,
             on: Boolean,
-        ): Set<NotificationButton> = if (on) (listOf(button) + ordered(chosen - button)).take(ROOM).toSet() else chosen - button
+        ): Set<NotificationButton> {
+            val next = BehaviourRules.reads.buttonsToggled(mask(chosen), button.ordinal, on)
+            return entries.filterTo(mutableSetOf()) { next and (1 shl it.ordinal) != 0 }
+        }
+
+        private fun mask(chosen: Set<NotificationButton>): Int = chosen.fold(0) { m, b -> m or (1 shl b.ordinal) }
+    }
+}
+
+/**
+ * Behaviour's rules, native's (core/shell/Behaviour through [ShellNative]), asked by enum ordinal: the
+ * notification buttons' order and room, and the start screen. JVM tests cannot load libgeode, so they
+ * [install] a stand-in.
+ */
+object BehaviourRules {
+    interface Reads {
+        fun buttonsOrdered(chosen: Int): IntArray
+
+        fun buttonsToggled(
+            chosen: Int,
+            button: Int,
+            on: Boolean,
+        ): Int
+
+        fun lastScreen(last: Int): Int
+
+        fun opensOn(
+            start: Int,
+            last: Int,
+        ): Int
+    }
+
+    private object Native : Reads {
+        override fun buttonsOrdered(chosen: Int): IntArray = ShellNative.notificationButtonsOrdered(chosen)
+
+        override fun buttonsToggled(
+            chosen: Int,
+            button: Int,
+            on: Boolean,
+        ): Int = ShellNative.notificationButtonsToggled(chosen, button, on)
+
+        override fun lastScreen(last: Int): Int = ShellNative.behaviourLastScreen(last)
+
+        override fun opensOn(
+            start: Int,
+            last: Int,
+        ): Int = ShellNative.behaviourOpensOn(start, last)
+    }
+
+    @Volatile
+    internal var reads: Reads = Native
+        private set
+
+    /** Asks [next] from now on. */
+    fun install(next: Reads) {
+        reads = next
     }
 }
 
@@ -149,9 +206,9 @@ data class BehaviourPrefs(
     /** Every canvas gesture's action. A gesture missing from the map is [GestureAction.OFF]. */
     val gestures: Map<CanvasGesture, GestureAction> = DEFAULT_GESTURES,
 ) {
-    /** The screen to open on now. */
+    /** The screen to open on now: native's rule ([BehaviourRules]). */
     val opensOn: StartScreen
-        get() = if (startScreen == StartScreen.LAST_USED) lastScreen else startScreen
+        get() = StartScreen.entries[BehaviourRules.reads.opensOn(startScreen.ordinal, lastScreen.ordinal)]
 
     fun actionFor(gesture: CanvasGesture): GestureAction = gestures[gesture] ?: GestureAction.OFF
 
@@ -210,9 +267,9 @@ object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
         )
     }
 
-    /** [StartScreen.LAST_USED] is a choice, never a screen shown: as a last screen it reads as the default. */
+    /** [StartScreen.LAST_USED] is a choice, never a screen shown: native reads it as a last screen as the player. */
     override fun normalize(value: BehaviourPrefs): BehaviourPrefs =
-        if (value.lastScreen == StartScreen.LAST_USED) value.copy(lastScreen = defaults.lastScreen) else value
+        value.copy(lastScreen = StartScreen.entries[BehaviourRules.reads.lastScreen(value.lastScreen.ordinal)])
 
     override fun write(
         editor: SharedPreferences.Editor,

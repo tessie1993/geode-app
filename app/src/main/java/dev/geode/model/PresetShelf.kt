@@ -1,9 +1,11 @@
 package dev.geode.model
 
+import dev.geode.engine.bridge.ShellNative
+
 /**
  * One preset as the Presets list sees it. The list never needs the look itself (params, shader
- * text, a MilkDrop file), only what decides which rows show, in which order and with which marks,
- * so the rules below stay pure and are tested off-device. The page builds these from `data/Preset`.
+ * text, a MilkDrop file), only what decides which rows show, in which order and with which marks;
+ * those rules are native's ([PresetFiltering]). The page builds these from `data/Preset`.
  *
  * [forThisStyle] is worked out by the page, since the style families (every Cymatics variant
  * sharing the Cymatics presets) live in the catalogue. [onStage] says the stage shows this
@@ -37,11 +39,23 @@ sealed interface PresetFilter {
     ) : PresetFilter
 }
 
+/**
+ * The Presets list's rules, native's (core/shell/PresetList through [ShellNative]): which chips show, which
+ * rows a chip leaves and in what order, and the one row that gets the check. Kotlin only hands the rows over
+ * and maps the answers back.
+ */
 object PresetFiltering {
-    /** The chips in order: the four shelves, then the user's folders as the store lists them. */
+    /** The chips in order: the four shelves, then the user's folders as the store lists them (blank ones dropped, each once). */
     fun filters(folders: List<String>): List<PresetFilter> =
-        listOf(PresetFilter.All, PresetFilter.ThisStyle, PresetFilter.Mine, PresetFilter.BuiltIn) +
-            folders.filter { it.isNotBlank() }.distinct().map { PresetFilter.Folder(it) }
+        ShellNative.presetFilters(folders.toTypedArray()).asList().chunked(2).map { (kind, folder) ->
+            when (kind) {
+                ShellNative.PRESET_FILTER_ALL -> PresetFilter.All
+                ShellNative.PRESET_FILTER_THIS_STYLE -> PresetFilter.ThisStyle
+                ShellNative.PRESET_FILTER_MINE -> PresetFilter.Mine
+                ShellNative.PRESET_FILTER_BUILT_IN -> PresetFilter.BuiltIn
+                else -> PresetFilter.Folder(folders[folder])
+            }
+        }
 
     /**
      * The rows [filter] leaves, in list order: the user's own first (what they made is what they
@@ -53,17 +67,23 @@ object PresetFiltering {
         entries: List<PresetEntry>,
         filter: PresetFilter,
     ): List<PresetEntry> {
-        val shown =
+        val kind =
             when (filter) {
-                PresetFilter.All -> entries
-                PresetFilter.ThisStyle -> entries.filter { it.forThisStyle }
-                PresetFilter.Mine -> entries.filterNot { it.builtIn }
-                PresetFilter.BuiltIn -> entries.filter { it.builtIn }
-                is PresetFilter.Folder -> entries.filter { !it.builtIn && it.folder == filter.name }
+                PresetFilter.All -> ShellNative.PRESET_FILTER_ALL
+                PresetFilter.ThisStyle -> ShellNative.PRESET_FILTER_THIS_STYLE
+                PresetFilter.Mine -> ShellNative.PRESET_FILTER_MINE
+                PresetFilter.BuiltIn -> ShellNative.PRESET_FILTER_BUILT_IN
+                is PresetFilter.Folder -> ShellNative.PRESET_FILTER_FOLDER
             }
-        return shown
-            .distinctBy { it.name }
-            .sortedWith(compareBy<PresetEntry> { it.builtIn }.thenBy { it.builtIn && !it.forThisStyle })
+        val rows =
+            ShellNative.presetApply(
+                names(entries),
+                entries.map { it.folder }.toTypedArray(),
+                flags(entries),
+                kind,
+                (filter as? PresetFilter.Folder)?.name,
+            )
+        return rows.map { entries[it] }
     }
 
     /**
@@ -75,8 +95,15 @@ object PresetFiltering {
     fun applied(
         entries: List<PresetEntry>,
         lastTapped: String?,
-    ): String? {
-        val onStage = entries.filter { it.onStage }
-        return onStage.firstOrNull { it.name == lastTapped }?.name ?: onStage.firstOrNull()?.name
-    }
+    ): String? = entries.getOrNull(ShellNative.presetApplied(names(entries), flags(entries), lastTapped))?.name
+
+    private fun names(entries: List<PresetEntry>): Array<String> = entries.map { it.name }.toTypedArray()
+
+    private fun flags(entries: List<PresetEntry>): IntArray =
+        IntArray(entries.size) { i ->
+            val e = entries[i]
+            (if (e.builtIn) ShellNative.PRESET_BUILT_IN else 0) or
+                (if (e.forThisStyle) ShellNative.PRESET_FOR_THIS_STYLE else 0) or
+                (if (e.onStage) ShellNative.PRESET_ON_STAGE else 0)
+        }
 }

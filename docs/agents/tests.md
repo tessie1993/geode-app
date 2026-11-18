@@ -18,7 +18,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (the reactions' saved text is native for that reason: `core/viz/ReactionText`, `reaction_text_test.cpp`).
 - Anything that needs a device goes into the PR as a short checklist.
 - `tools/glslcheck` and `tools/hostlink` check shaders and the native link on the host.
-- `tools/check_shaders.py` runs every fragment and vertex shader, and every fluid look, through the NDK's glslc (in `android.yml`).
+- `tools/check_shaders.py` runs every fragment and vertex shader, and every fluid look, through the NDK's glslc (in `shader-check.yml`).
 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 

@@ -1,13 +1,10 @@
 name: Ship BeatRealms 3D APK
 
-# Builds the debug-signed APK and publishes it as a GitHub Release, so it can be
-# downloaded and sideloaded without a GitHub login and without the 30-day expiry
-# that applies to the workflow artifacts in android.yml.
+# Builds the debug APK and publishes it as a GitHub Release, so it can be downloaded
+# and sideloaded without a GitHub login and without a workflow artifact's expiry.
 #
-# It runs at the end of every green android.yml run on a push (its "Ship
-# pre-release" job calls this workflow), so a pre-release only ever ships a
-# commit that passed build, lint, unit and emulator tests. Pushes to main, which
-# android.yml does not run on, still ship directly, as does a manual dispatch.
+# A push to main ships once the native host tests and the unit tests pass.
+# A manual run ships the ref it is given and runs neither: the tests are the caller's.
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
@@ -24,16 +21,6 @@ on:
         required: true
       prerelease:
         description: Mark the GitHub Release as a pre-release
-        type: boolean
-        default: true
-  # android.yml's last job, once everything before it is green.
-  workflow_call:
-    inputs:
-      ref:
-        description: The commit the green run tested
-        type: string
-        required: true
-      prerelease:
         type: boolean
         default: true
   # Every merge into main ships a pre-release, docs-only merges included, so
@@ -62,8 +49,7 @@ env:
   APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
 
 jobs:
-  # A push to main publishes only if the native host tests pass; a run called from
-  # android.yml (or by hand) already passed them, so it skips this.
+  # A push to main publishes only if the native host tests pass; a manual run skips them.
   host-tests:
     name: Native host tests
     if: github.event_name == 'push'
@@ -81,8 +67,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # A dispatch defaults to main so the APK that ships is main's, even
-          # when the run is started from another branch. A call from android.yml
-          # passes the commit its green run tested.
+          # when the run is started from another branch.
           ref: ${{ inputs.ref || github.sha }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
@@ -137,8 +122,7 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: chmod +x gradlew
 
-      # Before the number is reserved, so a red test burns no release. On a push to main only;
-      # android.yml has already run them for the other callers.
+      # Before the number is reserved, so a red test burns no release. On a push to main only.
       - name: Run unit tests
         if: github.event_name == 'push'
         working-directory: ${{ env.PROJECT_DIR }}
@@ -213,8 +197,7 @@ jobs:
           VERSION_NAME: ${{ steps.package.outputs.version_name }}
           VERSION_CODE: ${{ steps.package.outputs.version_code }}
           SHORT_SHA: ${{ steps.package.outputs.short_sha }}
-          # Empty on push events, where a pre-release is always what we want;
-          # a call from android.yml passes true.
+          # Empty on push events, where a pre-release is always what we want.
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
@@ -247,9 +230,8 @@ jobs:
           # The tag already exists (reserved above). Re-running the workflow on
           # the same commit refreshes the assets of its release instead.
           # A new release starts as a draft and is published only once both
-          # assets are up: a newer push can cancel this run mid-upload (android.yml
-          # cancels superseded runs), and a cancelled draft is deleted below
-          # instead of staying public without its APK.
+          # assets are up: a run cancelled mid-upload leaves a draft, which is
+          # deleted below instead of staying public without its APK.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" --clobber

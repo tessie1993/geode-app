@@ -51,8 +51,8 @@ Every line here was true when it was written and may have gone stale: check the 
 ## CI (`.github/workflows/`)
 
 - `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
-- `android.yml` runs only when started by hand.
-- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `actions-pin-gate.sh`.
+- `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
+- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`.
 - `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
 - `ship-apk.yml` builds and publishes the debug APK; the `sideload` build type (release-optimised, not debuggable, debug key, id suffix `.debug`) exists in `app/build.gradle.kts` but is not published.
 
@@ -74,3 +74,4 @@ A line records what was done; it is not a rule.
 - 2026-11-17: `SoundEngine` keeps the last 128 analysis hops by input-rate sample position; `frameAt(samplePos)` reads one (`core/sound/SoundEngine.*`, `Rhythm::Clock`, `core/tests/sound_history_test.cpp`, #1212).
 - 2026-11-17: CI speed: host tests compile each source once per flag set, in parallel, through `tools/hostcc/g++`, and check out only the four submodules they use (`native-host-tests.yml`); the native build in `ship-apk.yml` and `build-lint.yml` runs through ccache, kept by `actions/cache`.
 - 2026-11-17: `ship-apk.yml` publishes the debug APK again (as before #1214); the optimised `sideload` build closed at launch and stays in `app/build.gradle.kts` unpublished until it boots.
+- 2026-11-18: CI duplicates: `android.yml` keeps only the emulator tests and the real-music frame-rate check (its build, lint and unit-test job repeated `build-lint.yml`; its last job published a pre-release); the release build's banned-SDK check moved to `build-lint.yml`; `ship-apk.yml` lost its `workflow_call` trigger.

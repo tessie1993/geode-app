@@ -96,9 +96,24 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # Same checks as android.yml, from one script, so the promise in release.yml holds.
+      # The promises Play and the privacy policy rest on, from one script, so the promise in release.yml holds.
       - name: Check the merged manifest against the app's promises
         run: tools/check-manifest.sh
+
+      # Cast is the app's only internet use. tools/network-gate.sh (arch-map.yml) reads the code and the
+      # submodules; this reads what Gradle resolves for the release build.
+      # Firebase by product: Cast's own logging (datatransport) brings firebase-encoders, which only
+      # serialises its anonymous log records and opens no connection (Data safety declares it).
+      # No WebRTC SDK from Maven: Show on a computer uses the native libdatachannel submodule.
+      - name: No networking, analytics or ads SDK in the release build
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          deps=$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath --no-daemon -q)
+          banned='okhttp|retrofit|ktor|cronet|volley|firebase-(analytics|crashlytics|messaging|perf|config|installations|auth|firestore|database|storage|appcheck|inappmessaging|dynamic-links|ml)|play-services-ads|play-services-measurement|play-services-analytics|crashlytics|sentry|appsflyer|adjust|webrtc|libjingle|io\.getstream|livekit|twilio|agora|org\.jitsi'
+          if echo "$deps" | grep -iE "$banned"; then
+            echo "::error::A networking, analytics or ads SDK is in the release build; Cast to TV is the only internet use."; exit 1
+          fi
 
       # A red unit test fails the pull request here, not a day later in a manual run.
       - name: Run unit tests

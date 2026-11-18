@@ -73,6 +73,7 @@ public:
             geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_));
     }
     void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
+    float governedCapFps() override { return geode::api::vizGovernedCapFps(v_); }
     void trimSpares() override { geode_viz_trim_spares(v_); }
     // The feed's cursor and its hold on the ring's analysis go; the next frame's geode_viz_feed_ring makes both
     // again. Other surfaces hearing the ring keep their own hold, so its thread stops only with the last.

@@ -18,6 +18,11 @@ data class PerformanceSettings(
     val marchScale: Float,
     /** Flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
+    /**
+     * "Adapt to frame time": while frames miss their budget, native steps render scale, march scale, post FX and
+     * only then the frame rate down under these values, and back up once they keep up. Not part of a preset.
+     */
+    val adaptive: Boolean = true,
 ) {
     /** The preset these values match natively, or null when the user has customised them. */
     val mode: PerformanceMode?

@@ -11,6 +11,13 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Adapt to frame time is back, on frame time alone.** Settings ›
+  Performance has the switch again, on by default. When frames come late it
+  lowers resolution, then 3D detail, then extra effects, and only then the
+  frame rate, never above your own settings, and climbs back once frames are
+  on time. Each new style starts from your settings. No temperature is read,
+  nothing pops up, and recording and exports are never lowered; the tab says
+  what it is running now.
 - **Six new style families, ten styles each (334 styles).** Prism
   (`prism_*`, `lib_prism`): kaleidoscope portals in liquid chrome. Fluor
   (`fluor_*`, `lib_fluor`): carved ornament under blacklight, its raised

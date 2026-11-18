@@ -67,6 +67,8 @@ typedef unsigned int GLbitfield;
 #define GL_DRAW_FRAMEBUFFER 0x8CA9
 #define GL_FRAMEBUFFER_COMPLETE 0x8CD5
 #define GL_COLOR_ATTACHMENT0 0x8CE0
+#define GL_COLOR 0x1800
+#define GL_DEPTH 0x1801
 #define GL_COLOR_ATTACHMENT1 0x8CE1
 
 typedef ptrdiff_t GLsizeiptr;

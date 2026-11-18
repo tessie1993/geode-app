@@ -47,6 +47,9 @@ class TransitionPrograms {
 public:
     TransitionPrograms(const ShaderSource& assets, ProgramBinaryCache* cache) : catalog_(assets), assets_(assets), cache_(cache) {}
     ~TransitionPrograms() { release(); }
+    // Owns the programs it builds: neither copied nor moved (viz/GlHandle.hpp).
+    TransitionPrograms(const TransitionPrograms&) = delete;
+    TransitionPrograms& operator=(const TransitionPrograms&) = delete;
 
     // Compiles the base composite program; returns false with the driver log in `error`.
     bool create(const std::string& fadeVert, std::string* error);

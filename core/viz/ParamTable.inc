@@ -31,7 +31,8 @@
 //            its two hue overrides). "" for a field no control sets.
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).
 //   flags    kMod: an LfoTarget writes the field (it has a mod row below), so the modulation pickers and the macro bank offer
-//            it (ModTargets). 0: none.
+//            it (ModTargets). kInput: an input preference, not part of a look, so a look that replaces the
+//            live params keeps it (SceneParams::keepInputs). 0: none.
 //   rollLo, rollHi
 //            the range the Randomize roll draws a number from (ParamRandomizer); 0, 0 where the roll
 //            draws none: a switch, a pick over the whole schema range, or a field no roll writes.
@@ -458,10 +459,10 @@ GEODE_PARAM(Float, camSmooth, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camSmooth, "Camera smoothing", Universal, 0, 0, 0)
 // Drag to look around.
 GEODE_PARAM(Bool, camTouch, false, 0, 1, Hold)
-GEODE_PARAM_META(camTouch, "Drag to look", Universal, 0, 0, 0)
+GEODE_PARAM_META(camTouch, "Drag to look", Universal, kInput, 0, 0)
 // Phone tilt steers the view (never in an export).
 GEODE_PARAM(Bool, camGyro, false, 0, 1, Hold)
-GEODE_PARAM_META(camGyro, "Tilt phone to look", Universal, 0, 0, 0)
+GEODE_PARAM_META(camGyro, "Tilt phone to look", Universal, kInput, 0, 0)
 // The global scale of every reaction route.
 GEODE_PARAM(Float, reactAmount, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM_META(reactAmount, "Reaction strength", Universal, 0, 0, 0)

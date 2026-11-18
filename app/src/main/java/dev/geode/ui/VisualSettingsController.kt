@@ -135,7 +135,7 @@ internal class VisualSettingsController(
         state.update {
             it.copy(
                 sceneId = preset.sceneId,
-                params = preset.params,
+                params = preset.params.keepingInputsOf(it.params),
                 attack = preset.attack,
                 decay = preset.decay,
             )

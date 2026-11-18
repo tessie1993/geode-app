@@ -1576,7 +1576,7 @@ Columns: File (lines) | Class | Engine logic | Thread | Native calls | Native ow
 | `LibraryTrack.kt` (15) | shell | none | n/a | none | n/a | data class |
 | `LyricLine.kt` (6) | shell | none | n/a | none | n/a | data class |
 | `MilkFile.kt` (6) | shell | none | n/a | none | n/a | data class |
-| `OpenedAudio.kt` (139) | shell | none (intent routing and refusal rules `:43-85`, name cleaning `:92-119`) | main, IO | none | n/a | intent and provider security |
+| `OpenedAudio.kt` | shell | none (intent routing, refusal, name cleaning and the queue id are native's: `ShellNative.openedAudio*`, core/shell/OpenedAudio) | main, IO | none | n/a | intent and provider security |
 | `PresetLink.kt` (76) | shell (data format) | none; gzip + base64url link codec with caps `:13-17` | main | none | n/a (see section 7) | could be native, nothing forces it |
 | `PresetShelf.kt` | shell | none; the list's filter, order and applied rules are native's (`PresetFiltering` over `ShellNative.preset*`, core/shell/PresetList) | main | none | n/a | UI list logic |
 | `QueueTrack.kt` (12) | shell | none | n/a | none | n/a | data classes |
@@ -1743,7 +1743,7 @@ Per video frame: none in my scope on a GL thread. On the main thread, `ui/pro/Pa
 - Watermark codes as integers (`model/WatermarkChoice.kt:17-27`), shared with `core/api/geode_api.h:696-707`.
 - Preset share link: `geode://preset/<base64url(gzip(json))>`, at most 8,000 characters, at most 4 MiB inflated (`model/PresetLink.kt:8-17`).
 - Preset name rule: `" · "` is replaced by `" - "` (`model/PresetShelf.kt:84`).
-- Media ids: browse ids `root`, `tracks`, `albums`, `artists`, `playlists`, `favourites`, `recent`, `search`, `<kind>/<name>`, playable `<parent>|<uri>` (`playback/LibraryTree.kt:264-272`); `geode:no-library` (`playback/PlaybackService.kt:431`); `geode:opened:<uuid>` (`model/OpenedAudio.kt:15`). Android Auto may hold these across sessions.
+- Media ids: browse ids `root`, `tracks`, `albums`, `artists`, `playlists`, `favourites`, `recent`, `search`, `<kind>/<name>`, playable `<parent>|<uri>` (`playback/LibraryTree.kt:264-272`); `geode:no-library` (`playback/PlaybackService.kt:431`); `geode:opened:<uuid>` (`core/shell/OpenedAudio.hpp` `kOpenedMediaIdPrefix`). Android Auto may hold these across sessions.
 - Session command ids `dev.geode.notification.SHUFFLE`, `.REPEAT`, `.FAVOURITE` (`playback/NotificationButtons.kt:156-158`); extras key `dev.geode.playback.EMBEDDED_ART_URI` (`playback/MediaArtwork.kt:22`).
 - Files: `crash-latest.txt` in `filesDir` (`GeodeApp.kt:25`); scratch prefixes `geode_aac_`, `geode_loop_`, `studio-` (`GeodeContainer.kt:248`); MediaStore folders `Movies/BeatRealms`, `Pictures/BeatRealms`, `Movies/MuzViz`, `Pictures/MuzViz` (`:199-203`); the retired `filesDir/analysis` (`:111`).
 - Product id `beatrealms3d_pro` (`pro/BillingRepository.kt:44`); notification channel `geode-playback-refused`, id 4712 (`playback/PlaybackService.kt:543-544`).
@@ -1792,7 +1792,7 @@ All under `app/src/test/java/dev/geode/`; none under `app/src/androidTest` targe
 | `playback/ResumeSourceTest.kt` (4) | resume the saved queue or nothing; index and position clamps |
 | `playback/VoiceSearchTest.kt` (3) | which Media3 items count as a voice search |
 | `model/KnobSizeTest.kt` (1), `LibraryChoicesTest.kt` (2), `ScreenRotationTest.kt` (2), `TabLabelsTest.kt` (3) | saved enum names read back; unknown names fall to the old behaviour |
-| `model/OpenedAudioTest.kt` (12) | intent routing, refusal of own providers and ungranted uris, name cleaning |
+| `model/OpenedAudioTest.kt` (deleted) | its cases are `core/tests/shell_opened_audio_test.cpp`'s |
 | `model/PresetLinkTest.kt` (9) | link round trip, length and inflate caps, bad payloads decode to null |
 | `model/PresetShelfTest.kt` (deleted) | its cases are `core/tests/shell_lists_test.cpp`'s |
 | `model/StyleLookTest.kt` (1) | every native catalogue look is a `StyleLook` and every group has styles |
@@ -3337,7 +3337,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/export/RenderBatchTest.kt` (92, 7) | `main/export/` `RenderScope.tracksFor`, `RenderBatch`, `BatchOutcome` | scope → track list (dedupe, order); failed track skipped; `cancelRest`; progress = (done + share)/n, clamped | ENG (export scheduling: which tracks, progress maths) | none found | port to a native batch-plan test in `core/output` when the batch moves; else stays as shell queueing |
 | `test/model/KnobSizeTest.kt` (13, 1) | `KnobSize.fromName` | unknown → `SMALL` | FMT (enum name) | – | stays |
 | `test/model/LibraryChoicesTest.kt` (24, 2) | `LibraryStartTab`, `TrackTap` | unknown → `TRACKS`, `PLAY_LIST` | FMT | – | stays |
-| `test/model/OpenedAudioTest.kt` (132, 12) | `main/model/OpenedAudio` | intent routing, provider refusal, display-name sanitising (bidi/control dropped, capped at `MAX_NAME_CODE_POINTS`) | shell (intent safety) | – | stays |
+| `test/model/OpenedAudioTest.kt` (deleted) | `main/model/OpenedAudio` | its cases are `core/tests/shell_opened_audio_test.cpp`'s; the rules are native's | shell (intent safety) | `core/tests/shell_opened_audio_test.cpp` | gone |
 | `test/model/PresetLinkTest.kt` (70, 9) | `main/model/PresetLink` | `geode://preset/<base64 gzip>`; case-insensitive; fragment/query stripped; `MAX_LINK_LENGTH` cap; bad payload → null; `findIn` text | FMT (shared link envelope) | none: `core/tests/link_share_test.cpp` is the Show-on-a-computer link (`core/viz/frame/LinkShare`), not `geode://preset`; grep for `geode://`, base64 or gzip in `core/tests` finds nothing | stays unless link decode moves; the envelope must keep decoding |
 | `test/model/PresetShelfTest.kt` (deleted) | `PresetFiltering`, `PresetFilter`, `PresetEntry` | its cases are `core/tests/shell_lists_test.cpp`'s; the rules are native's | UI | `core/tests/shell_lists_test.cpp` | gone |
 | `test/model/ScreenRotationTest.kt` (17, 2) | `ScreenRotation.fromName` | unknown → `FOLLOW` | FMT | – | stays |

@@ -109,4 +109,43 @@ object ShellNative {
     const val PRESET_BUILT_IN: Int = 1
     const val PRESET_FOR_THIS_STYLE: Int = 2
     const val PRESET_ON_STAGE: Int = 4
+
+    /**
+     * An audio file another app opens in this one, "Open with" (core/shell/OpenedAudio). Routes a delivered
+     * intent from its action, its data uri's scheme and last path segment and the sender's declared type:
+     * one of [OPENED_NOT_OURS] and the rest (`geode_opened_audio_route`).
+     */
+    external fun openedAudioRoute(
+        action: String?,
+        scheme: String?,
+        type: String?,
+        lastSegment: String?,
+        fromHistory: Boolean,
+    ): Int
+
+    /**
+     * Whether the app must refuse to play the uri: [providerPackage] owns its authority (null when no provider
+     * answers to it), [readGranted] says this app holds an explicit read grant on it (`geode_opened_audio_refuses`).
+     */
+    external fun openedAudioRefuses(
+        scheme: String?,
+        authority: String?,
+        ownPackage: String,
+        providerPackage: String?,
+        readGranted: Boolean,
+    ): Boolean
+
+    /** The provider's display name made fit to show; null when nothing is left (`geode_opened_audio_display_name`). */
+    external fun openedAudioDisplayName(raw: String?): String?
+
+    /** A queue id for an opened file from 16 [random] bytes the caller drew (`geode_opened_audio_media_id`). */
+    external fun openedAudioMediaId(random: ByteArray): String
+
+    /** Whether a queue id marks an opened file (`geode_opened_audio_is_opened`). */
+    external fun openedAudioIsOpened(mediaId: String?): Boolean
+
+    /** [openedAudioRoute]'s answers (`GEODE_OPENED_*`). */
+    const val OPENED_NOT_OURS: Int = 0
+    const val OPENED_STALE: Int = 1
+    const val OPENED_OPEN: Int = 2
 }

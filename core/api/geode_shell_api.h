@@ -68,6 +68,27 @@ GEODE_API int geode_preset_apply(const char* const* names, const char* const* fo
    row on stage. */
 GEODE_API int geode_preset_applied(const char* const* names, const int* flags, int count, const char* last_tapped);
 
+/* An audio file another app opens in this one, "Open with" (shell/OpenedAudio). Every text is a value the intent
+   or the provider handed over, UTF-8 (a lone surrogate may come as its own three bytes); NULL is absent. */
+#define GEODE_OPENED_NOT_OURS 0 /* not an opened audio file: left for the other handlers */
+#define GEODE_OPENED_STALE 1    /* delivered again from Recents, after its grant may have ended: dropped */
+#define GEODE_OPENED_OPEN 2     /* an opened audio file to play */
+/* Routes a delivered intent (GEODE_OPENED_*) from its action, its data uri's scheme and last path segment and the
+   type the sender declared. */
+GEODE_API int geode_opened_audio_route(const char* action, const char* scheme, const char* type, const char* last_segment,
+                                       int from_history);
+/* 1 when the app must refuse to play the uri: provider_package owns the uri's authority (NULL when no provider
+   answers to it), read_granted says this app holds an explicit read grant on it. */
+GEODE_API int geode_opened_audio_refuses(const char* scheme, const char* authority, const char* own_package,
+                                         const char* provider_package, int read_granted);
+/* The provider's display name made fit to show, as text-out (the caller's buffer gets as much as fits,
+   NUL-terminated; the return is the length the whole text needs), or -1 when nothing is left. */
+GEODE_API int geode_opened_audio_display_name(const char* raw, char* out, int capacity);
+/* A queue id for an opened file from 16 random bytes the caller drew, as text-out. */
+GEODE_API int geode_opened_audio_media_id(const unsigned char* random16, char* out, int capacity);
+/* 1 when a queue id marks an opened file (NULL: no id). */
+GEODE_API int geode_opened_audio_is_opened(const char* media_id);
+
 #ifdef __cplusplus
 }
 #endif

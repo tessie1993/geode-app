@@ -2,6 +2,8 @@
 #include "api/geode_shell_api.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -9,6 +11,7 @@
 #include "api/geode_text_out.hpp"
 #include "shell/Behaviour.hpp"
 #include "shell/ExportFps.hpp"
+#include "shell/OpenedAudio.hpp"
 #include "shell/PresetList.hpp"
 #include "shell/StyleShelf.hpp"
 
@@ -58,6 +61,12 @@ static_assert(static_cast<int>(shell::PresetFilter::Kind::ThisStyle) == GEODE_PR
 static_assert(static_cast<int>(shell::PresetFilter::Kind::Mine) == GEODE_PRESET_FILTER_MINE);
 static_assert(static_cast<int>(shell::PresetFilter::Kind::BuiltIn) == GEODE_PRESET_FILTER_BUILT_IN);
 static_assert(static_cast<int>(shell::PresetFilter::Kind::Folder) == GEODE_PRESET_FILTER_FOLDER);
+
+static_assert(static_cast<int>(shell::OpenedRoute::NotOurs) == GEODE_OPENED_NOT_OURS);
+static_assert(static_cast<int>(shell::OpenedRoute::Stale) == GEODE_OPENED_STALE);
+static_assert(static_cast<int>(shell::OpenedRoute::Open) == GEODE_OPENED_OPEN);
+
+std::optional<std::string> textOf(const char* text) { return text ? std::optional<std::string>(text) : std::nullopt; }
 
 }  // namespace
 
@@ -137,5 +146,32 @@ int geode_preset_applied(const char* const* names, const int* flags, int count, 
     const std::optional<std::string> tapped = last_tapped ? std::optional<std::string>(last_tapped) : std::nullopt;
     return shell::presetApplied(presetRows(names, nullptr, flags, count), tapped);
 }
+
+int geode_opened_audio_route(const char* action, const char* scheme, const char* type, const char* last_segment,
+                             int from_history) {
+    return static_cast<int>(
+        shell::openedAudioRoute(textOf(action), textOf(scheme), textOf(type), textOf(last_segment), from_history != 0));
+}
+
+int geode_opened_audio_refuses(const char* scheme, const char* authority, const char* own_package,
+                               const char* provider_package, int read_granted) {
+    return shell::openedAudioRefuses(textOf(scheme), textOf(authority), own_package ? own_package : "",
+                                     textOf(provider_package), read_granted != 0)
+               ? 1
+               : 0;
+}
+
+int geode_opened_audio_display_name(const char* raw, char* out, int capacity) {
+    const std::optional<std::string> name = shell::openedAudioDisplayName(textOf(raw));
+    return name ? geode::api::textOut(*name, out, capacity) : -1;
+}
+
+int geode_opened_audio_media_id(const unsigned char* random16, char* out, int capacity) {
+    std::array<std::uint8_t, 16> random{};
+    if (random16) std::copy_n(random16, random.size(), random.begin());
+    return geode::api::textOut(shell::openedAudioMediaId(random), out, capacity);
+}
+
+int geode_opened_audio_is_opened(const char* media_id) { return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0; }
 
 }  // extern "C"

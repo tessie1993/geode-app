@@ -1,25 +1,18 @@
 package dev.geode.model
 
-import java.util.UUID
+import dev.geode.engine.bridge.ShellNative
+import java.security.SecureRandom
 
 /**
  * The rules for an audio file another app opens in this one ("Open with", `ACTION_VIEW`). Playing is
  * not importing: the file is streamed from the sender's content uri, never copied, never added to the
  * library, history or the saved resumption queue, because the read grant dies with the sender's task
  * and a uri kept past it could only fail next launch. Everything here is a value the intent or the
- * provider handed over, so each is treated as hostile; the platform calls live in
- * `data/OpenedAudioSource`.
+ * provider handed over, so each is treated as hostile. The rules are native's (core/shell/OpenedAudio
+ * through [ShellNative]); the platform calls live in `data/OpenedAudioSource`.
  */
 object OpenedAudio {
-    /** Marks a queue item as an opened file, so `PlayRecorder` leaves it out of history and resumption. */
-    const val MEDIA_ID_PREFIX = "geode:opened:"
-
-    /** The longest name shown for an opened file, in code points. */
-    const val MAX_NAME_CODE_POINTS = 120
-
-    private const val ACTION_VIEW = "android.intent.action.VIEW"
-    private const val SCHEME_CONTENT = "content"
-    private val EXTRA_AUDIO_TYPES = setOf("application/ogg", "application/x-flac")
+    private val random = SecureRandom()
 
     /** What the activity does with a delivered intent. */
     enum class Route {
@@ -46,22 +39,12 @@ object OpenedAudio {
         type: String?,
         lastSegment: String?,
         fromHistory: Boolean,
-    ): Route {
-        if (action != ACTION_VIEW || scheme != SCHEME_CONTENT) return Route.NotOurs
-        val audio = if (type == null) !isMilkName(lastSegment) else isAudioType(type)
-        return when {
-            !audio -> Route.NotOurs
-            fromHistory -> Route.Stale
-            else -> Route.Open
+    ): Route =
+        when (ShellNative.openedAudioRoute(action, scheme, type, lastSegment, fromHistory)) {
+            ShellNative.OPENED_OPEN -> Route.Open
+            ShellNative.OPENED_STALE -> Route.Stale
+            else -> Route.NotOurs
         }
-    }
-
-    fun isAudioType(type: String): Boolean {
-        val base = type.substringBefore(';').trim().lowercase()
-        return (base.startsWith("audio/") && base.length > "audio/".length) || base in EXTRA_AUDIO_TYPES
-    }
-
-    private fun isMilkName(segment: String?): Boolean = segment?.trim()?.endsWith(".milk", ignoreCase = true) == true
 
     /**
      * Whether the app must refuse to play the uri. [providerPackage] is the package that owns the uri's
@@ -76,64 +59,18 @@ object OpenedAudio {
         ownPackage: String,
         providerPackage: String?,
         readGranted: Boolean,
-    ): Boolean =
-        when {
-            scheme != SCHEME_CONTENT || authority.isNullOrBlank() -> true
-            authority == ownPackage || authority.startsWith("$ownPackage.") -> true
-            providerPackage == null || providerPackage == ownPackage -> true
-            else -> !readGranted
-        }
+    ): Boolean = ShellNative.openedAudioRefuses(scheme, authority, ownPackage, providerPackage, readGranted)
 
     /**
      * The provider's display name made fit to show: control, format (bidi overrides, zero-width),
      * private-use, unassigned and lone surrogate code points dropped, whitespace runs folded to one
-     * space, a file extension cut, and at most [MAX_NAME_CODE_POINTS] code points. Null when nothing is left.
+     * space, a file extension cut, and a length cap. Null when nothing is left.
      */
-    fun displayName(raw: String?): String? {
-        if (raw.isNullOrEmpty()) return null
-        val clean = StringBuilder()
-        var count = 0
-        var spacePending = false
-        raw.codePoints().forEach { cp ->
-            when {
-                count >= MAX_NAME_CODE_POINTS -> Unit
-                Character.isWhitespace(cp) || Character.isSpaceChar(cp) -> spacePending = clean.isNotEmpty()
-                isHidden(cp) -> Unit
-                else -> {
-                    if (spacePending) {
-                        clean.append(' ')
-                        count++
-                        spacePending = false
-                    }
-                    if (count < MAX_NAME_CODE_POINTS) {
-                        clean.appendCodePoint(cp)
-                        count++
-                    }
-                }
-            }
-        }
-        val name = clean.toString()
-        val extension = name.substringAfterLast('.', "")
-        val stem = if (EXTENSION.matches(extension)) name.substringBeforeLast('.').trimEnd() else name
-        return stem.ifEmpty { name }.ifEmpty { null }
-    }
-
-    private val EXTENSION = Regex("[A-Za-z0-9]{1,5}")
-
-    private fun isHidden(cp: Int): Boolean =
-        when (Character.getType(cp).toByte()) {
-            Character.CONTROL,
-            Character.FORMAT,
-            Character.PRIVATE_USE,
-            Character.SURROGATE,
-            Character.UNASSIGNED,
-            -> true
-
-            else -> false
-        }
+    fun displayName(raw: String?): String? = ShellNative.openedAudioDisplayName(raw)
 
     /** A fresh queue id for an opened file: distinct per open, and carrying no part of the uri. */
-    fun mediaId(): String = MEDIA_ID_PREFIX + UUID.randomUUID()
+    fun mediaId(): String = ShellNative.openedAudioMediaId(ByteArray(16).also(random::nextBytes))
 
-    fun isOpened(mediaId: String?): Boolean = mediaId?.startsWith(MEDIA_ID_PREFIX) == true
+    /** Whether [mediaId] marks an opened file, so `PlayRecorder` leaves it out of history and resumption. */
+    fun isOpened(mediaId: String?): Boolean = ShellNative.openedAudioIsOpened(mediaId)
 }

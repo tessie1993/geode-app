@@ -186,6 +186,10 @@ const char* geode_macro_bank_live(const char* bank, const char* style_id) try {
     return nullptr;
 }
 
+float geode_macro_bank_modulated(float turn, float add) {
+    return macrobank::modulated(turn, add);
+}
+
 const char* geode_macro_bank_live_mods(void) try {
     return handOut(macrobank::liveModsText());
 } catch (...) {

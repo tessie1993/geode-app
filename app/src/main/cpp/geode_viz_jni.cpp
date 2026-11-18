@@ -342,6 +342,11 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankControls(JNIEnv* env, jobject,
     return geode::jni::utf8String(env, geode_macro_bank_controls(text.get()));
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_MacroNative_macroBankModulated(JNIEnv*, jobject, jfloat turn, jfloat add) {
+    return geode_macro_bank_modulated(turn, add);
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankLiveMods(JNIEnv* env, jobject) {
     return geode::jni::utf8String(env, geode_macro_bank_live_mods());

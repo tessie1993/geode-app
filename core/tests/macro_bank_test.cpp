@@ -1353,6 +1353,8 @@ void modulationTurnsAKnobWithoutRewritingIt() {
     KnobMods big;
     big.add(colour, 5.0f, KnobMods::kWave);
     check(macrobank::effective(bank.knobs[2], &big) == 1.0f, "held to a full turn");
+    check(macrobank::modulated(0.25f, 0.5f) == 0.75f && macrobank::modulated(0.75f, 0.5f) == 1.0f && macrobank::modulated(-0.75f, -0.5f) == -1.0f,
+          "modulated is the turn plus the offset, held to a full turn");
     KnobMods bad;
     bad.add(colour, std::numeric_limits<float>::quiet_NaN(), KnobMods::kWave);
     check(macrobank::effective(bank.knobs[2], &bad) == 0.25f, "a non-finite modulation adds nothing");

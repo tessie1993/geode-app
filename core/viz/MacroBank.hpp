@@ -223,6 +223,8 @@ struct KnobMods {
     const Mod* of(int id) const;
     bool operator==(const KnobMods&) const = default;
 };
+// A turn with what modulation adds to it, held to -1..1 (what effective() does with a knob's own turn).
+float modulated(float turn, float add);
 // The knob's turn with its modulation: 0 while it is in the library, else turn + add held to -1..1.
 float effective(const Knob& knob, const KnobMods* mods);
 

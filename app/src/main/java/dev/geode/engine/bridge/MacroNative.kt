@@ -111,6 +111,12 @@ object MacroNative {
      */
     external fun macroBankLiveMods(): String
 
+    /** A knob's [turn] plus what modulation adds ([add]), held to -1..1 by native, as the engine draws it. */
+    external fun macroBankModulated(
+        turn: Float,
+        add: Float,
+    ): Float
+
     /** New ranges and curves for the links the knob has, their params kept; the same [seed], the same ranges. */
     external fun macroBankRollRanges(
         bank: String,

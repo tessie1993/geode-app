@@ -111,6 +111,129 @@ object ShellNative {
     const val PRESET_ON_STAGE: Int = 4
 
     /**
+     * The onboarding tour's rules (core/shell/Tour). Chapters, spots, tips and places cross as their ordinals,
+     * the controls laid out now ([shown]) as the mask of `1 shl spot`, what covers the app as the mask of the
+     * `TOUR_COVER_*` bits. A run is `at, seen, replay (0 or 1)`, then its chapters; a progress is
+     * `off (0 or 1), the resume spot (-1 for none), how many chapters are done`, those chapters in the order they
+     * were added, then its gesture tips in the order they were said. A null run is no run.
+     * Whether the user has already done what [spot] asks (`geode_tour_reached`).
+     */
+    external fun tourReached(
+        spot: Int,
+        shown: Int,
+        place: Int,
+        playing: Boolean,
+    ): Boolean
+
+    /** The step [run] is on as spot, index, count; null when the chapter has nothing left to show (`geode_tour_step`). */
+    external fun tourStep(
+        run: IntArray,
+        shown: Int,
+        place: Int,
+        playing: Boolean,
+    ): IntArray?
+
+    /** [run] with [spot] behind it (`geode_tour_pass`). */
+    external fun tourPass(
+        run: IntArray,
+        spot: Int,
+    ): IntArray
+
+    /** [run] on its next chapter; null when that was the last (`geode_tour_next_chapter`). */
+    external fun tourNextChapter(run: IntArray): IntArray?
+
+    /** Whether anything over the app holds the tour back (`geode_tour_held`). */
+    external fun tourHeld(cover: Int): Boolean
+
+    /** Whether [run] may show a step now (`geode_tour_shows`). */
+    external fun tourShows(
+        run: IntArray?,
+        progress: IntArray,
+        cover: Int,
+    ): Boolean
+
+    /** Whether [tip] may be said now (`geode_tour_may_tip`). */
+    external fun tourMayTip(
+        tip: Int,
+        progress: IntArray,
+        cover: Int,
+        run: IntArray?,
+    ): Boolean
+
+    /** The chapter that should start by itself, or -1 (`geode_tour_due`). */
+    external fun tourDue(
+        progress: IntArray,
+        shown: Int,
+        place: Int,
+        playing: Boolean,
+    ): Int
+
+    /** A run of [chapter] picking up where [progress] left it (`geode_tour_resume`). */
+    external fun tourResume(
+        chapter: Int,
+        progress: IntArray,
+    ): IntArray
+
+    /** A replay of the chapters in the mask [chapters], in tour order; null for none (`geode_tour_replay`). */
+    external fun tourReplay(chapters: Int): IntArray?
+
+    /** [progress] once [run]'s chapter has ended (`geode_tour_ended`). */
+    external fun tourEnded(
+        progress: IntArray,
+        run: IntArray,
+        skipped: Boolean,
+    ): IntArray
+
+    /** Whether the one-time Pro offer follows this ending (`geode_tour_offers_pro`). */
+    external fun tourOffersPro(
+        run: IntArray,
+        skipped: Boolean,
+    ): Boolean
+
+    /** The progress the prefs' three strings spell, as ints (`geode_tour_decode`). */
+    external fun tourDecode(
+        done: String?,
+        resume: String?,
+        tips: String?,
+        legacySeen: Boolean,
+        off: Boolean,
+    ): IntArray
+
+    /** One of [progress]'s prefs strings, a `TOUR_TEXT_*`; null for no resume (`geode_tour_encode`). */
+    external fun tourEncode(
+        progress: IntArray,
+        which: Int,
+    ): String?
+
+    /**
+     * Where the card goes: the lit control's left, top, right, bottom ([hole], null for none) and the safe area's,
+     * as the card's left and top (`geode_tour_place_card`).
+     */
+    external fun tourPlaceCard(
+        hole: IntArray?,
+        cardWidth: Int,
+        cardHeight: Int,
+        safe: IntArray,
+        gap: Int,
+    ): IntArray
+
+    /** What can be over the app, or-ed into the cover mask (`GEODE_TOUR_COVER_*`). */
+    const val TOUR_COVER_FIRST_RUN: Int = 1
+    const val TOUR_COVER_PAYWALL: Int = 2
+    const val TOUR_COVER_PIP: Int = 4
+    const val TOUR_COVER_PERMISSION_RATIONALE: Int = 8
+    const val TOUR_COVER_AWAY: Int = 16
+
+    /** Which of a progress's prefs strings [tourEncode] writes (`GEODE_TOUR_TEXT_*`). */
+    const val TOUR_TEXT_DONE: Int = 0
+    const val TOUR_TEXT_RESUME: Int = 1
+    const val TOUR_TEXT_TIPS: Int = 2
+
+    /** Ints before a run's chapters, and before a progress's chapters (`GEODE_TOUR_RUN_HEAD`, `GEODE_TOUR_PROGRESS_HEAD`). */
+    const val TOUR_RUN_HEAD: Int = 3
+    const val TOUR_PROGRESS_HEAD: Int = 3
+
+    /**
      * An audio file another app opens in this one, "Open with" (core/shell/OpenedAudio). Routes a delivered
      * intent from its action, its data uri's scheme and last path segment and the sender's declared type:
      * one of [OPENED_NOT_OURS] and the rest (`geode_opened_audio_route`).

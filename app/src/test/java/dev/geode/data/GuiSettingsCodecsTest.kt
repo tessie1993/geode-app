@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.model.TestTourRules
 import dev.geode.model.TourChapter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -11,11 +12,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 /** `GuiPrefs` split by subject (#1009, PR 5): the old answers still read, and each repository writes only its own keys. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class GuiSettingsCodecsTest {
+    @Before
+    fun rules() = TestTourRules.install()
+
     private fun <T> PrefsCodec<T>.save(
         prefs: SharedPreferences,
         value: T,

@@ -522,12 +522,11 @@ void exportAndLiveStepTheSameDtAtTheSameRate() {
     }
 }
 
-// PRODUCTION BUG, expected to FAIL on #452 as written. The Saver cap asks Surface.setFrameRate(30),
-// and a panel with a 30 Hz mode switches to it. Its 33.3 ms intervals fall outside the 4..22 ms
-// window, so the estimate stays at the old 120 Hz period and the divide stays at 4: the surface
-// draws every 4th 30 Hz vsync (7.5 fps), and each 133 ms interval is clamped to 100 ms, so the engine
-// also runs at 75% speed. The header promises the estimate follows the panel when a setFrameRate hint
-// changes its mode. The same holds for 60 Hz capped at 30 dropping to a 30 Hz mode (15 fps).
+// #452, fixed by kMaxVsyncNs = 100 ms. The Saver cap asks Surface.setFrameRate(30), and a panel with a
+// 30 Hz mode switches to it. Its 33.3 ms intervals once fell outside the 4..22 ms window, so the
+// estimate stayed at the old 120 Hz period and the divide at 4: 7.5 fps, and each 133 ms interval
+// clamped to 100 ms, so the engine ran at 75% speed. The estimate now follows the panel into the
+// 30 Hz mode, and every vsync draws. Red against a kMaxVsyncNs back under 33 ms.
 void aCapThatDropsThePanelTo30HzStillDraws30Fps() {
     PacerState s;
     const auto warm = feed(s, 120, 30.0f, 300);
@@ -607,7 +606,65 @@ void recordsThePacedRate() {
     check(fresh.pacedMilliHz == 60'000, "until the estimate settles, the cap is the paced rate");
 }
 
+// Red against: the stage's busy signal ignored (a due slot draws whatever the stage is doing, so draws stack
+// behind a slow stage and then land in a burst), a missed slot waiting for the next divide slot (the draw
+// after a 40 ms frame at 30 fps on 60 Hz lands 66.7 ms on, not 50), and the cap exceeded after a late frame
+// (a draw closer than 33.3 ms to the last). By hand: 60 Hz vsyncs 16.67 ms apart, divide 2; the stage takes 40
+// ms, so after a draw at vsync k it is busy at k+1 (16.7) and k+2 (33.3) and idle at k+3 (50): draws 3 vsyncs
+// apart. A fast stage keeps the divide: 2 vsyncs apart.
+void aLateFrameDrawsOnTheFirstVsyncTheStageIsFreeNotTheNextDivideSlot() {
+    struct Case {
+        int64_t frameNs;
+        int gap;
+    };
+    const Case cases[] = {{5'000'000, 2}, {40'000'000, 3}};
+    for (const auto& c : cases) {
+        PacerState s;
+        const int64_t period = 16'666'667;
+        int64_t busyUntil = 0;
+        std::vector<int> drawn;
+        for (int i = 0; i < 300; ++i) {
+            const int64_t t = 1'000'000'000 + period * i;
+            if (Pacer::onVsync(s, t, 30.0f, t < busyUntil) > 0.0) {
+                busyUntil = t + c.frameNs;
+                if (i >= 40) drawn.push_back(i);
+            }
+        }
+        bool exact = drawn.size() > 50;
+        for (size_t k = 1; k < drawn.size(); ++k) exact = exact && drawn[k] - drawn[k - 1] == c.gap;
+        char what[96];
+        std::snprintf(what, sizeof what, "a %lld ms frame at a 30 fps cap on 60 Hz draws %d vsyncs apart",
+                      static_cast<long long>(c.frameNs / 1'000'000), c.gap);
+        check(exact, what);
+    }
+}
+
+// Red against: a stale vsync stamp that stands. A frame that starts more than 1.5 draw intervals (50 ms at 30
+// fps) after its vsync steps by the clock at the draw (ago read as 0); a prompt one keeps the stamp; with no paced
+// rate the stamp stands.
+void aStaleVsyncStampStepsByTheClockAtTheDraw() {
+    check(near(freshAgoSeconds(0.004, 30.0f), 0.004, 1e-12), "a frame 4 ms after its vsync keeps the stamp");
+    check(near(freshAgoSeconds(0.049, 30.0f), 0.049, 1e-12), "49 ms after is inside 1.5 draw intervals at 30 fps");
+    check(freshAgoSeconds(0.051, 30.0f) == 0.0, "51 ms after is stale at 30 fps: step by the clock at the draw");
+    check(freshAgoSeconds(0.040, 60.0f) == 0.0, "40 ms after is stale at 60 fps");
+    check(near(freshAgoSeconds(0.2, 0.0f), 0.2, 1e-12), "no paced rate names no interval: the stamp stands");
+    check(freshAgoSeconds(-0.01, 30.0f) == 0.0, "a stamp ahead of the clock is read as now");
+}
+
+// Red against: sound read at the draw's start (present ahead ignored), a lead past the dt clamp, and a
+// presentation time already past reading ahead.
+void soundIsReadWhereTheFrameIsShown() {
+    const int64_t now = 5'000'000'000;
+    check(listenAtNs(now, now + 33'000'000) == now + 33'000'000, "a frame shown 33 ms on hears 33 ms on");
+    check(listenAtNs(now, 0) == now, "no presentation time reads at now");
+    check(listenAtNs(now, now - 5'000'000) == now, "a presentation time in the past reads at now");
+    check(listenAtNs(now, now + 900'000'000) == now + 100'000'000, "a lead is held to the dt clamp");
+}
+
 int main() {
+    aLateFrameDrawsOnTheFirstVsyncTheStageIsFreeNotTheNextDivideSlot();
+    aStaleVsyncStampStepsByTheClockAtTheDraw();
+    soundIsReadWhereTheFrameIsShown();
     divides();
     settlesBeforeDividing();
     firstFrameAndClamp();

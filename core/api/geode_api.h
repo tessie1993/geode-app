@@ -643,6 +643,39 @@ GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, 
 GEODE_API const char* geode_session_read(const char* text);
 GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
 
+/* The app's own track library and the rules around it (core/library/TrackRules, TrackLibraryDoc). The shell reads
+ * and writes library.json and hands its text in; every call takes a whole batch and answers once. A track crosses
+ * as GEODE_TRACK_FIELDS UTF-8 strings: uri, title, artist, duration ms, album, genre, year, track number, comment,
+ * file name, size in bytes (numbers as decimal text). An answer is U+001E-ended records of U+001F-split fields.
+ * An edit answers a record of changed ("1" or "0"), corrupt input ("1": the old file did not read as a library and
+ * is set aside) and the json to write when changed, then one record per track of the library after the edit.
+ * _apply_fresh takes 3 strings per re-read title (uri, title, artist) and keeps each track's other info.
+ * _tag_fallbacks: per file 9 strings (title, artist, album, genre, year, track number as the reader gave them, NULL
+ * for none; uri; display name; last path segment, NULL for none) and its size; a track record per file.
+ * _walk_actions: per entry its name and MIME type (NULL for none) and is_dir; out[i] is 0 skip, 1 descend, 2 keep.
+ * _title_refresh: 2 strings per track (title, artist); out[i] is 1 when the title should be read again.
+ * _device_rows: per row 4 strings (title, artist, album, path; NULL for none) and its duration; rows shorter than
+ * min_seconds are left out; `fallbacks` are the 3 names for a missing title, artist, album. A record per kept row:
+ * its index, title, artist, album, folder; and a last record holding the count left out.
+ * _resolve_entries: playlist entries' base names matched to the library's file names and uris (`library` holds 2
+ * strings per track: file name, uri); three records: the uris, the missing indices, the ambiguous indices. */
+#define GEODE_TRACK_FIELDS 11
+GEODE_API const char* geode_track_library_read(const char* text);
+GEODE_API const char* geode_track_library_add(const char* text, const char* const* tracks, int count);
+GEODE_API const char* geode_track_library_save_info(const char* text, const char* uri, const char* title,
+                                                    const char* artist, const char* album, const char* genre, int year,
+                                                    int track_no, const char* comment);
+GEODE_API const char* geode_track_library_apply_fresh(const char* text, const char* const* fresh, int count);
+GEODE_API const char* geode_track_tag_fallbacks(const char* const* files, const long long* sizes, int count,
+                                                const char* untitled);
+GEODE_API int         geode_track_walk_actions(const char* const* names, const char* const* mimes, const int* is_dir,
+                                               int count, int parent_depth, int* out);
+GEODE_API int         geode_track_title_refresh(const char* const* title_artist, int count, int* out);
+GEODE_API const char* geode_track_device_rows(const char* const* rows, const long long* durations_ms, int count,
+                                              int min_seconds, const char* const* fallbacks);
+GEODE_API const char* geode_track_resolve_entries(const char* const* base_names, int entry_count,
+                                                  const char* const* library, int track_count);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

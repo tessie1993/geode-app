@@ -18,13 +18,6 @@ object MinTrackLength {
 
     /** What Settings › Library folders offers. 0 is "Off". */
     val CHOICES: List<Int> = listOf(0, 10, 30, 60, 120)
-
-    fun keeps(
-        durationMs: Long,
-        minSeconds: Int,
-    ): Boolean = minSeconds <= 0 || durationMs <= 0L || durationMs >= minSeconds * MS_PER_SECOND
-
-    private const val MS_PER_SECOND = 1_000L
 }
 
 /**

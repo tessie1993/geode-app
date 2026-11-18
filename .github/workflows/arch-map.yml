@@ -186,6 +186,12 @@ jobs:
         shell: bash
         run: bash tools/jni-parity-gate.sh
 
+      # Pins the docs-only check build-lint.yml and native-host-tests.yml skip on: documents alone must read
+      # "true"; code, a workflow, the privacy policy a unit test reads, or no change at all must read "false".
+      - name: Self-test the docs-only check
+        shell: bash
+        run: bash tools/ci-docs-only.sh --self-test
+
       # The repository's notices and the copy the app ships are one text (LGPL-2.1 2a: the
       # projectM modification notice must not differ between them).
       - name: The notices file equals the shipped asset

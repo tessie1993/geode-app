@@ -53,6 +53,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
 - `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
 - `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`.
+- `build-lint.yml` and `native-host-tests.yml` skip their heavy job on a pull request whose changed paths are all documents (`tools/ci-docs-only.sh`); `arch-map.yml` never skips.
 - `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
 - A `ship-apk.yml` run on a commit that is no longer `main`'s tip when its tests finish publishes nothing; the tip's run ships.
 - `ship-apk.yml` builds and publishes the debug APK; the `sideload` build type (release-optimised, not debuggable, debug key, id suffix `.debug`) exists in `app/build.gradle.kts` but is not published.
@@ -77,3 +78,4 @@ A line records what was done; it is not a rule.
 - 2026-11-17: `ship-apk.yml` publishes the debug APK again (as before #1214); the optimised `sideload` build closed at launch and stays in `app/build.gradle.kts` unpublished until it boots.
 - 2026-11-18: CI duplicates: `android.yml` keeps only the emulator tests and the real-music frame-rate check (its build, lint and unit-test job repeated `build-lint.yml`; its last job published a pre-release); the release build's banned-SDK check moved to `build-lint.yml`; `ship-apk.yml` lost its `workflow_call` trigger.
 - 2026-11-18: `ship-apk.yml` skips the build and the release when a newer commit is on `main` by the time its tests pass (the step "Is this still main's newest commit"); `tools/release-number.sh` prints why the last tag push was refused.
+- 2026-11-18: Pull requests that change only documents skip the build and the host tests through a `Changed paths` job (`tools/ci-docs-only.sh`, `build-lint.yml`, `native-host-tests.yml`, self-test in `arch-map.yml`); a pull request's `pages.yml` run cancels the one it replaces.

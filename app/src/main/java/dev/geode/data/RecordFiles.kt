@@ -131,6 +131,8 @@ class RecordFiles(
                 }.onFailure { RingLog.note(TAG, "recording copy failed", it) }.isSuccess
         file.delete()
         noteOf(file).delete()
+        // A folder answered for this recording only took a grant nothing keeps.
+        if (target is SaveTarget.Folder) saveTargets.releaseIfUnused(target.treeUri)
         return out?.finish(copied)
     }
 

@@ -51,6 +51,7 @@ import dev.geode.engine.bridge.SoundNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.export.ExportRun
 import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
@@ -79,6 +80,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
@@ -831,6 +833,19 @@ class PlayerSession internal constructor(
         codec: ExportCodec = ExportCodec.H264,
         watermark: dev.geode.model.WatermarkChoice = dev.geode.model.WatermarkChoice.NONE,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, codec, watermark)
+
+    /**
+     * Follows the render just started (only when [ExportRun] runs one) on the app's scope, so a render
+     * that outlives this screen is still followed: once it ends, however it ends, the read grants on
+     * the loop render's [clips] go back, except a song the library holds.
+     */
+    fun followRender(clips: List<Uri>) {
+        if (!ExportRun.running || clips.isEmpty()) return
+        container.appScope.launch {
+            ExportRun.state.first { !it.running }
+            container.mediaStore.releaseReadAccess(clips, library.value.tracks.mapTo(HashSet()) { it.uri })
+        }
+    }
 
     fun deleteStudioClip(
         uri: String,

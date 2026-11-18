@@ -17,6 +17,7 @@ import dev.geode.engine.bridge.RenderPlanNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.export.ExportRun
 import dev.geode.export.SceneFactory
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
@@ -306,6 +307,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
+            val idle = !ExportRun.running
             session.exportController.startLoopRender(
                 aspect,
                 codec,
@@ -318,6 +320,7 @@ class PlayerViewModel
                 destination,
                 pinnedWatermark(),
             )
+            if (idle) session.followRender(audioClips)
         }
 
         /** The entitlement's wordmark, placed as Settings › Preferences says now; the render keeps this one. */

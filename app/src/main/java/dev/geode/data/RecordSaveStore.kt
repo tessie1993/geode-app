@@ -54,8 +54,23 @@ class RecordSaveStore(
             }
             if (!holdsGrant(target.treeUri)) return false
         }
-        if (remember) prefs.edit { putString(KEY_TARGET, target.encode()) }
+        if (remember) {
+            val replaced = savedFolder()
+            prefs.edit { putString(KEY_TARGET, target.encode()) }
+            replaced?.let(::releaseIfUnused)
+        }
         return true
+    }
+
+    /** The folder kept as the answer, grant or not; null for the Videos library or no answer. */
+    fun savedFolder(): String? = (SaveTarget.decode(prefs.getString(KEY_TARGET, null)) as? SaveTarget.Folder)?.treeUri
+
+    /**
+     * Gives back the grant [choose] took on the folder [tree] (a folder replaced by a new answer, or
+     * one used for a single recording) unless one of the app's folders ([keptFolders]) is still it.
+     */
+    fun releaseIfUnused(tree: String) {
+        if (tree !in keptFolders(appContext)) appContext.contentResolver.releaseGrant(tree.toUri(), GRANT_FLAGS)
     }
 
     /** Forgets the answer, so the next take asks again. */

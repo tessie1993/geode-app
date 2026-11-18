@@ -87,6 +87,10 @@ void geode_params_reset_tab(const char* tab, const float* in, float* out) try {
 
 void geode_params_sanitize(const float* in, float* out) { SceneParams::sanitized(in).toWire(out); }
 
+void geode_params_keep_inputs(const float* current, const float* in, float* out) {
+    if (current && in && out) SceneParams::keepInputs(current, in, out);
+}
+
 const char* geode_params_schema_text(void) try {
     return SceneParams::schemaText().c_str();
 } catch (...) {

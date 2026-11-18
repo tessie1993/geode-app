@@ -776,6 +776,13 @@ Java_dev_geode_engine_bridge_ParamsNative_paramsApplyGradient(JNIEnv* env, jobje
     return editedFrame(env, frame, [&](const float* in, float* out) { geode_params_apply_gradient(in, base, span, out); });
 }
 
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_ParamsNative_paramsKeepInputs(JNIEnv* env, jobject, jfloatArray current, jfloatArray look) {
+    FloatElements live(env, current);
+    if (!live.get() || live.length() < geode_viz_param_count()) return look;
+    return editedFrame(env, look, [&](const float* in, float* out) { geode_params_keep_inputs(live.get(), in, out); });
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_ParamsNative_paramsWriteJson(JNIEnv* env, jobject, jfloatArray frame, jstring customPaletteId,
                                                          jstring customPalette2Id) {

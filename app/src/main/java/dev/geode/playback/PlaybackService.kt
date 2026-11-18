@@ -207,10 +207,14 @@ class PlaybackService : MediaLibraryService() {
             params: LibraryParams?,
         ): ListenableFuture<LibraryResult<Void>> {
             if (!mayBrowse(browser)) return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_PERMISSION_DENIED))
-            resumptionExecutor.execute {
-                val count = tree.search(query).size
-                session.notifySearchResultChanged(browser, query, count, params)
-            }
+            // Submitted like the other callbacks, so a throw lands in the future instead of killing the app.
+            Futures.submit(
+                java.util.concurrent.Callable {
+                    val count = tree.search(query).size
+                    session.notifySearchResultChanged(browser, query, count, params)
+                },
+                resumptionExecutor,
+            )
             return Futures.immediateFuture(LibraryResult.ofVoid())
         }
 

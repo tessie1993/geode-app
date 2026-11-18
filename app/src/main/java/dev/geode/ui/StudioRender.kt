@@ -59,9 +59,9 @@ import androidx.navigationevent.compose.NavigationEventState
 import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
 import dev.geode.data.BuiltInPresets
-import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
+import dev.geode.data.ExportFps
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.StudioPrefsStore
@@ -427,7 +427,7 @@ internal fun StudioRenderTab(
                     stringResource(
                         R.string.render_summary,
                         exportQualityLabel(options.quality),
-                        fpsLabels()[EXPORT_FPS_OPTIONS.indexOf(options.fps).coerceAtLeast(0)],
+                        fpsLabels()[ExportFps.options.indexOf(options.fps).coerceAtLeast(0)],
                         stringResource(if (askWhere) R.string.render_save_ask else R.string.render_save_library),
                     ),
                     modifier = modifier,
@@ -700,7 +700,7 @@ private fun RenderVideoOptions(
     if (options.quality == ExportQuality.UHD4K) OptionHint(stringResource(R.string.export_4k_fallback))
     OptionLabel(stringResource(R.string.export_frame_rate))
     RenderChipRow {
-        EXPORT_FPS_OPTIONS.zip(fpsLabels()).forEach { (fps, label) ->
+        ExportFps.options.zip(fpsLabels()).forEach { (fps, label) ->
             RenderChip(label, options.fps == fps) { update(options.copy(fps = fps)) }
         }
     }
@@ -853,7 +853,7 @@ private fun RenderChip(
 // The frame-rate chips' labels ("24 fps", "25 fps", …).
 @Composable
 internal fun fpsLabels(): List<String> =
-    EXPORT_FPS_OPTIONS.map { fps ->
+    ExportFps.options.map { fps ->
         when (fps) {
             24 -> stringResource(R.string.export_fps_24)
             25 -> stringResource(R.string.export_fps_25)

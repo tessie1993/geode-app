@@ -57,6 +57,18 @@ class PrefsSettingsRepositoryTest {
         }
 
     @Test
+    fun aKeyOfTheWrongTypeReadsAsTheDefaultsInsteadOfThrowing() =
+        runTest {
+            // As a hand-edited backup can leave it: the getter throws a ClassCastException.
+            file.values += mapOf("a" to "five", "b" to 7)
+            val repo = repository()
+            assertEquals(Two(), repo.current())
+            assertEquals(Two(), repo.loaded())
+            repo.update { it.copy(b = 9) }
+            assertEquals(mapOf("a" to 1, "b" to 9), file.values.toMap())
+        }
+
+    @Test
     fun anUpdateBeforeTheLoadWaitsForItInsteadOfWritingOverTheSavedValue() =
         runTest {
             file.values += mapOf("a" to 3, "b" to 7)

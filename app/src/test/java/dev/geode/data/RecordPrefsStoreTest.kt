@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.export.ExportQuality
 import org.junit.Assert.assertEquals
+import org.junit.Before
 import org.junit.Test
 import java.lang.reflect.Proxy
 
@@ -10,10 +11,25 @@ import java.lang.reflect.Proxy
  * Settings › Export › Record's store: a choice never made reads as what a take did before the rows
  * existed (the Custom export defaults, no maximum length), a pick sticks, and a stored value that
  * is not on offer is never handed on. The lengths themselves and the snap are native
- * (core/tests/record_plan_test.cpp); here the snap is a stand-in.
+ * (core/tests/record_plan_test.cpp), and so are the frame rates (core/tests/shell_prefs_test.cpp);
+ * here both are stand-ins.
  */
 class RecordPrefsStoreTest {
     private val custom = ExportDefaults(quality = ExportQuality.UHD4K, fps = 60)
+
+    @Before
+    fun rates() {
+        ExportFps.install(
+            object : ExportFps.Reads {
+                override fun options(): List<Int> = listOf(24, 30, 60)
+
+                override fun read(
+                    stored: Int,
+                    fallback: Int,
+                ): Int = if (stored in options()) stored else fallback
+            },
+        )
+    }
 
     private fun store(values: MutableMap<String, Any?> = mutableMapOf()) =
         RecordPrefsStore(mapPrefs(values), snap = { if (it > 45) 60 else 30 })

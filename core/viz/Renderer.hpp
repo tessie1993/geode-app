@@ -17,6 +17,10 @@
 #include "signal/Resolver.hpp"
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
+#include "sound/hop/SharedAnalysis.hpp"
+#include "sound/interp/FrameBlend.hpp"
+#include "sound/interp/Hits.hpp"
+#include "sound/interp/Waveform.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
@@ -124,16 +128,24 @@ public:
         smearOn_.store(on, std::memory_order_relaxed);
         smearStrength_.store(touch::smearStrength(strength), std::memory_order_relaxed);
     }
-    // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
-    // new engine. Call from the render thread before render(), live and in export alike, so the frame the
-    // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
-    // mono, are this frame's raw PCM for MilkDrop and the PCM scenes (PcmHandoff): no separate push.
+    // What this renderer hears: interleaved PCM in play order, every sample once, up to the sample it draws. Call
+    // from the render thread before render(), live and in export alike. The samples are this frame's raw PCM for
+    // MilkDrop and the PCM scenes (PcmHandoff) and its waveform (sound/interp/Waveform). The analysis reads them
+    // from the ring itself (hearAnalysis); without one they go to this renderer's own analysis: an export's,
+    // inline (AnalysisThread::pump), or a live feed's with the mic layered in, on its own thread.
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
-    // A seek, track change or source switch: drop the engine's history.
+    // A seek, track change or source switch: drop what was heard.
     void resetAudio();
     // Export: the pre-roll the shell wrote before frame 0 is heard (output/PreRoll): its triggers dropped,
     // its raw PCM not frame 0's, the song started over where the plan says. False when nothing was heard.
     bool endPreRoll(int64_t rangeStartMs);
+    // Live, render thread: the ring's shared analysis this renderer reads (sound/hop/SharedAnalysis), null to
+    // analyse what writeAudio hears instead; and each frame, before render(), the ring position it draws (the
+    // speaker's sample), below 0 to read nothing yet.
+    void hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis);
+    void setListenPosition(int64_t position) { listenPosition_ = position; }
+    // Where the last frame's triggers fired (sound/interp/Hits). Render thread only.
+    const sound::interp::Hits& soundHits() const { return soundHits_; }
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
@@ -235,6 +247,10 @@ private:
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    // Under soundLock_: what writeAudio hears without a shared analysis (an export, a layered live feed).
+    void hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz);
+    // Under soundLock_, once a frame: the frame at this renderer's sample, its triggers, feeling and waveform.
+    void readSound(const sound::SharedAnalysis& heard, float dt, float fadeGain);
     // Steps styleSchedule_ once per frame (after the sound engine and musicRate_) on the picture's clock,
     // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
     void applyStyleSchedule(float dt);
@@ -368,10 +384,23 @@ private:
     std::atomic<bool> fedPlayersRing_{true};
     std::atomic<int> fixedFps_{0};
     CameraRig camera_;
-    // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
-    // only because writeAudio and soundFrame are public; in practice one thread does everything.
+    // The sound this renderer reads, never analyses on its own thread: the ring's shared analysis (live), or its
+    // own ring and analysis (an export, inline; a live feed with the mic layered in, on its thread), made at the
+    // first write. Each frame reads the frame at its sample (sound/interp/FrameBlend). Guarded by soundLock_ only
+    // because the setters are public; in practice one thread does everything.
     mutable std::mutex soundLock_;
-    std::unique_ptr<sound::SoundEngine> sound_;
+    std::shared_ptr<sound::SharedAnalysis> sharedSound_;
+    std::shared_ptr<audio::ingest::PcmRing> ownRing_;
+    std::shared_ptr<sound::SharedAnalysis> ownSound_;
+    sound::SharedAnalysis::Listening ownListening_;  // after ownSound_: it lets go first
+    int64_t ownUnpumped_ = 0;     // export: frames written since the last pump
+    int64_t listenPosition_ = -1;
+    int64_t lastListen_ = -1;     // and how long it has stood still, for a paused speaker
+    float listenStillSeconds_ = 0.0f;
+    bool sectionChangeOwed_ = false;  // a boundary: the next frame fires sectionChange, as the engine's step did
+    sound::interp::FrameReader soundReader_;
+    sound::interp::Hits soundHits_;
+    sound::interp::Waveform soundWave_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
     // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts

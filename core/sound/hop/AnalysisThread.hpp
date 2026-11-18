@@ -94,6 +94,8 @@ public:
     bool frameAt(int64_t position, GeodeSoundFrame& out, Emotion::State* emotion = nullptr) const;
     // The same pick, as published.
     bool hopAt(int64_t position, Heard& out) const;
+    // The oldest readable hop past `position`; false when none is published yet (or the reader was lapped).
+    bool hopAfter(int64_t position, Heard& out) const;
     // The newest hop's position, -1 before the first.
     int64_t newestPosition() const;
     // Every readable hop with from < position <= to, oldest first; a hop the writer lapped during the

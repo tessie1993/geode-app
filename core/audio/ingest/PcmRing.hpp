@@ -38,6 +38,15 @@ enum Encoding : int {
 
 class Cursor;
 
+// Told after every write that published frames, on the writer's thread: it must not block or allocate.
+class RingListener {
+public:
+    virtual void ringWritten() = 0;
+
+protected:
+    ~RingListener() = default;
+};
+
 class PcmRing {
 public:
     // The runway when none is given: a quarter of the ring, as SampleRing had it.
@@ -89,6 +98,10 @@ public:
     // has not written that many yet, the ring cannot hold them, or the writer reached them during the copy.
     bool snapshotLatest(float* interleaved, int frames) const;
 
+    // The one listener (sound/hop/SharedAnalysis), null for none. Not the ring's state, so a reader may set it;
+    // it must outlive every write made while it is set.
+    void setListener(RingListener* listener) const { listener_.store(listener, std::memory_order_release); }
+
 private:
     friend class Cursor;
 
@@ -129,6 +142,7 @@ private:
     Mark marks_[kMarks];
     std::atomic<uint32_t> markCount_{0};
     std::atomic_flag markBusy_;  // held for the few stores of one append, so two writers cannot tear a slot
+    mutable std::atomic<RingListener*> listener_{nullptr};
 };
 
 // One reader's place in a ring: every frame once, in order (SoundCursor.take's rules). The sound engine

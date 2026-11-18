@@ -359,6 +359,18 @@ bool AnalysisThread::hopAt(int64_t position, Heard& out) const {
     return false;
 }
 
+bool AnalysisThread::hopAfter(int64_t position, Heard& out) const {
+    for (int attempt = 0; attempt < kLapTries; ++attempt) {
+        const uint64_t count = published_.load(std::memory_order_acquire);
+        const uint64_t after = firstAfter(position, count);
+        if (after >= count) return false;
+        if (!read(after, out) || out.position <= position) continue;
+        // As hopAt: the slots the search read (after - 1 … count - 1) were the hops they stood for.
+        if (published_.load(std::memory_order_acquire) < after + kPublished) return true;
+    }
+    return false;
+}
+
 bool AnalysisThread::frameAt(int64_t position, GeodeSoundFrame& out, Emotion::State* emotion) const {
     Heard h;
     if (!hopAt(position, h)) return false;

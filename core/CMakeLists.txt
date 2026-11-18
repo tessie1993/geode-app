@@ -69,7 +69,9 @@ add_library(geode_core STATIC
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
     sound/hop/AnalysisThread.cpp
+    sound/interp/FrameBlend.cpp
     sound/interp/PlayoutClock.cpp
+    sound/interp/Waveform.cpp
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp

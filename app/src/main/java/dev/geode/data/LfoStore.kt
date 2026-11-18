@@ -4,15 +4,15 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.DirectorNative
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.ModulationNative
 import dev.geode.util.bestEffort
 
 /**
  * The waves, the envelopes and the reaction routes, each as the text native wrote (core/viz/ModDocument).
  * This keeps the texts and reads none of them: native reads a slot, a field or a route out of one, and an
- * older build's text too. [readReactions] is native's reading of the routes, which says whether they are
- * still a route list, [handLoad] its reading of the mask; seams for JVM tests, which have no libgeode.
+ * older build's text too, and decides the hand mask ([loadHandMask]); only the prefs reads and writes are here.
+ * [readReactions] is native's reading of the routes, which says whether they are still a route list, [handLoad]
+ * its reading of the mask; seams for JVM tests, which have no libgeode.
  */
 class LfoStore(
     private val prefs: SharedPreferences,
@@ -54,9 +54,10 @@ class LfoStore(
         return 0
     }
 
+    /** Saves [routes] with the mask native decided ([DirectorNative.handSet]); null routes drop both keys. */
     fun saveReactions(
         routes: String?,
-        handMask: Int = GeodeNative.HAND_ALL,
+        handMask: Int,
     ) {
         val edit = prefs.edit()
         if (routes == null) {

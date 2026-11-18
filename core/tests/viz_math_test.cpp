@@ -4,12 +4,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
 
 #include <set>
 #include <string>
+#include <string_view>
 
 #include "viz/BandTrim.hpp"
 #include "viz/BuildReport.hpp"
@@ -1217,6 +1219,82 @@ void formulaFamiliesHearTheMusicInTheFormula() {
     }
     check(formulaStyles >= 30, "the six formula families were checked");
     check(sources.size() >= 4, "the formula routes' sources are drawn per style");
+}
+
+// The seeded stream a style's DNA draws from, replayed: the same seed (the id's FNV-1a, the seed, the mix) and
+// the same xorshift as ReactionDna.cpp's Draw, which that file keeps to itself. Draw k is the stream's k-th
+// value, so a test can say which draws a route's values came from.
+class DnaStream {
+public:
+    static constexpr int kLength = 256;
+
+    DnaStream(std::string_view id, int seed) {
+        std::uint32_t h = 2166136261u;
+        for (const char c : id) {
+            h ^= static_cast<std::uint8_t>(c);
+            h *= 16777619u;
+        }
+        h ^= static_cast<std::uint32_t>(seed) * 0x9E3779B9u;
+        h ^= h >> 16;
+        h *= 0x7feb352du;
+        h ^= h >> 15;
+        h *= 0x846ca68bu;
+        h ^= h >> 16;
+        std::uint32_t x = h != 0u ? h : 0x9E3779B9u;
+        for (std::uint32_t& v : x_) {
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            v = x;
+        }
+    }
+
+    float range(int k, float from, float to) const {
+        return from + (to - from) * (static_cast<float>(x_[static_cast<size_t>(k)] >> 8) / 16777216.0f);
+    }
+
+private:
+    std::array<std::uint32_t, kLength> x_{};
+};
+
+bool sameDraw(float built, float replayed) { return std::fabs(built - replayed) <= 1e-6f; }
+
+// The DNA draws in the order its source is written, on every compiler. The feel-and-timbre layer used to draw its
+// amount, rise and fall as three arguments of one call, an order C++ leaves to the compiler: the phone's clang works
+// them out left to right, the host's g++ right to left, so the host tests checked another DNA than the phone builds.
+// Written order is the phone's: the amount (structuralAmount's range for the target), then the rise, then the fall,
+// three draws in a row and the DNA's last. Some draw k of the stream must give all three, in that order; drawn in any
+// other order no k does (three 24-bit draws would have to repeat). The accent's camera roll (a sign, then a size)
+// was re-sequenced the same way, but no DNA keeps it today: the accent always fills the groove's last slot, which the
+// transient layer takes, so no test can see its order through buildStyleDna.
+void dnaDrawsInWrittenOrder() {
+    struct Span {
+        float from;
+        float to;
+    };
+    const auto structural = [](LfoTarget t) -> Span {
+        switch (t) {
+            case LfoTarget::Zoom: return {0.1f, 0.2f};
+            case LfoTarget::CamFov: return {0.2f, 0.35f};
+            case LfoTarget::Morph: return {0.3f, 0.5f};
+            case LfoTarget::Turbulence: case LfoTarget::Warp: case LfoTarget::Ripple: return {0.2f, 0.4f};
+            default: return {0.15f, 0.3f};
+        }
+    };
+    for (int i = 0; i < kStyleCount; ++i) {
+        for (int seed = 0; seed < 8; ++seed) {
+            const StyleDna dna = buildStyleDna(kStyleIds[i], seed, traitsAt(i));
+            const DnaStream s(kStyleIds[i], seed);
+            const ReactRoute& feel = dna.routes[static_cast<size_t>(dna.count - 1)];
+            const Span amount = structural(feel.target);
+            bool found = false;
+            for (int k = 0; k + 2 < DnaStream::kLength && !found; ++k) {
+                found = sameDraw(feel.amount, s.range(k, amount.from, amount.to)) && sameDraw(feel.attackSeconds, s.range(k + 1, 0.8f, 1.5f)) &&
+                        sameDraw(feel.releaseSeconds, s.range(k + 2, 1.5f, 3.0f));
+            }
+            check(found, (std::string(kStyleIds[i]) + ": the feel layer draws its amount, then its rise, then its fall").c_str());
+        }
+    }
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -2539,6 +2617,7 @@ int main() {
     everyStyleHearsTheSongsTime();
     everyStyleHearsTheMusicNotTheVolume();
     formulaFamiliesHearTheMusicInTheFormula();
+    dnaDrawsInWrittenOrder();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

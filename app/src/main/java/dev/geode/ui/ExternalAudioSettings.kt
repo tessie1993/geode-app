@@ -127,9 +127,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                 CrystalButton(
                     filled = false,
                     modifier = Modifier.padding(top = 6.dp),
-                    onClick = {
-                        runCatching { context.startActivity(viewModel.notificationAccessIntent()) }
-                    },
+                    onClick = { viewModel.openNotificationAccess(context) },
                 ) { Text(stringResource(R.string.ext_allow_reading)) }
             }
         }

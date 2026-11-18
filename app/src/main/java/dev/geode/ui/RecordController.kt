@@ -22,7 +22,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class RecordUiState(
@@ -83,21 +82,22 @@ internal class RecordController(
         val teeClosing: AtomicBoolean = AtomicBoolean(false),
     )
 
-    private class Waiting(
-        val file: File,
-        val title: String,
-        val durationMs: Long,
-        val track: TrackRef?,
-    )
-
     private val _state = MutableStateFlow(RecordUiState())
     val state: StateFlow<RecordUiState> = _state
 
     private var stage: Stage? = null
     private var active: Active? = null
-    private var waiting: Waiting? = null
+    private var waiting: RecordFiles.Waiting? = null
     private var ticker: Job? = null
     private var stopRequested = false
+
+    // A recording an earlier process parked for the sheet and never placed is asked about again.
+    init {
+        scope.launch {
+            val w = withContext(Dispatchers.IO) { files.waiting() } ?: return@launch
+            if (waiting == null) waiting = w.also { _state.update { it.copy(pendingSave = w.title) } }
+        }
+    }
 
     /** The stage on screen, or null once it goes; a recording without its stage stops (one still opening, once open). */
     fun attach(next: Stage?) {
@@ -214,7 +214,7 @@ internal class RecordController(
         if (uri == null) return
         val scratch = a.output.scratch
         if (scratch != null) {
-            waiting = Waiting(scratch, title, recordedMs, a.track)
+            waiting = withContext(Dispatchers.IO) { files.park(scratch, title, recordedMs, a.track) }
             _state.update { it.copy(pendingSave = title) }
         } else {
             host.keep(a.track, ProjectRender(uri.toString(), title, System.currentTimeMillis(), recordedMs))
@@ -263,7 +263,7 @@ internal class RecordController(
     }
 
     private suspend fun place(
-        w: Waiting,
+        w: RecordFiles.Waiting,
         target: SaveTarget,
     ) {
         waiting = null

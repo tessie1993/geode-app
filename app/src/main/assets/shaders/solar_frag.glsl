@@ -116,7 +116,7 @@ float sunField(vec3 p) {
 float sunFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, sunField(shellAt3(i)));
     }
     return r;
@@ -217,6 +217,10 @@ void main() {
 
     // ---- march the photosphere inside its bounding shell ----------------------
     float hitT = -1.0;
+    // What sunMap() leaves at the hit, kept so the shading needs no extra sunMap(p) after the normal taps.
+    float hitGran = 0.0;
+    float hitShapeHue = 0.0;
+    float hitShapeShare = 0.0;
     // A hook that is on reaches past the sun (a twin aside, a layer opened, children on the surface) by
     // lib_shell's slack, 0 at rest.
     float shellR = gR + gA + 0.01;
@@ -232,6 +236,9 @@ void main() {
             float d = sunMap(ro + rd * t);
             if (d < 0.0015) {
                 hitT = t;
+                hitGran = gGran;
+                hitShapeHue = gShapeHue;
+                hitShapeShare = gShapeShare;
                 break;
             }
             t += d;
@@ -243,7 +250,9 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = sunNormal(p);
-        sunMap(p);
+        gGran = hitGran;
+        gShapeHue = hitShapeHue;
+        gShapeShare = hitShapeShare;
         vec3 s = gSpin * normalize(p);
         // Bright cells, dark lanes where the granule field crosses its middle.
         float cell = smoothstep(0.0, 0.6, abs(2.0 * gGran - 1.0));

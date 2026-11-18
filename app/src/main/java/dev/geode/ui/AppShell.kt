@@ -69,6 +69,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -221,6 +222,57 @@ fun AppRoot() {
 }
 
 @Composable
+private fun CrashReportDialog() {
+    val context = LocalContext.current
+    var crashText by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        crashText =
+            withContext(Dispatchers.IO) {
+                val file = java.io.File(context.filesDir, "crash-latest.txt")
+                if (file.exists()) {
+                    file.inputStream().use { stream ->
+                        val buf = ByteArray(CRASH_REPORT_MAX_BYTES)
+                        var read = 0
+                        while (read < buf.size) {
+                            val n = stream.read(buf, read, buf.size - read)
+                            if (n < 0) break
+                            read += n
+                        }
+                        String(buf, 0, read, Charsets.UTF_8)
+                    }
+                } else {
+                    null
+                }
+            }
+    }
+    val clipLabel = stringResource(R.string.crash_clip_label)
+    crashText?.let { text ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.crash_dialog_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.crash_dialog_body, text.take(600)),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
+                }) { Text(stringResource(R.string.action_copy)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    java.io.File(context.filesDir, "crash-latest.txt").delete()
+                    crashText = null
+                }) { Text(stringResource(R.string.action_dismiss)) }
+            },
+        )
+    }
+}
+
+@Composable
 private fun AppContent(tourViewModel: TourViewModel) {
     val viewModel: PlayerViewModel = geodeViewModel()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
@@ -247,6 +299,18 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
     val playing = external.driven?.playing ?: state.isPlaying
+    // While another app is the source, the mini player names its track (its session's), not the paused player's.
+    val foreign = external.active
+    val foreignArt = external.driven?.art
+    val foreignArtwork = remember(foreignArt) { foreignArt?.asImageBitmap() }
+    val miniTitle =
+        if (foreign) {
+            external.driven?.title?.ifBlank { null } ?: stringResource(R.string.title_whatever_is_playing)
+        } else {
+            state.title
+        }
+    val miniArtist = if (foreign) external.driven?.artist else state.artist
+    val miniDurationMs = if (foreign) external.driven?.durationMs ?: 0L else state.durationMs
     // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     // A connected display shows the visual alone while the switch is on and Cast's entitlement allows it.
@@ -259,27 +323,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
-    var crashText by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        crashText =
-            withContext(Dispatchers.IO) {
-                val file = java.io.File(context.filesDir, "crash-latest.txt")
-                if (file.exists()) {
-                    file.inputStream().use { stream ->
-                        val buf = ByteArray(CRASH_REPORT_MAX_BYTES)
-                        var read = 0
-                        while (read < buf.size) {
-                            val n = stream.read(buf, read, buf.size - read)
-                            if (n < 0) break
-                            read += n
-                        }
-                        String(buf, 0, read, Charsets.UTF_8)
-                    }
-                } else {
-                    null
-                }
-            }
-    }
     VisualizerEngineBindings(viewModel, visualizerView)
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
@@ -306,18 +349,19 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // A pointer lights real controls, so the ones that fade stay lit while it is up.
     // Its sleep timer waits while the boot intro or a first-run page covers the shell.
     val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !onboarding.safetyAcknowledged || !onboarding.setupDone
-    val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, state.title)
+    val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(general = general, accentSource = accent) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
-                title = state.title,
-                artist = state.artist,
-                artworkUri = viewModel.currentTrackUri(),
+                title = miniTitle,
+                artist = miniArtist,
+                artworkUri = if (foreign) null else viewModel.currentTrackUri(),
+                artwork = foreignArtwork,
                 isPlaying = playing,
                 positionMs = { position.value },
-                durationMs = state.durationMs,
+                durationMs = miniDurationMs,
                 onSeek = viewModel::seekTo,
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
@@ -330,9 +374,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
         }
         val dockedPlayer: @Composable (Modifier) -> Unit = { modifier ->
             DockedMiniPlayer(
-                title = state.title,
+                title = miniTitle,
                 isPlaying = playing,
-                progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
+                progress = { if (miniDurationMs > 0) position.value / miniDurationMs.toFloat() else 0f },
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
@@ -505,31 +549,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                     SearchScreen(viewModel, onClose = appState::closeSearch)
                 }
             }
-            val clipLabel = stringResource(R.string.crash_clip_label)
-            crashText?.let { text ->
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = {},
-                    title = { Text(stringResource(R.string.crash_dialog_title)) },
-                    text = {
-                        Text(
-                            stringResource(R.string.crash_dialog_body, text.take(600)),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            val cm = context.getSystemService(android.content.ClipboardManager::class.java)
-                            cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
-                        }) { Text(stringResource(R.string.action_copy)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            java.io.File(context.filesDir, "crash-latest.txt").delete()
-                            crashText = null
-                        }) { Text(stringResource(R.string.action_dismiss)) }
-                    },
-                )
-            }
+            CrashReportDialog()
             // Read by MainActivity to decide whether leaving the app should be treated as "enter
             // PiP" at all: only Visuals shows the visual, and every other screen has nothing worth
             // shrinking into a window. Not while a connected display holds the visual either: this

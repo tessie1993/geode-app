@@ -10,7 +10,13 @@ object AtomicWrite {
 
     const val CORRUPT_SUFFIX = ".corrupt"
 
-    private val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+    /**
+     * Writes to one path never overlap; a fixed set of locks picked by the path's hash, so the set
+     * does not grow by one for every path ever written, as a map of one lock per path did.
+     */
+    private val locks = Array(LOCK_STRIPES) { Any() }
+
+    internal fun lockFor(path: String): Any = locks[Math.floorMod(path.hashCode(), LOCK_STRIPES)]
 
     fun text(
         file: File,
@@ -27,7 +33,7 @@ object AtomicWrite {
             if (!parent.isDirectory) return false
         }
         val temp = File(file.absolutePath + TEMP_SUFFIX)
-        synchronized(locks.computeIfAbsent(file.absolutePath) { Any() }) {
+        synchronized(lockFor(file.absolutePath)) {
             val ok =
                 runCatching {
                     FileOutputStream(temp).use { out ->
@@ -45,6 +51,15 @@ object AtomicWrite {
         }
     }
 
+    /**
+     * The [TEMP_SUFFIX] files under [root] last written before [before]: what a write killed between
+     * its temp and its rename left, since one still running in this process started after [before].
+     */
+    fun staleTemps(
+        root: File,
+        before: Long,
+    ): List<File> = root.walkTopDown().filter { it.isFile && it.name.endsWith(TEMP_SUFFIX) && it.lastModified() < before }.toList()
+
     fun quarantine(file: File): Boolean =
         runCatching { file.renameTo(File(file.absolutePath + CORRUPT_SUFFIX)) }
             .getOrDefault(false)
@@ -52,3 +67,5 @@ object AtomicWrite {
 }
 
 private const val TAG = "AtomicWrite"
+
+private const val LOCK_STRIPES = 64

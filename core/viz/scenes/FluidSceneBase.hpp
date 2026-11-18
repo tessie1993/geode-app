@@ -69,8 +69,6 @@ private:
     PcmPulse pcmPulse_;
     GLint prevFbo_ = 0;
     std::array<GLint, 4> prevViewport_{};
-    std::array<GLint, 4> prevBlendFunc_{};
-    bool blendWas_ = false;
     std::array<float, fluid::Choreography::kMaxSpawn * 4> spawnPack_{};
     std::array<float, fluid::Choreography::kMaxCatch * 4> catchPack_{};
     std::array<float, GEODE_SOUND_SPECTRUM_POINTS> idleBands_{};

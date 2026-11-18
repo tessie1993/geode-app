@@ -112,6 +112,8 @@ float gWarp;
 vec2 gGlide;
 float gCs;
 float gTerrF;
+/** The escape iterations this frame may spend: MB_ITERS whenever the march has 64 steps or more (every Detail at full quality), fewer on a scaled-down march. */
+int gIters;
 
 /**
  * A hashed point in the unit disc for event number `n` (PCG integer hash, so
@@ -149,7 +151,7 @@ float setDistance(vec2 c) {
     gIter = 1.0;
     gInside = 1.0;
     // Exact interior tests for the main cardioid and the period-2 bulb: the
-    // whole mesa top skips its 64 iterations.
+    // whole mesa top skips its iterations.
     vec2 q = c - vec2(0.25, 0.0);
     float qq = dot(q, q);
     if (qq * (qq + q.x) < 0.25 * c.y * c.y) return 0.0;
@@ -161,6 +163,7 @@ float setDistance(vec2 c) {
     float n = 0.0;
     float r2 = 0.0;
     for (int i = 0; i < MB_ITERS; i++) {
+        if (i >= gIters) break;
         // z' = 2 z z' + 1, then z = z^2 + c.
         dz = 2.0 * vec2(z.x * dz.x - z.y * dz.y, z.x * dz.y + z.y * dz.x) + vec2(1.0, 0.0);
         z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
@@ -211,7 +214,7 @@ float mandelField(vec3 p) {
 float mandelFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, mandelField(shellAt3(i)));
     }
     return r;
@@ -263,6 +266,7 @@ void main() {
     float glowK = shellMap(nBuild, 0.5, 0.8, 1.1);
     float fogK = shellMap(nSpace, 0.049, 0.035, 0.021);
     gCs = shellMap(nSpace, 0.12, MB_CS, 0.085);
+    gIters = min(MB_ITERS, int(uSteps));
     float steep = shellMap(nMorph, 3.4, 3.4, 2.0);
     gWarp = shellMap(nWarp, 0.0, 0.0, 1.0);
     float terrTurb = shellMap(nTurb, 0.0, 0.0, 0.6);
@@ -298,6 +302,11 @@ void main() {
     // The glow's depth, weighted like the glow, so it can be coloured by how far off it hangs.
     float glowT = 0.0;
     float used = 0.0;
+    // What map() leaves at a hit, kept so the shading needs no extra map() after the normal taps.
+    bool marched = false;
+    float hitMat = 0.0;
+    float hitInside = 0.0;
+    float hitIter = 0.0;
     for (int i = 0; i < MB_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -307,6 +316,10 @@ void main() {
         float eps = 0.0012 * t + 0.0006;
         if (d < eps) {
             hitT = t;
+            marched = true;
+            hitMat = gMat;
+            hitInside = gInside;
+            hitIter = gIter;
             break;
         }
         // The filaments' rims shine through the gaps between the cliffs: light
@@ -331,8 +344,14 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, 0.0015 * hitT + 0.0008);
-        // Restore the hit's escape picture after the normal taps.
-        map(p);
+        // Restore the hit's escape picture after the normal taps (a ray out of budget never read map() here).
+        if (marched) {
+            gMat = hitMat;
+            gInside = hitInside;
+            gIter = hitIter;
+        } else {
+            map(p);
+        }
         vec3 L = normalize(vec3(0.35, 0.8, 0.45));
         float dif = max(dot(n, L), 0.0);
         float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0);

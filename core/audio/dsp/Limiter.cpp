@@ -5,6 +5,13 @@
 
 namespace geode::audio {
 
+namespace {
+
+// i % n for 0 <= i < 2n, without a divide: every index below is under lookahead_ plus at most lookahead_.
+size_t wrap(size_t i, size_t n) { return i >= n ? i - n : i; }
+
+}  // namespace
+
 Limiter::Limiter(float sampleRate, int channels) : channels_(channels) {
     configure(sampleRate);
 }
@@ -48,18 +55,18 @@ void Limiter::process(float* interleaved, size_t frames) {
         // so it is the only one that can expire off the front. Anything at the back no larger than the new
         // peak can never win while the new peak is still in the window, so it is dropped too.
         if (dequeCount_ > 0 && dequeIndex_[dequeHead_] == write_) {
-            dequeHead_ = (dequeHead_ + 1) % lookahead_;
+            dequeHead_ = wrap(dequeHead_ + 1, lookahead_);
             --dequeCount_;
         }
         while (dequeCount_ > 0) {
-            const size_t tail = (dequeHead_ + dequeCount_ - 1) % lookahead_;
+            const size_t tail = wrap(dequeHead_ + dequeCount_ - 1, lookahead_);
             if (dequeValue_[tail] <= peak) {
                 --dequeCount_;
             } else {
                 break;
             }
         }
-        const size_t tail = (dequeHead_ + dequeCount_) % lookahead_;
+        const size_t tail = wrap(dequeHead_ + dequeCount_, lookahead_);
         dequeIndex_[tail] = write_;
         dequeValue_[tail] = peak;
         ++dequeCount_;
@@ -77,7 +84,7 @@ void Limiter::process(float* interleaved, size_t frames) {
             slot[c] = in[c];
             in[c] = std::clamp(delayed * gain_, -kCeiling, kCeiling);
         }
-        write_ = (write_ + 1) % lookahead_;
+        write_ = wrap(write_ + 1, lookahead_);
     }
 }
 

@@ -191,10 +191,11 @@ internal class PresetLibraryController(
             // The old file goes only once the new one is written: a failed write must not take the preset with it.
             if (presets.save(renamed, folder)) {
                 removeMirroredPreset(oldJson, milkFileFor(from).name)
-                presets.delete(from)
+                presets.delete(from, preset.milkPreset.takeIf { milkFileFor(from) != milkFileFor(name) })
             }
             mirrorPresetToChosenFolder(name)
             relistPresets()
+            if (preset.milkPreset != null) host.onMilkFilesChanged()
         }
         return name
     }
@@ -233,11 +234,16 @@ internal class PresetLibraryController(
 
     fun deletePreset(name: String) {
         if (BuiltInPresets.isBuiltIn(name)) return
+        val milk =
+            host.vizState.value.presets
+                .firstOrNull { it.name == name }
+                ?.milkPreset
         host.updatePresets { presets -> presets.filterNot { it.name == name } }
         storeScope.launch {
             removeMirroredPreset(presets.fileOf(name)?.name, milkFileFor(name).name)
-            presets.delete(name)
+            presets.delete(name, milk)
             relistPresets()
+            if (milk != null) host.onMilkFilesChanged()
         }
     }
 

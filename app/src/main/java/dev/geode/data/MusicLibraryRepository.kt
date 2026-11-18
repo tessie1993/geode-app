@@ -64,7 +64,14 @@ internal fun Flow<Unit>.libraryRescans(quietMs: Long = RESCAN_QUIET_MS): Flow<Un
 
 private const val RESCAN_QUIET_MS = 1_000L
 
-private const val KEY_ROOTS = "roots"
+internal const val KEY_ROOTS = "roots"
+
+/** The music folders saved in `geode-library`, for a caller with no repository at hand. */
+internal fun savedMusicFolders(context: android.content.Context): Set<String> =
+    context
+        .getSharedPreferences(GeodePrefsFiles.LIBRARY, android.content.Context.MODE_PRIVATE)
+        .getStringSet(KEY_ROOTS, emptySet())
+        .orEmpty()
 
 internal val MEDIA_ROOTS_PREF_KEYS =
     prefKeys(GeodePrefsFiles.LIBRARY) {

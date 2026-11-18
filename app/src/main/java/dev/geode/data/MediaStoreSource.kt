@@ -56,7 +56,7 @@ class MediaStoreSource(
     /** Keeps read and write access to the picked folder [tree]; false when the provider refuses. */
     suspend fun keepFolderAccess(tree: Uri): Boolean =
         withContext(io) {
-            resolver.persistGrant(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            resolver.persistGrant(tree, FOLDER_FLAGS)
         }
 
     /**
@@ -88,6 +88,32 @@ class MediaStoreSource(
     suspend fun releaseReadAccess(uri: Uri) {
         withContext(io) {
             runCatching { resolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
+    }
+
+    /**
+     * Gives back the read grants [keepReadAccess] kept for [uris], except any [held] names: Android
+     * keeps one grant per URI, so a song the library also holds keeps it.
+     */
+    suspend fun releaseReadAccess(
+        uris: List<Uri>,
+        held: Set<String>,
+    ) {
+        withContext(io) {
+            uris.filter { it.toString() !in held }.forEach { resolver.releaseGrant(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        }
+    }
+
+    /**
+     * Gives back the grant [keepFolderAccess] kept for the folder [tree], unless one of the app's
+     * folders ([keptFolders]) is still it; [preset] is the preset folder as just chosen.
+     */
+    suspend fun releaseFolderAccess(
+        tree: String,
+        preset: String?,
+    ) {
+        withContext(io) {
+            if (tree !in keptFolders(context, preset = preset)) resolver.releaseGrant(Uri.parse(tree), FOLDER_FLAGS)
         }
     }
 
@@ -195,3 +221,6 @@ class MediaStoreSource(
         }
     }
 }
+
+/** What a picked folder is kept with: read and write, for the preset mirror and Record. */
+private const val FOLDER_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION

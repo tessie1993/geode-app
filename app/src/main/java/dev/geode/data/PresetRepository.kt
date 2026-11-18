@@ -140,10 +140,15 @@ class PresetStore(
         return written
     }
 
+    /** Deletes the preset [name], and its `.milk` while that is still [milkSource] (an imported one of the same name stays). */
     @WorkerThread
-    fun delete(name: String) {
+    fun delete(
+        name: String,
+        milkSource: String? = null,
+    ) {
         ensureMigrated()
         findFile(name)?.delete()
+        milkSource?.let { ImportedMilk.removeIfText(milkFileOf(name), it) }
     }
 
     private fun jsonFiles(): List<File> = dir.walkTopDown().filter { it.isFile && it.extension == "json" }.toList()
@@ -216,7 +221,11 @@ interface PresetRepository {
         folder: String = "",
     ): Boolean
 
-    suspend fun delete(name: String)
+    /** Deletes the preset [name], with the `.milk` [materializeMilk] wrote for it when that still holds [milkSource]. */
+    suspend fun delete(
+        name: String,
+        milkSource: String? = null,
+    )
 
     suspend fun addFolder(path: String)
 
@@ -257,8 +266,11 @@ class FilePresetRepository(
         return written
     }
 
-    override suspend fun delete(name: String) {
-        withContext(Dispatchers.IO) { store.delete(name) }
+    override suspend fun delete(
+        name: String,
+        milkSource: String?,
+    ) {
+        withContext(Dispatchers.IO) { store.delete(name, milkSource) }
         refreshFolders()
     }
 

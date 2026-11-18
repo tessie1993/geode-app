@@ -63,8 +63,10 @@ private fun PresetFolderGroup(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
                 scope.launch {
-                    if (ctx.geodeContainer.mediaStore.keepFolderAccess(uri)) {
+                    val mediaStore = ctx.geodeContainer.mediaStore
+                    if (mediaStore.keepFolderAccess(uri)) {
                         viewModel.updateLibrary { s -> s.copy(presetMirrorUri = uri.toString()) }
+                        library.presetMirrorUri?.let { replaced -> mediaStore.releaseFolderAccess(replaced, preset = uri.toString()) }
                     }
                 }
             }
@@ -86,7 +88,11 @@ private fun PresetFolderGroup(
             }
             if (library.presetMirrorUri != null) {
                 TextButton(
-                    onClick = { viewModel.updateLibrary { s -> s.copy(presetMirrorUri = null) } },
+                    onClick = {
+                        val cleared = library.presetMirrorUri
+                        viewModel.updateLibrary { s -> s.copy(presetMirrorUri = null) }
+                        if (cleared != null) scope.launch { ctx.geodeContainer.mediaStore.releaseFolderAccess(cleared, preset = null) }
+                    },
                 ) { Text(stringResource(R.string.action_clear)) }
             }
         }

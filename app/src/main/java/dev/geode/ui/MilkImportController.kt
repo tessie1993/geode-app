@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
+import dev.geode.data.ImportedMilk
 import dev.geode.data.MediaStoreSource
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
@@ -160,6 +161,23 @@ internal class MilkImportController(
             val report = imported.copy(presetsMissingTextures = textureLinks.relinkAll())
             relist()
             withContext(Dispatchers.Main) { onDone(report) }
+        }
+    }
+
+    /**
+     * Deletes the imported preset at [path] (only a `.milk` in the folder), sweeps its texture links
+     * and pins ([MilkTextureLinks.relinkAll]) and reads the list again; [onRemoved], on main, forgets
+     * the path wherever the session remembered it. Nothing happens for a path that was not one.
+     */
+    fun removeMilkAsync(
+        path: String,
+        onRemoved: (String) -> Unit,
+    ) {
+        scope.launch(Dispatchers.IO) {
+            if (!ImportedMilk.remove(importDir(), path)) return@launch
+            runCatching { textureLinks.relinkAll() }.onFailure { RingLog.note("MilkImport", "relink after a delete failed", it) }
+            relist()
+            withContext(Dispatchers.Main) { onRemoved(path) }
         }
     }
 

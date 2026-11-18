@@ -412,8 +412,17 @@ void Renderer::bindSecondaryTarget() {
 
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
+    // At mix 0 the composite shows the base alone (its mix() weighs the layer by exactly 0), so a shader layer
+    // there steps but does not draw. A shader style is a function of its clock, so its next frame at a mix above
+    // 0 is whole; a simulation draws on, or it would freeze while hidden.
+    const bool unseen = layerScene_ && layerScene_->family() == SceneFamily::Shader &&
+                        safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_)) <= 0.0f;
     if (layerScene_ && holds(*layerScene_, heldLayer_)) {
         // fboL_ keeps the layer's last frame.
+    } else if (unseen) {
+        layerScene_->setParams(p);
+        deliverPcm(*layerScene_);
+        layerScene_->update(trimmedSound(p), dt);
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
         glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
@@ -537,12 +546,12 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
 void Renderer::stepSmear(float dt) {
     smearWarp_ = 0.0f;
     const touch::SmearSettings s{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
-    fluid::FlowField* ff = overlays_.flow();
     // Never in an export, never beside Liquid mode, and, as flow distortion, one of the optional passes: off
-    // without Performance's extra effects.
-    const bool can = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
-                     userPostFx_.load(std::memory_order_relaxed) && ff != nullptr &&
-                     ff->available();
+    // without Performance's extra effects. The field is built only once smear can run.
+    const bool wanted = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
+                        userPostFx_.load(std::memory_order_relaxed);
+    fluid::FlowField* ff = wanted ? overlays_.useFlow() : nullptr;
+    const bool can = ff != nullptr && ff->available();
     if (!can) {
         smearTrail_.reset();
         smearLinger_.reset();
@@ -721,8 +730,9 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         bornRolled_ = false;
         bornSceneId_.clear();
     }
-    fluid::FlowField* ff = overlays_.flow();
-    if (ff == nullptr || !ff->available() || plan.velocityGrid <= 0) return;
+    // The field is built on the first frame Liquid mode pours (Overlays::useFlow).
+    fluid::FlowField* ff = plan.velocityGrid > 0 ? overlays_.useFlow() : nullptr;
+    if (ff == nullptr || !ff->available()) return;
     ff->setGrid(plan.velocityGrid, plan.macCormack);
     const float force = std::clamp(p.flowForce, 0.0f, 3.0f);
     if (g.push) ff->queueKick(g.x, g.y, g.vx * kLiquidPush * force, g.vy * kLiquidPush * force, kPushRadius);
@@ -730,7 +740,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
-    overlays_.stepFlow(trimmedSound(p), dt, fp);
+    overlays_.stepFlow(trimmedSound(p), dt, fp, !offscreen_.load(std::memory_order_relaxed));
 }
 
 GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
@@ -854,6 +864,7 @@ GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuin
     // The music's clock, as every simulation steps: silence holds the layers, an export steps exactly 1/fps.
     f.dt = dt;
     f.wallDt = wallDt;
+    f.live = !offscreen_.load(std::memory_order_relaxed);
     f.time = timeSeconds_;
     f.zeroTex = compositePass_.zeroTex();
     f.quadVao = quadVao_.get();

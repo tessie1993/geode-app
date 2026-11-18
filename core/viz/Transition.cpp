@@ -14,6 +14,17 @@ constexpr const char* kTag = "Transitions";
 
 float at(const std::vector<float>& v, size_t i) { return i < v.size() ? v[i] : 0.0f; }
 
+// A program just built: its samplers' units (composite_unit), set once. Leaves the program current.
+void assignUnits(UniformCache& p) {
+    glUseProgram(p.program());
+    glUniform1i(p.loc(Uniform::uTexA), composite_unit::kTexA);
+    glUniform1i(p.loc(Uniform::uTexB), composite_unit::kTexB);
+    glUniform1i(p.loc(Uniform::uFlow), composite_unit::kFlow);
+    glUniform1i(p.loc(Uniform::uNoise), composite_unit::kNoise);
+    glUniform1i(p.loc(Uniform::uUnderlay), composite_unit::kUnderlay);
+    glUniform1i(p.loc(Uniform::uTexL), composite_unit::kTexL);
+}
+
 }  // namespace
 
 const std::vector<TransitionCatalog::Def>& TransitionCatalog::library() {
@@ -85,6 +96,7 @@ bool TransitionPrograms::create(const std::string& fadeVert, std::string* error)
     const GLuint program = program::build(fadeVert_, source_, cache_, error);
     if (program == 0) return false;
     base_.reset(program);
+    assignUnits(base_);
     return true;
 }
 
@@ -128,6 +140,7 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
         lru_.pop_front();  // deletes its program
     }
     lru_.emplace_back(id, std::make_unique<OwnedProgram>(program));
+    assignUnits(*lru_.back().second);
     return *lru_.back().second;
 }
 

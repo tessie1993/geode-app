@@ -106,30 +106,23 @@ void CompositePass::draw(const Inputs& inputs) {
     glActiveTexture(GL_TEXTURE0);
 }
 
+// The samplers' units were set when each program was built (TransitionPrograms, composite_unit).
 void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, inputs.texA);
-    glUniform1i(p.loc(Uniform::uTexA), 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, inputs.texB);
-    glUniform1i(p.loc(Uniform::uTexB), 1);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, inputs.flowTex);
-    glUniform1i(p.loc(Uniform::uFlow), 2);
+    auto bind = [](int unit, GLuint tex) {
+        glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
+        glBindTexture(GL_TEXTURE_2D, tex);
+    };
+    bind(composite_unit::kTexA, inputs.texA);
+    bind(composite_unit::kTexB, inputs.texB);
+    bind(composite_unit::kFlow, inputs.flowTex);
     glUniform1f(p.loc(Uniform::uFlowStrength), inputs.flowStrength);
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, noiseTex_.get());
-    glUniform1i(p.loc(Uniform::uNoise), 4);
+    bind(composite_unit::kNoise, noiseTex_.get());
     glUniform1f(p.loc(Uniform::uDither), noiseTex_ ? kDitherAmount : 0.0f);
     // W00: underlay, see the class comment in CompositePass.hpp.
-    glActiveTexture(GL_TEXTURE5);
-    glBindTexture(GL_TEXTURE_2D, inputs.underlayTex);
-    glUniform1i(p.loc(Uniform::uUnderlay), 5);
+    bind(composite_unit::kUnderlay, inputs.underlayTex);
     glUniform1i(p.loc(Uniform::uUnderlayBlend), inputs.underlayBlend);
     glUniform1f(p.loc(Uniform::uUnderlayAmount), inputs.underlayAmount);
-    glActiveTexture(GL_TEXTURE6);
-    glBindTexture(GL_TEXTURE_2D, inputs.texL != 0 ? inputs.texL : zeroTex_.get());
-    glUniform1i(p.loc(Uniform::uTexL), 6);
+    bind(composite_unit::kTexL, inputs.texL != 0 ? inputs.texL : zeroTex_.get());
 }
 
 void CompositePass::uploadFrameUniforms(UniformCache& p, const Inputs& inputs, const TransitionCatalog::Def* definition) {

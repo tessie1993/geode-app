@@ -70,8 +70,11 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
     return events;
 }
 
+// The stage asks for this as it leaves drawing (Lifecycle::noteDrawing): no frame comes until it draws again.
 void LiveClient::trimSpares() {
-    if (viz_) viz_->trimSpares();
+    if (!viz_) return;
+    viz_->trimSpares();
+    viz_->letSoundGo();
 }
 
 void LiveClient::service(bool ready) { runJobs(ready); }

@@ -176,7 +176,7 @@ float wavesField(vec3 p) {
 float wavesFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, wavesField(shellAt3(i)));
     }
     return r;
@@ -255,6 +255,12 @@ void main() {
 
     float t = 0.05;
     float hitT = -1.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map(p) after the normal taps.
+    float hitRib = 0.0;
+    float hitLane = 0.0;
+    float hitS = 0.0;
+    vec2 hitQ = vec2(0.0);
+    float hitMat = 0.0;
     // The halo: the bands' light integrated along the ray (weight times step
     // length, so the step count does not change it), with its mean palette
     // position so it can be coloured once at the end.
@@ -267,6 +273,11 @@ void main() {
         float d = map(p);
         if (d < 0.0012 + 0.0008 * t) {
             hitT = t;
+            hitRib = gRib;
+            hitLane = gLane;
+            hitS = gS;
+            hitQ = gQ;
+            hitMat = gMat;
             break;
         }
         float stepLen = max(d * 0.85, 0.002 + 0.001 * t);
@@ -283,7 +294,11 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         // Restore the hit's globals after the normal taps.
-        map(p);
+        gRib = hitRib;
+        gLane = hitLane;
+        gS = hitS;
+        gQ = hitQ;
+        gMat = hitMat;
         vec3 L = normalize(vec3(-0.3, 0.9, 0.35));
         float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float fres = pow(1.0 - ndv, 3.0);

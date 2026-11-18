@@ -220,7 +220,7 @@ float barsField(vec3 p) {
 float barsFieldGrown(vec3 p) {
     shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
     float r = 0.0;
-    for (int i = SHELL_FROM; i < 7; i++) {
+    for (int i = SHELL_FROM; i < SHELL_PASSES(7); i++) {
         if (shellPass3(i)) r = shellKeep3(i, barsField(shellAt3(i)));
     }
     return r;
@@ -312,6 +312,11 @@ void main() {
     float glowSeg = 0.0;
     // The halo's depth, weighted like the halo, to colour it by how far off it hangs.
     float glowT = 0.0;
+    // What map() leaves at the hit, kept so the shading needs no extra map() after the normal taps.
+    float hitSeg = 0.0;
+    float hitLvl = 0.0;
+    float hitTop = 0.0;
+    float hitMat = 0.0;
     for (int i = 0; i < BARS_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
@@ -319,6 +324,10 @@ void main() {
         float d = map(p);
         if (d < 0.0015 + 0.0008 * t) {
             hitT = t;
+            hitSeg = gSeg;
+            hitLvl = gLvl;
+            hitTop = gTop;
+            hitMat = gMat;
             break;
         }
         // The halo around each lit tower, gathered as the ray passes it; one
@@ -337,7 +346,10 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
         // Restore the hit cell's globals after the normal taps.
-        map(p);
+        gSeg = hitSeg;
+        gLvl = hitLvl;
+        gTop = hitTop;
+        gMat = hitMat;
         vec3 L = normalize(vec3(-0.4, 0.8, -0.3));
         float dif = max(dot(n, L), 0.0);
         if (gMat < 0.5) {

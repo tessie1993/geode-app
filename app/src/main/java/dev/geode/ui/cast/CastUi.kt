@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -95,12 +96,13 @@ fun CastButton(modifier: Modifier = Modifier) {
 fun CastHost() {
     ComputerLinkHost()
     val player: PlayerViewModel = geodeViewModel()
-    LaunchedEffect(player) {
+    DisposableEffect(player) {
         // Here, composed on every screen, not in the Cast button: a cast started from the Player's Share to PC tile
         // or the system's output switcher left the background renderer on the saved look and the remembered .milk.
         // A .milk reaches the stage as a request (a preset, Auto, the dice) or as a load the stage reports.
         val milk = merge(player.activeMilkPath, player.vizApply.mapNotNull { it.milkPath })
-        CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }, milk)
+        val following = CastMirror.follow(player.vizState.map { CastMirror.Look(it.sceneId, it.params) }, milk)
+        onDispose { CastMirror.unfollow(following) }
     }
     val context = LocalContext.current
     val cast by CastController.state.collectAsStateWithLifecycle()

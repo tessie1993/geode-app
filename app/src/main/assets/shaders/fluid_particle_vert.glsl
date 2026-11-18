@@ -45,4 +45,7 @@ void main() {
     gl_PointSize = held.x * 2.0;
     // Sub-pixel dimming folds into the lifecycle envelope.
     vFade *= held.y;
+    // Faded out (unborn, expired or too small to hold): the fragment stage would discard every pixel of
+    // it, so put the point outside the clip volume and it is never rasterised, as the streak path does.
+    if (vFade <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }

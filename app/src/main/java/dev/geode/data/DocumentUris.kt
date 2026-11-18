@@ -14,6 +14,12 @@ fun ContentResolver.persistGrant(
     flags: Int,
 ): Boolean = runCatching { takePersistableUriPermission(uri, flags) }.isSuccess
 
+/** Gives back the grant [persistGrant] kept for [uri] ([flags]); false when none was held. A grant never released is a permission leak. */
+fun ContentResolver.releaseGrant(
+    uri: Uri,
+    flags: Int,
+): Boolean = runCatching { releasePersistableUriPermission(uri, flags) }.isSuccess
+
 /**
  * The name the provider shows for the document at [uri], or null when it has none or the query
  * fails. Only the query: each caller keeps its own fallback and extension handling.

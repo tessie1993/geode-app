@@ -5,6 +5,8 @@
 #include <complex>
 #include <numbers>
 
+#include "sound/Stages.hpp"
+
 namespace geode::sound {
 
 namespace {
@@ -62,9 +64,7 @@ void Rhythm::configure(int sampleRateHz, int hopSamples) {
     c.lagMin = std::max(2, static_cast<int>(std::floor(60.0f / kFastestBpm / c.hopSeconds)));
     c.lagMax = std::max(c.lagMin + 1, static_cast<int>(std::ceil(60.0f / kSlowestBpm / c.hopSeconds)));
     c.ring = kPeriodsHeard * c.lagMax;
-    c.tempoEvery = hops(kTempoEvery);
     c.tempoAfter = hops(kTempoAfter);
-    c.phaseEvery = hops(kPhaseEvery);
     c.phaseWindow = std::min(c.ring, hops(kPhaseWindow));
     c.change = hops(kChangeSeconds);
     c.latencyHops = kLatencySeconds / c.hopSeconds + 0.5f;
@@ -99,6 +99,8 @@ void Rhythm::reset() {
     std::fill(bandLog_.begin(), bandLog_.end(), 0.0f);
     std::fill(bandLevel_.begin(), bandLevel_.end(), 0.0f);
     barInPhrase_ = 7;  // the first downbeat starts phrase one
+    sinceTempo_ = kTempoEvery;  // the first estimate and measurement come as soon as they may
+    sincePhase_ = kPhaseEvery;
 }
 
 void Rhythm::hop(const std::array<float, kBands>& power) {
@@ -145,8 +147,9 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
     // compared with the oscillator at the same instant (#373; compared before the step, every beat ran a
     // hop early).
     advance();
-    if (hops_ >= cfg_.tempoAfter && hops_ % cfg_.tempoEvery == 0) estimateTempo();
-    if (period_ > 0.0f && hops_ % cfg_.phaseEvery == 0) measurePhase();
+    // Both cadences on the samples' clock, so they keep their time whatever the hop's length.
+    if (hops_ >= cfg_.tempoAfter && due(sinceTempo_, kTempoEvery, dt)) estimateTempo();
+    if (period_ > 0.0f && due(sincePhase_, kPhaseEvery, dt)) measurePhase();
 }
 
 void Rhythm::estimateTempo() {
@@ -272,7 +275,7 @@ void Rhythm::measurePhase() {
         measured_ = frac(std::arg(sum) / (2.0 * std::numbers::pi) + cfg_.latencyHops / p);
     }
 
-    const float dt = static_cast<float>(cfg_.phaseEvery) * cfg_.hopSeconds;
+    const float dt = kPhaseEvery;  // the cadence's mean, which due() keeps exact
     const float raw = std::clamp((acConf_ - 0.05f) / 0.35f, 0.0f, 1.0f) * std::clamp((plpConf_ - 0.1f) / 0.4f, 0.0f, 1.0f);
     conf_ += (1.0f - std::exp(-dt / 1.0f)) * (raw - conf_);
     if (!locked_) {
@@ -306,8 +309,7 @@ void Rhythm::measurePhase() {
         return;
     }
     // Unlocked, the grid still follows the pulse, gently, so the form tracker's beats stay near the music.
-    const float gain = 1.0f - std::pow(1.0f - kPhaseGain, dt / kPhaseEvery);
-    pending_ = (locked_ ? gain : 0.5f * gain) * error;
+    pending_ = (locked_ ? kPhaseGain : 0.5f * kPhaseGain) * error;
 }
 
 void Rhythm::snapPhase() {

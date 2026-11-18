@@ -115,9 +115,7 @@ private:
         int lagMin = 0;      // kFastestBpm's period, rounded down to hops
         int lagMax = 0;      // kSlowestBpm's, rounded up
         int ring = 0;        // kPeriodsHeard × lagMax: the slowest beat fits that many times
-        int tempoEvery = 1;  // hops between tempo estimates
-        int tempoAfter = 0;  // hops before the first
-        int phaseEvery = 1;  // hops between phase measurements
+        int tempoAfter = 0;  // hops before the first tempo estimate
         int phaseWindow = 0; // hops the phase reads at most
         int change = 1;      // hops the onset change spans
         float latencyHops = 0.0f;
@@ -136,6 +134,8 @@ private:
     float dbRef_ = 0.0f;  // the shared reference: the loudest band's power, released over ~4 s
     float localMean_ = 0.0f;
     int64_t hops_ = 0;
+    float sinceTempo_ = 0.0f;  // seconds gathered toward the next tempo estimate (Stages due())
+    float sincePhase_ = 0.0f;  // ... and the next phase measurement
     std::vector<float> ring_;  // the onset envelope, cfg_.ring hops (6 s)
     int ringHead_ = 0;  // the next slot to write
     std::array<float, 3> bandFluxPeak_{};

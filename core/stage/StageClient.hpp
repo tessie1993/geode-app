@@ -6,6 +6,10 @@
 // geode_viz) is bound to it by the code that creates the stage. Pure, so the lifecycle's host test can name it.
 namespace geode::stage {
 
+// A bit of frame()'s answer that is the stage's own, never the shell's: the frame drew nothing because it would have
+// repeated the one on screen, so the stage skips the swap. Mirrors viz::frame::kEventNothingNew.
+inline constexpr uint32_t kFrameNothingNew = 1u << 7;
+
 class StageClient {
 public:
     virtual ~StageClient() = default;
@@ -19,6 +23,9 @@ public:
     // Called just before each frame: the vsync's frame time (CLOCK_MONOTONIC ns) the frame is for, 0 when no vsync
     // asked for it. The frame's own time, so a thread hop between the vsync and the draw adds no jitter to its step.
     virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
+    // Called just before each frame, after frameTime: when the display is expected to show it (CLOCK_MONOTONIC ns),
+    // 0 when no time was given. The sound is read where the viewer sees the frame.
+    virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
     // After each frame: the cap "Adapt to frame time" (viz/frame/FrameGovernor) wants the stage paced to instead of
     // its own, 0 for none. The stage hands it to the pacer and the window's hint the way it hands its own cap.
     virtual float governedCapFps() { return 0.0f; }

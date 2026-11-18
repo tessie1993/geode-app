@@ -342,6 +342,9 @@ jobs:
           # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp -o surface_motion_test
           ./surface_motion_test
+          # A used program binary is stamped again only when its stamp is a day old (or it is on probation), not on every load.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/cache_touch_policy_test.cpp -o cache_touch_policy_test
+          ./cache_touch_policy_test
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test

@@ -225,14 +225,15 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_session_test.cpp core/library/SessionDoc.cpp core/util/Json.cpp -o library_session_test
           ./library_session_test
           # The shell's own rules ported from Kotlin (core/shell): the tour, the style shelf, preset filtering, opened-audio
-          # routing, notification buttons, the saved Auto visuals and the export fps list. Not called by the app yet.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_tour_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_tour_test
+          # routing, notification buttons, the saved Auto visuals and the export fps list, and their C ABI
+          # (core/api/geode_shell_api.cpp). The app calls the export fps list; the rest not yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_tour_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_tour_test
           ./shell_tour_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_lists_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_lists_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_lists_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_lists_test
           ./shell_lists_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_opened_audio_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_opened_audio_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_opened_audio_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_opened_audio_test
           ./shell_opened_audio_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_prefs_test.cpp core/shell/*.cpp core/util/Json.cpp -o shell_prefs_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_prefs_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_prefs_test
           ./shell_prefs_test
           # The backup's rules ported from Kotlin (core/backup): sections and keys, the path-escape check, the size and
           # count caps, version migration, the manifest, and the export, unpack and restore plans. Not called by the app yet.

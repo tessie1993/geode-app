@@ -1,17 +1,19 @@
 // Host-side checks for the shell's prefs rules: core/shell/Behaviour (the media notification's buttons, the
 // last-screen rule), core/shell/AutoVisuals (reading the visual playlist's JSON and the saved Auto settings)
-// and core/shell/ExportFps (the frame rates an export offers and accepts, in terms of the encoder ladder).
+// and core/shell/ExportFps (the frame rates an export offers and accepts, in terms of the encoder ladder), and
+// the C ABI the app calls them through (core/api/geode_shell_api.h).
 // Every case of the Kotlin NotificationButtonTest and ExportPresetFillTest is here with the same expected
 // result; BehaviourRepositoryTest's "a stored LAST_USED reads as the default" is the last-screen case. The
 // Auto visuals reading and the export fps rejection had no Kotlin unit test: those cases pin the Kotlin as read.
 //
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_prefs_test.cpp core/shell/*.cpp
-//     core/util/Json.cpp -o shell_prefs_test && ./shell_prefs_test
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_prefs_test.cpp core/shell/*.cpp
+//     core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_prefs_test && ./shell_prefs_test
 #include <cstdio>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "api/geode_shell_api.h"
 #include "output/EncoderLadder.hpp"
 #include "shell/AutoVisuals.hpp"
 #include "shell/Behaviour.hpp"
@@ -204,6 +206,18 @@ void readRejectsWhatIsNotOffered() {
     check(exportFpsRead(std::nullopt, 45) == 45, "fallback taken as is");
 }
 
+void exportFpsThroughTheAbi() {
+    int out[8] = {};
+    check(geode_export_fps_options(out, 8) == 5, "five rates");
+    check(std::vector<int>(out, out + 5) == exportFpsOptions(), "the same rates in the same order");
+    int two[3] = {0, 0, -1};
+    check(geode_export_fps_options(two, 2) == 5 && two[0] == 24 && two[1] == 25 && two[2] == -1, "short room: what fits");
+    check(geode_export_fps_options(nullptr, 0) == 5, "a count only");
+    check(geode_export_fps_read(50, 30) == 50, "abi: stored 50");
+    check(geode_export_fps_read(45, 30) == 30, "abi: stored 45 falls back");
+    check(geode_export_fps_read(120, 60) == 60, "abi: stored 120 falls back");
+}
+
 int fpsOf(const std::string& t, int fallback) {
     const auto v = geode::json::parse(t);
     return exportFpsFromJson(v ? &*v : nullptr, fallback);
@@ -239,6 +253,7 @@ int main() {
     everyPlatformPresetFpsIsOffered();
     readRejectsWhatIsNotOffered();
     jsonRejectionMatchesOptInt();
+    exportFpsThroughTheAbi();
     if (failures == 0) std::printf("shell_prefs_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

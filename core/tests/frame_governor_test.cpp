@@ -7,6 +7,7 @@
 // the rate the pacer really paces to, and a step back up only after the dwell; settling frames not counted; a new
 // style back on the user's settings with the backoff cleared; off, an export or a recording passing the user's
 // settings through; Follow device stepping under the panel's rate; the "Now: …" read-back.
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -222,7 +223,7 @@ void climbsOnlyAfterDwell() {
     s.onTime(6.0f);
     check(s.g.steps() == 0, "the dwell climbs one step");
     // The step up fails within the probe: the next one waits twice as long (hysteresis, no flapping).
-    s.run(3.5f, kRung1 * 0.75f);
+    s.run(5.0f, kRung1 * 0.75f);  // the climb's own hold, then the sustain
     check(s.g.steps() == 1, "a miss right after the climb takes the step again");
     s.onTime(kRelax + 5.0f);
     check(s.g.steps() == 1, "and the next climb waits longer than the dwell");
@@ -283,6 +284,60 @@ void readBack() {
     check(now.steps.load() == before, "an export or a recording says nothing");
 }
 
+
+// One-off stalls (a GC pause, a program binary load, the FBO reallocation a scale step causes) are not a slow phone,
+// and the pacer caps a frame's dt, so a stall reads as a slow frame; only a run of slow frames is a deficit.
+void stallsNotCounted() {
+    namespace quality = geode::viz::fluid::quality;
+    const float paced = kRung1;
+    const float period = 1.0f / paced;
+    const float stall = period * (quality::FrameMonitor::kStallPeriods + 1.0f);
+
+    quality::FrameMonitor stalls;
+    stalls.setPacedFps(paced);
+    int relief = 0;
+    for (int i = 0; i < 2000; ++i) relief = std::max(relief, stalls.onFrame(i % 10 == 9 ? stall : period));
+    check(relief == 0, "an isolated stall every few frames is not a deficit");
+    check(stalls.keepingUp(), "and the window still reads the on-time frames");
+
+    quality::FrameMonitor slow;
+    slow.setPacedFps(paced);
+    relief = 0;
+    for (int i = 0; i < 2000; ++i) relief = std::max(relief, slow.onFrame(stall));
+    check(relief > 0, "frames that are all that slow are still a deficit");
+
+    Surface s;
+    s.g.setEnabled(true);
+    for (float t = 0.0f; t < 30.0f; t += period) {
+        const bool hitch = static_cast<int>(t / period) % 10 == 9;
+        s.g.onFrame(hitch ? stall : period, paced, s.capFps, s.u, false, false);
+    }
+    check(s.g.steps() == 0, "the governor does not step down for isolated stalls");
+}
+
+// A step's own resize hitch and the frames around it are not counted: the next step waits the hold as well as
+// the sustain.
+void scaleChangeHolds() {
+    Surface s;
+    s.g.setEnabled(true);
+    const float miss = kRung1 * 0.75f;
+    while (s.g.steps() == 0) s.g.onFrame(1.0f / miss, s.paced(), s.capFps, s.u, false, false);
+    float t = 0.0f;
+    while (s.g.steps() == 1 && t < 20.0f) {
+        s.g.onFrame(1.0f / miss, s.paced(), s.capFps, s.u, false, false);
+        t += 1.0f / miss;
+    }
+    check(t >= frame::FrameGovernor::kStepHoldSeconds + 2.5f - 0.2f, "the next step waits out the hold, then the sustain");
+}
+
+// With adapt on, the governor alone steps quality down: the fluid scene's own ratchet sits out.
+void oneRatchet() {
+    namespace quality = geode::viz::fluid::quality;
+    check(quality::ownsAutoQuality(true, false), "adapt off: the fluid scene keeps its own auto quality");
+    check(!quality::ownsAutoQuality(true, true), "adapt on: the governor owns it");
+    check(!quality::ownsAutoQuality(false, false) && !quality::ownsAutoQuality(false, true), "the param off: no auto quality");
+}
+
 }  // namespace
 
 int main() {
@@ -296,6 +351,9 @@ int main() {
     newStyleStartsOver();
     followDevice();
     readBack();
+    stallsNotCounted();
+    scaleChangeHolds();
+    oneRatchet();
     if (failures) {
         std::fprintf(stderr, "%d frame governor check(s) failed\n", failures);
         return 1;

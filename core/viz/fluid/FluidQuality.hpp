@@ -46,6 +46,10 @@ public:
     // 35 % under the target (two rungs).
     static constexpr int kMildRelief = 1;
     static constexpr int kSevereRelief = 2;
+    // A frame this many paced periods long is a stall (a GC pause, a program binary load, a framebuffer
+    // reallocation): the pacer caps a frame's dt, so it would read as one slow sample. A stall that stands alone is
+    // left out of the window; a run of them is the phone struggling and counts.
+    static constexpr float kStallPeriods = 3.0f;
 
     explicit FrameMonitor(float targetFps = 50.0f, float sustainSeconds = 2.5f, int windowSize = 30)
         : targetFps_(targetFps),
@@ -75,6 +79,10 @@ public:
         }
         const float fps = dtSeconds > 1e-6f ? 1.0f / dtSeconds : 1000.0f;
         if (fps < 5.0f || fps > 180.0f) return 0;
+        const bool stall = pacedFps_ > 0.0f && dtSeconds >= kStallPeriods / pacedFps_;
+        const bool aloneStall = stall && !afterStall_;
+        afterStall_ = stall;
+        if (aloneStall) return 0;
         samples_[static_cast<size_t>(index_)] = dtSeconds;
         index_ = (index_ + 1) % windowSize_;
         count_ = std::min(count_ + 1, windowSize_);
@@ -91,6 +99,7 @@ public:
         count_ = 0;
         index_ = 0;
         deficitSeconds_ = 0.0f;
+        afterStall_ = false;
     }
 
 private:
@@ -114,9 +123,14 @@ private:
     int count_ = 0;
     int index_ = 0;
     float deficitSeconds_ = 0.0f;
+    bool afterStall_ = false;
     float lastTargetFps_ = 0.0f;
     float pacedFps_ = 0.0f;
 };
+
+// With "Adapt to frame time" on (frame::FrameGovernor), the governor is the one thing that gives quality up for
+// frame time; a fluid scene's own auto quality would be a second ratchet on the same signal.
+inline bool ownsAutoQuality(bool autoQualityParam, bool adaptOn) { return autoQualityParam && !adaptOn; }
 
 // "Lower the quality when the phone struggles": the rungs a fluid scene has stepped down. It used to
 // only ever step down, so one janky moment cost the scene its quality for as long as it stayed

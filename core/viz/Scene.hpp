@@ -102,6 +102,8 @@ struct SceneHost {
     // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
     // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
     std::function<const shapes::Packed*()> shapeGraph;
+    // "Adapt to frame time" is on (frame::FrameGovernor): it alone gives quality up for frame time. Unset reads as off.
+    std::function<bool()> adaptive;
 };
 
 }  // namespace geode::viz

@@ -58,10 +58,14 @@ void FluidSceneBase::applyQualityTier() {
 }
 
 void FluidSceneBase::autoQualityTick() {
-    if (params_.fluidAutoQuality && host_.settling && host_.settling()) {
+    if (!fluid::quality::ownsAutoQuality(params_.fluidAutoQuality, host_.adaptive && host_.adaptive())) {
+        // Adapt to frame time owns the one ratchet: the tier stays the user's. Off, or the param off, nothing here.
+        autoDowngrade_.reset();
+        monitor_.reset();
+    } else if (host_.settling && host_.settling()) {
         // A switch's slow frames are not this scene's.
         monitor_.reset();
-    } else if (params_.fluidAutoQuality) {
+    } else {
         monitor_.setPacedFps(host_.pacedFps ? host_.pacedFps() : 0.0f);
         const int severity = monitor_.onFrame(lastDt_);
         if (autoDowngrade_.onFrame(severity, monitor_.keepingUp(), lastDt_)) monitor_.reset();

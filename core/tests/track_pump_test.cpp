@@ -2,7 +2,7 @@
 // decoder (one sample in a step until end of stream is queued, one output buffer out, released once, the end
 // after the buffer flagged end of stream), the pump's order (step until the rate is known, aim, hear, step
 // whenever the held chunk runs out, false once the track ended), checked against that order written out
-// step by step over the same chunks; the AIFF-first open over a real descriptor, its span and a second open
+// step by step over the same chunks; a stuck source given up on, on a scripted clock, and a slow one not; the AIFF-first open over a real descriptor, its span and a second open
 // of the same descriptor; and the small rules the Android decoder reads (seek, float output, the extractor's
 // span, the audio track's mime). Built and run by CI (.github/workflows/native-host-tests.yml); no device.
 //
@@ -10,12 +10,14 @@
 //     core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp
 //     core/output/FrameClock.cpp -o track_pump_test && ./track_pump_test
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -248,6 +250,90 @@ void pumpOrder() {
     check(!silent.deliverFrame(0, 30, listener) && silent.ended(), "no rate: nothing heard, the track ended");
 }
 
+// ── A stuck source ──────────────────────────────────────────────────────────────────────────────────────────
+
+// The pump's clock, moved only by the source: each step is the time a decoder waited on its codec.
+struct ScriptedClock {
+    std::chrono::steady_clock::time_point now{};
+};
+
+// A source that never ends: each step waits `wait` on the clock, and the steps numbered `every`, 2 * `every`, ...
+// up to `lastAudio` push `frames` stereo 16-bit frames at 44.1 kHz (every = 0: never). Past kMaxSteps it throws:
+// a pump with no limit steps it for ever, and the check says so instead of hanging.
+class StuckSource final : public TrackSource {
+public:
+    static constexpr int kMaxSteps = 200000;
+
+    StuckSource(ScriptedClock& clock, std::chrono::milliseconds wait, int every, int lastAudio, int frames, int* steps)
+        : clock_(clock), wait_(wait), every_(every), lastAudio_(lastAudio), frames_(frames),
+          bytes_(static_cast<size_t>(frames) * 4, 0), steps_(steps) {}
+
+    bool step(TrackFeed& feed) override {
+        if (++*steps_ > kMaxSteps) throw std::runtime_error("the pump kept stepping a source that produced nothing");
+        clock_.now += wait_;
+        if (every_ > 0 && *steps_ % every_ == 0 && (lastAudio_ < 0 || *steps_ <= lastAudio_)) {
+            feed.pushDecoded(bytes_.data(), bytes_.size(), false, 2, 44100, pushed_ * 1'000'000 / 44100);
+            pushed_ += frames_;
+        }
+        return true;
+    }
+
+private:
+    ScriptedClock& clock_;
+    std::chrono::milliseconds wait_;
+    int every_;
+    int lastAudio_;
+    int frames_;
+    std::vector<uint8_t> bytes_;
+    int64_t pushed_ = 0;
+    int* steps_;
+};
+
+void stuckSource() {
+    using std::chrono::milliseconds;
+    const int limitMs = static_cast<int>(std::chrono::duration_cast<milliseconds>(TrackPump::kStuckAfter).count());
+    // Each empty step waits a thousandth of the limit.
+    const milliseconds tick(limitMs / 1000);
+    // No audio at all: the rate wait gives up after the limit, on the pump's clock.
+    try {
+        ScriptedClock clock;
+        int steps = 0;
+        TrackPump pump(0, std::make_unique<StuckSource>(clock, tick, 0, -1, 64, &steps), [&clock] { return clock.now; });
+        Listener listener;
+        check(!pump.deliverMs(1000, listener) && listener.heard.hears == 0, "a source that never tells its rate is given up on");
+        check(steps >= 999 && steps <= 1001, "the rate wait is the limit on the pump's clock, " + std::to_string(steps) + " steps");
+    } catch (const std::exception& e) {
+        check(false, std::string("no rate: ") + e.what());
+    }
+    // One chunk, then a codec that says "later" for ever: the rate is known, the hearing stops after the limit.
+    try {
+        ScriptedClock clock;
+        int steps = 0;
+        TrackPump pump(0, std::make_unique<StuckSource>(clock, tick, 1, 1, 64, &steps), [&clock] { return clock.now; });
+        Listener listener;
+        check(!pump.deliverMs(1000, listener), "a source stuck after its rate is given up on");
+        check(listener.heard.samples.size() == 64 * 2, "what it did produce was heard");
+        check(steps >= 1000 && steps <= 1002, "the hearing waits the limit after the last audio, " + std::to_string(steps) + " steps");
+        check(!pump.ended(), "a stuck source has not ended");
+    } catch (const std::exception& e) {
+        check(false, std::string("stuck after the rate: ") + e.what());
+    }
+    // A slow source: a chunk of 100 ms every three steps of 0.3 of the limit each, so 90 % of the limit between
+    // chunks and the whole second many limits long. Never cut off: each chunk starts the wait again.
+    try {
+        ScriptedClock clock;
+        int steps = 0;
+        const milliseconds slow(limitMs * 3 / 10);
+        TrackPump pump(0, std::make_unique<StuckSource>(clock, slow, 3, -1, 4410, &steps), [&clock] { return clock.now; });
+        Listener listener;
+        check(pump.deliverMs(1000, listener), "a slow source that keeps producing is heard to the target");
+        check(listener.heard.samples.size() == 44100 * 2, "a second of it, every frame");
+        check(steps == 30, "ten chunks, three steps each");
+    } catch (const std::exception& e) {
+        check(false, std::string("slow source: ") + e.what());
+    }
+}
+
 // ── AIFF over a descriptor ──────────────────────────────────────────────────────────────────────────────────
 
 void be16(std::vector<uint8_t>& b, int v) {
@@ -376,6 +462,7 @@ int main() {
     rules();
     decodeRule();
     pumpOrder();
+    stuckSource();
     aiffOpen();
     if (failures) {
         std::printf("%d track pump check(s) failed\n", failures);

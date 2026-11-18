@@ -295,6 +295,6 @@ void main() {
     col += pal(0.55 + tone) * halo * (0.018 + 0.03 * bassA) * haloGain;
     col += enA * 0.35 * col * col;
     col *= 0.8 + 0.25 * swell;
-    col *= 0.6 + 0.4 * smoothstep(2.2, 0.5, length(uv));
+    col *= 0.6 + 0.4 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

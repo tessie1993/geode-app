@@ -222,7 +222,7 @@ vec3 mandala(vec2 p) {
         col += neon(0.25 * fi + 0.4) * exp(-abs(r - petal) / R * 26.0) * 1.2;
     }
     col += neon(0.55) * exp(-r * 25.0) * 2.0;
-    return col * smoothstep(0.6, 0.3, r);
+    return col * (1.0 - smoothstep(0.3, 0.6, r));
 }
 
 /** The pattern mandala through lib_shell's hooks: exactly mandala(uv) at rest, and mandala read once, in a loop the compiler cannot unroll. */

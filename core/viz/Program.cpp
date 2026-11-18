@@ -17,9 +17,11 @@ GLint UniformCache::loc(std::string_view name) {
     return location;
 }
 
-GLsizei UniformCache::arrayCount(std::string_view name, GLsizei declared) {
+GLsizei UniformCache::arrayCount(std::string_view name, GLsizei declared) { return std::min(arraySize(name, declared), declared); }
+
+GLsizei UniformCache::arraySize(std::string_view name, GLsizei declared) {
     const auto it = arraySizes_.find(name);
-    if (it != arraySizes_.end()) return std::min(it->second, declared);
+    if (it != arraySizes_.end()) return it->second;
     const std::string base(name);
     const std::string first = base + "[0]";
     const char* names[1] = {first.c_str()};
@@ -36,7 +38,7 @@ GLsizei UniformCache::arrayCount(std::string_view name, GLsizei declared) {
         size = std::max(reported, 1);
     }
     arraySizes_.emplace(base, size);
-    return std::min(size, declared);
+    return size;
 }
 
 namespace program {

@@ -224,8 +224,8 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
     }
     if (mirrorOn && uPostMirror > 0.5) c.x = abs(c.x);
     if (geoOn && uPostKaleido > 0.5 && uPostSymmetry >= 2.0) {
-        float ang = atan(c.y, c.x);
         float rad = length(c);
+        float ang = rad > 1e-5 ? atan(c.y, c.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
         float seg = 6.2831853 / uPostSymmetry;
         ang = abs(mod(ang, seg) - seg * 0.5);
         c = vec2(cos(ang), sin(ang)) * rad;

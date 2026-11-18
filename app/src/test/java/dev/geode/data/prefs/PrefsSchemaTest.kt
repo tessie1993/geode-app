@@ -137,6 +137,8 @@ class PrefsSchemaTest {
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions("reactions/2", 0)
+                // Routes this build cannot read are kept aside before they are dropped.
+                LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> -1 }).loadHandMask()
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))

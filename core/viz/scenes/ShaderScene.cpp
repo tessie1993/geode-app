@@ -135,7 +135,7 @@ void ShaderScene::draw(float timeSeconds) {
     glDisable(GL_BLEND);
     glUseProgram(program_);
     uploadParams();
-    glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
+    glUniform2f(uniforms_.loc(Uniform::uResolution), static_cast<float>(width_), static_cast<float>(height_));
     const SceneParams& p = params_;
     // The look's palette stack draws through the colour map's path: one ramp, read along pal(t). Without a
     // stack the look's own palette draws (Colour map, which once chose a row of the atlas here, is retired).
@@ -143,16 +143,16 @@ void ShaderScene::draw(float timeSeconds) {
     const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
     const bool lutSelected = ramp != 0;
     // The sampler unit is assigned with or without a texture: left at 0 it shares a unit with another sampler.
-    glUniform1i(uniforms_.loc("uPalLut"), 2);
+    glUniform1i(uniforms_.loc(Uniform::uPalLut), 2);
     if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, lut);
         glActiveTexture(GL_TEXTURE0);
     }
-    set1f("uPalLutMix", flag(lutSelected));
-    set1f("uPalLutRow", ramp != 0 ? 0.5f : paletteRowCoordinate(0));
+    set1f(Uniform::uPalLutMix, flag(lutSelected));
+    set1f(Uniform::uPalLutRow, ramp != 0 ? 0.5f : paletteRowCoordinate(0));
     const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
-    set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
+    set1f(Uniform::uSteps, std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();
     uploadTouch();
     uploadCamera();
@@ -169,20 +169,20 @@ void ShaderScene::draw(float timeSeconds) {
 
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
-    set1f("uTime", shaderTime_);
-    set1f("uZoom", p.zoom);
-    set1f("uRotation", rotationAngle_);
+    set1f(Uniform::uTime, shaderTime_);
+    set1f(Uniform::uZoom, p.zoom);
+    set1f(Uniform::uRotation, rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
-    set1f("uColorShift", p.colorShift + p.paletteShift);
-    set1f("uHueRange", p.hueRange);
-    set1f("uSat", p.saturation);
-    set1f("uBright", p.brightness);
-    set1f("uInvert", flag(p.invert));
-    set1f("uIntensity", p.intensity);
-    set1f("uMirrorX", flag(p.mirror));
-    set1f("uTurbulence", p.turbulence);
-    set1f("uPalBase", p.paletteBase());
-    set1f("uPalRange", p.paletteRange());
+    set1f(Uniform::uColorShift, p.colorShift + p.paletteShift);
+    set1f(Uniform::uHueRange, p.hueRange);
+    set1f(Uniform::uSat, p.saturation);
+    set1f(Uniform::uBright, p.brightness);
+    set1f(Uniform::uInvert, flag(p.invert));
+    set1f(Uniform::uIntensity, p.intensity);
+    set1f(Uniform::uMirrorX, flag(p.mirror));
+    set1f(Uniform::uTurbulence, p.turbulence);
+    set1f(Uniform::uPalBase, p.paletteBase());
+    set1f(Uniform::uPalRange, p.paletteRange());
     {
         const auto stops = p.paletteStops();
         const int count = p.paletteStopCount();
@@ -193,50 +193,50 @@ void ShaderScene::uploadParams() {
             rgb[static_cast<size_t>(3 * i + 1)] = c.g;
             rgb[static_cast<size_t>(3 * i + 2)] = c.b;
         }
-        set1f("uPalStopCount", static_cast<float>(count));
-        glUniform3fv(uniforms_.loc("uPalStops"), uniforms_.arrayCount("uPalStops", colour::kMaxStops), rgb.data());
+        set1f(Uniform::uPalStopCount, static_cast<float>(count));
+        glUniform3fv(uniforms_.loc(Uniform::uPalStops), uniforms_.arrayCount(Uniform::uPalStops, colour::kMaxStops), rgb.data());
     }
-    set1f("uDuotone", flag(p.duotone));
-    set1f("uBloom", p.bloom);
-    set1f("uWarp", p.warp);
-    set1f("uRipple", p.ripple);
+    set1f(Uniform::uDuotone, flag(p.duotone));
+    set1f(Uniform::uBloom, p.bloom);
+    set1f(Uniform::uWarp, p.warp);
+    set1f(Uniform::uRipple, p.ripple);
     {
         // The resolved (modulated) folds, rounded natively to a whole count (SceneParams::kaleidoUniforms).
         const SceneParams::KaleidoUniforms k = SceneParams::kaleidoUniforms(p.kaleidoFolds);
-        set1f("uSymmetry", k.folds);
-        set1f("uKaleido", k.on);
+        set1f(Uniform::uSymmetry, k.folds);
+        set1f(Uniform::uKaleido, k.on);
     }
-    set1f("uMorph", p.morph);
+    set1f(Uniform::uMorph, p.morph);
     // Grow and layers (ParamTable.inc), resolved: the family libraries draw them and take their old path at 0.
-    set1f("uSpawn", p.spawn);
-    set1f("uFractal", p.fractal);
-    set1f("uFrontLayer", p.frontLayer);
-    set1f("uBackLayer", p.backLayer);
+    set1f(Uniform::uSpawn, p.spawn);
+    set1f(Uniform::uFractal, p.fractal);
+    set1f(Uniform::uFrontLayer, p.frontLayer);
+    set1f(Uniform::uBackLayer, p.backLayer);
     // Which of the style's own distance formulas draws it, 0 its first (the styles in Scope::Formula read it).
-    set1f("uFormula", p.formula);
+    set1f(Uniform::uFormula, p.formula);
     // How far the shape graph melts into the style's form, 0 the style untouched (the styles in Scope::Shapes read it).
-    set1f("uShapeMix", p.shapes);
+    set1f(Uniform::uShapeMix, p.shapes);
     // The shading pass (lib_shade): the soft shadows' darkness (Scope::Shadow) and the escape colour's reach (Scope::Escape).
-    set1f("uShadow", p.shadow);
-    set1f("uEscapeColor", p.escapeColor);
+    set1f(Uniform::uShadow, p.shadow);
+    set1f(Uniform::uEscapeColor, p.escapeColor);
     // Life's births (viz/Births) on the scene's own clock, already Speed-integrated: all 0 at Life 0, so lib_grow's
     // birth passes are all skipped.
-    set1f("uLife", p.life);
+    set1f(Uniform::uLife, p.life);
     {
         const auto b = births::compute(shaderTime_, p.life);
-        glUniform4fv(uniforms_.loc("uBirths"), uniforms_.arrayCount("uBirths", 2 * births::kBirths), b.data());
+        glUniform4fv(uniforms_.loc(Uniform::uBirths), uniforms_.arrayCount(Uniform::uBirths, 2 * births::kBirths), b.data());
     }
-    set1f("uPixelate", p.pixelate);
-    set1f("uPosterize", p.posterize);
-    set1f("uSway", p.sway);
-    set1f("uDriftX", p.driftX);
-    set1f("uDriftY", p.driftY);
-    set1f("uTile", p.tile);
-    set1f("uTwist", p.twist);
-    set1f("uTemperature", p.temperature);
-    set1f("uSolarize", flag(p.solarize));
-    set1f("uContrast", p.contrast);
-    set1f("uGamma", p.gamma);
+    set1f(Uniform::uPixelate, p.pixelate);
+    set1f(Uniform::uPosterize, p.posterize);
+    set1f(Uniform::uSway, p.sway);
+    set1f(Uniform::uDriftX, p.driftX);
+    set1f(Uniform::uDriftY, p.driftY);
+    set1f(Uniform::uTile, p.tile);
+    set1f(Uniform::uTwist, p.twist);
+    set1f(Uniform::uTemperature, p.temperature);
+    set1f(Uniform::uSolarize, flag(p.solarize));
+    set1f(Uniform::uContrast, p.contrast);
+    set1f(Uniform::uGamma, p.gamma);
     // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
     // music by Note & key reactions (viz/NoteResponse) when that is on, else
     // held at the midpoint each style was tuned around (NoteUniforms' default),
@@ -247,7 +247,7 @@ void ShaderScene::uploadParams() {
     const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr;
     if (!notes) notes = &kResting;
     static_assert(NoteUniforms::kKnobs == kKnobCount, "uKnob is six knobs");
-    glUniform1fv(uniforms_.loc("uKnob"), uniforms_.arrayCount("uKnob", kKnobCount), notes->knobs.data());
+    glUniform1fv(uniforms_.loc(Uniform::uKnob), uniforms_.arrayCount(Uniform::uKnob, kKnobCount), notes->knobs.data());
 }
 
 // Every style is handed these; the ones that read none of them link them away
@@ -259,29 +259,29 @@ void ShaderScene::uploadMotion() {
     // phase-locked oscillator gated by confidence, or a slow re-target that
     // eases over seconds. See viz/MotionField.hpp for the derivation.
     const MotionField::State& m = motionField_.state();
-    set1f("uEnergyRel", m.energyRel);
-    set1f("uBassRel", m.bassRel);
-    set1f("uMidRel", m.midRel);
-    set1f("uTrebRel", m.trebRel);
-    set1f("uMotionBright", m.bright);
-    set1f("uHarmony", m.harmony);
-    set1f("uKeyHue", m.hue);  // the uniform keeps its old name: it carries the style's hue driver, not the key
-    set1f("uKeyStrength", m.hueStrength);
-    set1f("uBarOsc", m.barOsc);
-    glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
-    set1f("uDrift", m.drift);
-    set1f("uBreath", m.breath);
-    set1f("uFlowPhase", m.flowPhase);
-    set1f("uFlowTime", m.flowTime);
-    glUniform3f(uniforms_.loc("uSoundTimeSped"), soundTimeSped_[0].value, soundTimeSped_[1].value, soundTimeSped_[2].value);
+    set1f(Uniform::uEnergyRel, m.energyRel);
+    set1f(Uniform::uBassRel, m.bassRel);
+    set1f(Uniform::uMidRel, m.midRel);
+    set1f(Uniform::uTrebRel, m.trebRel);
+    set1f(Uniform::uMotionBright, m.bright);
+    set1f(Uniform::uHarmony, m.harmony);
+    set1f(Uniform::uKeyHue, m.hue);  // the uniform keeps its old name: it carries the style's hue driver, not the key
+    set1f(Uniform::uKeyStrength, m.hueStrength);
+    set1f(Uniform::uBarOsc, m.barOsc);
+    glUniform2f(uniforms_.loc(Uniform::uOrbit), m.orbitX, m.orbitY);
+    set1f(Uniform::uDrift, m.drift);
+    set1f(Uniform::uBreath, m.breath);
+    set1f(Uniform::uFlowPhase, m.flowPhase);
+    set1f(Uniform::uFlowTime, m.flowTime);
+    glUniform3f(uniforms_.loc(Uniform::uSoundTimeSped), soundTimeSped_[0].value, soundTimeSped_[1].value, soundTimeSped_[2].value);
 
     // Legacy since wave three, held at their neutral constant until R08
     // deletes the readers: a spawn born once and never re-rolled, a direction
     // that never turns.
-    set1f("uSpawnSeed", 0.0f);
-    set1f("uSpawnAge", 1000.0f);
-    set1f("uFormPhase", 0.0f);
-    glUniform2f(uniforms_.loc("uMoveDir"), 1.0f, 0.0f);
+    set1f(Uniform::uSpawnSeed, 0.0f);
+    set1f(Uniform::uSpawnAge, 1000.0f);
+    set1f(Uniform::uFormPhase, 0.0f);
+    glUniform2f(uniforms_.loc(Uniform::uMoveDir), 1.0f, 0.0f);
 }
 
 void ShaderScene::uploadTouch() {
@@ -292,24 +292,24 @@ void ShaderScene::uploadTouch() {
         touchAnchor_.fill(0.0f);
         touchPoints_.fill(0.0f);
     }
-    glUniform4fv(uniforms_.loc("uTouchAnchor"), 1, touchAnchor_.data());
+    glUniform4fv(uniforms_.loc(Uniform::uTouchAnchor), 1, touchAnchor_.data());
     // Only as many elements as survived linking: uploading past the live length is an INVALID_OPERATION.
-    glUniform4fv(uniforms_.loc("uTouchPoints"), uniforms_.arrayCount("uTouchPoints", TouchField::kMaxPoints), touchPoints_.data());
-    glUniform1i(uniforms_.loc("uTouchCount"), touchField_ ? touchField_->count() : 0);
-    glUniform1i(uniforms_.loc("uTouchGesture"), touchField_ ? touchField_->gesture() : TouchField::kGestureNone);
-    glUniform2f(uniforms_.loc("uTouchAxis"), touchField_ ? touchField_->axisX() : 0.0f, touchField_ ? touchField_->axisY() : 0.0f);
-    set1f("uTouchSpin", touchField_ ? touchField_->spin() : 0.0f);
+    glUniform4fv(uniforms_.loc(Uniform::uTouchPoints), uniforms_.arrayCount(Uniform::uTouchPoints, TouchField::kMaxPoints), touchPoints_.data());
+    glUniform1i(uniforms_.loc(Uniform::uTouchCount), touchField_ ? touchField_->count() : 0);
+    glUniform1i(uniforms_.loc(Uniform::uTouchGesture), touchField_ ? touchField_->gesture() : TouchField::kGestureNone);
+    glUniform2f(uniforms_.loc(Uniform::uTouchAxis), touchField_ ? touchField_->axisX() : 0.0f, touchField_ ? touchField_->axisY() : 0.0f);
+    set1f(Uniform::uTouchSpin, touchField_ ? touchField_->spin() : 0.0f);
 }
 
 void ShaderScene::uploadCamera() {
     if (camera_) {
         const CameraPose& c = *camera_;
         const float basis[9] = {c.right[0], c.right[1], c.right[2], c.up[0], c.up[1], c.up[2], c.fwd[0], c.fwd[1], c.fwd[2]};
-        glUniform3fv(uniforms_.loc("uCamPos"), 1, c.pos.data());
-        glUniformMatrix3fv(uniforms_.loc("uCamBasis"), 1, GL_FALSE, basis);
-        set1f("uCamFocal", c.focal);
-        set1f("uCamTravel", c.travel);
-        set1f("uCamDolly", c.dolly);
+        glUniform3fv(uniforms_.loc(Uniform::uCamPos), 1, c.pos.data());
+        glUniformMatrix3fv(uniforms_.loc(Uniform::uCamBasis), 1, GL_FALSE, basis);
+        set1f(Uniform::uCamFocal, c.focal);
+        set1f(Uniform::uCamTravel, c.travel);
+        set1f(Uniform::uCamDolly, c.dolly);
     }
 }
 
@@ -356,8 +356,8 @@ void ShaderScene::uploadWorld() {
     }
     // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture. A 3D and an array sampler left
     // together at unit 0 fail the draw, so the units are assigned whether or not the assets are bound.
-    glUniform1i(uniforms_.loc("uWorldShapes"), 4);
-    glUniform1i(uniforms_.loc("uWorldTex"), 5);
+    glUniform1i(uniforms_.loc(Uniform::uWorldShapes), 4);
+    glUniform1i(uniforms_.loc(Uniform::uWorldTex), 5);
     if (worldShapesTex_ != 0) {
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
@@ -369,7 +369,7 @@ void ShaderScene::uploadWorld() {
     if (camera_) world_->travel(camera_->pos, worldDt_);
     worldDt_ = 0.0f;
     const auto& u = world_->uniforms();
-    glUniform4fv(uniforms_.loc("uWorld"), uniforms_.arrayCount("uWorld", world::kVec4), u.data());
+    glUniform4fv(uniforms_.loc(Uniform::uWorld), uniforms_.arrayCount(Uniform::uWorld, world::kVec4), u.data());
 }
 
 pool::Controls ShaderScene::poolControls() const {
@@ -389,23 +389,23 @@ void ShaderScene::uploadPool() {
     const pool::Surface s = pool_->surface(poolControls());
     static_assert(sizeof(pool::Wave) == 4 * sizeof(float) && sizeof(pool::Ring) == 4 * sizeof(float) &&
                   sizeof(pool::Wake) == 4 * sizeof(float));
-    glUniform4fv(uniforms_.loc("uPoolWaves"), uniforms_.arrayCount("uPoolWaves", pool::kWaves), &s.waves[0].kx);
-    glUniform4fv(uniforms_.loc("uPoolRings"), uniforms_.arrayCount("uPoolRings", pool::kRings), &s.rings[0].x);
-    glUniform4fv(uniforms_.loc("uPoolWakes"), uniforms_.arrayCount("uPoolWakes", pool::kMaxWakes), &s.wakes[0].x);
-    glUniform4f(uniforms_.loc("uPoolLook"), s.look.refraction, s.look.focus, s.look.caustics, s.look.shade);
-    glUniform4f(uniforms_.loc("uPoolView"), s.view.sinTilt, s.view.cosTilt, s.view.height, s.view.fov);
+    glUniform4fv(uniforms_.loc(Uniform::uPoolWaves), uniforms_.arrayCount(Uniform::uPoolWaves, pool::kWaves), &s.waves[0].kx);
+    glUniform4fv(uniforms_.loc(Uniform::uPoolRings), uniforms_.arrayCount(Uniform::uPoolRings, pool::kRings), &s.rings[0].x);
+    glUniform4fv(uniforms_.loc(Uniform::uPoolWakes), uniforms_.arrayCount(Uniform::uPoolWakes, pool::kMaxWakes), &s.wakes[0].x);
+    glUniform4f(uniforms_.loc(Uniform::uPoolLook), s.look.refraction, s.look.focus, s.look.caustics, s.look.shade);
+    glUniform4f(uniforms_.loc(Uniform::uPoolView), s.view.sinTilt, s.view.cosTilt, s.view.height, s.view.fov);
 }
 
 void ShaderScene::uploadField() {
     if (!field_ || field_->texture == 0) return;
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, field_->texture);
-    glUniform1i(uniforms_.loc("uField"), 4);
+    glUniform1i(uniforms_.loc(Uniform::uField), 4);
     glActiveTexture(GL_TEXTURE0);
-    glUniform2fv(uniforms_.loc("uFieldRes"), 1, field_->size.data());
-    glUniform4fv(uniforms_.loc("uFieldGeom"), 1, field_->geom.data());
-    glUniform4fv(uniforms_.loc("uFieldShape"), 1, field_->shape.data());
-    glUniform4fv(uniforms_.loc("uFieldLook"), uniforms_.arrayCount("uFieldLook", kFieldLooks), field_->look.data());
+    glUniform2fv(uniforms_.loc(Uniform::uFieldRes), 1, field_->size.data());
+    glUniform4fv(uniforms_.loc(Uniform::uFieldGeom), 1, field_->geom.data());
+    glUniform4fv(uniforms_.loc(Uniform::uFieldShape), 1, field_->shape.data());
+    glUniform4fv(uniforms_.loc(Uniform::uFieldLook), uniforms_.arrayCount(Uniform::uFieldLook, kFieldLooks), field_->look.data());
 }
 
 // The shape graph (viz/ShapeGraph) as the renderer ticked it this frame, for lib_shapes. Only a style that melts
@@ -413,15 +413,15 @@ void ShaderScene::uploadField() {
 // location's -1. Only as many vec4 as survived linking are written (past the live length is an
 // INVALID_OPERATION). A host that hands no graph uploads an empty one: uShapeCount 0, the style its own.
 void ShaderScene::uploadShapes() {
-    const GLint at = uniforms_.loc("uShapes");
+    const GLint at = uniforms_.loc(Uniform::uShapes);
     if (at < 0) return;
     static const shapes::Packed kNone{};
     const shapes::Packed* g = host_.shapeGraph ? host_.shapeGraph() : nullptr;
     if (!g) g = &kNone;
-    glUniform4fv(at, uniforms_.arrayCount("uShapes", shapes::kMaxShapes * shapes::kVec4PerShape), g->shapes.data());
-    glUniform1i(uniforms_.loc("uShapeCount"), g->count);
-    glUniform4fv(uniforms_.loc("uShapeFold"), 1, g->fold.data());
-    set1f("uShapeMelt", g->melt);
+    glUniform4fv(at, uniforms_.arrayCount(Uniform::uShapes, shapes::kMaxShapes * shapes::kVec4PerShape), g->shapes.data());
+    glUniform1i(uniforms_.loc(Uniform::uShapeCount), g->count);
+    glUniform4fv(uniforms_.loc(Uniform::uShapeFold), 1, g->fold.data());
+    set1f(Uniform::uShapeMelt, g->melt);
 }
 
 void ShaderScene::specializeWorld() {
@@ -443,11 +443,11 @@ void ShaderScene::specializeWorld() {
     glDeleteProgram(program_);
     program_ = built;
     uniforms_ = UniformCache(built);
-    drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+    drawsCamera_ = uniforms_.loc(Uniform::uCamBasis) >= 0;
 }
 
-void ShaderScene::set1f(const char* name, float value) {
-    const GLint location = uniforms_.loc(name);
+void ShaderScene::set1f(Uniform id, float value) {
+    const GLint location = uniforms_.loc(id);
     if (location != -1) glUniform1f(location, value);
 }
 
@@ -476,7 +476,7 @@ void ShaderScene::compilePendingIfAny() {
     if (program_ != 0) glDeleteProgram(program_);
     program_ = built;
     uniforms_ = UniformCache(built);
-    drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+    drawsCamera_ = uniforms_.loc(Uniform::uCamBasis) >= 0;
     worldParts_ = 0;
     currentFragment_ = *pending;
     host_.onShaderError("");

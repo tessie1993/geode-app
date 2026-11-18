@@ -115,8 +115,8 @@ void main() {
     // that grow toward the bottom of the frame. The family's one LIGHT ground,
     // so even desaturated Ink is a dark figure on a pale page.
     vec2 cell = fract(uv * 22.0) - 0.5;
-    float dotR = mix(0.08, 0.36, smoothstep(1.0, -1.0, uv.y));
-    float dots = smoothstep(dotR, dotR - 0.06, length(cell));
+    float dotR = mix(0.08, 0.36, 1.0 - smoothstep(-1.0, 1.0, uv.y));
+    float dots = 1.0 - smoothstep(dotR - 0.06, dotR, length(cell));
     vec3 paper = mix(vec3(0.90, 0.86, 0.78), tone(hue + 0.5), 0.12);
     vec3 col = mix(paper, paper * mix(vec3(1.0), tone(hue + 0.35), 0.5) * 0.82, dots);
     vec3 ink = vec3(0.03, 0.025, 0.04);

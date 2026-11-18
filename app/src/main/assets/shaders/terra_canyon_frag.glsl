@@ -143,7 +143,8 @@ void main() {
             vec3 river = mix(vec3(0.03, 0.10, 0.12), refl, fres);
             // The kick's shimmer: a band running away from the eye down the river.
             float ahead = p.z - ro.z;
-            float band = exp(-pow((ahead - 2.0 - 22.0 * (1.0 - kick)) * 0.35, 2.0)) * kick;
+            float bandD = (ahead - 2.0 - 22.0 * (1.0 - kick)) * 0.35;
+            float band = exp(-bandD * bandD) * kick;
             river += terraPal(0.55 + 0.1 * flow) * band * (0.5 + 0.5 * flow) * 0.6;
             col = mix(col, river, water);
         }

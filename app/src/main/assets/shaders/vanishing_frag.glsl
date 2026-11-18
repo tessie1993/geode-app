@@ -757,7 +757,7 @@ void main() {
         // past three e-folds down it is finer than a pixel and would boil.
         float grain = sin(GRAIN * sd.x + gSpin) * sin(GRAIN * sd.y - gSpin) *
             sin(GRAIN * sd.z + 3.0 * kHit);
-        grain *= smoothstep(3.0, 1.2, -kHit) * (0.35 + 0.45 * trebAmt);
+        grain *= (1.0 - smoothstep(1.2, 3.0, -kHit)) * (0.35 + 0.45 * trebAmt);
         float emboss = 1.0 + 0.45 * hitRelief + 0.30 * grain;
 
         // The material: lib_dmt's jewel, banded by the shell index so every
@@ -790,7 +790,7 @@ void main() {
     // Vignette on the RAW screen radius, not on uv: this is a property of the
     // glass, and reading the drifted/zoomed domain would slide it off frame.
     vec2 sv = (vUv - 0.5) * vec2(uResolution.x / max(uResolution.y, 1.0), 1.0) * 2.0;
-    col *= mix(1.0, smoothstep(2.0, 0.30, length(sv)), 0.5);
+    col *= mix(1.0, 1.0 - smoothstep(0.30, 2.0, length(sv)), 0.5);
 
     fragColor = vec4(grade(col * emission), 1.0);
 }

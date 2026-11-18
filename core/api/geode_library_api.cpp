@@ -4,10 +4,23 @@
 
 #include "api/geode_api.h"
 #include "library/History.hpp"
+#include "library/PlaylistRules.hpp"
 #include "library/Search.hpp"
 #include "library/SmartPlaylist.hpp"
+#include "viz/LookFiles.hpp"
 
 namespace {
+
+using geode::library::PlaylistEditKind;
+static_assert(static_cast<int>(PlaylistEditKind::Create) == GEODE_MUSIC_PLAYLIST_CREATE);
+static_assert(static_cast<int>(PlaylistEditKind::Import) == GEODE_MUSIC_PLAYLIST_IMPORT);
+static_assert(static_cast<int>(PlaylistEditKind::AddTrack) == GEODE_MUSIC_PLAYLIST_ADD);
+static_assert(static_cast<int>(PlaylistEditKind::RemoveTrack) == GEODE_MUSIC_PLAYLIST_REMOVE);
+static_assert(static_cast<int>(PlaylistEditKind::Move) == GEODE_MUSIC_PLAYLIST_MOVE);
+static_assert(static_cast<int>(PlaylistEditKind::Rename) == GEODE_MUSIC_PLAYLIST_RENAME);
+
+// A playlist's file stem: the look files' rule, which the shell's PresetStore.safeFileName also asks.
+std::string playlistStem(const std::string& name) { return geode::viz::files::safeFileName(name); }
 
 std::string_view view(const char* s) { return s ? std::string_view(s) : std::string_view(); }
 
@@ -238,6 +251,53 @@ int geode_smart_resolve(int match_all, int limit, const char* const* rules, int 
     return n;
 } catch (...) {
     return 0;
+}
+
+// Ordinary playlists: the module's own calls; the ABI gathers the arrays and hands in the stem rule.
+const char* geode_music_playlist_list(const char* const* texts, int count) try {
+    thread_local std::string out;
+    return hold(out, geode::library::playlistWire(geode::library::playlistList(textsOf(texts, count))));
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_music_playlist_apply(int kind, const char* name, const char* new_name, const char* track,
+                                       const char* const* tracks, int track_count, int from, int to,
+                                       const char* const* texts, int text_count, const char* named) try {
+    thread_local std::string out;
+    if (kind < GEODE_MUSIC_PLAYLIST_CREATE || kind > GEODE_MUSIC_PLAYLIST_RENAME) return nullptr;
+    geode::library::PlaylistEdit edit;
+    edit.kind = static_cast<PlaylistEditKind>(kind);
+    edit.name = textOf(name);
+    edit.newName = textOf(new_name);
+    edit.track = textOf(track);
+    edit.tracks = textsOf(tracks, track_count);
+    edit.from = from;
+    edit.to = to;
+    geode::library::PlaylistFolder folder;
+    folder.fileTexts = textsOf(texts, text_count);
+    if (named) folder.namedFileText = std::string(named);
+    return hold(out, geode::library::playlistOutcomeWire(geode::library::playlistApply(folder, edit, playlistStem)));
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_music_playlist_migration(const char* const* file_names, const char* const* texts, int count) try {
+    thread_local std::string out;
+    std::vector<geode::library::PlaylistFileText> files;
+    for (int i = 0; file_names && i < count; ++i) {
+        files.push_back({textOf(file_names[i]), texts ? textOf(texts[i]) : std::string()});
+    }
+    return hold(out, geode::library::playlistRenameWire(geode::library::playlistMigrationPlan(files, playlistStem)));
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_music_playlist_import_base(const char* parsed_name, const char* file_name, const char* untitled) try {
+    thread_local std::string out;
+    return hold(out, geode::library::playlistImportBase(textOf(parsed_name), textOf(file_name), textOf(untitled)));
+} catch (...) {
+    return nullptr;
 }
 
 }  // extern "C"

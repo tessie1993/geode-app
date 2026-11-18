@@ -595,6 +595,38 @@ GEODE_API int         geode_smart_resolve(int match_all, int limit, const char* 
                                           const char* const* favourites, int favourite_count, long long now_ms,
                                           int* out, int max_out);
 
+/* The user's ordinary playlists (core/library/PlaylistRules). The shell lists music-playlists/, reads and writes the
+ * files' text and acts on what comes back; a playlist's file is its name's geode_file_safe_name stem plus ".json".
+ * Text out is valid until the calling thread's next call of the same function; NULL texts read as "". Fields are
+ * split by U+001F and records ended by U+001E.
+ * list: the playlists among `count` file texts, sorted by lower-case name (ties in the order given): per playlist
+ * its name, then its track uris.
+ * apply: one edit, `kind` a GEODE_MUSIC_PLAYLIST_* below: create (name, tracks: each track once under the first free
+ * name from the trimmed name; a blank name writes nothing), import (name is the base, tracks as given, under the
+ * first free name), add (track), remove (track), move (from, to) and rename (name to new_name). A free name is one
+ * whose stem no listed playlist has. `texts` are every playlist file's text, `named` the text of the file `name`
+ * maps to, NULL when there is none (a file that cannot be read is ""): an add, remove or move never writes over a
+ * file that does not read. The answer is one record: write ("1" or "0"), ok ("0" when a rename is refused), the
+ * name whose file to write `json` to, the name whose file to delete once it is written ("" for none), and json.
+ * migration: the one-time renames of files saved under an older name rule, given every entry of the folder
+ * (`texts[i]` the text of a .json file, "" for anything else): per rename its from and to file names, in order.
+ * import_base: the name an imported file's playlist starts from: its own name, else the file's name, else
+ * `untitled`, each kept as it is when not blank. */
+#define GEODE_MUSIC_PLAYLIST_CREATE 0
+#define GEODE_MUSIC_PLAYLIST_IMPORT 1
+#define GEODE_MUSIC_PLAYLIST_ADD 2
+#define GEODE_MUSIC_PLAYLIST_REMOVE 3
+#define GEODE_MUSIC_PLAYLIST_MOVE 4
+#define GEODE_MUSIC_PLAYLIST_RENAME 5
+GEODE_API const char* geode_music_playlist_list(const char* const* texts, int count);
+GEODE_API const char* geode_music_playlist_apply(int kind, const char* name, const char* new_name, const char* track,
+                                                 const char* const* tracks, int track_count, int from, int to,
+                                                 const char* const* texts, int text_count, const char* named);
+GEODE_API const char* geode_music_playlist_migration(const char* const* file_names, const char* const* texts,
+                                                     int count);
+GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, const char* file_name,
+                                                       const char* untitled);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

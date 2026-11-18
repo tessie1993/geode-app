@@ -120,4 +120,43 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_smartReso
     return out;
 }
 
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_musicPlaylistList(JNIEnv* env, jobject,
+                                                                                      jobjectArray texts) {
+    const Texts files = textsOf(env, texts);
+    return utf8String(env, geode_music_playlist_list(files.pointers.data(), files.count()));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_musicPlaylistApply(
+    JNIEnv* env, jobject, jint kind, jstring name, jstring newName, jstring track, jobjectArray tracks, jint from, jint to,
+    jobjectArray texts, jstring named) {
+    Utf8Chars playlist(env, name);
+    Utf8Chars renamed(env, newName);
+    Utf8Chars uri(env, track);
+    Utf8Chars namedText(env, named);  // null stays NULL: no file under the name
+    const Texts uris = textsOf(env, tracks);
+    const Texts files = textsOf(env, texts);
+    return utf8String(env, geode_music_playlist_apply(kind, textOf(playlist), textOf(renamed), textOf(uri),
+                                                      uris.pointers.data(), uris.count(), from, to,
+                                                      files.pointers.data(), files.count(), namedText.get()));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_musicPlaylistMigration(JNIEnv* env, jobject,
+                                                                                           jobjectArray fileNames,
+                                                                                           jobjectArray texts) {
+    const Texts names = textsOf(env, fileNames);
+    const Texts bodies = textsOf(env, texts);
+    if (bodies.count() != names.count()) return utf8String(env, "");
+    return utf8String(env, geode_music_playlist_migration(names.pointers.data(), bodies.pointers.data(), names.count()));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_musicPlaylistImportBase(JNIEnv* env, jobject,
+                                                                                            jstring parsedName,
+                                                                                            jstring fileName,
+                                                                                            jstring untitled) {
+    Utf8Chars parsed(env, parsedName);
+    Utf8Chars file(env, fileName);
+    Utf8Chars fallback(env, untitled);
+    return utf8String(env, geode_music_playlist_import_base(textOf(parsed), textOf(file), textOf(fallback)));
+}
+
 }  // extern "C"

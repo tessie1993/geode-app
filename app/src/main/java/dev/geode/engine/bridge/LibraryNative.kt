@@ -74,4 +74,53 @@ object LibraryNative {
         favourites: Array<String>,
         nowMs: Long,
     ): IntArray
+
+    /** The edits [musicPlaylistApply] makes, `GEODE_MUSIC_PLAYLIST_*`. */
+    const val MUSIC_PLAYLIST_CREATE = 0
+    const val MUSIC_PLAYLIST_IMPORT = 1
+    const val MUSIC_PLAYLIST_ADD = 2
+    const val MUSIC_PLAYLIST_REMOVE = 3
+    const val MUSIC_PLAYLIST_MOVE = 4
+    const val MUSIC_PLAYLIST_RENAME = 5
+
+    /**
+     * The playlists among music-playlists/' file [texts], sorted by lower-case name (core/library/PlaylistRules,
+     * `geode_music_playlist_list`): per playlist its name, then its track uris, split by U+001F, each ended by U+001E.
+     */
+    external fun musicPlaylistList(texts: Array<String>): String?
+
+    /**
+     * One edit of the playlists (`geode_music_playlist_apply`), [kind] a `MUSIC_PLAYLIST_*`. [texts] are every
+     * playlist file's text, [named] the text of the file [name] maps to (null when there is none, "" when it cannot
+     * be read). The answer: write ("1" or "0"), ok, the name whose file to write, the name whose file to delete once
+     * written, and the json, split by U+001F and ended by U+001E.
+     */
+    external fun musicPlaylistApply(
+        kind: Int,
+        name: String,
+        newName: String,
+        track: String,
+        tracks: Array<String>,
+        from: Int,
+        to: Int,
+        texts: Array<String>,
+        named: String?,
+    ): String?
+
+    /**
+     * The one-time renames of playlist files saved under an older name rule (`geode_music_playlist_migration`), given
+     * every entry of the folder: [texts] holds a .json file's text, "" for anything else. Per rename its from and to
+     * file names, split by U+001F, each ended by U+001E.
+     */
+    external fun musicPlaylistMigration(
+        fileNames: Array<String>,
+        texts: Array<String>,
+    ): String?
+
+    /** The name an imported file's playlist starts from (`geode_music_playlist_import_base`). */
+    external fun musicPlaylistImportBase(
+        parsedName: String,
+        fileName: String,
+        untitled: String,
+    ): String?
 }

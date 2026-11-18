@@ -137,7 +137,8 @@ private:
     const int maxWrite_;
     const int64_t mask_;
     std::vector<std::atomic<float>> samples_;  // capacity_ frames, interleaved at channels_
-    std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
+    // On its own cache line: the writer stores it at every write, and the fields above are read by every reader.
+    alignas(64) std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
     std::atomic<uint64_t> epoch_{0};
     Mark marks_[kMarks];
     std::atomic<uint32_t> markCount_{0};

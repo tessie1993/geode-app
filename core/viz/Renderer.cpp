@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "output/PreRoll.hpp"
+#include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/BuildReport.hpp"
@@ -22,8 +23,10 @@ constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
 constexpr int kPcmCapacity = 512 * 8;
-// A renderer's own ring (Renderer::hearOwn): over a second at 48 kHz, published a runway at a time.
-constexpr int kOwnRingFrames = 1 << 16;
+// A renderer's own ring (Renderer::hearOwn): a second at the capture rate, published a runway at a time.
+constexpr int kOwnRingMs = 1000;
+constexpr int kOwnRingFrames = sound::budget::ringFrames(kOwnRingMs, sound::budget::kCaptureRateHz);
+static_assert(kOwnRingFrames == 1 << 16, "a renderer's own ring changed size");
 constexpr int kOwnRingRunway = 1 << 14;
 }  // namespace
 

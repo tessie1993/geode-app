@@ -131,11 +131,13 @@ class PresetStore(
     fun save(
         preset: Preset,
         folder: String = "",
-    ) {
+    ): Boolean {
         ensureMigrated()
         val dest = File(folderDir(folder), safeFileName(preset.name) + ".json")
         val previous = findFile(preset.name)?.takeIf { it != dest }
-        if (AtomicWrite.text(dest, toJson(preset))) previous?.delete()
+        val written = AtomicWrite.text(dest, toJson(preset))
+        if (written) previous?.delete()
+        return written
     }
 
     @WorkerThread

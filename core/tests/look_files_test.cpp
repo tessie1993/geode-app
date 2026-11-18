@@ -299,6 +299,10 @@ void presetNames() {
     check(files::cleanPresetName("  Night \xc2\xb7 Rain ") == "Night - Rain", "the link separator is dropped");
     check(files::cleanPresetName(" \xc2\xb7 ") == "-", "a lone separator is a dash");
     check(files::cleanPresetName(" \t", "Untitled") == "Untitled", "a blank name takes the fallback");
+    check(files::cleanPresetName(std::string(500, 'a')).size() == files::kMaxPresetNameBytes, "a long name is capped");
+    std::string wide;
+    for (int i = 0; i < 60; ++i) wide += "\xc3\xa9";
+    check(files::cleanPresetName(wide).size() == files::kMaxPresetNameBytes, "a cap lands between code points");
     check(files::cleanFolderName(" Live\xe2\x80\x83") == "Live", "a folder name is trimmed");
 
     check(files::folderNameProblem(" ", std::nullopt, {"Live"}) == NameProblem::Blank, "a blank folder is refused");

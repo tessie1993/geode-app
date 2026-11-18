@@ -122,7 +122,10 @@ bool isBuiltInPreset(std::string_view name);
 // case of its upper case (Latin, Greek, Cyrillic, Armenian, full-width Latin; elsewhere exact).
 bool sameNameCaseless(std::string_view a, std::string_view b);
 
-// A name as the store keeps it: the separator as " - ", trimmed; `fallback` when nothing is left.
+// The most bytes a preset name keeps: it becomes a file name.
+inline constexpr size_t kMaxPresetNameBytes = 100;
+// A name as the store keeps it: the separator as " - ", trimmed, held to kMaxPresetNameBytes; `fallback` when
+// nothing is left.
 std::string cleanPresetName(std::string_view raw, std::string_view fallback = {});
 // A folder's name as the store keeps it: trimmed.
 std::string cleanFolderName(std::string_view raw);

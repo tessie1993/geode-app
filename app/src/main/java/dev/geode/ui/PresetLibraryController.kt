@@ -188,9 +188,11 @@ internal class PresetLibraryController(
         storeScope.launch {
             val oldJson = presets.fileOf(from)?.name
             milkSourceOf(renamed, from)?.let { presets.materializeMilk(name, it) }
-            presets.save(renamed, folder)
-            removeMirroredPreset(oldJson, milkFileFor(from).name)
-            presets.delete(from)
+            // The old file goes only once the new one is written: a failed write must not take the preset with it.
+            if (presets.save(renamed, folder)) {
+                removeMirroredPreset(oldJson, milkFileFor(from).name)
+                presets.delete(from)
+            }
             mirrorPresetToChosenFolder(name)
             relistPresets()
         }

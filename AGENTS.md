@@ -328,3 +328,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The window surface prefers an EGL config with no depth buffer (the 16-bit one is the fallback), and the composite into FBO 0 invalidates the surface's colour and depth first (`core/stage/android/EglWindow.cpp`, `core/viz/RendererFrame.cpp`).
 - 2026-11-18: `arborGrow` runs one map call, not a 6-pass loop, while the grow controls and Life rest (`shaders/lib_arbor_field.glsl`).
 - 2026-11-18: The analysis thread runs at nice -2 on Android, one step below the stage thread (`core/sound/hop/AnalysisThread.cpp`).
+- 2026-11-18: A style's followed Twist routes (the big moment's and the transient's in `buildStyleDna`) draw their direction from the style id and seed (`Builder::twistSign`, off the draw stream), where every one pushed the same way and wound the picture into the same S on every style; case `twistRoutesDrawTheirOwnDirection` in `core/tests/viz_math_test.cpp`, `core/viz/ReactionDna.cpp`.

@@ -330,3 +330,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `arborGrow` runs one map call, not a 6-pass loop, while the grow controls and Life rest (`shaders/lib_arbor_field.glsl`).
 - 2026-11-18: The analysis thread runs at nice -2 on Android, one step below the stage thread (`core/sound/hop/AnalysisThread.cpp`).
 - 2026-11-18: Customize's search match for hand-placed controls asks native (`customize::matches`, `geode_customize_matches`) instead of a Kotlin substring test (`ui/CustomizeTabs.kt`, `core/api/geode_customize_rows_api.cpp`).
+- 2026-11-18: Loop extend's copy decisions are native (`core/output/LoopExtend.*`, `geode_loop_*` in `core/api/geode_export_api.cpp`, `ExportNative.loop*`): which samples each repeat writes and at what time and flags, which soundtrack samples are due, the clip starts, the progress bar and the sample buffer size; `export/LoopExtend.kt` keeps the MediaExtractor reads and MediaMuxer writes; `core/tests/loop_extend_test.cpp`.

@@ -159,6 +159,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
     output/ExportFrame.cpp
+    output/LoopExtend.cpp
     output/LoopPlan.cpp
     output/LoopRender.cpp
     output/AacTranscode.cpp

@@ -167,6 +167,8 @@ private:
 
     // Accumulated in double so the per-frame steps stay exact near the top of the period.
     double driftAngle_ = 0.0;
+    double flowPhaseD_ = 0.0;  // the flow clocks as doubles; State holds the float uniforms
+    double flowTimeD_ = 0.0;
     // The drift rate of the last step() (rad/s, 0 before the first): apply()'s spin.
     float driftRate_ = 0.0f;
     // setVariant's picks: hue from pitch class (0), centroid (1), note random

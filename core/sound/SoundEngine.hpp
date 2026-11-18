@@ -160,8 +160,8 @@ private:
         std::array<RelativeLevel, kBands> band;
         std::array<float, 3> shaped{};
         std::array<float, 3> presence{};
-        std::array<float, 3> bandTime{};
-        float curvedTime = 0.0f;
+        std::array<double, 3> bandTime{};  // double: a float clock stalls at a slow rate late in a session
+        double curvedTime = 0.0;
         float drive = 0.0f;      // the eased magnitude of the music (SoundFrame.h)
         float rise = 0.0f;       // momentary loudness over the short-term one, eased
         float onsetRate = 0.0f;  // onsets per second over ~2 s

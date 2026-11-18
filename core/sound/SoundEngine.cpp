@@ -491,11 +491,11 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
         // Presence: the same band over ~3 s, deaf to single hits.
         s.presence[b] = follow(s.presence[b], att, 3.0f, dt);
         *presence[b] = clamp01(0.5f * s.presence[b]);
-        s.bandTime[b] = std::fmod(s.bandTime[b] + t.speed * dt * att, kTimeWrap);
-        *time[b] = s.bandTime[b];
+        s.bandTime[b] = std::fmod(s.bandTime[b] + t.speed * dt * att, static_cast<double>(kTimeWrap));
+        *time[b] = static_cast<float>(s.bandTime[b]);
     }
-    s.curvedTime = std::fmod(s.curvedTime + t.speed * dt * std::pow(out.volAtt, 2.5f), kTimeWrap);
-    out.curvedTime = s.curvedTime;
+    s.curvedTime = std::fmod(s.curvedTime + t.speed * dt * std::pow(out.volAtt, 2.5f), static_cast<double>(kTimeWrap));
+    out.curvedTime = static_cast<float>(s.curvedTime);
 
     // level: the whole mix's RMS in dBFS, -60 dB = 0 ... 0 dB = 1. Absolute: a pad at -30 dBFS reads 0.5
     // however long it plays, it is never stretched to fill 0..1 against its own peak.

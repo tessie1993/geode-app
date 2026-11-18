@@ -98,7 +98,7 @@ float Renderer::beginFrame(double timeSeconds) {
     // No sound, no movement: the picture's clock is the frame's step times the music's rate. A renderer
     // nothing feeds stays still.
     musicRate_ = soundHeard_ ? sound::motionRate(soundFrame_) : 0.0f;
-    timeSeconds_ = std::fmod(timeSeconds_ + dt * musicRate_, kTimeWrapSeconds);
+    timeSeconds_ = std::fmod(timeSeconds_ + dt * musicRate_, static_cast<double>(kTimeWrapSeconds));
     applyStyleSchedule(dt);
     std::vector<std::pair<std::string, std::string>> pending;
     {
@@ -287,7 +287,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     stepShapeGraph(p, dt, wallDt);
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
-    lifeClock_ = std::fmod(lifeClock_ + p.speed * dt, kTimeWrapSeconds);
+    lifeClock_ = std::fmod(lifeClock_ + p.speed * dt, static_cast<double>(kTimeWrapSeconds));
     return p;
 }
 
@@ -432,7 +432,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         deliverPcm(*layerScene_);
         layerScene_->update(trimmedSound(p), dt);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
-        layerScene_->draw(timeSeconds_);
+        layerScene_->draw(static_cast<float>(timeSeconds_));
     }
     if (outgoingScene_) {
         progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / switchTransitionMs_), 0.0f, 1.0f);
@@ -446,7 +446,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             deliverPcm(*outgoingScene_);
             outgoingScene_->update(trimmedSound(op), dt);
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
-            outgoingScene_->draw(timeSeconds_);
+            outgoingScene_->draw(static_cast<float>(timeSeconds_));
         }
     }
     return progress;
@@ -475,7 +475,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
     if (keep > 0.0f && !sceneJustSwitched_) {
-        trailPass_.apply(p, keep, timeSeconds_, dt, fboA_, quadVao_.get(), renderWidth_, renderHeight_);
+        trailPass_.apply(p, keep, static_cast<float>(timeSeconds_), dt, fboA_, quadVao_.get(), renderWidth_, renderHeight_);
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
@@ -484,7 +484,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     scene.update(trimmedSound(p), dt);
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
-    scene.draw(timeSeconds_);
+    scene.draw(static_cast<float>(timeSeconds_));
 }
 
 void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex) {
@@ -511,10 +511,10 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.transitionId = transitionId;
     in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(transitionId).value_or(TransitionStyle::Fade));
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
-    in.timeSeconds = timeSeconds_;
+    in.timeSeconds = static_cast<float>(timeSeconds_);
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = postRotationAngle_;
-    in.postBirths = births::compute(lifeClock_, fx.life);
+    in.postBirths = births::compute(static_cast<float>(lifeClock_), fx.life);
     in.quadVao = quadVao_.get();
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
@@ -763,7 +763,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
         scene.setParams(bornParams_);
         {
             const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
-            scene.draw(timeSeconds_);
+            scene.draw(static_cast<float>(timeSeconds_));
         }
         scene.setParams(p);
         return bornFbo_.tex();
@@ -791,7 +791,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     deliverPcm(*next);
     next->update(trimmedSound(p), dt);
     const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
-    next->draw(timeSeconds_);
+    next->draw(static_cast<float>(timeSeconds_));
     return bornFbo_.tex();
 }
 
@@ -818,7 +818,7 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     f.sharpen = kLiquidSharpen;
     f.bornGain = 0.0f;
     f.feedback = true;
-    f.time = timeSeconds_;
+    f.time = static_cast<float>(timeSeconds_);
     f.quadVao = quadVao_.get();
     return liquidPass_.run(f);
 }
@@ -865,7 +865,7 @@ GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuin
     f.dt = dt;
     f.wallDt = wallDt;
     f.live = !offscreen_.load(std::memory_order_relaxed);
-    f.time = timeSeconds_;
+    f.time = static_cast<float>(timeSeconds_);
     f.zeroTex = compositePass_.zeroTex();
     f.quadVao = quadVao_.get();
     f.blocking = blockingBuilds_.load(std::memory_order_relaxed);
@@ -911,7 +911,7 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.feedback = plan.feedback;
     f.shimmer = std::clamp(soundFrame_.high, 0.0f, 1.0f) * 0.8f;
     f.light = std::clamp(soundFrame_.level, 0.0f, 1.0f);
-    f.time = timeSeconds_;
+    f.time = static_cast<float>(timeSeconds_);
     f.quadVao = quadVao_.get();
     return liquidPass_.run(f);
 }

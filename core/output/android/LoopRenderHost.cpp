@@ -1,6 +1,5 @@
 #include "output/android/LoopRenderHost.hpp"
 
-#include <EGL/egl.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -11,17 +10,12 @@
 
 #include "api/geode_export_job_api.h"
 #include "api/geode_modulation_api.h"
+#include "output/android/EncoderGl.hpp"
 #include "output/android/MediaCodecSink.hpp"
 
 namespace geode::output::looprender {
 
 namespace {
-
-// EGL_KHR_create_context, EGL_ANDROID_recordable and EGL_ANDROID_presentation_time, named here so the file
-// needs no eglext.h (viz/frame/RecordTap.cpp does the same).
-constexpr EGLint kOpenGlEs3Bit = 0x0040;
-constexpr EGLint kRecordableAndroid = 0x3142;
-using PresentationTimeFn = EGLBoolean (*)(EGLDisplay, EGLSurface, int64_t);
 
 // How many names a stop's scratch file is tried under before the cache is called unwritable.
 constexpr int kNameTries = 16;
@@ -61,31 +55,7 @@ public:
     void idleWait() override { std::this_thread::sleep_for(std::chrono::microseconds(kIdleWaitUs)); }
 
     // An ES 3 context on a recordable RGBA8888 config, current on the encoder's window.
-    const char* openSurface(void* window) override {
-        display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        if (display_ == EGL_NO_DISPLAY) return "No EGL display";
-        if (!eglInitialize(display_, nullptr, nullptr)) return "eglInitialize failed";
-        const EGLint want[] = {
-            EGL_RED_SIZE, 8,
-            EGL_GREEN_SIZE, 8,
-            EGL_BLUE_SIZE, 8,
-            EGL_ALPHA_SIZE, 8,
-            EGL_RENDERABLE_TYPE, kOpenGlEs3Bit,
-            kRecordableAndroid, 1,
-            EGL_NONE,
-        };
-        EGLConfig config{};
-        EGLint count = 0;
-        if (!eglChooseConfig(display_, want, &config, 1, &count) || count < 1) return "No EGL config";
-        const EGLint version[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
-        context_ = eglCreateContext(display_, config, EGL_NO_CONTEXT, version);
-        if (context_ == EGL_NO_CONTEXT) return "eglCreateContext failed";
-        const EGLint none[] = {EGL_NONE};
-        surface_ = eglCreateWindowSurface(display_, config, reinterpret_cast<EGLNativeWindowType>(window), none);
-        if (surface_ == EGL_NO_SURFACE) return "eglCreateWindowSurface failed";
-        if (!eglMakeCurrent(display_, surface_, surface_, context_)) return "eglMakeCurrent failed";
-        return nullptr;
-    }
+    const char* openSurface(void* window) override { return gl_.open(window); }
 
     int allocateSeam(int requested, std::string* error) override {
         seam_ = geode_export_seam_create(setup_.assets, setup_.width, setup_.height);
@@ -141,10 +111,7 @@ public:
 
     const char* present(int64_t ptsNs) override {
         if (mark_) geode_export_watermark_draw(mark_, setup_.width, setup_.height, 0);
-        static const auto presentationTime =
-            reinterpret_cast<PresentationTimeFn>(eglGetProcAddress("eglPresentationTimeANDROID"));
-        if (presentationTime) presentationTime(display_, surface_, ptsNs);
-        return eglSwapBuffers(display_, surface_) ? nullptr : "eglSwapBuffers failed";
+        return gl_.present(ptsNs) ? nullptr : "eglSwapBuffers failed";
     }
 
     // Each of these deletes GL names, so all of it runs while the context is still current.
@@ -159,18 +126,7 @@ public:
         seam_ = nullptr;
     }
 
-    // The display stays initialized: the process's other surfaces share it.
-    void closeSurface() override {
-        if (display_ != EGL_NO_DISPLAY) {
-            eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-            if (surface_ != EGL_NO_SURFACE) eglDestroySurface(display_, surface_);
-            if (context_ != EGL_NO_CONTEXT) eglDestroyContext(display_, context_);
-            eglReleaseThread();
-        }
-        surface_ = EGL_NO_SURFACE;
-        context_ = EGL_NO_CONTEXT;
-        display_ = EGL_NO_DISPLAY;
-    }
+    void closeSurface() override { gl_.close(); }
 
 private:
     // The look in the order the live renderer takes it, with the stop's drift on the params frame.
@@ -204,9 +160,7 @@ private:
 
     const Setup& setup_;
     std::string error_;
-    EGLDisplay display_ = EGL_NO_DISPLAY;
-    EGLSurface surface_ = EGL_NO_SURFACE;
-    EGLContext context_ = EGL_NO_CONTEXT;
+    EncoderGl gl_;
     geode_viz* viz_ = nullptr;
     geode_export_job* job_ = nullptr;
     geode_export_pass* seam_ = nullptr;

@@ -88,6 +88,7 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 }
 
 void Renderer::beginParamMorph(float seconds) {
+    seconds = clampPresetMorphSec(seconds);
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
     morphRequested_ = true;

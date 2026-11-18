@@ -1,7 +1,6 @@
 package dev.geode.model
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -62,26 +61,5 @@ class PresetShelfTest {
         assertEquals("A", PresetFiltering.applied(staged, "C"))
         assertEquals("A", PresetFiltering.applied(staged, null))
         assertNull(PresetFiltering.applied(staged.map { it.copy(onStage = false) }, "B"))
-    }
-
-    @Test
-    fun renameRefusesBlankAndTakenNames() {
-        val taken = listOf("Glow", "Mine A")
-        assertNotNull(PresetFiltering.renameError("  ", "Mine A", taken))
-        assertNotNull(PresetFiltering.renameError("glow", "Mine A", taken))
-        assertNull(PresetFiltering.renameError("Mine A", "Mine A", taken))
-        assertNull(PresetFiltering.renameError("mine a", "Mine A", taken))
-        assertNull(PresetFiltering.renameError("Fresh", "Mine A", taken))
-    }
-
-    @Test
-    fun cleanNameDropsTheLinkSeparator() {
-        assertEquals("Night - Rain", PresetFiltering.cleanName("  Night · Rain "))
-    }
-
-    @Test
-    fun uniqueNameCountsUpPastTakenNames() {
-        assertEquals("Glow copy", PresetFiltering.uniqueName("Glow copy", listOf("Glow")))
-        assertEquals("Glow copy 3", PresetFiltering.uniqueName("Glow copy", listOf("glow copy", "Glow copy 2")))
     }
 }

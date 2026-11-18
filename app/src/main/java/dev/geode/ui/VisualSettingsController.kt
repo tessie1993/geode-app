@@ -131,7 +131,7 @@ internal class VisualSettingsController(
     }
 
     fun setTransitionDuration(seconds: Float) {
-        state.update { it.copy(transitionDurationSec = seconds.coerceIn(0.3f, 5f)) }
+        state.update { it.copy(transitionDurationSec = seconds) }
         vizStateStore.persist()
     }
 

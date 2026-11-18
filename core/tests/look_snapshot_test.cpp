@@ -4,7 +4,8 @@
 // What is pinned: the first look is every part, and so is the first on a new latch (a renderer made again);
 // the same look again is nothing, even as new copies of equal params and tuning; each part is told apart, the
 // user's empty routes from the style's own; the latch keeps the look last taken; the defaults a renderer starts
-// on are the ones the shell reads.
+// on are the ones the shell reads; the transition length and the preset morph are held to what the user may set.
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -69,7 +70,19 @@ void defaults() {
     const LookSnapshot first;
     check(first.sceneId == kFirstSceneId && first.transitionId == kFirstTransitionId && first.transitionMs == kFirstTransitionMs,
           "an unset look is the renderer's first one");
-    check(lookDefaultsText() == "neon_chrome_sea\nfade\n1200\n", "the shell reads scene, transition and length, a line each");
+    check(lookDefaultsText() == "neon_chrome_sea\nfade\n1200\n0.6\n0.12\n20\n30\n8\n",
+          "the shell reads scene, transition, length, rise, fall, both timers and the morph's top, a line each");
+}
+
+void clamps() {
+    check(clampTransitionMs(kFirstTransitionMs) == kFirstTransitionMs, "the first length is a length the user may set");
+    check(clampTransitionMs(0) == kTransitionMsMin && clampTransitionMs(-5) == kTransitionMsMin, "too short is the shortest");
+    check(clampTransitionMs(60000) == kTransitionMsMax, "too long is the longest");
+    check(clampTransitionMs(2750) == 2750, "a length in range is kept");
+    check(clampPresetMorphSec(2.5f) == 2.5f, "a glide in range is kept");
+    check(clampPresetMorphSec(40.0f) == kPresetMorphSecMax, "too long a glide is the longest");
+    check(clampPresetMorphSec(0.0f) == 0.0f && clampPresetMorphSec(-1.0f) == 0.0f, "none or less is none");
+    check(clampPresetMorphSec(std::nanf("")) == 0.0f, "NaN is none");
 }
 
 }  // namespace
@@ -77,6 +90,7 @@ void defaults() {
 int main() {
     parts();
     defaults();
+    clamps();
     if (failures) {
         std::fprintf(stderr, "%d look snapshot check(s) failed\n", failures);
         return 1;

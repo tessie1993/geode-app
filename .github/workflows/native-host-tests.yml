@@ -30,9 +30,17 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # The glTF import test builds against the cgltf and meshoptimizer submodules.
-          submodules: recursive
+
+      # Only the submodules a host test compiles: KISS FFT under core/sound, and cgltf,
+      # meshoptimizer and basis_universal for the glTF import test.
+      - name: Check out the submodules the tests use
+        run: |
+          git submodule update --init --depth 1 third_party/kissfft third_party/cgltf \
+            third_party/meshoptimizer third_party/basis_universal
+
+      # tools/hostcc/g++ compiles each source once per flag set, in parallel, for every line below.
+      - name: Put the caching g++ first on PATH
+        run: echo "$GITHUB_WORKSPACE/tools/hostcc" >> "$GITHUB_PATH"
 
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}
@@ -54,8 +62,9 @@ jobs:
           # A Customize slider's range (core/viz/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/control_range_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o control_range_test
           ./control_range_test
-          # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_gesture_test.cpp -o touch_gesture_test
+          # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir,
+          # the gesture reader (tap, double tap, swipe, swirl, hold, pair kind, the strips), the gesture map and the keys.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_gesture_test.cpp core/api/geode_gesture_api.cpp -o touch_gesture_test
           ./touch_gesture_test
           # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_smear_test
@@ -152,6 +161,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/mic_input_test.cpp core/audio/ingest/MicInput.cpp \
             core/audio/ingest/CapturePlan.cpp core/audio/ingest/PcmRing.cpp -o mic_input_test
           ./mic_input_test
+          # Another app's audio and the output mix (CapturePump) over a fake reader: blocks written as read on the pump's
+          # own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/capture_pump_test.cpp \
+            core/audio/ingest/CapturePump.cpp -o capture_pump_test
+          ./capture_pump_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
@@ -584,6 +598,17 @@ jobs:
             core/tests/loop_render_test.cpp core/output/LoopRender.cpp core/output/LoopPlan.cpp \
             core/output/EncodePlan.cpp -o loop_render_test
           ./loop_render_test
+
+      # The video export job (core/output/VideoExport) on a fake host, encoder and muxer: the bit rate cap, the
+      # encoder it settles on, the frame count and timestamps, the audio interleaved by timestamp, the progress,
+      # what a cancel and each failure leave behind, and the teardown order.
+      - name: Video export host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub \
+            core/tests/video_export_test.cpp core/output/VideoExport.cpp core/output/FrameClock.cpp \
+            core/output/EncodePlan.cpp core/audio/dsp/PcmTiming.cpp -o video_export_test
+          ./video_export_test
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests

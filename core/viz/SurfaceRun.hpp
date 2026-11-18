@@ -116,6 +116,19 @@ inline int64_t settleMs(RunMode previous, RunMode now) {
     return now == RunMode::Still && previous != RunMode::Still ? kStillSettleMs : 0;
 }
 
+// What counts as covered, the kCovered bit. The wallpaper: Android 11+ zooms it out behind the shade, recents and
+// some app drawers (0 none, 1 fully out), and past kCoverZoom nobody watches it through the blur. The dream: the
+// proximity sensor reads near, under kNearCm or under the sensor's range, whichever is smaller (a binary sensor
+// reports 0 or its range, a continuous one centimetres).
+inline constexpr float kCoverZoom = 0.9f;
+inline constexpr float kNearCm = 3.0f;
+
+inline bool zoomCovers(float zoom) { return zoom >= kCoverZoom; }
+
+inline bool proximityNear(float distanceCm, float maximumRange) {
+    return distanceCm < (maximumRange < kNearCm ? maximumRange : kNearCm);
+}
+
 // The frame rates a surface may be set to. Whole divides of 60 and 120 Hz panels, so the pacer's
 // whole-number divide (frame::Pacer) lands on them exactly; on a 90 Hz panel 30 and 15 divide too.
 // A rate the pacer cannot reach evenly would be a setting that silently means something else.

@@ -1,11 +1,8 @@
 name: Ship BeatRealms 3D APK
 
-# Builds the optimised, debug-signed APK (the `sideload` build type in
-# app/build.gradle.kts: release's R8 and resource shrinking, not debuggable) and
-# publishes it as a GitHub Release, so it can be downloaded and sideloaded
-# without a GitHub login and without the 30-day expiry that applies to the
-# workflow artifacts in android.yml. The debug build is far slower and is not
-# what the app's speed should be judged by (#1214).
+# Builds the debug-signed APK and publishes it as a GitHub Release, so it can be
+# downloaded and sideloaded without a GitHub login and without the 30-day expiry
+# that applies to the workflow artifacts in android.yml.
 #
 # It runs at the end of every green android.yml run on a push (its "Ship
 # pre-release" job calls this workflow), so a pre-release only ever ships a
@@ -62,9 +59,7 @@ concurrency:
 
 env:
   PROJECT_DIR: .
-  APK_SOURCE: app/build/outputs/apk/sideload/app-sideload.apk
-  MAPPING_SOURCE: app/build/outputs/mapping/sideload/mapping.txt
-  SYMBOLS_SOURCE: app/build/outputs/native-debug-symbols/sideload/native-debug-symbols.zip
+  APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
 
 jobs:
   # A push to main publishes only if the native host tests pass; a run called from
@@ -117,6 +112,27 @@ jobs:
             "ndk;28.0.13004108" \
             "cmake;3.22.1"
 
+      # The native build (two ABIs, the third_party libraries) through ccache: CMake reads the
+      # launcher from the environment, and the cache carries over from the last run on main.
+      - name: Set up ccache for the native build
+        shell: bash
+        run: |
+          command -v ccache >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ccache; }
+          {
+            echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
+            echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CCACHE_MAXSIZE=600M"
+            echo "CCACHE_NOHASHDIR=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore the ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-ship-${{ github.run_id }}
+          restore-keys: ccache-ship-
+
       - name: Make Gradle wrapper executable
         working-directory: ${{ env.PROJECT_DIR }}
         run: chmod +x gradlew
@@ -143,9 +159,13 @@ jobs:
           echo "Release number $N (version $BASE.$N)"
           { echo "n=$N"; echo "base=$BASE"; } >> "$GITHUB_OUTPUT"
 
-      - name: Assemble optimised APK
+      - name: Assemble debug APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:assembleSideload -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+        run: ./gradlew :app:assembleDebug -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+
+      - name: ccache statistics
+        if: always()
+        run: ccache -s || true
 
       - name: Package APK and checksum
         id: package
@@ -163,31 +183,15 @@ jobs:
             echo "::error::APK versionName is '$VERSION_NAME', expected '$EXPECTED'"
             exit 1
           fi
-          # This is the build the app's speed is judged by: refuse a debuggable or
-          # unminified APK instead of shipping a slow one under this name.
-          if grep -q '^application-debuggable' <<< "$BADGING"; then
-            echo "::error::$APK_SOURCE is debuggable; the shipped APK must be the optimised build"
-            exit 1
-          fi
-          test -s "$MAPPING_SOURCE" || { echo "::error::No R8 mapping at $MAPPING_SOURCE: the APK was not minified"; exit 1; }
           # The checkout may be a different ref than the one that triggered the
           # run, so tag the commit actually built.
           BUILT_SHA=$(git rev-parse HEAD)
           SHORT_SHA=${BUILT_SHA::7}
-          FILE_NAME="BeatRealms3D-${VERSION_NAME}.apk"
+          FILE_NAME="BeatRealms3D-${VERSION_NAME}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"
           ( cd dist && sha256sum "$FILE_NAME" > "$FILE_NAME.sha256" )
-          # What turns a crash from this build back into names: R8's mapping for a Kotlin
-          # stack, the symbol tables of libgeode.so and libprojectM-4.so for a native one.
-          # They go on the release, since a workflow artifact would expire before the APK does.
-          cp "$MAPPING_SOURCE" "dist/BeatRealms3D-${VERSION_NAME}-mapping.txt"
-          if [ -f "$SYMBOLS_SOURCE" ]; then
-            cp "$SYMBOLS_SOURCE" "dist/BeatRealms3D-${VERSION_NAME}-native-symbols.zip"
-          else
-            echo "::warning::No native symbols at $SYMBOLS_SOURCE; a native crash in this build stays unsymbolicated."
-          fi
 
           {
             echo "file_name=$FILE_NAME"
@@ -215,8 +219,7 @@ jobs:
         run: |
           set -euo pipefail
           NOTES=$(cat <<EOF
-          Optimised BeatRealms 3D APK (R8, not debuggable), signed with Android's
-          debug key and built by GitHub Actions.
+          Debug-signed BeatRealms 3D APK built by GitHub Actions.
 
           | | |
           | --- | --- |
@@ -229,13 +232,10 @@ jobs:
           asks for permission to install from the browser or file manager used.
           Verify the download with \`sha256sum -c $FILE_NAME.sha256\`.
 
-          Its application id is \`com.beatrealms3d.app.debug\`, so it installs
-          beside a Play copy and over an earlier pre-release. Play does not know
-          that id, so BeatRealms Pro is unlocked from the paywall's test panel, not bought.
-
-          To read a crash from this build: \`BeatRealms3D-$VERSION_NAME-mapping.txt\`
-          is its R8 mapping, and \`BeatRealms3D-$VERSION_NAME-native-symbols.zip\`
-          holds the native symbol tables.
+          This build is signed with Android's debug key while sharing the
+          Play build's application id, so the two cannot be installed at the
+          same time: Android refuses the install over a Play copy, and you have
+          to uninstall one to try the other.
           EOF
           )
 
@@ -246,15 +246,16 @@ jobs:
 
           # The tag already exists (reserved above). Re-running the workflow on
           # the same commit refreshes the assets of its release instead.
-          # dist/ holds the APK, its checksum, the R8 mapping and the native symbols.
-          # A new release starts as a draft and is published only once all
+          # A new release starts as a draft and is published only once both
           # assets are up: a newer push can cancel this run mid-upload (android.yml
           # cancels superseded runs), and a cancelled draft is deleted below
           # instead of staying public without its APK.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/* --clobber
+            gh release upload "$TAG" \
+              "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" --clobber
           else
-            gh release create "$TAG" dist/* \
+            gh release create "$TAG" \
+              "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
               --draft \
               --target "$BUILT_SHA" \
               --title "BeatRealms 3D $VERSION_NAME" \

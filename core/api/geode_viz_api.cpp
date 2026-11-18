@@ -815,7 +815,7 @@ void geode_viz_set_look(geode_viz* v, const geode_viz_look* look) {
         next.reactions = text(look->reactions);
         next.reducedMotion = look->reduced_motion != 0;
         next.transitionId = text(look->transition_id);
-        next.transitionMs = look->transition_ms;
+        next.transitionMs = clampTransitionMs(look->transition_ms);
         std::lock_guard<std::mutex> one(v->lookLock);
         const uint32_t parts = v->shellLook.take(std::move(next));
         const LookSnapshot& l = v->shellLook.look();

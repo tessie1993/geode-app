@@ -84,6 +84,8 @@ uniform float uPostKaleido;
 uniform float uPostPixelate;
 uniform float uPostTile;
 uniform float uPostTwist;
+uniform vec2 uPostTwistCentre;
+uniform float uPostTwistBend;
 uniform float uPostMirror;
 uniform float uPostBloom;
 uniform float uPostPosterize;
@@ -231,8 +233,11 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
         c = vec2(cos(ang), sin(ang)) * rad;
     }
     if (geoOn && abs(uPostTwist) > 0.001) {
-        float tr = length(c) * uPostTwist * 2.0;
-        c = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * c;
+        vec2 tc = c - uPostTwistCentre;
+        float tl = length(tc);
+        if (uPostTwistBend != 0.0) tl = pow(max(tl, 1e-5), 1.0 + uPostTwistBend);
+        float tr = tl * uPostTwist * 2.0;
+        c = uPostTwistCentre + mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * tc;
     }
     if (geoOn && uPostWarp > 0.001) {
         c += uPostWarp * 0.06 * vec2(sin(c.y * 8.0 + uTime), cos(c.x * 8.0 + uTime * 1.2));

@@ -26,6 +26,7 @@
 #include "viz/Reactions.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SpeedClock.hpp"
+#include "viz/TwistShape.hpp"
 
 using namespace geode::viz;
 
@@ -983,6 +984,41 @@ void twistRoutesDrawTheirOwnDirection() {
     }
     check(turned > 30, "styles draw followed twist routes");
     check(positive * 10 >= turned * 3 && negative * 10 >= turned * 3, "followed twists wind both ways, none of one hand only");
+}
+
+// The owner: the same S bend shows across many styles. Where the twist turns from and how it falls off are each
+// style's own: off the middle, different from style to style, wandering slowly, and bounded.
+void twistShapeIsEachStylesOwn() {
+    std::set<int> centres;
+    std::set<int> bends;
+    bool bounded = true;
+    bool slow = true;
+    bool moves = false;
+    int centred = 0;
+    int ids = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        ++ids;
+        const std::uint32_t seed = styleVariantSeed(id);
+        const TwistShape a = twistShape(seed, 10.0f);
+        const TwistShape again = twistShape(seed, 10.0f);
+        const TwistShape later = twistShape(seed, 11.0f);
+        const TwistShape far = twistShape(seed, 70.0f);
+        if (a.x != again.x || a.y != again.y || a.bend != again.bend) bounded = false;
+        if (std::hypot(a.x, a.y) > 0.65f || a.bend < -0.35f || a.bend > 0.6f) bounded = false;
+        if (std::hypot(later.x - a.x, later.y - a.y) > 0.01f) slow = false;
+        if (std::hypot(far.x - a.x, far.y - a.y) > 0.005f) moves = true;
+        if (std::hypot(a.x, a.y) < 0.05f) ++centred;
+        centres.insert(static_cast<int>(std::lround(a.x * 20.0f)) * 100 + static_cast<int>(std::lround(a.y * 20.0f)));
+        bends.insert(static_cast<int>(std::lround(a.bend * 10.0f)));
+    }
+    check(bounded, "a style's twist shape is deterministic and bounded");
+    check(slow, "a twist centre drifts slowly (under 0.01 a second)");
+    check(moves, "a twist centre wanders over a minute");
+    check(centred * 10 <= ids, "few styles twist about the middle");
+    check(static_cast<int>(centres.size()) * 3 >= ids, "styles twist about many different centres");
+    check(bends.size() >= 5, "styles fall off at many different rates");
+    const TwistShape plain;
+    check(plain.x == 0.0f && plain.y == 0.0f && plain.bend == 0.0f, "an unset shape is the plain centred twist");
 }
 
 // A zoom personality (Pulse, Lens) zooms on the beat it hears, by a fixed amount, beside its push or bulge.
@@ -2760,6 +2796,7 @@ int main() {
     stylesGetDifferentPersonalities();
     zoomPersonalitiesZoomOnTheBeat();
     twistRoutesDrawTheirOwnDirection();
+    twistShapeIsEachStylesOwn();
     kickAndSnareSidesAnswerDifferently();
     everyStyleAnswersTheDrums();
     dnaSourcesVaryAcrossStyles();

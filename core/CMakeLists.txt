@@ -14,6 +14,7 @@ add_library(geode_core STATIC
     viz/ParamsPalette.cpp
     api/geode_looks_api.cpp
     viz/LookFiles.cpp
+    viz/TemplateFile.cpp
     api/geode_param_text_api.cpp
     api/geode_slider_api.cpp
     api/geode_colour_api.cpp
@@ -47,6 +48,7 @@ add_library(geode_core STATIC
     stage/StageLifecycle.cpp
     stage/StagePacing.cpp
     api/geode_auto_api.cpp
+    api/geode_param_history_api.cpp
     api/geode_stage_step_api.cpp
     api/geode_style_pick_api.cpp
     api/geode_playout_api.cpp
@@ -112,6 +114,7 @@ add_library(geode_core STATIC
     output/ExportFrame.cpp
     output/LoopPlan.cpp
     output/LoopRender.cpp
+    output/AacTranscode.cpp
     output/VideoExport.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp

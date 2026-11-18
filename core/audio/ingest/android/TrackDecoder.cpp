@@ -44,7 +44,10 @@ public:
     bool open(const TrackSpan& span, int64_t startMs) {
         if (!extractor_) return false;
         const ExtractorSpan bytes = extractorSpan(span);
-        if (AMediaExtractor_setDataSourceFd(extractor_, fd_, bytes.offset, bytes.length) != AMEDIA_OK) return false;
+        if (AMediaExtractor_setDataSourceFd(extractor_, fd_, bytes.offset, bytes.length) != AMEDIA_OK) {
+            unreadable_ = true;
+            return false;
+        }
         const size_t tracks = AMediaExtractor_getTrackCount(extractor_);
         for (size_t i = 0; i < tracks; ++i) {
             Format format(AMediaExtractor_getTrackFormat(extractor_, i));
@@ -53,6 +56,12 @@ public:
                 continue;
             }
             if (AMediaExtractor_selectTrack(extractor_, i) != AMEDIA_OK) return false;
+            int64_t durationUs = 0;
+            int32_t rate = 0;
+            int32_t channels = 0;
+            if (AMediaFormat_getInt64(format.get(), AMEDIAFORMAT_KEY_DURATION, &durationUs)) declared_.durationUs = durationUs;
+            if (AMediaFormat_getInt32(format.get(), AMEDIAFORMAT_KEY_SAMPLE_RATE, &rate)) declared_.sampleRate = rate;
+            if (AMediaFormat_getInt32(format.get(), AMEDIAFORMAT_KEY_CHANNEL_COUNT, &channels)) declared_.channels = channels;
             const int64_t seekUs = decodeSeekUs(startMs);
             if (seekUs >= 0) AMediaExtractor_seekTo(extractor_, seekUs, AMEDIAEXTRACTOR_SEEK_PREVIOUS_SYNC);
             codec_ = AMediaCodec_createDecoderByType(mime);
@@ -118,6 +127,11 @@ public:
 
     void releaseOutput() override { AMediaCodec_releaseOutputBuffer(codec_, held_, false); }
 
+    DeclaredTrack declared() const override { return declared_; }
+
+    // The extractor could not read the bytes at all, as against reading them and finding no audio it decodes.
+    bool unreadable() const { return unreadable_; }
+
 private:
     // The output's sample layout, read once and again after each format change rather than per buffer: each
     // read allocates a format.
@@ -146,17 +160,30 @@ private:
     bool isFloat_ = false;
     int channels_ = 0;
     int sampleRate_ = 0;
+    DeclaredTrack declared_;
+    bool unreadable_ = false;
 };
 
 }  // namespace
 
-std::unique_ptr<DecodePort> openPlatformDecoder(const TrackSpan& span, int64_t startMs) {
+std::unique_ptr<DecodePort> openPlatformDecoderReporting(const TrackSpan& span, int64_t startMs, bool* unreadable) {
+    if (unreadable) *unreadable = false;
     // Its own descriptor, closed with the port, whether or not the extractor keeps one of its own.
     const int fd = ::dup(span.fd);
-    if (fd < 0) return nullptr;
+    if (fd < 0) {
+        if (unreadable) *unreadable = true;
+        return nullptr;
+    }
     auto port = std::make_unique<MediaDecodePort>(fd);
-    if (!port->open(span, startMs)) return nullptr;
+    if (!port->open(span, startMs)) {
+        if (unreadable) *unreadable = port->unreadable();
+        return nullptr;
+    }
     return port;
+}
+
+std::unique_ptr<DecodePort> openPlatformDecoder(const TrackSpan& span, int64_t startMs) {
+    return openPlatformDecoderReporting(span, startMs, nullptr);
 }
 
 }  // namespace geode::audio::ingest

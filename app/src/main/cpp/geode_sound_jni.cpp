@@ -204,11 +204,6 @@ Java_dev_geode_engine_bridge_GeodeNative_autoTimerRestart(JNIEnv*, jobject, jint
     geode_auto_timer_restart(timer, nowMs);
 }
 
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoTimerDue(JNIEnv*, jobject, jint timer, jlong nowMs, jint intervalSec, jboolean running) {
-    return geode_auto_timer_due(timer, nowMs, intervalSec, running == JNI_TRUE ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_autoMarkChange(JNIEnv* env, jobject, jstring key) {
     if (!key) return;

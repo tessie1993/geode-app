@@ -265,6 +265,12 @@ jobs:
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
+          # Auto visuals' decisions: the playlist's steps and holds, the timed draw, a director moment the user's or Auto's, the draw's pool and the interval's range.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_plan_test.cpp core/api/geode_auto_api.cpp -o auto_plan_test
+          ./auto_plan_test
+          # Customize's undo: a drag folds into one entry, a discrete write is its own, 64 deep, the palette id travels; the dice's #PRO lock and when the waves roll.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_history_test.cpp core/api/geode_param_history_api.cpp -o param_history_test
+          ./param_history_test
           # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp -o stage_step_test
           ./stage_step_test
@@ -629,6 +635,12 @@ jobs:
             core/viz/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp \
             core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o look_files_test
           ./look_files_test app/src/test/resources/presets
+          # The template file: read, defaults, carried keys, write, refusals, and its C ABI (core/viz/TemplateFile).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/template_file_test.cpp core/viz/TemplateFile.cpp \
+            core/api/geode_looks_api.cpp core/viz/LookFiles.cpp core/viz/ParamsPalette.cpp core/viz/ParamsJson.cpp core/viz/Sha256.cpp \
+            core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o template_file_test
+          ./template_file_test
           # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
           ./param_text_test
@@ -792,3 +804,9 @@ jobs:
             core/output/LoudnessScan.cpp core/output/LoudnessAdvice.cpp core/audio/dsp/Loudness.cpp \
             core/audio/dsp/PcmConvert.cpp -o loudness_scan_test
           ./loudness_scan_test
+          # An export's soundtrack to AAC (core/output/AacTranscode on a fake decoder, encoder and file): the AIFF and
+          # decoder paths, the start skip and trim, the range's end, the fold, float input, the resample, each failure.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/aac_transcode_test.cpp \
+            core/output/AacTranscode.cpp core/audio/ingest/AiffReader.cpp core/audio/dsp/PcmResampler.cpp \
+            core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp -o aac_transcode_test
+          ./aac_transcode_test

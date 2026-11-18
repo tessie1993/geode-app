@@ -163,22 +163,6 @@ Java_dev_geode_engine_bridge_GeodeNative_modRecipeState(JNIEnv* env, jobject, ji
     return static_cast<jint>(geode_mod_recipe_state(recipe, id.get(), seed, saved.get(), static_cast<unsigned>(mask)));
 }
 
-// Null when the roll changed nothing.
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_modWavesRandomize(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
-                                                           jboolean runningOnly, jfloatArray params, jstring lfos) {
-    if (!params || env->GetArrayLength(params) < geode_viz_param_count()) return nullptr;
-    Utf8Chars style(env, styleId);
-    Utf8Chars lockedKeys(env, locked);
-    Utf8Chars saved(env, lfos);
-    std::vector<float> look(static_cast<size_t>(geode_viz_param_count()));
-    env->GetFloatArrayRegion(params, 0, static_cast<jsize>(look.size()), look.data());
-    return textOf(env, true, [&](char* out, int capacity) {
-        return geode_mod_waves_randomize(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), runningOnly ? 1 : 0,
-                                         look.data(), saved.get(), out, capacity);
-    });
-}
-
 // -1: the saved routes no longer read and are to be dropped.
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_modHandLoad(JNIEnv* env, jobject, jstring reactions, jboolean hasMask, jint savedMask) {

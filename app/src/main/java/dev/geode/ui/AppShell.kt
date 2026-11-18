@@ -245,6 +245,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
         value = withContext(Dispatchers.IO) { BootAnimationStore(context.geodeContainer.prefsFiles.general).load() }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val external by viewModel.externalAudio.collectAsStateWithLifecycle()
+    val playing = external.driven?.playing ?: state.isPlaying
     // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     // A connected display shows the visual alone while the switch is on and Cast's entitlement allows it.
@@ -315,7 +317,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 title = state.title,
                 artist = state.artist,
                 artworkUri = viewModel.currentTrackUri(),
-                isPlaying = state.isPlaying,
+                isPlaying = playing,
                 positionMs = { position.value },
                 durationMs = state.durationMs,
                 onSeek = viewModel::seekTo,
@@ -331,7 +333,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
         val dockedPlayer: @Composable (Modifier) -> Unit = { modifier ->
             DockedMiniPlayer(
                 title = state.title,
-                isPlaying = state.isPlaying,
+                isPlaying = playing,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },

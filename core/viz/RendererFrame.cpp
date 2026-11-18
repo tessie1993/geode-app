@@ -412,8 +412,17 @@ void Renderer::bindSecondaryTarget() {
 
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
+    // At mix 0 the composite shows the base alone (its mix() weighs the layer by exactly 0), so a shader layer
+    // there steps but does not draw. A shader style is a function of its clock, so its next frame at a mix above
+    // 0 is whole; a simulation draws on, or it would freeze while hidden.
+    const bool unseen = layerScene_ && layerScene_->family() == SceneFamily::Shader &&
+                        safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_)) <= 0.0f;
     if (layerScene_ && holds(*layerScene_, heldLayer_)) {
         // fboL_ keeps the layer's last frame.
+    } else if (unseen) {
+        layerScene_->setParams(p);
+        deliverPcm(*layerScene_);
+        layerScene_->update(trimmedSound(p), dt);
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
         glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());

@@ -29,4 +29,25 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_exportFpsRead(JN
     return geode_export_fps_read(stored, fallback);
 }
 
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_notificationButtonsOrdered(JNIEnv* env, jobject,
+                                                                                            jint chosen) {
+    const auto mask = static_cast<unsigned>(chosen);
+    std::vector<int> ordered(static_cast<size_t>(geode_notification_buttons_ordered(mask, nullptr, 0)));
+    geode_notification_buttons_ordered(mask, ordered.data(), static_cast<int>(ordered.size()));
+    return intsOf(env, ordered);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_notificationButtonsToggled(JNIEnv*, jobject, jint chosen,
+                                                                                       jint button, jboolean on) {
+    return static_cast<jint>(geode_notification_buttons_toggled(static_cast<unsigned>(chosen), button, on == JNI_TRUE ? 1 : 0));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_behaviourLastScreen(JNIEnv*, jobject, jint last) {
+    return geode_behaviour_last_screen(last);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_behaviourOpensOn(JNIEnv*, jobject, jint start, jint last) {
+    return geode_behaviour_opens_on(start, last);
+}
+
 }  // extern "C"

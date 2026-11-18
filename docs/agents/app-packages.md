@@ -172,7 +172,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `HeadphoneAutoplay` lives here.
 - `QueueEnd`: stop, repeat, or similar tracks from `LibraryTree.similarTo`.
 - `NotificationButtons` adds shuffle, repeat and favourite as custom session commands.
-- Android draws two notification buttons, so `NotificationButton.ordered` lists a chosen favourite first and Settings keeps the choice to two.
+- Android draws two notification buttons, so `NotificationButton.ordered` lists a chosen favourite first and Settings keeps the choice to two; both rules are native's (`core/shell/Behaviour`, asked through `BehaviourRules`).
 - `PlayRecorder` is a listener on the one player: it saves the resumption queue and position to `SessionStore` and records each play in the session's one `HistoryStore`, whoever holds the player.
 - So playing on after the UI closes is still resumed and remembered; the UI only reads them.
 - `VoiceSearch` reads Media3's play-from-search item (Android Auto and Assistant) for `LibraryTree.search`; the match is native.

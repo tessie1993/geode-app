@@ -206,6 +206,25 @@ void readRejectsWhatIsNotOffered() {
     check(exportFpsRead(std::nullopt, 45) == 45, "fallback taken as is");
 }
 
+void behaviourThroughTheAbi() {
+    // The ordinals are the shell's enum entries (data/BehaviourPrefs.kt): shuffle 0, repeat 1, favourite 2;
+    // last used 0, player 1, library 2, visuals 3, studio 4.
+    check(static_cast<int>(kShuffle) == 0 && static_cast<int>(kRepeat) == 1 && static_cast<int>(kFavourite) == 2, "button ordinals");
+    check(static_cast<int>(StartScreen::LastUsed) == 0 && static_cast<int>(StartScreen::Studio) == 4, "screen ordinals");
+    int out[4] = {-1, -1, -1, -1};
+    check(geode_notification_buttons_ordered(0b111u, out, 4) == 3 && out[0] == 2 && out[1] == 0 && out[2] == 1 && out[3] == -1,
+          "abi: favourite, shuffle, repeat");
+    int one[1] = {-1};
+    check(geode_notification_buttons_ordered(0b011u, one, 1) == 2 && one[0] == 0, "abi: short room");
+    check(geode_notification_buttons_ordered(0u, nullptr, 0) == 0, "abi: none chosen");
+    check(geode_notification_buttons_toggled(0b011u, 2, 1) == 0b101u, "abi: favourite on drops repeat");
+    check(geode_notification_buttons_toggled(0b011u, 0, 0) == 0b010u, "abi: shuffle off");
+    check(geode_behaviour_last_screen(0) == 1, "abi: last used reads as the player");
+    check(geode_behaviour_last_screen(3) == 3, "abi: a real screen is kept");
+    check(geode_behaviour_opens_on(0, 4) == 4, "abi: last used opens the last screen");
+    check(geode_behaviour_opens_on(2, 4) == 2, "abi: a chosen screen wins");
+}
+
 void exportFpsThroughTheAbi() {
     int out[8] = {};
     check(geode_export_fps_options(out, 8) == 5, "five rates");
@@ -254,6 +273,7 @@ int main() {
     readRejectsWhatIsNotOffered();
     jsonRejectionMatchesOptInt();
     exportFpsThroughTheAbi();
+    behaviourThroughTheAbi();
     if (failures == 0) std::printf("shell_prefs_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

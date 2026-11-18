@@ -104,6 +104,12 @@ add_library(geode_core STATIC
     library/Search.cpp
     library/Lyrics.cpp
     library/Playlist.cpp
+    library/TrackRules.cpp
+    library/TrackLibraryDoc.cpp
+    library/PlaylistRules.cpp
+    library/SmartPlaylist.cpp
+    library/History.cpp
+    library/SessionDoc.cpp
     audio/ingest/AiffReader.cpp
     audio/ingest/TrackFeed.cpp
     audio/ingest/TrackPump.cpp

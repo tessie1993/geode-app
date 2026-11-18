@@ -209,6 +209,18 @@ jobs:
           ./player_queue_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/player_transport_test.cpp core/player/*.cpp -o player_transport_test
           ./player_transport_test
+          # The music library's rules ported from Kotlin (core/library): tag fallbacks and the library document, playlist
+          # edits, the smart-playlist matcher, play history and its retention, the saved session. Not called by the app yet.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_tracks_test.cpp core/library/TrackRules.cpp core/library/TrackLibraryDoc.cpp core/util/Json.cpp -o library_tracks_test
+          ./library_tracks_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_playlist_test.cpp core/library/PlaylistRules.cpp core/util/Json.cpp -o library_playlist_test
+          ./library_playlist_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_smart_playlist_test.cpp core/library/SmartPlaylist.cpp core/library/History.cpp core/util/Json.cpp -o library_smart_playlist_test
+          ./library_smart_playlist_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_history_test.cpp core/library/History.cpp core/util/Json.cpp -o library_history_test
+          ./library_history_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_session_test.cpp core/library/SessionDoc.cpp core/util/Json.cpp -o library_session_test
+          ./library_session_test
           # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
           # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \

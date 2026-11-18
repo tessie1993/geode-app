@@ -124,3 +124,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: Loop extend opens every loop reader on one shared direct sample buffer instead of one buffer per loop (`export/LoopExtend.kt`).
 - 2026-11-18: `RecordController` waits at most 5 s for the stage to let go before finishing the file (the handles are kept, not freed, when it never does), and a stop that arrives while the recording is still opening takes effect once it exists (`ui/RecordController.kt`).
 - 2026-11-18: glTF import charges the vertices and indices it unpacks against one `kMaxDecodedBytes` budget before allocating them; the cap is unchanged and the one `malloc` was already checked (`core/scene/object/GltfImport.cpp`).
+- 2026-11-18: `geode_stage_create_live` calls `geode_viz_create` inside its `try`, so a C++ throw from it returns null instead of reaching the JNI frame (`core/api/geode_stage_api.cpp`).

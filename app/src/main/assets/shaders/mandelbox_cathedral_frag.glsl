@@ -138,6 +138,8 @@ float gScale;
 vec3 gOffset;
 float gSway;
 float gTurn;
+/** Turbulence's turn inside each fold: it depends on the fold's index and the time only, so main() builds it once per pixel. */
+mat2 gFoldRot[MC_ITER];
 float gTone;
 /** The vault's and the arcade's compass offsets: wider is more pointed. */
 float gArchC;
@@ -232,10 +234,7 @@ float fractal(vec3 pw) {
         p = clamp(p, -1.0, 1.0) * 2.0 - p;
         // Turbulence: a small turn inside every fold, an isometry, so the
         // estimate stays a bound.
-        if (gTurn > 0.0) {
-            float a = gTurn * sin(float(i) * 1.7 + uTime * 0.37);
-            p.xy = mat2(cos(a), -sin(a), sin(a), cos(a)) * p.xy;
-        }
+        if (gTurn > 0.0) p.xy = gFoldRot[i] * p.xy;
         // Minimum radius^2 0.25, fixed radius^2 1.
         float k = clamp(1.0 / max(dot(p, p), 0.25), 1.0, 4.0);
         p *= k;
@@ -538,6 +537,13 @@ void main() {
     gArcadeC = mix(0.25, 0.4, form);
     gSway = 0.25 * clamp(neonFlow() + neonKnob(2), 0.0, 1.0);
     gTurn = 0.35 * neonChaos();
+    if (gTurn > 0.0) {
+        for (int i = 0; i < MC_ITER; i++) {
+            if (float(i) >= sIter) break;
+            float a = gTurn * sin(float(i) * 1.7 + uTime * 0.37);
+            gFoldRot[i] = mat2(cos(a), -sin(a), sin(a), cos(a));
+        }
+    }
     gTone = neonKeyTurn() - 0.08 + 0.25 * neonKnob(3);
     // A hard cut re-seeds the offset; the held envelope eases the old seed
     // into the new one, so the aisles re-grow instead of jumping.

@@ -195,6 +195,8 @@ private:
     std::atomic<uint32_t> signal_{0};
     std::atomic<bool> stopping_{false};
     std::atomic<bool> timedWaiting_{false};
+    // Set before the untimed wait on signal_ and cleared after it, so notify() wakes only a thread that may sleep.
+    std::atomic<bool> waiting_{false};
     std::mutex waitLock_;
     std::condition_variable waitCv_;
     std::atomic<uint64_t> passes_{0};

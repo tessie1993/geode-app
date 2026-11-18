@@ -58,7 +58,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `ShapeGraph::sample` mirrors lib_shapes' distance and colour maths for the host tests (`core/tests/shape_graph_test`).
 - The renderer ticks one `ShapeGraph` a frame in `resolveParams` (`Renderer::stepShapeGraph`, the frame's play seed), and `ShaderScene::uploadShapes` hands it as `uShapes[32]`, `uShapeCount`, `uShapeFold`, `uShapeMelt` to a program that reads them (`SceneHost::shapeGraph`).
 - `lib_shapes` draws the graph (`shapesScene`, `sminCol`) and melts it into a style's field by `uShapeMix` (`shapesInto`, identity at 0); `shapesHue` gives the hit its palette index.
-- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (`kShapeStyles`: `chrome_nebula`, `liss`, `solar`).
+- The Shapes param (`shapes`, wire slot 198, LfoTarget 79) is uploaded as `uShapeMix` and scoped to `Scope::Shapes` (the `Shapes` flag in `core/viz/styles/StyleTable.inc`: `chrome_nebula`, `liss`, `solar`).
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack; `Renderer::uploadPaletteRamp` bakes it into one 256-texel ramp that every shader style reads through `pal()` (`uPalLut`).
 - A shader style with no stack set draws the look's own palette (`palette`, its hue overrides or your colours' stops).
 - Retired with the stack in place: Palette 2 and Palette blend (`palette2`, `paletteMix`, their overrides), Colour map (`paletteLut`) and Color cycle (`colorCycle`, `cycleSpeed`); an old look naming them loads and draws its own palette.
@@ -173,7 +173,7 @@ The renderer runs these in order each frame.
 - The families run them as passes 3, 4 and 5 of the field loop they already run, one map read a pass; Flame reads its veils once a step at `growBirthsAt`, Opal and Hollows add a four-pass loop.
 - `lib_shell` runs them as wrapper passes 3..5 (the winner pass is 6; density and 2D loops run 6 passes); the styles with no field loop read their picture through `growBirths2`.
 - Scenes with no shader to run them in (simulations, fluids, Milkdrop) get them from the composite (`postBirths`, `uPostLife`, `uPostBirths`) on the renderer's `lifeClock_`, only where `grade::gateFor`'s geometry gate is on.
-- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
+- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the rows with the `Formula` flag in `core/viz/styles/StyleTable.inc` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
 - Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style), which their styles read as `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
@@ -283,7 +283,7 @@ The renderer runs these in order each frame.
 - `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
 - `lib_shade` is the shading pass's rules (soft shadows, step glow, escape colour), included once by `lib_strata`, `lib_loom`, `lib_petal`, `lib_fold` and `lib_bulb`.
 - Each family's shadow loop reads its own field after the map: in `lib_<family>_march`, in `lib_fold_shade` (Fold's cone, pair and probe marches) and in `lib_bulb_shade` (after `lib_bulb_field`).
-- Soft shadows (`shadow`, wire slot 199, LfoTarget 80, default 0.6) is uploaded as `uShadow` and scoped to `Scope::Shadow` (`kShadowStyles`, the styles with a key-lit surface).
+- Soft shadows (`shadow`, wire slot 199, LfoTarget 80, default 0.6) is uploaded as `uShadow` and scoped to `Scope::Shadow` (the `Shadow` flag in `core/viz/styles/StyleTable.inc`, the styles with a key-lit surface).
 - Escape colour (`escapeColor`, wire slot 200, LfoTarget 81, default 0.5) is uploaded as `uEscapeColor` and scoped to `Scope::Escape` (`kEscapeFamilies`: Shard, Prism, Fluor, Loom, Petal, Fold, Bulb).
 - The step glow follows Bloom (`uBloom`) and adds nothing at Bloom 0.
 - The shadow ray runs only at `uSteps` 80 and over (so low Detail and a low Settings › Performance march scale skip it), in a loop bounded by an int from `uSteps` with one field call, so the compiler never unrolls it.

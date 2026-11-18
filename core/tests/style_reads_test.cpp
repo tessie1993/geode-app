@@ -374,11 +374,11 @@ const std::vector<Carrier>& shaderCarriers() {
         {"backLayer", {"uBackLayer"}},
         // Life's births (lib_grow): every style runs them, in its field loop or its wrappers, or over its picture.
         {"life", {"uLife"}},
-        // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
+        // Formula: shown only on the styles that keep formulas of their own (the Formula flag in viz/styles/StyleTable.inc).
         {"formula", {"uFormula"}},
-        // Shapes: shown only on the styles that melt the shape graph in (Catalogue.cpp's kShapeStyles, lib_shapes).
+        // Shapes: shown only on the styles that melt the shape graph in (the Shapes flag in viz/styles/StyleTable.inc, lib_shapes).
         {"shapes", {"uShapeMix"}},
-        // The shading pass (lib_shade): Soft shadows on the styles with a lit surface (Catalogue.cpp's kShadowStyles),
+        // The shading pass (lib_shade): Soft shadows on the styles with a lit surface (the Shadow flag in viz/styles/StyleTable.inc),
         // Escape colour on the families whose folds feed it (kEscapeFamilies).
         {"shadow", {"uShadow"}},
         {"escapeColor", {"uEscapeColor"}},

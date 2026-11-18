@@ -35,8 +35,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `cast_clock_test.cpp`: Cast's frame clock: steady slots, drop not burst, monotonic PTS, the audio cut.
 - `cast_tee_test.cpp`: Cast's tee: the stage-to-stream hand-off, the fallback after a stale copy, one copy per cast frame, the placement: a portrait stage turned and cropped, a landscape one cropped.
 - `cast_same_visual_test.cpp`: the stage's host while casting (`core/viz/StageRun`): drawing on every tab and before Visuals was ever laid out, no bars; every stage shape filling the stream; a new stream waiting for the stage's first copy.
-- `catalogue_test.cpp`: the catalogue against its tables, the answers the shell asks for, and its text against `core/tests/catalogue.txt`.
-- `core/tests/catalogue.txt` is the copy the tools read (`tools/store-stats.sh`, `tools/glslcheck`); regenerate it with `catalogue_test --write`.
+- `catalogue_test.cpp`: the catalogue against its tables, the answers the shell asks for, and its text against `core/tests/catalogue.txt`. The ids and per-style flags are in `core/viz/styles/StyleTable.inc`; the test holds no list of its own.
+- `core/tests/catalogue.txt` is the copy the tools read (`tools/store-stats.sh`, `tools/glslcheck`); regenerate it with `catalogue_test --update` (run from the repo root; no path needed).
 - `app/src/test/java/dev/geode/model/TestCatalogue.kt` is a small hand-written catalogue; a JVM test that reaches `StyleCatalogue` installs it first.
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 - `command_queue_test.cpp`: `core/stage/CommandQueue`, how other threads hand a stage its commands: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
@@ -107,7 +107,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `meter_test.cpp`: `Rhythm`'s bar of 3 or 4 beats from the accents: 3/4 and 4/4 at 93 and 141 BPM read as themselves, a backbeat or an even pulse never 3.
 - `milk_shader_note_test.cpp`: the note a .milk preset gets when projectM swapped one of its shaders for the default (`core/viz/MilkShaderNote`).
 - `milk_shown_test.cpp`: when a loaded .milk preset counts as shown (`core/viz/MilkShown`).
-- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--write` regenerates it.
+- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--update` regenerates it.
 - `mod_document_test.cpp`: `core/viz/ModDocument` and `ModCatalog`: saved wave, envelope and reaction texts (today's and older ones) still read, forgiving reads land on a default or in range, each edit clamps, and the pickers and catalogue list what the engine runs.
 - `mod_document_test.cpp` also keeps the catalogue's `moment` and `music` rows equal to `core/tests/mod_catalog_music.txt`, read by the JVM through `geode.modCatalog`.
 - `mod_controls_test.cpp`: `core/viz/ModControls`: which wave and envelope controls Customize shows for each source, timing, moment and Macro target, and nothing for a slot out of range.

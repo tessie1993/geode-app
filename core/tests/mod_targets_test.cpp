@@ -4,7 +4,8 @@
 // Built and run by CI (.github/workflows/android.yml, "Modulation target host tests"); no GL.
 //
 //   mod_targets_test core/tests/mod_targets.txt           checks, including text() against the fixture
-//   mod_targets_test --write core/tests/mod_targets.txt   rewrites the fixture after a deliberate change
+//   mod_targets_test --update [core/tests/mod_targets.txt]   rewrites the fixture from text() after a deliberate
+//                                                            change (run from the repo root, built as in CI)
 //
 // The fixture pins the table's text. The expected scopes below are each target's reach as first shipped,
 // so no target's reach moves unseen; since the scopes are read from the params schema's meta rows
@@ -379,15 +380,16 @@ void textEqualsTheFixture(const char* path) {
     ss << in.rdbuf();
     check(in.good() || in.eof(), std::string("read ") + path);
     check(ss.str() == modtargets::text(),
-          std::string("text() differs from ") + path + "; after a deliberate change run mod_targets_test --write " + path);
+          std::string("text() differs from ") + path + "; after a deliberate change run mod_targets_test --update " + path);
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
-        std::ofstream(argv[2], std::ios::binary) << modtargets::text();
-        std::printf("wrote %s\n", argv[2]);
+    if (argc >= 2 && std::strcmp(argv[1], "--update") == 0) {
+        const char* path = argc > 2 ? argv[2] : "core/tests/mod_targets.txt";
+        std::ofstream(path, std::ios::binary) << modtargets::text();
+        std::printf("wrote %s\n", path);
         return 0;
     }
     everyTargetKeepsItsNameAndScope();

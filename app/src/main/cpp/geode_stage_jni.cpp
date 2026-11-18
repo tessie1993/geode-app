@@ -101,6 +101,11 @@ Java_dev_geode_engine_bridge_StageNative_stageState(JNIEnv*, jobject, jlong stag
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_StageNative_stageEventFd(JNIEnv*, jobject, jlong stage) {
+    return static_cast<jint>(geode_stage_event_fd(stageOf(stage)));
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageTakeEvents(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_take_events(stageOf(stage)));
 }

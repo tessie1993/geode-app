@@ -82,6 +82,7 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
+    bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
 private:
     void runActions();

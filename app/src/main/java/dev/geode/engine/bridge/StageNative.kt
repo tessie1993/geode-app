@@ -80,6 +80,9 @@ object StageNative {
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
 
+    /** A new descriptor, readable while frame events wait and until [stageTakeEvents]; the caller owns it. -1: none. */
+    external fun stageEventFd(stage: Long): Int
+
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
 

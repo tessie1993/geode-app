@@ -298,6 +298,11 @@ unsigned geode_stage_state(const geode_stage* s) {
 }
 
 
+int geode_stage_event_fd(const geode_stage* s) {
+    const std::shared_ptr<Stage> stage = find(s);
+    return stage ? stage->thread->eventFd() : -1;
+}
+
 unsigned geode_stage_take_events(geode_stage* s) {
     const std::shared_ptr<Stage> stage = find(s);
     return stage ? stage->thread->takeEvents() : 0u;

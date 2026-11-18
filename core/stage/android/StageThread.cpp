@@ -1,6 +1,8 @@
 #include "stage/android/StageThread.hpp"
 
+#include <fcntl.h>
 #include <pthread.h>
+#include <sys/eventfd.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
@@ -40,10 +42,26 @@ std::shared_ptr<StageThread> StageThread::start(Kind kind, std::shared_ptr<Stage
 }
 
 StageThread::StageThread(Kind kind, std::shared_ptr<StageClient> client, float capFps)
-    : inbox_(std::make_shared<Inbox>()), startCap_(capFps), core_(kind, std::move(client), capFps, *this) {}
+    : inbox_(std::make_shared<Inbox>()), startCap_(capFps), core_(kind, std::move(client), capFps, *this) {
+    eventFd_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+}
 
 StageThread::~StageThread() {
     if (thread_.joinable()) thread_.detach();
+    if (eventFd_ >= 0) close(eventFd_);
+}
+
+uint32_t StageThread::takeEvents() {
+    if (eventFd_ >= 0) {
+        uint64_t count = 0;
+        if (read(eventFd_, &count, sizeof(count)) < 0) count = 0;  // EAGAIN: nothing was signalled
+        eventSignalled_.store(false);
+    }
+    return core_.takeEvents();
+}
+
+int StageThread::eventFd() const {
+    return eventFd_ >= 0 ? fcntl(eventFd_, F_DUPFD_CLOEXEC, 0) : -1;
 }
 
 void StageThread::push(const Command& command, Merge merge) {
@@ -181,6 +199,10 @@ void StageThread::loop() {
             core_.apply(quit, nowMs());
         }
         core_.step(nowMs());
+        if (eventFd_ >= 0 && core_.hasEvents() && !eventSignalled_.exchange(true)) {
+            const uint64_t one = 1;
+            if (write(eventFd_, &one, sizeof(one)) < 0) eventSignalled_.store(false);
+        }
         if (core_.unsettled()) GEODE_LOGE(kTag, "the stage lifecycle did not settle");
         if (core_.finished()) return;
         int timeout = -1;

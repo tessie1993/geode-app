@@ -326,7 +326,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `Stage`, `StageView`.
 - The Kotlin shell of the native stage (`core/stage`, [native-stage.md](native-stage.md)); it decides nothing.
-- `Stage` holds one opaque stage handle, hands it the look, sound, touch and tilt, and polls its events on the main thread (a `Choreographer` callback).
+- `Stage` holds one opaque stage handle, hands it the look, sound, touch and tilt, and reads its events on the main thread when native's event descriptor is readable (the sound ring on a 50 ms timer).
 - `StageView` is a `SurfaceView` with its `SurfaceHolder.Callback2`: window, size, redraw and visibility go to the stage as they arrive.
 - `RecordMark` rasterises the free tier's mark for Record's tee.
 - A `Cleaner` destroys a stage nobody closed.

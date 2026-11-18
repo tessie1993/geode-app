@@ -91,28 +91,17 @@ void FluidSceneBase::saveFramebufferAndViewport() {
     SceneTarget::read(prevFbo_, prevViewport_.data());
 }
 
-void FluidSceneBase::saveGlState() {
-    saveFramebufferAndViewport();
-    glGetIntegerv(GL_BLEND_SRC_RGB, &prevBlendFunc_[0]);
-    glGetIntegerv(GL_BLEND_DST_RGB, &prevBlendFunc_[1]);
-    glGetIntegerv(GL_BLEND_SRC_ALPHA, &prevBlendFunc_[2]);
-    glGetIntegerv(GL_BLEND_DST_ALPHA, &prevBlendFunc_[3]);
-    blendWas_ = glIsEnabled(GL_BLEND) == GL_TRUE;
-}
+// The blend state is not asked of the driver (five queries a frame, each a possible pipeline sync): it is known.
+// Every pass and scene the renderer draws leaves blending off, and each one that blends turns it on with its own
+// function first (TrailPass, the fluid look and particles, EdgeGlowPass, UiBlurPass, the physics layers, ...).
+void FluidSceneBase::saveGlState() { saveFramebufferAndViewport(); }
 
 void FluidSceneBase::restoreFramebufferAndViewport() {
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo_));
     glViewport(prevViewport_[0], prevViewport_[1], prevViewport_[2], prevViewport_[3]);
 }
 
-void FluidSceneBase::restoreBlend() {
-    if (blendWas_) {
-        glEnable(GL_BLEND);
-    } else {
-        glDisable(GL_BLEND);
-    }
-    glBlendFuncSeparate(static_cast<GLenum>(prevBlendFunc_[0]), static_cast<GLenum>(prevBlendFunc_[1]), static_cast<GLenum>(prevBlendFunc_[2]),
-                        static_cast<GLenum>(prevBlendFunc_[3]));
-}
+// Blending off, as the scene found it (saveGlState); the next pass that blends sets its own function.
+void FluidSceneBase::restoreBlend() { glDisable(GL_BLEND); }
 
 }  // namespace geode::viz

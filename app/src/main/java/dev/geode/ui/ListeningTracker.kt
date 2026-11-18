@@ -53,7 +53,8 @@ internal class ListeningTracker(
 
     fun recentlyPlayed(limit: Int) = historyStore.recentlyPlayed(limit)
 
-    fun playCountOf(uri: String): Int = historyStore.entryFor(uri)?.playCount ?: 0
+    /** The play history's state, opaque here: native reads the play counts from it. */
+    fun historyText(): String = historyStore.text()
 
     fun toggleFavourite(uri: String) {
         storeScope.launch {

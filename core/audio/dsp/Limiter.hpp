@@ -39,6 +39,7 @@ private:
     float gain_ = 1.0f;
     float releaseCoefficient_;
     std::atomic<bool> enabled_{true};
+    bool running_ = false;  // the audio thread's: whether the last process() limited
 };
 
 }  // namespace geode::audio

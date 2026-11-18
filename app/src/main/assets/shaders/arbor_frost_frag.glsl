@@ -295,7 +295,7 @@ void main() {
 
             vec3 ice = mix(vec3(0.85, 0.95, 1.0), pal(hue + 0.02), 0.35);
             // Spine: deep inside the outline, along every limb's centre.
-            float spine = smoothstep(-0.002, -0.012, hd2);
+            float spine = 1.0 - smoothstep(-0.012, -0.002, hd2);
             float rings = (0.5 + 0.5 * sin(length(hc) * 260.0)) * step(hPlate, 0.0);
             // Fake refraction with dispersion: the bent ray reads the palette
             // at three staggered offsets, and what is behind shows through.
@@ -318,7 +318,7 @@ void main() {
     }
 
     col *= 0.88 + 0.15 * swell;
-    col *= 0.8 + 0.2 * smoothstep(2.0, 0.3, length(uv));
+    col *= 0.8 + 0.2 * (1.0 - smoothstep(0.3, 2.0, length(uv)));
     // k0 PULSE: the emission, as lib_flame's finish.
     col *= emit;
     fragColor = vec4(grade(col), 1.0);

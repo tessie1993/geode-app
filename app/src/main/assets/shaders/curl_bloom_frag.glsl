@@ -276,6 +276,6 @@ void main() {
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
-    col *= 0.68 + 0.32 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.68 + 0.32 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col * emission), 1.0);
 }

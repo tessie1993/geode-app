@@ -183,14 +183,15 @@ void main() {
         col = base * (0.18 + 0.95 * lit.x) * ao;
         col += vec3(0.6, 0.7, 0.8) * lit.y * 0.25 * ao + vec3(lit.z) * 0.15;
         // The hem catches a little moonlight thrown back off the pond.
-        col += leaf * 0.15 * smoothstep(WL_WATER + 1.5, WL_WATER, p.y) * leafy;
+        col += leaf * 0.15 * (1.0 - smoothstep(WL_WATER, WL_WATER + 1.5, p.y)) * leafy;
         col = mix(col, skyCol(rd, moonDir, hue), 1.0 - exp(-hitT * 0.035 / reach));
     } else if (tPlane < WL_FAR) {
         vec3 p = ro + rd * tPlane;
         float r = length(p.xz);
         // The kick's ripple ring travels outward as its envelope falls.
         float ringR = 0.6 + 6.0 * (1.0 - kick);
-        float ring = exp(-pow((r - ringR) * 3.0, 2.0)) * kick;
+        float ringD = (r - ringR) * 3.0;
+        float ring = exp(-ringD * ringD) * kick;
         float lap = 0.015 * sin(p.x * 3.1 + t * 0.7) * sin(p.z * 2.7 - t * 0.5);
         vec2 radial = p.xz / max(r, 1e-3) * ring * 0.35;
         vec3 n = normalize(vec3(radial.x + lap, 1.0, radial.y + lap));
@@ -222,7 +223,7 @@ void main() {
     }
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // k0 PULSE: the emission, as lib_flame's finish.
     col *= emit;
     fragColor = vec4(grade(col), 1.0);

@@ -543,12 +543,12 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
-/* Lyrics (core/library/Lyrics). _parse reads UTF-8 .lrc or plain lyrics into the wire form: "S" (timed, sorted by
- * time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
+/* Lyrics (core/library/Lyrics). _parse reads `len` bytes of UTF-8 .lrc or plain lyrics (a NUL among them is text,
+ * not the end) into the wire form: "S" (timed, sorted by time) or "P" (plain) and a newline, then one "<timeMs>\t<text>\n" per line, timeMs -1 on a plain line; "" = no
  * lyrics. The text goes out as geode::api::textOut does (the return is the length needed). _index_at takes the
  * ascending times of the lines and returns the line sung at `position_ms`: -1 before the first, with no lines,
  * or when plain (first time -1). */
-GEODE_API int         geode_lyrics_parse(const char* text, char* out, int capacity);
+GEODE_API int         geode_lyrics_parse(const char* text, int len, char* out, int capacity);
 GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count, long long position_ms);
 
 /* A playlist file the user picked (core/library/Playlist): M3U, PLS or XSPF as UTF-8 bytes, `file_name` its name
@@ -558,6 +558,86 @@ GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count
  * by U+001F, records by U+001E. A playlist with a DOCTYPE is refused. Pure, any thread. */
 GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned char* data, int len, char* out,
                                            int capacity);
+
+/* The play history (core/library/History). The shell holds history.json's text as the state, hands it to each call
+ * and keeps what comes back; it does the file, the lock, the quarantine and the write queue. Text out is valid until
+ * the calling thread's next call of the same function; NULL arguments read as "". Pure, any thread.
+ * corrupt: 1 when the text is not blank and does not read (the shell moves the file aside and starts empty).
+ * record_play: the state once `uri` starts playing at now_ms (made if new, count up, title set, artist unless
+ * blank, stamped after every play held). add_listen: the state with delta_ms (ignored at 0 or less, and for a uri
+ * not held) added to the track's listened time. file_text: the text to write (the 200 most recent and the 200 most
+ * played). recent: at most `limit` entries, newest first, as History's wire: uri, last-played ms, play count,
+ * title, artist and listened ms split by U+001F, each entry ended by U+001E. */
+GEODE_API int         geode_history_corrupt(const char* text);
+GEODE_API const char* geode_history_record_play(const char* state, const char* uri, const char* title,
+                                                const char* artist, long long now_ms);
+GEODE_API const char* geode_history_add_listen(const char* state, const char* uri, long long delta_ms);
+GEODE_API const char* geode_history_file_text(const char* state);
+GEODE_API const char* geode_history_recent(const char* state, int limit);
+
+/* Smart playlists (core/library/SmartPlaylist). The shell lists smart-playlists/ and reads and writes the files'
+ * text. A playlist crosses as match_all (1 or 0), limit and `rules`, 3 UTF-8 strings per rule: the field and op
+ * tokens the files hold (TITLE ... FAVOURITE, CONTAINS ... AT_MOST) and the value; a rule with an unknown token is
+ * dropped. Text out is valid until the calling thread's next call of the same function; NULL texts read as "".
+ * smart_list: the playlists among `count` file texts, sorted by lower-case name (ties in the order given), as
+ * SmartPlaylist's wire: per playlist its name, match_all ("1" or "0"), limit, then each rule's field token, op token
+ * and value, split by U+001F, each playlist ended by U+001E.
+ * smart_save_text: the text to write for a playlist named `name`, NULL for a blank name (nothing is saved).
+ * smart_resolve: the rows of `tracks` the playlist picks, in order (every track when no rule with a value is left,
+ * then the first `limit` when limit > 0). `tracks` holds 5 UTF-8 strings per track: uri, title, artist, album,
+ * folder; durations_ms and added_sec one value per track (NULL = zeros); `history` the play history's state (the
+ * play counts, see geode_history_*); `favourites` the favourite uris; now_ms the wall clock. Writes up to max_out rows
+ * to out and returns how many are picked. */
+GEODE_API const char* geode_smart_list(const char* const* texts, int count);
+GEODE_API const char* geode_smart_save_text(const char* name, int match_all, int limit, const char* const* rules,
+                                            int rule_count);
+GEODE_API int         geode_smart_resolve(int match_all, int limit, const char* const* rules, int rule_count,
+                                          const char* const* tracks, const long long* durations_ms,
+                                          const long long* added_sec, int track_count, const char* history,
+                                          const char* const* favourites, int favourite_count, long long now_ms,
+                                          int* out, int max_out);
+
+/* The user's ordinary playlists (core/library/PlaylistRules). The shell lists music-playlists/, reads and writes the
+ * files' text and acts on what comes back; a playlist's file is its name's geode_file_safe_name stem plus ".json".
+ * Text out is valid until the calling thread's next call of the same function; NULL texts read as "". Fields are
+ * split by U+001F and records ended by U+001E.
+ * list: the playlists among `count` file texts, sorted by lower-case name (ties in the order given): per playlist
+ * its name, then its track uris.
+ * apply: one edit, `kind` a GEODE_MUSIC_PLAYLIST_* below: create (name, tracks: each track once under the first free
+ * name from the trimmed name; a blank name writes nothing), import (name is the base, tracks as given, under the
+ * first free name), add (track), remove (track), move (from, to) and rename (name to new_name). A free name is one
+ * whose stem no listed playlist has. `texts` are every playlist file's text, `named` the text of the file `name`
+ * maps to, NULL when there is none (a file that cannot be read is ""): an add, remove or move never writes over a
+ * file that does not read. The answer is one record: write ("1" or "0"), ok ("0" when a rename is refused), the
+ * name whose file to write `json` to, the name whose file to delete once it is written ("" for none), and json.
+ * migration: the one-time renames of files saved under an older name rule, given every entry of the folder
+ * (`texts[i]` the text of a .json file, "" for anything else): per rename its from and to file names, in order.
+ * import_base: the name an imported file's playlist starts from: its own name, else the file's name, else
+ * `untitled`, each kept as it is when not blank. */
+#define GEODE_MUSIC_PLAYLIST_CREATE 0
+#define GEODE_MUSIC_PLAYLIST_IMPORT 1
+#define GEODE_MUSIC_PLAYLIST_ADD 2
+#define GEODE_MUSIC_PLAYLIST_REMOVE 3
+#define GEODE_MUSIC_PLAYLIST_MOVE 4
+#define GEODE_MUSIC_PLAYLIST_RENAME 5
+GEODE_API const char* geode_music_playlist_list(const char* const* texts, int count);
+GEODE_API const char* geode_music_playlist_apply(int kind, const char* name, const char* new_name, const char* track,
+                                                 const char* const* tracks, int track_count, int from, int to,
+                                                 const char* const* texts, int text_count, const char* named);
+GEODE_API const char* geode_music_playlist_migration(const char* const* file_names, const char* const* texts,
+                                                     int count);
+GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, const char* file_name,
+                                                       const char* untitled);
+
+/* The saved play queue, session.json (core/library/SessionDoc). The shell reads and writes the file's text. Text out
+ * is valid until the calling thread's next call of the same function; NULL texts read as "".
+ * session_read: the session the text holds as one record of index, position ms, then each track's uri, title and
+ * artist, split by U+001F and ended by U+001E; "" when the text is no session (the shell moves such a file aside):
+ * not an object, a version above 1, no track with a uri. Index and position come clamped.
+ * session_write: the text to write for `count` tracks (3 UTF-8 strings each: uri, title, artist), the index and the
+ * position (both clamped); "" for no tracks, when the shell deletes the file instead. */
+GEODE_API const char* geode_session_read(const char* text);
+GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
 
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
@@ -949,6 +1029,10 @@ GEODE_API const char* geode_customize_text(void);
 GEODE_API int         geode_customize_lockable(const char* key);
 /* Every such key, one per line, each once: the panel asks once for all its rows instead of once per row. Static. */
 GEODE_API const char* geode_customize_lockable_keys(void);
+/* Customize's saved keep document (one key a line, core/viz/CustomizeMap keepNormalize): with every key it may not
+ * hold dropped and each kept key once, sorted. _toggle also takes key out when kept, puts it in when not. */
+GEODE_API const char* geode_customize_keep_normalize(const char* document);
+GEODE_API const char* geode_customize_keep_toggle(const char* document, const char* key);
 GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);

@@ -138,14 +138,18 @@ uint64_t primitiveTriangles(const cgltf_primitive& p) {
 }
 
 // The primitives the default scene draws (every root when the file names no scene), each stored once,
-// and one instance per node that places one.
+// and one instance per node that places one. Every placement is counted (placed, and uses per primitive), but
+// only the first `keep` are stored: the counts come from the file (a node per primitive per placement), and a
+// model placed more often than that is refused, so nothing is allocated for the rest.
 struct Gathered {
     std::vector<const cgltf_primitive*> prims;
+    std::vector<uint64_t> uses;  // placements of each of prims
     std::vector<ModelInstance> instances;
+    uint64_t placed = 0;
     uint64_t skippedNonTriangle = 0;
 };
 
-Gathered gather(const cgltf_data* data) {
+Gathered gather(const cgltf_data* data, uint64_t keep) {
     Gathered g;
     std::unordered_map<const cgltf_primitive*, uint32_t> meshOf;
     std::vector<const cgltf_node*> stack;
@@ -178,7 +182,12 @@ Gathered gather(const cgltf_data* data) {
             }
             if (attribute(*prim, cgltf_attribute_type_position, 0) == nullptr) continue;
             auto [it, added] = meshOf.try_emplace(prim, static_cast<uint32_t>(g.prims.size()));
-            if (added) g.prims.push_back(prim);
+            if (added) {
+                g.prims.push_back(prim);
+                g.uses.push_back(0);
+            }
+            ++g.uses[it->second];
+            if (++g.placed > keep) continue;
             ModelInstance inst;
             inst.mesh = it->second;
             std::memcpy(inst.world, world, sizeof(world));
@@ -503,12 +512,13 @@ ImportResult importGlb(const uint8_t* bytes, std::size_t size, const ImportLimit
         return r;
     }
 
-    Gathered g = gather(data.get());
+    // The most triangles the fit tries, and the most placements kept: a model placed more often is refused.
+    const double triangleCap = static_cast<double>(limits.flagship.maxTriangles) * limits.maxFitRatio;
+    Gathered g = gather(data.get(), static_cast<uint64_t>(triangleCap));
     if (g.skippedNonTriangle > 0) {
         warn(r, Warning::NonTrianglePrimitiveSkipped, countOf(g.skippedNonTriangle, "primitives"));
     }
-    std::vector<uint64_t> uses(g.prims.size(), 0);
-    for (const ModelInstance& inst : g.instances) ++uses[inst.mesh];
+    const std::vector<uint64_t>& uses = g.uses;
 
     // Every count the limits judge comes from the accessors alone, before any vertex is read, so a
     // model far over the cap is refused cheaply.
@@ -530,7 +540,7 @@ ImportResult importGlb(const uint8_t* bytes, std::size_t size, const ImportLimit
     ImportCounts& c = r.counts;
     c.trianglesSource = static_cast<uint32_t>(std::min<uint64_t>(triangles, UINT32_MAX));
     c.meshes = static_cast<uint32_t>(g.prims.size());
-    c.instances = static_cast<uint32_t>(g.instances.size());
+    c.instances = static_cast<uint32_t>(std::min<uint64_t>(g.placed, UINT32_MAX));
     c.materials = static_cast<uint32_t>(materials.size());
     c.maxJoints = maxJoints;
     c.maxMorphTargets = maxTargets;
@@ -539,8 +549,10 @@ ImportResult importGlb(const uint8_t* bytes, std::size_t size, const ImportLimit
     const ModelLimits& top = limits.flagship;
     const ModelLimits& low = limits.simplified;
     if (triangles == 0) refuse(r, Refusal::NoGeometry);
-    if (static_cast<double>(triangles) > static_cast<double>(top.maxTriangles) * limits.maxFitRatio) {
+    if (static_cast<double>(triangles) > triangleCap) {
         refuse(r, Refusal::TooManyTriangles, countOf(triangles, "triangles"));
+    } else if (static_cast<double>(g.placed) > triangleCap) {
+        refuse(r, Refusal::TooManyTriangles, countOf(g.placed, "placements"));
     }
     if (c.materials > top.maxMaterials) refuse(r, Refusal::TooManyMaterials, countOf(c.materials, "materials"));
     if (maxJoints > top.maxJoints) refuse(r, Refusal::TooManyJoints, countOf(maxJoints, "joints"));

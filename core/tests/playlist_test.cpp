@@ -80,6 +80,12 @@ void xspfRefusesWhatCannotBeTrusted() {
     check(!none.ok && none.why == "no <trackList> element", "no trackList");
     const Playlist unclosed = parsePlaylist("x.xspf", "<playlist><trackList><track><location>a</location>");
     check(!unclosed.ok, "an unclosed trackList is not read");
+    // Opening tags with no '>' after them: one pass, not a search to the end from each (it would not finish).
+    std::string open = "<playlist><trackList>";
+    for (int i = 0; i < 200000; ++i) open += "<track ";
+    open += "</trackList></playlist>";
+    const Playlist endless = parsePlaylist("x.xspf", open);
+    check(endless.entries.empty(), "opening tags that never end hold no tracks");
 }
 
 void unknownFilesAreUnreadable() {

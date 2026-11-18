@@ -262,10 +262,10 @@ void main() {
             // a dappled shade where the crown hangs over it.
             float r = length(p.xz - vec2(0.6, 0.0));
             vec3 grass = mix(vec3(0.55, 0.68, 0.45), pal(hue + 0.3) * 0.6, 0.3);
-            float fallen = smoothstep(0.62, 0.78, vnoise3(vec3(p.xz * 9.0, 4.0))) * smoothstep(3.2, 0.8, r);
+            float fallen = smoothstep(0.62, 0.78, vnoise3(vec3(p.xz * 9.0, 4.0))) * (1.0 - smoothstep(0.8, 3.2, r));
             vec3 g = mix(grass * (0.85 + 0.25 * vnoise3(vec3(p.xz * 3.0, 7.0))), petal, fallen * 0.85);
             float dif = clamp(dot(n, l) * 0.6 + 0.4, 0.0, 1.0);
-            float shade = 1.0 - 0.35 * smoothstep(2.4, 0.5, r) * (0.6 + 0.4 * vnoise3(vec3(p.xz * 2.5, 9.0)));
+            float shade = 1.0 - 0.35 * (1.0 - smoothstep(0.5, 2.4, r)) * (0.6 + 0.4 * vnoise3(vec3(p.xz * 2.5, 9.0)));
             col = g * (0.35 * skyAmb + 0.75 * dif * shade);
         } else {
             vec3 lit = arbLight(n, rd, l, 0.5, 18.0);
@@ -313,6 +313,6 @@ void main() {
     }
 
     col *= 0.92 + grainK * grain;
-    col *= 0.86 + 0.14 * smoothstep(2.0, 0.3, length(uv));
+    col *= 0.86 + 0.14 * (1.0 - smoothstep(0.3, 2.0, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

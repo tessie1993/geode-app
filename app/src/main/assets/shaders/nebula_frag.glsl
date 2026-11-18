@@ -931,7 +931,7 @@ void main() {
 
     // Corner falloff, floored: on a wide aspect a fade to zero would black out
     // a third of the frame.
-    col *= mix(NEB_VIGNETTE_FLOOR, 1.0, smoothstep(NEB_VIGNETTE_OUTER, NEB_VIGNETTE_INNER, length(uv)));
+    col *= mix(NEB_VIGNETTE_FLOOR, 1.0, 1.0 - smoothstep(NEB_VIGNETTE_INNER, NEB_VIGNETTE_OUTER, length(uv)));
 
     fragColor = vec4(grade(col * emission), 1.0);
 }

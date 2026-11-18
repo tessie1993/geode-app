@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Outcome of [MusicLibraryRepository.importPlaylistFile], shown to the user as a single result. */
 sealed interface PlaylistImportResult {
@@ -154,12 +155,20 @@ internal class MusicLibraryRepository(
 
     override val hiddenShortTracks: StateFlow<Int> = _hiddenShortTracks
 
+    // The newest scan asked for; scans run side by side, and one asked for earlier may finish later.
+    private val deviceScans = AtomicInteger()
+
     override fun refreshDeviceTracks() {
+        val scanId = deviceScans.incrementAndGet()
         scope.launch(Dispatchers.IO) {
             val scan = DeviceTrackQuery.scan(application, _minTrackSeconds.value)
-            _deviceTracks.value = scan.tracks
-            _hiddenShortTracks.value = scan.hiddenShort
-            _deviceTracksLoaded.value = true
+            // Checked and published under one lock: a scan published after a newer one is stale.
+            synchronized(deviceScans) {
+                if (scanId != deviceScans.get()) return@launch
+                _deviceTracks.value = scan.tracks
+                _hiddenShortTracks.value = scan.hiddenShort
+                _deviceTracksLoaded.value = true
+            }
         }
     }
 
@@ -274,7 +283,7 @@ internal class MusicLibraryRepository(
                     application.contentResolver.persistGrant(uri, android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                     libraryTrackFor(uri.toString(), metadataFor(uri))
                 }
-            trackLibrary.addAll(tracks)?.let { merged -> _library.update { it.copy(tracks = merged) } }
+            writeTracks { it.addAll(tracks) }
         }
     }
 
@@ -295,9 +304,16 @@ internal class MusicLibraryRepository(
         trackNo: Int,
         comment: String,
     ) {
-        scope.launch(Dispatchers.IO) {
-            val merged = trackLibrary.updateMetadata(uri, title, artist, album, genre, year, trackNo, comment)
-            merged?.let { withContext(Dispatchers.Main) { _library.update { s -> s.copy(tracks = it) } } }
+        scope.launch(Dispatchers.IO) { writeTracks { it.updateMetadata(uri, title, artist, album, genre, year, trackNo, comment) } }
+    }
+
+    /**
+     * Writes the track library and publishes the list it wrote under one lock, so writes on different
+     * threads publish in the order they wrote and an older list never replaces a newer one.
+     */
+    private fun writeTracks(write: (TrackLibrary) -> List<LibraryTrack>?) {
+        synchronized(trackLibrary) {
+            write(trackLibrary)?.let { merged -> _library.update { it.copy(tracks = merged) } }
         }
     }
 
@@ -336,16 +352,14 @@ internal class MusicLibraryRepository(
                 _library.value.tracks.filter {
                     it.title.matches(Regex("^[0-9:%A-F]{4,}$")) || it.artist.isEmpty() && it.title.matches(Regex("^\\d+$"))
                 }
-            var latest: List<LibraryTrack>? = null
             for (t in bad) {
                 runCatching {
                     val (title, artist) = metadataFor(Uri.parse(t.uri))
                     if (title != t.title || artist != t.artist) {
-                        trackLibrary.updateMetadata(t.uri, title, artist)?.let { latest = it }
+                        writeTracks { it.updateMetadata(t.uri, title, artist) }
                     }
                 }
             }
-            latest?.let { l -> withContext(Dispatchers.Main) { _library.update { it.copy(tracks = l) } } }
         }
     }
 
@@ -435,10 +449,7 @@ internal class MusicLibraryRepository(
         }
         // Outside the runCatching above, which would swallow the cancellation.
         job.ensureActive()
-        if (found.isNotEmpty()) {
-            val merged = trackLibrary.addAll(found)
-            merged?.let { withContext(Dispatchers.Main) { _library.update { s -> s.copy(tracks = it) } } }
-        }
+        if (found.isNotEmpty()) writeTracks { it.addAll(found) }
     }
 
     /**
@@ -462,15 +473,14 @@ internal class MusicLibraryRepository(
         }
     }
 
-    /** A new playlist holding [uris] (each once, in order), written as one file however many there are. */
+    /**
+     * A new playlist holding [uris] (each once, in order), written as one file however many there are; a name whose
+     * file is already taken gets a free one (native's rule, `MusicPlaylistStore.create`).
+     */
     override fun createMusicPlaylist(
         name: String,
         uris: List<String>,
-    ) {
-        if (name.isBlank()) return
-        // A name whose file is already taken gets a free one: save() would overwrite that playlist.
-        editPlaylists { musicPlaylists.save(MusicPlaylist(uniquePlaylistName(name.trim()), uris.distinct())) }
-    }
+    ) = editPlaylists { musicPlaylists.create(name, uris) }
 
     override fun renameMusicPlaylist(
         oldName: String,
@@ -526,8 +536,7 @@ internal class MusicLibraryRepository(
                     // In the edits' lane, so the free name it picks is still free when it is written.
                     val name =
                         withContext(playlistEdits) {
-                            val free = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { untitled } })
-                            musicPlaylists.save(MusicPlaylist(free, resolution.uris))
+                            val free = musicPlaylists.importPlaylist(parsed.name, fileName, untitled, resolution.uris)
                             val playlists = musicPlaylists.list()
                             _library.update { it.copy(playlists = playlists) }
                             free
@@ -541,16 +550,6 @@ internal class MusicLibraryRepository(
                 }
             }
         }
-
-    /** Never overwrites an existing playlist quietly — appends "(2)", "(3)", ... until the name is free. */
-    private fun uniquePlaylistName(base: String): String {
-        // Compared by file name: two names that sanitise to the same file are the same playlist on disk.
-        val taken = musicPlaylists.list().map { PresetStore.safeFileName(it.name) }.toSet()
-        if (PresetStore.safeFileName(base) !in taken) return base
-        var suffix = 2
-        while (PresetStore.safeFileName("$base ($suffix)") in taken) suffix++
-        return "$base ($suffix)"
-    }
 }
 
 private const val TAG = "MusicLibraryRepository"

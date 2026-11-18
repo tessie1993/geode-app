@@ -82,7 +82,7 @@ ArborHit arborMap(vec3 p) {
     float tree = hit.d * sc;
     float polyp = hit.tip * sc - gPolyp * sc;
     float coral = smin(tree, polyp, 0.05 * sc);
-    hit.mat.x = smoothstep(0.02, -0.02, polyp - tree);
+    hit.mat.x = 1.0 - smoothstep(-0.02, 0.02, polyp - tree);
     hit.mat.y = h;
 
     float sand = p.y - CR_FLOOR - 0.035 * sin(p.x * 4.0 + 2.0 * sin(p.z * 1.3));
@@ -180,7 +180,7 @@ void main() {
     col += water * 0.8 * pow(max(rd.y, 0.0), 2.0) * (0.6 + 0.4 * sin(rd.x * 9.0 + t * 0.4));
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // k0 PULSE: the emission, as lib_flame's finish.
     col *= emit;
     fragColor = vec4(grade(col), 1.0);

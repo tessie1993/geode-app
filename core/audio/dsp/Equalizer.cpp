@@ -31,17 +31,31 @@ void Equalizer::recompute() {
     for (int b = 0; b < kBands; ++b) {
         const float db = static_cast<float>(levels_[static_cast<size_t>(b)].load(std::memory_order_relaxed)) / 100.0f;
         const auto c = Biquad::peaking(sampleRate_, std::min(centersHz()[static_cast<size_t>(b)], sampleRate_ * 0.45f), kQ, db);
-        active_[static_cast<size_t>(b)] = db != 0.0f;
-        for (auto& channel : filters_) channel[static_cast<size_t>(b)].set(c);
+        const bool active = db != 0.0f;
+        // A band going flat forgets what it held, so raising it again starts clean.
+        for (auto& channel : filters_) {
+            if (active_[static_cast<size_t>(b)] && !active) channel[static_cast<size_t>(b)].reset();
+            channel[static_cast<size_t>(b)].set(c);
+        }
+        active_[static_cast<size_t>(b)] = active;
     }
     const float boostDb = kBassMaxDb * static_cast<float>(bassBoost_.load(std::memory_order_relaxed)) / static_cast<float>(kMaxBassBoost);
+    if (bassActive_ && boostDb <= 0.0f) {
+        for (auto& f : bass_) f.reset();
+    }
     bassActive_ = boostDb > 0.0f;
     const auto shelf = Biquad::lowShelf(sampleRate_, kBassCornerHz, 1.0f, boostDb);
     for (auto& f : bass_) f.set(shelf);
 }
 
 void Equalizer::process(float* interleaved, size_t frames, int channels) {
-    if (!enabled_.load(std::memory_order_relaxed)) return;
+    if (!enabled_.load(std::memory_order_relaxed)) {
+        // Off: the filters forget what they held, so turning back on starts clean.
+        if (running_) reset();
+        running_ = false;
+        return;
+    }
+    running_ = true;
     if (dirty_.exchange(false, std::memory_order_acquire)) recompute();
     const int ch = std::min(channels, kMaxChannels);
     for (size_t i = 0; i < frames; ++i) {

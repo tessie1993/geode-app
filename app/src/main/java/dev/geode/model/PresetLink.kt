@@ -7,9 +7,6 @@ import java.util.zip.GZIPOutputStream
 
 /** A preset whole in one link. What is framed and what is accepted is native (core/viz/LookFiles); here only the packing. */
 object PresetLink {
-    const val SCHEME = "geode"
-    const val HOST = "preset"
-
     val MAX_LINK_LENGTH: Int get() = GeodeNative.presetLinkMaxLength()
 
     fun isPresetLink(text: String): Boolean = GeodeNative.presetLinkIs(text)

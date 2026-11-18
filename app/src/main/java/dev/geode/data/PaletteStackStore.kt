@@ -206,8 +206,6 @@ class PaletteStore(
     private fun File.text(): String? = runCatching { readText() }.getOrNull()
 
     companion object {
-        val MAX_STOPS: Int get() = GeodeNative.savedPaletteMaxStops()
-
         fun create(
             name: String,
             baseHue: Float,

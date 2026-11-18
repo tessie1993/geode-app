@@ -46,12 +46,6 @@ class SceneParams private constructor(
         frame.copyInto(out)
     }
 
-    /** Whether the look draws its own palette (a hue override or your colours): native's rule. */
-    val usesCustomPalette: Boolean get() = GeodeNative.paramsUsesCustomPalette(frame)
-
-    /** Your colours, packed 0xRRGGBB, set from the first. */
-    val paletteStops: List<Int> get() = GeodeNative.paramsPaletteStops(frame).toList()
-
     /** The hue base of the look's palette: the override when set, else the built-in palette's (native). */
     val paletteBase: Float get() = GeodeNative.paramsPaletteBase(int("palette"), get("paletteBaseOverride"))
 
@@ -147,7 +141,7 @@ class SceneParams private constructor(
 
         /**
          * A frame native wrote (a roll, a reset) as params. [base]'s saved palette id carries over only while the
-         * frame still draws its own palette (native's [usesCustomPalette]): a saved palette IS its overrides.
+         * frame still draws its own palette (native's custom-palette rule): a saved palette IS its overrides.
          */
         fun fromFrame(
             values: FloatArray,

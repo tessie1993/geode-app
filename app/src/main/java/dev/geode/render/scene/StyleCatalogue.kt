@@ -109,8 +109,6 @@ object StyleCatalogue {
     /** True for every look of the Fluid solver, `fluid` itself included; Curl Flow is its own renderer. */
     fun isFluid(id: String): Boolean = answers.has(GeodeNative.STYLE_FLUID, id)
 
-    fun isCymatics(id: String): Boolean = answers.has(GeodeNative.STYLE_CYMATICS, id)
-
     /** The style a saved id opens on: a retired id's replacement, any other id itself. */
     fun resolve(id: String): String = answers.reads.resolve(id)
 

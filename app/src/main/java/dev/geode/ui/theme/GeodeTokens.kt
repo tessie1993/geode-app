@@ -210,7 +210,6 @@ object GeodeMotion {
     const val SPATIAL_FAST_DAMPING = 0.6f
     const val SPATIAL_FAST = 800f
     const val SPATIAL_DEFAULT = 380f
-    const val SPATIAL_SLOW = 200f
 
     /** Effects springs (alpha, colour): critically damped, no bounce. */
     const val EFFECTS_FAST = 3800f

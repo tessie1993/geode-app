@@ -119,12 +119,6 @@ internal class VisualSettingsController(
         state.update { it.copy(shaderError = error) }
     }
 
-    fun applyCustomShader(source: String) {
-        val sceneId = state.value.sceneId
-        state.update { it.copy(shaderError = null) }
-        _vizApply.tryEmit(VizApply(customShader = source, sceneId = sceneId))
-    }
-
     fun setTransitionId(id: String) {
         state.update { it.copy(transitionId = id) }
         vizStateStore.persist()

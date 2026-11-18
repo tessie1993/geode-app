@@ -175,6 +175,7 @@ private:
     int meter_ = 4;
     int meterVotes_ = 0;
     int downSlot_ = 0;
+    bool downHeard_ = false;  // the bar has been placed from accents since the last lock
     int pendingDownSlot_ = -1;
     int pendingVotes_ = 0;
     int barInPhrase_ = 0;

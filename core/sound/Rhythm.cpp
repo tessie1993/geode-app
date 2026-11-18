@@ -293,6 +293,7 @@ void Rhythm::measurePhase() {
             pendingDownSlot_ = -1;
             accentBeats_ = 0;
             meterVotes_ = 0;
+            downHeard_ = false;
             return;
         }
     } else {
@@ -403,8 +404,14 @@ void Rhythm::finishBeatAccent(int64_t beat) {
         if (slotScore_[i] > slotScore_[best]) best = i;
         scale = std::max(scale, std::fabs(slotScore_[i]));
     }
-    // A new downbeat slot must lead by a clear margin for a whole bar of evaluations before the bar moves.
-    if (best != downSlot_ && slotScore_[best] - slotScore_[downSlot_] > 0.15f * scale) {
+    if (!downHeard_ && accentBeats_ >= meter_) {
+        // The first whole bar heard since the lock places the bar: until then there is no bar to keep.
+        downSlot_ = best;
+        downHeard_ = true;
+        pendingVotes_ = 0;
+        pendingDownSlot_ = -1;
+    } else if (best != downSlot_ && slotScore_[best] - slotScore_[downSlot_] > 0.15f * scale) {
+        // A new downbeat slot must lead by a clear margin for a whole bar of evaluations before the bar moves.
         pendingVotes_ = best == pendingDownSlot_ ? pendingVotes_ + 1 : 1;
         pendingDownSlot_ = best;
         if (pendingVotes_ >= 4) {
@@ -458,6 +465,7 @@ void Rhythm::measureMeter(int64_t beat) {
         slotScore_[static_cast<size_t>(slotOf(beat - i))] += accent(beat - i) * static_cast<float>(meter_) / static_cast<float>(n) / 0.15f;
     }
     downSlot_ = 0;
+    downHeard_ = true;
     for (int r = 1; r < meter_; r++) {
         if (slotScore_[static_cast<size_t>(r)] > slotScore_[static_cast<size_t>(downSlot_)]) downSlot_ = r;
     }
@@ -494,6 +502,7 @@ void Rhythm::dropHere() {
     pendingDownSlot_ = -1;
     const bool wasDown = slotOf(nearest - downSlot_) == 0;
     downSlot_ = slot;
+    downHeard_ = true;
     if (nearest > lastBeat_) {
         phrasePending_ = true;  // the beat just ahead ticks as the downbeat that starts the phrase
         return;

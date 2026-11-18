@@ -283,7 +283,8 @@ vec4 simStep(ivec2 texel, ivec2 size, vec4 prev) {
 
     // The expanding ring deposits its tint: bass on a kick, every lane on a hard cut or a return.
     if (uBeatRing >= 0.0) {
-        float ring = exp(-pow((rl - uBeatRing) * 9.0, 2.0));
+        float ringD = (rl - uBeatRing) * 9.0;
+        float ring = exp(-ringD * ringD);
         add += uRingTint * (ring * 0.8);
     }
 

@@ -166,7 +166,8 @@ void main() {
         // Ejecta: a bright ring spreading from the newest craters' rims.
         float d = crater(w + 2.0, 1.0, vec2(gGen.x * 17.0, gGen.x * 31.0), 0.12).y;
         float ringR = 1.0 + 0.6 * (1.0 - onset);
-        float ring = exp(-pow((d - ringR) * 7.0, 2.0)) * (1.0 - smoothstep(1.55, 1.8, d)) * onset;
+        float ringD = (d - ringR) * 7.0;
+        float ring = exp(-ringD * ringD) * (1.0 - smoothstep(1.55, 1.8, d)) * onset;
         col += mix(vec3(1.0, 0.85, 0.6), terraPal(0.08), 0.3) * ring * 0.7 * min(energy, 1.5);
         col *= exp(-hitT * 0.025 / gTerraReach);
     }

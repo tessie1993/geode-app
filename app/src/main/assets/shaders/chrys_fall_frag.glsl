@@ -185,7 +185,7 @@ vec3 skyColour(vec3 rd, float hue, float bloomK) {
         vec2 bp = vec2(dot(rd, tx), dot(rd, ty)) / facing * 1.4;
         bp = chrysTurn(gT * 0.01) * bp;
         vec4 bpet = chrysPetal(bp, 14.0, 0.12, 0.7, 0.55, 0.0, 0.3, 0.4);
-        float bm = smoothstep(0.09, -0.09, bpet.x) * smoothstep(0.05, 0.3, facing);
+        float bm = (1.0 - smoothstep(-0.09, 0.09, bpet.x)) * smoothstep(0.05, 0.3, facing);
         col = mix(col, pal(hue) * 0.22 * bloomK * mix(0.6, 1.0, clamp(bpet.y, 0.0, 1.0)), bm * 0.85);
         col += pal(hue + 0.1) * 0.1 * bloomK * chrysCore(length(bp), 0.18);
     }
@@ -261,7 +261,7 @@ void main() {
             + pal(hue + 0.1) * fres * 0.12;
 
         // Air shimmer: a light running along the rim.
-        float rim = smoothstep(0.03, 0.0, abs(fld.a.y));
+        float rim = 1.0 - smoothstep(0.0, 0.03, abs(fld.a.y));
         float run = pow(0.5 + 0.5 * sin(u * 18.0 - gT * 6.0 + fld.a.x * 30.0), 6.0);
         col += mix(col, vec3(1.0), 0.5) * rim * run * 0.6 * air;
 

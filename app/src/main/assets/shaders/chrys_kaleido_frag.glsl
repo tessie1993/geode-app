@@ -355,7 +355,8 @@ void main() {
             float seam = 1.0 - smoothstep(0.0, 0.03 + 1.5 * px, abs(halfW - q.y));
             float glintAt = fract(t * 0.07 + 0.8 * clamp(sndLevel(SND_MID_HIGH_ATT), 0.0, 1.0));
             float zg = gEye.z + 2.0 + 20.0 * glintAt;
-            float glint = exp(-pow((p.z - zg) * 0.6, 2.0));
+            float glintD = (p.z - zg) * 0.6;
+            float glint = exp(-glintD * glintD);
             surf += pal(hue + 0.15) * seam * (0.12 + 0.9 * glint);
         }
         col = mix(surf, fogCol, 1.0 - exp(-hitT * fogK));

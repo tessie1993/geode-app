@@ -272,7 +272,8 @@ void main() {
                 col = pc * (0.3 + 0.8 * diff) * tuck;
                 // Treble slides the streak across the roll.
                 float streakAt = 0.35 - 0.5 * clamp(SND_TREBLE_PRESENCE, 0.0, 1.0);
-                float streak = exp(-pow((v - streakAt) * 4.0, 2.0)) * smoothstep(0.1, 0.8, u);
+                float streakD = (v - streakAt) * 4.0;
+                float streak = exp(-streakD * streakD) * smoothstep(0.1, 0.8, u);
                 col += vec3(0.9, 0.9, 1.0) * (streak * 0.12 + spec * 0.14);
                 col += tipc * fres * 0.12;
             }

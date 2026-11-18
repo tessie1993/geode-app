@@ -286,7 +286,7 @@ void main() {
         vec2 vq = rd.xy / rd.z;
         float bump = chrysBump(sect);
         float size = 0.07 + 3.6 * uIntensity * flareK * bump;
-        float bh = mix(hue, nextHue, smoothstep(0.55, 0.45, sect));
+        float bh = mix(hue, nextHue, 1.0 - smoothstep(0.45, 0.55, sect));
         vec2 fq = chrysTurn(gT * 0.1) * vq;
         // At rest the flower sits far down the bore, behind the fog; while it
         // blooms it opens in front of everything.
@@ -307,6 +307,6 @@ void main() {
     }
 
     col *= 0.85 + 0.15 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.3, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.3, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

@@ -356,7 +356,8 @@ void main() {
         if (gDB <= gDT) {
             // The bell: see-through in the middle, bright at grazing and at
             // the rim, with four radial canals that ride the high bands.
-            float fr = pow(1.0 - abs(dot(n, -rd)), 2.0);
+            float fr = 1.0 - abs(dot(n, -rd));
+            fr *= fr;
             float ang = atan(gQ.z, gQ.x + 1e-7);
             float canal = smoothstep(0.55, 1.0, 0.5 + 0.5 * cos(ang * 4.0)) * (1.0 - smoothstep(0.15, 0.75, length(gQ.xz))) * step(0.0, gQ.y);
             float rim = exp(-max(gQ.y + 0.08, 0.0) * 10.0);

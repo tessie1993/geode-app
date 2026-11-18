@@ -19,4 +19,14 @@ data class EdgeGlow(
 ) {
     /** In the order of `GEODE_EDGE_GLOW_FLOATS` (`core/api/geode_api.h`). */
     fun toFloatArray(): FloatArray = floatArrayOf(if (enabled) 1f else 0f, left, top, width, height)
+
+    /** [toFloatArray] into a buffer the caller keeps (five floats), for a launcher pan that moves it every frame. */
+    fun writeTo(out: FloatArray): FloatArray {
+        out[0] = if (enabled) 1f else 0f
+        out[1] = left
+        out[2] = top
+        out[3] = width
+        out[4] = height
+        return out
+    }
 }

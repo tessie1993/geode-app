@@ -138,11 +138,11 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     SceneParams p = director_.applyAxes(director_.apply(directorReach_.applyShuffle(displayed_)));
     p = directorReach_.applyModulation(p);
     if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_, &frame_.knobMods);
-    p = lfo_.apply(p, lfoValues);
-    p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
+    lfo_.apply(p, lfoValues);
+    viz::AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
-    p = reactions_.apply(p);
+    reactions_.apply(p);
     // No stage follows the matrix with routes of its own: the director plays none (owner's rule).
     // The continuous motion system: the one stage every family's parameters pass through, fed the sound
     // frame (never a single drum hit or PCM impulse), ahead of the safety clamp so nothing it adds can

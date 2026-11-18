@@ -262,7 +262,8 @@ public:
 
     void reset();
     void tick(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
-    SceneParams apply(const SceneParams& p) const;
+    // Adds every enabled route's output to its target's field in `p`, in place, scaled by its reactAmount and the drive.
+    void apply(SceneParams& p) const;
 
     const ReactSignals& signals() const { return signals_; }
     float output(int route) const { return out_[static_cast<size_t>(route)]; }

@@ -16,16 +16,15 @@ static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
 static_assert(config::indexInGroup(config::Slot::lfo_moment) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
 
+// The chained targets are the slots' speed and depth in pairs, from wave 1's speed: one pair per slot.
+static_assert(static_cast<int>(LfoTarget::Lfo3Depth) - static_cast<int>(LfoTarget::Lfo1Rate) + 1 == 2 * LfoEngine::kSlots,
+              "a speed and a depth target per wave slot");
+
 bool chainOf(LfoTarget target, ModChain& out) {
-    switch (target) {
-        case LfoTarget::Lfo1Rate: out = {0, ModChainField::Rate}; return true;
-        case LfoTarget::Lfo1Depth: out = {0, ModChainField::Depth}; return true;
-        case LfoTarget::Lfo2Rate: out = {1, ModChainField::Rate}; return true;
-        case LfoTarget::Lfo2Depth: out = {1, ModChainField::Depth}; return true;
-        case LfoTarget::Lfo3Rate: out = {2, ModChainField::Rate}; return true;
-        case LfoTarget::Lfo3Depth: out = {2, ModChainField::Depth}; return true;
-        default: return false;
-    }
+    const int k = static_cast<int>(target) - static_cast<int>(LfoTarget::Lfo1Rate);
+    if (k < 0 || k >= 2 * LfoEngine::kSlots) return false;
+    out = {k / 2, k % 2 == 0 ? ModChainField::Rate : ModChainField::Depth};
+    return true;
 }
 
 bool isLuminanceTarget(LfoTarget target) {
@@ -226,13 +225,11 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
     return out_;
 }
 
-SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlots>& values) const {
-    SceneParams r = p;
+void LfoEngine::apply(SceneParams& p, const std::array<float, kSlots>& values) const {
     for (int i = 0; i < kSlots; i++) {
         if (!configs[i].enabled) continue;
-        applyLfoTargetInPlace(r, configs[i].target, values[i]);
+        applyLfoTargetInPlace(p, configs[i].target, values[i]);
     }
-    return r;
 }
 
 

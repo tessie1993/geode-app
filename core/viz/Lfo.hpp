@@ -1,7 +1,6 @@
 #pragma once
 #include <array>
 #include <cstdint>
-#include <vector>
 
 #include "api/geode_api.h"
 #include "viz/Config.hpp"
@@ -63,6 +62,9 @@ struct ModChain {
     ModChainField field;
 };
 
+// How far one unit of a chained target (a wave's speed) moves the slot it steers, in Hz; waves and envelopes alike.
+inline constexpr float kChainRateHz = 4.0f;
+
 // The chained targets steer another slot; everything else writes a scene parameter.
 bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
@@ -113,11 +115,11 @@ public:
     // `moments` is the bit per Moment that came this frame (MomentWatch).
     const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
                                           const float* extDepthAdd = nullptr, std::uint32_t moments = 0);
-    SceneParams apply(const SceneParams& p, const std::array<float, kSlots>& values) const;
+    // Adds each enabled slot's value to its target's field in `p`, in place.
+    void apply(SceneParams& p, const std::array<float, kSlots>& values) const;
 
 private:
     static constexpr float kTau = 6.2831853f;
-    static constexpr float kChainRateHz = 4.0f;
     static constexpr float kMinRateHz = 0.01f;
     static constexpr float kMaxRateHz = 30.0f;
     static constexpr float kFollowRiseSeconds = 0.02f;

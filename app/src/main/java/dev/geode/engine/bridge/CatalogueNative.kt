@@ -9,11 +9,11 @@ object CatalogueNative {
     /**
      * The scene and style catalogue (core/viz/Catalogue), one question per call (`geode_catalogue_*`). A
      * list comes back as its items each followed by a newline. The answers never change in a process, so
-     * the shell asks once and keeps them (dev.geode.engine.bridge.StyleCatalogue).
+     * the shell asks once and keeps them (dev.geode.model.StyleCatalogue).
      *
      * [catalogueStyleIds]: the styles with a trait ([STYLE_ANY] and the rest), in picker order.
      */
-    external fun catalogueStyleIds(trait: Int): String
+    external fun catalogueStyleIds(trait: Int): Array<String>
 
     /** Whether a style has a trait ([STYLE_ANY] and the rest); false for an unknown trait or id (`geode_catalogue_style_has`). */
     external fun catalogueStyleHas(
@@ -22,10 +22,10 @@ object CatalogueNative {
     ): Boolean
 
     /** The Styles page's families, in order. */
-    external fun cataloguePickerNames(): String
+    external fun cataloguePickerNames(): Array<String>
 
     /** One Styles page family's styles, in order; none for an unknown family. */
-    external fun cataloguePickerIds(family: String): String
+    external fun cataloguePickerIds(family: String): Array<String>
 
     /** The style a saved id opens on: a retired id's replacement, any other id itself. */
     external fun catalogueResolve(styleId: String): String
@@ -40,6 +40,12 @@ object CatalogueNative {
     external fun catalogueReaches(
         scope: String,
         styleId: String,
+    ): Boolean
+
+    /** Whether a style holds a control at a value of its own, which [catalogueOverride] then gives (`geode_catalogue_has_override`). */
+    external fun catalogueHasOverride(
+        styleId: String,
+        paramKey: String,
     ): Boolean
 
     /** The value a style holds a control at; NaN when the control is the user's. */

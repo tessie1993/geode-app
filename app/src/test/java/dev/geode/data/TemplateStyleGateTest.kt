@@ -1,8 +1,8 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.SceneParams
-import dev.geode.engine.bridge.StyleCatalogue
-import dev.geode.engine.bridge.TestCatalogue
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
+import dev.geode.model.TestCatalogue
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier

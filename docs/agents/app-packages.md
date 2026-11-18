@@ -195,7 +195,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `render` (removed)
 
-- There is no `render` package. Its pieces are native or sit in `engine/bridge` (`SceneParams`, `StyleCatalogue`); the fluid splat shader asset that Expert › Shader code starts from is read in `ui/CustomizeAdvanced.kt`.
+- There is no `render` package. Its pieces are native or sit in `model` (`SceneParams`, `StyleCatalogue`, `ParamScope`); the fluid splat shader asset that Expert › Shader code starts from is read in `ui/CustomizeAdvanced.kt`.
 
 ## `audio/dsp`
 
@@ -268,7 +268,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
 - Pure value types shared across layers, staged for `:core:model`. No `android.*`.
 - `PresetShelf` holds the Presets grid filters and naming.
-- `engine/bridge/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
+- `model/StyleCatalogue` asks the native catalogue (ids, picker families, retired ids, param scopes as `ParamScope`) and keeps nothing; it decides nothing.
 - A style's and a family's display name are native (`CustomizeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.

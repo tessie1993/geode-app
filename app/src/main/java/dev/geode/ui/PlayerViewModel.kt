@@ -14,13 +14,13 @@ import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.engine.bridge.RenderPlanNative
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.SceneFactory
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.model.SceneParams
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.GetFeatureGateUseCase

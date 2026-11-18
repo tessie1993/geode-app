@@ -7,14 +7,6 @@
 
 namespace geode::audio::ingest {
 
-namespace {
-
-// How long a track may take to tell its rate: a decoder that produces nothing for this long is stuck, and the
-// delivery says false, as for a track that never tells its rate, instead of waiting for ever.
-constexpr std::chrono::seconds kRateWait{10};
-
-}  // namespace
-
 bool isAudioMime(const char* mime) { return mime != nullptr && std::strncmp(mime, "audio/", 6) == 0; }
 
 bool DecodeSource::step(TrackFeed& feed) {
@@ -53,20 +45,34 @@ void TrackPump::step() {
     if (!source_->step(feed_)) ended_ = true;
 }
 
+// One step, false once the source is stuck: `until` passed with no audio put in the feed. Both loops step only
+// with nothing held (no rate yet, or the listener emptied the held chunk), so frames held after the step are what
+// it decoded, and they start the wait again; a step that only waited on the codec, or handed over an empty
+// buffer, does not.
+bool TrackPump::stepWithin(std::chrono::steady_clock::time_point& until) {
+    step();
+    const auto now = now_();
+    if (feed_.heldFrames() > 0) {
+        until = now + kStuckAfter;
+        return true;
+    }
+    return now < until;
+}
+
 bool TrackPump::rateKnown() {
     // The rate is only known once the source has produced something.
-    const auto until = std::chrono::steady_clock::now() + kRateWait;
+    auto until = now_() + kStuckAfter;
     while (!feed_.hasRate() && !ended_) {
-        if (std::chrono::steady_clock::now() >= until) return false;
-        step();
+        if (!stepWithin(until)) return false;
     }
     return feed_.hasRate();
 }
 
 bool TrackPump::hearUntilTarget(TrackListener& listener) {
+    auto until = now_() + kStuckAfter;
     while (!listener.hear(feed_)) {
         if (ended_) return false;
-        step();
+        if (!stepWithin(until)) return false;
     }
     return true;
 }

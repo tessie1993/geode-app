@@ -111,7 +111,7 @@ int EncodeSink::drain(int track) {
     const uint8_t* data = codec.outputBuffer(index, &capacity);
     // A size the buffer cannot hold, or bytes with no buffer, is a broken codec: stopping beats reading past
     // the buffer or leaving a hole in the file.
-    if (info.size < 0 || (info.size > 0 && (!data || static_cast<size_t>(info.size) > capacity))) {
+    if (brokenSample(info, data, capacity)) {
         codec.releaseOutput(index);
         return -1;
     }

@@ -217,9 +217,12 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/player_transport_test.cpp core/player/*.cpp -o player_transport_test
           ./player_transport_test
           # The music library's rules ported from Kotlin (core/library): tag fallbacks and the library document, playlist
-          # edits, the smart-playlist matcher, play history and its retention, the saved session. Not called by the app yet.
+          # edits, the smart-playlist matcher, play history and its retention, the saved session. The app calls them through
+          # core/api (the track library's batch ABI is library_track_api_test).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_tracks_test.cpp core/library/TrackRules.cpp core/library/TrackLibraryDoc.cpp core/util/Json.cpp -o library_tracks_test
           ./library_tracks_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_track_api_test.cpp core/api/geode_track_library_api.cpp core/library/TrackRules.cpp core/library/TrackLibraryDoc.cpp core/util/Json.cpp -o library_track_api_test
+          ./library_track_api_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_playlist_test.cpp core/library/PlaylistRules.cpp core/util/Json.cpp -o library_playlist_test
           ./library_playlist_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_smart_playlist_test.cpp core/library/SmartPlaylist.cpp core/library/History.cpp core/util/Json.cpp -o library_smart_playlist_test

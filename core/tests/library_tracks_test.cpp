@@ -297,11 +297,18 @@ void schema() {
     check(!r.corrupt, "Kotlin trim() drops a no-break space before the document");
     r = readLibrary("{\"tracks\":[]} trailing words");
     check(!r.corrupt, "what follows the first value is ignored, as org.json");
-    for (const char* bad : {"garbage", "{\"version\":3}", "{\"tracks\":5}", "{\"tracks\":[{\"title\":\"x\"}]}",
-                            "[1]", "{\"tracks\":[null]}", "5", "{\"tracks\":[{\"uri\":\"a\"},", "\"str\""}) {
+    for (const char* bad : {"garbage", "{\"version\":3}", "{\"tracks\":5}", "5", "{\"tracks\":[{\"uri\":\"a\"},",
+                            "\"str\"", "{\"tracks\":"}) {
         r = readLibrary(bad);
         check(r.corrupt && r.tracks.empty(), std::string("corrupt: ") + bad);
     }
+    // TrackLibraryTest.anEntryWithNoUriDropsOnlyItself: one bad entry costs only itself.
+    r = readLibrary("{\"version\":3,\"tracks\":[{\"uri\":\"content://a\",\"title\":\"A\"},{\"title\":\"no uri\"},7,"
+                    "null,{\"uri\":\"content://b\",\"title\":\"B\"}]}");
+    check(!r.corrupt && r.tracks.size() == 2 && r.tracks[0].uri == "content://a" && r.tracks[1].uri == "content://b",
+          "an entry with no uri, or not an object, drops only itself");
+    r = readLibrary("[1]");
+    check(!r.corrupt && r.tracks.empty(), "a bare array of non-objects is an empty library");
     r = readLibrary("{\"tracks\":[{\"uri\":5,\"title\":null,\"year\":\"2021\",\"trackNo\":7.9,"
                     "\"durationMs\":\"1500\",\"sizeBytes\":12.0,\"artist\":true}]}");
     check(!r.corrupt && r.tracks.size() == 1, "loose types read");

@@ -193,7 +193,7 @@ void ShaderScene::uploadParams() {
             rgb[static_cast<size_t>(3 * i + 2)] = c.b;
         }
         set1f("uPalStopCount", static_cast<float>(count));
-        glUniform3fv(uniforms_.loc("uPalStops"), colour::kMaxStops, rgb.data());
+        glUniform3fv(uniforms_.loc("uPalStops"), uniforms_.arrayCount("uPalStops", colour::kMaxStops), rgb.data());
     }
     set1f("uDuotone", flag(p.duotone));
     set1f("uBloom", p.bloom);

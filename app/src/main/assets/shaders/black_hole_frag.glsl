@@ -123,7 +123,7 @@ float bhLine(float x, float xAlt, float sharp) {
     float d = abs(fract(x) - 0.5) / fw;
     float core = exp(-d * d * sharp);
     float glow = 0.10 / (1.0 + d * 0.5);
-    return mix(min(fw, 1.0) * 0.5, core + glow, smoothstep(0.35, 0.12, fw));
+    return mix(min(fw, 1.0) * 0.5, core + glow, 1.0 - smoothstep(0.12, 0.35, fw));
 }
 
 vec3 bhStars(vec3 d, float twinkle) {
@@ -247,7 +247,7 @@ void main() {
         ring += dt * exp(-dr * dr * 60.0);
         // A thin hot haze hugging the disc plane, lensed with everything else.
         float rr = length(p.xz);
-        haze += dt * exp(-abs(p.y) * (5.5 - 3.0 * kFlow)) * smoothstep(BH_DISC_OUT, BH_DISC_IN, rr) * smoothstep(BH_DISC_IN - 0.6, BH_DISC_IN + 0.8, rr);
+        haze += dt * exp(-abs(p.y) * (5.5 - 3.0 * kFlow)) * (1.0 - smoothstep(BH_DISC_IN, BH_DISC_OUT, rr)) * smoothstep(BH_DISC_IN - 0.6, BH_DISC_IN + 0.8, rr);
 
         if (p.y * pn.y < 0.0) {
             float f = p.y / (p.y - pn.y);
@@ -285,7 +285,7 @@ void main() {
                 float armL = bhLine(armX, armXAlt, 0.5);
                 dens = max(dens, 0.0) + 0.5 * armL;
                 fil += armL;
-                float edge = smoothstep(BH_DISC_IN * 0.85, BH_DISC_IN * 1.25, hr) * smoothstep(BH_DISC_OUT * 1.1, BH_DISC_OUT * 0.55, hr);
+                float edge = smoothstep(BH_DISC_IN * 0.85, BH_DISC_IN * 1.25, hr) * (1.0 - smoothstep(BH_DISC_OUT * 0.55, BH_DISC_OUT * 1.1, hr));
 
                 // Temperature: hottest just outside the inner edge, falling outward.
                 float x = BH_DISC_IN / hr;

@@ -333,7 +333,7 @@ void main() {
                        skin(st, density, bass, aa),
                        skin(st * (1.0 - split), density, bass, aa));
             // A dark ring marks the bore's lip, as a bored hole would.
-            float lip = 1.0 - 0.6 * smoothstep(0.6, 0.0, polyR(q, gFolds) - CO_BORE);
+            float lip = 1.0 - 0.6 * (1.0 - smoothstep(0.0, 0.6, polyR(q, gFolds) - CO_BORE));
             vec3 dots = fringe(rgb, orbHue) * lip * glow;
             float limb = 0.5 + 0.5 * ndv;
             col = pal(orbHue + 0.62) * 0.04 + dots * limb * (0.55 + 0.45 * ao);
@@ -374,7 +374,7 @@ void main() {
             float h2 = hashCell(ivec3(int(cell.x), int(cell.y), slice + 131));
             vec2 c = (cell + 0.5 + (vec2(h, h2) - 0.5) * 0.6) * 2.5
                    + 0.2 * vec2(sin(uTime * 0.21 + h * 30.0), cos(uTime * 0.17 + h2 * 30.0));
-            float blob = smoothstep(0.45, 0.06, length(xy - c)) * (0.25 + 0.75 * h2);
+            float blob = (1.0 - smoothstep(0.06, 0.45, length(xy - c))) * (0.25 + 0.75 * h2);
             col += pal(hue + 0.62) * blob * 0.12 * lift * exp(-ti * fogK);
         }
     }

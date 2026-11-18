@@ -22,9 +22,11 @@ namespace geode::sound {
 //      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat ─► meter, downbeat
 //
 // The tempo comes from the music alone. No tempo is preferred, weighted or assumed: every lag in the
-// search range is scored by the same normalised autocorrelation, the beat is the fastest lag about as
-// periodic as the strongest one (a rule that names no tempo), and until one is found there is no period,
-// no beat and no tick (bpm 0). tools/no-bpm-bias-gate.sh and musical_test's tempo range keep it so.
+// search range is scored by the same normalised autocorrelation; the beat is the level, among the most
+// periodic peak's multiples and divisors about as periodic as it, on whose period the envelope's onsets
+// fall most on one phase (its Fourier coefficient there, one window for every lag): evidence alone, neither
+// a tempo nor the order of the lags decides. Until one is found there is no period, no beat and no tick (bpm 0). tools/no-bpm-bias-gate.sh and musical_test's tempo
+// range keep it so.
 //
 // The phase is Grosche & Müller's predominant local pulse (PLP) read only at the newest instant, so it
 // predicts rather than describes; the oscillator is the small PLL every real-time tracker puts on top

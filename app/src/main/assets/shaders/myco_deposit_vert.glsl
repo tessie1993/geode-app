@@ -1,5 +1,6 @@
 #version 300 es
 precision highp float;
+precision highp sampler2D;
 
 // MYCELIUM - the deposit pass, vertex side. One point per agent: the vertex
 // fetches its agent's texel (vertex texture fetch, core ES 3.0 and already

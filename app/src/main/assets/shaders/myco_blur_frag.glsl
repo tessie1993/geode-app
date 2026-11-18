@@ -1,5 +1,6 @@
 #version 300 es
 precision highp float;
+precision highp sampler2D;
 
 // MYCELIUM - trail diffusion and decay: a 3x3 box mean with the decay folded
 // into the same pass (the reference machine's arrangement). Diffusion is what

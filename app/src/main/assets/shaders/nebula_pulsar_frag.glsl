@@ -141,7 +141,8 @@ NebHit nebMap(vec3 p, float oct) {
         h.knots = nebValue3(vec3(sa * 7.0 - gFlow * 0.6 - gT * 0.15,
                                  dot(across, gAcrossU) / width * 0.8,
                                  dot(across, gAcrossV) / width * 0.8 + side));
-        h.pulse = exp(-pow((sa - gPulsePos) / 0.08, 2.0)) * gPulse * reachFade;
+        float pulseD = (sa - gPulsePos) / 0.08;
+        h.pulse = exp(-pulseD * pulseD) * gPulse * reachFade;
         // The knot's wider glow just around the cone.
         h.halo = exp(-(c * c) / (9.0 * width * width));
     }

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "audio/output/OutputFifo.hpp"
+
 namespace geode::output::record {
 
 namespace {
@@ -193,7 +195,11 @@ void Recorder::place(int64_t frames, int64_t nowNs) {
 }
 
 void Recorder::hear(const float* interleaved, int frames, int channels, int rateHz, int64_t nowNs) {
-    if (!interleaved || frames <= 0 || channels <= 0 || rateHz <= 0) return;
+    // A rate outside what an output can run at is refused: the resampler's block would be sized from it.
+    if (!interleaved || frames <= 0 || channels <= 0 || rateHz < audio::output::OutputFifo::kMinRateHz ||
+        rateHz > audio::output::OutputFifo::kMaxRateHz) {
+        return;
+    }
     if (!started() || stopped() != Stop::None) return;
     std::lock_guard<std::mutex> lock(audioLock_);
     source_.resize(static_cast<size_t>(frames) * kChannels);

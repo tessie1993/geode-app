@@ -169,8 +169,8 @@ internal fun visible(
     display: String = paramKey,
 ): Boolean {
     if (!scope.appliesTo(LocalSceneId.current)) return false
-    val query = LocalParamQuery.current.trim()
-    return query.isEmpty() || paramKey.contains(query, ignoreCase = true) || display.contains(query, ignoreCase = true)
+    val query = LocalParamQuery.current
+    return CustomizeNative.customizeMatches(query, paramKey) || CustomizeNative.customizeMatches(query, display)
 }
 
 /** True when a whole section can be drawn: it applies here, and no search is narrowing the panel. */

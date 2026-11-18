@@ -13,7 +13,8 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.RenderPlanNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -26,7 +27,6 @@ import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -91,9 +91,7 @@ class PlayerViewModel
 
         fun hasMicPermission(): Boolean = session.captureController.hasMicPermission()
 
-        fun noteExternalAudioConsentPending() = session.captureController.noteExternalAudioConsentPending()
-
-        fun noteExternalAudioConsentDenied() = session.captureController.noteExternalAudioConsentDenied()
+        fun startDeviceAudio() = session.captureController.startDeviceAudio()
 
         fun stopExternalAudio() = session.stopExternalAudio()
 
@@ -238,8 +236,6 @@ class PlayerViewModel
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
 
-        fun applyCustomShader(source: String) = session.visual.applyCustomShader(source)
-
         fun setTransitionId(id: String) = session.visual.setTransitionId(id)
 
         fun setTransitionDuration(seconds: Float) = session.visual.setTransitionDuration(seconds)
@@ -326,7 +322,7 @@ class PlayerViewModel
             capMs: Long?,
         ): ExportRange? {
             val out = LongArray(2)
-            GeodeNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
+            RenderPlanNative.exportRangeCapped(range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
             return if (out[1] > 0) ExportRange(out[0], out[1]) else null
         }
 

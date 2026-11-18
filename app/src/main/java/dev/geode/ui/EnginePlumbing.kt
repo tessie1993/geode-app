@@ -12,7 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.PerfNative
 import dev.geode.geodeContainer
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.rememberSystemReducedMotion
@@ -71,7 +71,7 @@ fun VisualizerEngineBindings(
 
     LaunchedEffect(Unit) {
         visualizerView.stage.onShaderError = viewModel::reportShaderError
-        visualizerView.stage.soundInput = { dev.geode.audio.AudioBus.soundInput }
+        visualizerView.stage.soundInput = { dev.geode.audio.AudioBus.heard }
         // W02: the background image is decoded to the surface's current pixel size, so a rotation
         // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
         // inside the view's surface callback, so the re-decode is launched rather than run there.
@@ -124,7 +124,7 @@ fun VisualizerEngineBindings(
     // fast panel is 60 on a 60 Hz one.
     val refreshRates = rememberSeamlessRefreshRates()
     LaunchedEffect(performance, refreshRates) {
-        visualizerView.applyPerformance(performance.copy(fpsCap = GeodeNative.liveFpsCap(performance.fpsCap, refreshRates)))
+        visualizerView.applyPerformance(performance.copy(fpsCap = PerfNative.liveFpsCap(performance.fpsCap, refreshRates)))
     }
     LaunchedEffect(Unit) {
         visualizerView.stage.liquidMode.collect { viewModel.reportLiquidMode(it) }

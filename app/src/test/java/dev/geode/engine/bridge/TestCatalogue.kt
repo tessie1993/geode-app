@@ -1,7 +1,6 @@
-package dev.geode.render.scene
+package dev.geode.engine.bridge
 
 import dev.geode.data.NativeLookDefaults
-import dev.geode.engine.bridge.GeodeNative
 
 /**
  * A small catalogue for JVM tests, which cannot load the native library: a few real styles of each
@@ -37,7 +36,7 @@ object TestCatalogue : StyleCatalogue.Reads {
                 ),
             "arbor" to listOf("arbor_grove", "arbor_willow", "arbor_coral"),
             "terrain" to listOf("terra_ridge", "terra_dunes"),
-            "milkdrop" to listOf(GeodeNative.STYLE_MILKDROP),
+            "milkdrop" to listOf(CatalogueNative.STYLE_MILKDROP),
             "fluid" to listOf("fluid", "fluid_ink", "curlflow"),
             "cymatics" to listOf("cymatics", "kundt_tube"),
         )
@@ -58,14 +57,19 @@ object TestCatalogue : StyleCatalogue.Reads {
 
     override fun styleIds(trait: Int): String =
         when (trait) {
-            GeodeNative.STYLE_ANY -> all
-            GeodeNative.STYLE_SHADER -> shader
-            GeodeNative.STYLE_FAMILY_FOLLOWER -> picker.getValue("arbor") + picker.getValue("terrain") - OPENERS.toSet()
-            GeodeNative.STYLE_AUTO_DRAW -> picker.getValue("silk") + shader
-            GeodeNative.STYLE_FLUID -> fluid
-            GeodeNative.STYLE_CYMATICS -> cymatics
+            CatalogueNative.STYLE_ANY -> all
+            CatalogueNative.STYLE_SHADER -> shader
+            CatalogueNative.STYLE_FAMILY_FOLLOWER -> picker.getValue("arbor") + picker.getValue("terrain") - OPENERS.toSet()
+            CatalogueNative.STYLE_AUTO_DRAW -> picker.getValue("silk") + shader
+            CatalogueNative.STYLE_FLUID -> fluid
+            CatalogueNative.STYLE_CYMATICS -> cymatics
             else -> emptyList()
         }.let(::listText)
+
+    override fun styleHas(
+        trait: Int,
+        styleId: String,
+    ): Boolean = styleId in styleIds(trait).lines()
 
     override fun pickerNames(): String = listText(picker.keys)
 

@@ -209,6 +209,10 @@ std::string keptPaletteId(std::string_view lookId, std::string_view deletedId) {
     return !deletedId.empty() && lookId == deletedId ? std::string() : std::string(lookId);
 }
 
+std::string framePaletteId(std::string_view lookId, const SceneParams& frame) {
+    return palette_params::usesCustomPalette(frame) ? std::string(lookId) : std::string();
+}
+
 std::optional<std::string> migratedPalette(std::string_view text) {
     std::optional<SavedPalette> p = readPalette(text);
     if (!p) return std::nullopt;

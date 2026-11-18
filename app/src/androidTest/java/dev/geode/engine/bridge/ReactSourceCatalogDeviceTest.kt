@@ -1,7 +1,6 @@
-package dev.geode.render
+package dev.geode.engine.bridge
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.engine.bridge.GeodeNative
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,7 +15,7 @@ import org.junit.runner.RunWith
 class ReactSourceCatalogDeviceTest {
     @Test
     fun theNativeCatalogueListsEverySourceInWireOrder() {
-        val rows = GeodeNative.modCatalogText().lines().map { it.split('|') }
+        val rows = ModulationNative.modCatalogText().lines().map { it.split('|') }
         val groups = rows.filter { it[0] == "group" }.map { it[2] }
         val sources = rows.filter { it[0] == "react" }
         assertTrue("the catalogue should list reaction sources", sources.isNotEmpty())

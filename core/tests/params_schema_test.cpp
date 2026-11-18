@@ -294,12 +294,17 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::Life, "life", 0.0f, 1.0f},
 };
 
+SceneParams lfoMoved(SceneParams r, LfoTarget target, float v) {
+    applyLfoTargetInPlace(r, target, v);
+    return r;
+}
+
 void theLfoClampsAreTheTablesRanges() {
     const SceneParams base{};
     for (const OldClamp& c : kOldClamps) {
         const std::string name = c.field;
-        const SceneParams up = applyLfoTarget(base, c.target, 1000.0f);
-        const SceneParams down = applyLfoTarget(base, c.target, -1000.0f);
+        const SceneParams up = lfoMoved(base, c.target, 1000.0f);
+        const SceneParams down = lfoMoved(base, c.target, -1000.0f);
         check(up.get(name) == c.hi, name + ": an LFO pushed up stops at " + std::to_string(c.hi));
         check(down.get(name) == c.lo, name + ": an LFO pushed down stops at " + std::to_string(c.lo));
         // Nothing else moves.
@@ -309,30 +314,30 @@ void theLfoClampsAreTheTablesRanges() {
         }
     }
     // The palette stack's amounts stop at 0..1; its position is Circular, like the hue.
-    check(applyLfoTarget(base, LfoTarget::PaletteAmount1, 1000.0f).paletteAmount0 == 1.0f &&
-              applyLfoTarget(base, LfoTarget::PaletteAmount8, -1000.0f).paletteAmount7 == 0.0f,
+    check(lfoMoved(base, LfoTarget::PaletteAmount1, 1000.0f).paletteAmount0 == 1.0f &&
+              lfoMoved(base, LfoTarget::PaletteAmount8, -1000.0f).paletteAmount7 == 0.0f,
           "a palette amount stops at its range");
     check(SceneParams::spec(ParamSlot::paletteShift).kind == ParamKind::Circular &&
-              applyLfoTarget(base, LfoTarget::PaletteShift, 3.0f).paletteShift == base.paletteShift + 1.5f,
+              lfoMoved(base, LfoTarget::PaletteShift, 3.0f).paletteShift == base.paletteShift + 1.5f,
           "the palette position is never clamped");
     // The kaleidoscope's folds: 8 per unit, held to Off (1) .. 16.
-    check(applyLfoTarget(base, LfoTarget::KaleidoFolds, 0.5f).kaleidoFolds == base.kaleidoFolds + 4.0f &&
-              applyLfoTarget(base, LfoTarget::KaleidoFolds, 1000.0f).kaleidoFolds == 16.0f &&
-              applyLfoTarget(base, LfoTarget::KaleidoFolds, -1000.0f).kaleidoFolds == 1.0f,
+    check(lfoMoved(base, LfoTarget::KaleidoFolds, 0.5f).kaleidoFolds == base.kaleidoFolds + 4.0f &&
+              lfoMoved(base, LfoTarget::KaleidoFolds, 1000.0f).kaleidoFolds == 16.0f &&
+              lfoMoved(base, LfoTarget::KaleidoFolds, -1000.0f).kaleidoFolds == 1.0f,
           "a wave on the kaleidoscope moves 8 folds per unit, from off to 16");
     // The physics layers: one unit per unit, held to their ranges (off .. full; force 0 .. 2).
-    check(applyLfoTarget(base, LfoTarget::SimFluid, 0.5f).simFluid == 0.5f && applyLfoTarget(base, LfoTarget::SimFluid, -1.0f).simFluid == 0.0f &&
-              applyLfoTarget(base, LfoTarget::SimParticles, 1000.0f).simParticles == 1.0f &&
-              applyLfoTarget(base, LfoTarget::SimForce, 1000.0f).simForce == 2.0f &&
-              applyLfoTarget(base, LfoTarget::SimForce, -0.25f).simForce == 0.75f &&
-              applyLfoTarget(base, LfoTarget::SimLayerOrder, 0.25f).simLayerOrder == 0.25f,
+    check(lfoMoved(base, LfoTarget::SimFluid, 0.5f).simFluid == 0.5f && lfoMoved(base, LfoTarget::SimFluid, -1.0f).simFluid == 0.0f &&
+              lfoMoved(base, LfoTarget::SimParticles, 1000.0f).simParticles == 1.0f &&
+              lfoMoved(base, LfoTarget::SimForce, 1000.0f).simForce == 2.0f &&
+              lfoMoved(base, LfoTarget::SimForce, -0.25f).simForce == 0.75f &&
+              lfoMoved(base, LfoTarget::SimLayerOrder, 0.25f).simLayerOrder == 0.25f,
           "a wave on a physics layer moves it a unit per unit, inside its range");
     // The hue is Circular: it adds unclamped, at half a turn per unit, as it always did.
     check(SceneParams::spec(ParamSlot::colorShift).kind == ParamKind::Circular, "colorShift is circular");
-    check(applyLfoTarget(base, LfoTarget::ColorShift, 3.0f).colorShift == base.colorShift + 1.5f, "the hue LFO is never clamped");
+    check(lfoMoved(base, LfoTarget::ColorShift, 3.0f).colorShift == base.colorShift + 1.5f, "the hue LFO is never clamped");
     // Scaled targets keep their scale inside the range.
-    check(applyLfoTarget(base, LfoTarget::FlowCurl, 0.2f).flowCurl == base.flowCurl + 0.2f * 25.0f, "Swirl moves 25 per unit");
-    check(applyLfoTarget(base, LfoTarget::EndlessZoomSpeed, 0.2f).endlessZoomSpeed == base.endlessZoomSpeed + 0.2f * 0.5f,
+    check(lfoMoved(base, LfoTarget::FlowCurl, 0.2f).flowCurl == base.flowCurl + 0.2f * 25.0f, "Swirl moves 25 per unit");
+    check(lfoMoved(base, LfoTarget::EndlessZoomSpeed, 0.2f).endlessZoomSpeed == base.endlessZoomSpeed + 0.2f * 0.5f,
           "Dive moves 0.5 per unit");
     // Targets that write no scene parameter leave the params alone.
     std::vector<float> before(kWireFloats);
@@ -340,7 +345,7 @@ void theLfoClampsAreTheTablesRanges() {
     base.toWire(before.data());
     for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38, LfoTarget::Lfo1Rate,
                         LfoTarget::Lfo3Depth}) {
-        applyLfoTarget(base, t, 1.0f).toWire(after.data());
+        lfoMoved(base, t, 1.0f).toWire(after.data());
         check(after == before, "a target with no scene field changes nothing");
     }
 }

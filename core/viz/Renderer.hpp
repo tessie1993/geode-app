@@ -145,7 +145,6 @@ public:
     void hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis);
     void setListenPosition(int64_t position) { listenPosition_ = position; }
     // Where the last frame's triggers fired (sound/interp/Hits). Render thread only.
-    const sound::interp::Hits& soundHits() const { return soundHits_; }
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }

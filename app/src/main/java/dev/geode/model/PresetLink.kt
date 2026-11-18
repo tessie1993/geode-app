@@ -1,30 +1,27 @@
 package dev.geode.model
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.LooksNative
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 /** A preset whole in one link. What is framed and what is accepted is native (core/viz/LookFiles); here only the packing. */
 object PresetLink {
-    const val SCHEME = "geode"
-    const val HOST = "preset"
+    val MAX_LINK_LENGTH: Int get() = LooksNative.presetLinkMaxLength()
 
-    val MAX_LINK_LENGTH: Int get() = GeodeNative.presetLinkMaxLength()
+    fun isPresetLink(text: String): Boolean = LooksNative.presetLinkIs(text)
 
-    fun isPresetLink(text: String): Boolean = GeodeNative.presetLinkIs(text)
-
-    fun encode(json: String): String = GeodeNative.presetLinkFrame(LinkPacking.pack(json))
+    fun encode(json: String): String = LooksNative.presetLinkFrame(LinkPacking.pack(json))
 
     /** [encode], or null when the link is too long to share and a file should go instead. */
-    fun shareable(json: String): String? = encode(json).takeIf(GeodeNative::presetLinkFits)
+    fun shareable(json: String): String? = encode(json).takeIf(LooksNative::presetLinkFits)
 
     fun decode(text: String): String? {
-        val payload = GeodeNative.presetLinkPayload(text) ?: return null
-        return LinkPacking.unpack(payload, GeodeNative.presetLinkMaxInflated())?.takeIf(GeodeNative::presetLinkBodyAccepted)
+        val payload = LooksNative.presetLinkPayload(text) ?: return null
+        return LinkPacking.unpack(payload, LooksNative.presetLinkMaxInflated())?.takeIf(LooksNative::presetLinkBodyAccepted)
     }
 
-    fun findIn(text: String): String? = GeodeNative.presetLinkFind(text)
+    fun findIn(text: String): String? = LooksNative.presetLinkFind(text)
 }
 
 /** The bytes of a share link's payload: gzip, then URL-safe base64 without padding, and back. */

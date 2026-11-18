@@ -11,7 +11,10 @@ import dev.geode.RingLog
 import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookStore
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CastNative
+import dev.geode.engine.bridge.PerfNative
+import dev.geode.engine.bridge.PlayoutNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.export.EncoderSurface
 import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
@@ -206,7 +209,7 @@ internal class CastStream(
     val segmentAgeMs: Long get() = server.msSinceLastSegment
 
     private fun renderLoop() {
-        val encoder = GeodeNative.castEncoderOpen(server.native, webrtc.native, musicInput)
+        val encoder = CastNative.castEncoderOpen(server.native, webrtc.native, musicInput)
         var surface: Surface? = null
         var egl: EncoderSurface? = null
         var fallback: CastFallback? = null
@@ -214,30 +217,30 @@ internal class CastStream(
         var tee = 0L
         try {
             check(encoder != 0L) { "no cast encoder" }
-            val input = GeodeNative.castEncoderSurface(encoder) as? Surface ?: error("no encoder surface")
+            val input = CastNative.castEncoderSurface(encoder) as? Surface ?: error("no encoder surface")
             surface = input
             val out = EncoderSurface(input).also { egl = it }
             // The TV plays the ring as written, not the muted phone's sink: no reader waits for the speaker.
-            GeodeNative.playoutSetBypass(PlaybackEngine.playout, true)
+            PlayoutNative.playoutSetBypass(PlaybackEngine.playout, true)
             out.makeCurrent()
             // The stage's own picture wherever the stage draws; 0 on a driver without the GPU buffer extensions.
-            tee = GeodeNative.castTeeOpen(WIDTH, HEIGHT, FPS)
+            tee = CastNative.castTeeOpen(WIDTH, HEIGHT, FPS)
             if (tee == 0L) RingLog.note(TAG, "no tee: the cast renders on its own")
             val teeOpenedNs = System.nanoTime()
             CastMirror.setStreaming(true)
-            val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
-            GeodeNative.frameClockStart(clock, FPS, System.nanoTime())
+            val clock = LongArray(PerfNative.FRAME_CLOCK_STATE)
+            PerfNative.frameClockStart(clock, FPS, System.nanoTime())
             while (running) {
-                check(!GeodeNative.castEncoderFailed(encoder)) { "the cast encoder failed" }
-                LockSupport.parkNanos(GeodeNative.frameClockWaitNs(clock, System.nanoTime()))
-                val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
+                check(!CastNative.castEncoderFailed(encoder)) { "the cast encoder failed" }
+                LockSupport.parkNanos(PerfNative.frameClockWaitNs(clock, System.nanoTime()))
+                val ptsNs = PerfNative.frameClockTake(clock, System.nanoTime())
                 val now = System.nanoTime()
-                val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, WIDTH, HEIGHT)
-                val stageDraws = GeodeNative.stageRun(CastMirror.stageFlags) and GeodeNative.STAGE_DRAWS != 0
-                if (!fromStage && tee != 0L && GeodeNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
+                val fromStage = tee != 0L && CastNative.castTeeDraw(tee, now, WIDTH, HEIGHT)
+                val stageDraws = SoundNative.stageRun(CastMirror.stageFlags) and SoundNative.STAGE_DRAWS != 0
+                if (!fromStage && tee != 0L && CastNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
                     // The stage is on screen and its first copy is coming (a new surface stages its scene over
                     // several frames): wait for it rather than have a second renderer show another visual first.
-                    GeodeNative.castEncoderPump(encoder, AudioBus.soundInput, GeodeNative.frameClockAudioUntilUs(clock))
+                    CastNative.castEncoderPump(encoder, AudioBus.heard, PerfNative.frameClockAudioUntilUs(clock))
                     continue
                 }
                 if (!fromStage) {
@@ -245,24 +248,24 @@ internal class CastStream(
                     syncLook(renderer)
                     renderer.draw()
                     fallbackDrewNs = now
-                } else if (fallback != null && GeodeNative.castFallbackRelease(now, fallbackDrewNs)) {
+                } else if (fallback != null && CastNative.castFallbackRelease(now, fallbackDrewNs)) {
                     // The stage has led for a while: give the fallback's scenes and sound engine back.
                     bestEffort(TAG, "fallback.release()") { fallback.release() }
                     fallback = null
                 }
                 out.setPresentationTimeNs(ptsNs)
                 out.swapBuffers()
-                GeodeNative.castEncoderPump(encoder, AudioBus.soundInput, GeodeNative.frameClockAudioUntilUs(clock))
+                CastNative.castEncoderPump(encoder, AudioBus.heard, PerfNative.frameClockAudioUntilUs(clock))
             }
         } finally {
             CastMirror.setStreaming(false)
-            GeodeNative.playoutSetBypass(PlaybackEngine.playout, false)
-            if (tee != 0L) bestEffort(TAG, "castTeeClose()") { GeodeNative.castTeeClose(tee) }
+            PlayoutNative.playoutSetBypass(PlaybackEngine.playout, false)
+            if (tee != 0L) bestEffort(TAG, "castTeeClose()") { CastNative.castTeeClose(tee) }
             bestEffort(TAG, "fallback.release()") { fallback?.release() }
             bestEffort(TAG, "egl.release()") { egl?.release() }
             bestEffort(TAG, "surface.release()") { surface?.release() }
             // After the surface is no longer drawn into; then the server and WebRTC may go.
-            GeodeNative.castEncoderClose(encoder)
+            CastNative.castEncoderClose(encoder)
             freeLinksWhenDone(renderEnded = true)
         }
     }
@@ -308,7 +311,7 @@ internal class CastStream(
         const val TAG = "CastStream"
 
         // width, height, fps: core/viz/frame (CastFormat)
-        private val castFormat = IntArray(GeodeNative.CAST_FORMAT_INTS).also { GeodeNative.castFormat(it) }
+        private val castFormat = IntArray(CastNative.CAST_FORMAT_INTS).also { CastNative.castFormat(it) }
         private val WIDTH = castFormat[0]
         private val HEIGHT = castFormat[1]
         val FPS = castFormat[2]

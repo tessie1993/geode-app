@@ -9,9 +9,9 @@ One fact per line. Add a fact as a new bullet under its module.
 
 ## Native bridge (`app/src/main/java/dev/geode/engine/`)
 
-- Packages: `dev.geode.engine.bridge` (`GeodeNative.kt`), `dev.geode.engine.audioandroid` (`PcmTap.kt`).
-- `GeodeNative` holds every JNI `external fun`.
-- The PCM rings are native (`core/audio/ingest/PcmRing`); the shell holds a ring as a `Long` handle and calls `GeodeNative.pcmRing*`.
+- Packages: `dev.geode.engine.bridge` (the `*Native.kt` objects), `dev.geode.engine.audioandroid` (`PcmTap.kt`).
+- The `*Native` objects (`GeodeNative`, `VizNative`, ...), one per JNI source file, hold every JNI `external fun`; `GeodeNative.ensureLoaded()` loads the library for all of them.
+- The PCM rings are native (`core/audio/ingest/PcmRing`); the shell holds a ring as a `Long` handle and calls `IngestNative.pcmRing*`.
 - Which rings exist, their sizes and lifetimes are native (`core/audio/ingest/RingKinds`): the player's and the mic's kept for the process (`pcmRingShared`), the output mix's made and freed by its owner.
 - The user's sound tuning (Settings › Audio) is a list of floats kept by `data/SoundInputSettings.kt`.
 - The tuning's defaults, ranges and clamp are native (`core/sound/Tuning`, `geode_sound_tuning_*`).
@@ -28,7 +28,7 @@ One fact per line. Add a fact as a new bullet under its module.
 - The C ABI is `core/api/geode_modulation_api.h` (`geode_mod_*`, `geode_viz_set_lfos`, `geode_viz_set_adsrs`, `geode_viz_set_reactions`); the shell holds no wave, envelope or route type.
 - Customize › Music's moments and its action menu's order and light/motion groups are `moment` and `music` rows of `core/viz/ModCatalog`; the shell keeps only the localised labels.
 - The Customize event recipes are native: titles and sentences in `core/viz/ModCatalog`, routes, toggle and merge in `core/viz/ReactionDna` (`geode_mod_recipe_state`, `geode_mod_reactions_edit`).
-- The style catalogue: `render/scene/StyleCatalogue` asks native (`GeodeNative.catalogue*`).
+- The style catalogue: `render/scene/StyleCatalogue` asks native (`CatalogueNative.catalogue*`).
 - The value units and a control's value text are native (`core/viz/ParamText`); `render/scene/ParamUnit` names the three a row sets itself.
 - A Customize slider's maths is native (`core/viz/SliderMap`, `geode_slider_*`): the Reset offer, the whole-number snap and the wave period's log track; `ui/CustomizeTabs` and `ui/CustomizeAdvanced` only call it.
 

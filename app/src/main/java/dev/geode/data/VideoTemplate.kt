@@ -14,9 +14,9 @@ package dev.geode.data
 
 import android.content.Context
 import dev.geode.RingLog
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.model.PresetLink
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,12 +125,12 @@ internal object TemplateCodec {
 
     /** A whole template file or a pasted message holding one or a geode://template link. */
     fun read(text: String): TemplateParse {
-        val link = GeodeNative.templateLinkIn(text)
+        val link = LooksNative.templateLinkIn(text)
         return readBody(if (link == null) text else PresetLink.decode(link).orEmpty())
     }
 
     /** Whether [text] holds a geode://template link. */
-    fun hasLink(text: String): Boolean = GeodeNative.templateLinkIn(text) != null
+    fun hasLink(text: String): Boolean = LooksNative.templateLinkIn(text) != null
 
     /** A new template of [look] named [name], every other section at the format's defaults. */
     fun create(
@@ -139,7 +139,7 @@ internal object TemplateCodec {
         atMs: Long,
     ): VideoTemplate =
         written(
-            GeodeNative.templateCreate(
+            LooksNative.templateCreate(
                 name,
                 atMs,
                 look.sceneId,
@@ -155,23 +155,23 @@ internal object TemplateCodec {
     fun renamed(
         template: VideoTemplate,
         name: String,
-    ): VideoTemplate = written(GeodeNative.templateRenamed(template.document, name)).copy(origin = template.origin)
+    ): VideoTemplate = written(LooksNative.templateRenamed(template.document, name)).copy(origin = template.origin)
 
     /** A fresh, independent copy: new identity, no inherited authorship, so editing it never overwrites the original. */
     fun newCopy(
         template: VideoTemplate,
         name: String,
         atMs: Long,
-    ): VideoTemplate = written(GeodeNative.templateNewCopy(template.document, name, atMs))
+    ): VideoTemplate = written(LooksNative.templateNewCopy(template.document, name, atMs))
 
     /** The whole template as one pasteable link, or null when it is too long for a chat client. */
     fun link(template: VideoTemplate): String? {
         val presetLink = PresetLink.encode(template.document)
-        return GeodeNative.templateLinkOf(presetLink, PresetLink.MAX_LINK_LENGTH)
+        return LooksNative.templateLinkOf(presetLink, PresetLink.MAX_LINK_LENGTH)
     }
 
     /** The name a shared copy of [template] arrives under. */
-    fun shareName(template: VideoTemplate): String = GeodeNative.templateShareName(template.name)
+    fun shareName(template: VideoTemplate): String = LooksNative.templateShareName(template.name)
 
     private fun written(text: String?): VideoTemplate =
         checkNotNull((text?.let(::readBody) as? TemplateParse.Parsed)?.template) { "native wrote no template" }
@@ -180,7 +180,7 @@ internal object TemplateCodec {
         val frame = FloatArray(SceneParams.FIELDS)
         val strings = arrayOfNulls<String>(STRINGS)
         val envelope = FloatArray(2)
-        return when (GeodeNative.templateRead(body, frame, strings, envelope)) {
+        return when (LooksNative.templateRead(body, frame, strings, envelope)) {
             PARSED ->
                 TemplateParse.Parsed(
                     VideoTemplate(
@@ -253,7 +253,7 @@ class TemplateRepository(
 
     /** The bundled starter set, for browsing; not in [templates] until adopted ([adopt] copies one under a fresh id). */
     val starters: List<VideoTemplate> by lazy {
-        List(GeodeNative.templateStarterCount()) { GeodeNative.templateStarter(it) }
+        List(LooksNative.templateStarterCount()) { LooksNative.templateStarter(it) }
             .mapNotNull { (TemplateCodec.read(it) as? TemplateParse.Parsed)?.template?.copy(origin = TemplateOrigin.BUNDLED) }
     }
 
@@ -274,7 +274,7 @@ class TemplateRepository(
 
     /** Saving a bundled starter saves a copy under a fresh id instead: the starter set is read-only. */
     suspend fun save(template: VideoTemplate): TemplateWrite {
-        if (GeodeNative.templateIsStarter(template.id.value)) return writeResultOf(adopt(template))
+        if (LooksNative.templateIsStarter(template.id.value)) return writeResultOf(adopt(template))
         val result = withContext(Dispatchers.IO) { write(template) }
         refresh()
         return result
@@ -315,7 +315,7 @@ class TemplateRepository(
     fun shareLink(template: VideoTemplate): String? = TemplateCodec.link(template)
 
     fun fileOf(id: TemplateId): File? {
-        val tail = GeodeNative.templateFileTail(id.value, FILE_SUFFIX)
+        val tail = LooksNative.templateFileTail(id.value, FILE_SUFFIX)
         return dir.listFiles().orEmpty().firstOrNull { it.isFile && it.name.endsWith(tail) }
     }
 
@@ -325,7 +325,7 @@ class TemplateRepository(
                 val existing = readAll()
                 val replaces = existing.any { it.id == incoming.id }
                 val taken = existing.map { it.name }.toTypedArray()
-                val unique = if (replaces) incoming.name else GeodeNative.templateUniqueName(incoming.name, taken)
+                val unique = if (replaces) incoming.name else LooksNative.templateUniqueName(incoming.name, taken)
                 val stored = if (unique == incoming.name) incoming else TemplateCodec.renamed(incoming, unique)
                 when (val write = write(stored)) {
                     TemplateWrite.Written -> if (replaces) TemplateImport.Replaced(stored) else TemplateImport.Added(stored)
@@ -337,7 +337,7 @@ class TemplateRepository(
     }
 
     private fun write(template: VideoTemplate): TemplateWrite {
-        val destination = File(dir, GeodeNative.templateFileName(template.name, template.id.value, FILE_SUFFIX))
+        val destination = File(dir, LooksNative.templateFileName(template.name, template.id.value, FILE_SUFFIX))
         val previous = fileOf(template.id)?.takeIf { it.absolutePath != destination.absolutePath }
         if (!AtomicWrite.text(destination, template.document)) {
             return TemplateWrite.Failed("could not save ${destination.name}")
@@ -353,7 +353,7 @@ class TemplateRepository(
                 .orEmpty()
                 .filter { it.isFile && it.name.endsWith(FILE_SUFFIX) }
                 .mapNotNull(::readOrSkip)
-        return GeodeNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
+        return LooksNative.looksOrder(read.map { it.name }.toTypedArray(), true).map { read[it] }
     }
 
     private fun readOrSkip(file: File): VideoTemplate? {

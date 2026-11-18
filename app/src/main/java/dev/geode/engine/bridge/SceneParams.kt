@@ -1,6 +1,5 @@
-package dev.geode.render.scene
+package dev.geode.engine.bridge
 
-import dev.geode.engine.bridge.GeodeNative
 import kotlin.math.roundToInt
 
 /**
@@ -46,32 +45,26 @@ class SceneParams private constructor(
         frame.copyInto(out)
     }
 
-    /** Whether the look draws its own palette (a hue override or your colours): native's rule. */
-    val usesCustomPalette: Boolean get() = GeodeNative.paramsUsesCustomPalette(frame)
-
-    /** Your colours, packed 0xRRGGBB, set from the first. */
-    val paletteStops: List<Int> get() = GeodeNative.paramsPaletteStops(frame).toList()
-
     /** The hue base of the look's palette: the override when set, else the built-in palette's (native). */
-    val paletteBase: Float get() = GeodeNative.paramsPaletteBase(int("palette"), get("paletteBaseOverride"))
+    val paletteBase: Float get() = ParamsNative.paramsPaletteBase(int("palette"), get("paletteBaseOverride"))
 
-    val paletteRange: Float get() = GeodeNative.paramsPaletteRange(int("palette"), get("paletteRangeOverride"))
+    val paletteRange: Float get() = ParamsNative.paramsPaletteRange(int("palette"), get("paletteRangeOverride"))
 
     /** The built-in palette again: overrides, stops and the saved palette's id gone. */
-    fun withoutCustomPalette(): SceneParams = SceneParams(GeodeNative.paramsClearCustomPalette(frame), NO_CUSTOM_PALETTE)
+    fun withoutCustomPalette(): SceneParams = SceneParams(ParamsNative.paramsClearCustomPalette(frame), NO_CUSTOM_PALETTE)
 
     /** A hue gradient as the look's own palette, from saved palette [id] if any. */
     fun withGradient(
         base: Float,
         span: Float,
         id: String = NO_CUSTOM_PALETTE,
-    ): SceneParams = SceneParams(GeodeNative.paramsApplyGradient(frame, base, span), id)
+    ): SceneParams = SceneParams(ParamsNative.paramsApplyGradient(frame, base, span), id)
 
     /** Your [stops] (the first five) as the look's own palette, from saved palette [id] if any. */
     fun withStops(
         stops: List<Int>,
         id: String = NO_CUSTOM_PALETTE,
-    ): SceneParams = SceneParams(GeodeNative.paramsApplyStops(frame, stops.toIntArray()), id)
+    ): SceneParams = SceneParams(ParamsNative.paramsApplyStops(frame, stops.toIntArray()), id)
 
     /** The same frame naming saved palette [id]. */
     fun withPaletteId(id: String): SceneParams = SceneParams(frame, id)
@@ -80,10 +73,10 @@ class SceneParams private constructor(
     fun withSavedPalette(
         paletteText: String,
         id: String,
-    ): SceneParams = SceneParams(GeodeNative.savedPaletteApply(paletteText, frame), id)
+    ): SceneParams = SceneParams(LooksNative.savedPaletteApply(paletteText, frame), id)
 
     /** These params once saved palette [deletedId] is deleted: native says which id the look keeps. */
-    fun forgetPalette(deletedId: String): SceneParams = withPaletteId(GeodeNative.savedPaletteKeptId(customPaletteId, deletedId))
+    fun forgetPalette(deletedId: String): SceneParams = withPaletteId(LooksNative.savedPaletteKeptId(customPaletteId, deletedId))
 
     override fun equals(other: Any?): Boolean =
         other is SceneParams && other.customPaletteId == customPaletteId && other.frame.contentEquals(frame)
@@ -106,21 +99,32 @@ class SceneParams private constructor(
             name: String,
             value: Float,
         ): FloatArray?
+
+        /** The saved palette id a look naming [lookId] keeps on [frame], a frame native wrote. */
+        fun paletteIdOn(
+            frame: FloatArray,
+            lookId: String,
+        ): String
     }
 
     private object Native : Reads {
-        override fun defaults(): FloatArray = GeodeNative.paramsDefaults()
+        override fun defaults(): FloatArray = ParamsNative.paramsDefaults()
 
         override fun get(
             frame: FloatArray,
             name: String,
-        ): Float = GeodeNative.paramsGet(frame, name)
+        ): Float = ParamsNative.paramsGet(frame, name)
 
         override fun set(
             frame: FloatArray,
             name: String,
             value: Float,
-        ): FloatArray? = GeodeNative.paramsSet(frame, name, value)
+        ): FloatArray? = ParamsNative.paramsSet(frame, name, value)
+
+        override fun paletteIdOn(
+            frame: FloatArray,
+            lookId: String,
+        ): String = LooksNative.savedPaletteFrameId(lookId, frame)
     }
 
     companion object {
@@ -147,15 +151,14 @@ class SceneParams private constructor(
 
         /**
          * A frame native wrote (a roll, a reset) as params. [base]'s saved palette id carries over only while the
-         * frame still draws its own palette (native's [usesCustomPalette]): a saved palette IS its overrides.
+         * frame still draws its own palette (native's custom-palette rule): a saved palette IS its overrides.
          */
         fun fromFrame(
             values: FloatArray,
             base: SceneParams = DEFAULT,
         ): SceneParams {
             val frame = values.copyOf(FIELDS)
-            val keep = base.customPaletteId.isNotEmpty() && GeodeNative.paramsUsesCustomPalette(frame)
-            return SceneParams(frame, if (keep) base.customPaletteId else NO_CUSTOM_PALETTE)
+            return SceneParams(frame, reads.paletteIdOn(frame, base.customPaletteId))
         }
 
         /** A frame and its saved palette id as native read them (a preset, a template's look). */

@@ -54,7 +54,7 @@ tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configure
     jvmTarget = "17"
 }
 
-// JVM unit tests cannot load libgeode, so dev.geode.render.scene.ParamSchema reads the checked-in copy
+// JVM unit tests cannot load libgeode, so the test params (TestParams) read the checked-in copy
 // of the native params schema table instead. core/tests/params_schema_test proves that copy equal to
 // what C++ emits.
 tasks.withType<Test>().configureEach {

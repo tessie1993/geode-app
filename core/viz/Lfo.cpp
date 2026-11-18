@@ -178,12 +178,6 @@ void applyLfoTargetInPlace(SceneParams& r, LfoTarget target, float v) {
     r.*drive.member = spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max);
 }
 
-SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
-    SceneParams o = r;
-    applyLfoTargetInPlace(o, target, v);
-    return o;
-}
-
 int paramSlotOf(LfoTarget target) {
     Drive drive{};
     return driveOf(target, drive) ? static_cast<int>(drive.slot) : -1;

@@ -4,7 +4,7 @@ import android.content.ContentResolver
 import androidx.core.content.edit
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.VizNative
 import dev.geode.util.bestEffort
 
 /**
@@ -62,7 +62,7 @@ class LookStore(
      * Hands native the saved Customize › Layers line, read on the caller's thread so the first frame draws it.
      * Native keeps the layer and reads the line itself (core/viz/LayerState; any other text is the layer off).
      */
-    fun pushLayer() = bestEffort(TAG, "push saved layer") { GeodeNative.layerSet(prefsFiles.general.getString(KEY_LAYER, null).orEmpty()) }
+    fun pushLayer() = bestEffort(TAG, "push saved layer") { VizNative.layerSet(prefsFiles.general.getString(KEY_LAYER, null).orEmpty()) }
 
     /** Saves the line native hands back after a Customize › Layers edit, as it is. */
     fun saveLayer(line: String) = prefsFiles.general.edit { putString(KEY_LAYER, line) }

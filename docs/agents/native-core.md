@@ -161,7 +161,7 @@ The renderer runs these in order each frame.
 - The old `kaleidoscope` switch and `symmetry` count are retired rows (`kRetiredParams`); `readParamsJson` turns a look that names them into `kaleidoFolds` (`SceneParams::kaleidoFoldsOf`: off is 1, on its count held to 2..16).
 - The shaders fold by the nearest whole count of the modulated `kaleidoFolds`: `SceneParams::kaleidoUniforms` sets `uKaleido`/`uSymmetry` (ShaderScene) and `uPostKaleido`/`uPostSymmetry` (CompositePass), on from 2, the count 6 (`kDefaultSymmetryFolds`) while off.
 - A roll turns the kaleidoscope on 3 times in 10, at a count from `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`).
-- Customize's Kaleidoscope slider steps by whole folds (`GeodeNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
+- Customize's Kaleidoscope slider steps by whole folds (`ParamsNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
 - Grow and layers (Customize › Shape › Grow): `spawn`, `fractal` (0..1) and `frontLayer`, `backLayer` (-1..1), appended slots 193..196 after the physics layers, default 0, each a modulation target (`SPAWN` .. `BACK_LAYER`, ordinals 74..77, one unit per unit).
 - Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold, and the older ten through their `<FAM>_GROW` hooks), but for `kFormSkipped` (Glass Gem and Prism).
 - The loose styles on `lib_shell` reach it too (`kFormLoose`): each hands its field to the hooks through a wrapper of its own, one field read in a pass loop.

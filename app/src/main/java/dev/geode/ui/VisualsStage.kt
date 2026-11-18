@@ -54,13 +54,14 @@ import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.CatalogueNative
+import dev.geode.engine.bridge.SoundNative
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.GestureTip
 import dev.geode.model.MilkFile
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.stage.StageView
 import dev.geode.ui.cast.CastButton
 import dev.geode.ui.cast.ComputerLinkButton
@@ -500,10 +501,10 @@ internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_P
  * would make a swipe walk a list that moves under it). MilkDrop is left out: its presets are a library of their
  * own, which the step walks from the MilkDrop tab ([stepStage]).
  */
-internal fun stageStyleOrder(): List<String> = StyleCatalogue.picker.values.flatten() - GeodeNative.STYLE_MILKDROP
+internal fun stageStyleOrder(): List<String> = StyleCatalogue.picker.values.flatten() - CatalogueNative.STYLE_MILKDROP
 
 /**
- * What the stage's "next / previous style" walks now (GeodeNative.STAGE_STEP_*). Native decides
+ * What the stage's "next / previous style" walks now (SoundNative.STAGE_STEP_*). Native decides
  * (`core/viz/StageStep`; owner, 2026-11-12: the open Visuals tab's list, and the .milk presets from any tab
  * while MilkDrop is on screen); this only gathers the facts.
  */
@@ -516,13 +517,13 @@ internal fun stageStepTarget(
     milkCount: Int,
 ): Int {
     val looks = openLooks(viz, gate)
-    val milkOpen = visualizerView.stage.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
+    val milkOpen = visualizerView.stage.milkdropAvailable && gate.allowsStyle(CatalogueNative.STYLE_MILKDROP)
     var flags = 0
-    if (sheetShown) flags = flags or GeodeNative.STAGE_STEP_SHEET_SHOWN
-    if (viz.sceneId == GeodeNative.STYLE_MILKDROP) flags = flags or GeodeNative.STAGE_STEP_ON_MILK
-    if (lookOnStage(viz, looks) >= 0) flags = flags or GeodeNative.STAGE_STEP_ON_LOOK
-    if (milkOpen) flags = flags or GeodeNative.STAGE_STEP_MILK_OPEN
-    return GeodeNative.stageStepTarget(page.stepPage, flags, milkCount, looks.size)
+    if (sheetShown) flags = flags or SoundNative.STAGE_STEP_SHEET_SHOWN
+    if (viz.sceneId == CatalogueNative.STYLE_MILKDROP) flags = flags or SoundNative.STAGE_STEP_ON_MILK
+    if (lookOnStage(viz, looks) >= 0) flags = flags or SoundNative.STAGE_STEP_ON_LOOK
+    if (milkOpen) flags = flags or SoundNative.STAGE_STEP_MILK_OPEN
+    return SoundNative.stageStepTarget(page.stepPage, flags, milkCount, looks.size)
 }
 
 /**
@@ -540,12 +541,12 @@ internal fun stepStage(
 ) {
     val viz = viewModel.vizState.value
     when (stageStepTarget(viz, visualizerView, gate, page, sheetShown, milkFiles.size)) {
-        GeodeNative.STAGE_STEP_MILK -> {
-            val current = if (viz.sceneId == GeodeNative.STYLE_MILKDROP) viewModel.activeMilkPath.value.orEmpty() else ""
-            val next = GeodeNative.stageStepMilk(Array(milkFiles.size) { milkFiles[it].path }, current, step)
+        SoundNative.STAGE_STEP_MILK -> {
+            val current = if (viz.sceneId == CatalogueNative.STYLE_MILKDROP) viewModel.activeMilkPath.value.orEmpty() else ""
+            val next = SoundNative.stageStepMilk(Array(milkFiles.size) { milkFiles[it].path }, current, step)
             if (next >= 0) selectMilk(viewModel, visualizerView, milkFiles[next].path)
         }
-        GeodeNative.STAGE_STEP_LOOKS -> stepPreset(viewModel, gate, step)
+        SoundNative.STAGE_STEP_LOOKS -> stepPreset(viewModel, gate, step)
         else -> stepStageStyle(viewModel, gate, step)
     }
 }
@@ -563,16 +564,16 @@ internal fun stepStageStyle(
 ) {
     val order = stageStyleOrder()
     val here = order.indexOf(viewModel.vizState.value.sceneId)
-    val next = GeodeNative.stageStepIndex(BooleanArray(order.size) { gate.allowsStyle(order[it]) }, here, step)
+    val next = SoundNative.stageStepIndex(BooleanArray(order.size) { gate.allowsStyle(order[it]) }, here, step)
     if (next >= 0) viewModel.selectScene(order[next])
 }
 
-/** What the stage's next and previous name for [target] (GeodeNative.STAGE_STEP_*), for ‹ › and TalkBack. */
+/** What the stage's next and previous name for [target] (SoundNative.STAGE_STEP_*), for ‹ › and TalkBack. */
 @Composable
 internal fun stageStepLabels(target: Int): Pair<String, String> =
     when (target) {
-        GeodeNative.STAGE_STEP_MILK -> stringResource(R.string.a11y_next_milk_preset) to stringResource(R.string.a11y_previous_milk_preset)
-        GeodeNative.STAGE_STEP_LOOKS ->
+        SoundNative.STAGE_STEP_MILK -> stringResource(R.string.a11y_next_milk_preset) to stringResource(R.string.a11y_previous_milk_preset)
+        SoundNative.STAGE_STEP_LOOKS ->
             stringResource(R.string.visuals_gesture_next_preset) to stringResource(R.string.visuals_gesture_previous_preset)
         else -> stringResource(R.string.a11y_next_style) to stringResource(R.string.a11y_previous_style)
     }
@@ -581,10 +582,10 @@ internal fun stageStepLabels(target: Int): Pair<String, String> =
 private val VisualsPage.stepPage: Int
     get() =
         when (this) {
-            VisualsPage.STYLES -> GeodeNative.STAGE_STEP_PAGE_STYLES
-            VisualsPage.CUSTOMIZE -> GeodeNative.STAGE_STEP_PAGE_CUSTOMIZE
-            VisualsPage.PRESETS -> GeodeNative.STAGE_STEP_PAGE_PRESETS
-            VisualsPage.MILKDROP -> GeodeNative.STAGE_STEP_PAGE_MILKDROP
-            VisualsPage.TEXTURES -> GeodeNative.STAGE_STEP_PAGE_TEXTURES
-            VisualsPage.SETTINGS -> GeodeNative.STAGE_STEP_PAGE_SETTINGS
+            VisualsPage.STYLES -> SoundNative.STAGE_STEP_PAGE_STYLES
+            VisualsPage.CUSTOMIZE -> SoundNative.STAGE_STEP_PAGE_CUSTOMIZE
+            VisualsPage.PRESETS -> SoundNative.STAGE_STEP_PAGE_PRESETS
+            VisualsPage.MILKDROP -> SoundNative.STAGE_STEP_PAGE_MILKDROP
+            VisualsPage.TEXTURES -> SoundNative.STAGE_STEP_PAGE_TEXTURES
+            VisualsPage.SETTINGS -> SoundNative.STAGE_STEP_PAGE_SETTINGS
         }

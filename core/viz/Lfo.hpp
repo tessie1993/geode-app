@@ -93,8 +93,7 @@ struct LfoConfig {
 
 float polarized(float raw, ModPolarity polarity);
 float shape(float value, ModCurve curve);
-SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v);
-// The same move written into `r` itself: the per-frame chains (waves, envelopes, routes) use it so no frame copies the whole set.
+// Moves `r` itself: the per-frame chains (waves, envelopes, routes) use it so no frame copies the whole set.
 void applyLfoTargetInPlace(SceneParams& r, LfoTarget target, float v);
 // The wire slot of the field a target writes; -1 for None, the retired slot and the chained targets.
 int paramSlotOf(LfoTarget target);

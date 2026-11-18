@@ -1,7 +1,5 @@
 package dev.geode.ui
 
-import android.app.Activity
-import android.media.projection.MediaProjectionManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -24,14 +22,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.audio.PlaybackCaptureService
 
 /**
  * What the library says when music access is granted and MediaStore has no songs (#340).
@@ -125,31 +121,15 @@ internal fun LibraryEmptyHost(
     onOpenVisuals: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val external by playerViewModel.externalAudio.collectAsStateWithLifecycle()
     val minTrackSeconds by libraryViewModel.minTrackSeconds.collectAsStateWithLifecycle()
     val micPermission =
         rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) {
             if (playerViewModel.setMicEnabled(true) == null) onOpenVisuals()
         }
-    val projectionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val data = result.data
-            if (result.resultCode == Activity.RESULT_OK && data != null) {
-                PlaybackCaptureService.start(context, result.resultCode, data)
-                onOpenVisuals()
-            } else {
-                playerViewModel.noteExternalAudioConsentDenied()
-            }
-        }
     val capturePermissions =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-            if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
-                playerViewModel.noteExternalAudioConsentPending()
-                projectionLauncher.launch(context.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
-            } else {
-                playerViewModel.noteExternalAudioConsentDenied()
-            }
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+            if (playerViewModel.startDeviceAudio() == null) onOpenVisuals()
         }
     LibraryEmpty(
         onRescan = onRescan,
@@ -159,7 +139,7 @@ internal fun LibraryEmptyHost(
                 onOpenVisuals()
             } else {
                 capturePermissions.launch(
-                    arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.POST_NOTIFICATIONS),
+                    arrayOf(android.Manifest.permission.RECORD_AUDIO),
                 )
             }
         },

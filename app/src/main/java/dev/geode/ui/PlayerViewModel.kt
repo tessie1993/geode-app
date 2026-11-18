@@ -85,7 +85,10 @@ class PlayerViewModel
 
         fun setMicEnabled(enabled: Boolean): CaptureFailure? = session.setMicEnabled(enabled)
 
-        fun onAppBackground() = session.captureController.onBackground()
+        fun onAppBackground() {
+            session.captureController.onBackground()
+            session.listening.flushListenTime()
+        }
 
         fun onAppForeground() = session.captureController.onForeground()
 

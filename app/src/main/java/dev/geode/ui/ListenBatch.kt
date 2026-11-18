@@ -1,15 +1,20 @@
 package dev.geode.ui
 
 /**
- * Listen time gathered for one track and handed to [write] once [intervalMs] has built up, when the track
- * changes, or on [drain] (a pause, a stop).
+ * Listen time gathered for one track. It is added to the history in memory ([addToHistory]) once
+ * [memoryIntervalMs] has built up and when the track changes. The history goes to disk ([writeToDisk]) only on
+ * [commit] (a track change, a pause, a stop, the app going to the background) and, as a safety, after
+ * [DISK_INTERVAL_MS] of listening with no commit.
  */
 internal class ListenBatch(
-    private val intervalMs: Long = DEFAULT_INTERVAL_MS,
-    private val write: (uri: String, ms: Long) -> Unit,
+    private val memoryIntervalMs: Long = MEMORY_INTERVAL_MS,
+    private val diskIntervalMs: Long = DISK_INTERVAL_MS,
+    private val addToHistory: (uri: String, ms: Long) -> Unit,
+    private val writeToDisk: () -> Unit,
 ) {
     private var uri: String? = null
     private var pendingMs = 0L
+    private var unsavedMs = 0L
 
     fun add(
         uri: String,
@@ -18,17 +23,29 @@ internal class ListenBatch(
         if (uri != this.uri) drain()
         this.uri = uri
         pendingMs += deltaMs
-        if (pendingMs >= intervalMs) drain()
+        unsavedMs += deltaMs
+        if (pendingMs >= memoryIntervalMs) drain()
+        if (unsavedMs >= diskIntervalMs) commit()
     }
 
-    fun drain() {
+    /** What is gathered goes to the history and the history goes to disk. */
+    fun commit() {
+        drain()
+        unsavedMs = 0L
+        writeToDisk()
+    }
+
+    private fun drain() {
         val u = uri
         val ms = pendingMs
         pendingMs = 0L
-        if (u != null && ms > 0L) write(u, ms)
+        if (u != null && ms > 0L) addToHistory(u, ms)
     }
 
-    private companion object {
-        const val DEFAULT_INTERVAL_MS = 10_000L
+    companion object {
+        const val MEMORY_INTERVAL_MS = 10_000L
+
+        /** The safety write of the history to disk while one track plays on uninterrupted. */
+        const val DISK_INTERVAL_MS = 60_000L
     }
 }

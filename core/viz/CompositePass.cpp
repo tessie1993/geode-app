@@ -14,8 +14,8 @@ constexpr const char* kTag = "GeodeCompositePass";
 
 bool CompositePass::create(const std::string& fadeVert, std::string* error) {
     if (!transitions_.create(fadeVert, error)) return false;
-    noiseTex_ = createNoiseTexture();
-    zeroTex_ = createZeroTexture();
+    noiseTex_.reset(createNoiseTexture());
+    zeroTex_.reset(createZeroTexture());
     return true;
 }
 
@@ -24,14 +24,21 @@ void CompositePass::release() {
     releaseStaleTextures();
 }
 
+void CompositePass::forget() {
+    transitions_.forget();
+    noiseTex_.forget();
+    zeroTex_.forget();
+    underlayTex_.forget();
+    underlayBlendMode_ = 0;
+    underlayAmount_ = 0.0f;
+}
+
 void CompositePass::releaseStaleTextures() {
-    if (noiseTex_ != 0) glDeleteTextures(1, &noiseTex_);
-    noiseTex_ = 0;
+    noiseTex_.reset();
     // zeroTex_ is only ever (re)created in create(), which callers invoke
     // again right after releaseStaleTextures() on surface recreation; delete
     // it here too so it doesn't leak the old context's texture name.
-    if (zeroTex_ != 0) glDeleteTextures(1, &zeroTex_);
-    zeroTex_ = 0;
+    zeroTex_.reset();
     // W00: same reasoning applies to the underlay texture - Renderer re-arms
     // underlayDirty_ from its retained pixel buffer on surface recreation (see
     // Renderer::onSurfaceCreated), so it is safe (and required, to avoid
@@ -111,9 +118,9 @@ void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
     glUniform1i(p.loc("uFlow"), 2);
     glUniform1f(p.loc("uFlowStrength"), inputs.flowStrength);
     glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_2D, noiseTex_);
+    glBindTexture(GL_TEXTURE_2D, noiseTex_.get());
     glUniform1i(p.loc("uNoise"), 4);
-    glUniform1f(p.loc("uDither"), noiseTex_ != 0 ? kDitherAmount : 0.0f);
+    glUniform1f(p.loc("uDither"), noiseTex_ ? kDitherAmount : 0.0f);
     // W00: underlay, see the class comment in CompositePass.hpp.
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, inputs.underlayTex);
@@ -121,7 +128,7 @@ void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
     glUniform1i(p.loc("uUnderlayBlend"), inputs.underlayBlend);
     glUniform1f(p.loc("uUnderlayAmount"), inputs.underlayAmount);
     glActiveTexture(GL_TEXTURE6);
-    glBindTexture(GL_TEXTURE_2D, inputs.texL != 0 ? inputs.texL : zeroTex_);
+    glBindTexture(GL_TEXTURE_2D, inputs.texL != 0 ? inputs.texL : zeroTex_.get());
     glUniform1i(p.loc("uTexL"), 6);
 }
 

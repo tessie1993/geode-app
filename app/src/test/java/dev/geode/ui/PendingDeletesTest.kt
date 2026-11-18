@@ -89,6 +89,27 @@ class PendingDeletesTest {
             assertEquals(setOf("a"), deletes.pending.value)
         }
 
+    /** The owner goes away mid-window (the app is left): what still waits is deleted now, once, and an undone item stays. */
+    @Test
+    fun commitAllDeletesWhatStillWaitsAtOnceAndOnlyOnce() =
+        runTest {
+            val deleted = mutableListOf<String>()
+            val deletes = PendingDeletes<String>(backgroundScope, windowMs = 4_000L, keyOf = { it }) { deleted += it }
+
+            deletes.delete("a")
+            deletes.delete("b")
+            deletes.delete("c")
+            advanceTimeBy(1_000L)
+            deletes.undo("b")
+            deletes.commitAll()
+
+            assertEquals(listOf("a", "c"), deleted)
+            assertTrue(deletes.pending.value.isEmpty())
+
+            advanceUntilIdle()
+            assertEquals(listOf("a", "c"), deleted)
+        }
+
     @Test
     fun aSecondDeleteOfTheSameItemDoesNotRestartOrDoubleDelete() =
         runTest {

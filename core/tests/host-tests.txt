@@ -173,10 +173,12 @@ shell_opened_audio_test | stub | core/tests/shell_opened_audio_test.cpp core/she
 shell_prefs_test | stub | core/tests/shell_prefs_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
     core/util/Json.cpp |
 # The backup's rules ported from Kotlin (core/backup): sections and keys, the path-escape check, the size and
-# count caps, version migration, the manifest, and the export, unpack and restore plans. Not called by the app yet.
+# count caps, version migration, the manifest, and the export, unpack and restore plans. The app calls them through
+# core/api/geode_backup_api.cpp (backup_api_test).
 backup_format_test | core | core/tests/backup_format_test.cpp core/backup/*.cpp core/util/Json.cpp |
 backup_archive_test | core | core/tests/backup_archive_test.cpp core/backup/*.cpp core/util/Json.cpp |
 backup_restore_test | core | core/tests/backup_restore_test.cpp core/backup/*.cpp core/util/Json.cpp |
+backup_api_test | stub | core/tests/backup_api_test.cpp core/api/geode_backup_api.cpp core/backup/*.cpp core/util/Json.cpp |
 # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
 # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
 layer_mix_test | stub-mt | core/tests/layer_mix_test.cpp core/audio/ingest/LayerMix.cpp $INGEST_SRCS |

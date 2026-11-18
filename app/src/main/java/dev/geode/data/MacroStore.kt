@@ -269,7 +269,7 @@ class MacroStore internal constructor(
         internal val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
                 portable(PrefType.STRING, KEY_BANK)
-                // Read once to drop them, never restored: BackupFormat files them device-local.
+                // Read once to drop them, never restored: core/backup/Backup.cpp files them device-local.
                 retired(PrefType.STRING, "macro_knobs", "macro_presets", backup = BackupClass.DEVICE)
                 retired(PrefType.INT, "macro_locks", backup = BackupClass.DEVICE)
             }

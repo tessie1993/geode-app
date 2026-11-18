@@ -70,7 +70,7 @@ public:
     void surfaceChanged(int width, int height) override { geode_viz_surface_changed(v_, width, height); }
     uint32_t frame(const void* ring, float pacedFps, float capFps) override {
         return static_cast<uint32_t>(
-            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_, presentNs_));
+            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_, presentNs_, true));
     }
     void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void framePresent(int64_t presentNs) override { presentNs_ = presentNs; }

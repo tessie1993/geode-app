@@ -160,6 +160,9 @@ struct geode_viz {
     // When the display is expected to show the frame being drawn (CLOCK_MONOTONIC ns, 0: none), set by the live
     // frame before it feeds the ring. Render thread only.
     int64_t presentNs = 0;
+    // The frame is for a stage that may leave the last buffer on screen (vizFrameAt's mayRepeat); the legacy
+    // geode_viz_frame never sets it. Render thread only.
+    bool mayRepeat = false;
     // The live feed (geode_viz_feed_ring): the ring this renderer hears and its place in it. The cursor is
     // declared after the ring it refers to. Render thread only.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
@@ -579,9 +582,10 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, float pacedFps)
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, float pacedFps, bool mayRepeat)
         : v_(v), ring_(ring), vsyncNs_(vsyncNs), pacedFps_(pacedFps) {
         v_.presentNs = presentNs;
+        v_.mayRepeat = mayRepeat;
     }
 
     void setPacedFps(float pacedFps, float capFps) override { v_.renderer.setPacedFps(pacedFps, capFps); }
@@ -605,6 +609,7 @@ public:
     bool milkPresetLoaded() override { return v_.renderer.milkPresetLoadedPending(); }
     bool directorMomentsPending() override { return v_.renderer.directorStyleMomentsPending(); }
     bool stillReady() override { return std::exchange(v_.stillFresh, false); }
+    bool frameRepeated() override { return v_.renderer.frameRepeated(); }
 
 private:
     // The frame's time: the vsync it was asked for at, on the boot clock, so the step is the vsyncs' own spacing and
@@ -644,10 +649,10 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 // geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
 // is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. presentNs, CLOCK_MONOTONIC, is when
 // the display is expected to show it (0: none); the sound is read there. Not part of the C ABI.
-int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs) {
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs, bool mayRepeat) {
     if (!v) return 0;
     try {
-        VizStages stages(*v, ring, vsyncNs, presentNs, pacedFps);
+        VizStages stages(*v, ring, vsyncNs, presentNs, pacedFps, mayRepeat);
         return static_cast<int>(v->live.run(stages, pacedFps, capFps));
     } catch (...) {
         // Nothing to tell the shell this frame; the next one starts over.
@@ -1114,6 +1119,9 @@ void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     v->recordPtsNs = v->recorder
         ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height())
         : -1;
+    // A recording, the cast tee and a still each take every frame from the composite: they get a frame each.
+    v->renderer.setRepeatAllowed(v->mayRepeat && !v->recorder && !v->castSource.load(std::memory_order_relaxed) &&
+                                 !v->stillWanted.load(std::memory_order_relaxed));
     v->renderer.render(time_seconds, target_fbo);
     const GeodeSoundFrame& heard = v->renderer.soundFrame();
     std::lock_guard<std::mutex> lock(v->tapLock);

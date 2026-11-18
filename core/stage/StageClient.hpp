@@ -6,6 +6,10 @@
 // geode_viz) is bound to it by the code that creates the stage. Pure, so the lifecycle's host test can name it.
 namespace geode::stage {
 
+// A bit of frame()'s answer that is the stage's own, never the shell's: the frame drew nothing because it would have
+// repeated the one on screen, so the stage skips the swap. Mirrors viz::frame::kEventNothingNew.
+inline constexpr uint32_t kFrameNothingNew = 1u << 7;
+
 class StageClient {
 public:
     virtual ~StageClient() = default;

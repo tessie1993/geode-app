@@ -285,6 +285,26 @@ void aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone() {
     check(r.client->frames == 1 && r.port.frameDones == before + 1, "a request dropped unseen is done too, so the pacer is not left waiting");
 }
 
+// Red against: a frame the client says repeats the picture on screen still swapping (the GPU does the work of a
+// present for nothing), its bit reaching the shell's events, and a skipped frame leaving the pacer waiting.
+// Any change draws and swaps on the very next vsync.
+void aFrameThatRepeatsThePictureIsNotSwapped() {
+    Rig r;
+    r.show();
+    r.send(command(kStageFrameDue, 0, 4'000'000, 30.0f, 30.0f, 1'000'000'000));
+    const int swaps = r.port.swaps;
+    const size_t presents = r.port.presented.size();
+    r.client->nextEvents = kFrameNothingNew | 0x40u;
+    r.send(command(kStageFrameDue, 0, 4'000'000, 30.0f, 30.0f, 1'033'000'000));
+    check(r.client->frames == 2 && r.port.swaps == swaps && r.port.presented.size() == presents,
+          "a frame that repeats the picture is neither presented nor swapped");
+    check(r.port.frameDones == 2, "and the pacer is told it is done");
+    check(r.core.takeEvents() == 0x40u, "its own bit never reaches the shell, the rest does");
+    r.client->nextEvents = 0;
+    r.send(command(kStageFrameDue, 0, 4'000'000, 30.0f, 30.0f, 1'066'000'000));
+    check(r.port.swaps == swaps + 1 && r.port.presented.size() == presents + 1, "the next frame with a change swaps");
+}
+
 void pauseAndLoss() {
     Rig r;
     r.show();
@@ -354,6 +374,7 @@ int main() {
     handOvers();
     vsyncTimes();
     aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone();
+    aFrameThatRepeatsThePictureIsNotSwapped();
     pauseAndLoss();
     serviceAndQuit();
     endsOutOfTurn();

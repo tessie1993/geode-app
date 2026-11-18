@@ -3,6 +3,8 @@
 #include <android/asset_manager.h>
 
 #include <array>
+#include <type_traits>
+#include <utility>
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -203,6 +205,13 @@ public:
     // Told, on the GL thread inside render, that targetFbo now holds the finished visual (composite and edge
     // glow) at width x height, before the UI blur frosts part of it. Record copies the frame from here.
     void setCompositeHook(std::function<void(GLuint, int, int)> hook) { compositeHook_ = std::move(hook); }
+    // A stage that can leave the last presented buffer on screen (the live stage, drawing to the window) says so
+    // before each render; every other caller (an export, the legacy shell, a recording, the cast tee, a still)
+    // leaves it false and every render draws. Render thread only.
+    void setRepeatAllowed(bool allowed) { repeatAllowed_ = allowed; }
+    // The last render drew nothing because the frame would have been the one already on screen: no scene, no
+    // composite, and the swap is to be skipped. Render thread only.
+    bool frameRepeated() const { return repeated_; }
     // The sound frame the last render stepped to. Render thread only.
     const GeodeSoundFrame& soundFrame() const { return soundFrame_; }
     int width() const { return width_; }
@@ -585,6 +594,19 @@ private:
     int heldWidth_ = 0;
     int heldHeight_ = 0;
     int redrawFrames_ = 0;
+    // A frame provably equal to the last one drawn (RendererFrame.cpp, stillRepeats) is not drawn. The inputs the
+    // last drawn frame saw, and how long (wall seconds) every input has stood the same.
+    bool repeatAllowed_ = false;
+    bool repeated_ = false;
+    bool stillDrawn_ = false;
+    float stillSeconds_ = 0.0f;
+    GeodeSoundFrame stillSound_{};
+    CameraPose stillPose_{};
+    float stillYaw_ = 0.0f;
+    float stillPitch_ = 0.0f;
+    std::remove_cvref_t<decltype(std::declval<const TouchField&>().points())> stillTouch_{};
+    bool stillRepeats(const Scene& scene, const SceneParams& p, float wallDt, bool trails, GLuint targetFbo);
+    void noteStillDrawn();
     // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's
     // build and first load, a MilkDrop preset. redrawFrames_ stays the count for "one more frame".
     static constexpr float kRedrawSeconds = 1.0f;

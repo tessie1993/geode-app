@@ -648,6 +648,10 @@ int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float paced
     }
 }
 
+// The cap "Adapt to frame time" paces the stage to instead of the user's, 0 for none (declared in
+// api/geode_viz_internal.hpp). Not part of the C ABI.
+float geode::api::vizGovernedCapFps(const geode_viz* v) { return v ? v->renderer.governedCapFps() : 0.0f; }
+
 // geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is
 // handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
 bool geode::api::takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba) {
@@ -953,6 +957,10 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
     if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0});
 }
 
+void geode_viz_set_adaptive(geode_viz* v, int on) {
+    if (v) v->renderer.setAdaptive(on != 0);
+}
+
 int geode_viz_frame(geode_viz* v, const geode_pcm_ring* ring, float paced_fps, float cap_fps) {
     return geode::api::vizFrameAt(v, ring, paced_fps, cap_fps, 0);
 }
@@ -1104,6 +1112,8 @@ void geode_viz_cut(geode_viz* v) {
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (!v) return;
     syncReactions(v);
+    // A recording copies these frames into a fixed-rate video: "Adapt to frame time" leaves them as the user set.
+    v->renderer.setGovernorHeld(v->recorder != nullptr);
     v->recordPtsNs = v->recorder
         ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height())
         : -1;

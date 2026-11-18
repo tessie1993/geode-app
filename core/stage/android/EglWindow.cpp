@@ -21,17 +21,18 @@ EGLint attrib(EGLDisplay display, EGLConfig config, EGLint name) {
     return value;
 }
 
-// GLSurfaceView's default for setEGLContextClientVersion(3): SimpleEGLConfigChooser(true) asks for red, green and
-// blue 8, alpha 0, depth 16, stencil 0, ES 3 renderable, then ComponentSizeChooser takes the first config whose
-// colour sizes match exactly and whose depth and stencil are at least those. The same config keeps the picture
-// the views drew unchanged.
-bool chooseConfig(EGLDisplay display, EGLConfig* out) {
+// Nothing the renderer draws tests or writes depth (no GL_DEPTH_TEST, every pass lands in an FBO of its own and the
+// composite is a full-screen triangle), so the window surface asks for none: a tiler then keeps no depth tile.
+// Where no such config exists the choice falls back to GLSurfaceView's default for setEGLContextClientVersion(3),
+// SimpleEGLConfigChooser(true): red, green and blue 8, alpha 0, depth 16, stencil 0, ES 3 renderable; the first
+// config whose colour sizes match exactly and whose depth and stencil are at least those.
+bool chooseConfigWithDepth(EGLDisplay display, EGLConfig* out, EGLint minDepth) {
     const EGLint spec[] = {
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
         EGL_ALPHA_SIZE, 0,
-        EGL_DEPTH_SIZE, 16,
+        EGL_DEPTH_SIZE, minDepth,
         EGL_STENCIL_SIZE, 0,
         EGL_RENDERABLE_TYPE, kOpenGlEs3Bit,
         EGL_NONE,
@@ -42,7 +43,8 @@ bool chooseConfig(EGLDisplay display, EGLConfig* out) {
     if (!eglChooseConfig(display, spec, configs.data(), count, &count)) return false;
     for (EGLint i = 0; i < count; ++i) {
         const EGLConfig c = configs[static_cast<size_t>(i)];
-        if (attrib(display, c, EGL_DEPTH_SIZE) < 16 || attrib(display, c, EGL_STENCIL_SIZE) < 0) continue;
+        if (minDepth == 0 && attrib(display, c, EGL_DEPTH_SIZE) != 0) continue;
+        if (attrib(display, c, EGL_DEPTH_SIZE) < minDepth || attrib(display, c, EGL_STENCIL_SIZE) < 0) continue;
         if (attrib(display, c, EGL_RED_SIZE) == 8 && attrib(display, c, EGL_GREEN_SIZE) == 8 &&
             attrib(display, c, EGL_BLUE_SIZE) == 8 && attrib(display, c, EGL_ALPHA_SIZE) == 0) {
             *out = c;
@@ -50,6 +52,10 @@ bool chooseConfig(EGLDisplay display, EGLConfig* out) {
         }
     }
     return false;
+}
+
+bool chooseConfig(EGLDisplay display, EGLConfig* out) {
+    return chooseConfigWithDepth(display, out, 0) || chooseConfigWithDepth(display, out, 16);
 }
 
 bool hasExtension(EGLDisplay display, const char* name) {
@@ -86,7 +92,7 @@ bool EglWindow::ensureDisplay() {
     display_ = display;
     if (!chooseConfig(display, &config_)) {
         config_ = nullptr;
-        GEODE_LOGE(kTag, "eglChooseConfig: no RGB888 depth-16 ES 3 config");
+        GEODE_LOGE(kTag, "eglChooseConfig: no RGB888 ES 3 config (depth 0 or 16)");
         return false;
     }
     surfaceless_ = hasExtension(display, "EGL_KHR_surfaceless_context");

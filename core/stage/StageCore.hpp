@@ -89,15 +89,20 @@ private:
     Outcome execute(const Action& action);
     void draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs);
     void restateRate();
+    // The cap the pacer and the window are given: the surface's own under the governor's (StagePacing::capUnder).
+    float pacedCap() const;
+    // After a frame: a new cap from the client's governor goes the way a new cap from the shell goes.
+    void followGovernor();
 
     Lifecycle lifecycle_;
     std::shared_ptr<StageClient> client_;
     StagePort& port_;
     void* window_ = nullptr;
     float cap_;
+    // The cap "Adapt to frame time" asked for after the last frame, 0 for none (StageClient::governedCapFps).
+    float governedCap_ = 0.0f;
     bool frameDue_ = false;
     float dueFps_ = 0.0f;
-    float dueCapFps_ = 0.0f;
     int64_t dueFrameNs_ = 0;
     int64_t duePresentNs_ = 0;
     bool serviceDue_ = false;

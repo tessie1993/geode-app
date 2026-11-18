@@ -43,8 +43,11 @@ ArborHit arborGrow(vec3 p) {
     // Spawn's copy and Fractal's child while each is on, then Life's three births (lib_grow) while each
     // lives. Inlined copies put a style past the GPU's compile budget, and WebGL refuses ?: on a struct,
     // so the nearer hit is chosen with an if.
+    // The bound is the same idle test (and no life, which alone births): at rest the loop runs the one map call
+    // and stops, instead of looping to 6 on `continue`.
+    int n = (idle && !(uLife > 0.0)) ? 1 : 6;
     ArborHit h;
-    for (int i = min(int(uSpawn), 0); i < 6; i++) {
+    for (int i = min(int(uSpawn), 0); i < n; i++) {
         if (i < 0 || (i > 0 && i < 3 && (idle || (i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0)))) || (i > 2 && !growBorn(i - 3))) continue;
         ArborHit c = arborMap(i == 0 ? q : (i == 1 ? q - growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : (i == 2 ? growChildSpace(q, 3.0, 2.0) : growBirthAt(i - 3, p))));
         if (i == 0) {

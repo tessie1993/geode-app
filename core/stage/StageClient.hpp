@@ -19,6 +19,9 @@ public:
     // Called just before each frame: the vsync's frame time (CLOCK_MONOTONIC ns) the frame is for, 0 when no vsync
     // asked for it. The frame's own time, so a thread hop between the vsync and the draw adds no jitter to its step.
     virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
+    // After each frame: the cap "Adapt to frame time" (viz/frame/FrameGovernor) wants the stage paced to instead of
+    // its own, 0 for none. The stage hands it to the pacer and the window's hint the way it hands its own cap.
+    virtual float governedCapFps() { return 0.0f; }
     // Shed the spare scenes before the surface pauses, context current.
     virtual void trimSpares() = 0;
     // The context is gone with every GL name in it: forget them, delete none. No context is current.

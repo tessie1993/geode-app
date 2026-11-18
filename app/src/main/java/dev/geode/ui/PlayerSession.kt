@@ -328,7 +328,7 @@ class PlayerSession internal constructor(
     internal val record: RecordController =
         RecordController(
             application,
-            scope,
+            container.appScope,
             dev.geode.data.RecordFiles(application),
             object : RecordController.Host {
                 override fun canRecord(): Boolean = allowsRecording()
@@ -849,6 +849,7 @@ class PlayerSession internal constructor(
             storeScope.coroutineContext.job.children
                 .toList()
 
+        record.stop()
         captureController.shutdown()
         playerListener?.let { player.removeListener(it) }
         queueController.release()

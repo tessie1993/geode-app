@@ -6,6 +6,7 @@
 #include <string_view>
 #include <unordered_map>
 
+#include "viz/GlHandle.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 
 namespace geode::viz {
@@ -27,6 +28,42 @@ private:
     GLuint program_;
     std::unordered_map<std::string, GLint, UniformNameHash, std::equal_to<>> locations_;
     std::unordered_map<std::string, GLsizei, UniformNameHash, std::equal_to<>> arraySizes_;
+};
+
+// A program its holder built and deletes, with the uniform locations read from it (a UniformCache that owns
+// its program). Moves, never copies; the moved-from one holds 0. reset() deletes the program held and takes
+// another, release() deletes it, forget() drops it without a GL call after context loss (viz/GlHandle.hpp).
+class OwnedProgram : public UniformCache {
+public:
+    OwnedProgram() = default;
+    explicit OwnedProgram(GLuint program) : UniformCache(program), owner_(program) {}
+    OwnedProgram(const OwnedProgram&) = delete;
+    OwnedProgram& operator=(const OwnedProgram&) = delete;
+    OwnedProgram(OwnedProgram&& other) noexcept : UniformCache(std::move(other)), owner_(std::move(other.owner_)) {
+        other.UniformCache::operator=(UniformCache());
+    }
+    OwnedProgram& operator=(OwnedProgram&& other) noexcept {
+        if (this != &other) {
+            owner_ = std::move(other.owner_);
+            UniformCache::operator=(std::move(other));
+            other.UniformCache::operator=(UniformCache());
+        }
+        return *this;
+    }
+    ~OwnedProgram() = default;
+
+    void reset(GLuint program = 0) {
+        owner_.reset(program);
+        UniformCache::operator=(UniformCache(program));
+    }
+    void release() { reset(); }
+    void forget() {
+        owner_.forget();
+        UniformCache::operator=(UniformCache());
+    }
+
+private:
+    GlProgram owner_;
 };
 
 namespace program {

@@ -210,6 +210,7 @@ GLenum glCheckFramebufferStatus(GLenum) { return fake::gl.status; }
 void glClearColor(GLfloat, GLfloat, GLfloat, GLfloat) {}
 void glClear(GLbitfield) {}
 void glInvalidateFramebuffer(GLenum, GLsizei, const GLenum*) {}
+void glBindFramebuffer(GLenum, GLuint) {}
 }  // extern "C"
 
 // ---- the checks -----------------------------------------------------------------------------------------

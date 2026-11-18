@@ -1,6 +1,8 @@
 #pragma once
 #include <GLES3/gl3.h>
 
+#include "viz/GlHandle.hpp"
+
 namespace geode::viz {
 
 class Texture {
@@ -10,10 +12,10 @@ public:
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;
 
-    GLuint id() const { return id_; }
+    GLuint id() const { return id_.get(); }
     int width() const { return width_; }
     int height() const { return height_; }
-    bool ok() const { return id_ != 0; }
+    bool ok() const { return static_cast<bool>(id_); }
 
     // Mutable storage via glTexImage2D, for the RGBA8/R32F uploads the Kotlin scenes make.
     void createImage(GLenum internalFormat, GLenum format, GLenum type, int width, int height, GLint filter, GLint wrap);
@@ -25,7 +27,7 @@ public:
 private:
     void allocate(int width, int height, GLint filter, GLint wrap);
 
-    GLuint id_ = 0;
+    GlTexture id_;
     int width_ = 0;
     int height_ = 0;
 };

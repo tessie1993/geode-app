@@ -204,3 +204,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The architecture gates run on pull requests to any base, stacked ones included, not only to `main`; `arch-map.yml`, `docs/agents/kotlin-logic-map.md`.
 - 2026-11-18: `tools/no-bpm-bias-gate.sh` also reads `*.xml`, `*.java`, `*.toml`, `*.cmake`, fails a stand-in tempo (`bpm ?: n`, `??`, `||`, `or`, `${BPM:-n}`, a ternary with a number for the tempo, `max(bpm, n)`, `coerceAtLeast(n)`) everywhere tests included, and reads tests for the prior and preferred shapes too (only default and literal skip them); planted lines in `.github/workflows/arch-map.yml`.
 - 2026-11-18: `arch-map.yml` runs `tools/store-check.sh` on every pull request; `AGENTS.md` and `docs/agents/build-ci.md` say so.
+- 2026-11-18: The ES 3.00 job of `shader-check.yml` also runs `node check.mjs --fluid-display`, every fluid look with every SHADING/BLOOM/SUNRAYS combination.

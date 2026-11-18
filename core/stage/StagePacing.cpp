@@ -2,13 +2,13 @@
 
 namespace geode::stage {
 
-StagePacing::Tick StagePacing::step(int64_t frameTimeNs) {
+StagePacing::Tick StagePacing::step(int64_t frameTimeNs, bool stageBusy) {
     namespace frame = viz::frame;
     Tick tick;
     // The cap read here, each vsync, so a new one lands on the next tick; Follow device takes its cap from the
     // panel the state has measured.
     const float cap = frame::pacerCapFps(state_, cap_);
-    tick.dt = frame::Pacer::onVsync(state_, frameTimeNs, cap);
+    tick.dt = frame::Pacer::onVsync(state_, frameTimeNs, cap, stageBusy);
     // The state records the cap it paced to.
     if (state_.capMilliHz != askedCapMilliHz_) {
         askedCapMilliHz_ = state_.capMilliHz;

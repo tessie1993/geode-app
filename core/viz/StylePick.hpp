@@ -57,6 +57,46 @@ inline int pick(auto_draw::Draw& draw, const int* family, const unsigned char* o
     return k < 0 ? -1 : candidates[static_cast<size_t>(k)];
 }
 
+// Owner, 2026-11-18: "Random style and Random family". Random family draws a family first, then a style in it, so a
+// small family is as likely as a large one. Never the style on screen; a family other than the on-screen style's
+// while another has a style to give, else its own. A free user's draw stays among families holding a style the
+// entitlement keeps, and lands on a kept one; with none kept, any family and style, for the paywall's preview.
+// -1 when there is no style but the one on screen. [family] or [open] may be null, as in [pool].
+template <class Source>  // anything with pick(count, onScreen): a Draw, or the session's
+inline int pickFamily(Source& draw, const int* family, const unsigned char* open, int count, int onScreen) {
+    if (count <= 0) return -1;
+    auto fam = [&](int i) { return family == nullptr ? 0 : family[i]; };
+    auto kept = [&](int i) { return open == nullptr || open[i] != 0; };
+    bool anyKept = false;
+    for (int i = 0; i < count; ++i) anyKept = anyKept || (i != onScreen && kept(i));
+    const bool here = onScreen >= 0 && onScreen < count;
+    std::vector<int> families;  // distinct, in order of first appearance
+    auto addFamily = [&](int f) {
+        for (int x : families)
+            if (x == f) return;
+        families.push_back(f);
+    };
+    for (int i = 0; i < count; ++i) {
+        if (i != onScreen && (!anyKept || kept(i))) addFamily(fam(i));
+    }
+    if (families.empty()) return -1;
+    if (here && families.size() > 1) {
+        for (size_t k = 0; k < families.size(); ++k) {
+            if (families[k] == fam(onScreen)) {
+                families.erase(families.begin() + static_cast<long>(k));
+                break;
+            }
+        }
+    }
+    const int f = families[static_cast<size_t>(draw.pick(static_cast<int>(families.size()), -1))];
+    std::vector<int> styles;
+    for (int i = 0; i < count; ++i) {
+        if (i != onScreen && fam(i) == f && (!anyKept || kept(i))) styles.push_back(i);
+    }
+    const int k = draw.pick(static_cast<int>(styles.size()), -1);
+    return k < 0 ? -1 : styles[static_cast<size_t>(k)];
+}
+
 // The order a list on the page shows its [count] items: [lead] (the one on screen, or the family holding it)
 // first, the rest in their own order. The same rule at every level, so the dropdown leads with the playing
 // family and that family's list with the playing style. [lead] outside 0..count-1 leaves the order as it is.

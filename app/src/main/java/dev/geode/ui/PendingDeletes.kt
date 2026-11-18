@@ -15,7 +15,8 @@ import kotlinx.coroutines.launch
  * The wait runs in [scope], which outlives the screen: My videos used to wait inside its own
  * composition, so leaving the tab while the snackbar showed cancelled the wait and the deleted
  * item came back (#322). Here the screen only shows the snackbar and calls [undo]; the delete is
- * committed after [windowMs] whether or not anything is still on screen.
+ * committed after [windowMs] whether or not anything is still on screen, and [commitAll] commits
+ * what still waits when [scope]'s owner goes away first.
  *
  * Pure Kotlin on purpose, so a JVM test can drive it with a test scope and a fake store.
  */
@@ -25,7 +26,12 @@ class PendingDeletes<T>(
     private val keyOf: (T) -> String,
     private val commit: (T) -> Unit,
 ) {
-    private val jobs = mutableMapOf<String, Job>()
+    private class Waiting<T>(
+        val item: T,
+        val job: Job,
+    )
+
+    private val waiting = mutableMapOf<String, Waiting<T>>()
     private val _pending = MutableStateFlow<Set<String>>(emptySet())
 
     /** Keys waiting out their window: hidden from the list as if already gone. */
@@ -34,21 +40,31 @@ class PendingDeletes<T>(
     /** Hides [item] now and deletes it after the window unless [undo] comes first. */
     fun delete(item: T) {
         val key = keyOf(item)
-        if (key in jobs) return
+        if (key in waiting) return
         _pending.update { it + key }
-        jobs[key] =
+        val job =
             scope.launch {
                 delay(windowMs)
-                jobs.remove(key)
+                waiting.remove(key)
                 _pending.update { it - key }
                 commit(item)
             }
+        waiting[key] = Waiting(item, job)
     }
 
     /** Keeps the item: its delete never happens. */
     fun undo(key: String) {
-        jobs.remove(key)?.cancel() ?: return
+        waiting.remove(key)?.job?.cancel() ?: return
         _pending.update { it - key }
+    }
+
+    /** Commits every delete still waiting, now: their window is cut short, not their delete. */
+    fun commitAll() {
+        val now = waiting.values.toList()
+        waiting.clear()
+        now.forEach { it.job.cancel() }
+        _pending.value = emptySet()
+        now.forEach { commit(it.item) }
     }
 
     companion object {

@@ -116,3 +116,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: Cast's tee no longer waits up to 2 ms on the stage thread for the cast's last blit where EGL has no server wait: a blit not done yet skips the copy (`CastTee::publish`, `core/viz/frame/CastTee.cpp`).
 - 2026-11-18: `GlVersion::parse` reads the version numbers with `std::from_chars`: a number too long for an int makes the string unparseable instead of throwing (`core/viz/GlCaps.cpp`).
 - 2026-11-18: Morph World frees its shape and map bytes once they are uploaded or refused (`ShaderScene::uploadWorld`, `core/viz/scenes/ShaderScene.cpp`).
+- 2026-11-18: `ShaderScene::set1f` makes no `glUniform1f` call for a uniform the style linked away (location -1); the comment above `uploadMotion` says what that costs (`core/viz/scenes/ShaderScene.cpp`).

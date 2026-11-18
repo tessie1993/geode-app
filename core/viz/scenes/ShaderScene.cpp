@@ -250,8 +250,8 @@ void ShaderScene::uploadParams() {
 }
 
 // Every style is handed these; the ones that read none of them link them away
-// and glUniform on a -1 location is a no-op, so this costs nothing on a style
-// that has not been converted.
+// (location -1). Each still costs a cached lookup; set1f then skips the driver
+// call, and the few direct glUniform calls below make one that does nothing.
 void ShaderScene::uploadMotion() {
     // Wave three: the continuous replacement for the spike-latched state.
     // Nothing here is a trigger; every value is a running average, a
@@ -445,7 +445,8 @@ void ShaderScene::specializeWorld() {
 }
 
 void ShaderScene::set1f(const char* name, float value) {
-    glUniform1f(uniforms_.loc(name), value);
+    const GLint location = uniforms_.loc(name);
+    if (location != -1) glUniform1f(location, value);
 }
 
 float ShaderScene::marchSteps(float detail) {

@@ -389,6 +389,10 @@ void Renderer::fail(const std::string& message) {
         heldErrors_.push_back(message);
         return;
     }
+    // A broken preset left on screen reports the same message every frame. Only this (GL) thread
+    // writes lastError_, so reading it here without the lock races nothing; an unchanged message
+    // takes no lock and logs no line.
+    if (message == lastError_) return;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         lastError_ = message;

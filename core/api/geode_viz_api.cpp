@@ -287,6 +287,8 @@ geode_viz* geode_viz_create(AAssetManager* assets, const char* cache_dir) {
 
 void geode_viz_destroy(geode_viz* v) {
     std::unique_ptr<geode_viz> owned(v);
+    // The tee outlives this renderer while a cast runs: its writer names go with this stage's context.
+    if (owned && owned->castTee) owned->castTee->forgetWriter();
 }
 
 int geode_viz_param_count(void) {
@@ -1023,6 +1025,8 @@ const char* geode_viz_last_error(geode_viz* v) {
 void geode_viz_surface_created(geode_viz* v) {
     if (!v) return;
     v->renderer.onSurfaceCreated();
+    // The tee's writer names belong to the context that just went; a reused handle value must not revive them.
+    if (v->castTee) v->castTee->forgetWriter();
     v->live.surfaceCreated();
     // A new surface starts its engine on a full window, not the tail of the last: the next frame's cursor is a
     // new one.

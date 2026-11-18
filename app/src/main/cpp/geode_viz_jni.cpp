@@ -233,57 +233,57 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankSet(JNIEnv* env, jobject, jstr
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankDefault(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_macro_bank_default());
+    return geode::jni::utf8String(env, geode_macro_bank_default());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankNormalize(JNIEnv* env, jobject, jstring bank) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_normalize(text.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_normalize(text.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankSetValue(JNIEnv* env, jobject, jstring bank, jint knobId, jfloat value) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_set_value(text.get(), knobId, value));
+    return geode::jni::utf8String(env, geode_macro_bank_set_value(text.get(), knobId, value));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankRename(JNIEnv* env, jobject, jstring bank, jint knobId, jstring name) {
     Utf8Chars text(env, bank);
     Utf8Chars label(env, name);
-    return env->NewStringUTF(geode_macro_bank_rename(text.get(), knobId, label.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_rename(text.get(), knobId, label.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankAddKnob(JNIEnv* env, jobject, jstring bank, jstring name) {
     Utf8Chars text(env, bank);
     Utf8Chars label(env, name);
-    return env->NewStringUTF(geode_macro_bank_add_knob(text.get(), label.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_add_knob(text.get(), label.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankRemoveKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_remove_knob(text.get(), knobId));
+    return geode::jni::utf8String(env, geode_macro_bank_remove_knob(text.get(), knobId));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankDuplicateKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_duplicate_knob(text.get(), knobId));
+    return geode::jni::utf8String(env, geode_macro_bank_duplicate_knob(text.get(), knobId));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankResetKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_reset_knob(text.get(), knobId));
+    return geode::jni::utf8String(env, geode_macro_bank_reset_knob(text.get(), knobId));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankMoveKnob(JNIEnv* env, jobject, jstring bank, jint knobId, jint delta) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_move_knob(text.get(), knobId, delta));
+    return geode::jni::utf8String(env, geode_macro_bank_move_knob(text.get(), knobId, delta));
 }
 
 JNIEXPORT jstring JNICALL
@@ -291,28 +291,28 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankSetLink(JNIEnv* env, jobject, 
                                                           jfloat down) {
     Utf8Chars text(env, bank);
     Utf8Chars name(env, target);
-    return env->NewStringUTF(geode_macro_bank_set_link(text.get(), knobId, name.get(), up, down));
+    return geode::jni::utf8String(env, geode_macro_bank_set_link(text.get(), knobId, name.get(), up, down));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankAddLink(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target) {
     Utf8Chars text(env, bank);
     Utf8Chars name(env, target);
-    return env->NewStringUTF(geode_macro_bank_add_link(text.get(), knobId, name.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_add_link(text.get(), knobId, name.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankRemoveLink(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target) {
     Utf8Chars text(env, bank);
     Utf8Chars name(env, target);
-    return env->NewStringUTF(geode_macro_bank_remove_link(text.get(), knobId, name.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_remove_link(text.get(), knobId, name.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankEditor(JNIEnv* env, jobject, jstring bank, jstring styleId) {
     Utf8Chars text(env, bank);
     Utf8Chars style(env, styleId);
-    return env->NewStringUTF(geode_macro_bank_editor(text.get(), style.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_editor(text.get(), style.get()));
 }
 
 JNIEXPORT jstring JNICALL
@@ -320,31 +320,31 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankSetCurve(JNIEnv* env, jobject,
     Utf8Chars text(env, bank);
     Utf8Chars name(env, target);
     Utf8Chars shape(env, curve);
-    return env->NewStringUTF(geode_macro_bank_set_curve(text.get(), knobId, name.get(), shape.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_set_curve(text.get(), knobId, name.get(), shape.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankAddKnobFor(JNIEnv* env, jobject, jstring bank, jstring control) {
     Utf8Chars text(env, bank);
     Utf8Chars key(env, control);
-    return env->NewStringUTF(geode_macro_bank_add_knob_for(text.get(), key.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_add_knob_for(text.get(), key.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankControls(JNIEnv* env, jobject, jstring bank) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_controls(text.get()));
+    return geode::jni::utf8String(env, geode_macro_bank_controls(text.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankLiveMods(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_macro_bank_live_mods());
+    return geode::jni::utf8String(env, geode_macro_bank_live_mods());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankRollRanges(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_roll_ranges(text.get(), knobId, static_cast<long long>(seed)));
+    return geode::jni::utf8String(env, geode_macro_bank_roll_ranges(text.get(), knobId, static_cast<long long>(seed)));
 }
 
 JNIEXPORT jstring JNICALL
@@ -352,32 +352,32 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankAddRandom(JNIEnv* env, jobject
                                                            jlong seed) {
     Utf8Chars text(env, bank);
     Utf8Chars style(env, styleId);
-    return env->NewStringUTF(geode_macro_bank_add_random(text.get(), knobId, style.get(), count, static_cast<long long>(seed)));
+    return geode::jni::utf8String(env, geode_macro_bank_add_random(text.get(), knobId, style.get(), count, static_cast<long long>(seed)));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankRollValues(JNIEnv* env, jobject, jstring bank, jstring styleId, jlong seed) {
     Utf8Chars text(env, bank);
     Utf8Chars style(env, styleId);
-    return env->NewStringUTF(geode_macro_bank_roll_values(text.get(), style.get(), static_cast<long long>(seed)));
+    return geode::jni::utf8String(env, geode_macro_bank_roll_values(text.get(), style.get(), static_cast<long long>(seed)));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankHideKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_hide_knob(text.get(), knobId));
+    return geode::jni::utf8String(env, geode_macro_bank_hide_knob(text.get(), knobId));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankShowKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_show_knob(text.get(), knobId));
+    return geode::jni::utf8String(env, geode_macro_bank_show_knob(text.get(), knobId));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankAutoName(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_auto_name(text.get(), knobId));
+    return geode::jni::utf8String(env, geode_macro_bank_auto_name(text.get(), knobId));
 }
 
 JNIEXPORT void JNICALL
@@ -602,36 +602,36 @@ Java_dev_geode_engine_bridge_VizNative_vizSetUnderlay(JNIEnv* env, jobject, jlon
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_catalogueStyleIds(JNIEnv* env, jobject, jint trait) {
-    return env->NewStringUTF(geode_catalogue_style_ids(trait));
+    return geode::jni::utf8String(env, geode_catalogue_style_ids(trait));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_cataloguePickerNames(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_catalogue_picker_names());
+    return geode::jni::utf8String(env, geode_catalogue_picker_names());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_cataloguePickerIds(JNIEnv* env, jobject, jstring family) {
     Utf8Chars name(env, family);
-    return env->NewStringUTF(geode_catalogue_picker_ids(name.get()));
+    return geode::jni::utf8String(env, geode_catalogue_picker_ids(name.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_catalogueResolve(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars style(env, styleId);
-    return env->NewStringUTF(geode_catalogue_resolve(style.get()));
+    return geode::jni::utf8String(env, geode_catalogue_resolve(style.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_cataloguePresetStyle(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars style(env, styleId);
-    return env->NewStringUTF(geode_catalogue_preset_style(style.get()));
+    return geode::jni::utf8String(env, geode_catalogue_preset_style(style.get()));
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_catalogueScopeOf(JNIEnv* env, jobject, jstring paramKey) {
     Utf8Chars key(env, paramKey);
-    return env->NewStringUTF(geode_catalogue_scope_of(key.get()));
+    return geode::jni::utf8String(env, geode_catalogue_scope_of(key.get()));
 }
 
 JNIEXPORT jboolean JNICALL
@@ -662,7 +662,7 @@ Java_dev_geode_engine_bridge_CatalogueNative_catalogueValue(JNIEnv* env, jobject
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_cataloguePresetsText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_catalogue_presets_text());
+    return geode::jni::utf8String(env, geode_catalogue_presets_text());
 }
 
 JNIEXPORT jfloatArray JNICALL
@@ -702,7 +702,7 @@ Java_dev_geode_engine_bridge_ParamsNative_paramText(JNIEnv* env, jobject, jstrin
     Utf8Chars name(env, key);
     char text[96];
     geode_param_text(name.get(), unit, value, lo, hi, def, text, sizeof text);
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -832,7 +832,7 @@ Java_dev_geode_engine_bridge_PaletteNative_colourParseHex(JNIEnv* env, jobject, 
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_PaletteNative_colourHex(JNIEnv* env, jobject, jint rgb) {
-    return env->NewStringUTF(geode_colour_hex(rgb));
+    return geode::jni::utf8String(env, geode_colour_hex(rgb));
 }
 
 JNIEXPORT jint JNICALL
@@ -1056,18 +1056,18 @@ Java_dev_geode_engine_bridge_TouchNative_gestureSecondMove(JNIEnv*, jobject, jlo
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_customizeText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_customize_text());
+    return geode::jni::utf8String(env, geode_customize_text());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_customizeLockableKeys(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_customize_lockable_keys());
+    return geode::jni::utf8String(env, geode_customize_lockable_keys());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_customizeShown(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars style(env, styleId);
-    return env->NewStringUTF(geode_customize_shown(style.get()));
+    return geode::jni::utf8String(env, geode_customize_shown(style.get()));
 }
 
 JNIEXPORT void JNICALL
@@ -1120,12 +1120,12 @@ Java_dev_geode_engine_bridge_ParamsNative_randomizeAllPick(JNIEnv* env, jobject,
                                             static_cast<int>(sizeof picked), &look, &milk);
     const jint out[2] = {look, milk};
     env->SetIntArrayRegion(picks, 0, 2, out);
-    return ok ? env->NewStringUTF(picked) : nullptr;
+    return ok ? geode::jni::utf8String(env, picked) : nullptr;
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_configSchemaText(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_config_schema_text());
+    return geode::jni::utf8String(env, geode_config_schema_text());
 }
 
 // Fixed-rate frame clock (Cast): the state is a caller-owned long[GEODE_FRAME_CLOCK_STATE], copied in and out.
@@ -1345,7 +1345,7 @@ Java_dev_geode_engine_bridge_VizNative_underlayBlendCount(JNIEnv*, jobject) {
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_VizNative_underlayBlendName(JNIEnv* env, jobject, jint blend) {
-    return env->NewStringUTF(geode_underlay_blend_name(blend));
+    return geode::jni::utf8String(env, geode_underlay_blend_name(blend));
 }
 
 JNIEXPORT jint JNICALL

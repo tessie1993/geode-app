@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "jni_util.hpp"
 
 namespace {
 
@@ -112,21 +113,21 @@ Java_dev_geode_engine_bridge_GeodeNative_dspEncodeBands(JNIEnv* env, jobject, ji
     if (count > 0) env->GetIntArrayRegion(levels, 0, count, values.data());
     std::string text(static_cast<size_t>(geode_dsp_encode_bands(values.data(), count, nullptr, 0)) + 1, '\0');
     geode_dsp_encode_bands(values.data(), count, text.data(), static_cast<int>(text.size()));
-    return env->NewStringUTF(text.c_str());
+    return geode::jni::utf8String(env, text.c_str());
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspBandLabel(JNIEnv* env, jobject, jint band) {
     char text[32] = {};
     geode_dsp_band_label(band, text, static_cast<int>(sizeof text));
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspDbLabel(JNIEnv* env, jobject, jint millibels) {
     char text[32] = {};
     geode_dsp_db_label(millibels, text, static_cast<int>(sizeof text));
-    return env->NewStringUTF(text);
+    return geode::jni::utf8String(env, text);
 }
 
 JNIEXPORT void JNICALL

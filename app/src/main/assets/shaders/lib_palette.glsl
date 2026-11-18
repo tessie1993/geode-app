@@ -55,8 +55,7 @@ vec3 palProcedural(float t) {
 }
 
 vec3 pal(float t) {
-    vec3 procedural = palProcedural(t);
-    if (uPalLutMix <= 0.001) return procedural;
+    if (uPalLutMix <= 0.001) return palProcedural(t);
     // Hue shift and Palette position stay meaningful on a colour map: they
     // rotate the position along the ramp rather than the hue wheel, which for
     // a CYCLIC map is the same gesture and lands back where it started.
@@ -72,5 +71,7 @@ vec3 pal(float t) {
     // it. uHueRange stays: that one IS the user's "Hue range" control.
     float u = fract(t * uHueRange + uColorShift);
     vec3 mapped = texture(uPalLut, vec2(u, uPalLutRow)).rgb;
-    return mix(procedural, mapped, clamp(uPalLutMix, 0.0, 1.0));
+    // A whole colour map (ShaderScene sends 0 or 1) leaves nothing of the procedural ramp: skip building it.
+    if (uPalLutMix >= 1.0) return mapped;
+    return mix(palProcedural(t), mapped, clamp(uPalLutMix, 0.0, 1.0));
 }

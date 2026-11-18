@@ -16,6 +16,8 @@ public:
     ~TrailPass() { release(); }
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error);
     void release();
+    // The context is gone: drops the programs and the trail without a GL call.
+    void forget();
     void releaseTargets() { trail_.release(); }
     // Once a frame, on the wall step: frees the echo's target once `idleSeconds` pass without an echo draw.
     void releaseIdle(float wallDt, float idleSeconds);
@@ -36,10 +38,8 @@ private:
     Framebuffer trail_{"trail"};
     // Wall seconds since the echo last drew (releaseIdle).
     float warpIdleSeconds_ = 0.0f;
-    GLuint fadeProgram_ = 0;
-    GLuint trailWarpProgram_ = 0;
-    UniformCache fadeUniforms_;
-    UniformCache trailUniforms_;
+    OwnedProgram fadeUniforms_;   // the fade program and its locations
+    OwnedProgram trailUniforms_;  // the trail warp program and its locations
 };
 
 }  // namespace geode::viz

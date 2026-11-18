@@ -72,8 +72,10 @@ public:
 
     bool create(const std::string& fadeVert, std::string* error);
     void release();
+    // The context is gone: drops every program and texture without a GL call.
+    void forget();
     void releaseStaleTextures();
-    GLuint zeroTex() const { return zeroTex_; }
+    GLuint zeroTex() const { return zeroTex_.get(); }
     void warmTransition(const std::string& id) { transitions_.warm(id); }
     TransitionCatalog& catalog() { return transitions_.catalog(); }
     void draw(const Inputs& inputs);
@@ -83,7 +85,7 @@ public:
     // width/height <= 0 or a short buffer is treated as a clear.
     void uploadUnderlay(const std::vector<uint8_t>& rgba, int width, int height, int blend, float amount);
     void clearUnderlay();
-    GLuint underlayTexOrZero() const { return underlayTex_.ok() ? underlayTex_.id() : zeroTex_; }
+    GLuint underlayTexOrZero() const { return underlayTex_.ok() ? underlayTex_.id() : zeroTex_.get(); }
     int underlayBlendMode() const { return underlayBlendMode_; }
     float underlayAmount() const { return underlayAmount_; }
 
@@ -96,8 +98,8 @@ private:
 
     TransitionPrograms transitions_;
     const ShaderSource& assets_;
-    GLuint noiseTex_ = 0;
-    GLuint zeroTex_ = 0;
+    GlTexture noiseTex_;
+    GlTexture zeroTex_;
     // W00 state, see the class comment above.
     Texture underlayTex_;
     int underlayBlendMode_ = 0;

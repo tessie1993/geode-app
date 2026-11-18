@@ -13,21 +13,22 @@ bool TrailPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, co
     const auto fadeFrag = assets.load("fade_frag.glsl", error);
     const auto warpFrag = assets.load("trail_warp_frag.glsl", error);
     if (!fadeFrag || !warpFrag) return false;
-    fadeProgram_ = program::build(fadeVert, *fadeFrag, cache, error);
-    if (fadeProgram_ == 0) return false;
-    trailWarpProgram_ = program::build(fadeVert, *warpFrag, cache, error);
-    if (trailWarpProgram_ == 0) return false;
-    fadeUniforms_ = UniformCache(fadeProgram_);
-    trailUniforms_ = UniformCache(trailWarpProgram_);
-    return true;
+    fadeUniforms_.reset(program::build(fadeVert, *fadeFrag, cache, error));
+    if (fadeUniforms_.program() == 0) return false;
+    trailUniforms_.reset(program::build(fadeVert, *warpFrag, cache, error));
+    return trailUniforms_.program() != 0;
 }
 
 void TrailPass::release() {
-    if (fadeProgram_ != 0) glDeleteProgram(fadeProgram_);
-    if (trailWarpProgram_ != 0) glDeleteProgram(trailWarpProgram_);
-    fadeProgram_ = 0;
-    trailWarpProgram_ = 0;
+    fadeUniforms_.release();
+    trailUniforms_.release();
     trail_.release();
+}
+
+void TrailPass::forget() {
+    fadeUniforms_.forget();
+    trailUniforms_.forget();
+    trail_.forget();
 }
 
 float TrailPass::fadeAlpha(float keep, float dt) { return 1.0f - std::pow(keep * 0.97f, dt * 60.0f); }
@@ -61,7 +62,7 @@ void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeS
     glViewport(0, 0, renderWidth, renderHeight);
     glDisable(GL_BLEND);
     sceneTarget.discardContents();
-    glUseProgram(trailWarpProgram_);
+    glUseProgram(trailUniforms_.program());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, trail_.tex());
     glUniform1i(trailUniforms_.loc("uPrev"), 0);
@@ -85,7 +86,7 @@ void TrailPass::releaseIdle(float wallDt, float idleSeconds) {
 void TrailPass::drawFadeQuad(float alpha, GLuint quadVao) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glUseProgram(fadeProgram_);
+    glUseProgram(fadeUniforms_.program());
     glUniform1f(fadeUniforms_.loc("uFadeAlpha"), std::clamp(alpha, 0.02f, 1.0f));
     glBindVertexArray(quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);

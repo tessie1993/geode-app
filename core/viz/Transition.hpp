@@ -54,6 +54,8 @@ public:
     // Compiles the base composite program; returns false with the driver log in `error`.
     bool create(const std::string& fadeVert, std::string* error);
     void release();
+    // The context is gone: drops every program without a GL call.
+    void forget();
     TransitionCatalog& catalog() { return catalog_; }
     const TransitionCatalog::Def* definition(const std::string& id) { return catalog_.definition(id); }
     UniformCache& programFor(const std::string& id);
@@ -66,10 +68,10 @@ private:
     TransitionCatalog catalog_;
     const ShaderSource& assets_;
     ProgramBinaryCache* cache_;
-    UniformCache base_;
+    OwnedProgram base_;
     std::string source_;
     std::string fadeVert_;
-    std::list<std::pair<std::string, std::unique_ptr<UniformCache>>> lru_;
+    std::list<std::pair<std::string, std::unique_ptr<OwnedProgram>>> lru_;
     // Ids whose spliced program failed to build in this context: not tried again until release().
     std::set<std::string> failed_;
     const UniformCache* uploadedFor_ = nullptr;

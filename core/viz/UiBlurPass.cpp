@@ -20,28 +20,30 @@ bool UiBlurPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, c
     if (!blurFrag) return false;
     const auto maskFrag = assets.load("ui_blur_mask_frag.glsl", error);
     if (!maskFrag) return false;
-    blurProgram_ = program::build(fadeVert, *blurFrag, cache, error);
-    if (blurProgram_ == 0) return false;
-    maskProgram_ = program::build(fadeVert, *maskFrag, cache, error);
-    if (maskProgram_ == 0) {
+    blurUniforms_.reset(program::build(fadeVert, *blurFrag, cache, error));
+    if (blurUniforms_.program() == 0) return false;
+    maskUniforms_.reset(program::build(fadeVert, *maskFrag, cache, error));
+    if (maskUniforms_.program() == 0) {
         release();
         return false;
     }
-    blurUniforms_ = UniformCache(blurProgram_);
-    maskUniforms_ = UniformCache(maskProgram_);
     return true;
 }
 
 void UiBlurPass::release() {
-    if (blurProgram_ != 0) glDeleteProgram(blurProgram_);
-    if (maskProgram_ != 0) glDeleteProgram(maskProgram_);
-    blurProgram_ = 0;
-    maskProgram_ = 0;
-    blurUniforms_ = UniformCache(0);
-    maskUniforms_ = UniformCache(0);
+    blurUniforms_.release();
+    maskUniforms_.release();
     half_.release();
     quarterA_.release();
     quarterB_.release();
+}
+
+void UiBlurPass::forget() {
+    blurUniforms_.forget();
+    maskUniforms_.forget();
+    half_.forget();
+    quarterA_.forget();
+    quarterB_.forget();
 }
 
 void UiBlurPass::releaseTargets() {
@@ -57,7 +59,7 @@ void UiBlurPass::releaseIdle(float wallDt, float idleSeconds) {
 }
 
 void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao) {
-    if (blurProgram_ == 0 || maskProgram_ == 0 || !region.active() || width < 8 || height < 8) return;
+    if (blurUniforms_.program() == 0 || maskUniforms_.program() == 0 || !region.active() || width < 8 || height < 8) return;
     const int qw = width / 4;
     const int qh = height / 4;
     // The textures span the whole viewport, so a sheet that slides or resizes never reallocates them.
@@ -96,7 +98,7 @@ void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, i
     glBlitFramebuffer(x0 / 2, y0 / 2, x1 / 2, y1 / 2, x0 / 4, y0 / 4, x1 / 4, y1 / 4, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
     // Separable Gaussian at quarter resolution, A -> B horizontally, B -> A vertically.
-    glUseProgram(blurProgram_);
+    glUseProgram(blurUniforms_.program());
     glUniform1i(blurUniforms_.loc("uSrc"), 0);
     const GLint stepLoc = blurUniforms_.loc("uStep");
     glActiveTexture(GL_TEXTURE0);
@@ -121,7 +123,7 @@ void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, i
     glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
     glViewport(0, 0, width, height);
     glScissor(sx0, sy0, sx1 - sx0, sy1 - sy0);
-    glUseProgram(maskProgram_);
+    glUseProgram(maskUniforms_.program());
     glBindTexture(GL_TEXTURE_2D, quarterA_.tex());
     glUniform1i(maskUniforms_.loc("uBlur"), 0);
     glUniform4f(maskUniforms_.loc("uRect"), fx0, fy0, fx1, fy1);

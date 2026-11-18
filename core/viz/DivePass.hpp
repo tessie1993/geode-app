@@ -22,6 +22,8 @@ public:
 
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& vert, std::string* error);
     void release();
+    // The context is gone: drops the program and target without a GL call.
+    void forget();
     void releaseTarget() { target_.release(); }
     // Draws `sceneTex` (srcWidth x srcHeight) nested at `phase` into a width x height target; `mix` 0..1
     // fades the dive in over the plain picture. Returns the texture to show, 0 when it cannot draw.
@@ -29,8 +31,7 @@ public:
                const endless::tunnel::Look& look, GLuint quadVao);
 
 private:
-    GLuint program_ = 0;
-    UniformCache uniforms_;
+    OwnedProgram uniforms_;  // the program and its locations
     Framebuffer target_{"dive"};
 };
 

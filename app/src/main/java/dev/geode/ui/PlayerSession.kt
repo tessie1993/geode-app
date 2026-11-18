@@ -395,7 +395,8 @@ class PlayerSession internal constructor(
 
     private fun refresh() {
         val uri = player.currentMediaItem?.localConfiguration?.uri
-        _positionMs.value = player.currentPosition.coerceAtLeast(0)
+        // While another app is the source and its session is followed, the playhead shown is its.
+        _positionMs.value = captureController.externalPositionMs() ?: player.currentPosition.coerceAtLeast(0)
         _uiState.value =
             PlayerUiState(
                 isPlaying = player.isPlaying,

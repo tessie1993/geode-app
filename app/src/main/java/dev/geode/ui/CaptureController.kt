@@ -41,6 +41,9 @@ data class ExternalAudioState(
 
     /** The other app while it is the sound source and its media session answers: the transport is its, not the player's. */
     val driven: NowPlayingBridge.External? get() = nowPlaying.takeIf { active }
+
+    /** Capturing without notification access: the other app can be heard but not named or driven. */
+    val sessionUnreadable: Boolean get() = active && !hasSessionAccess
 }
 
 internal class CaptureController(
@@ -74,7 +77,7 @@ internal class CaptureController(
 
     private val playbackCapture = PlaybackCapture(capture)
 
-    private val nowPlayingBridge = NowPlayingBridge(application)
+    private val nowPlayingBridge = NowPlayingBridge(application) { now -> _externalAudio.update { it.copy(nowPlaying = now) } }
 
     private val _externalAudio = MutableStateFlow(ExternalAudioState())
 
@@ -153,6 +156,7 @@ internal class CaptureController(
                     if (projection != null) {
                         startPlaybackCapture(projection)
                     } else if (_externalAudio.value.active) {
+                        nowPlayingBridge.unwatch()
                         playbackCapture.stop()
                         host.resetSound(!externalAudioOwnsRing())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
@@ -242,6 +246,13 @@ internal class CaptureController(
 
     fun externalPrevious() = control { nowPlayingBridge.previous() }
 
+    fun externalSeekTo(fraction: Float) = control { nowPlayingBridge.seekTo(fraction) }
+
+    /** The other app's playhead while its session is followed, else null. */
+    fun externalPositionMs(): Long? = if (_externalAudio.value.driven != null) nowPlayingBridge.positionMs() else null
+
+    fun openNotificationAccess(from: android.content.Context) = nowPlayingBridge.openAccessSettings(from)
+
     private fun control(action: () -> Unit) {
         scope.launch(Dispatchers.IO) { action() }
     }
@@ -288,9 +299,20 @@ internal class CaptureController(
                 refusedByApp = false,
             )
         }
+        followSession()
+    }
+
+    /**
+     * Follows the other app's media session while a capture runs and access is granted, so its title, art and
+     * state arrive as they change (callbacks, not the poll); stops following otherwise.
+     */
+    private fun followSession() {
+        val state = _externalAudio.value
+        if (state.active && state.hasSessionAccess) nowPlayingBridge.watch() else nowPlayingBridge.unwatch()
     }
 
     fun stopExternalAudio() {
+        nowPlayingBridge.unwatch()
         stopDeviceAudio()
         deviceMixRefused = false
         playbackCapture.stop()
@@ -301,8 +323,6 @@ internal class CaptureController(
         }
     }
 
-    fun notificationAccessIntent(): android.content.Intent = nowPlayingBridge.settingsIntent()
-
     @Volatile
     private var externalAudioRefreshInFlight = false
 
@@ -311,10 +331,10 @@ internal class CaptureController(
     private var notificationAccessAbsent = false
 
     /**
-     * Polled every 500 ms from Main. [NowPlayingBridge.hasAccess] and [NowPlayingBridge.current]
-     * are synchronous binder calls (a `Settings.Secure` read and a
-     * `MediaSessionManager`/`PackageManager` round trip), so they run on IO instead of blocking
-     * Main. Skipped only once there is truly nothing left to learn: no capture is active or
+     * Polled every 500 ms from Main. [NowPlayingBridge.hasAccess] is a synchronous binder call, so it
+     * runs on IO instead of blocking Main; what the other app plays arrives through [NowPlayingBridge]'s
+     * callbacks ([followSession]), not through this poll. Skipped only once there is truly nothing
+     * left to learn: no capture is active or
      * pending, and notification-listener access is already known: granted, or absent and not looked at
      * again until the app is back on screen ([onForeground]), which is where a grant in system
      * settings is seen. [ExternalAudioSettings] shows its "allow reading" prompt from
@@ -329,11 +349,7 @@ internal class CaptureController(
         externalAudioRefreshInFlight = true
         scope.launch {
             try {
-                val (access, now) =
-                    withContext(Dispatchers.IO) {
-                        val access = nowPlayingBridge.hasAccess()
-                        access to (if (access) nowPlayingBridge.current() else null)
-                    }
+                val access = withContext(Dispatchers.IO) { nowPlayingBridge.hasAccess() }
                 notificationAccessAbsent = !access
                 val quiet = playbackCapture.active && playbackCapture.quiet
                 hearDeviceMix(quiet)
@@ -342,12 +358,12 @@ internal class CaptureController(
                 _externalAudio.update {
                     it.copy(
                         active = playbackCapture.active,
-                        nowPlaying = now,
                         hasSessionAccess = access,
-                        refusedByApp = unheard && (now?.playing ?: false),
+                        refusedByApp = unheard && (it.nowPlaying?.playing ?: false),
                         hearingSilence = unheard,
                     )
                 }
+                followSession()
             } finally {
                 externalAudioRefreshInFlight = false
             }
@@ -369,6 +385,7 @@ internal class CaptureController(
     }
 
     fun shutdown() {
+        nowPlayingBridge.unwatch()
         stopMic()
         // Stop the pump on the pump's own state, not the UI mirror of it. After this the owning
         // scope is cancelled, so the projection collector that would otherwise notice is gone —

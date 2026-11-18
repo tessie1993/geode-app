@@ -82,6 +82,18 @@ jintArray intsOf(JNIEnv* env, const std::vector<int>& values) {
     return out;
 }
 
+// An int-out call's whole ints as an int[]; null when `call(out, capacity)` returns -1 (none).
+template <typename Call>
+jintArray intsWhole(JNIEnv* env, Call call) {
+    int fixed[64];
+    const int need = call(fixed, static_cast<int>(sizeof fixed / sizeof fixed[0]));
+    if (need < 0) return nullptr;
+    if (need <= static_cast<int>(sizeof fixed / sizeof fixed[0])) return intsOf(env, std::vector<int>(fixed, fixed + need));
+    std::vector<int> whole(static_cast<size_t>(need));
+    call(whole.data(), need);
+    return intsOf(env, whole);
+}
+
 // A text-out call's whole text as a String; null when `call(out, capacity)` returns -1 (no text).
 template <typename Call>
 jstring textOf(JNIEnv* env, Call call) {
@@ -355,6 +367,128 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_autoVisuals
     std::vector<int> read(GEODE_AUTO_SAVED_FIELDS);
     geode_auto_visuals_apply(now.data(), saved.data(), present, playlistCount, read.data());
     return intsOf(env, read);
+}
+
+// The onboarding tour (core/shell/Tour). A run and a progress cross as the ints geode_shell_api.h spells; a null run is
+// no run.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_tourReached(JNIEnv*, jobject, jint spot, jint shown,
+                                                                            jint place, jboolean playing) {
+    return geode_tour_reached(spot, static_cast<unsigned>(shown), place, playing == JNI_TRUE ? 1 : 0) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourStep(JNIEnv* env, jobject, jintArray run, jint shown,
+                                                                          jint place, jboolean playing) {
+    const std::vector<int> r = intsIn(env, run, 0);
+    int step[3] = {};
+    if (geode_tour_step(r.data(), static_cast<int>(r.size()), static_cast<unsigned>(shown), place, playing == JNI_TRUE ? 1 : 0,
+                        step) == 0) {
+        return nullptr;
+    }
+    return intsOf(env, std::vector<int>(step, step + 3));
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourPass(JNIEnv* env, jobject, jintArray run, jint spot) {
+    const std::vector<int> r = intsIn(env, run, 0);
+    return intsWhole(env, [&](int* out, int capacity) {
+        return geode_tour_pass(r.data(), static_cast<int>(r.size()), spot, out, capacity);
+    });
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourNextChapter(JNIEnv* env, jobject, jintArray run) {
+    const std::vector<int> r = intsIn(env, run, 0);
+    return intsWhole(env, [&](int* out, int capacity) {
+        return geode_tour_next_chapter(r.data(), static_cast<int>(r.size()), out, capacity);
+    });
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_tourHeld(JNIEnv*, jobject, jint cover) {
+    return geode_tour_held(static_cast<unsigned>(cover)) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_tourShows(JNIEnv* env, jobject, jintArray run,
+                                                                          jintArray progress, jint cover) {
+    const std::vector<int> r = intsIn(env, run, 0);
+    const std::vector<int> p = intsIn(env, progress, 0);
+    return geode_tour_shows(r.data(), static_cast<int>(r.size()), p.data(), static_cast<int>(p.size()),
+                            static_cast<unsigned>(cover)) != 0
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_tourMayTip(JNIEnv* env, jobject, jint tip,
+                                                                           jintArray progress, jint cover, jintArray run) {
+    const std::vector<int> r = intsIn(env, run, 0);
+    const std::vector<int> p = intsIn(env, progress, 0);
+    return geode_tour_may_tip(tip, p.data(), static_cast<int>(p.size()), static_cast<unsigned>(cover), r.data(),
+                              static_cast<int>(r.size())) != 0
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_tourDue(JNIEnv* env, jobject, jintArray progress, jint shown,
+                                                                    jint place, jboolean playing) {
+    const std::vector<int> p = intsIn(env, progress, 0);
+    return geode_tour_due(p.data(), static_cast<int>(p.size()), static_cast<unsigned>(shown), place,
+                          playing == JNI_TRUE ? 1 : 0);
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourResume(JNIEnv* env, jobject, jint chapter,
+                                                                            jintArray progress) {
+    const std::vector<int> p = intsIn(env, progress, 0);
+    return intsWhole(env, [&](int* out, int capacity) {
+        return geode_tour_resume(chapter, p.data(), static_cast<int>(p.size()), out, capacity);
+    });
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourReplay(JNIEnv* env, jobject, jint chapters) {
+    return intsWhole(env, [&](int* out, int capacity) { return geode_tour_replay(static_cast<unsigned>(chapters), out, capacity); });
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourEnded(JNIEnv* env, jobject, jintArray progress,
+                                                                           jintArray run, jboolean skipped) {
+    const std::vector<int> p = intsIn(env, progress, 0);
+    const std::vector<int> r = intsIn(env, run, 0);
+    return intsWhole(env, [&](int* out, int capacity) {
+        return geode_tour_ended(p.data(), static_cast<int>(p.size()), r.data(), static_cast<int>(r.size()),
+                                skipped == JNI_TRUE ? 1 : 0, out, capacity);
+    });
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_tourOffersPro(JNIEnv* env, jobject, jintArray run,
+                                                                              jboolean skipped) {
+    const std::vector<int> r = intsIn(env, run, 0);
+    return geode_tour_offers_pro(r.data(), static_cast<int>(r.size()), skipped == JNI_TRUE ? 1 : 0) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourDecode(JNIEnv* env, jobject, jstring done,
+                                                                            jstring resume, jstring tips,
+                                                                            jboolean legacySeen, jboolean off) {
+    const Utf8Chars d(env, done);
+    const Utf8Chars r(env, resume);
+    const Utf8Chars t(env, tips);
+    if (unread(done, d) || unread(resume, r) || unread(tips, t)) return nullptr;
+    return intsWhole(env, [&](int* out, int capacity) {
+        return geode_tour_decode(d.get(), r.get(), t.get(), legacySeen == JNI_TRUE ? 1 : 0, off == JNI_TRUE ? 1 : 0, out,
+                                 capacity);
+    });
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_ShellNative_tourEncode(JNIEnv* env, jobject, jintArray progress,
+                                                                          jint which) {
+    const std::vector<int> p = intsIn(env, progress, 0);
+    return textOf(env, [&](char* out, int capacity) {
+        return geode_tour_encode(p.data(), static_cast<int>(p.size()), which, out, capacity);
+    });
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_tourPlaceCard(JNIEnv* env, jobject, jintArray hole,
+                                                                               jint cardWidth, jint cardHeight,
+                                                                               jintArray safe, jint gap) {
+    const std::vector<int> h = intsIn(env, hole, 4);
+    const std::vector<int> s = intsIn(env, safe, 4);
+    int at[2] = {};
+    geode_tour_place_card(hole ? h.data() : nullptr, cardWidth, cardHeight, s.data(), gap, at);
+    return intsOf(env, std::vector<int>(at, at + 2));
 }
 
 }  // extern "C"

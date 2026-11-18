@@ -546,12 +546,12 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
 void Renderer::stepSmear(float dt) {
     smearWarp_ = 0.0f;
     const touch::SmearSettings s{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
-    fluid::FlowField* ff = overlays_.flow();
     // Never in an export, never beside Liquid mode, and, as flow distortion, one of the optional passes: off
-    // without Performance's extra effects.
-    const bool can = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
-                     userPostFx_.load(std::memory_order_relaxed) && ff != nullptr &&
-                     ff->available();
+    // without Performance's extra effects. The field is built only once smear can run.
+    const bool wanted = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
+                        userPostFx_.load(std::memory_order_relaxed);
+    fluid::FlowField* ff = wanted ? overlays_.useFlow() : nullptr;
+    const bool can = ff != nullptr && ff->available();
     if (!can) {
         smearTrail_.reset();
         smearLinger_.reset();
@@ -730,8 +730,9 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         bornRolled_ = false;
         bornSceneId_.clear();
     }
-    fluid::FlowField* ff = overlays_.flow();
-    if (ff == nullptr || !ff->available() || plan.velocityGrid <= 0) return;
+    // The field is built on the first frame Liquid mode pours (Overlays::useFlow).
+    fluid::FlowField* ff = plan.velocityGrid > 0 ? overlays_.useFlow() : nullptr;
+    if (ff == nullptr || !ff->available()) return;
     ff->setGrid(plan.velocityGrid, plan.macCormack);
     const float force = std::clamp(p.flowForce, 0.0f, 3.0f);
     if (g.push) ff->queueKick(g.x, g.y, g.vx * kLiquidPush * force, g.vy * kLiquidPush * force, kPushRadius);

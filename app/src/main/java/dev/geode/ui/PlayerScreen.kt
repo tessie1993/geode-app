@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,6 +108,9 @@ fun PlayerScreen(
     val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     val tick by viewModel.historyTick.collectAsStateWithLifecycle()
     val sleepRemainingMs by viewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    // Derived: only a change of scene or of running/stopped recomposes, not every parameter or timer tick.
+    val sceneId by remember { derivedStateOf { viz.sceneId } }
+    val sleepRunning by remember { derivedStateOf { sleepRemainingMs != null } }
     val canShuffle = remember(tick) { viewModel.recentlyPlayed().isNotEmpty() }
     // The secondary groups under the transport are an accordion: all closed at first, so the
     // screen opens as an overview, and at most one open, so it never grows into a long column.
@@ -152,7 +156,7 @@ fun PlayerScreen(
         PlayerHero(
             viewModel = viewModel,
             state = state,
-            styleLabel = sceneDisplayLabel(viz.sceneId),
+            styleLabel = remember(sceneId) { sceneDisplayLabel(sceneId) },
             micActive = mic.active,
             external = external,
             favourites = favourites,
@@ -194,7 +198,7 @@ fun PlayerScreen(
                 viewModel = viewModel,
                 micActive = mic.active,
                 external = external,
-                sleepRunning = sleepRemainingMs != null,
+                sleepRunning = sleepRunning,
                 canShuffle = canShuffle,
                 expanded = openCard == CARD_QUICK,
                 onToggle = { toggleCard(CARD_QUICK) },

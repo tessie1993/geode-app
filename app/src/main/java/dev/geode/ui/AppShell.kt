@@ -1193,7 +1193,7 @@ fun SearchScreen(
                                 Modifier.padding(top = 8.dp),
                             )
                         }
-                        items(playlistResults) { pl ->
+                        items(playlistResults, key = { "p:${it.name}" }) { pl ->
                             Column(
                                 Modifier
                                     .fillMaxWidth()

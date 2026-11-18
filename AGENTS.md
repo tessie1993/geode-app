@@ -16,15 +16,14 @@ Every line here was true when it was written and may have gone stale: check the 
 ## Gradle modules (`settings.gradle.kts`)
 
 - `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
-- `:engine:audio-core`: holds `GeodeNative.kt`, the JNI declarations.
-- `:engine:scenes`: holds no main source.
+- `:app` is the only module. `GeodeNative.kt`, the JNI declarations, is `app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt`.
 - The Media3 PCM tap is `app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt`, in `:app`.
 
 ## Native core (`core/`)
 
 - Directories: `api`, `audio`, `cast`, `library`, `output`, `scene`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
 - `core/api/geode_api.h` is the C interface the JNI files call.
-- `core/sound`: the audio analysis.
+- `core/sound`: the audio analysis, built as its own library `geode_sound` over `geode_pcm` (the PCM ring); it includes only itself and the ring (`tools/sound-module-gate.sh`).
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
 - `core/audio/dsp`: playback and export DSP.
 - `core/signal`: the scene parameter resolver (`Resolver`).
@@ -34,7 +33,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/tests`: host tests, built by `.github/workflows/native-host-tests.yml`.
 - Shaders are in `app/src/main/assets/shaders`.
 - The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/MacroBank.cpp`).
-- Today the analysis and the parameter resolver run on the drawing thread (`core/viz/RendererFrame.cpp`).
+- Live analysis runs on its own thread per ring (`core/sound/hop/AnalysisThread.cpp`); an export runs it inline. The parameter resolver runs on the drawing thread (`core/viz/RendererFrame.cpp`).
 
 ## App packages (`app/src/main/java/dev/geode/`)
 
@@ -53,7 +52,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
 - `.github/actions/android-build-setup` is the setup every Gradle job uses: JDK 21, Gradle, SDK 36, NDK, CMake, optional ccache.
 - `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
-- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`.
+- `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`, `sound-module-gate.sh`.
 - `build-lint.yml` and `native-host-tests.yml` skip their heavy job on a pull request whose changed paths are all documents (`tools/ci-docs-only.sh`); `arch-map.yml` never skips.
 - `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
 - A `ship-apk.yml` run on a commit that is no longer `main`'s tip when its tests finish publishes nothing; the tip's run ships.
@@ -63,6 +62,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 - `GLOSSARY.md`: the domain words.
 - `docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`: the proposed pipeline refactor; its section 7 lists documents that disagree with the code.
+- `docs/superpowers/specs/2026-11-18-native-engine-architecture.md`: the proposed native player, thread model, module split and end-to-end plan; newer than the pipeline refactor design where they disagree.
 - `docs/agents/`: older per-area notes. Several are known to be out of date (`modules.md`, `native-core.md`, `data-flow.md`, `large-files.md`, `engine-kotlin-audit.md`, `kotlin-logic-map.md`, `engine-deep-scan.md`); treat them as history, not as a map.
 
 ## Edit log
@@ -82,3 +82,9 @@ A line records what was done; it is not a rule.
 - 2026-11-18: Pull requests that change only documents skip the build and the host tests through a `Changed paths` job (`tools/ci-docs-only.sh`, `build-lint.yml`, `native-host-tests.yml`, self-test in `arch-map.yml`); a pull request's `pages.yml` run cancels the one it replaces.
 - 2026-11-18: Workflow comments, headers and the pre-release notes match what the workflows do: the debug APK's own application id in the release notes, no mention of jobs `android.yml` no longer has (`.github/workflows/*.yml`).
 - 2026-11-18: One Android build setup for every Gradle job (`.github/actions/android-build-setup`, used by seven workflows); `build-lint.yml` and `ship-apk.yml` share one ccache (`ccache-debug-`); `tools/actions-pin-gate.sh` and Dependabot cover `.github/actions`; `ship-apk.yml` and `render-thumbs.yml` give write permission to the one job that writes.
+- 2026-11-18: Added the native engine architecture and plan (`docs/superpowers/specs/2026-11-18-native-engine-architecture.md`); corrected the line on where analysis runs (`AGENTS.md` › Native core).
+- 2026-11-18: Native engine plan: module interfaces and seams added, `surface` became the one frame driver `run`, `shader` narrowed to catalogue and source (`docs/superpowers/specs/2026-11-18-native-engine-architecture.md` sections 4.1, 4.7, phase 4).
+
+- 2026-11-18: The sound analysis is a library of its own: `geode_sound` and `geode_pcm` split from `geode_core` (`core/CMakeLists.txt`), `tools/sound-module-gate.sh` and its steps in `arch-map.yml`, `tools/hostlink/hostlink.sh` reads both source lists.
+- 2026-11-18: Compose: native calls in slider, route and layer rows are remembered, the player screen reads the scene id and sleep state narrowly, playlist results are keyed (`ui/CustomizeTabs.kt`, `ui/CustomizeAdvanced.kt`, `ui/PlayerScreen.kt`, `ui/AppShell.kt`); the play history sorts and serialises outside its lock (`data/HistoryStore.kt`).
+- 2026-11-18: Folded `:engine:audio-core` and the empty `:engine:scenes` into `:app`: `GeodeNative.kt` moved to `app/src/main/java/dev/geode/engine/bridge/` with its package unchanged; `settings.gradle.kts`, `app/build.gradle.kts`, `build-lint.yml`, `ship-apk.yml`, `native-host-tests.yml`, `arch-map.yml`, `tools/engine-kotlin-gate.sh` (its list is empty now), `tools/audio-kotlin-allowlist.txt`, `README.md` follow.

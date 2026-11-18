@@ -1,3 +1,31 @@
+# The PCM ring every audio source writes and every reader takes from (audio/ingest/PcmRing): no dependency of
+# its own, so the sound analysis can be a library below everything else that hears.
+add_library(geode_pcm STATIC
+    audio/ingest/PcmRing.cpp
+)
+target_include_directories(geode_pcm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(geode_pcm PRIVATE ${GEODE_COMPILE_OPTIONS})
+
+# The sound analysis, a module of its own: the engine, its detectors, its thread (sound/hop) and the reads of
+# its published hops (sound/interp). It includes core/sound and the ring only (tools/sound-module-gate.sh), and
+# links nothing but the ring, so it builds and tests with no renderer, no player and no Android.
+add_library(geode_sound STATIC
+    sound/Fft.cpp
+    sound/Emotion.cpp
+    sound/Form.cpp
+    sound/Harmony.cpp
+    sound/Rhythm.cpp
+    sound/SoundEngine.cpp
+    sound/hop/AnalysisThread.cpp
+    sound/interp/FrameBlend.cpp
+    sound/interp/PlayoutClock.cpp
+    sound/interp/Waveform.cpp
+    sound/Tuning.cpp
+)
+target_include_directories(geode_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(geode_sound PRIVATE ${GEODE_COMPILE_OPTIONS})
+target_link_libraries(geode_sound PUBLIC geode_pcm)
+
 add_library(geode_core STATIC
     api/geode_viz_api.cpp
     api/geode_perf_api.cpp
@@ -62,23 +90,11 @@ add_library(geode_core STATIC
     viz/Births.cpp
     api/geode_widget_glow_api.cpp
     viz/WidgetGlow.cpp
-    sound/Fft.cpp
-    sound/Emotion.cpp
-    sound/Form.cpp
-    sound/Harmony.cpp
-    sound/Rhythm.cpp
-    sound/SoundEngine.cpp
-    sound/hop/AnalysisThread.cpp
-    sound/interp/FrameBlend.cpp
-    sound/interp/PlayoutClock.cpp
-    sound/interp/Waveform.cpp
-    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     library/Lyrics.cpp
     library/Playlist.cpp
     audio/ingest/AiffReader.cpp
-    audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
     audio/ingest/TrackPump.cpp
     audio/ingest/android/TrackDecoder.cpp
@@ -246,6 +262,7 @@ add_library(geode_core STATIC
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(geode_core PUBLIC geode_sound geode_pcm)
 # TagLib only exports its include paths for the install tree; the generated taglib_config.h sits in its binary dir.
 target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib

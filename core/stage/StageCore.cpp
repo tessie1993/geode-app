@@ -56,6 +56,8 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             frameDue_ = true;
             dueFps_ = command.f;
             dueCapFps_ = command.g;
+            dueFrameNs_ = command.t;
+            duePresentNs_ = command.b > 0 ? command.t + command.b : 0;
             paced_.store(command.f, std::memory_order_relaxed);
             break;
         case kStageFrameRate:
@@ -83,7 +85,7 @@ void StageCore::step(int64_t nowMs) {
         frameDue_ = false;
         // A request already in flight when the vsync stopped is dropped here.
         if (lifecycle_.vsyncOn() && lifecycle_.canDraw()) {
-            draw(dueFps_, dueCapFps_);
+            draw(dueFps_, dueCapFps_, dueFrameNs_, duePresentNs_);
             runActions();
         }
     }
@@ -140,7 +142,7 @@ Outcome StageCore::execute(const Action& action) {
             return Outcome::Done;
         case Act::StartVsync: port_.vsyncRun(true); return Outcome::Done;
         case Act::StopVsync: port_.vsyncRun(false); return Outcome::Done;
-        case Act::DrawOnce: draw(paced_.load(std::memory_order_relaxed), cap_); return Outcome::Done;
+        case Act::DrawOnce: draw(paced_.load(std::memory_order_relaxed), cap_, 0, 0); return Outcome::Done;
         case Act::ClientTrimSpares:
             if (client_) client_->trimSpares();
             return Outcome::Done;
@@ -162,10 +164,13 @@ Outcome StageCore::execute(const Action& action) {
     return Outcome::Done;
 }
 
-// One frame and its swap; the swap's outcome is the lifecycle's next event.
-void StageCore::draw(float pacedFps, float capFps) {
+// One frame and its swap; the swap's outcome is the lifecycle's next event. frameNs is the vsync's frame time and
+// presentNs the frame's expected presentation (0 for a frame no vsync asked for: the client's own clock, no time).
+void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs) {
     if (!client_) return;
+    client_->frameTime(frameNs);
     events_.fetch_or(client_->frame(pacedFps, capFps), std::memory_order_relaxed);
+    port_.presentAt(presentNs);
     switch (port_.swap()) {
         case Outcome::Done: lifecycle_.frameDrawn(); break;
         case Outcome::ContextLost: lifecycle_.contextLost(); break;

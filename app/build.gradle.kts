@@ -137,8 +137,6 @@ android {
             applicationIdSuffix = ".debug"
             signingConfig = signingConfigs.getByName("debug")
             buildConfigField("boolean", "USE_FAKE_BILLING", "true")
-            // :engine:scenes has only debug and release.
-            matchingFallbacks += "release"
         }
     }
 
@@ -267,9 +265,6 @@ listOf("assembleRelease", "bundleRelease", "assembleSideload").forEach { name ->
 }
 
 dependencies {
-    // What the removed :engine:runtime aggregator re-exported to :app via api(...).
-    implementation(project(":engine:scenes"))
-
     implementation(libs.core.splashscreen)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.common)

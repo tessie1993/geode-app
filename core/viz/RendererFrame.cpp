@@ -33,8 +33,10 @@ constexpr float kSwirlRadius = 0.07f;
 // How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
 constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
-// About two seconds at 60 Hz.
-constexpr int kFeedbackIdleFrames = 120;
+// Wall seconds the feedback pass may sit unused before its targets are freed.
+constexpr float kFeedbackIdleSeconds = 2.0f;
+// A sum of frame steps lands within this of its whole seconds (60 steps of 1/60 in float).
+constexpr float kStepSumSlack = 1e-4f;
 // A speaker that stands this long is paused (the sound engine's own starve time).
 constexpr float kListenStillSeconds = 0.25f;
 
@@ -153,7 +155,7 @@ void Renderer::readSound(const sound::SharedAnalysis& heard, float dt, float fad
 }
 
 Scene* Renderer::resolveActiveScene() {
-    std::string requestedId;
+    std::string& requestedId = requestedIdScratch_;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         requestedId = requestedSceneId_;
@@ -193,7 +195,7 @@ Scene* Renderer::resolveActiveScene() {
         activeScene_ = requested;
         sceneJustSwitched_ = true;
         // A new style gets about a second of draws even in silence: its build and first load span frames.
-        redrawFrames_ = 60;
+        redrawSeconds_ = kRedrawSeconds;
         // The resolver's motion field takes the new style's variant at its next step.
         styleSwitchPending_ = true;
     }
@@ -294,14 +296,20 @@ void Renderer::uploadPaletteRamp(const SceneParams& p) {
     // A still frame is drawn again with the new colours.
     if (changed) redrawFrames_ = std::max(redrawFrames_, 1);
     if (!paletteRamp_.active() || (!changed && paletteRampTex_ != 0)) return;
-    if (paletteRampTex_ == 0) glGenTextures(1, &paletteRampTex_);
+    // The storage and the sampler are made once; a change only rewrites the texels.
+    const bool created = paletteRampTex_ == 0;
+    if (created) glGenTextures(1, &paletteRampTex_);
     glBindTexture(GL_TEXTURE_2D, paletteRampTex_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, palette::kRampSize, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    if (created) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, palette::kRampSize, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    } else {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, palette::kRampSize, 1, GL_RGB, GL_UNSIGNED_BYTE, paletteRamp_.bytes().data());
+    }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -313,7 +321,7 @@ void Renderer::resolveLayerScene() {
     bornAsked_.clear();
     layerAsked_.clear();
     layer_state::Layer setting;
-    std::string requestedId;
+    std::string& requestedId = requestedIdScratch_;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         setting = layerSetting_;
@@ -573,7 +581,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     p.toWire(wire.data());
     const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
     if (redrawFrames_ > 0) redrawFrames_--;
-    frameStill_ = !(dt > 0.0f) && sameLook && redrawFrames_ == 0 && !outgoingScene_;
+    if (redrawSeconds_ > 0.0f) {
+        redrawSeconds_ -= wallDt;
+        if (redrawSeconds_ < kStepSumSlack) redrawSeconds_ = 0.0f;
+    }
+    frameStill_ = !(dt > 0.0f) && sameLook && redrawFrames_ == 0 && redrawSeconds_ == 0.0f && !outgoingScene_;
     heldWire_ = wire;
     heldWidth_ = renderWidth_;
     heldHeight_ = renderHeight_;
@@ -586,15 +598,18 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
                         scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_);
     if (!trails) trailsWereOn_ = false;
     if (trails || liveLiquid_ != liquid::Mode::Off) {
-        feedbackIdleFrames_ = 0;
-    } else if (++feedbackIdleFrames_ == kFeedbackIdleFrames) {
-        liquidPass_.releaseTargets();
-        bornFbo_.release();
+        feedbackIdleSeconds_ = 0.0f;
+    } else if (feedbackIdleSeconds_ < kFeedbackIdleSeconds - kStepSumSlack) {
+        feedbackIdleSeconds_ += wallDt;
+        if (feedbackIdleSeconds_ >= kFeedbackIdleSeconds - kStepSumSlack) {
+            liquidPass_.releaseTargets();
+            bornFbo_.release();
+        }
     }
     drawSceneTarget(*scene, p, dt);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
-    shown = drawPhysics(p, dt, shown);
+    shown = drawPhysics(p, dt, wallDt, shown);
     composite(p, progress, targetFbo, shown);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     if (compositeHook_) compositeHook_(targetFbo, width_, height_);
@@ -797,7 +812,7 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
     return dived != 0 ? dived : shown;
 }
 
-GLuint Renderer::drawPhysics(const SceneParams& p, float dt, GLuint shown) {
+GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown) {
     physicsOutgoingTex_ = 0;
     physics::PhysicsLayers::Frame f;
     f.styleTex = shown != 0 ? shown : fboA_.tex();
@@ -805,6 +820,7 @@ GLuint Renderer::drawPhysics(const SceneParams& p, float dt, GLuint shown) {
     f.height = renderHeight_;
     // The music's clock, as every simulation steps: silence holds the layers, an export steps exactly 1/fps.
     f.dt = dt;
+    f.wallDt = wallDt;
     f.time = timeSeconds_;
     f.zeroTex = compositePass_.zeroTex();
     f.quadVao = quadVao_;

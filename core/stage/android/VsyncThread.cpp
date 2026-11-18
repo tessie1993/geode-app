@@ -6,6 +6,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include <cstdint>
 #include <mutex>
 #include <thread>
 
@@ -27,6 +28,16 @@ enum VsyncCommand : uint16_t {
 
 // A command waits at most this long for room; the queue only fills under a burst of stages.
 constexpr std::chrono::milliseconds kPushWithin{200};
+
+// Nanoseconds from the vsync's frame time to the frame's expected presentation on the timeline the system prefers; 0
+// when the callback names none or it is not ahead (a time that has passed asks for nothing).
+int32_t presentAfterNs(const AChoreographerFrameCallbackData* callbackData, int64_t frameTimeNanos) {
+    if (AChoreographerFrameCallbackData_getFrameTimelinesLength(callbackData) == 0) return 0;
+    const size_t preferred = AChoreographerFrameCallbackData_getPreferredFrameTimelineIndex(callbackData);
+    const int64_t present = AChoreographerFrameCallbackData_getFrameTimelineExpectedPresentationTimeNanos(callbackData, preferred);
+    const int64_t after = present - frameTimeNanos;
+    return after > 0 && after <= INT32_MAX ? static_cast<int32_t>(after) : 0;
+}
 
 }  // namespace
 
@@ -123,7 +134,7 @@ void VsyncThread::apply(const Command& command) {
     switch (command.kind) {
         case kVsyncRun:
             if (command.a != 0) {
-                if (sink->pacing.start() && choreographer_) AChoreographer_postFrameCallback64(choreographer_, &VsyncThread::onFrame, sink);
+                if (sink->pacing.start() && choreographer_) AChoreographer_postVsyncCallback(choreographer_, &VsyncThread::onFrame, sink);
             } else {
                 sink->pacing.stop();
             }
@@ -133,14 +144,15 @@ void VsyncThread::apply(const Command& command) {
     }
 }
 
-void VsyncThread::onFrame(int64_t frameTimeNanos, void* data) {
+void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, void* data) {
     auto* sink = static_cast<Sink*>(data);
     if (!sink->pacing.vsyncArrived()) {
         if (sink->detached) delete sink;
         return;
     }
     // Re-posted first: the cadence survives a slow stage, and a skipped vsync still wakes the next one.
-    AChoreographer_postFrameCallback64(process().choreographer_, &VsyncThread::onFrame, sink);
+    AChoreographer_postVsyncCallback(process().choreographer_, &VsyncThread::onFrame, sink);
+    const int64_t frameTimeNanos = AChoreographerFrameCallbackData_getFrameTimeNanos(callbackData);
     const StagePacing::Tick tick = sink->pacing.step(frameTimeNanos);
     if (tick.restateRate) {
         Command c;
@@ -155,6 +167,9 @@ void VsyncThread::onFrame(int64_t frameTimeNanos, void* data) {
         c.kind = kStageFrameDue;
         c.f = sink->pacing.fps();
         c.g = sink->pacing.capFps();
+        // The vsync's own time, for the frame's step, and how far ahead of it the preferred timeline presents.
+        c.t = frameTimeNanos;
+        c.b = presentAfterNs(callbackData, frameTimeNanos);
         sink->stage->queue.push(c, Merge::LastWins);
     }
 }

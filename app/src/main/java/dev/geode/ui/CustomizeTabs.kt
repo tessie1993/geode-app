@@ -525,7 +525,8 @@ internal fun LabeledSlider(
     val locked = !lock.allows(label)
     // The value before a locked drag began, put back on release.
     var before by remember(label) { mutableStateOf<Float?>(null) }
-    val reset: (() -> Unit)? = default?.takeIf { GeodeNative.sliderOffDefault(value, it) }?.let { d -> { onChange(d) } }
+    val offDefault = remember(value, default) { default?.takeIf { GeodeNative.sliderOffDefault(value, it) } }
+    val reset: (() -> Unit)? = offDefault?.let { d -> { onChange(d) } }
     val resetLabel = stringResource(R.string.customize_a11y_reset)
     val sliderLabel = if (locked) stringResource(R.string.customize_a11y_part_of_pro, name) else name
     // A slider a knob can move: long-press its name row (or TalkBack's action) to put it on a knob.

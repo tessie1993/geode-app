@@ -145,6 +145,15 @@ jobs:
         shell: bash
         run: bash tools/network-gate.sh
 
+      # The sound analysis is a library of its own (geode_sound): it includes itself and the PCM ring only.
+      - name: Self-test the sound module gate
+        shell: bash
+        run: bash tools/sound-module-gate.sh --self-test
+
+      - name: The sound analysis includes only itself and the ring
+        shell: bash
+        run: bash tools/sound-module-gate.sh
+
       # Pins the audio Kotlin gate: each way Kotlin can touch samples (AudioRecord, AudioTrack, codec, extractor and
       # muxer buffers, Media3 audio classes, Visualizer capture, buffer-carrying natives and their callers) must
       # fail it; video-only MediaCodec, an image ByteBuffer and a listed hit must pass; a stale or malformed
@@ -231,11 +240,11 @@ jobs:
           ok "40${T}0${T}$A/editor/StudioProject.kt" || { echo "::error::project list failed"; exit 1; }
           ok "40${T}0${T}$A/ui/StudioRender.kt" || { echo "::error::Studio screen failed"; exit 1; }
           if ok "12${T}0${T}engine/scenes/src/main/kotlin/dev/geode/render/scene/ParamSchema.kt"; then echo "::error::engine growth passed"; exit 1; fi
-          # The list: a listed file passes, a new file in an engine module fails, and so does a new entry.
+          # The list is empty: a tree with only engine tests passes, a new file in an engine module fails, and so does a new entry.
           t=$(mktemp -d)
           mkdir -p "$t/engine/audio-core/src/main/kotlin/dev/geode/engine/bridge" "$t/engine/scenes/src/main/kotlin/dev/geode/render" "$t/engine/scenes/src/test/kotlin"
-          touch "$t/engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" "$t/engine/scenes/src/test/kotlin/NewTest.kt"
-          bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a listed file failed"; exit 1; }
+          touch "$t/engine/scenes/src/test/kotlin/NewTest.kt"
+          bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a tree with no engine Kotlin failed"; exit 1; }
           touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/NewEngine.kt"
           if bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null; then echo "::error::an unlisted engine file passed"; exit 1; fi
           grew() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh --list-grew >/dev/null; }

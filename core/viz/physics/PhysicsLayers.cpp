@@ -37,8 +37,8 @@ GLuint PhysicsLayers::run(const Plan& plan, const Frame& f) {
     fluidShown_ = false;
     particlesShown_ = false;
     // Each part outlives its layer going off by the idle window, then goes: nothing is held while both are off.
-    const bool keepFluid = fluidKeep_.step(plan.fluid);
-    const bool keepParticles = particleKeep_.step(plan.particles);
+    const bool keepFluid = fluidKeep_.step(plan.fluid, f.wallDt);
+    const bool keepParticles = particleKeep_.step(plan.particles, f.wallDt);
     if (!keepFluid && fluid_) fluid_.reset();
     if (!keepParticles && particles_) {
         particles_.reset();

@@ -140,7 +140,10 @@ vec3 flameBend(vec3 p) {
     p.xy = flameRot(gFlameFlow * 1.1 * sin(zc + uTime * FLAME_RATE(170))) * p.xy;
     p.x += 0.55 * min(gFlameFlow + 0.3 * gFlameSwell, 1.0) * sin(2.0 * zc + 0.9 * p.y + uTime * FLAME_RATE(240));
     p.y += gFlameFlow * 0.4 * cos(zc - 0.7 * p.x);
-    p += gFlameChaos * 0.09 * sin(p.yzx * 3.3 + uTime * FLAME_RATE(1900) + vec3(0.0, 2.1, 4.2));
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its sines are not taken.
+    if (gFlameChaos != 0.0) {
+        p += gFlameChaos * 0.09 * sin(p.yzx * 3.3 + uTime * FLAME_RATE(1900) + vec3(0.0, 2.1, 4.2));
+    }
     return p;
 }
 

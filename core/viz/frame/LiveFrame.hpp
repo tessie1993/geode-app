@@ -32,6 +32,9 @@ inline constexpr uint32_t kEventMilkLoaded = 1u << 4;
 inline constexpr uint32_t kEventDirectorMoment = 1u << 5;
 // The still asked for was read back this frame: read it.
 inline constexpr uint32_t kEventStillReady = 1u << 6;
+// The frame drew nothing because it would have repeated the one on screen: do not swap. Only the stage reads it (the
+// legacy geode_viz_frame never allows a repeat, so never sees it), and it never reaches the shell.
+inline constexpr uint32_t kEventNothingNew = 1u << 7;
 
 // One game rotation vector reading (quaternion x, y, z, w) and the display rotation it was read on.
 struct GyroReading {
@@ -128,6 +131,8 @@ public:
     virtual bool directorMomentsPending() = 0;
     // True once, on the frame the still was read back.
     virtual bool stillReady() = 0;
+    // True when render() left the picture on screen as it was (the frame is not to be swapped).
+    virtual bool frameRepeated() { return false; }
 };
 
 // One live surface's frame protocol. The latches are any thread; surfaceCreated and run are the GL thread's.
@@ -183,6 +188,7 @@ public:
         if (s.milkPresetLoaded()) events |= kEventMilkLoaded;
         if (s.directorMomentsPending()) events |= kEventDirectorMoment;
         if (s.stillReady()) events |= kEventStillReady;
+        if (s.frameRepeated()) events |= kEventNothingNew;
         return events;
     }
 

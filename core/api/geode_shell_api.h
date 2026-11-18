@@ -45,6 +45,57 @@ GEODE_API int geode_style_shelf_yours(const char* const* favourites, int favouri
                                       int recent_count, const char* const* order, int order_count, const char* on_screen,
                                       char* out, int capacity);
 
+/* The onboarding tour's rules (shell/Tour). Chapters, spots, tips and places cross as their ordinals (the order of
+   shell/Tour.hpp); the controls laid out now (shown) as the mask of 1 << spot; what covers the app (cover) as the
+   mask of the GEODE_TOUR_COVER_* bits. A run crosses as ints: at, seen, replay (0 or 1), then its chapters.
+   Progress crosses as ints: off (0 or 1), the resume spot (-1 for none), how many chapters are done, those
+   chapters in the order they were added, then its gesture tips in the order they were said. A call that writes a
+   run or progress writes into out up to capacity and returns the ints it needs. */
+#define GEODE_TOUR_COVER_FIRST_RUN 1
+#define GEODE_TOUR_COVER_PAYWALL 2
+#define GEODE_TOUR_COVER_PIP 4
+#define GEODE_TOUR_COVER_PERMISSION_RATIONALE 8
+#define GEODE_TOUR_COVER_AWAY 16
+#define GEODE_TOUR_RUN_HEAD 3      /* ints before a run's chapters */
+#define GEODE_TOUR_PROGRESS_HEAD 3 /* ints before a progress's chapters */
+/* Which of a progress's three prefs strings: */
+#define GEODE_TOUR_TEXT_DONE 0
+#define GEODE_TOUR_TEXT_RESUME 1
+#define GEODE_TOUR_TEXT_TIPS 2
+/* Whether the user has already done what the spot asks (a pointer never is), 0 or 1. */
+GEODE_API int geode_tour_reached(int spot, unsigned shown, int place, int playing);
+/* The step the run is on, as spot, index, count into out3; 0 when the chapter has nothing left to show. */
+GEODE_API int geode_tour_step(const int* run, int run_len, unsigned shown, int place, int playing, int* out3);
+/* The run with the spot behind it. */
+GEODE_API int geode_tour_pass(const int* run, int run_len, int spot, int* out, int capacity);
+/* The run on its next chapter; -1 when that was the last. */
+GEODE_API int geode_tour_next_chapter(const int* run, int run_len, int* out, int capacity);
+/* Whether anything over the app holds the tour back. */
+GEODE_API int geode_tour_held(unsigned cover);
+/* Whether the run (NULL, run_len 0: none) may show a step now. */
+GEODE_API int geode_tour_shows(const int* run, int run_len, const int* progress, int progress_len, unsigned cover);
+/* Whether the tip may be said now. */
+GEODE_API int geode_tour_may_tip(int tip, const int* progress, int progress_len, unsigned cover, const int* run, int run_len);
+/* The chapter that should start by itself, or -1. */
+GEODE_API int geode_tour_due(const int* progress, int progress_len, unsigned shown, int place, int playing);
+/* A run of the chapter picking up where the progress left it. */
+GEODE_API int geode_tour_resume(int chapter, const int* progress, int progress_len, int* out, int capacity);
+/* A replay of the chapters in the mask, in tour order; -1 for none. */
+GEODE_API int geode_tour_replay(unsigned chapters, int* out, int capacity);
+/* The progress once the run's chapter has ended. */
+GEODE_API int geode_tour_ended(const int* progress, int progress_len, const int* run, int run_len, int skipped, int* out,
+                               int capacity);
+/* Whether the one-time Pro offer follows this ending. */
+GEODE_API int geode_tour_offers_pro(const int* run, int run_len, int skipped);
+/* The progress the prefs' three strings spell (NULL: none stored; legacy_seen the old "tour ended" flag). */
+GEODE_API int geode_tour_decode(const char* done, const char* resume, const char* tips, int legacy_seen, int off, int* out,
+                                int capacity);
+/* One of the progress's prefs strings (GEODE_TOUR_TEXT_*) as text-out; -1 for no resume. */
+GEODE_API int geode_tour_encode(const int* progress, int progress_len, int which, char* out, int capacity);
+/* Where the step's card goes: hole is left, top, right, bottom of the lit control (NULL for none), safe the same of
+   the safe area; writes the card's left and top into out2. */
+GEODE_API void geode_tour_place_card(const int* hole, int card_width, int card_height, const int* safe, int gap, int* out2);
+
 /* The Presets list (shell/PresetList). A filter chip is its kind: */
 #define GEODE_PRESET_FILTER_ALL 0
 #define GEODE_PRESET_FILTER_THIS_STYLE 1

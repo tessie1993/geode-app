@@ -96,6 +96,13 @@ void AnalysisThread::notify() {
     if (timedWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
 }
 
+// ADPF: a pass that wrote audio to the engine had that audio's own length to finish in.
+void AnalysisThread::reportWork(std::chrono::steady_clock::time_point started) {
+    if (workFrames_ <= 0 || workRateHz_ <= 0) return;
+    const int64_t audioNs = workFrames_ * 1000000000 / workRateHz_;
+    workHint_.report(audioNs, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started).count());
+}
+
 // A write the listen limit holds back changes nothing until the limit moves, which only time does: while this thread
 // sleeps on that, the write bumps the signal (so no pass is missed) but does not wake it. Everything else wakes it.
 void AnalysisThread::ringWritten() {
@@ -118,7 +125,9 @@ void AnalysisThread::run() {
         const float dt = std::chrono::duration<float>(now - last).count();
         last = now;
         passes_.fetch_add(1, std::memory_order_relaxed);
-        switch (pass(dt)) {
+        const Next next = pass(dt);
+        reportWork(now);
+        switch (next) {
             case Next::kNow:
                 break;
             case Next::kWaitTimed:
@@ -161,6 +170,7 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
     const int64_t limit = limit_ ? limit_(limitContext_) : audio::ingest::Cursor::kNewest;
     bool heard = false;
     bool more = false;
+    workFrames_ = 0;
     for (int takes = 0; takes < kTakesPerPass; ++takes) {
         const audio::ingest::Cursor::Take take = cursor_.take(limit);
         if (take.restarted) restartEngine();
@@ -169,6 +179,8 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
         // Per take, so a skip or a restart re-bases it.
         offset_ = cursor_.position() - take.frames - engineWritten_;
         write(cursor_.interleaved(), take.frames, cursor_.channels());
+        workFrames_ += take.frames;
+        workRateHz_ = take.sampleRateHz;
         heard = true;
         more = (takes + 1 == kTakesPerPass);
     }

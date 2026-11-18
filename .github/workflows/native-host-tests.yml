@@ -396,6 +396,9 @@ jobs:
           # A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/live_client_test.cpp core/stage/LiveClient.cpp -o live_client_test
           ./live_client_test
+          # The ADPF wrapper (core/util/WorkHint): a no-op off Android, the target is the paced frame's length.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/work_hint_test.cpp -o work_hint_test
+          ./work_hint_test
           # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
           ./command_queue_test

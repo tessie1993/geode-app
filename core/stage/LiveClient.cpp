@@ -1,5 +1,6 @@
 #include "stage/LiveClient.hpp"
 
+#include <chrono>
 #include <iterator>
 #include <utility>
 
@@ -21,6 +22,15 @@ void LiveClient::frameTime(int64_t vsyncNs) {
 
 uint32_t LiveClient::frame(float pacedFps, float capFps) {
     if (!viz_) return 0;
+    // ADPF: this frame's work against the paced frame's length, reported on the way out by whichever return.
+    struct Reported {
+        util::WorkHint& hint;
+        int64_t target;
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        ~Reported() {
+            hint.report(target, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count());
+        }
+    } reported{workHint_, util::WorkHint::targetNs(pacedFps)};
     runJobs(true);
     uint32_t events = 0;
     {

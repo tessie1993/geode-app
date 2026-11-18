@@ -17,6 +17,7 @@
 #include "sound/Rhythm.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/SoundFrame.h"
+#include "util/WorkHint.hpp"
 
 namespace geode::sound {
 
@@ -160,6 +161,8 @@ private:
     void write(const float* interleaved, int frames, int channels);
     void publishNew();
     void publish(const SoundEngine::Hop& hop);
+    // run()'s: one pass's work against the audio it covered (ADPF).
+    void reportWork(std::chrono::steady_clock::time_point started);
     void timedWait(uint32_t seen, std::chrono::microseconds timeout);
 
     bool read(uint64_t index, Heard& out) const;
@@ -213,6 +216,9 @@ private:
     std::mutex waitLock_;
     std::condition_variable waitCv_;
     std::atomic<uint64_t> passes_{0};
+    util::WorkHint workHint_;     // the analysis thread's own
+    int64_t workFrames_ = 0;      // input frames the last pass wrote to the engine
+    int workRateHz_ = 0;          // their rate
     std::atomic<bool> idle_{false};
     std::thread thread_;
 };

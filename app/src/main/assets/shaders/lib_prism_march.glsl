@@ -59,8 +59,11 @@ vec2 prismField(vec3 p) {
         if (c.x < m.x) m = c;
     }
     m.x *= k;
-    vec3 s = sin(q * 4.0 + uTime * PRISM_RATE(1600) + vec3(0.0, 2.1, 4.2));
-    m.x += gPrismChaos * 0.04 * (s.x * s.y + s.z);
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its three sines are not taken.
+    if (gPrismChaos != 0.0) {
+        vec3 s = sin(q * 4.0 + uTime * PRISM_RATE(1600) + vec3(0.0, 2.1, 4.2));
+        m.x += gPrismChaos * 0.04 * (s.x * s.y + s.z);
+    }
     return m;
 }
 

@@ -70,7 +70,7 @@ ArborHit arborMap(vec3 p) {
     float h = hashCell(key);
     vec3 q = p - c * SY_CELL;
     q += (vec3(h, fract(h * 5.3), fract(h * 9.1)) - 0.5) * 0.6;
-    q = rotY(h * 6.2831) * rotX(fract(h * 3.7) * 3.0) * q;
+    q = rotY(h * 6.2831) * (rotX(fract(h * 3.7) * 3.0) * q);
     float soma = length(q) - gSoma;
 
     vec3 o = abs(q);
@@ -137,13 +137,16 @@ void main() {
     float cellH = 0.0;
     vec3 glow = vec3(0.0);
     vec3 sparkCol = mix(pal(hue + 0.45), vec3(1.0), 0.35);
+    vec3 somaGlow = pal(hue + 0.15);
+    // The hit epsilon follows the pixel footprint (floored at the old constant), so a low render scale does not burn its steps on grazing rays.
+    float epsK = max(0.0008, 1.0 / uResolution.y);
     for (int i = 0; i < SY_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
         if (tm > SY_FAR) break;
         used = float(i);
         ArborHit h = arborField(ro + rd * tm);
         float d = h.d;
-        float eps = 0.0008 * tm + 0.0005;
+        float eps = epsK * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
             isSoma = h.mat.x;
@@ -155,8 +158,8 @@ void main() {
         }
         float near = exp(-d * 14.0);
         glow += sparkCol * spark(h.level, h.along, h.path, h.mat.y, phase) * near * 0.03 * (1.0 - h.mat.x);
-        glow += pal(hue + 0.15) * h.mat.x * exp(-d * 5.0) * 0.006;
-        tm += d * 0.8;
+        glow += somaGlow * h.mat.x * exp(-d * 5.0) * 0.006;
+        tm += max(d * 0.8, eps);
     }
 
     vec3 col = voidCol;
@@ -168,7 +171,7 @@ void main() {
         vec3 membrane = pal(hue + 0.05 * cellH);
         // Translucent membrane: dark facing you, glowing at its rim.
         col = membrane * (0.04 + 0.12 * lit.x) * ao + membrane * lit.y * 0.9;
-        vec3 core = mix(pal(hue + 0.15), vec3(1.0, 0.9, 0.95), 0.3);
+        vec3 core = mix(somaGlow, vec3(1.0, 0.9, 0.95), 0.3);
         col = mix(col, core * (0.35 + 0.5 * (1.0 - lit.y)), isSoma);
         col += sparkCol * spark(level, along, path, cellH, phase) * (1.0 - isSoma) * 1.2;
         col = mix(col, voidCol, 1.0 - exp(-hitT * 0.14 / reach));

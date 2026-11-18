@@ -114,3 +114,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The UI blur's three targets are freed after 1 s without a blur draw (`UiBlurPass::releaseIdle`, `Renderer::drawUiBlur` in `core/viz/RendererFrame.cpp`).
 - 2026-11-18: The liquid pass's two sides share one RGBA8 display attachment instead of one each (`core/viz/liquid/LiquidPass.*`; the size note in `Renderer::trimScenes`, `core/viz/Renderer.cpp`).
 - 2026-11-18: Cast's tee no longer waits up to 2 ms on the stage thread for the cast's last blit where EGL has no server wait: a blit not done yet skips the copy (`CastTee::publish`, `core/viz/frame/CastTee.cpp`).
+- 2026-11-18: `GlVersion::parse` reads the version numbers with `std::from_chars`: a number too long for an int makes the string unparseable instead of throwing (`core/viz/GlCaps.cpp`).

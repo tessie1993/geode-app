@@ -170,13 +170,17 @@ bool driveOf(LfoTarget target, Drive& out) {
 
 }  // namespace
 
-SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
-    SceneParams o = r;
+void applyLfoTargetInPlace(SceneParams& r, LfoTarget target, float v) {
     Drive drive{};
-    if (!driveOf(target, drive)) return o;
+    if (!driveOf(target, drive)) return;
     const ParamSpec& spec = SceneParams::spec(drive.slot);
     const float moved = r.*drive.member + v * drive.scale;
-    o.*drive.member = spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max);
+    r.*drive.member = spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max);
+}
+
+SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
+    SceneParams o = r;
+    applyLfoTargetInPlace(o, target, v);
     return o;
 }
 
@@ -232,7 +236,7 @@ SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlot
     SceneParams r = p;
     for (int i = 0; i < kSlots; i++) {
         if (!configs[i].enabled) continue;
-        r = applyLfoTarget(r, configs[i].target, values[i]);
+        applyLfoTargetInPlace(r, configs[i].target, values[i]);
     }
     return r;
 }

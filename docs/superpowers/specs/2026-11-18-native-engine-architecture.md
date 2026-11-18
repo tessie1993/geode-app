@@ -10,6 +10,7 @@ This extends `2026-11-17-pipeline-refactor-design.md`. Where the two disagree, t
 - ExoPlayer no longer has to be the player. No PCM class in Kotlin, `PcmTap` included.
 - No logic in Kotlin, ever.
 - No hard-coded buffer sizes.
+- Every rule in Kotlin moves to C++, the non-visual ones too: the music library, playlists, play history, the saved session, backup, the onboarding tour, shelves and filters. Kotlin performs platform IO only.
 - More modular code, more efficient threads, best performance.
 
 ## 2. Assumptions to confirm
@@ -311,6 +312,7 @@ Each step is one pull request that leaves CI green. Phases 1 and 2 do not depend
 - 6.3 Auto visuals scheduling, A-B loop and seek maths into native.
 - 6.4 Export audio, export batch, then loop extend onto the native encoder.
 - 6.5 Generated JNI declarations.
+- 6.7 Shell rules into C++: `core/library` (tracks, playlists, smart playlists, history, session), `core/backup`, `core/shell` (tour, shelves, preset filtering, opened-audio routing, notification buttons, export fps). Step 1 is the C++ and its host tests; step 2 is the C interface and the Kotlin call sites.
 - 6.6 Compose fixes: narrow state reads on the player screen, keys on the three unkeyed lists, no preference reads in composition.
 
 ### Phase 7: analysis cost

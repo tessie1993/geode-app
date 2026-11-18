@@ -36,6 +36,7 @@ public:
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcmStereo(const float* mono, const float* side, int count) override;
+    bool readsPcm() const override { return true; }
     void queueMilkPreset(const std::string& path) override;
     void setMilkFallbackPreset(const std::string& path) override;
     void reloadMilkPreset() override;

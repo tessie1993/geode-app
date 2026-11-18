@@ -42,6 +42,8 @@ public:
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;
 
+    // True for a scene that overrides acceptPcm / acceptPcmStereo: the renderer hands PCM on only while one is resident.
+    virtual bool readsPcm() const { return false; }
     virtual void acceptPcm(const float* samples, int count) { (void) samples; (void) count; }
     // The same block with its side signal ((L - R) / 2, zero for a mono source), for a scene that draws
     // left against right. Every other scene takes the mono mix.

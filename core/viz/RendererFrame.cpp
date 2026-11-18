@@ -659,6 +659,26 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     drawEdgeGlow(frameFbo, timeSeconds, dt);
     if (compositeHook_) compositeHook_(frameFbo, width_, height_);
     if (frameFbo != targetFbo || blurRegion.active()) uiBlurPass_.draw(blurRegion, targetFbo, width_, height_, quadVao_.get());
+    updatePcmWanted();
+}
+
+// The PCM tail (PcmHandoff) is mixed down only while a built scene reads it, or a build is under way that soon will:
+// a scene built in the frame it is drawn finds the block it would always have found.
+void Renderer::updatePcmWanted() {
+    bool wanted = requestedPending_ || prep_.active() || !stager_.idle();
+    for (const auto& entry : scenes_) {
+        if (entry.second && entry.second->readsPcm()) {
+            wanted = true;
+            break;
+        }
+    }
+    if (pcmWanted_.load(std::memory_order_relaxed) == wanted) return;
+    // Reopened: a held remainder from before the gap is not part of the next block.
+    if (wanted) {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        pcm_.clear();
+    }
+    pcmWanted_.store(wanted, std::memory_order_relaxed);
 }
 
 bool Renderer::uiBlurWanted(UiBlurRegion& region) {

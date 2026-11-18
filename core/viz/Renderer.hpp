@@ -247,6 +247,7 @@ private:
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    void updatePcmWanted();
     // Under soundLock_: what writeAudio hears without a shared analysis (an export, a layered live feed).
     void hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz);
     // Under soundLock_, once a frame: the frame at this renderer's sample, its triggers, feeling and waveform.
@@ -474,6 +475,8 @@ private:
     bool adsrConfigsDirty_ = false;
     bool reactionRoutesDirty_ = false;
     PcmHandoff pcm_;
+    // Whether writeAudio keeps the PCM tail: a built scene reads it, or one is being built. Set at the end of each frame.
+    std::atomic<bool> pcmWanted_{true};
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
     std::vector<float> pcmSideScratch_;

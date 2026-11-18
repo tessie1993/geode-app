@@ -474,6 +474,7 @@ class LoopExtend(
         // Every sample's time and extractor flags, read once; which each repeat writes, and when, is native.
         private val times: LongArray
         private val flags: IntArray
+
         init {
             val scanned = ArrayList<Pair<Long, Int>>()
             while (extractor.sampleTime >= 0) {

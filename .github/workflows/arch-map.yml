@@ -60,6 +60,8 @@ jobs:
           echo 'for (int i = 0; i < 60 * 120; ++i) e.tick(1.0f / 120.0f);  // 30/60/120 fps, a 120 Hz panel' >> "$t/core/tests/musical_test.cpp"
           echo 'run(d, Song{"aeolian", 4, 0.85f, 93.0f, 0.6f, 0.2f}, 120.0f, t); frame(f, r, 90.0f, 120.0f);' >> "$t/core/tests/musical_test.cpp"
           echo 'private const val BEAT_SECONDS = 60.0 / BPM' > "$t/app/src/androidTest/Groove.kt"
+          echo 'val bpm = state.bpm ?: 0f' >> "$t/app/src/androidTest/Groove.kt"
+          echo 'const float period = bpm > 0.0f ? 60.0f / bpm : 0.0f;' >> "$t/core/sound/Rhythm.hpp"
           bash tools/no-bpm-bias-gate.sh "$t" >/dev/null || { echo "::error::no-BPM-bias gate self-test: clean tree failed"; exit 1; }
           plant() {
             printf '%s\n' "$2" > "$t/$1"
@@ -85,6 +87,15 @@ jobs:
           plant app/src/androidTest/Bias.kt '        private const val BEAT_SECONDS = 0.5'
           plant app/src/main/java/Bias.kt 'val beatSeconds = 60.0f / 120.0f'
           plant tools/glslcheck/bias.mjs '  0.5, 0.4, 120, 0.3, //        EVENNESS RUN_DENSITY BPM BEAT_PHASE'
+          plant core/tests/Bias.cpp '// Weight the lag with a tempo prior.'
+          plant core/tests/Bias.cpp '    const float bpm = std::max(detected.bpm, 60.0f);'
+          plant app/src/main/java/Bias.kt '        val bpm = state.bpm ?: 93f'
+          plant app/src/main/java/Bias.kt '        val bpm = maxOf(60f, state.bpm)'
+          plant core/sound/Bias.cpp 'const float b = bpm_ > 0.0f ? bpm_ : 100.0f;'
+          plant core/sound/Bias.cpp 'const float b = bpm_ <= 0.0f ? 100.0f : bpm_;'
+          plant docs/bias.sh 'bpm="${BPM:-93}"'
+          plant app/src/main/java/Bias.java '    float lastBpm = 93f;'
+          plant app/src/main/java/bias.xml '    <integer name="default_bpm">93</integer>'
           echo "no-BPM-bias gate self-test passed"
 
       - name: No tempo prior, preferred tempo or default BPM

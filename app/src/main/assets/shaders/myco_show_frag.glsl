@@ -1,5 +1,6 @@
 #version 300 es
 precision highp float;
+precision highp sampler2D;
 
 // MYCELIUM - the present pass. The trail field is the organism's memory;
 // six looks make six materials of it:

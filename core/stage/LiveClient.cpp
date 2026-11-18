@@ -19,6 +19,10 @@ void LiveClient::frameTime(int64_t vsyncNs) {
     if (viz_) viz_->frameTime(vsyncNs);
 }
 
+void LiveClient::framePresent(int64_t presentNs) {
+    if (viz_) viz_->framePresent(presentNs);
+}
+
 uint32_t LiveClient::frame(float pacedFps, float capFps) {
     if (!viz_) return 0;
     runJobs(true);

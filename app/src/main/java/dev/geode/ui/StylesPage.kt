@@ -15,10 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -46,15 +46,12 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer
-import dev.geode.model.MilkFile
 import dev.geode.model.StyleCatalogue
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.stage.StageView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
@@ -77,13 +74,17 @@ import dev.geode.ui.theme.performStoneHaptic
  * (owner, 2026-11-12): first in Your styles, its family first after Your styles in the dropdown, and
  * first in its family's list, the rest in the catalogue's order (native `core/viz/StylePick`).
  *
- * Random is the icon beside the dropdown: it draws from every style of every family, never the one on
- * screen, and a free user lands on a style they can keep while there is one. The "Family only" chip
- * beside it (off by default, kept by `data/StyleShelfStore`) holds the draw to the family of the style on
- * screen: the stage's family rather than the dropdown's, so it means the same from Your styles. It
- * never leaves that family (owner: "Random style within family"): in a family of one, MilkDrop rolls
- * one of its .milk presets the way Auto draws one, and any other style stays. The draw is native too.
- * The dropdown opens on the family of the style on screen and keeps the last pick for the process.
+ * The style on screen is named in a header above the list (native `styleLabel`), which stays put while the
+ * list scrolls and changes at once on a tap or a random pick; its row in the list is lit too. Rows keep their
+ * catalogue order, so a tapped style stays where it was tapped (owner, 2026-11-18: it used to jump to the top
+ * and vanish from under the finger); the dropdown still leads with the family on screen. Opening a family
+ * scrolls to the style on screen when it is in that list.
+ *
+ * Two random buttons sit under the dropdown (owner, 2026-11-18). "Random style" draws from every style of every
+ * family, never the one on screen. "Random family" draws a family (not the one on screen's, each equally likely
+ * whatever its size), then a style in it, and opens that family in the dropdown so the new style shows in
+ * its list. Both give a free user a style they can keep while there is one. The draws are native
+ * (`core/viz/StylePick`).
  *
  * A tap loads the style: the visual changes at once, and that is the choice (no "Use style" step).
  * A Pro style a free user taps still plays on the visual while the paywall offers it, as a half
@@ -94,11 +95,7 @@ import dev.geode.ui.theme.performStoneHaptic
  * swipe on the visual steps through the styles in the catalogue's order.
  */
 @Composable
-internal fun StylesTab(
-    viewModel: PlayerViewModel,
-    visualizerView: StageView,
-    milkFiles: List<MilkFile>,
-) {
+internal fun StylesTab(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val shelfStore = remember { context.geodeContainer.styleShelf }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
@@ -120,12 +117,11 @@ internal fun StylesTab(
                 ?: YOURS,
         )
     }
-    val mine = shelf.yours(order, viz.sceneId)
+    val mine = shelf.yours(order, null)
     val onScreenFamily = familyOf.getOrElse(order.indexOf(viz.sceneId)) { -1 }
     val familyOptions = remember(onScreenFamily) { SoundNative.stylesLead(familyNames.size, onScreenFamily).map(familyNames::get) }
     val members = families[picked].orEmpty()
-    val familyIds = remember(picked, viz.sceneId) { SoundNative.stylesLead(members.size, members.indexOf(viz.sceneId)).map(members::get) }
-    val ids = if (picked == YOURS) mine else familyIds
+    val ids = if (picked == YOURS) mine else members
     // Leaving the page keeps the style the user may keep; only a locked one gives way.
     DisposableEffect(Unit) { onDispose { viewModel.leaveScenePreview() } }
     // The style whose tap opened the paywall. The session chooses it once a purchase lets it
@@ -161,27 +157,28 @@ internal fun StylesTab(
         }
     }
     val view = LocalView.current
-    val shuffle: () -> Unit = {
-        val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
-        // MilkDrop's own variety, which Family only rolls inside when MilkDrop is its family's one style.
-        val milkPlays = visualizerView.stage.milkdropAvailable && gate.allowsStyle(CatalogueNative.STYLE_MILKDROP)
-        val milk = if (milkPlays && viz.sceneId == CatalogueNative.STYLE_MILKDROP) milkFiles else emptyList()
-        val milkHere = milk.indexOfFirst { it.path == viewModel.activeMilkPath.value }
-        val next = SoundNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, milk.size, milkHere)
-        if (next == SoundNative.STYLES_ROLL_INSIDE) {
-            // Auto's draw over the .milk list, never the one showing, loaded as the MilkDrop page's tap does.
-            milk.getOrNull(SoundNative.autoPick(milk.size, milkHere))?.let {
-                view.performStoneHaptic(StoneHapticCue.CONFIRM)
-                selectMilk(viewModel, visualizerView, it.path)
-            }
-        } else if (next >= 0) {
+    val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
+    val onScreenAt = order.indexOf(viz.sceneId)
+    val shuffleStyle: () -> Unit = {
+        val next = SoundNative.stylesRandom(familyOf, open, onScreenAt, false, 0, -1)
+        if (next >= 0) {
             view.performStoneHaptic(StoneHapticCue.CONFIRM)
             load(order[next])
         }
     }
+    val shuffleFamily: () -> Unit = {
+        val next = SoundNative.stylesRandomFamily(familyOf, open, onScreenAt)
+        if (next >= 0) {
+            view.performStoneHaptic(StoneHapticCue.CONFIRM)
+            picked = familyNames[familyOf[next]]
+            StylesFamilyMemory.picked = picked
+            load(order[next])
+        }
+    }
     val list = rememberLazyListState()
-    // A new pick starts at its top, where the style on screen is when the pick holds it.
-    LaunchedEffect(picked) { list.scrollToItem(0) }
+    // A new pick opens on the style on screen when it is in the list, else at the top. Only a new pick scrolls:
+    // a tap leaves the list where it is.
+    LaunchedEffect(picked) { list.scrollToItem(maxOf(0, ids.indexOf(viz.sceneId))) }
     val yoursLabel = stringResource(R.string.styles_yours)
     val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else CustomizeNative.styleFamilyLabel(it) }
     Column(Modifier.fillMaxSize()) {
@@ -208,11 +205,18 @@ internal fun StylesTab(
                 },
                 detail = { (if (it == YOURS) mine else families[it].orEmpty()).size.toString() },
             )
-            RandomFamilyOnlyChip(on = shelf.randomFamilyOnly, onToggle = { shelfStore.setRandomFamilyOnly(!shelf.randomFamilyOnly) })
-            IconButton(onClick = shuffle) {
-                StoneIconArt(StoneIcon.SHUFFLE, contentDescription = stringResource(R.string.styles_random), tint = accentTextColor())
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.S)) {
+            TextButton(onClick = shuffleStyle) {
+                StoneIconArt(StoneIcon.SHUFFLE, contentDescription = null, tint = accentTextColor())
+                Text(stringResource(R.string.styles_random), Modifier.padding(start = GeodeSpacing.XS), color = accentTextColor())
+            }
+            TextButton(onClick = shuffleFamily) {
+                StoneIconArt(StoneIcon.SHUFFLE, contentDescription = null, tint = accentTextColor())
+                Text(stringResource(R.string.styles_random_family), Modifier.padding(start = GeodeSpacing.XS), color = accentTextColor())
             }
         }
+        NowPlaying(labels[viz.sceneId] ?: sceneDisplayLabel(viz.sceneId))
         LazyColumn(
             state = list,
             contentPadding = PaddingValues(bottom = GeodeSpacing.L),
@@ -238,26 +242,29 @@ internal fun StylesTab(
     }
 }
 
-/** Random's "Family only" switch, as a chip beside the dice; TalkBack reads what it does and whether it is on. */
+/** The style on screen, named above the list and outside it, so it stays in view while the list scrolls. */
 @Composable
-private fun RandomFamilyOnlyChip(
-    on: Boolean,
-    onToggle: () -> Unit,
-) {
-    val description = stringResource(R.string.styles_random_family_only_description)
-    val state = stringResource(if (on) R.string.styles_random_family_only_on else R.string.styles_random_family_only_off)
-    FilterChip(
-        selected = on,
-        onClick = onToggle,
-        label = { Text(stringResource(R.string.styles_random_family_only), maxLines = 1) },
-        modifier =
-            Modifier
-                .padding(start = GeodeSpacing.XS)
-                .semantics {
-                    contentDescription = description
-                    stateDescription = state
-                },
-    )
+private fun NowPlaying(label: String) {
+    val caption = stringResource(R.string.styles_now_playing)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$caption: $label"
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(caption, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            Modifier.weight(1f).padding(start = GeodeSpacing.S),
+            style = MaterialTheme.typography.titleSmall,
+            color = accentTextColor(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @Composable

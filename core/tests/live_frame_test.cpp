@@ -44,6 +44,7 @@ struct Recorder : LiveStages {
     bool milk = false;
     bool moments = false;
     bool still = false;
+    bool repeated = false;
     std::string scene;
     UserQuality quality;
     GyroReading gyro;
@@ -93,6 +94,7 @@ struct Recorder : LiveStages {
         log.push_back("still");
         return still;
     }
+    bool frameRepeated() override { return repeated; }
 
     int count(const char* name) const {
         int n = 0;
@@ -247,8 +249,11 @@ void eventBits() {
     r.still = true;
     check(frame(f, r) == kEventStillReady, "a still read back is told");
     r.still = false;
+    r.repeated = true;
+    check(frame(f, r) == kEventNothingNew, "a frame that repeated the one on screen says nothing is new");
+    r.repeated = false;
     const uint32_t all[] = {kEventClearOnly, kEventLiquidChanged, kEventErrorChanged, kEventMilkLoaded, kEventDirectorMoment,
-                            kEventStillReady};
+                            kEventStillReady, kEventNothingNew};
     uint32_t seen = 0;
     bool apart = true;
     for (uint32_t bit : all) {

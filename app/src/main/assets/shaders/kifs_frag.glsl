@@ -740,7 +740,8 @@ void main() {
     // cathedral's march for this ray.
     float satOrbit = gBound + KIFS_SAT_CLEAR;
     float satCount = dmtSatelliteCount();
-    float satT = dmtMarchSatellites(ro, rd, KIFS_CAM_R * 2.2, uSteps * 0.5, satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
+    dmtSatPrepare(satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
+    float satT = dmtMarchSatellites(ro, rd, KIFS_CAM_R * 2.2, uSteps * 0.5);
     if (satT > 0.0) tExit = min(tExit, satT);
 
     // Started one epsilon INSIDE the ball rather than on it. kifsMap returns
@@ -841,7 +842,7 @@ void main() {
         col = mix(col, sky, fog);
     } else if (satT > 0.0) {
         vec3 p = ro + rd * satT;
-        col = dmtSatelliteColor(p, rd, 0.20 + 0.06 * midA + gTone, trebA, satCount, satOrbit, KIFS_SAT_RADIUS, KIFS_SAT_PERIOD);
+        col = dmtSatelliteColor(p, rd, 0.20 + 0.06 * midA + gTone, trebA);
         col = mix(col, sky, 1.0 - exp(-max(satT - tEnter, 0.0) * haze));
     } else {
         col = sky;

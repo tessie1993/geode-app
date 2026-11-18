@@ -961,6 +961,30 @@ void stylesGetDifferentPersonalities() {
     check(beatZooms * 2 <= kStyleCount, "most styles do not zoom on the kick (only the pulse and lens personalities do)");
 }
 
+// The owner: "why do so many styles have this same curve (yin-yang-like)". A Twist route that follows a level
+// only ever pushes one way, so every style that drew one wound the picture the same way, an S of one hand. A
+// style's twist routes draw their own direction: across the catalogue and the seeds both hands appear, and
+// the share of each stays well clear of all.
+void twistRoutesDrawTheirOwnDirection() {
+    int turned = 0;
+    int positive = 0;
+    int negative = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        for (int seed = 0; seed < 8; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, true});
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                if (route.target != LfoTarget::Twist || route.mode != ReactMode::Follow) continue;
+                ++turned;
+                if (route.amount > 0.0f) ++positive;
+                if (route.amount < 0.0f) ++negative;
+            }
+        }
+    }
+    check(turned > 30, "styles draw followed twist routes");
+    check(positive * 10 >= turned * 3 && negative * 10 >= turned * 3, "followed twists wind both ways, none of one hand only");
+}
+
 // A zoom personality (Pulse, Lens) zooms on the beat it hears, by a fixed amount, beside its push or bulge.
 void zoomPersonalitiesZoomOnTheBeat() {
     int seen = 0;
@@ -2759,6 +2783,7 @@ int main() {
     dnaIsDeterministicAndSeeded();
     stylesGetDifferentPersonalities();
     zoomPersonalitiesZoomOnTheBeat();
+    twistRoutesDrawTheirOwnDirection();
     kickAndSnareSidesAnswerDifferently();
     everyStyleAnswersTheDrums();
     dnaSourcesVaryAcrossStyles();

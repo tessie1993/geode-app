@@ -629,6 +629,8 @@ void main() {
             float rt = 0.05;
             vec3 rcol = fogCol * 0.4;
             for (int j = 0; j < MC_REFL_STEPS; j++) {
+                // A share of the user's Detail: 0.6 x 64 is over MC_REFL_STEPS, so full quality keeps all 36.
+                if (float(j) >= uSteps * 0.6) break;
                 vec3 rp = p + rr * rt;
                 float rd2 = map(rp);
                 if (rd2 < 0.004 * (1.0 + rt)) {

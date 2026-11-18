@@ -148,6 +148,7 @@ private:
     float plpConf_ = 0.0f;       // how much of the onset mass sits at one phase of that period, 0..1
     float conf_ = 0.0f;          // both, smoothed (~1 s)
     float lockSeconds_ = 0.0f;   // how long conf has stayed past the lock (or unlock) line
+    float beatlessSeconds_ = 0.0f;  // unlocked and under the unlock line this long: at a whole window the tempo is let go
     bool locked_ = false;
     bool everLocked_ = false;
 

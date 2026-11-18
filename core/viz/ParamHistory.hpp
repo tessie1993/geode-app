@@ -22,6 +22,9 @@ inline constexpr std::int64_t kCheckpointGapMs = 700;
 struct Look {
     std::vector<float> frame;
     std::string paletteId;
+    // The style the look was made on: an entry is put up only on that style, since a frame's params mean what the
+    // style shows of them.
+    std::string styleId;
 };
 
 inline constexpr int kCanUndo = 1;
@@ -45,6 +48,8 @@ public:
     std::optional<Look> step(bool redo, Look current) {
         auto& from = redo ? redo_ : undo_;
         auto& to = redo ? undo_ : redo_;
+        // Entries recorded on another style are not this look's past: they are dropped, not applied across.
+        while (!from.empty() && from.back().styleId != current.styleId) from.pop_back();
         if (from.empty()) return std::nullopt;
         Look back = std::move(from.back());
         from.pop_back();

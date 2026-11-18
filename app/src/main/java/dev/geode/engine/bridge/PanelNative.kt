@@ -50,22 +50,24 @@ object PanelNative {
     )
 
     /**
-     * Customize's undo (core/viz/ParamHistory): the look [before] (its frame and saved palette id) is about to be
+     * Customize's undo (core/viz/ParamHistory): the look [before] (its frame, saved palette id and the [style] it was made on) is about to be
      * replaced at [nowMs]; edits close together fold into one entry, a [discrete] one never does. Returns
      * [PARAM_HISTORY_UNDO] and [PARAM_HISTORY_REDO] bits.
      */
     external fun paramHistoryRecord(
         before: FloatArray,
         palette: String,
+        style: String,
         nowMs: Long,
         discrete: Boolean,
     ): Int
 
-    /** The look to put up instead of [current] ([redo]: the last undone one): its frame into [output], its palette id back; null for none. */
+    /** The look to put up instead of [current] on [style] ([redo]: the last undone one; entries from another style are dropped): its frame into [output], its palette id back; null for none. */
     external fun paramHistoryStep(
         redo: Boolean,
         current: FloatArray,
         palette: String,
+        style: String,
         output: FloatArray,
     ): String?
 

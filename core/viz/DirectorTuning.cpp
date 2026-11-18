@@ -33,6 +33,10 @@ constexpr std::array<TuneSpec, kTunes> kSpecs = {{
     {"arc_bars", "Arc: move over", "Bars the arc takes to move to a new section's level.", 1.0f, 16.0f, 4.0f, 1.0f, " bars"},
     {"long_seconds", "New look after", "Seconds with no new section or drop before a new look anyway.", 30.0f, 240.0f, 75.0f, 5.0f, " s"},
     {"styles_progress", "Styles progress", "On: each section steps the style on to a related one. Off: the style stays.", 0.0f, 1.0f, 1.0f, 1.0f, ""},
+    {"glide_driven_seconds", "No beat, driven: change over", "How a new look lands when no beat is heard and the music feels powerful or joyful.", 0.25f, 8.0f, 0.5f, 0.25f, " s"},
+    {"glide_calm_seconds", "No beat, calm: change over", "How a new look lands when no beat is heard and the music feels peaceful or tender.", 0.25f, 16.0f, 4.0f, 0.25f, " s"},
+    {"glide_neutral_seconds", "No beat, neither: change over", "How a new look lands when no beat is heard and the music is neither calm nor driven.", 0.25f, 16.0f, 2.0f, 0.25f, " s"},
+    {"return_morph_seconds", "No beat: returns morph over", "The shortest morph into a returning section's look when no beat is heard.", 0.25f, 16.0f, 2.0f, 0.25f, " s"},
 }};
 
 float held(const TuneSpec& s, float v) {

@@ -278,6 +278,16 @@ void Rhythm::measurePhase() {
     const float dt = kPhaseEvery;  // the cadence's mean, which due() keeps exact
     const float raw = std::clamp((acConf_ - 0.05f) / 0.35f, 0.0f, 1.0f) * std::clamp((plpConf_ - 0.1f) / 0.4f, 0.0f, 1.0f);
     conf_ += (1.0f - std::exp(-dt / 1.0f)) * (raw - conf_);
+    // A tempo is the music's: once the window it was measured over holds no beat any more (unlocked and under
+    // the unlock line for all of it), nothing is left to hold, so it is unknown again, bpm 0.
+    beatlessSeconds_ = !locked_ && conf_ < kLockOff ? beatlessSeconds_ + dt : 0.0f;
+    if (beatlessSeconds_ >= static_cast<float>(cfg_.ring) * cfg_.hopSeconds) {
+        period_ = 0.0f;
+        candidate_ = 0.0f;
+        candidateVotes_ = 0;
+        beatlessSeconds_ = 0.0f;
+        return;
+    }
     if (!locked_) {
         lockSeconds_ = conf_ > kLockOn ? lockSeconds_ + dt : 0.0f;
         if (lockSeconds_ >= kLockAfter) {

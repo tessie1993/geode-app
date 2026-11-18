@@ -521,6 +521,12 @@ Bank resetKnob(const Bank& bank, int id) {
     return normalized(out);
 }
 
+Bank resetAll(const Bank& bank) {
+    Bank out = defaultBank();
+    out.nextId = std::max(out.nextId, normalized(bank).nextId);
+    return normalized(out);
+}
+
 Bank setLink(const Bank& bank, int id, Target target, float up, float down) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
@@ -722,8 +728,10 @@ float effective(const Knob& knob, const KnobMods* mods) {
     if (!knob.shown) return 0.0f;
     const float turn = std::isfinite(knob.value) ? std::clamp(knob.value, -1.0f, 1.0f) : 0.0f;
     const KnobMods::Mod* mod = mods ? mods->of(knob.id) : nullptr;
-    return mod ? std::clamp(turn + mod->add, -1.0f, 1.0f) : turn;
+    return mod ? modulated(turn, mod->add) : turn;
 }
+
+float modulated(float turn, float add) { return std::clamp(turn + add, -1.0f, 1.0f); }
 
 SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach, const KnobMods* mods) {
     std::array<float, kSlotCount> offset{};

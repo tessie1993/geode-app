@@ -11,10 +11,11 @@ static_assert(history::kCanRedo == GEODE_PARAM_HISTORY_REDO);
 
 namespace {
 
-history::Look lookOf(const float* frame, int count, const char* palette_id) {
+history::Look lookOf(const float* frame, int count, const char* palette_id, const char* style_id) {
     history::Look look;
     if (frame && count > 0) look.frame.assign(frame, frame + count);
     look.paletteId = palette_id ? palette_id : "";
+    look.styleId = style_id ? style_id : "";
     return look;
 }
 
@@ -22,18 +23,20 @@ history::Look lookOf(const float* frame, int count, const char* palette_id) {
 
 extern "C" {
 
-int geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms, int discrete) {
+int geode_param_history_record(const float* before, int count, const char* before_palette, const char* style_id, long long now_ms,
+                               int discrete) {
     auto& s = history::detail::shared();
     std::lock_guard<std::mutex> lock(s.lock);
-    s.history.record(lookOf(before, count, before_palette), now_ms, discrete != 0);
+    s.history.record(lookOf(before, count, before_palette, style_id), now_ms, discrete != 0);
     return s.history.state();
 }
 
-const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out) {
+const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, const char* style_id,
+                                     float* out) {
     thread_local std::string palette;
     auto& s = history::detail::shared();
     std::lock_guard<std::mutex> lock(s.lock);
-    auto back = s.history.step(redo != 0, lookOf(current, count, current_palette));
+    auto back = s.history.step(redo != 0, lookOf(current, count, current_palette, style_id));
     if (!back) return nullptr;
     if (out) {
         for (int i = 0; i < count; ++i) out[i] = i < static_cast<int>(back->frame.size()) ? back->frame[static_cast<size_t>(i)] : 0.0f;

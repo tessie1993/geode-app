@@ -281,6 +281,12 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankResetKnob(JNIEnv* env, jobject
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_MacroNative_macroBankResetAll(JNIEnv* env, jobject, jstring bank) {
+    Utf8Chars text(env, bank);
+    return geode::jni::utf8String(env, geode_macro_bank_reset_all(text.get()));
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankMoveKnob(JNIEnv* env, jobject, jstring bank, jint knobId, jint delta) {
     Utf8Chars text(env, bank);
     return geode::jni::utf8String(env, geode_macro_bank_move_knob(text.get(), knobId, delta));
@@ -334,6 +340,11 @@ JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankControls(JNIEnv* env, jobject, jstring bank) {
     Utf8Chars text(env, bank);
     return geode::jni::utf8String(env, geode_macro_bank_controls(text.get()));
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_MacroNative_macroBankModulated(JNIEnv*, jobject, jfloat turn, jfloat add) {
+    return geode_macro_bank_modulated(turn, add);
 }
 
 JNIEXPORT jstring JNICALL

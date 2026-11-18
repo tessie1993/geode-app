@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "audio/output/OutputFifo.hpp"
+
 namespace geode::output::record {
 
 namespace {
@@ -141,6 +143,8 @@ int64_t Recorder::eatPad(int64_t frames) {
 }
 
 void Recorder::fillGap(int64_t frames) {
+    // Never past the hold's limit: an encoder that stops taking audio must not let the silence grow without bound.
+    frames = std::min(frames, framesOf(kHoldMaxMs) - held());
     if (frames <= 0) return;
     const int64_t head = emitted_ + held();
     // Silence that follows silence is one stretch, so a burst can be laid back over all of it.
@@ -191,7 +195,11 @@ void Recorder::place(int64_t frames, int64_t nowNs) {
 }
 
 void Recorder::hear(const float* interleaved, int frames, int channels, int rateHz, int64_t nowNs) {
-    if (!interleaved || frames <= 0 || channels <= 0 || rateHz <= 0) return;
+    // A rate outside what an output can run at is refused: the resampler's block would be sized from it.
+    if (!interleaved || frames <= 0 || channels <= 0 || rateHz < audio::output::OutputFifo::kMinRateHz ||
+        rateHz > audio::output::OutputFifo::kMaxRateHz) {
+        return;
+    }
     if (!started() || stopped() != Stop::None) return;
     std::lock_guard<std::mutex> lock(audioLock_);
     source_.resize(static_cast<size_t>(frames) * kChannels);

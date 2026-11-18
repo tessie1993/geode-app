@@ -65,12 +65,15 @@ class MacroStore internal constructor(
     private val _state = MutableStateFlow(MacroBankState())
     val state: StateFlow<MacroBankState> = _state
 
+    // Set once the saved bank is read: an edit before it would start from the default and save over the real one.
+    @Volatile private var loaded = false
+
     init {
         scope.launch {
             val saved = repository.loaded()
-            // Nothing can have edited the bank before its first read: every edit starts from it.
             _state.value = stateOf(saved)
             push(saved)
+            loaded = true
         }
     }
 
@@ -151,7 +154,7 @@ class MacroStore internal constructor(
     fun resetKnob(id: Int) = edit { MacroNative.macroBankResetKnob(it, id) }
 
     /** The four built-in knobs alone, as built and centred. */
-    fun resetAll() = edit { MacroNative.macroBankDefault() }
+    fun resetAll() = edit { text -> MacroNative.macroBankResetAll(text) }
 
     fun addLink(
         id: Int,
@@ -216,6 +219,7 @@ class MacroStore internal constructor(
         persist: Boolean = true,
         change: (String) -> String,
     ) {
+        if (!loaded) return
         val current = _state.value
         val text =
             runCatching { change(current.working) }

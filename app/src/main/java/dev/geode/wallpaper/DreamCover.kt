@@ -5,7 +5,6 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Whether something covers the screen the dream is on: the proximity sensor reads near.
@@ -56,7 +55,7 @@ class DreamCover(
     override fun onSensorChanged(event: SensorEvent) {
         val sensor = proximity ?: return
         val distance = event.values.firstOrNull() ?: return
-        val near = GeodeNative.surfaceProximityNear(distance, sensor.maximumRange)
+        val near = SoundNative.surfaceProximityNear(distance, sensor.maximumRange)
         if (near == covered) return
         covered = near
         onChanged()

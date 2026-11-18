@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -110,8 +109,8 @@ internal class VisualSettingsController(
         val p = state.value.params
         val next =
             p
-                .with("zoom", GeodeNative.touchZoom(p["zoom"], zoomFactor))
-                .with("rotation", GeodeNative.touchRotation(p["rotation"], degrees))
+                .with("zoom", TouchNative.touchZoom(p["zoom"], zoomFactor))
+                .with("rotation", TouchNative.touchRotation(p["rotation"], degrees))
         if (next != p) setSceneParams(next)
     }
 

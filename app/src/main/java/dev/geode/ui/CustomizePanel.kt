@@ -45,7 +45,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
@@ -189,7 +188,7 @@ internal fun CustomizePanel(
     }
 }
 
-private fun changedCount(params: SceneParams): Int = GeodeNative.customizeChangedCount(params.frame())
+private fun changedCount(params: SceneParams): Int = CustomizeNative.customizeChangedCount(params.frame())
 
 /**
  * The one row above the tabs: how far the look is from as styled, then search, Randomize, Undo

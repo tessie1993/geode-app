@@ -21,7 +21,6 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 import dev.geode.model.PresetLink
 import kotlinx.coroutines.Dispatchers
@@ -249,9 +248,9 @@ class VisualsViewModel
             onDone: (Boolean) -> Unit,
         ) = session.milkImport.importOpenedMilkAsync(uri) { path ->
             if (path != null) {
-                session.selectScene(GeodeNative.STYLE_MILKDROP)
-                if (session.allowsStyle(GeodeNative.STYLE_MILKDROP)) {
-                    session.visual.emitApply(VizApply(milkPath = path, sceneId = GeodeNative.STYLE_MILKDROP))
+                session.selectScene(CatalogueNative.STYLE_MILKDROP)
+                if (session.allowsStyle(CatalogueNative.STYLE_MILKDROP)) {
+                    session.visual.emitApply(VizApply(milkPath = path, sceneId = CatalogueNative.STYLE_MILKDROP))
                 }
             }
             onDone(path != null)

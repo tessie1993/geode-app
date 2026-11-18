@@ -7,7 +7,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import dev.geode.data.MediaStoreSource
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.model.OpenedAudio

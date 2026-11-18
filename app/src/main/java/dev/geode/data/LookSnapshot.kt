@@ -1,6 +1,5 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.SceneParams
 
 /**
@@ -47,7 +46,7 @@ data class LookSnapshot(
  */
 object NativeLookDefaults {
     @Volatile
-    private var read: () -> String = { GeodeNative.vizLookDefaults() }
+    private var read: () -> String = { VizNative.vizLookDefaults() }
 
     @Volatile
     private var lines: List<String>? = null

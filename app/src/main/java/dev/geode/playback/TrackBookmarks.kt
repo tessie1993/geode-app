@@ -2,7 +2,6 @@ package dev.geode.playback
 
 import androidx.media3.common.Player
 import dev.geode.data.BookmarkStore
-import dev.geode.engine.bridge.GeodeNative
 
 /** Keeps a long track's bookmark current from the session's poll, and seeks to it when the track starts. */
 class TrackBookmarks(

@@ -6,7 +6,6 @@ import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.StudioProject
 import dev.geode.editor.TrackRef
-import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,9 +86,9 @@ internal class EditorController(
         milkPath: String?,
         render: ProjectRender,
     ): StudioProject? {
-        val kind = GeodeNative.studioKindRead(null) ?: return null
+        val kind = StudioNative.studioKindRead(null) ?: return null
         val edit =
-            GeodeNative.studioEditNew(track?.uri, track?.title.orEmpty(), track?.durationMs ?: 0L, sceneId, milkPath, render.durationMs)
+            StudioNative.studioEditNew(track?.uri, track?.title.orEmpty(), track?.durationMs ?: 0L, sceneId, milkPath, render.durationMs)
                 ?: return null
         val now = store.clock()
         return StudioProject(

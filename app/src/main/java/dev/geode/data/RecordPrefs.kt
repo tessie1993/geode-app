@@ -4,7 +4,6 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
 
 /**
@@ -32,7 +31,7 @@ data class RecordPrefs(
  */
 class RecordPrefsStore(
     private val prefs: SharedPreferences,
-    private val snap: (Int) -> Int = { GeodeNative.recordSnapMaxLength(it) },
+    private val snap: (Int) -> Int = { ExportNative.recordSnapMaxLength(it) },
 ) {
     fun load(fallback: ExportDefaults): RecordPrefs =
         RecordPrefs(

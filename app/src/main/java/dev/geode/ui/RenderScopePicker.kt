@@ -36,7 +36,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.ui.pro.ProBadge
 
 /** One track a render covers: its audio URI and its title. */
@@ -86,7 +85,7 @@ enum class RenderScope {
                     PLAYLIST -> playlist
                     CHOSEN_TRACKS -> chosen
                 }
-            return GeodeNative.renderBatchOrder(Array(tracks.size) { tracks[it].uri }).map { tracks[it] }
+            return RenderPlanNative.renderBatchOrder(Array(tracks.size) { tracks[it].uri }).map { tracks[it] }
         }
     }
 }

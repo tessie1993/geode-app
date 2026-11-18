@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import dev.geode.data.CanvasGesture
-import dev.geode.engine.bridge.GeodeNative
 
 /**
  * A TV remote's (or a keyboard's or a game pad's) twin of each gesture on the visual, so every
@@ -20,6 +19,6 @@ internal fun stageKeyGesture(
     optionsShown: Boolean,
 ): Pair<CanvasGesture, Int>? {
     val step = IntArray(1)
-    val gesture = CanvasGesture.entries.getOrNull(GeodeNative.gestureForKey(keyCode, optionsShown, step)) ?: return null
+    val gesture = CanvasGesture.entries.getOrNull(TouchNative.gestureForKey(keyCode, optionsShown, step)) ?: return null
     return gesture to step[0]
 }

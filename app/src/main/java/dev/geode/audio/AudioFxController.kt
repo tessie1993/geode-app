@@ -6,7 +6,6 @@ import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
 
 data class AudioFxBand(
     val label: String,

@@ -13,7 +13,6 @@ import android.provider.MediaStore
 import dev.geode.R
 import dev.geode.data.pendingRows
 import dev.geode.data.publishPending
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -78,13 +77,13 @@ class LoopExtendPlan private constructor(
     fun estimatedBytes(
         loopBytes: Long,
         soundtrackBytes: Long,
-    ): Long = GeodeNative.loopEstimatedBytes(loopDurationUs, totalDurationUs, loopBytes, soundtrackBytes)
+    ): Long = ExportNative.loopEstimatedBytes(loopDurationUs, totalDurationUs, loopBytes, soundtrackBytes)
 
     /** The video bit rate a render would need to keep a file of this length under [limitBytes]. */
     fun fittingBitRate(
         limitBytes: Long,
         soundtrackBytes: Long,
-    ): Int = GeodeNative.loopFittingBitRate(totalDurationUs, limitBytes, soundtrackBytes)
+    ): Int = ExportNative.loopFittingBitRate(totalDurationUs, limitBytes, soundtrackBytes)
 
     companion object {
         fun of(
@@ -95,7 +94,7 @@ class LoopExtendPlan private constructor(
             require(loopDurationUs > 0) { "loopDurationUs must be positive, was $loopDurationUs" }
             require(loops >= 1) { "a plan needs at least one loop, was $loops" }
             val total = totalDurationUs.coerceAtLeast(1L)
-            val pairs = GeodeNative.loopExtendPlan(loopDurationUs, total, loops)
+            val pairs = ExportNative.loopExtendPlan(loopDurationUs, total, loops)
             val writes = List(pairs.size / 2) { LoopWrite(loopIndex = pairs[it * 2 + 1].toInt(), offsetUs = pairs[it * 2]) }
             return LoopExtendPlan(loopDurationUs, total, writes)
         }
@@ -311,7 +310,7 @@ class LoopExtend(
                             maxDurationMs = 0L,
                             startMs = 0L,
                             // One AAC track carries one rate, so every clip is brought to the same one.
-                            outputRateHz = GeodeNative.mixRateHz(),
+                            outputRateHz = ExportNative.mixRateHz(),
                             isCancelled = isCancelled,
                         ) { progress ->
                             onProgress(AUDIO_PROGRESS_SPAN * (index + progress) / clips.size)
@@ -331,7 +330,7 @@ class LoopExtend(
     /**
      * The clips become one AAC track, so they must agree on sample rate and channel count — a
      * track carries one codec configuration. [transcode] brings every clip to
-     * [GeodeNative.mixRateHz], so in practice this now catches a mono clip among stereo ones.
+     * [ExportNative.mixRateHz], so in practice this now catches a mono clip among stereo ones.
      * Rejecting the mix up front beats writing an hour of audio that plays at the wrong speed.
      */
     private fun joinable(clips: List<TranscodedClip>): AudioBuild {
@@ -631,7 +630,7 @@ class LoopExtend(
          * which is what the failure message says. Native (`core/output/EncodePlan`), beside the
          * lower target [MuxerBudget] aims renders at.
          */
-        val MUXER_SAFE_BYTES: Long get() = GeodeNative.exportMuxerHardLimitBytes()
+        val MUXER_SAFE_BYTES: Long get() = ExportNative.exportMuxerHardLimitBytes()
 
         private const val AUDIO_PROGRESS_SPAN = 0.35f
         private const val SCRATCH_BYTES = 64 * 1024

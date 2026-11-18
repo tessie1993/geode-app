@@ -12,7 +12,6 @@ import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.FavouritesStore
 import dev.geode.data.GeneralSettingsCodec
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.KeepSetStore
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryPrefsStore

@@ -67,7 +67,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - The export's renderer (`core/output/ExportFrame`) resolves reactions the same way, so exports react like the screen.
 - `StageView` feeds the camera's look while the stage says it listens (`geode_stage_gyro_listens`): the game rotation vector and the display rotation.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
-- The ring (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every 10 ms of samples; `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
+- The ring (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every hop of samples (fftSize / overlap, `sound/AnalysisSettings`); `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
 - So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
 - Auto is one mode: each new section or drop the director commits a look at is counted natively (`geode_viz_take_director_style_moments`).

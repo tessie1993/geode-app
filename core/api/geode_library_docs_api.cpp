@@ -182,9 +182,10 @@ const char* geode_music_playlist_import_base(const char* parsed_name, const char
 }
 
 // The saved play queue.
-const char* geode_session_read(const char* text) try {
+const char* geode_session_read(const char* text, const char* position_text) try {
     thread_local std::string out;
-    const auto session = geode::library::sessionParse(textOf(text));
+    auto session = geode::library::sessionParse(textOf(text));
+    if (session) geode::library::sessionApplyPosition(*session, textOf(position_text));
     return hold(out, session ? geode::library::sessionWire(*session) : std::string());
 } catch (...) {
     return nullptr;
@@ -201,6 +202,13 @@ const char* geode_session_write(const char* const* tracks, int count, int index,
     session.positionMs = position_ms;
     const geode::library::SessionWrite write = geode::library::sessionWrite(session);
     return hold(out, write.clear ? std::string() : write.json);
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_session_position_write(int index, long long position_ms) try {
+    thread_local std::string out;
+    return hold(out, geode::library::sessionPositionWrite(index, position_ms));
 } catch (...) {
     return nullptr;
 }

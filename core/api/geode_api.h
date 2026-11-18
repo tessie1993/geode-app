@@ -639,8 +639,12 @@ GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, 
  * artist, split by U+001F and ended by U+001E; "" when the text is no session (the shell moves such a file aside):
  * not an object, a version above 1, no track with a uri. Index and position come clamped.
  * session_write: the text to write for `count` tracks (3 UTF-8 strings each: uri, title, artist), the index and the
- * position (both clamped); "" for no tracks, when the shell deletes the file instead. */
-GEODE_API const char* geode_session_read(const char* text);
+ * position (both clamped); "" for no tracks, when the shell deletes the file instead.
+ * session_position_write: the small text session_position.json is written as when only the position moved; the
+ * queue is not written again. session_read's position_text is that file's text (NULL: none): it moves the
+ * session's track and position (newer than the queue's); unreadable text changes nothing. */
+GEODE_API const char* geode_session_read(const char* text, const char* position_text);
+GEODE_API const char* geode_session_position_write(int index, long long position_ms);
 GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
 
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list

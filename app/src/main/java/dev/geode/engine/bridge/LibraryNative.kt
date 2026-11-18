@@ -127,9 +127,19 @@ object LibraryNative {
     /**
      * The session session.json's [text] holds (core/library/SessionDoc, `geode_session_read`): one record of index,
      * position ms, then each track's uri, title and artist, split by U+001F and ended by U+001E; "" when it is no
-     * session (the file is moved aside); null when native failed.
+     * session (the file is moved aside); null when native failed. [positionText] is session_position.json's text
+     * ("" when there is none): native takes the position from it when it is for the same track.
      */
-    external fun sessionRead(text: String): String?
+    external fun sessionRead(
+        text: String,
+        positionText: String,
+    ): String?
+
+    /** The text session_position.json is written as (`geode_session_position_write`), when only the position moved. */
+    external fun sessionPositionWrite(
+        index: Int,
+        positionMs: Long,
+    ): String?
 
     /**
      * The text session.json is written as (`geode_session_write`): [tracks] holds three strings per track (uri,

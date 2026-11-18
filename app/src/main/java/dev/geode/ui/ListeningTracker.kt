@@ -46,6 +46,14 @@ internal class ListeningTracker(
 
     val favourites: StateFlow<Set<String>> = favouritesRepository.favourites
 
+    // Native parses and rewrites the whole history on every listen added, so the half-second ticks are gathered
+    // and added every few seconds, at a track change and at a pause: a killed process loses a few seconds.
+    private val listenBatch =
+        ListenBatch { uri, ms ->
+            historyStore.addListenTime(uri, ms)
+            historyStore.flush()
+        }
+
     private var listenTickAtMs = 0L
     private var listenTickUri: String? = null
 
@@ -68,14 +76,17 @@ internal class ListeningTracker(
         val now = System.currentTimeMillis()
         val playing = host.player.isPlaying && uri != null
         if (!playing || uri != listenTickUri) {
-            if (listenTickAtMs != 0L) historyStore.flush()
+            if (listenTickAtMs != 0L) {
+                listenBatch.drain()
+                historyStore.flush()
+            }
             listenTickAtMs = if (playing) now else 0L
             listenTickUri = if (playing) uri else null
             return
         }
         val delta = now - listenTickAtMs
         listenTickAtMs = now
-        if (delta in 1..MAX_LISTEN_TICK_MS) historyStore.addListenTime(uri, delta)
+        if (delta in 1..MAX_LISTEN_TICK_MS) listenBatch.add(uri, delta)
     }
 
     fun flushListenTime() {

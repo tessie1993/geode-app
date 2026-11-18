@@ -110,6 +110,15 @@ add_library(geode_core STATIC
     library/SmartPlaylist.cpp
     library/History.cpp
     library/SessionDoc.cpp
+    shell/Tour.cpp
+    shell/StyleShelf.cpp
+    shell/PresetList.cpp
+    shell/OpenedAudio.cpp
+    shell/Behaviour.cpp
+    shell/AutoVisuals.cpp
+    shell/ExportFps.cpp
+    shell/Text.cpp
+    backup/Backup.cpp
     audio/ingest/AiffReader.cpp
     audio/ingest/TrackFeed.cpp
     audio/ingest/TrackPump.cpp

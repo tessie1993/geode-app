@@ -1,6 +1,7 @@
 #pragma once
 #include <android/choreographer.h>
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 
@@ -27,6 +28,10 @@ public:
         std::shared_ptr<Inbox> stage;
         bool detached = false;
         Sink* nextDetached = nullptr;  // under detachLock_ until the vsync thread takes it
+        // A frame request is out and the stage has not finished it: set by the vsync thread before it pushes,
+        // cleared by the stage thread (frameDone) after the frame. A due slot reached while set waits for the
+        // first vsync after it clears (Pacer::onVsync).
+        std::atomic<bool> stageBusy{false};
     };
 
     static VsyncThread& process();
@@ -37,6 +42,10 @@ public:
     void setCap(Sink* sink, float capFps);
     // The last call for this sink. Never dropped: it does not go through the bounded queue.
     void detach(Sink* sink);
+    // The stage thread finished the frame it was asked for (or dropped it): the next vsync may ask again.
+    static void frameDone(Sink* sink) {
+        if (sink) sink->stageBusy.store(false, std::memory_order_release);
+    }
 
     VsyncThread(const VsyncThread&) = delete;
     VsyncThread& operator=(const VsyncThread&) = delete;

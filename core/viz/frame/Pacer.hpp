@@ -37,6 +37,27 @@ inline float effectiveCapFps(float aFps, float bFps) {
     return b ? bFps : 0.0f;
 }
 
+// How long ago, in seconds, the picture's clock is read for a frame drawn `agoSeconds` after its vsync. A frame
+// that starts within 1.5 draw intervals of its vsync steps by the vsync stamp, so the step is the vsyncs' own even
+// spacing. One that started later (the stage was behind, or the GL queue held it) steps by the clock at the draw,
+// the time that really passed: a stale stamp would step 33 ms then 67 ms for frames that land 40 ms apart, and
+// read as judder. No paced rate (every vsync) names no interval, so the stamp stands.
+inline double freshAgoSeconds(double agoSeconds, float pacedFps) {
+    if (!(agoSeconds > 0.0)) return 0.0;
+    if (!(pacedFps > 0.0f) || !std::isfinite(pacedFps)) return agoSeconds;
+    return agoSeconds > 1.5 / static_cast<double>(pacedFps) ? 0.0 : agoSeconds;
+}
+
+// The time the sound is read at for a frame drawn at `nowNs` that the display shows at `presentNs` (both
+// CLOCK_MONOTONIC ns): the speaker plays what the viewer sees, so a frame that waits in the swap queue hears that
+// much later. 0, or a time that has passed, reads at now. The wait is held to the dt clamp, past which the
+// estimate is no better than now.
+inline int64_t listenAtNs(int64_t nowNs, int64_t presentNs) {
+    if (presentNs <= nowNs) return nowNs;
+    const int64_t maxAhead = static_cast<int64_t>(kMaxDtSeconds * 1e9);
+    return nowNs + std::min(presentNs - nowNs, maxAhead);
+}
+
 struct PacerState {
     int64_t lastDrawnNs = 0;
     int64_t lastVsyncNs = 0;
@@ -82,12 +103,18 @@ public:
 
     // One vsync. `capFps` <= 0 means draw on every vsync (the panel's own rate). Returns the dt to draw
     // with, or 0 to skip this vsync.
-    static double onVsync(PacerState& s, int64_t frameTimeNs, float capFps) {
+    //
+    // `stageBusy`: the stage is still on the last frame it was asked for. The cap is a ceiling, not a cadence:
+    // a slot reached while the stage is busy is missed, not queued, and the first vsync after the stage
+    // finishes draws (sinceDrawn stays at the divide, so it is still due). Frames then land as fast as the
+    // stage can make them, never closer than the cap's interval, and never in a burst after a late one.
+    static double onVsync(PacerState& s, int64_t frameTimeNs, float capFps, bool stageBusy = false) {
         trackPeriod(s, frameTimeNs);
         s.capMilliHz = capFps > 0.0f && std::isfinite(capFps) ? std::llround(static_cast<double>(capFps) * 1000.0) : 0;
         s.divisor = divisorFor(s, capFps);
         s.pacedMilliHz = pacedMilliHzFor(s);
         if (++s.sinceDrawn < s.divisor) return 0.0;
+        if (stageBusy) return 0.0;
         s.sinceDrawn = 0;
         const int64_t previous = s.lastDrawnNs;
         s.lastDrawnNs = frameTimeNs;

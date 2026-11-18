@@ -60,6 +60,7 @@ import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
 import dev.geode.model.StyleShelf
 import dev.geode.model.TestCatalogue
+import dev.geode.model.TestTourRules
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
 import dev.geode.model.VizPlaylistEntry
@@ -82,6 +83,7 @@ import java.io.File
 class PrefsSchemaTest {
     init {
         TestCatalogue.install()
+        TestTourRules.install()
     }
 
     /** One owner of keys: its source file, its list, and how to make it write every key (null: see [sourcePinned]). */

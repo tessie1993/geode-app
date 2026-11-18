@@ -49,8 +49,11 @@ vec3 petalField(vec3 p) {
     }
     // The warp's slack keeps a step safe in the stretched space (lib_layers); k the layers' opening.
     m.x *= k * layerWarpSlack(amt);
-    vec3 s = sin(q * 4.5 + uTime * PETAL_RATE(1600) + vec3(0.0, 2.1, 4.2));
-    m.x += gPetalChaos * 0.04 * (s.x * s.y + s.z);
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its three sines are not taken.
+    if (gPetalChaos != 0.0) {
+        vec3 s = sin(q * 4.5 + uTime * PETAL_RATE(1600) + vec3(0.0, 2.1, 4.2));
+        m.x += gPetalChaos * 0.04 * (s.x * s.y + s.z);
+    }
     return m;
 }
 

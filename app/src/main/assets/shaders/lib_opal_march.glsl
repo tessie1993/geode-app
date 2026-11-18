@@ -25,8 +25,11 @@ vec2 opalField(vec3 p) {
         c.x = growBirthDist(c.x);
         if (abs(c.x) < abs(m.x)) m = c;
     }
-    vec3 s = sin(q * 5.0 + uTime * OPAL_RATE(1700) + vec3(0.0, 2.1, 4.2));
-    m.x += gOpalChaos * 0.035 * (s.x * s.y + s.z);
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its three sines are not taken.
+    if (gOpalChaos != 0.0) {
+        vec3 s = sin(q * 5.0 + uTime * OPAL_RATE(1700) + vec3(0.0, 2.1, 4.2));
+        m.x += gOpalChaos * 0.035 * (s.x * s.y + s.z);
+    }
     return m;
 }
 

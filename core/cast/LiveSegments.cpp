@@ -55,6 +55,7 @@ void LiveSegments::write(const uint8_t* data, size_t size) {
 
 void LiveSegments::onBox(const uint8_t* box, size_t size) {
     if (isType(box, "ftyp") || isType(box, "moov")) {
+        if (isType(box, "ftyp")) header_.clear();  // a second init starts a new header
         header_.insert(header_.end(), box, box + size);
         if (isType(box, "moov")) {
             init_ = std::make_shared<const std::vector<uint8_t>>(header_);

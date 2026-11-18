@@ -7,10 +7,13 @@ import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import android.os.Process
+import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import dev.geode.data.AppStateCodec
 import dev.geode.data.AppStateRepository
+import dev.geode.data.AtomicWrite
 import dev.geode.data.AutoDirectorCodec
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.BehaviourCodec
@@ -119,6 +122,23 @@ class GeodeContainer(
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
         discardStaleRestore(context.applicationContext)
         deleteUnfinishedOutputs(context.applicationContext)
+        sweepStaleTemps(context.applicationContext)
+    }
+
+    /**
+     * Deletes the `.tmp` files writes killed between their temp and their rename left in the app's own
+     * folders ([AtomicWrite.staleTemps]; native writes the same way). Only those last written before
+     * this process started: a write running now is never touched.
+     */
+    private fun sweepStaleTemps(context: Context) {
+        val startedAt = System.currentTimeMillis() - (SystemClock.uptimeMillis() - Process.getStartUptimeMillis())
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep stale temps") {
+                listOf(context.filesDir, context.noBackupFilesDir).forEach { dir ->
+                    AtomicWrite.staleTemps(dir, startedAt).forEach { it.delete() }
+                }
+            }
+        }
     }
 
     /**

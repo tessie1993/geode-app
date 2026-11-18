@@ -1,29 +1,62 @@
 package dev.geode.data
 
 import android.content.Context
+import androidx.annotation.VisibleForTesting
+import dev.geode.engine.bridge.LibraryNative
 import dev.geode.model.LibraryTrack
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 
+/**
+ * library.json, the app's own track list. The document, its identity and merge rules and every edit are native's
+ * (core/library/TrackLibraryDoc); this reads and writes the file's text, sets an unreadable file aside and does
+ * what native answers.
+ */
 class TrackLibrary(
     context: Context,
 ) {
     private val file = File(context.filesDir, "library.json")
 
-    fun list(): List<LibraryTrack> = synchronized(lock) { readLocked() ?: emptyList() }
+    /** The library after an edit: [json] is what to write when [changed]; [corruptInput] says the old file did not read. */
+    data class Edit(
+        val changed: Boolean,
+        val corruptInput: Boolean,
+        val json: String,
+        val tracks: List<LibraryTrack>,
+    )
 
-    fun addAll(tracks: List<LibraryTrack>): List<LibraryTrack>? = mutate { current -> mergeAdds(current, tracks) }
+    /** One re-read title and artist of a track. */
+    data class Fresh(
+        val uri: String,
+        val title: String,
+        val artist: String,
+    )
 
-    fun updateMetadata(
-        uri: String,
-        title: String,
-        artist: String,
-    ): List<LibraryTrack>? =
-        mutate { current ->
-            val prev = current.firstOrNull { it.uri == uri } ?: return@mutate current
-            upsertInfo(current, uri, title, artist, prev.album, prev.genre, prev.year, prev.trackNo, prev.comment)
-        }
+    /** The library rules, native's; a seam so a JVM test, which has no libgeode, can stand in for them. */
+    interface Rules {
+        fun read(text: String): Edit?
+
+        fun add(
+            text: String,
+            tracks: List<LibraryTrack>,
+        ): Edit?
+
+        fun saveInfo(
+            text: String,
+            track: LibraryTrack,
+        ): Edit?
+
+        fun applyFresh(
+            text: String,
+            fresh: List<Fresh>,
+        ): Edit?
+    }
+
+    fun list(): List<LibraryTrack> = synchronized(lock) { edit { rules.read(it) }?.tracks ?: emptyList() }
+
+    fun addAll(tracks: List<LibraryTrack>): List<LibraryTrack>? = mutate { rules.add(it, tracks) }
+
+    /** Every re-read title and artist of one batch, written once; one that matches what is held is left alone. */
+    fun applyFreshTitles(fresh: List<Fresh>): List<LibraryTrack>? = mutate { rules.applyFresh(it, fresh) }
 
     fun updateMetadata(
         uri: String,
@@ -34,24 +67,37 @@ class TrackLibrary(
         year: Int,
         trackNo: Int,
         comment: String,
-    ): List<LibraryTrack>? = mutate { upsertInfo(it, uri, title, artist, album, genre, year, trackNo, comment) }
+    ): List<LibraryTrack>? =
+        mutate {
+            rules.saveInfo(
+                it,
+                LibraryTrack(
+                    uri = uri,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    year = year,
+                    trackNo = trackNo,
+                    comment = comment,
+                ),
+            )
+        }
 
-    private fun mutate(block: (List<LibraryTrack>) -> List<LibraryTrack>): List<LibraryTrack>? {
+    private fun mutate(block: (String) -> Edit?): List<LibraryTrack>? {
         synchronized(lock) {
-            val current = readLocked() ?: return null
-            val merged = block(current)
-            if (merged !== current) writeLocked(merged)
-            return merged
+            val edit = edit(block) ?: return null
+            if (edit.changed) AtomicWrite.text(file, edit.json)
+            return edit.tracks
         }
     }
 
-    private fun readLocked(): List<LibraryTrack>? {
-        if (!file.exists()) return emptyList()
-        val text = runCatching { file.readText() }.getOrNull() ?: return null
-        if (text.isBlank()) return emptyList()
-        parseOrNull(text)?.let { return it }
-        runCatching { file.renameTo(quarantineFile()) }
-        return emptyList()
+    /** The file's text run through [block]; null when the file cannot be read or native failed. An unreadable library is set aside. */
+    private fun edit(block: (String) -> Edit?): Edit? {
+        val text = if (file.exists()) runCatching { file.readText() }.getOrNull() ?: return null else ""
+        val edit = block(text) ?: return null
+        if (edit.corruptInput) runCatching { file.renameTo(quarantineFile()) }
+        return edit
     }
 
     /** `library.json.corrupt`, else the first free `library.json.<n>.corrupt`: an earlier copy is never written over. */
@@ -60,118 +106,44 @@ class TrackLibrary(
             .map { n -> File(file.parentFile, if (n == 1) "${file.name}.corrupt" else "${file.name}.$n.corrupt") }
             .first { !it.exists() }
 
-    private fun writeLocked(tracks: List<LibraryTrack>) {
-        AtomicWrite.text(file, serialize(tracks))
+    private object NativeRules : Rules {
+        override fun read(text: String) = TrackWire.edit(LibraryNative.trackLibraryRead(text))
+
+        override fun add(
+            text: String,
+            tracks: List<LibraryTrack>,
+        ) = TrackWire.edit(LibraryNative.trackLibraryAdd(text, TrackWire.cells(tracks)))
+
+        override fun saveInfo(
+            text: String,
+            track: LibraryTrack,
+        ) = TrackWire.edit(
+            LibraryNative.trackLibrarySaveInfo(
+                text,
+                track.uri,
+                track.title,
+                track.artist,
+                track.album,
+                track.genre,
+                track.year,
+                track.trackNo,
+                track.comment,
+            ),
+        )
+
+        override fun applyFresh(
+            text: String,
+            fresh: List<Fresh>,
+        ) = TrackWire.edit(
+            LibraryNative.trackLibraryApplyFresh(text, fresh.flatMap { listOf(it.uri, it.title, it.artist) }.toTypedArray()),
+        )
     }
 
     companion object {
-        private const val VERSION = 3
-
         private val lock = Any()
 
-        internal fun identityKey(t: LibraryTrack): String =
-            if (t.fileName.isNotBlank() && t.sizeBytes > 0L) {
-                "file:${t.fileName.lowercase()}:${t.sizeBytes}"
-            } else {
-                "uri:${t.uri}"
-            }
-
-        internal fun mergeAdds(
-            existing: List<LibraryTrack>,
-            incoming: List<LibraryTrack>,
-        ): List<LibraryTrack> {
-            val identityByUri =
-                incoming
-                    .filter { it.fileName.isNotBlank() && it.sizeBytes > 0L }
-                    .associateBy { it.uri }
-            val merged = LinkedHashMap<String, LibraryTrack>()
-
-            fun keep(t: LibraryTrack) {
-                val key = identityKey(t)
-                if (key !in merged) merged[key] = t
-            }
-            for (t in existing) {
-                val id = if (t.fileName.isBlank()) identityByUri[t.uri] else null
-                keep(if (id == null) t else t.copy(fileName = id.fileName, sizeBytes = id.sizeBytes))
-            }
-            for (t in incoming) keep(t)
-            return merged.values.sortedBy { it.title.lowercase() }
-        }
-
-        internal fun upsertInfo(
-            tracks: List<LibraryTrack>,
-            uri: String,
-            title: String,
-            artist: String,
-            album: String,
-            genre: String,
-            year: Int,
-            trackNo: Int,
-            comment: String,
-        ): List<LibraryTrack> {
-            val map = tracks.associateBy { it.uri }.toMutableMap()
-            val base = map[uri] ?: LibraryTrack(uri = uri, title = title)
-            map[uri] =
-                base.copy(
-                    title = title,
-                    artist = artist,
-                    album = album,
-                    genre = genre,
-                    year = year,
-                    trackNo = trackNo,
-                    comment = comment,
-                )
-            return map.values.sortedBy { it.title.lowercase() }
-        }
-
-        internal fun parse(json: String): List<LibraryTrack> = parseOrNull(json) ?: emptyList()
-
-        /**
-         * Null only when the container cannot be read; an entry that cannot be read (no uri, not an
-         * object) drops itself, not the library.
-         */
-        internal fun parseOrNull(json: String): List<LibraryTrack>? {
-            val arr =
-                runCatching {
-                    val trimmed = json.trim()
-                    if (trimmed.startsWith("[")) JSONArray(trimmed) else JSONObject(trimmed).getJSONArray("tracks")
-                }.getOrNull() ?: return null
-            return (0 until arr.length()).mapNotNull { runCatching { fromJson(arr.getJSONObject(it)) }.getOrNull() }
-        }
-
-        internal fun serialize(tracks: List<LibraryTrack>): String {
-            val arr = JSONArray()
-            tracks.forEach { arr.put(toJson(it)) }
-            return JSONObject().put("version", VERSION).put("tracks", arr).toString()
-        }
-
-        private fun toJson(t: LibraryTrack): JSONObject =
-            JSONObject()
-                .put("uri", t.uri)
-                .put("title", t.title)
-                .put("artist", t.artist)
-                .put("durationMs", t.durationMs)
-                .put("album", t.album)
-                .put("genre", t.genre)
-                .put("year", t.year)
-                .put("trackNo", t.trackNo)
-                .put("comment", t.comment)
-                .put("fileName", t.fileName)
-                .put("sizeBytes", t.sizeBytes)
-
-        private fun fromJson(o: JSONObject): LibraryTrack =
-            LibraryTrack(
-                uri = o.getString("uri"),
-                title = o.optString("title", "Track"),
-                artist = o.optString("artist", ""),
-                durationMs = o.optLong("durationMs", 0L),
-                album = o.optString("album", ""),
-                genre = o.optString("genre", ""),
-                year = o.optInt("year", 0),
-                trackNo = o.optInt("trackNo", 0),
-                comment = o.optString("comment", ""),
-                fileName = o.optString("fileName", ""),
-                sizeBytes = o.optLong("sizeBytes", 0L),
-            )
+        /** Native's rules; JVM tests, which cannot load libgeode, put their own in. */
+        @VisibleForTesting
+        internal var rules: Rules = NativeRules
     }
 }

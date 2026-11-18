@@ -1,6 +1,8 @@
 package dev.geode.data
 
+import dev.geode.engine.bridge.LibraryNative
 import dev.geode.engine.bridge.TagsNative
+import dev.geode.model.LibraryTrack
 
 data class PlaylistEntry(
     val location: String,
@@ -57,22 +59,25 @@ object PlaylistFormats {
         return PlaylistParse.Parsed(head.getOrElse(1) { "" }, entries)
     }
 
+    /**
+     * The entries matched to [library] by file name, native's rule (`core/library/TrackRules`,
+     * `resolvePlaylistEntries`); null when native failed.
+     */
     fun resolve(
         entries: List<PlaylistEntry>,
-        urisByFileName: Map<String, List<String>>,
-    ): PlaylistResolution {
-        val uris = ArrayList<String>(entries.size)
-        val missing = ArrayList<PlaylistEntry>()
-        val ambiguous = ArrayList<PlaylistEntry>()
-        for (entry in entries) {
-            val candidates = urisByFileName[entry.baseName.lowercase()].orEmpty()
-            if (candidates.isEmpty()) {
-                missing += entry
-                continue
-            }
-            uris += candidates.first()
-            if (candidates.size > 1) ambiguous += entry
-        }
+        library: List<LibraryTrack>,
+    ): PlaylistResolution? {
+        val records =
+            TrackWire.records(
+                LibraryNative.trackResolveEntries(
+                    entries.map { it.baseName }.toTypedArray(),
+                    library.flatMap { listOf(it.fileName, it.uri) }.toTypedArray(),
+                ),
+            )
+        if (records.size < 3) return null
+        val uris = records[0].filter { it.isNotEmpty() }
+        val missing = records[1].mapNotNull { it.toIntOrNull()?.let(entries::getOrNull) }
+        val ambiguous = records[2].mapNotNull { it.toIntOrNull()?.let(entries::getOrNull) }
         return PlaylistResolution(uris, missing, ambiguous)
     }
 }

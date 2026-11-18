@@ -9,6 +9,7 @@ import android.os.Looper
 import android.provider.MediaStore
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.LibraryNative
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
@@ -78,7 +79,16 @@ internal val MEDIA_ROOTS_PREF_KEYS =
         device(PrefType.STRING_SET, KEY_ROOTS)
     }
 
-private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "aiff", "aif")
+// The tags rawFor asks the reader for, in the order native's `geode_track_tag_fallbacks` takes them.
+private val RAW_TAGS =
+    intArrayOf(
+        android.media.MediaMetadataRetriever.METADATA_KEY_TITLE,
+        android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST,
+        android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM,
+        android.media.MediaMetadataRetriever.METADATA_KEY_GENRE,
+        android.media.MediaMetadataRetriever.METADATA_KEY_YEAR,
+        android.media.MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER,
+    )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MusicLibraryRepository(
@@ -121,15 +131,13 @@ internal class MusicLibraryRepository(
         }
     }
 
-    private data class FileMeta(
-        val title: String,
-        val artist: String = "",
-        val album: String = "",
-        val genre: String = "",
-        val year: Int = 0,
-        val trackNo: Int = 0,
-        val fileName: String = "",
-        val sizeBytes: Long = 0L,
+    /** What the tag reader and the platform say about one file; native's fallback chain turns it into a track. */
+    private class RawFile(
+        val uri: String,
+        val tags: Array<String?>,
+        val displayName: String,
+        val sizeBytes: Long,
+        val lastPathSegment: String?,
     )
 
     private val _deviceTracks = MutableStateFlow<List<DeviceTrack>>(emptyList())
@@ -201,51 +209,20 @@ internal class MusicLibraryRepository(
             awaitClose { resolver.unregisterContentObserver(observer) }
         }
 
-    private fun metadataFor(uri: Uri): FileMeta {
-        var title: String? = null
-        var artist: String? = null
-        var album = ""
-        var genre = ""
-        var year = 0
-        var trackNo = 0
+    private fun rawFor(uri: Uri): RawFile {
+        // title, artist, album, genre, year, track number: as the reader gave them, null for none.
+        val tags = arrayOfNulls<String>(RAW_TAGS.size)
         runCatching {
             val r = android.media.MediaMetadataRetriever()
             try {
                 r.setDataSource(application, uri)
-
-                fun tag(key: Int): String? = r.extractMetadata(key)?.trim()?.ifBlank { null }
-                title = tag(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
-                artist = tag(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
-                album = tag(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM) ?: ""
-                genre = tag(android.media.MediaMetadataRetriever.METADATA_KEY_GENRE) ?: ""
-                year =
-                    tag(android.media.MediaMetadataRetriever.METADATA_KEY_YEAR)
-                        ?.filter { it.isDigit() }
-                        ?.take(4)
-                        ?.toIntOrNull() ?: 0
-                trackNo =
-                    tag(android.media.MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
-                        ?.substringBefore('/')
-                        ?.trim()
-                        ?.toIntOrNull() ?: 0
+                RAW_TAGS.forEachIndexed { at, key -> tags[at] = r.extractMetadata(key) }
             } finally {
                 bestEffort(TAG, "r.release()") { r.release() }
             }
         }
         val openable = openableInfoFor(uri)
-        if (title == null) title = openable.first.ifBlank { null }?.substringBeforeLast('.')
-        return FileMeta(
-            title =
-                title ?: uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
-                    ?: application.getString(dev.geode.R.string.library_untitled_track),
-            artist = artist ?: "",
-            album = album,
-            genre = genre,
-            year = year,
-            trackNo = trackNo,
-            fileName = openable.first,
-            sizeBytes = openable.second,
-        )
+        return RawFile(uri.toString(), tags, openable.first, openable.second, uri.lastPathSegment)
     }
 
     private fun openableInfoFor(uri: Uri): Pair<String, Long> =
@@ -264,33 +241,32 @@ internal class MusicLibraryRepository(
                 }
         }.getOrNull() ?: ("" to 0L)
 
-    private fun libraryTrackFor(
-        uriStr: String,
-        m: FileMeta,
-    ): LibraryTrack =
-        LibraryTrack(
-            uri = uriStr,
-            title = m.title,
-            artist = m.artist,
-            album = m.album,
-            genre = m.genre,
-            year = m.year,
-            trackNo = m.trackNo,
-            fileName = m.fileName,
-            sizeBytes = m.sizeBytes,
+    /** One track per file, the whole batch in one native call (`core/library/TrackRules`, `tagFallbacks`). */
+    private fun libraryTracksFor(files: List<RawFile>): List<LibraryTrack> {
+        if (files.isEmpty()) return emptyList()
+        val cells =
+            files.flatMap { f -> f.tags.toList() + listOf(f.uri, f.displayName, f.lastPathSegment) }
+        return TrackWire.tracks(
+            LibraryNative.trackTagFallbacks(
+                cells.toTypedArray(),
+                files.map { it.sizeBytes }.toLongArray(),
+                application.getString(dev.geode.R.string.library_untitled_track),
+            ),
         )
+    }
 
     override fun importTracks(uris: List<Uri>) {
         if (uris.isEmpty()) return
         scope.launch(Dispatchers.IO) {
-            val tracks =
+            val files =
                 uris.map { uri ->
                     application.contentResolver.persistGrant(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     // Taken separately: a picker that granted read only would otherwise refuse both flags.
                     application.contentResolver.persistGrant(uri, android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                    libraryTrackFor(uri.toString(), metadataFor(uri))
+                    rawFor(uri)
                 }
-            writeTracks { it.addAll(tracks) }
+            val tracks = libraryTracksFor(files)
+            if (tracks.isNotEmpty()) writeTracks { it.addAll(tracks) }
         }
     }
 
@@ -298,7 +274,8 @@ internal class MusicLibraryRepository(
 
     override suspend fun trackInfoFor(uriStr: String): LibraryTrack =
         trackOverride(uriStr) ?: withContext(Dispatchers.IO) {
-            libraryTrackFor(uriStr, metadataFor(Uri.parse(uriStr)))
+            libraryTracksFor(listOf(rawFor(Uri.parse(uriStr)))).firstOrNull()
+                ?: LibraryTrack(uri = uriStr, title = application.getString(dev.geode.R.string.library_untitled_track))
         }
 
     override fun saveTrackInfo(
@@ -355,18 +332,14 @@ internal class MusicLibraryRepository(
 
     fun refreshNumericTitles() {
         scope.launch(Dispatchers.IO) {
-            val bad =
-                _library.value.tracks.filter {
-                    it.title.matches(Regex("^[0-9:%A-F]{4,}$")) || it.artist.isEmpty() && it.title.matches(Regex("^\\d+$"))
-                }
-            for (t in bad) {
-                runCatching {
-                    val (title, artist) = metadataFor(Uri.parse(t.uri))
-                    if (title != t.title || artist != t.artist) {
-                        writeTracks { it.updateMetadata(t.uri, title, artist) }
-                    }
-                }
-            }
+            val held = _library.value.tracks
+            val flags = LibraryNative.trackTitleRefresh(held.flatMap { listOf(it.title, it.artist) }.toTypedArray())
+            val files =
+                held
+                    .filterIndexed { at, _ -> flags.getOrNull(at) == 1 }
+                    .mapNotNull { runCatching { rawFor(Uri.parse(it.uri)) }.getOrNull() }
+            val fresh = libraryTracksFor(files).map { TrackLibrary.Fresh(it.uri, it.title, it.artist) }
+            if (fresh.isNotEmpty()) writeTracks { it.applyFreshTitles(fresh) }
         }
     }
 
@@ -425,30 +398,30 @@ internal class MusicLibraryRepository(
      */
     private suspend fun scanTreeBlocking(treeUri: Uri) {
         val job = currentCoroutineContext().job
-        val found = mutableListOf<LibraryTrack>()
+        val found = mutableListOf<RawFile>()
         runCatching {
             val root =
                 androidx.documentfile.provider.DocumentFile
                     .fromTreeUri(application, treeUri) ?: return@runCatching
 
+            // One native call per folder listing says what each entry is (`core/library/TrackRules`, `walkAction`).
             fun walk(
                 dir: androidx.documentfile.provider.DocumentFile,
                 depth: Int,
             ) {
-                if (depth > 8) return
-                dir.listFiles().forEach { f ->
+                val entries = dir.listFiles()
+                val actions =
+                    LibraryNative.trackWalkActions(
+                        Array(entries.size) { entries[it].name },
+                        Array(entries.size) { entries[it].type },
+                        IntArray(entries.size) { if (entries[it].isDirectory) 1 else 0 },
+                        depth,
+                    )
+                entries.forEachIndexed { at, f ->
                     if (!job.isActive) return
-                    val name = f.name ?: return@forEach
-                    if (name.startsWith(".")) return@forEach
-                    if (f.isDirectory) {
-                        walk(f, depth + 1)
-                    } else {
-                        val isAudio =
-                            f.type?.startsWith("audio/") == true ||
-                                name.substringAfterLast('.', "").lowercase() in AUDIO_EXTS
-                        if (isAudio) {
-                            found += libraryTrackFor(f.uri.toString(), metadataFor(f.uri))
-                        }
+                    when (actions.getOrNull(at)) {
+                        LibraryNative.WALK_DESCEND -> walk(f, depth + 1)
+                        LibraryNative.WALK_KEEP_AUDIO -> found += rawFor(f.uri)
                     }
                 }
             }
@@ -456,7 +429,8 @@ internal class MusicLibraryRepository(
         }
         // Outside the runCatching above, which would swallow the cancellation.
         job.ensureActive()
-        if (found.isNotEmpty()) writeTracks { it.addAll(found) }
+        val tracks = libraryTracksFor(found)
+        if (tracks.isNotEmpty()) writeTracks { it.addAll(tracks) }
     }
 
     /**
@@ -534,11 +508,9 @@ internal class MusicLibraryRepository(
             when (val parsed = PlaylistFormats.parse(fileName, bytes)) {
                 is PlaylistParse.Unreadable -> PlaylistImportResult.Failed(parsed.why)
                 is PlaylistParse.Parsed -> {
-                    val urisByFileName =
-                        _library.value.tracks
-                            .filter { it.fileName.isNotBlank() }
-                            .groupBy({ it.fileName.lowercase() }, { it.uri })
-                    val resolution = PlaylistFormats.resolve(parsed.entries, urisByFileName)
+                    val resolution =
+                        PlaylistFormats.resolve(parsed.entries, _library.value.tracks)
+                            ?: return@withContext PlaylistImportResult.Failed("could not match the entries")
                     val untitled = application.getString(dev.geode.R.string.playlist_untitled)
                     // In the edits' lane, so the free name it picks is still free when it is written.
                     val name =

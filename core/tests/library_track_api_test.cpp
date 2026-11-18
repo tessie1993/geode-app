@@ -129,7 +129,7 @@ void refreshAndRows() {
         check(kept[1][0] == "1", "one row left out");
     }
     const auto all = records(geode_track_device_rows(rows, durations, 2, 0, names));
-    check(all.size() == 3 && all[1].size() == 4, "off keeps both; a row with no folder loses its empty last field");
+    check(all.size() == 3 && all[1].size() == 5 && all[1][4].empty(), "off keeps both; a row with no folder has an empty one");
 }
 
 void resolving() {

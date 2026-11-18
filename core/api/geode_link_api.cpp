@@ -11,6 +11,7 @@
 namespace share = geode::viz::frame::link;
 namespace qr = geode::util::qr;
 
+static_assert(qr::kMaxSide == GEODE_QR_MAX_SIDE && qr::kMaxBytes == GEODE_QR_MAX_BYTES, "the shell's QR buffer is MAX_SIDE squared");
 static_assert(share::kTokenChars == GEODE_LINK_TOKEN_CHARS && share::kStateInts == GEODE_LINK_STATE);
 static_assert(static_cast<int>(share::Resource::Segment) == GEODE_LINK_SEGMENT &&
               static_cast<int>(share::Resource::Redirect) == GEODE_LINK_REDIRECT &&

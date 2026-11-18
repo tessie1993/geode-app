@@ -168,6 +168,12 @@ float geode_params_get(const float* frame, const char* name) try {
     return std::numeric_limits<float>::quiet_NaN();
 }
 
+int geode_params_get_int(const float* frame, const char* name) { return geode::viz::SceneParams::asInt(geode_params_get(frame, name)); }
+
+int geode_params_get_flag(const float* frame, const char* name) {
+    return geode::viz::SceneParams::asFlag(geode_params_get(frame, name)) ? 1 : 0;
+}
+
 int geode_params_set(const float* in, const char* name, float value, float* out) try {
     if (!in || !name || !out) return 0;
     SceneParams edited = SceneParams::fromWire(in);

@@ -9,7 +9,7 @@ import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
 import dev.geode.engine.bridge.PanelNative
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update

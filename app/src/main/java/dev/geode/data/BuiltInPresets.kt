@@ -1,7 +1,7 @@
 package dev.geode.data
 
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.SceneParams
 
 /**
  * The bundled looks, read from the engine. Which looks ship, on which styles, and every value they set

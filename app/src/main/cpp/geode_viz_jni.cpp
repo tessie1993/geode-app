@@ -641,6 +641,12 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueReaches(JNIEnv* env, jobject, 
     return geode_catalogue_reaches(name.get(), style.get()) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueStyleHas(JNIEnv* env, jobject, jint trait, jstring styleId) {
+    Utf8Chars style(env, styleId);
+    return geode_catalogue_style_has(trait, style.get()) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_catalogueOverride(JNIEnv* env, jobject, jstring styleId, jstring paramKey) {
     Utf8Chars style(env, styleId);

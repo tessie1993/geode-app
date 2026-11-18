@@ -43,9 +43,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 
@@ -236,7 +235,7 @@ private fun MomentRow(
                 range = ModCatalog.range("music.strength"),
                 display = stringResource(R.string.music_moment_strength, name),
                 scope = ParamScope.UNIVERSAL,
-                unit = ParamUnit.TIMES,
+                unit = GeodeNative.PARAM_UNIT_TIMES,
             ) { v -> onEdit(GeodeNative.MOD_EDIT_MUSIC_STRENGTH, moment.ordinal, 0, v) }
         }
     }

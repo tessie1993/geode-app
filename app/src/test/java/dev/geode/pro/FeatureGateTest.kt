@@ -1,9 +1,9 @@
 package dev.geode.pro
 
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.engine.bridge.TestCatalogue
 import dev.geode.model.WatermarkChoice
-import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

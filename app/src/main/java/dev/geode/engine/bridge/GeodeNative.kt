@@ -1144,11 +1144,17 @@ object GeodeNative {
     /**
      * The scene and style catalogue (core/viz/Catalogue), one question per call (`geode_catalogue_*`). A
      * list comes back as its items each followed by a newline. The answers never change in a process, so
-     * the shell asks once and keeps them (dev.geode.render.scene.StyleCatalogue).
+     * the shell asks once and keeps them (dev.geode.engine.bridge.StyleCatalogue).
      *
      * [catalogueStyleIds]: the styles with a trait ([STYLE_ANY] and the rest), in picker order.
      */
     external fun catalogueStyleIds(trait: Int): String
+
+    /** Whether a style has a trait ([STYLE_ANY] and the rest); false for an unknown trait or id (`geode_catalogue_style_has`). */
+    external fun catalogueStyleHas(
+        trait: Int,
+        styleId: String,
+    ): Boolean
 
     /** The Styles page's families, in order. */
     external fun cataloguePickerNames(): String
@@ -1219,7 +1225,7 @@ object GeodeNative {
 
     /**
      * The text a Customize control shows for [value] (core/viz/ParamText, `geode_param_text`): a %, ×, s or
-     * ms, Hz or °, and "Default" at [default] (NaN for a control with none). [unit] is a ParamUnit's ordinal;
+     * ms, Hz or °, and "Default" at [default] (NaN for a control with none). [unit] is one of [PARAM_UNIT_PERCENT] and the rest;
      * -1 takes the control's own, by its [key] and then its range [lo]..[hi]. A range below zero signs a
      * percentage.
      */
@@ -1231,6 +1237,12 @@ object GeodeNative {
         hi: Float,
         default: Float,
     ): String
+
+    /** The units [paramText] takes (`geode_param_text`); [PARAM_UNIT_OWN] takes the control's own. */
+    const val PARAM_UNIT_OWN: Int = -1
+    const val PARAM_UNIT_PERCENT: Int = 0
+    const val PARAM_UNIT_TIMES: Int = 1
+    const val PARAM_UNIT_SECONDS: Int = 2
 
     /**
      * The hue base a palette slot draws: [override] when it is >= 0, else built-in palette [palette]'s, the
@@ -1326,6 +1338,15 @@ object GeodeNative {
     external fun savedPaletteKeptId(
         lookId: String,
         deletedId: String,
+    ): String
+
+    /**
+     * The saved palette id a look naming [lookId] keeps on a params [frame] native wrote (a roll, a reset): the id
+     * while the frame still draws its own palette, "" once it does not (`geode_saved_palette_frame_id`).
+     */
+    external fun savedPaletteFrameId(
+        lookId: String,
+        frame: FloatArray,
     ): String
 
     /**

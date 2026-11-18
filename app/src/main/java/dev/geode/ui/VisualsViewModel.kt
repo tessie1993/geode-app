@@ -22,8 +22,8 @@ import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SceneParams
 import dev.geode.model.PresetLink
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

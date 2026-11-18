@@ -1,6 +1,5 @@
-package dev.geode.render.scene
+package dev.geode.engine.bridge
 
-import dev.geode.engine.bridge.GeodeNative
 import kotlin.math.roundToInt
 
 /**
@@ -100,6 +99,12 @@ class SceneParams private constructor(
             name: String,
             value: Float,
         ): FloatArray?
+
+        /** The saved palette id a look naming [lookId] keeps on [frame], a frame native wrote. */
+        fun paletteIdOn(
+            frame: FloatArray,
+            lookId: String,
+        ): String
     }
 
     private object Native : Reads {
@@ -115,6 +120,11 @@ class SceneParams private constructor(
             name: String,
             value: Float,
         ): FloatArray? = GeodeNative.paramsSet(frame, name, value)
+
+        override fun paletteIdOn(
+            frame: FloatArray,
+            lookId: String,
+        ): String = GeodeNative.savedPaletteFrameId(lookId, frame)
     }
 
     companion object {
@@ -148,8 +158,7 @@ class SceneParams private constructor(
             base: SceneParams = DEFAULT,
         ): SceneParams {
             val frame = values.copyOf(FIELDS)
-            val keep = base.customPaletteId.isNotEmpty() && GeodeNative.paramsUsesCustomPalette(frame)
-            return SceneParams(frame, if (keep) base.customPaletteId else NO_CUSTOM_PALETTE)
+            return SceneParams(frame, reads.paletteIdOn(frame, base.customPaletteId))
         }
 
         /** A frame and its saved palette id as native read them (a preset, a template's look). */

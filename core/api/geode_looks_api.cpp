@@ -123,6 +123,11 @@ const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted
     return hold(out, files::keptPaletteId(textOf(look_id), textOf(deleted_id)));
 }
 
+const char* geode_saved_palette_frame_id(const char* look_id, const float* frame) {
+    thread_local std::string out;
+    return hold(out, frame ? files::framePaletteId(textOf(look_id), SceneParams::fromWire(frame)) : std::string());
+}
+
 int geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) {
     if (!out_frame || n < SceneParams::kFieldCount || !out_text || !out_envelope) return 0;
     thread_local files::Preset read;

@@ -46,12 +46,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.geodeContainer
-import dev.geode.render.fluid.FluidShaderTemplate
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -184,7 +182,7 @@ private fun ReactionCard(
     val amountRange = ModCatalog.range("route.amount")
     val amountText =
         remember(amount, amountRange) {
-            GeodeNative.paramText("", ParamUnit.PERCENT.ordinal, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
+            GeodeNative.paramText("", GeodeNative.PARAM_UNIT_PERCENT, amount, amountRange.start, amountRange.endInclusive, Float.NaN)
         }
     val sourceLabel = ModCatalog.label("react", source)
     val targetLabel = ModCatalog.label("target", target)
@@ -212,7 +210,7 @@ private fun ReactionCard(
                 }
             }
             WordRow("Mode", "mode", route.intAt(GeodeNative.MOD_ROUTE_MODE)) { onSet(GeodeNative.MOD_ROUTE_MODE, it) }
-            LabeledSlider(REACT_DEPTH, amount, amountRange, scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
+            LabeledSlider(REACT_DEPTH, amount, amountRange, scope = ParamScope.UNIVERSAL, unit = GeodeNative.PARAM_UNIT_PERCENT) {
                 onSet(GeodeNative.MOD_ROUTE_AMOUNT, it)
             }
             LabeledSlider(
@@ -220,14 +218,14 @@ private fun ReactionCard(
                 route.getOrElse(GeodeNative.MOD_ROUTE_ATTACK_SECONDS) { 0f },
                 ModCatalog.range("route.attackSeconds"),
                 scope = ParamScope.UNIVERSAL,
-                unit = ParamUnit.SECONDS,
+                unit = GeodeNative.PARAM_UNIT_SECONDS,
             ) { onSet(GeodeNative.MOD_ROUTE_ATTACK_SECONDS, it) }
             LabeledSlider(
                 REACT_RELEASE,
                 route.getOrElse(GeodeNative.MOD_ROUTE_RELEASE_SECONDS) { 0f },
                 ModCatalog.range("route.releaseSeconds"),
                 scope = ParamScope.UNIVERSAL,
-                unit = ParamUnit.SECONDS,
+                unit = GeodeNative.PARAM_UNIT_SECONDS,
             ) { onSet(GeodeNative.MOD_ROUTE_RELEASE_SECONDS, it) }
             WordRow("Curve", "curve", route.intAt(GeodeNative.MOD_ROUTE_CURVE)) { onSet(GeodeNative.MOD_ROUTE_CURVE, it) }
             TextButton(onClick = onRemove) { Text(stringResource(R.string.action_remove)) }
@@ -367,7 +365,7 @@ private fun RateSecondsSlider(
     val lo = range.start
     val hi = range.endInclusive
     val t = remember(seconds, lo, hi) { GeodeNative.sliderLogPosition(seconds, lo, hi) }
-    val shown = remember(seconds) { GeodeNative.paramText("", ParamUnit.SECONDS.ordinal, seconds, 0f, 0f, Float.NaN) }
+    val shown = remember(seconds) { GeodeNative.paramText("", GeodeNative.PARAM_UNIT_SECONDS, seconds, 0f, 0f, Float.NaN) }
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text(stringResource(R.string.customize_one_cycle_value, shown), style = MaterialTheme.typography.bodyMedium)
@@ -416,11 +414,11 @@ internal fun AdsrCard(
             MacroKnobRow(v.intAt(GeodeNative.MOD_ADSR_KNOB)) { onChange(GeodeNative.MOD_ADSR_KNOB, it.toFloat()) }
         }
         CardSubHeader(stringResource(R.string.customize_envelope_shape))
-        AdsrSlider(ENV_ATTACK, v, GeodeNative.MOD_ADSR_ATTACK, "adsr.attack", ParamUnit.SECONDS, onChange)
-        AdsrSlider(ENV_DECAY, v, GeodeNative.MOD_ADSR_DECAY, "adsr.decay", ParamUnit.SECONDS, onChange)
+        AdsrSlider(ENV_ATTACK, v, GeodeNative.MOD_ADSR_ATTACK, "adsr.attack", GeodeNative.PARAM_UNIT_SECONDS, onChange)
+        AdsrSlider(ENV_DECAY, v, GeodeNative.MOD_ADSR_DECAY, "adsr.decay", GeodeNative.PARAM_UNIT_SECONDS, onChange)
         AdsrSlider(ENV_SUSTAIN, v, GeodeNative.MOD_ADSR_SUSTAIN, "adsr.sustain", null, onChange)
-        AdsrSlider(ENV_RELEASE, v, GeodeNative.MOD_ADSR_RELEASE, "adsr.release", ParamUnit.SECONDS, onChange)
-        AdsrSlider(ENV_AMOUNT, v, GeodeNative.MOD_ADSR_AMOUNT, "adsr.amount", ParamUnit.PERCENT, onChange)
+        AdsrSlider(ENV_RELEASE, v, GeodeNative.MOD_ADSR_RELEASE, "adsr.release", GeodeNative.PARAM_UNIT_SECONDS, onChange)
+        AdsrSlider(ENV_AMOUNT, v, GeodeNative.MOD_ADSR_AMOUNT, "adsr.amount", GeodeNative.PARAM_UNIT_PERCENT, onChange)
         CardSubHeader(stringResource(R.string.customize_envelope_hold))
         ControlHint(
             stringResource(R.string.customize_envelope_hold_hint),
@@ -446,7 +444,7 @@ private fun AdsrSlider(
     values: FloatArray,
     field: Int,
     range: String,
-    unit: ParamUnit?,
+    unit: Int,
     onChange: (field: Int, value: Float) -> Unit,
 ) {
     LabeledSlider(label, values.getOrElse(field) { 0f }, ModCatalog.range(range), unit = unit) { onChange(field, it) }
@@ -533,7 +531,7 @@ private fun NoteKeySlider(
     onChange: (SceneParams) -> Unit,
 ) {
     val label = stringResource(name)
-    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
+    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = GeodeNative.PARAM_UNIT_TIMES, onChange = onChange)
     if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
 }
 
@@ -645,6 +643,9 @@ internal fun ShaderCodePage(host: AdvancedHost) {
     }
 }
 
+/** The built-in splat shader the two editors open on; native compiles what the user sends back. */
+private const val FLUID_SPLAT_ASSET = "shaders/fluid_splat_frag.glsl"
+
 @Composable
 private fun InjectionShaderEditors(
     injectionError: String?,
@@ -659,7 +660,12 @@ private fun InjectionShaderEditors(
     val template by produceState<String?>(initialValue = null, ctx) {
         value =
             withContext(Dispatchers.IO) {
-                FluidShaderTemplate.splat(ctx).also {
+                runCatching {
+                    ctx.assets
+                        .open(FLUID_SPLAT_ASSET)
+                        .bufferedReader()
+                        .use { it.readText() }
+                }.getOrDefault("").also {
                     if (it.isEmpty()) RingLog.note("CustomizeAdvanced", "fluid splat asset read failed")
                 }
             }

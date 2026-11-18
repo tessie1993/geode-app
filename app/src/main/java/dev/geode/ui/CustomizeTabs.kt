@@ -56,11 +56,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.ParamScope
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.ControlRange
-import dev.geode.render.scene.ParamScope
-import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.GeodeSpacing
 
 val LocalParamLocks =
@@ -511,7 +510,7 @@ internal fun LabeledSlider(
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
     default: Float? = null,
-    unit: ParamUnit? = null,
+    unit: Int = GeodeNative.PARAM_UNIT_OWN,
     steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
@@ -519,7 +518,7 @@ internal fun LabeledSlider(
     if (!visible(label, scope, name)) return
     val shown =
         remember(value, default, unit, range) {
-            GeodeNative.paramText(label, unit?.ordinal ?: -1, value, range.start, range.endInclusive, default ?: Float.NaN)
+            GeodeNative.paramText(label, unit, value, range.start, range.endInclusive, default ?: Float.NaN)
         }
     val lock = LocalProLock.current
     val locked = !lock.allows(label)
@@ -607,7 +606,7 @@ internal fun LabeledSlider(
     name: String,
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
-    unit: ParamUnit? = null,
+    unit: Int = GeodeNative.PARAM_UNIT_OWN,
     steps: Int = 0,
     onChange: (SceneParams) -> Unit,
 ) {

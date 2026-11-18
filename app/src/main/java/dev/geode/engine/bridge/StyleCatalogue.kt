@@ -1,6 +1,5 @@
-package dev.geode.render.scene
+package dev.geode.engine.bridge
 
-import dev.geode.engine.bridge.GeodeNative
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -22,6 +21,11 @@ object StyleCatalogue {
     /** The catalogue's questions. The app asks native; a JVM test, which cannot load the library, installs its own. */
     interface Reads {
         fun styleIds(trait: Int): String
+
+        fun styleHas(
+            trait: Int,
+            styleId: String,
+        ): Boolean
 
         fun pickerNames(): String
 
@@ -46,6 +50,11 @@ object StyleCatalogue {
 
     private object Native : Reads {
         override fun styleIds(trait: Int): String = GeodeNative.catalogueStyleIds(trait)
+
+        override fun styleHas(
+            trait: Int,
+            styleId: String,
+        ): Boolean = GeodeNative.catalogueStyleHas(trait, styleId)
 
         override fun pickerNames(): String = GeodeNative.cataloguePickerNames()
 
@@ -73,7 +82,6 @@ object StyleCatalogue {
         val reads: Reads,
     ) {
         val ids = ConcurrentHashMap<Int, List<String>>()
-        val sets = ConcurrentHashMap<Int, Set<String>>()
         val shelves = ConcurrentHashMap<String, String>()
         val scopes = ConcurrentHashMap<String, String>()
         val reach = ConcurrentHashMap<String, Boolean>()
@@ -82,11 +90,6 @@ object StyleCatalogue {
         }
 
         fun ids(trait: Int): List<String> = ids.getOrPut(trait) { lines(reads.styleIds(trait)) }
-
-        fun has(
-            trait: Int,
-            id: String,
-        ): Boolean = id in sets.getOrPut(trait) { ids(trait).toHashSet() }
     }
 
     @Volatile
@@ -107,7 +110,7 @@ object StyleCatalogue {
     val picker: Map<String, List<String>> get() = answers.picker
 
     /** True for every look of the Fluid solver, `fluid` itself included; Curl Flow is its own renderer. */
-    fun isFluid(id: String): Boolean = answers.has(GeodeNative.STYLE_FLUID, id)
+    fun isFluid(id: String): Boolean = answers.reads.styleHas(GeodeNative.STYLE_FLUID, id)
 
     /** The style a saved id opens on: a retired id's replacement, any other id itself. */
     fun resolve(id: String): String = answers.reads.resolve(id)

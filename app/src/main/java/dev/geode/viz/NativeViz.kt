@@ -5,7 +5,7 @@ import android.content.res.AssetManager
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.SceneParams
+import dev.geode.engine.bridge.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
 

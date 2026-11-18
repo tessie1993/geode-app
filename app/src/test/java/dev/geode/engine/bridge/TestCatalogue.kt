@@ -1,7 +1,6 @@
-package dev.geode.render.scene
+package dev.geode.engine.bridge
 
 import dev.geode.data.NativeLookDefaults
-import dev.geode.engine.bridge.GeodeNative
 
 /**
  * A small catalogue for JVM tests, which cannot load the native library: a few real styles of each
@@ -66,6 +65,11 @@ object TestCatalogue : StyleCatalogue.Reads {
             GeodeNative.STYLE_CYMATICS -> cymatics
             else -> emptyList()
         }.let(::listText)
+
+    override fun styleHas(
+        trait: Int,
+        styleId: String,
+    ): Boolean = styleId in styleIds(trait).lines()
 
     override fun pickerNames(): String = listText(picker.keys)
 

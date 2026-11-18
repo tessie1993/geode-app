@@ -44,6 +44,8 @@ import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
 import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SceneParams
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -58,8 +60,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.StyleCatalogue
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CompletableDeferred

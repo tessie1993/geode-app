@@ -255,6 +255,14 @@ Java_dev_geode_engine_bridge_GeodeNative_savedPaletteKeptId(JNIEnv* env, jobject
     return utf8String(env, geode_saved_palette_kept_id(textOf(look), textOf(deleted)));
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_savedPaletteFrameId(JNIEnv* env, jobject, jstring lookId, jfloatArray frame) {
+    Utf8Chars look(env, lookId);
+    FloatElements values(env, frame);
+    if (!values.get() || values.length() < geode_viz_param_count()) return utf8String(env, "");
+    return utf8String(env, geode_saved_palette_frame_id(textOf(look), values.get()));
+}
+
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_presetRead(JNIEnv* env, jobject, jstring text, jfloatArray frame,
                                                                              jobjectArray strings, jfloatArray envelope) {
     const jsize count = static_cast<jsize>(geode_viz_param_count());

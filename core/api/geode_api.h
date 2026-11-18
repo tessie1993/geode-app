@@ -577,6 +577,8 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
 #define GEODE_STYLE_FLUID 4
 #define GEODE_STYLE_CYMATICS 5
 GEODE_API const char* geode_catalogue_style_ids(int trait);
+/* 1 when the style has the trait; 0 for an unknown trait or id. */
+GEODE_API int         geode_catalogue_style_has(int trait, const char* style_id);
 GEODE_API const char* geode_catalogue_picker_names(void);
 GEODE_API const char* geode_catalogue_picker_ids(const char* family);
 GEODE_API const char* geode_catalogue_resolve(const char* style_id);
@@ -671,6 +673,9 @@ GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
 GEODE_API int         geode_saved_palette_max_stops(void);
 GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
 GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
+/* The saved palette id a look keeps on a params frame native wrote (a roll, a reset): `look_id` while the frame
+ * still draws its own palette, "" once it does not. Thread-local text. */
+GEODE_API const char* geode_saved_palette_frame_id(const char* look_id, const float* frame);
 /* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
  * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
  * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =

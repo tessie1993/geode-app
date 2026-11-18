@@ -1,7 +1,6 @@
-package dev.geode.render
+package dev.geode.engine.bridge
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.geode.engine.bridge.GeodeNative
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

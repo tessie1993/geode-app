@@ -1,4 +1,4 @@
-package dev.geode.render.scene
+package dev.geode.engine.bridge
 
 import java.io.File
 import kotlin.math.roundToInt
@@ -50,5 +50,14 @@ object TestParams : SceneParams.Reads {
                 else -> value
             }
         return frame.copyOf().also { it[row.slot] = kept }
+    }
+
+    /** Native's rule on the same rows: the id stays while a hue override or the first stop is set. */
+    override fun paletteIdOn(
+        frame: FloatArray,
+        lookId: String,
+    ): String {
+        val own = get(frame, "paletteBaseOverride") >= 0f || get(frame, "paletteRangeOverride") >= 0f || get(frame, "paletteStop0") >= 0f
+        return if (own) lookId else ""
     }
 }

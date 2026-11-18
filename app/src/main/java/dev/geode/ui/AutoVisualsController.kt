@@ -5,9 +5,9 @@ import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.model.MilkFile
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.scene.StyleCatalogue
 import kotlinx.coroutines.flow.StateFlow
 
 /**

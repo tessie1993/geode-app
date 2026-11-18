@@ -50,6 +50,13 @@ Java_dev_geode_engine_bridge_CustomizeNative_customizeRows(JNIEnv* env, jobject,
                                                 liquidMode, wireOf(look)));
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_CustomizeNative_customizeMatches(JNIEnv* env, jobject, jstring query, jstring text) {
+    Utf8Chars search(env, query);
+    Utf8Chars shown(env, text);
+    return geode_customize_matches(textOf(search), textOf(shown)) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_panelText(JNIEnv* env, jobject, jstring id) {
     Utf8Chars text(env, id);

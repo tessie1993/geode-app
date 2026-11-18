@@ -3,6 +3,7 @@ package dev.geode.ui.tour
 import dev.geode.data.AppState
 import dev.geode.data.AppStateRepository
 import dev.geode.model.GestureTip
+import dev.geode.model.TestTourRules
 import dev.geode.model.TourChapter
 import dev.geode.model.TourCover
 import dev.geode.model.TourFacts
@@ -33,7 +34,10 @@ class TourViewModelTest {
     private val main = StandardTestDispatcher()
 
     @Before
-    fun setUp() = Dispatchers.setMain(main)
+    fun setUp() {
+        TestTourRules.install()
+        Dispatchers.setMain(main)
+    }
 
     @After
     fun tearDown() = Dispatchers.resetMain()

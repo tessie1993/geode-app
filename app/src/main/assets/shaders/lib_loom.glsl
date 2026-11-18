@@ -192,7 +192,10 @@ vec3 loomBend(vec3 p) {
     float r = length(p.xy);
     p.xy = loomRot(gLoomFlow * 1.2 * sin(zc + 0.5 * r + uTime * LOOM_RATE(160))) * p.xy;
     p.xy *= 1.0 + 0.3 * min(gLoomFlow + 0.3 * gLoomSwell, 1.0) * sin(2.0 * zc + 1.5 * p.y + uTime * LOOM_RATE(220));
-    p.xy += gLoomChaos * 0.07 * min(r, 1.0) * sin(p.yx * 3.1 + 3.0 * zc + uTime * LOOM_RATE(1800) + vec2(0.0, 2.1));
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its sines are not taken.
+    if (gLoomChaos != 0.0) {
+        p.xy += gLoomChaos * 0.07 * min(r, 1.0) * sin(p.yx * 3.1 + 3.0 * zc + uTime * LOOM_RATE(1800) + vec2(0.0, 2.1));
+    }
     return p;
 }
 

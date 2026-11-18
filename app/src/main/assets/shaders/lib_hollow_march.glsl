@@ -25,8 +25,11 @@ vec2 hollowField(vec3 p) {
         c.x = growBirthDist(c.x);
         if (c.x < m.x) m = c;
     }
-    vec3 s = sin(q * 4.0 + uTime * HOLLOW_RATE(1500) + vec3(0.0, 2.1, 4.2));
-    m.x += gHollowChaos * 0.05 * (s.x * s.y + s.z);
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its sines are not taken.
+    if (gHollowChaos != 0.0) {
+        vec3 s = sin(q * 4.0 + uTime * HOLLOW_RATE(1500) + vec3(0.0, 2.1, 4.2));
+        m.x += gHollowChaos * 0.05 * (s.x * s.y + s.z);
+    }
     m.x += gHollowGroove * hollowCut(m.y);
     return m;
 }

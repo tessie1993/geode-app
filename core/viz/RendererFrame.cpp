@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <random>
 
 #include "sound/DriveGain.hpp"
@@ -608,6 +609,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 }
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
+    repeated_ = false;
     const float wallDt = beginFrame(timeSeconds);
     const float dt = wallDt * musicRate_;
     if (governor_.governed().renderScale != appliedUserScale_) applyRenderScale();
@@ -622,6 +624,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) noteSettling();
     if (!offscreen_.load(std::memory_order_relaxed)) logResidency(wallDt);
     if (!scene || !ensureTargets()) {
+        stillDrawn_ = false;
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
         glViewport(0, 0, width_, height_);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -662,6 +665,13 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
             bornFbo_.release();
         }
     }
+    if (stillRepeats(*scene, p, wallDt, trails, targetFbo)) {
+        // The window already shows this frame. What the draw would have freed on its idle clocks is free already.
+        repeated_ = true;
+        trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
+        uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
+        return;
+    }
     drawSceneTarget(*scene, p, dt);
     // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
     trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
@@ -681,6 +691,47 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (compositeHook_) compositeHook_(frameFbo, width_, height_);
     if (frameFbo != targetFbo || blurRegion.active()) uiBlurPass_.draw(blurRegion, targetFbo, width_, height_, quadVao_.get());
     updatePcmWanted();
+    noteStillDrawn();
+}
+
+// How long every input must have stood the same before a frame is left undrawn: past the idle windows that free
+// the feedback, trail, blur and physics targets (they run on the draw), so a skipped frame holds none of them.
+constexpr float kRepeatAfterSeconds = 3.0f;
+static_assert(kRepeatAfterSeconds > kFeedbackIdleSeconds && kRepeatAfterSeconds > kUiBlurIdleSeconds &&
+                  kRepeatAfterSeconds > physics::kIdleSeconds,
+              "a repeated frame runs after every idle window has freed its target");
+
+// True when drawing this frame would repeat the last drawn one exactly, so the buffer on screen is already it.
+// Every input the picture reads: the clock stopped (frameStill_: dt 0, same params, no redraw owed), the sound
+// frame the shader uniforms and the sound texture come from (and no new PCM block), the touch points, the camera, the size; and no pass
+// that runs on the wall clock or feeds back on itself (trails, Liquid mode, dive, physics layers, smear, a layer or
+// outgoing scene, the blur and the edge glow, the recording, cast and still taps, an offscreen target). Only a
+// shader style, a function of its clock; the others keep their own hold.
+bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wallDt, bool trails, GLuint targetFbo) {
+    const auto lookYaw = lookYaw_.load(std::memory_order_relaxed);
+    const auto lookPitch = lookPitch_.load(std::memory_order_relaxed);
+    const bool inputsSame = stillDrawn_ && std::memcmp(&stillSound_, &soundFrame_, sizeof soundFrame_) == 0 &&
+                            stillTouch_ == touchField_.points() && stillPose_ == camera_.pose() &&
+                            stillYaw_ == lookYaw && stillPitch_ == lookPitch;
+    const bool quiet = inputsSame && frameStill_ && framePcmCount_ == 0 && heldScene_ == &scene && !sceneJustSwitched_ &&
+                       scene.family() == SceneFamily::Shader && !requestedPending_ && stager_.idle() &&
+                       layerScene_ == nullptr && outgoingScene_ == nullptr && !trails && !liquidOn() &&
+                       diveMix_ == 0.0f && !p.endlessZoom && CameraRig::flatDive(p) == 0.0f &&
+                       !physics::planFor(p).any() && smearWarp_ == 0.0f && !smearLinger_.live() &&
+                       !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
+                       !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
+    stillSeconds_ = quiet ? stillSeconds_ + wallDt : 0.0f;
+    return repeatAllowed_ && quiet && stillSeconds_ >= kRepeatAfterSeconds;
+}
+
+// After a frame that drew: what it saw, for the next frame to compare with.
+void Renderer::noteStillDrawn() {
+    stillDrawn_ = true;
+    stillSound_ = soundFrame_;
+    stillTouch_ = touchField_.points();
+    stillPose_ = camera_.pose();
+    stillYaw_ = lookYaw_.load(std::memory_order_relaxed);
+    stillPitch_ = lookPitch_.load(std::memory_order_relaxed);
 }
 
 // The PCM tail (PcmHandoff) is mixed down only while a built scene reads it, or a build is under way that soon will:

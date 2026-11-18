@@ -438,6 +438,7 @@ void Renderer::syncShaderOverrides() {
 }
 
 void Renderer::onSurfaceCreated() {
+    stillDrawn_ = false;
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     // A new surface rebuilds every program and texture on its first frames.
@@ -531,6 +532,8 @@ void Renderer::onSurfaceCreated() {
 }
 
 void Renderer::surfaceChanged(int width, int height) {
+    // A new window starts with no picture on it: the next frame is drawn.
+    stillDrawn_ = false;
     width_ = std::max(width, 1);
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
@@ -538,6 +541,7 @@ void Renderer::surfaceChanged(int width, int height) {
 }
 
 void Renderer::clearToBlack(GLuint targetFbo) {
+    stillDrawn_ = false;
     glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
     glViewport(0, 0, width_, height_);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

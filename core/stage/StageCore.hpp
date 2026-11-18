@@ -53,6 +53,9 @@ public:
     // The next swap's presentation time, CLOCK_MONOTONIC ns (0: none, the swap presents when it can). Set just before
     // each swap, so it never outlives the frame it was given for.
     virtual void presentAt(int64_t presentNs) { static_cast<void>(presentNs); }
+    // The frame the vsync asked for is finished (drawn, or dropped unseen): the pacer may ask for the next at its
+    // first vsync from now. Called once per kStageFrameDue taken, after the swap.
+    virtual void frameDone() {}
 };
 
 class StageCore {

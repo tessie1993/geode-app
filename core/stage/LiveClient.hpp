@@ -52,6 +52,8 @@ public:
     virtual uint32_t frame(const void* ring, float pacedFps, float capFps) = 0;
     // The vsync time (CLOCK_MONOTONIC ns) of the frame that follows, 0: none (StageClient::frameTime).
     virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
+    // The frame's expected presentation time, 0: none (StageClient::framePresent).
+    virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
     // The cap the renderer's governor wants the stage paced to, 0 for none (StageClient::governedCapFps).
     virtual float governedCapFps() { return 0.0f; }
     virtual void trimSpares() = 0;
@@ -83,6 +85,7 @@ public:
     void surfaceChanged(int width, int height) override;
     uint32_t frame(float pacedFps, float capFps) override;
     void frameTime(int64_t vsyncNs) override;
+    void framePresent(int64_t presentNs) override;
     float governedCapFps() override { return viz_ ? viz_->governedCapFps() : 0.0f; }
     void trimSpares() override;
     void contextLost() override {}

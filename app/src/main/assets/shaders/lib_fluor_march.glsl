@@ -50,8 +50,11 @@ vec2 fluorField(vec3 p) {
         if (c.x < m.x) m = c;
     }
     m.x *= k;
-    vec3 s = sin(q * 6.0 + uTime * FLUOR_RATE(1300) + vec3(0.0, 2.1, 4.2));
-    m.x += gFluorChaos * 0.025 * (s.x * s.y + s.z);
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its three sines are not taken.
+    if (gFluorChaos != 0.0) {
+        vec3 s = sin(q * 6.0 + uTime * FLUOR_RATE(1300) + vec3(0.0, 2.1, 4.2));
+        m.x += gFluorChaos * 0.025 * (s.x * s.y + s.z);
+    }
     return m;
 }
 

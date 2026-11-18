@@ -253,9 +253,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val proGate by paywallViewModel.gate.collectAsStateWithLifecycle()
     val secondScreen = ConnectedDisplays.target(wanted = visualsSettings.secondScreen, entitled = proGate.allows(ProFeature.CAST))
     val onSecondScreen = secondScreen != null
-    if (secondScreen != null) {
-        SecondScreenCanvas(secondScreen, visualizerView)
-    }
+    secondScreen?.let { SecondScreenCanvas(it, visualizerView) }
     StageRunEffect(visualizerView, onSecondScreen, viewModel::onDirectorStyleMoment)
     // The Visuals screen's bounds, in root pixels. The one StageView is hosted once below and
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).

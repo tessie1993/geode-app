@@ -61,6 +61,8 @@ add_library(geode_core STATIC
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
+    api/geode_mod_state_api.cpp
+    viz/ModState.cpp
     api/geode_mod_controls_api.cpp
     viz/ModControls.cpp
     api/geode_studio_api.cpp

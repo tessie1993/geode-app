@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -14,6 +15,7 @@
 #include "viz/CustomizeMap.hpp"
 #include "viz/Config.hpp"
 #include "viz/ModDocument.hpp"
+#include "viz/ModState.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/PanelRoll.hpp"
 #include "viz/Params.hpp"
@@ -281,6 +283,14 @@ const char* geode_mod_waves_roll(const char* style_id, const char* locked, int a
     return rolled.c_str();
 } catch (...) {
     return nullptr;
+}
+
+void geode_mod_state_waves_roll(const char* style_id, int all, const float* params) try {
+    auto& s = geode::viz::modstate::shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    const char* rolled = geode_mod_waves_roll(style_id, s.state.keep().c_str(), all, params, s.state.lfos().c_str());
+    if (rolled) s.state.setLfos(rolled);
+} catch (...) {
 }
 
 int geode_panel_roll(const char* style_id, const char* category, const char* kept, int basics_only, const float* in,

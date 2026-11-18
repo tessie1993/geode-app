@@ -29,7 +29,7 @@ class GeodeNotificationListener : NotificationListenerService()
  */
 class NowPlayingBridge(
     private val context: Context,
-    private val onChange: (External?) -> Unit,
+    private val onChange: (External?) -> Unit = {},
 ) {
     /**
      * What the player shows of the other app. Equal while only its playhead moves, so a session that reports its
@@ -195,6 +195,27 @@ class NowPlayingBridge(
         getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             ?: getBitmap(MediaMetadata.METADATA_KEY_ART)
             ?: getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+
+    /**
+     * One look, without [watch]ing: the other app's session as [ExternalSessionRules.choose] picks it, none
+     * without access. For a reader that asks now and then (the screen saver's line), not for the player.
+     */
+    fun current(): External? {
+        if (!hasAccess()) return null
+        val sessions = runCatching { manager?.getActiveSessions(component) }.getOrNull().orEmpty()
+        val pick =
+            ExternalSessionRules.choose(
+                sessions.map { ExternalSessionRules.Candidate(it.packageName, it.playbackState?.state) },
+                context.packageName,
+                null,
+            )
+        val controller = sessions.getOrNull(pick) ?: return null
+        val reported = controller.playbackState
+        return describe(controller).copy(
+            playing = ExternalSessionRules.isPlaying(reported?.state),
+            controls = ExternalSessionRules.controls(reported?.actions ?: 0L, reported?.state, 0L),
+        )
+    }
 
     /** The other app's playhead now, or null while none is watched. */
     fun positionMs(): Long? {

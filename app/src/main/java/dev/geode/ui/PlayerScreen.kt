@@ -58,8 +58,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -390,6 +392,8 @@ private fun PlayerHero(
     val uri = state.trackUri
     val foreign = external.active
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
+    val foreignArt = external.driven?.art
+    val foreignArtwork = remember(foreignArt) { foreignArt?.asImageBitmap() }
     // The mic is a layer over playback: with a track loaded the hero stays the track's.
     val roomOnly = micActive && !state.hasMedia
     val hasSource = foreign || roomOnly || state.hasMedia
@@ -415,6 +419,7 @@ private fun PlayerHero(
                 .widthIn(max = MAX_ART)
                 .aspectRatio(1f),
             corner = GeodeRadius.Medium,
+            image = if (foreign) foreignArtwork else null,
         )
         Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS)) {
             Row(
@@ -506,6 +511,23 @@ private fun PlayerHero(
             }
         }
         if (foreign) {
+            // Without notification access the other app is heard but cannot be named or driven: say so, and the way in.
+            if (external.sessionUnreadable) {
+                val context = LocalContext.current
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = CARD_INSET),
+                    verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
+                ) {
+                    Text(
+                        stringResource(R.string.ext_session_unreadable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = { viewModel.openNotificationAccess(context) }) {
+                        Text(stringResource(R.string.ext_allow_reading))
+                    }
+                }
+            }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = CARD_INSET),
                 horizontalArrangement = Arrangement.End,
@@ -565,10 +587,17 @@ private fun TransportCard(
     showAbLoop: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    // The transport drives the other app while it is the sound source (PlayerViewModel.next and its two twins).
+    // The transport drives the other app while it is the sound source (PlayerViewModel.next and its twins): each
+    // button as its session allows, all off while that session cannot be read; never the paused player then.
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
-    val canDrive = state.hasMedia || external.driven != null
+    val foreign = external.active
+    val controls = external.driven?.controls
+    val canPlayPause = if (foreign) controls?.playPause == true else state.hasMedia
+    val canPrevious = if (foreign) controls?.previous == true else state.hasMedia
+    val canNext = if (foreign) controls?.next == true else state.hasMedia
     val playing = external.driven?.playing ?: state.isPlaying
+    // A track that cannot be sought shows no length, so the bar draws no playhead to drag.
+    val durationMs = if (foreign) external.driven?.durationMs?.takeIf { controls?.seek == true } ?: 0L else state.durationMs
     Column(
         modifier
             .fillMaxWidth()
@@ -581,7 +610,7 @@ private fun TransportCard(
         Box(Modifier.fillMaxWidth().padding(horizontal = CARD_INSET)) {
             TrackSeekBar(
                 positionMs = position,
-                durationMs = state.durationMs,
+                durationMs = durationMs,
                 loopStartMs = abLoop?.startMs,
                 loopEndMs = abLoop?.endMs,
                 onSeek = viewModel::seekTo,
@@ -595,7 +624,7 @@ private fun TransportCard(
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     // Hidden by Settings › Preferences, but never while a loop runs: it is the loop's only way out.
                     if (showAbLoop || abLoop != null) {
-                        TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
+                        TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia && !foreign) {
                             Text(
                                 when {
                                     abLoop == null -> stringResource(R.string.ab_loop_idle)
@@ -614,9 +643,9 @@ private fun TransportCard(
                     }
                 }
                 if (showTimeLeft) {
-                    PositionClock(position) { formatTimeLeft(it, state.durationMs) }
+                    PositionClock(position) { formatTimeLeft(it, durationMs) }
                 } else {
-                    Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+                    Text(formatClock(durationMs), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -627,21 +656,21 @@ private fun TransportCard(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ShuffleButton(state.shuffle, viewModel::toggleShuffle)
-            IconButton(onClick = viewModel::previous, enabled = canDrive) {
+            IconButton(onClick = viewModel::previous, enabled = canPrevious) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
             // 64 dp, the size the old play button drew itself at, so the transport row keeps its rhythm.
             FilledIconButton(
                 onClick = viewModel::togglePlayPause,
                 modifier = Modifier.size(64.dp),
-                enabled = canDrive,
+                enabled = canPlayPause,
             ) {
                 StoneIconArt(
                     if (playing) StoneIcon.PAUSE else StoneIcon.PLAY,
                     stringResource(if (playing) R.string.action_pause else R.string.action_play),
                 )
             }
-            IconButton(onClick = viewModel::next, enabled = canDrive) {
+            IconButton(onClick = viewModel::next, enabled = canNext) {
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
             RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)

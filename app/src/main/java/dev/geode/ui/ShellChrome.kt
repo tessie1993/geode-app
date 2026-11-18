@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
@@ -226,6 +227,8 @@ internal fun FloatingMiniPlayer(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
     onPrevious: (() -> Unit)? = null,
+    /** Another app's artwork while it is the source, in place of [artworkUri]'s. */
+    artwork: ImageBitmap? = null,
 ) {
     val seekHeld = remember { mutableStateOf(false) }
     val view = LocalView.current
@@ -263,7 +266,7 @@ internal fun FloatingMiniPlayer(
                 .padding(start = GeodeSpacing.S, end = GeodeSpacing.XS),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TrackArtwork(artworkUri, Modifier.size(48.dp), corner = GeodeRadius.Medium)
+            TrackArtwork(artworkUri, Modifier.size(48.dp), corner = GeodeRadius.Medium, image = artwork)
             Column(Modifier.weight(1f).padding(horizontal = GeodeSpacing.M)) {
                 Text(
                     title ?: stringResource(R.string.mini_player_idle),

@@ -69,6 +69,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -247,6 +248,18 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
     val playing = external.driven?.playing ?: state.isPlaying
+    // While another app is the source, the mini player names its track (its session's), not the paused player's.
+    val foreign = external.active
+    val foreignArt = external.driven?.art
+    val foreignArtwork = remember(foreignArt) { foreignArt?.asImageBitmap() }
+    val miniTitle =
+        if (foreign) {
+            external.driven?.title?.ifBlank { null } ?: stringResource(R.string.title_whatever_is_playing)
+        } else {
+            state.title
+        }
+    val miniArtist = if (foreign) external.driven?.artist else state.artist
+    val miniDurationMs = if (foreign) external.driven?.durationMs ?: 0L else state.durationMs
     // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     // A connected display shows the visual alone while the switch is on and Cast's entitlement allows it.
@@ -306,18 +319,19 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // A pointer lights real controls, so the ones that fade stay lit while it is up.
     // Its sleep timer waits while the boot intro or a first-run page covers the shell.
     val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !onboarding.safetyAcknowledged || !onboarding.setupDone
-    val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, state.title)
+    val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(general = general, accentSource = accent) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
-                title = state.title,
-                artist = state.artist,
-                artworkUri = viewModel.currentTrackUri(),
+                title = miniTitle,
+                artist = miniArtist,
+                artworkUri = if (foreign) null else viewModel.currentTrackUri(),
+                artwork = foreignArtwork,
                 isPlaying = playing,
                 positionMs = { position.value },
-                durationMs = state.durationMs,
+                durationMs = miniDurationMs,
                 onSeek = viewModel::seekTo,
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
@@ -330,9 +344,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
         }
         val dockedPlayer: @Composable (Modifier) -> Unit = { modifier ->
             DockedMiniPlayer(
-                title = state.title,
+                title = miniTitle,
                 isPlaying = playing,
-                progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
+                progress = { if (miniDurationMs > 0) position.value / miniDurationMs.toFloat() else 0f },
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,

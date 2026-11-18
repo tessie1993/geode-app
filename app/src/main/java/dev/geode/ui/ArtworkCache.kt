@@ -90,6 +90,8 @@ fun TrackArtwork(
     modifier: Modifier = Modifier,
     corner: Dp = 14.dp,
     decodeSize: Dp? = null,
+    /** Artwork already in hand (another app's, from its media session): shown in place of [uri]'s. */
+    image: ImageBitmap? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -105,7 +107,7 @@ fun TrackArtwork(
                 .RoundedCornerShape(corner),
         ),
     ) {
-        val bitmap = art
+        val bitmap = image ?: art
         if (bitmap != null) {
             Image(
                 bitmap = bitmap,

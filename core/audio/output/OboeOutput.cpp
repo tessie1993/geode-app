@@ -111,12 +111,21 @@ void OboeOutput::closeStreamLocked() {
 
 bool OboeOutput::startLocked() {
     if (!stream_) return false;
-    if (streamStarted_) return true;
+    if (streamStarted_) {
+        // After stop() the stream stops itself once the fifo has drained (onAudioReady returns Stop). Playing
+        // that out it is left be; once a flush has made the output new again, a stopped stream starts over.
+        if (fifo_->stopped()) return true;
+        const oboe::StreamState state = stream_->getState();
+        if (state != oboe::StreamState::Stopping && state != oboe::StreamState::Stopped) return true;
+        streamStarted_ = false;
+    }
     oboe::Result result = stream_->requestStart();
-    if (result != oboe::Result::OK && stream_->getState() == oboe::StreamState::Pausing) {
-        // A pause asked for a moment ago is still in flight: let it land, then start.
+    const oboe::StreamState settling = result == oboe::Result::OK ? oboe::StreamState::Started : stream_->getState();
+    if (settling == oboe::StreamState::Pausing || settling == oboe::StreamState::Stopping) {
+        // A pause asked for a moment ago, or the stop after the last frame, is still in flight: let it land,
+        // then start.
         oboe::StreamState next = oboe::StreamState::Unknown;
-        stream_->waitForStateChange(oboe::StreamState::Pausing, &next, kSettleNs);
+        stream_->waitForStateChange(settling, &next, kSettleNs);
         result = stream_->requestStart();
     }
     streamStarted_ = result == oboe::Result::OK;

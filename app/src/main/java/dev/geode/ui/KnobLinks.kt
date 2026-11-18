@@ -71,8 +71,12 @@ internal fun ProvideKnobLinks(
     val context = LocalContext.current
     val store = remember { context.geodeContainer.macros }
     val bank by store.state.collectAsStateWithLifecycle()
-    val controls = remember(bank) { store.controls() }
-    val links = remember(bank, controls, lock, sceneId) { KnobLinks(bank, store, controls, lock, sceneId) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    // A turn of a knob changes only values, which neither the controls nor the slots read: they follow the revision.
+    // While a draft is open its dialog reads the bank's values, so then they follow the bank as before.
+    val stamp: Any = if (bank.draft != null) bank else revision
+    val controls = remember(stamp) { store.controls() }
+    val links = remember(stamp, controls, lock, sceneId) { KnobLinks(bank, store, controls, lock, sceneId) }
     CompositionLocalProvider(LocalKnobLinks provides links, content = content)
 }
 

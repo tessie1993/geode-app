@@ -24,6 +24,7 @@ private:
     static constexpr float kFeedDb = -4.5f;
 
     std::atomic<bool> enabled_{false};
+    bool running_ = false;  // the audio thread's: whether the last process() fed
     std::array<Biquad, 2> lowPass_{};
     float feed_;
     float direct_;

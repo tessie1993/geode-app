@@ -176,8 +176,8 @@ vec2 view() {
 #ifndef VIEW_BENDS_IN_3D
     // Kaleidoscope: fold the plane into uSymmetry angular wedges.
     if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
         float rad = length(uv);
+        float ang = rad > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
         float seg = 6.2831853 / uSymmetry;
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;

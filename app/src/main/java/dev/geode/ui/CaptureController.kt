@@ -116,6 +116,8 @@ internal class CaptureController(
     /** The app is back on screen: resume the mic [onBackground] stopped, unless access went meanwhile. */
     fun onForeground() {
         inBackground = false
+        // Notification access is granted in system settings, so coming back is when to look again.
+        notificationAccessAbsent = false
         if (!micPausedInBackground) return
         micPausedInBackground = false
         if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
@@ -265,6 +267,8 @@ internal class CaptureController(
 
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
         if (!hasMicPermission()) {
+            // No capture without the permission: the service and its projection go, as when a start fails below.
+            PlaybackCaptureService.stop(application)
             _externalAudio.update {
                 it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
             }
@@ -302,19 +306,25 @@ internal class CaptureController(
     @Volatile
     private var externalAudioRefreshInFlight = false
 
+    /** Notification access was checked and is not granted: [refreshExternalAudio] stops asking until [onForeground]. */
+    @Volatile
+    private var notificationAccessAbsent = false
+
     /**
      * Polled every 500 ms from Main. [NowPlayingBridge.hasAccess] and [NowPlayingBridge.current]
      * are synchronous binder calls (a `Settings.Secure` read and a
      * `MediaSessionManager`/`PackageManager` round trip), so they run on IO instead of blocking
      * Main. Skipped only once there is truly nothing left to learn: no capture is active or
-     * pending, and notification-listener access is already known to be granted — [hasSessionAccess]
-     * still needs polling while it is false, since [ExternalAudioSettings] shows its "allow
-     * reading" prompt from that flag alone and expects it to flip once access is granted in
-     * system settings, with no capture running.
+     * pending, and notification-listener access is already known: granted, or absent and not looked at
+     * again until the app is back on screen ([onForeground]), which is where a grant in system
+     * settings is seen. [ExternalAudioSettings] shows its "allow reading" prompt from
+     * [hasSessionAccess] alone and expects it to flip then.
      */
     fun refreshExternalAudio() {
         val state = _externalAudio.value
-        if (!state.active && !state.awaitingConsent && state.hasSessionAccess) return
+        val idle = !state.active && !state.awaitingConsent
+        val accessKnown = state.hasSessionAccess || notificationAccessAbsent
+        if (idle && accessKnown) return
         if (externalAudioRefreshInFlight) return
         externalAudioRefreshInFlight = true
         scope.launch {
@@ -324,6 +334,7 @@ internal class CaptureController(
                         val access = nowPlayingBridge.hasAccess()
                         access to (if (access) nowPlayingBridge.current() else null)
                     }
+                notificationAccessAbsent = !access
                 val quiet = playbackCapture.active && playbackCapture.quiet
                 hearDeviceMix(quiet)
                 // On the mix the app is heard after all, so neither notice applies.
@@ -343,8 +354,9 @@ internal class CaptureController(
         }
     }
 
+    /** A mic that stopped on its own is reported and forgotten; one [onBackground] paused is not dead, it comes back with the app. */
     fun refreshMicState() {
-        if (!_micState.value.active || IngestNative.micActive()) return
+        if (micPausedInBackground || !_micState.value.active || IngestNative.micActive()) return
         IngestNative.pcmRingBeginEpoch(micRing)
         CastService.setMicWanted(application, false)
         _micState.value = MicState(active = false, failure = CaptureFailure.UNAVAILABLE)

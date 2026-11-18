@@ -727,13 +727,14 @@ void main() {
     // the stack's whenever it is nearer, and fades toward the core the way a
     // shell at the same depth would.
     float satCount = dmtSatelliteCount();
-    float satT = dmtMarchSatellites(ro, rd, farT, uSteps * 0.5, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    dmtSatPrepare(satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    float satT = dmtMarchSatellites(ro, rd, farT, uSteps * 0.5);
     bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
 
     vec3 col = backdrop;
     if (satWins) {
         vec3 p = ro + rd * satT;
-        col = dmtSatelliteColor(p, rd, hb + 0.35 + 0.08 * midAmt, trebAmt, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+        col = dmtSatelliteColor(p, rd, hb + 0.35 + 0.08 * midAmt, trebAmt);
         float kSat = log(max(length(p), R_MIN));
         float fade = 1.0 - exp(-(satT * FOG_T / reach + max(0.0, -kSat) * FOG_K));
         col = mix(col, backdrop, fade);
@@ -756,7 +757,7 @@ void main() {
         // past three e-folds down it is finer than a pixel and would boil.
         float grain = sin(GRAIN * sd.x + gSpin) * sin(GRAIN * sd.y - gSpin) *
             sin(GRAIN * sd.z + 3.0 * kHit);
-        grain *= smoothstep(3.0, 1.2, -kHit) * (0.35 + 0.45 * trebAmt);
+        grain *= (1.0 - smoothstep(1.2, 3.0, -kHit)) * (0.35 + 0.45 * trebAmt);
         float emboss = 1.0 + 0.45 * hitRelief + 0.30 * grain;
 
         // The material: lib_dmt's jewel, banded by the shell index so every
@@ -789,7 +790,7 @@ void main() {
     // Vignette on the RAW screen radius, not on uv: this is a property of the
     // glass, and reading the drifted/zoomed domain would slide it off frame.
     vec2 sv = (vUv - 0.5) * vec2(uResolution.x / max(uResolution.y, 1.0), 1.0) * 2.0;
-    col *= mix(1.0, smoothstep(2.0, 0.30, length(sv)), 0.5);
+    col *= mix(1.0, 1.0 - smoothstep(0.30, 2.0, length(sv)), 0.5);
 
     fragColor = vec4(grade(col * emission), 1.0);
 }

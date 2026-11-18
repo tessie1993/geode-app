@@ -259,6 +259,7 @@ private:
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
+    const GeodeSoundFrame& trimmedSound(const SceneParams& p);
     void uploadPaletteRamp(const SceneParams& p);
     void stepShapeGraph(const SceneParams& p, float dt, float wallDt);
     bool holds(const Scene& scene, const Scene* held) const;
@@ -402,6 +403,11 @@ private:
     sound::interp::Waveform soundWave_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The frame the scenes and the resolver hear: soundFrame_ with the band trims of the params asked about
+    // (viz/BandTrim.hpp), made once per distinct trim per frame. A frame with no trim is soundFrame_ itself.
+    GeodeSoundFrame trimmedSound_{};
+    std::array<float, 3> trimmedKey_{};
+    bool trimmedValid_ = false;
     // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
     // at the current one: an engine built after a boundary is already fresh. Live renderers only.
     uint64_t boundarySeen_ = sound::player::boundary().epoch;

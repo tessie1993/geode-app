@@ -335,7 +335,12 @@ void LifeScene::draw(float timeSeconds) {
     GLint prevViewport[4] = {0, 0, 0, 0};
     SceneTarget::read(prevFbo, prevViewport);
     fluid::DoubleFbo* field = ensureState();
-    if (!field) return;
+    if (!field) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
 

@@ -43,6 +43,7 @@ import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
 import dev.geode.data.prefs.PrefsSettingsRepository
+import dev.geode.editor.ProjectId
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.IngestNative
 import dev.geode.engine.bridge.ParamsNative
@@ -836,11 +837,30 @@ class PlayerSession internal constructor(
         onResult: (Boolean) -> Unit,
     ) = exportController.deleteStudioClip(uri, onResult)
 
+    /** Takes the video off its project's list and deletes the file itself. */
+    private fun deleteRender(
+        projectId: ProjectId,
+        uri: String,
+    ) {
+        editor.removeRender(projectId, uri)
+        deleteStudioClip(uri) {}
+    }
+
+    /**
+     * My videos' deletes waiting out their Undo snackbar. They wait in the session, not in the tab's
+     * composition or a ViewModel, and [shutdown] commits those still waiting, so leaving the tab or
+     * the app mid-snackbar still deletes the item (#322) instead of bringing it back.
+     */
+    internal val videoDeletes =
+        PendingDeletes<VideoDelete>(scope, keyOf = VideoDelete::key) { deleteRender(it.projectId, it.uri) }
+
     /**
      * Tears the session down. Called only by [dev.geode.di.PlayerSessionProvider], on behalf of the
      * one ViewModel that owns the session — never from a screen.
      */
     internal fun shutdown() {
+        // My videos' deletes still in their Undo window go now, while the scopes they use still run.
+        videoDeletes.commitAll()
         // Queue every outstanding write BEFORE the pending set is snapshotted below, or the store
         // scope's cancellation races the very writes this teardown exists to preserve.
         listening.flushListenTime()

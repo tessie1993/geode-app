@@ -115,8 +115,9 @@ int geode_export_job_warm(geode_export_job* job) {
 int geode_export_job_frame(geode_export_job* job, int64_t frame, uint32_t target_fbo) {
     if (!job) return 0;
     try {
-        job->frames.frame(frame, target_fbo, job->target);
-        return 1;
+        if (job->frames.frame(frame, target_fbo, job->target)) return 1;
+        // Not heard: a track that has run out still draws; a stuck decoder fails the render.
+        return job->frames.trackEnded() ? 1 : 0;
     } catch (...) {
         return 0;
     }

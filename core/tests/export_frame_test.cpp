@@ -3,7 +3,8 @@
 // hand mask; a scene it cannot draw stops before the pin), the pre-roll (output/PreRoll's plan: the decode from
 // fromMs heard for heardMs, then its end, then the range's decode opened from the range start; a track that does
 // not open or is not heard fails), and each frame (the audio up to FrameClock::samplesThrough, then a draw at
-// floor(n * 1e9 / fps) ns, still drawn once the track has run out). Built and run by CI
+// floor(n * 1e9 / fps) ns, still drawn once the track has run out, which trackEnded tells from a frame never
+// heard). Built and run by CI
 // (.github/workflows/native-host-tests.yml); no device.
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/export_frame_test.cpp
@@ -225,8 +226,15 @@ void failures_() {
     ExportFrames c(30, 0, shortTrack.fn());
     Recorder rc;
     check(c.preRoll(rc), "a three-second track is heard from its opening");
-    check(c.frame(0, 0, rc), "frame 0 is heard");
+    check(c.frame(0, 0, rc) && !c.trackEnded(), "frame 0 is heard, the track still going");
     check(!c.frame(93, 0, rc) && rc.times.size() == 2, "a frame past the track's end is drawn, and says so");
+    check(c.trackEnded(), "and the track has ended: the render goes on (geode_export_job_frame)");
+
+    // A frame never heard with the track not ended (no range opened here; a stuck decoder alike) fails the render.
+    Opener unopened{ramp(kRate * 3), {}, true};
+    ExportFrames d(30, 0, unopened.fn());
+    Recorder rd;
+    check(!d.frame(0, 0, rd) && !d.trackEnded(), "a frame not heard before the track ends is not the track's end");
 }
 
 }  // namespace

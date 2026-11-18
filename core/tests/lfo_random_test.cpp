@@ -383,6 +383,41 @@ void aWaveOnThePalettesStaysUnderTheFlashRate() {
     }
 }
 
+// A NaN in the sound frame is one bad frame, not a slot stuck on NaN: a followed field and a beat-timed wave whose
+// clock read NaN both come back once the frame is finite again.
+void aNonFiniteFrameDoesNotLatch() {
+    const float nan = std::nanf("");
+    LfoEngine follower;
+    follower.configs[0] = wave(LfoWave::Sine, 1.0f);
+    follower.configs[0].source = ModSource::Bass;
+    follower.configs[1] = wave(LfoWave::Sine, 1.0f);
+    follower.configs[1].source = ModSource::StereoPan;
+    GeodeSoundFrame bad{};
+    bad.bassAtt = nan;
+    bad.stereoPan = nan;
+    follower.tick(1.0f / 60.0f, bad);
+    const GeodeSoundFrame good{};
+    bool finite = true;
+    for (int k = 0; k < 10; ++k) {
+        const auto& out = follower.tick(1.0f / 60.0f, good);
+        finite = finite && std::isfinite(out[0]) && std::isfinite(out[1]);
+    }
+    check(finite, "a followed field that read NaN comes back");
+
+    LfoEngine timed;
+    timed.configs[0] = wave(LfoWave::Sine, 1.0f, 4.0f);
+    timed.tick(1.0f / 60.0f, clockAt(8.0, 97.0f));
+    GeodeSoundFrame badClock = clockAt(8.1, 97.0f);
+    badClock.beatPhase = nan;
+    timed.tick(1.0f / 60.0f, badClock);
+    // The lock drops: the slot runs on from where its clock last was.
+    GeodeSoundFrame unlocked = clockAt(8.2, 97.0f);
+    unlocked.beatConf = 0.0f;
+    finite = true;
+    for (int k = 0; k < 10; ++k) finite = finite && std::isfinite(timed.tick(1.0f / 60.0f, unlocked)[0]);
+    check(finite, "a beat-timed wave whose clock read NaN runs on");
+}
+
 }  // namespace
 
 int main() {
@@ -401,6 +436,7 @@ int main() {
     theWireRoundTrips();
     aWaveOnAKnobStaysUnderTheFlashRate();
     aWaveOnThePalettesStaysUnderTheFlashRate();
+    aNonFiniteFrameDoesNotLatch();
     if (failures == 0) std::printf("lfo_random_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

@@ -80,12 +80,12 @@ class GeodeContainer(
     val looks =
         LookStore(prefsFiles, context.applicationContext.contentResolver).also { appScope.launch(Dispatchers.IO) { it.pushLayer() } }
 
-    /** Customize's keep set, read on first use (the director's start, on IO); `ModulationController` saves each toggle. */
+    /** Customize's keep set, read into native on first use (the director's start, on IO); a Keep tap goes through it. */
     val keepSet = KeepSetStore(prefsFiles.modulation)
 
     val autoDirector =
         AutoDirectorStore(PrefsSettingsRepository(prefsFiles.general, AutoDirectorCodec, appScope), appScope) {
-            withContext(Dispatchers.IO) { keepSet.document.value }
+            withContext(Dispatchers.IO) { keepSet.start() }
         }
 
     val noteResponse = NoteResponseStore(PrefsSettingsRepository(prefsFiles.general, NoteResponseCodec, appScope), appScope)

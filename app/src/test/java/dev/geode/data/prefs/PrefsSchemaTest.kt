@@ -68,6 +68,7 @@ import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
 import dev.geode.widget.WidgetState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -311,6 +312,24 @@ class PrefsSchemaTest {
         assertEquals(emptyList<Pair<String, String>>(), named.filterNot { it in declared })
         val files = allKeys.map { it.file }.toSet()
         assertEquals(emptyList<String>(), BackupSection.entries.flatMap { it.prefsFiles }.filterNot { it in files })
+    }
+
+    @Test
+    fun aRestoreChecksTypesAgainstEveryKeyOfTheFilesItWrites() {
+        val restored = BackupSection.entries.flatMap { it.prefsFiles + it.borrowedKeys.keys }.toSet()
+        // Data may not name ui (tools/layer-gate.sh), so ModulationController's key goes unchecked.
+        val expected = allKeys.filter { it.file in restored } - ModulationController.PREF_KEYS.toSet()
+        assertEquals(expected.toSet(), BackupFormat.declaredKeys.toSet())
+    }
+
+    @Test
+    fun aRestoreSkipsAValueOfAnotherTypeThanItsKeys() {
+        assertTrue(BackupFormat.hasDeclaredType(general, "gui_opacity", 0.5f))
+        assertFalse(BackupFormat.hasDeclaredType(general, "gui_opacity", "0.5"))
+        assertTrue(BackupFormat.hasDeclaredType(player, "bookmark:content://track", 1_000L))
+        assertFalse(BackupFormat.hasDeclaredType(player, "bookmark:content://track", 1_000))
+        // A key no store declares is read by none, so it cannot throw.
+        assertTrue(BackupFormat.hasDeclaredType(general, "no_such_key", "x"))
     }
 
     @Test

@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
@@ -99,7 +98,8 @@ class PlayerViewModel
 
         fun stopExternalAudio() = session.stopExternalAudio()
 
-        fun notificationAccessIntent(): Intent = session.captureController.notificationAccessIntent()
+        /** Notification access in system settings: what lets the player show and drive the app it captures. */
+        fun openNotificationAccess(from: android.content.Context) = session.captureController.openNotificationAccess(from)
 
         fun toggleShuffle() = session.settings.toggleShuffle()
 
@@ -207,8 +207,11 @@ class PlayerViewModel
 
         fun playQueueIndex(index: Int) = session.queueController.playQueueIndex(index)
 
-        /** The other app is the sound source and its media session answers ([ExternalAudioState.driven]). */
-        private val drivesOtherApp: Boolean get() = externalAudio.value.driven != null
+        /**
+         * Another app is the sound source: the transport is its, through its media session ([ExternalAudioState.driven]),
+         * and does nothing while that session cannot be read. It never starts the paused player, which would end the capture.
+         */
+        private val drivesOtherApp: Boolean get() = externalAudio.value.active
 
         fun next() {
             if (drivesOtherApp) session.captureController.externalNext() else session.queueController.next()
@@ -222,9 +225,13 @@ class PlayerViewModel
             if (drivesOtherApp) session.captureController.externalPlayPause() else session.togglePlayPause()
         }
 
-        fun seekToMs(positionMs: Long) = session.queueController.seekToMs(positionMs)
+        fun seekToMs(positionMs: Long) {
+            if (!drivesOtherApp) session.queueController.seekToMs(positionMs)
+        }
 
-        fun seekTo(fraction: Float) = session.queueController.seekTo(fraction)
+        fun seekTo(fraction: Float) {
+            if (drivesOtherApp) session.captureController.externalSeekTo(fraction) else session.queueController.seekTo(fraction)
+        }
 
         fun clearPlaybackNotice() = session.clearPlaybackNotice()
 

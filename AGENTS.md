@@ -17,7 +17,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 - `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
 - `:app` is the only module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
-- The Media3 PCM tap is `app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt`, in `:app`.
+- The Media3 PCM tap is `app/src/main/java/dev/geode/playback/PcmTap.kt`, in `:app`: a forwarder; the format, the epoch and the gate are native (`geode_pcm_ring_tap_*`).
 
 ## Native core (`core/`)
 
@@ -163,3 +163,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The cast tee drops the stage writer's GL names when the surface is recreated and when the viz is destroyed, without a GL call (`CastTee::forgetWriter`), so a reused EGLContext handle value cannot revive stale names; `core/viz/frame/CastTee.hpp`, `core/api/geode_viz_api.cpp` (`geode_viz_surface_created`, `geode_viz_destroy`).
 - 2026-11-18: The still-capture buffer and its size are guarded by `stillLock`: the render thread fills a local buffer and swaps it in under the lock, and `geode_viz_still_size`, `geode_viz_still_read` and `takeVizStill` read under it; `core/api/geode_viz_api.cpp`.
 - 2026-11-18: Documents corrected to the code: no `render` package, no thermal or load-shedding step in the pacer (the pacer divides by the fps cap only), the stage thread's priority, `ExportScene`, the Android Auto and minSdk lines in `README.md`, Studio without a timeline, counts replaced by descriptions, and `core/player`, `core/shell`, `core/backup` added to the directory list (`AGENTS.md`, `README.md`, `GLOSSARY.md`, `docs/agents/*.md`, `.claude/skills/geode-*/SKILL.md`, `core/viz/frame/README.md`, `tools/glslcheck/README.md`, the two specs under `docs/superpowers/specs/`).
+- 2026-11-18: The Media3 PCM tap keeps nothing but the call: the format of the last flush, the epoch at every flush and the closed gate are native (`geode_pcm_ring_tap_set_owner`, `_flush`, `_write` in `core/api/geode_ingest_api.cpp`, `pcmTapWrite`/`pcmTapFlush`/`pcmTapSetOwner` on `IngestNative`, test `core/tests/pcm_tap_test.cpp`); `PcmTap` moved from `engine/audioandroid` (package gone) to `playback/PcmTap.kt`.

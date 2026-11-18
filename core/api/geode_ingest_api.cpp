@@ -183,6 +183,27 @@ void geode_pcm_ring_begin_epoch(geode_pcm_ring* r) {
     if (r) r->ring->beginEpoch();
 }
 
+void geode_pcm_ring_tap_set_owner(geode_pcm_ring* r, int owns) {
+    if (r) r->tapOwns.store(owns != 0, std::memory_order_release);
+}
+
+void geode_pcm_ring_tap_flush(geode_pcm_ring* r, int sample_rate, int channels, int encoding) {
+    if (!r) return;
+    if (r->tapOwns.load(std::memory_order_acquire)) r->ring->beginEpoch();
+    r->tapSampleRate.store(sample_rate, std::memory_order_relaxed);
+    r->tapChannels.store(channels, std::memory_order_relaxed);
+    r->tapEncoding.store(encoding, std::memory_order_relaxed);
+}
+
+int geode_pcm_ring_tap_write(geode_pcm_ring* r, const void* data, size_t bytes) {
+    if (!r || !r->tapOwns.load(std::memory_order_acquire)) return 0;
+    const int channels = r->tapChannels.load(std::memory_order_relaxed);
+    const int rate = r->tapSampleRate.load(std::memory_order_relaxed);
+    if (channels <= 0 || rate <= 0) return 0;
+    return geode_pcm_ring_write_bytes(r, data, bytes, r->tapEncoding.load(std::memory_order_relaxed), channels, rate,
+                                      nullptr);
+}
+
 int64_t geode_pcm_ring_head(const geode_pcm_ring* r) {
     return r ? r->ring->headFrames() : 0;
 }

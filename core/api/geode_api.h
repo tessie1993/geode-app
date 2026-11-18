@@ -1781,6 +1781,16 @@ GEODE_API int               geode_pcm_ring_set_snapshots(geode_pcm_ring*, int on
 GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
+/* The player's Media3 tap (the shell's PcmTap), on the ring the tap writes. The tap thread is the writer
+ * while the gate is open; the gate is open by default. `owns` 0 closes it: a capture of another app writes
+ * the ring, and a paused player still pushes buffers until its AudioTrack is full. Any thread. */
+GEODE_API void              geode_pcm_ring_tap_set_owner(geode_pcm_ring*, int owns);
+/* The chain flushed with this format (Android's AudioFormat.ENCODING_PCM_* for `encoding`): with the gate
+ * open every flush starts a ring epoch, before a sample of the new format is written. Tap thread. */
+GEODE_API void              geode_pcm_ring_tap_flush(geode_pcm_ring*, int sample_rate, int channels, int encoding);
+/* One buffer of the chain in the format of the last flush, written where it lies. Returns the frames
+ * written; 0 with the gate closed, before a flush gave a format, or for a refused block. Tap thread. */
+GEODE_API int               geode_pcm_ring_tap_write(geode_pcm_ring*, const void* data, size_t bytes);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */
 GEODE_API int64_t           geode_pcm_ring_head(const geode_pcm_ring*);      /* frames ever written, across epochs */
 /* The playout clock of the sink that plays this ring (the player's), or NULL for none: a renderer fed this

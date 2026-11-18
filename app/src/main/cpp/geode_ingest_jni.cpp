@@ -43,8 +43,7 @@ std::mutex gHeapLock;
 jbyteArray gHeapBytes = nullptr;
 jsize gHeapLength = 0;
 
-int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes, jint encoding,
-              jint channels, jint sampleRate) {
+int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes) {
     const HeapBufferIds& ids = heapBufferIds(env);
     if (!ids.get) return 0;
     std::lock_guard<std::mutex> lock(gHeapLock);
@@ -70,8 +69,7 @@ int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, 
     }
     void* data = env->GetPrimitiveArrayCritical(gHeapBytes, nullptr);
     if (!data) return 0;
-    const int written = geode_pcm_ring_write_bytes(ring, data, static_cast<size_t>(bytes), encoding, channels,
-                                                   sampleRate, nullptr);
+    const int written = geode_pcm_ring_tap_write(ring, data, static_cast<size_t>(bytes));
     env->ReleasePrimitiveArrayCritical(gHeapBytes, data, JNI_ABORT);
     return written;
 }
@@ -92,18 +90,27 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingDestroy(
 }
 
 // The tap's buffer: a direct one read where it lies, a heap one through one bulk copy (writeHeap).
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingWriteDirect(JNIEnv* env, jobject, jlong handle,
-                                                                                   jobject buffer, jint position,
-                                                                                   jint bytes, jint encoding,
-                                                                                   jint channels, jint sampleRate) {
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmTapWrite(JNIEnv* env, jobject, jlong handle,
+                                                                            jobject buffer, jint position,
+                                                                            jint bytes) {
     if (!buffer || position < 0 || bytes <= 0) return 0;
     const auto* address = static_cast<const unsigned char*>(env->GetDirectBufferAddress(buffer));
     if (address) {
         if (env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(position) + bytes) return 0;
-        return geode_pcm_ring_write_bytes(ringOf(handle), address + position, static_cast<size_t>(bytes), encoding,
-                                          channels, sampleRate, nullptr);
+        return geode_pcm_ring_tap_write(ringOf(handle), address + position, static_cast<size_t>(bytes));
     }
-    return writeHeap(env, ringOf(handle), buffer, position, bytes, encoding, channels, sampleRate);
+    return writeHeap(env, ringOf(handle), buffer, position, bytes);
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmTapFlush(JNIEnv*, jobject, jlong handle,
+                                                                            jint sampleRate, jint channels,
+                                                                            jint encoding) {
+    geode_pcm_ring_tap_flush(ringOf(handle), sampleRate, channels, encoding);
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmTapSetOwner(JNIEnv*, jobject, jlong handle,
+                                                                               jboolean owns) {
+    geode_pcm_ring_tap_set_owner(ringOf(handle), owns ? 1 : 0);
 }
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingMaxWriteFrames(JNIEnv*, jobject, jlong handle) {

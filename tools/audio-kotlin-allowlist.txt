@@ -6,9 +6,9 @@
 # debt: audio handled in Kotlin that moves to core/.
 
 # ---- permanent: Media3 playback shells (the tap, the processor, the sink and output trampolines) ----
-permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt media3-audio-type Media3's TeeAudioProcessor.AudioBufferSink: the tap, first in the chain; hands the buffer to the native ring
-permanent app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt native-call:pcmRingWriteDirect the tap forwards Media3's buffer to the native PCM ring
-permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:pcmRingWriteDirect the tap's JNI declaration (a direct ByteBuffer from Media3)
+permanent app/src/main/java/dev/geode/playback/PcmTap.kt media3-audio-type Media3's TeeAudioProcessor.AudioBufferSink: the tap, first in the chain; hands the buffer to the native ring
+permanent app/src/main/java/dev/geode/playback/PcmTap.kt native-call:pcmTapWrite the tap forwards Media3's buffer to the native PCM ring
+permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:pcmTapWrite the tap's JNI declaration (a direct ByteBuffer from Media3)
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt media3-audio-type Media3 requires a BaseAudioProcessor class; the DSP is native
 permanent app/src/main/java/dev/geode/audio/dsp/NativeDspProcessor.kt native-call:dspProcessInto the processor forwards Media3's buffer to the native DSP chain
 permanent app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt external:dspProcessInto the processor's JNI declaration (a direct ByteBuffer from Media3)

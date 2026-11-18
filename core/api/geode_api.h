@@ -947,10 +947,6 @@ GEODE_API const char* geode_customize_text(void);
 GEODE_API int         geode_customize_lockable(const char* key);
 /* Every such key, one per line, each once: the panel asks once for all its rows instead of once per row. Static. */
 GEODE_API const char* geode_customize_lockable_keys(void);
-/* Customize's saved keep document (one key a line, core/viz/CustomizeMap keepNormalize): with every key it may not
- * hold dropped and each kept key once, sorted. _toggle also takes key out when kept, puts it in when not. */
-GEODE_API const char* geode_customize_keep_normalize(const char* document);
-GEODE_API const char* geode_customize_keep_toggle(const char* document, const char* key);
 GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);

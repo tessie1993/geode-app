@@ -402,12 +402,6 @@ Java_dev_geode_engine_bridge_DirectorNative_directorReachSet(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_DirectorNative_directorKeepSet(JNIEnv* env, jobject, jstring keys) {
-    Utf8Chars text(env, keys);
-    geode_director_keep_set(text.get());
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_directorTuningSet(JNIEnv* env, jobject, jstring text) {
     Utf8Chars chars(env, text);
     geode_director_tuning_set(chars.get());
@@ -1103,19 +1097,6 @@ Java_dev_geode_engine_bridge_CustomizeNative_customizeText(JNIEnv* env, jobject)
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_customizeLockableKeys(JNIEnv* env, jobject) {
     return geode::jni::utf8String(env, geode_customize_lockable_keys());
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_CustomizeNative_customizeKeepNormalize(JNIEnv* env, jobject, jstring document) {
-    Utf8Chars text(env, document);
-    return geode::jni::utf8String(env, geode_customize_keep_normalize(text.get()));
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_CustomizeNative_customizeKeepToggle(JNIEnv* env, jobject, jstring document, jstring key) {
-    Utf8Chars text(env, document);
-    Utf8Chars name(env, key);
-    return geode::jni::utf8String(env, geode_customize_keep_toggle(text.get(), name.get()));
 }
 
 JNIEXPORT jstring JNICALL

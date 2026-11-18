@@ -28,27 +28,11 @@ object ModulationNative {
         styleId: String,
     ): FloatArray
 
-    /** [lfos] with one [field] of one [slot] set (geode_mod_lfo_edit); enums go as their catalog ordinal. */
-    external fun modLfoEdit(
-        lfos: String,
-        slot: Int,
-        field: Int,
-        value: Float,
-    ): String
-
     /** One envelope: its [MOD_ADSR_ENABLED]..[MOD_ADSR_MOMENT] fields, then the ordinals of the targets it moves. */
     external fun modAdsrValues(
         adsrs: String,
         slot: Int,
     ): FloatArray
-
-    /** [adsrs] with one [field] of one [slot] set; [MOD_ADSR_TARGET] adds or takes away the target [value] names. */
-    external fun modAdsrEdit(
-        adsrs: String,
-        slot: Int,
-        field: Int,
-        value: Float,
-    ): String
 
     /** Which of the wave [slot]'s controls do anything as it stands (geode_mod_lfo_shows): [MOD_SHOWS_WAVE] and the rest. */
     external fun modLfoShows(
@@ -208,4 +192,58 @@ object ModulationNative {
         hasMask: Boolean,
         savedMask: Int,
     ): Int
+
+    // The modulation the app holds while it runs (core/viz/ModState, geode_mod_state_*). Each edit is an event:
+    // native applies it with every rule and keeps the result, and nothing comes back. [modStateText] reads a text
+    // held, to draw the editors, save it and hand a renderer its look.
+
+    /** What the shell saved: [reactions] as [modReactionsRead] read them (null: Auto), [mask] as [modHandLoad] decided. */
+    external fun modStateLoad(
+        lfos: String,
+        adsrs: String,
+        reactions: String?,
+        mask: Int,
+    )
+
+    /** One [field] (a [MOD_LFO_ENABLED]..) of the wave at [slot]; enums go as their catalog ordinal. */
+    external fun modStateLfoSet(
+        slot: Int,
+        field: Int,
+        value: Float,
+    )
+
+    /** One [field] of the envelope at [slot]; [MOD_ADSR_TARGET] adds or takes away the target [value] names. */
+    external fun modStateAdsrSet(
+        slot: Int,
+        field: Int,
+        value: Float,
+    )
+
+    /** One edit of the reactions ([op] a `MOD_EDIT_*`) on [styleId] and the params' reactSeed [seed]; native pushes the hand mask. */
+    external fun modStateReactionsEdit(
+        styleId: String,
+        seed: Int,
+        op: Int,
+        a: Int,
+        b: Int,
+        value: Float,
+    )
+
+    /** Customize's keep set as saved, one key a line: native normalises it, holds it and hands it to the director. */
+    external fun modStateKeepLoad(document: String)
+
+    /** One Keep tap on [key]; the director gets the new set. */
+    external fun modStateKeepToggle(key: String)
+
+    /** A text held ([MOD_STATE_LFOS]..[MOD_STATE_KEEP]); null for [MOD_STATE_REACTIONS] while Auto. */
+    external fun modStateText(which: Int): String?
+
+    /** The hand mask to save beside the routes held; 0 while Auto. */
+    external fun modStateHandMask(): Int
+
+    // Mirrors of GEODE_MOD_STATE_*: [modStateText]'s which.
+    const val MOD_STATE_LFOS: Int = 0
+    const val MOD_STATE_ADSRS: Int = 1
+    const val MOD_STATE_REACTIONS: Int = 2
+    const val MOD_STATE_KEEP: Int = 3
 }

@@ -71,7 +71,8 @@ class LfoStore(
     /**
      * Pushes the hand mask process-wide ([DirectorNative.handSet]): every renderer merges the user's routes under
      * it and every native director keeps off those moments. Native counts it only while [hasUser] says a list
-     * exists (#355). Called where the shell loads or edits the user's routes.
+     * exists (#355). Called where a surface loads the saved routes on its own (LookStore); the app's own load and
+     * edits go through native's held modulation (core/viz/ModState), which pushes it there.
      */
     fun pushHand(
         mask: Int,

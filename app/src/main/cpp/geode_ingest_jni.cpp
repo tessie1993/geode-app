@@ -18,6 +18,11 @@ struct HeapBufferIds {
     jmethodID duplicate = nullptr;
     jmethodID position = nullptr;
     jmethodID get = nullptr;
+    // A writable heap buffer's own array: no duplicate (a new Java object per tap buffer) for those.
+    jmethodID hasArray = nullptr;
+    jmethodID array = nullptr;
+    jmethodID arrayOffset = nullptr;
+    jmethodID limit = nullptr;
 };
 
 const HeapBufferIds& heapBufferIds(JNIEnv* env) {
@@ -28,6 +33,10 @@ const HeapBufferIds& heapBufferIds(JNIEnv* env) {
             k.duplicate = env->GetMethodID(c, "duplicate", "()Ljava/nio/ByteBuffer;");
             if (k.duplicate) k.position = env->GetMethodID(c, "position", "(I)Ljava/nio/Buffer;");
             if (k.position) k.get = env->GetMethodID(c, "get", "([BII)Ljava/nio/ByteBuffer;");
+            if (k.get) k.hasArray = env->GetMethodID(c, "hasArray", "()Z");
+            if (k.hasArray) k.array = env->GetMethodID(c, "array", "()[B");
+            if (k.array) k.arrayOffset = env->GetMethodID(c, "arrayOffset", "()I");
+            if (k.arrayOffset) k.limit = env->GetMethodID(c, "limit", "()I");
             env->DeleteLocalRef(c);
         }
         env->ExceptionClear();
@@ -36,20 +45,60 @@ const HeapBufferIds& heapBufferIds(JNIEnv* env) {
     return ids;
 }
 
-// A heap buffer, read-only or not, has no address: its bytes are copied by the JVM's bulk get (on a
-// duplicate, so its position stays the shell's) into one array native keeps, grown only when too small,
-// then copied out of it (GetByteArrayRegion) into native memory kept the same way and written from there:
-// the ring's write and its listener never run inside a JNI critical region. The tap is the one writer, so
-// the lock is never contended.
+// A heap buffer, read-only or not, has no address. A writable one hands over its own array: its bytes
+// (from arrayOffset + position, within its limit) are copied straight out of it (GetByteArrayRegion) into
+// native memory native keeps, grown only when too small, and written from there. A read-only one hides its
+// array: its bytes are copied by the JVM's bulk get (on a duplicate, so its position stays the shell's) into
+// one array native keeps the same way, then out of it into that native memory. Either way the ring's write
+// and its listener never run inside a JNI critical region. The tap is the one writer, so the lock is never
+// contended.
 std::mutex gHeapLock;
 jbyteArray gHeapBytes = nullptr;
 jsize gHeapLength = 0;
 std::vector<jbyte> gHeapCopy;
 
+// gHeapLock held: gHeapCopy holds at least `bytes`.
+bool heapCopyHolds(jint bytes) {
+    if (gHeapCopy.size() >= static_cast<size_t>(bytes)) return true;
+    try {
+        gHeapCopy.resize(static_cast<size_t>(bytes));
+    } catch (...) {
+        return false;  // nothing may throw through JNI
+    }
+    return true;
+}
+
+// gHeapLock held, `buffer` has an array: its bytes copied straight out of it, no Java object made.
+int writeBacked(JNIEnv* env, const HeapBufferIds& ids, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes) {
+    const jint limit = env->CallIntMethod(buffer, ids.limit);
+    const jint offset = env->ExceptionCheck() ? 0 : env->CallIntMethod(buffer, ids.arrayOffset);
+    auto array = env->ExceptionCheck() ? nullptr : static_cast<jbyteArray>(env->CallObjectMethod(buffer, ids.array));
+    if (env->ExceptionCheck() || !array || static_cast<int64_t>(position) + bytes > limit || !heapCopyHolds(bytes)) {
+        env->ExceptionClear();  // a position or length past the buffer: nothing to write
+        if (array) env->DeleteLocalRef(array);
+        return 0;
+    }
+    env->GetByteArrayRegion(array, offset + position, bytes, gHeapCopy.data());
+    env->DeleteLocalRef(array);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return 0;
+    }
+    return geode_pcm_ring_tap_write(ring, gHeapCopy.data(), static_cast<size_t>(bytes));
+}
+
 int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, jint bytes) {
     const HeapBufferIds& ids = heapBufferIds(env);
     if (!ids.get) return 0;
     std::lock_guard<std::mutex> lock(gHeapLock);
+    if (ids.limit) {
+        const bool backed = env->CallBooleanMethod(buffer, ids.hasArray) == JNI_TRUE;
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            return 0;
+        }
+        if (backed) return writeBacked(env, ids, ring, buffer, position, bytes);
+    }
     if (gHeapLength < bytes) {
         jbyteArray grown = env->NewByteArray(bytes);
         if (!grown) {
@@ -70,13 +119,7 @@ int writeHeap(JNIEnv* env, geode_pcm_ring* ring, jobject buffer, jint position, 
         env->ExceptionClear();  // a position or length past the buffer: nothing to write
         return 0;
     }
-    if (gHeapCopy.size() < static_cast<size_t>(bytes)) {
-        try {
-            gHeapCopy.resize(static_cast<size_t>(bytes));
-        } catch (...) {
-            return 0;  // nothing may throw through JNI
-        }
-    }
+    if (!heapCopyHolds(bytes)) return 0;
     env->GetByteArrayRegion(gHeapBytes, 0, bytes, gHeapCopy.data());
     if (env->ExceptionCheck()) {
         env->ExceptionClear();

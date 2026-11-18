@@ -47,7 +47,7 @@ extern "C" int __android_log_print(int, const char*, const char*, ...) { return 
 
 // ---- our own code's link seams --------------------------------------------------------------------------
 geode::viz::ProgramStager* geode::viz::ProgramStager::current() { return nullptr; }
-GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*) { std::abort(); }
+GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*, bool) { std::abort(); }
 std::optional<geode::viz::ProgramKey> geode::viz::ProgramBinaryCache::keyFor(const std::string&, const std::string&) {
     std::abort();
 }

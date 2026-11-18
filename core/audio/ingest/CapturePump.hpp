@@ -38,6 +38,13 @@ public:
     using Clock = int64_t (*)();
     // How long stop waits for a read the platform does not let go of; the thread is then left to end alone.
     static constexpr int64_t kStopWaitMs = 500;
+    // How many threads left behind that way may be waiting at once before start refuses a new capture. Each one
+    // holds its reader (the platform capture object and its JNI global references) and its buffer until its read
+    // returns. One is a platform hiccup a fresh capture gets past; a second says this device's read is not letting
+    // go, and every further start would only pin another, so two is where it stops.
+    static constexpr int kMaxStuck = 2;
+    // Threads left behind now, across the process; one leaves the count when its read returns and it ends.
+    static int stuck();
 
     // A thread reading `reader` in blocks of readBytes into `write`. Null when the thread could not start (the
     // reader's end has then run). nowMs is a monotonic clock in milliseconds.

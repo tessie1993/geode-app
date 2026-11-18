@@ -72,7 +72,7 @@ GLuint build(const std::string& vertexSrc, const std::string& fragmentSrc, Progr
     // A live renderer building a scene across frames (ProgramStager, ScenePrep): the stager compiles
     // it in budgeted steps and hands out a placeholder until it is linked.
     if (ProgramStager* stager = ProgramStager::current()) {
-        return stager->obtain({{GL_VERTEX_SHADER, vertexSrc}, {GL_FRAGMENT_SHADER, fragmentSrc}}, error);
+        return stager->obtain({{GL_VERTEX_SHADER, vertexSrc}, {GL_FRAGMENT_SHADER, fragmentSrc}}, error, nullptr, cache != nullptr);
     }
     const auto key = cache ? cache->keyFor(vertexSrc, fragmentSrc) : std::nullopt;
     if (key) {

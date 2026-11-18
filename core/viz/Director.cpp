@@ -333,6 +333,8 @@ void Director::intend(director::StyleIntent::Kind kind, int section) {
     intent_.kind = kind;
     intent_.from = style_;
     intent_.progress = tune()[Tune::StylesProgress] > 0.5f;
+    // A new draw at each moment, from the play's seed (viz/DirectorStyle spreads it).
+    intent_.draw = config_.seed ^ (0xD6E8FEB86659FD93ull * static_cast<uint64_t>(commits_));
     if (kind == director::StyleIntent::Kind::Return && section >= 0 && section < kSectionSlots) {
         const Section& s = sections_[static_cast<size_t>(section)];
         intent_.remembered = s.style;

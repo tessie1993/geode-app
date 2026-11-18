@@ -99,6 +99,9 @@ struct StyleIntent {
     std::string remembered;  // Return: the style the section was first shown on
     int step = 0;            // Return: how many times the section has come back
     bool progress = true;    // the Styles progress setting; off, a return brings its own style back and else it stays
+    // Which entry a step lands on when the pool lists the style more than once (MilkDrop, once per .milk file):
+    // from the play's seed and the moment's commit, so each moment draws anew and an export draws as the screen.
+    uint64_t draw = 0;
 };
 }  // namespace director
 

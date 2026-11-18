@@ -75,7 +75,7 @@ static_assert(kNotCopyable<viz::Texture>);
 extern "C" int __android_log_print(int, const char*, const char*, ...) { return 0; }
 
 geode::viz::ProgramStager* geode::viz::ProgramStager::current() { return nullptr; }
-GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*) { std::abort(); }
+GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*, bool) { std::abort(); }
 void geode::viz::prober::drainErrors() { std::abort(); }
 int geode::viz::prober::limit(unsigned int) { std::abort(); }
 std::string geode::viz::ComputeProof::sentence() const { std::abort(); }

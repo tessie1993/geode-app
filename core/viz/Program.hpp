@@ -98,7 +98,8 @@ std::string infoLog(GLuint object, bool isProgram);
 // Compiles one stage; 0 on failure with the driver log in `error`.
 GLuint compile(GLenum type, const std::string& source, std::string* error);
 
-// Links, restoring from the binary cache first; 0 on failure with the reason in `error`.
+// Links, restoring from the binary cache first; 0 on failure with the reason in `error`. A null `cache`
+// neither reads nor stores a binary, staged or not.
 GLuint build(const std::string& vertexSrc, const std::string& fragmentSrc, ProgramBinaryCache* cache, std::string* error);
 
 }  // namespace program

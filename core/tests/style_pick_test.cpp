@@ -120,6 +120,55 @@ void listsLeadWithOnScreen() {
     geode_styles_lead(0, 0, nullptr);
 }
 
+std::set<int> drawnFamily(const unsigned char* open, int onScreen) {
+    auto_draw::Draw draw(31);
+    std::set<int> seen;
+    for (int i = 0; i < 2000; ++i) seen.insert(pick::pickFamily(draw, kFamily, open, kCount, onScreen));
+    return seen;
+}
+
+// Owner, 2026-11-18: "Random style and Random family". Random family picks a family, then a style in it.
+void randomFamilyLeavesTheOnScreenFamily() {
+    check(drawnFamily(nullptr, 1) == std::set<int>{3, 4, 5}, "random family: another family, any of its styles");
+    check(drawnFamily(nullptr, 5) == std::set<int>{0, 1, 2, 3, 4}, "random family from a family of one: the others");
+    check(drawnFamily(nullptr, -1) == std::set<int>{0, 1, 2, 3, 4, 5}, "random family, nothing on screen: every style");
+    check(drawnFamily(nullptr, 9) == std::set<int>{0, 1, 2, 3, 4, 5}, "random family, on screen past the end: every style");
+}
+
+void randomFamilyIsFamilyFirst() {
+    // Family 0 has three styles, family 2 one: a style-first draw would land on 5 one time in three, a family-first
+    // draw one time in two.
+    auto_draw::Draw draw(5);
+    int fives = 0;
+    const int n = 6000;
+    for (int i = 0; i < n; ++i) {
+        const int got = pick::pickFamily(draw, kFamily, nullptr, kCount, 3);
+        if (got == 5) ++fives;
+    }
+    // From style 3 (family 1) the others are family 0 (3 styles) and family 2 (1 style): family 2 half the time.
+    check(fives > n * 4 / 10 && fives < n * 6 / 10, "random family: families are equally likely, not weighted by size");
+}
+
+void randomFamilyKeepsAFreeUserOnKeptStyles() {
+    const unsigned char keeps[] = {0, 0, 0, 0, 1, 0};
+    check(drawnFamily(keeps, 0) == std::set<int>{4}, "free: the family with a kept style, its kept style");
+    const unsigned char keepsOnScreenFamily[] = {0, 1, 0, 0, 0, 0};
+    check(drawnFamily(keepsOnScreenFamily, 0) == std::set<int>{1}, "free: only the on-screen family has a kept style");
+    const unsigned char none[] = {0, 0, 0, 0, 0, 0};
+    check(drawnFamily(none, 5) == std::set<int>{0, 1, 2, 3, 4}, "nothing kept: any other family, for a preview");
+}
+
+void randomFamilyEdges() {
+    auto_draw::Draw draw(8);
+    check(pick::pickFamily(draw, kFamily, nullptr, 0, -1) == -1, "no styles: -1");
+    check(pick::pickFamily(draw, kFamily, nullptr, 1, 0) == -1, "one style on screen: -1");
+    check(pick::pickFamily(draw, nullptr, nullptr, 3, 1) != 1, "null families: one family, never on screen");
+    const unsigned char open[] = {1, 1, 1, 1, 1, 1};
+    std::set<int> seen;
+    for (int i = 0; i < 2000; ++i) seen.insert(geode_styles_random_family(kFamily, open, kCount, 3));
+    check(seen == std::set<int>{0, 1, 2, 5}, "ABI: another family than the on-screen one");
+}
+
 }  // namespace
 
 int main() {
@@ -130,6 +179,10 @@ int main() {
     abiDraws();
     familyOfOneRollsInside();
     listsLeadWithOnScreen();
+    randomFamilyLeavesTheOnScreenFamily();
+    randomFamilyIsFamilyFirst();
+    randomFamilyKeepsAFreeUserOnKeptStyles();
+    randomFamilyEdges();
     if (failures == 0) std::printf("style_pick_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

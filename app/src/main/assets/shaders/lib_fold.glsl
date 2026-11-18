@@ -249,7 +249,10 @@ vec3 foldBend(vec3 p) {
     p.xy *= 1.0 + gFoldAxial * 0.3 * reach * sin(3.0 * zc + uTime * FOLD_RATE(200));
     p.x += side * 0.5 * reach * sin(2.0 * zc + 0.9 * p.y + uTime * FOLD_RATE(230));
     p.y += side * gFoldFlow * 0.4 * cos(zc - 0.7 * p.x);
-    p += gFoldChaos * 0.07 * sin(p.yzx * 3.1415927 + uTime * FOLD_RATE(1800) + vec3(0.0, 2.1, 4.2));
+    // Turbulence is 0 at rest: the ripple is then exactly nothing, so its sines are not taken.
+    if (gFoldChaos != 0.0) {
+        p += gFoldChaos * 0.07 * sin(p.yzx * 3.1415927 + uTime * FOLD_RATE(1800) + vec3(0.0, 2.1, 4.2));
+    }
     return p;
 }
 

@@ -35,22 +35,17 @@ class LfoStore(
     /**
      * Customize › Music's hand mask, saved beside the routes ([DirectorNative.handSet] says what the bits are); native
      * decides it ([ModulationNative.modHandLoad]). Routes that no longer read (a `reactions/1` list from before the sound
-     * engine's sources moved, or damaged text) are no list at all: the DNA plays, so they are dropped here and the
-     * mask is 0, or a leftover HAND_ALL would have switched off every director route (#355).
+     * engine's sources moved, a newer build's version this one does not know, or damaged text) are no list at all: the
+     * DNA plays, so they are dropped here and the mask is 0, or a leftover HAND_ALL would have switched off every
+     * director route (#355). Their text is kept whole under [KEY_REACTIONS_UNREAD] first, never destroyed.
      */
     fun loadHandMask(): Int {
-        val mask =
-            handLoad(
-                prefs.getString(KEY_REACTIONS, null),
-                prefs.contains(KEY_REACTIONS_HAND),
-                prefs.getInt(KEY_REACTIONS_HAND, 0),
-            )
+        val saved = prefs.getString(KEY_REACTIONS, null)
+        val mask = handLoad(saved, prefs.contains(KEY_REACTIONS_HAND), prefs.getInt(KEY_REACTIONS_HAND, 0))
         if (mask >= 0) return mask
-        prefs
-            .edit()
-            .remove(KEY_REACTIONS)
-            .remove(KEY_REACTIONS_HAND)
-            .apply()
+        val edit = prefs.edit()
+        if (saved != null) edit.putString(KEY_REACTIONS_UNREAD, saved)
+        edit.remove(KEY_REACTIONS).remove(KEY_REACTIONS_HAND).apply()
         return 0
     }
 
@@ -84,12 +79,15 @@ class LfoStore(
         const val KEY_REACTIONS = "reactions"
         const val KEY_REACTIONS_HAND = "reactions_hand"
 
+        /** Saved routes this build could not read, kept as they were ([loadHandMask]); nothing reads them back yet. */
+        const val KEY_REACTIONS_UNREAD = "reactions_unread"
+
         /** Every key this store writes: a backup files the LFOs, envelopes and reactions under Creative. */
-        val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS, KEY_REACTIONS_HAND)
+        val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS, KEY_REACTIONS_HAND, KEY_REACTIONS_UNREAD)
 
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
-                portable(PrefType.STRING, KEY, KEY_ADSR, KEY_REACTIONS)
+                portable(PrefType.STRING, KEY, KEY_ADSR, KEY_REACTIONS, KEY_REACTIONS_UNREAD)
                 portable(PrefType.INT, KEY_REACTIONS_HAND)
             }
     }

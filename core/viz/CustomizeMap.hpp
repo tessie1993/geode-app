@@ -95,6 +95,19 @@ std::set<std::string> expandKeeps(const std::set<std::string>& locked);
 void setKept(std::string_view lines);
 std::shared_ptr<const std::set<std::string>> kept();
 
+// Customize's saved keep document (the shell stores it, one key a line): what the user keeps, before
+// expandLocks. A key it may hold is a control a roll can move (randomizer::lockableKeysText) or
+// "#CATEGORY" for a category this map names; "#PRO" is a roll's, never the user's, so it is not one.
+bool keepable(std::string_view key);
+// The document with every key it may not hold dropped (unknown, retired, blank) and each kept key
+// once, sorted: one key a line, each line ending in a newline; "" keeps nothing.
+std::string keepNormalize(std::string_view document);
+// Whether the normalised document keeps key, as written (a category marker does not hold its controls here).
+bool keepHas(std::string_view document, std::string_view key);
+// The normalised document with key taken out when it keeps it, put in when it does not; a key it may
+// not hold leaves it as it was.
+std::string keepToggle(std::string_view document, std::string_view key);
+
 // The category a control lives in, or nullopt for a key the panel does not show.
 std::optional<Category> categoryOf(std::string_view key);
 

@@ -27,6 +27,7 @@ import dev.geode.data.FavouritesStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.GeneralSettingsCodec
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.KeepSetStore
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryPrefsStore
 import dev.geode.data.LibrarySettings
@@ -58,16 +59,16 @@ import dev.geode.data.backup.BackupSection
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
-import dev.geode.model.SceneParams
 import dev.geode.model.StyleShelf
 import dev.geode.model.TestCatalogue
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
-import dev.geode.ui.ModulationController
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
 import dev.geode.widget.WidgetState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -136,16 +137,18 @@ class PrefsSchemaTest {
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions("reactions/2", 0)
+                // Routes this build cannot read are kept aside before they are dropped.
+                LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> -1 }).loadHandMask()
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))
             },
             Owner("$DATA/NoteResponseStore.kt", NoteResponseCodec.keys) { NoteResponseCodec.save(it[general], false) },
             Owner("$DATA/AutoVisualsPrefsStore.kt", AutoVisualsPrefsStore.PREF_KEYS) {
-                AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ]).save(VizUiState())
+                AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ], EmptyPlaylistRules).save(VizUiState())
             },
             Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
-                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf().toggleFavourite("plasma"))
+                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf(favourites = setOf("plasma")))
             },
             Owner("$DATA/MilkPathPrefs.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS),
             Owner("$DATA/PlayerPrefs.kt", PlayerPrefsStore.PREF_KEYS + BookmarkStore.PREF_KEYS) {
@@ -168,16 +171,9 @@ class PrefsSchemaTest {
             Owner("$DATA/BackgroundPrefsStore.kt", BackgroundPrefsStore.PREF_KEYS) {
                 BackgroundPrefsStore(it[GeodePrefsFiles.BACKGROUND]).save(BackgroundPrefs(uri = "content://image"))
             },
-            Owner("$APP/ui/ModulationController.kt", ModulationController.PREF_KEYS) {
-                val host =
-                    object : ModulationController.Host {
-                        override val params = SceneParams.DEFAULT
-                        override val sceneId = "plasma"
-
-                        override fun setSceneParams(params: SceneParams) = Unit
-                    }
-                val lfos = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
-                ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host, pushKept = {}).toggleParamLock("speed")
+            Owner("$DATA/KeepSetStore.kt", KeepSetStore.PREF_KEYS) {
+                // The toggle that wrote this is native (core/viz/CustomizeMap keepToggle); the store saves what it returns.
+                KeepSetStore(it[GeodePrefsFiles.MODULATION]) { document -> document }.save("speed\n")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)
@@ -314,6 +310,22 @@ class PrefsSchemaTest {
     }
 
     @Test
+    fun aRestoreChecksTypesAgainstEveryKeyOfTheFilesItWrites() {
+        val restored = BackupSection.entries.flatMap { it.prefsFiles + it.borrowedKeys.keys }.toSet()
+        assertEquals(allKeys.filter { it.file in restored }.toSet(), BackupFormat.declaredKeys.toSet())
+    }
+
+    @Test
+    fun aRestoreSkipsAValueOfAnotherTypeThanItsKeys() {
+        assertTrue(BackupFormat.hasDeclaredType(general, "gui_opacity", 0.5f))
+        assertFalse(BackupFormat.hasDeclaredType(general, "gui_opacity", "0.5"))
+        assertTrue(BackupFormat.hasDeclaredType(player, "bookmark:content://track", 1_000L))
+        assertFalse(BackupFormat.hasDeclaredType(player, "bookmark:content://track", 1_000))
+        // A key no store declares is read by none, so it cannot throw.
+        assertTrue(BackupFormat.hasDeclaredType(general, "no_such_key", "x"))
+    }
+
+    @Test
     fun theOlderKeySetsStillMatchTheSchema() {
         val (macroRetired, macroLive) = MacroStore.PREF_KEYS.partition { it.retired }
         assertEquals(MacroStore.KEYS, macroLive.map { it.name }.toSet())
@@ -369,6 +381,20 @@ class PrefsSchemaTest {
         // Unit tests run with the module directory as the working directory.
         val root: File = listOf(File("."), File("..")).first { File(it, "app/src/main").isDirectory }
     }
+}
+
+/** Stands in for Auto's native saved-shape rules, which a JVM test cannot load: the empty playlist's text only. */
+private object EmptyPlaylistRules : AutoVisualsPrefsStore.Rules {
+    override fun entriesFromJson(json: String): List<VizPlaylistEntry> = throw UnsupportedOperationException("native's (shell_prefs_test)")
+
+    override fun entriesToJson(entries: List<VizPlaylistEntry>): String = "[]"
+
+    override fun apply(
+        state: IntArray,
+        stored: IntArray,
+        has: BooleanArray,
+        playlistCount: Int,
+    ): IntArray = throw UnsupportedOperationException("native's (shell_prefs_test)")
 }
 
 /** Stands in for the native effect ranges, which a JVM test cannot load: ten bands, every value as given. */

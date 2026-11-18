@@ -51,6 +51,9 @@ object GeodeNative {
     const val BOOKMARK_CLEAR: Int = 1
     const val BOOKMARK_SAVE: Int = 2
 
+    /** At most this many tracks keep a bookmark (GEODE_BOOKMARK_MAX, `core/audio/dsp/TrackBookmark` kMaxBookmarks). */
+    const val BOOKMARK_MAX: Int = 200
+
     /** The equalizer's bands. */
     external fun dspBandCount(): Int
 

@@ -67,6 +67,20 @@ void text() {
     SmartTrack t{"u", "\xC3\x89t\xC3\xA9", "", "", "", 0, 0};
     check(smartResolve(list({rule(RuleField::Title, RuleOp::Is, "\xC3\xA9T\xC3\x89")}), {t}, [](const std::string&) { return 0; }, {}, 0) == Rows({0}),
           "Latin-1 letters fold their case");
+    // Kotlin's Char.equals(ignoreCase) knows every script with case, not only Latin-1, Greek and Cyrillic.
+    const auto picks = [](const std::string& title, RuleOp op, const std::string& value) {
+        SmartTrack one{"u", title, "", "", "", 0, 0};
+        return smartResolve(list({rule(RuleField::Title, op, value)}), {one}, [](const std::string&) { return 0; }, {}, 0) == Rows({0});
+    };
+    check(picks("\xC8\x98tefan", RuleOp::Contains, "\xC8\x99tef"), "Romanian S-comma (Latin Extended-B) folds");
+    check(picks("Ph\xE1\xBA\xA0m", RuleOp::Is, "ph\xE1\xBA\xA1m"), "Vietnamese A-dot-below (Latin Extended Additional) folds");
+    check(picks("\xD4\xB1\xD6\x80\xD5\xA1", RuleOp::Contains, "\xD5\xA1\xD6\x80"), "Armenian folds");
+    check(picks("\xEF\xBC\xA1\xEF\xBC\xA2", RuleOp::Is, "\xEF\xBD\x81\xEF\xBD\x82"), "fullwidth Latin folds");
+    check(picks("\xE1\xB2\x90", RuleOp::Is, "\xE1\x83\x90"), "Georgian Mtavruli folds to Mkhedruli");
+    check(picks("\xC4\xB0", RuleOp::Is, "i") && picks("\xC4\xB1", RuleOp::Is, "I"), "dotted capital I and dotless i meet i and I");
+    check(picks("\xC5\xBF", RuleOp::Is, "S") && picks("\xC2\xB5", RuleOp::Is, "\xCE\x9C"), "long s and micro sign fold through their capitals");
+    check(picks("\xC3\x9F", RuleOp::Is, "\xC3\x9F") && !picks("\xC3\x9F", RuleOp::Is, "ss"), "sharp s is only itself");
+    check(!picks("\xF0\x90\x90\x80", RuleOp::Contains, "\xF0\x90\x90\xA8"), "past the BMP Kotlin compares UTF-16 units: Deseret does not fold");
 }
 
 void numbers() {
@@ -163,6 +177,23 @@ void files() {
     check(sorted.size() == 3 && sorted[0].name == "A" && sorted[1].name == "a" && sorted[2].name == "b", "listed by lower-case name, stable");
 }
 
+void tokensAndWire() {
+    const auto r = smartRuleOf("PLAY_COUNT", "AT_LEAST", "3");
+    check(r && r->field == RuleField::PlayCount && r->op == RuleOp::AtLeast && r->value == "3", "a rule from its tokens");
+    check(!smartRuleOf("RATING", "IS", "5") && !smartRuleOf("TITLE", "LIKE", "x") && !smartRuleOf("title", "IS", "x"),
+          "an unknown field or op, or a token in another case, is no rule");
+    check(smartWire({}).empty(), "no playlists is an empty wire");
+    SmartPlaylist p = list({rule(RuleField::Favourite, RuleOp::IsNot, ""), rule(RuleField::Folder, RuleOp::Contains, "a\x1f" "b\x1e" "c")}, false, 25);
+    p.name = "Mi\x1ex";
+    SmartPlaylist q;
+    q.name = "Q";
+    check(smartWire({p, q}) == "Mix\x1f" "0\x1f" "25\x1f" "FAVOURITE\x1fIS_NOT\x1f\x1f" "FOLDER\x1f" "CONTAINS\x1f" "abc\x1e"
+                               "Q\x1f" "1\x1f" "0\x1e",
+          "name, flag, limit and each rule's tokens and value; the separators dropped from text");
+    const auto listed = smartList({smartToJson(q), smartToJson(list({rule(RuleField::Title, RuleOp::Is, "x")}))});
+    check(smartWire(listed) == "L\x1f" "1\x1f" "0\x1fTITLE\x1fIS\x1fx\x1e" "Q\x1f" "1\x1f" "0\x1e", "the listed playlists in order");
+}
+
 void fromText() {
     const std::string history = historyRecordPlay(historyRecordPlay("", "u/a", "A", "", 10).state, "u/a", "A", "", 20).state;
     SmartPlaylist p = list({rule(RuleField::PlayCount, RuleOp::AtLeast, "2")});
@@ -171,6 +202,7 @@ void fromText() {
     check(!smartResolveText("junk", library(), history, {}, kNowMs), "an unreadable playlist resolves to nothing");
     const auto none = smartResolveText(smartToJson(p), library(), "", {}, kNowMs);
     check(none && none->empty(), "no history means no plays");
+    check(smartResolveHistory(p, library(), history, {}, kNowMs) == Rows({0}), "a playlist held in memory reads its counts the same way");
 }
 }  // namespace
 
@@ -180,6 +212,7 @@ int main() {
     favourites();
     combining();
     files();
+    tokensAndWire();
     fromText();
     if (failures == 0) std::printf("library_smart_playlist_test: all passed\n");
     return failures == 0 ? 0 : 1;

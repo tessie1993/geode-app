@@ -1,10 +1,13 @@
 package dev.geode.data
 
 import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
+import dev.geode.engine.bridge.LibraryNative
 import java.io.File
 
+/**
+ * The saved play queue (session.json). Which text reads as a session and what is written for one are native's
+ * (core/library/SessionDoc); this reads and writes the file and moves an unreadable one aside.
+ */
 class SessionStore(
     context: Context,
 ) {
@@ -22,37 +25,21 @@ class SessionStore(
         val positionMs: Long,
     )
 
-    @Suppress("ReturnCount")
     fun load(): Saved? {
         if (!file.isFile) return null
         val text = runCatching { file.readText() }.getOrNull() ?: return null
-        val parsed =
-            runCatching { parse(text) }.getOrElse {
-                AtomicWrite.quarantine(file)
-                return null
-            }
-        if (parsed == null) AtomicWrite.quarantine(file)
-        return parsed
+        val wire = LibraryNative.sessionRead(text) ?: return null
+        val saved = savedOf(wire)
+        // No session in it (garbage, a newer app's file, no track): moved aside, as a corrupt file.
+        if (saved == null) AtomicWrite.quarantine(file)
+        return saved
     }
 
     fun save(session: Saved): Boolean {
-        if (session.tracks.isEmpty()) return clear()
-        val items = JSONArray()
-        for (t in session.tracks) {
-            items.put(
-                JSONObject()
-                    .put(KEY_URI, t.uri)
-                    .put(KEY_TITLE, t.title)
-                    .put(KEY_ARTIST, t.artist),
-            )
-        }
-        val root =
-            JSONObject()
-                .put(KEY_VERSION, VERSION)
-                .put(KEY_TRACKS, items)
-                .put(KEY_INDEX, session.index.coerceIn(0, session.tracks.size - 1))
-                .put(KEY_POSITION, session.positionMs.coerceAtLeast(0L))
-        return AtomicWrite.text(file, root.toString())
+        val cells = session.tracks.flatMap { listOf(it.uri, it.title, it.artist) }.toTypedArray()
+        val text = LibraryNative.sessionWrite(cells, session.index, session.positionMs) ?: return false
+        if (text.isEmpty()) return clear()
+        return AtomicWrite.text(file, text)
     }
 
     fun clear(): Boolean {
@@ -60,48 +47,22 @@ class SessionStore(
         return file.delete()
     }
 
-    @Suppress("ReturnCount", "LoopWithTooManyJumpStatements")
-    private fun parse(text: String): Saved? {
-        val root = JSONObject(text)
-        // A file written by a newer app version may use a schema this version cannot read
-        // safely. Fail the parse so the caller's runCatching quarantines it, the same as any
-        // other corrupt session file, instead of misreading fields that may have changed shape.
-        val version = root.optInt(KEY_VERSION, 1)
-        require(version <= VERSION) { "session file from a newer app (version $version > $VERSION)" }
-        val array = root.optJSONArray(KEY_TRACKS) ?: return null
-        val tracks = ArrayList<SavedTrack>(array.length())
-        for (i in 0 until array.length()) {
-            val item = array.optJSONObject(i) ?: continue
-            val uri = item.optString(KEY_URI).orEmpty()
-            if (uri.isBlank()) continue
-            tracks +=
-                SavedTrack(
-                    uri = uri,
-                    title = item.optString(KEY_TITLE).orEmpty(),
-                    artist = item.optString(KEY_ARTIST).orEmpty(),
-                )
-        }
-        if (tracks.isEmpty()) return null
-        return Saved(
-            tracks = tracks,
-            index = root.optInt(KEY_INDEX, 0).coerceIn(0, tracks.size - 1),
-            positionMs = root.optLong(KEY_POSITION, 0L).coerceAtLeast(0L),
-        )
-    }
-
     companion object {
         private const val FILE_NAME = "session.json"
 
-        private const val VERSION = 1
-
-        private const val KEY_VERSION = "version"
-        private const val KEY_TRACKS = "tracks"
-        private const val KEY_INDEX = "index"
-        private const val KEY_POSITION = "positionMs"
-        private const val KEY_URI = "uri"
-        private const val KEY_TITLE = "title"
-        private const val KEY_ARTIST = "artist"
+        private const val FIELD = '\u001F'
+        private const val RECORD = '\u001E'
+        private const val HEAD_FIELDS = 2
+        private const val TRACK_FIELDS = 3
 
         const val POSITION_WRITE_INTERVAL_MS: Long = 5_000
+
+        // Native's wire (`geode_session_read`): index, position, then three fields per track; "" is no session.
+        private fun savedOf(wire: String): Saved? {
+            val f = wire.removeSuffix(RECORD.toString()).split(FIELD)
+            if (f.size < HEAD_FIELDS + TRACK_FIELDS || (f.size - HEAD_FIELDS) % TRACK_FIELDS != 0) return null
+            val tracks = f.drop(HEAD_FIELDS).chunked(TRACK_FIELDS).map { (uri, title, artist) -> SavedTrack(uri, title, artist) }
+            return Saved(tracks, f[0].toInt(), f[1].toLong())
+        }
     }
 }

@@ -94,6 +94,7 @@ object ExportNative {
         untilUs: Long,
         outClip: IntArray,
         outSample: IntArray,
+        outPts: LongArray,
     ): Int
 
     /** The progress bar once [done] of [repeats] repeats are copied. */

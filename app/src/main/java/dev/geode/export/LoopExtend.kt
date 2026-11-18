@@ -189,8 +189,8 @@ class LoopExtend(
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): Result {
-        if (soundtrack.totalUs <= 0L) return Result.Failed(context.getString(R.string.export_error_extend_empty_soundtrack))
-        val plan = LoopExtendPlan.of(reel.loopDurationUs, soundtrack.totalUs, reel.loops.size)
+        if (soundtrack.starts.last() <= 0L) return Result.Failed(context.getString(R.string.export_error_extend_empty_soundtrack))
+        val plan = LoopExtendPlan.of(reel.loopDurationUs, soundtrack.starts.last(), reel.loops.size)
         val estimate = plan.estimatedBytes(reel.bytes / reel.loops.size, soundtrack.bytes)
         if (estimate > sizeLimitBytes) return Result.Failed(oversizeMessage(plan, estimate, sizeLimitBytes, soundtrack.bytes))
         val target =
@@ -438,7 +438,6 @@ class LoopExtend(
         val format: MediaFormat,
         val starts: LongArray,
     ) {
-        val totalUs: Long get() = starts.last()
         val bytes: Long get() = clips.sumOf { it.audio.file.length() }
 
         fun release() {
@@ -471,7 +470,6 @@ class LoopExtend(
                 codecConfig(format, 1),
             )
 
-        // Every sample's time and extractor flags, read once; which each repeat writes, and when, is native.
         private val times: LongArray
         private val flags: IntArray
 
@@ -582,6 +580,7 @@ class LoopExtend(
         private val cursor = IntArray(2)
         private val dueClip = IntArray(DUE_BATCH)
         private val dueSample = IntArray(DUE_BATCH)
+        private val duePts = LongArray(DUE_BATCH)
 
         fun writeUpTo(untilUs: Long) {
             do {
@@ -601,6 +600,7 @@ class LoopExtend(
         private fun write(
             clip: TranscodedClip,
             sample: AudioTranscoder.SampleInfo,
+            ptsUs: Long,
         ) {
             val channel = openReader(clip).channel
             if (scratch.capacity() < sample.size) scratch = ByteBuffer.allocate(sample.size)

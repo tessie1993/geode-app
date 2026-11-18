@@ -4,7 +4,7 @@
 One fact per line. Add a fact as a new bullet under its module.
 
 ```
-:app ──externalNativeBuild──► CMakeLists.txt ──► libgeode.so + libprojectM-4.so
+:app ──externalNativeBuild──► CMakeLists.txt ──► libgeode.so
 ```
 
 ## Native bridge (`app/src/main/java/dev/geode/engine/`)

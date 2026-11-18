@@ -19,8 +19,7 @@ Two things in it need reading with care:
   is for moving files.
 - **Rechecked at b1ac6a75a** (2026-11-11): no dependency or SDK change since the scan
   (`app/build.gradle.kts` and the version catalog are untouched). The manifest gained
-  `FOREGROUND_SERVICE_MICROPHONE` on `cast.CastService` (#1037, declared in permissions.md) and
-  a `VIEW` filter for `.milk` files on `MainActivity`. New on-device behaviour the scan predates:
+  `FOREGROUND_SERVICE_MICROPHONE` on `cast.CastService` (#1037, declared in permissions.md). New on-device behaviour the scan predates:
   Record can save the microphone's or another app's sound in a video the user records, and a
   shake saves a screenshot; both are in data-safety.md and the privacy policy. Its other findings stand. The one risk it rated a suggestion, the
   `mediaProjection` declaration, is the weakest fit in the Console form; see permissions.md.

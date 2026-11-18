@@ -119,7 +119,7 @@ jobs:
           # The shape graph (core/viz/ShapeGraph, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, no turn, the colour's blend, 1-Lipschitz, the reach.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shape_graph_test.cpp core/viz/ShapeGraph.cpp -o shape_graph_test
           ./shape_graph_test
-          # The feedback pass's motion, MilkDrop's per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
+          # The feedback pass's motion, a per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o feedback_motion_test
           ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
@@ -342,7 +342,7 @@ jobs:
           # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp -o surface_motion_test
           ./surface_motion_test
-          # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
+          # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the random draw never repeating what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
           # Auto visuals' decisions: the playlist's steps and holds, the timed draw, a director moment the user's or Auto's, the draw's pool and the interval's range.
@@ -351,25 +351,13 @@ jobs:
           # Customize's undo: a drag folds into one entry, a discrete write is its own, 64 deep, the palette id travels; the dice's #PRO lock and when the waves roll.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_history_test.cpp core/api/geode_param_history_api.cpp -o param_history_test
           ./param_history_test
-          # What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
+          # What the stage's next/previous style steps: the open tab's list (saved looks on Presets, styles elsewhere), the walk's wrap and locks.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp -o stage_step_test
           ./stage_step_test
           # Visuals › Styles: Random over every family (or the on-screen family alone), never the style on screen, a kept style first; every list leads with what is on screen.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp -o style_pick_test
           ./style_pick_test
-          # A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shader_note_test.cpp -o milk_shader_note_test
-          ./milk_shader_note_test
-          # A loaded .milk counts as shown, and is remembered for the next start, only once it has drawn clean frames.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shown_test.cpp -o milk_shown_test
-          ./milk_shown_test
-          # The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp -o milk_memory_test
-          ./milk_memory_test
-          # MilkDrop textures: header checks and caps, stored names and the rename strip, the show preset, the sampler scan and every rung of the link ladder, pack kinds, import collision names.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_textures_test.cpp core/viz/MilkTextures.cpp core/viz/Sha256.cpp -o milk_textures_test
-          ./milk_textures_test
-          # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
+          # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for its own time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.

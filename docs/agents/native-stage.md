@@ -137,7 +137,7 @@ One fact per line. The design of the native host every live surface draws throug
 - The client is a C struct of function pointers (`geode_stage_client`); Kotlin never sees it.
 - `geode_stage_create_live` makes a stage that owns its `geode_viz` (`core/stage/LiveClient`).
 - A live stage's commands: `geode_stage_set_look`, `_set_sound`, `_warm_transition`, `_record_start`, `_record_stop`, `_viz_lock`, `_viz_unlock`.
-- A live stage's reads: `_take_milk_loaded`, `_take_director_moments`, `_liquid_mode`, `_error`, `_still_size`, `_still_read`, `_record_closed`, `_gyro_listens`.
+- A live stage's reads: `_take_director_moments`, `_liquid_mode`, `_error`, `_still_size`, `_still_read`, `_record_closed`, `_gyro_listens`.
 - `LiveClient` sends only the parts of a look that changed, and keeps what a frame reported until the shell polls it.
 - `LiveClient` closes every record tee when the stage releases it; `geode_stage_record_closed` is what Record waits for, so a finish never depends on a thread that may be gone.
 - JNI: `app/src/main/cpp/geode_stage_jni.cpp`, the `stage*` `external fun`s of `StageNative`; it only marshals.

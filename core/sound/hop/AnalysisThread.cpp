@@ -5,6 +5,11 @@
 #include <cstring>
 #include <limits>
 
+#ifdef __ANDROID__
+#include <sys/resource.h>
+#include <unistd.h>
+#endif
+
 namespace geode::sound {
 
 namespace {
@@ -28,6 +33,12 @@ constexpr float kMaxStepSeconds = 0.25f;
 // A reader's tries at one slot, and at the whole search, before it falls back.
 constexpr int kReadTries = 64;
 constexpr int kLapTries = 4;
+
+#ifdef __ANDROID__
+// One step below the stage thread's nice -4 (StageThread.cpp), still above a default thread: the analysis feeds the
+// picture's next frame, so it is never starved by app threads, and never outranks the thread that draws.
+constexpr int kAnalysisNice = -2;
+#endif
 
 float clampFade(float gain) { return std::isfinite(gain) ? std::clamp(gain, 0.0f, 1.0f) : 1.0f; }
 
@@ -85,6 +96,10 @@ void AnalysisThread::notify() {
 }
 
 void AnalysisThread::run() {
+#ifdef __ANDROID__
+    // Best effort: a refusal leaves the inherited priority. The work done per pass is unchanged.
+    setpriority(PRIO_PROCESS, static_cast<id_t>(gettid()), kAnalysisNice);
+#endif
     auto last = std::chrono::steady_clock::now();
     for (;;) {
         // The signal before the work: a notify after this load changes it, so the wait below returns at once.

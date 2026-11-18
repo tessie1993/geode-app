@@ -5,7 +5,8 @@
 // What is pinned: each command's lifecycle event (window, window gone, size, mode, pause and resume, redraw, cap,
 // quit), the window references (one release per hand-over, replaced, gone, discarded or closed), the hand-over's
 // acknowledgement only after the old surface is gone, a vsync's frame drawn only while the vsync runs and a frame
-// can be drawn, the frame-rate preference restated for a new window, a new size and a new cap, the client's
+// can be drawn, the frame-rate preference restated for a new window, a new size and a new cap, the cap "Adapt to
+// frame time" asks for after a frame handed to the pacer and the window under the user's own, the client's
 // service between frames, a lost context forgotten with none current, and a thread ending out of turn still
 // releasing the client once and freeing everything.
 #include <cstdint>
@@ -116,6 +117,7 @@ struct Client final : StageClient {
     int created = 0, changed = 0, frames = 0, trims = 0, losses = 0, releases = 0, services = 0;
     int width = 0, height = 0;
     float paced = -1.0f, cap = -1.0f;
+    float governed = 0.0f;  // the cap the governor asks for after each frame, 0 for none
     uint32_t nextEvents = 0;
     std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
     std::vector<int64_t> presentTimes;  // the presentation time each frame was told, 0 for none
@@ -138,6 +140,7 @@ struct Client final : StageClient {
         cap = capFps;
         return nextEvents;
     }
+    float governedCapFps() override { return governed; }
     void trimSpares() override { trims++; }
     void contextLost() override {
         losses++;
@@ -353,6 +356,35 @@ void serviceAndQuit() {
     check(r.port.swaps == swaps, "nothing draws after quit");
 }
 
+void governedCap() {
+    Rig r;
+    r.show();
+    r.client->governed = 30.0f;
+    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
+    check(r.port.vsyncCapFps == 30.0f && r.port.rate == 30.0f, "a governed cap goes to the pacer and the window after the frame");
+    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f));
+    check(r.client->cap == 60.0f && r.client->paced == 30.0f, "the frame is still told the user's own cap, and the paced rate");
+    const int rates = r.port.rateCalls;
+    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f));
+    check(r.port.rateCalls == rates, "an unchanged governed cap restates nothing");
+    r.send(command(kStageCap, 0, 0, 90.0f));
+    check(r.port.vsyncCapFps == 30.0f && r.port.rate == 30.0f, "a new user cap stays under the governor's");
+    r.client->governed = 0.0f;
+    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f));
+    check(r.port.vsyncCapFps == 90.0f && r.port.rate == 90.0f, "the governor letting go gives the user's cap back");
+
+    // Follow device: the governor's cap as it is, and no stated rate again once it lets go.
+    r.send(command(kStageCap, 0, 0, -1.0f));
+    check(r.port.vsyncCapFps == -1.0f && r.port.rate == 0.0f, "Follow device states no rate");
+    r.client->governed = 30.0f;
+    r.send(command(kStageFrameDue, 0, 0, 90.0f, -1.0f));
+    check(r.port.vsyncCapFps == 30.0f && r.port.rate == 30.0f, "under Follow device the governor's cap is paced as it is");
+    check(r.client->cap == -1.0f, "and the frame is told Follow device");
+    r.client->governed = 0.0f;
+    r.send(command(kStageFrameDue, 0, 0, 30.0f, -1.0f));
+    check(r.port.vsyncCapFps == -1.0f && r.port.rate == 0.0f, "letting go follows the device again");
+}
+
 void endsOutOfTurn() {
     Rig r;
     r.show();
@@ -377,6 +409,7 @@ int main() {
     aFrameThatRepeatsThePictureIsNotSwapped();
     pauseAndLoss();
     serviceAndQuit();
+    governedCap();
     endsOutOfTurn();
     if (failures) {
         std::fprintf(stderr, "%d stage core check(s) failed\n", failures);

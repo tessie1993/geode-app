@@ -55,6 +55,14 @@
     <string name="perf_level_high">High</string>
     <string name="perf_post_fx">Extra effects</string>
     <string name="perf_post_fx_hint">Flow distortion, the touch smear and fluid bloom.</string>
+    <string name="perf_adaptive">Adapt to frame time</string>
+    <string name="perf_adaptive_hint">When frames come late, lowers resolution, then 3D detail, then extra effects, and only then the frame rate, never above what you set here. It goes back up once frames are on time again, and starts from your settings with each new style. Recording and exports are never lowered.</string>
+    <string name="perf_adaptive_now">Now: %1$d fps, %2$s</string>
+    <string name="perf_adaptive_now_fps">Now: %1$d fps</string>
+    <string name="perf_adaptive_now_full">full quality</string>
+    <string name="perf_adaptive_now_scale">resolution %1$s</string>
+    <string name="perf_adaptive_now_march">3D detail %1$s</string>
+    <string name="perf_adaptive_now_no_fx">no extra effects</string>
     <string name="perf_export_note">Applies at once to the visualizer, the wallpaper and the screen saver. The frame rate cap is the visualizer\'s alone: the wallpaper and the screen saver keep their own rate. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
@@ -68,7 +76,7 @@
     <string name="help_topic_safety">Flashing and motion</string>
     <string name="help_topic_safety_body">BeatRealms caps brightness, contrast and glow and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate. MilkDrop presets only get the brightness cap, so the flashes they draw themselves are not limited, and neither are fluid shaders you write. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
-    <string name="help_topic_performance_body">The visual draws at the resolution and frame rate you pick in Settings › Performance; Saver, a lower frame rate cap or a lower resolution keeps the phone cooler. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
+    <string name="help_topic_performance_body">The visual draws at the resolution and frame rate you pick in Settings › Performance, and with Adapt to frame time on it lowers them for a while when frames come late; Saver, a lower frame rate cap or a lower resolution keeps the phone cooler. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 
     <!-- Per-track metadata editor. -->
     <string name="track_info_title">Track info</string>

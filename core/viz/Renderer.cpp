@@ -38,7 +38,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); },
+                          // The user's march scale under the governor's steps (frame::FrameGovernor).
+                          [this] { return governor_.governed().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
@@ -575,8 +576,9 @@ void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
 }
 
 void Renderer::applyRenderScale() {
-    appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
-    // The scene target is the surface's pixels times the user's scale and never more: a scale of 1 draws
+    // The user's scale under the governor's steps (frame::FrameGovernor), as of this frame.
+    appliedUserScale_ = governor_.governed().renderScale;
+    // The scene target is the surface's pixels times that scale and never more: a scale of 1 draws
     // each pixel once.
     renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * appliedUserScale_), 1);

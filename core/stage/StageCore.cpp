@@ -48,14 +48,13 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
         case kStageRedraw: lifecycle_.redrawNeeded(); break;
         case kStageCap:
             cap_ = command.f;
-            paced_.store(command.f, std::memory_order_relaxed);
-            port_.vsyncCap(command.f);
+            paced_.store(pacedCap(), std::memory_order_relaxed);
+            port_.vsyncCap(pacedCap());
             restateRate();
             break;
         case kStageFrameDue:
             frameDue_ = true;
             dueFps_ = command.f;
-            dueCapFps_ = command.g;
             dueFrameNs_ = command.t;
             duePresentNs_ = command.b > 0 ? command.t + command.b : 0;
             paced_.store(command.f, std::memory_order_relaxed);
@@ -85,7 +84,9 @@ void StageCore::step(int64_t nowMs) {
         frameDue_ = false;
         // A request already in flight when the vsync stopped is dropped here.
         if (lifecycle_.vsyncOn() && lifecycle_.canDraw()) {
-            draw(dueFps_, dueCapFps_, dueFrameNs_, duePresentNs_);
+            // The surface's own cap, not the one the vsync paced to: the renderer's governor measures against the
+            // paced rate and steps under the user's maximum, which only the own cap says.
+            draw(dueFps_, cap_, dueFrameNs_, duePresentNs_);
             runActions();
         }
         port_.frameDone();
@@ -106,9 +107,19 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The hint is the cap's, so the panel is asked for what will be drawn.
+// The hint is the paced cap's, so the panel is asked for what will be drawn.
 void StageCore::restateRate() {
-    if (window_) port_.setFrameRate(window_, StagePacing::frameRateFor(cap_));
+    if (window_) port_.setFrameRate(window_, StagePacing::frameRateFor(pacedCap()));
+}
+
+float StageCore::pacedCap() const { return StagePacing::capUnder(cap_, governedCap_); }
+
+void StageCore::followGovernor() {
+    const float governed = client_ ? client_->governedCapFps() : 0.0f;
+    if (governed == governedCap_) return;
+    governedCap_ = governed;
+    port_.vsyncCap(pacedCap());
+    restateRate();
 }
 
 void StageCore::runActions() {

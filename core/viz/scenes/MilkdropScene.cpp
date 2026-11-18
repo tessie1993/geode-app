@@ -117,6 +117,7 @@ void MilkdropScene::init() {
     }
     diagFrames_ = 0;
     diagDone_ = false;
+    drainFramesLeft_ = kDiagFrames;
     std::string error;
     postProgram_ = loader_.build("fade_vert.glsl", "pm_post_frag.glsl", &error);
     if (postProgram_ == 0) {
@@ -273,6 +274,7 @@ void MilkdropScene::loadPendingPreset(double now) {
         projectm_set_soft_cut_duration(engine_.get(), automatic ? transition_choice::kAutoSeconds : transition_choice::kManualSeconds);
         projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
         projectm_set_preset_locked(engine_.get(), true);
+        drainFramesLeft_ = kDrainFramesAfterLoad;
     }
     const auto error = takeError();
     // A shader that failed was swapped for the default and the preset loaded: a note, not an error.
@@ -394,6 +396,9 @@ void MilkdropScene::diagnoseBlackFrame() {
 // renderer's own probes stay attributable, but report the first one: a silent drain is how the
 // previous copy-from-window failure went unnoticed.
 void MilkdropScene::drainEngineErrors() {
+    // Errors come from the engine building a preset: the first frames of a context and the frame after a load.
+    if (drainFramesLeft_ <= 0) return;
+    --drainFramesLeft_;
     GLenum first = GL_NO_ERROR;
     for (int drained = 0; drained < 8; ++drained) {
         const GLenum err = glGetError();

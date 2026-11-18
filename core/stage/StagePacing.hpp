@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -76,6 +77,15 @@ public:
     static float frameRateFor(float capFps) {
         if (viz::frame::isLiveFpsFollow(capFps)) return 0.0f;
         return std::isfinite(capFps) && capFps > 0.0f ? capFps : 0.0f;
+    }
+
+    // The cap the stage paces to: its own, or under it the cap "Adapt to frame time" (viz/frame/FrameGovernor) stepped
+    // the frame rate down to (> 0), which is always under the user's maximum. Follow device and no cap take the
+    // governor's as it is. Never above the surface's own cap.
+    static float capUnder(float capFps, float governedFps) {
+        if (!std::isfinite(governedFps) || !(governedFps > 0.0f)) return capFps;
+        if (viz::frame::isLiveFpsFollow(capFps) || !std::isfinite(capFps) || !(capFps > 0.0f)) return governedFps;
+        return std::min(capFps, governedFps);
     }
 
     const viz::frame::PacerState& state() const { return state_; }

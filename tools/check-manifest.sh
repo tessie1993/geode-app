@@ -3,7 +3,7 @@
 # (the main manifest is the same for every build type): INTERNET only with the Cast
 # service, no AD_ID, Play Billing present, Android TV's declarations (no required hardware
 # feature, the TV launcher entry, its banner), targetSdk at Play's floor. Run after
-# :app:assembleDebug by build-lint.yml (every pull request) and android.yml.
+# :app:assembleDebug by build-lint.yml (every pull request).
 set -euo pipefail
 manifest=$(find app/build/intermediates -path '*debug*' -name AndroidManifest.xml \
   -path '*merged_manifest*' | head -n 1)

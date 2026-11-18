@@ -19,7 +19,7 @@ One fact per line. Add a fact as a new bullet in its group.
 
 ## Manual workflows
 
-- `android.yml` (unit tests, `tools/check_shaders.py`, the manifest check, plus an emulator job, `connectedDebugAndroidTest`, API 36) runs by hand from the Actions tab.
+- `android.yml` (the emulator job, `connectedDebugAndroidTest`, API 36, and the sound engine across frame rates on the test tracks) runs by hand from the Actions tab.
 - `ui-tour.yml` runs by hand.
 - Start one with `gh workflow run <file> --ref <b>`.
 - `render-thumbs.yml` and `store-assets.yml` run by hand (see [tests.md](tests.md)).
@@ -36,7 +36,7 @@ One fact per line. Add a fact as a new bullet in its group.
 
 ## Shipping and versions
 
-- `ship-apk.yml` (pushes to `main`, plus the last job of a green manual `android.yml` run) publishes a debug APK as pre-release N, "BeatRealms 3D <base>.N".
+- `ship-apk.yml` (pushes to `main`, or by hand with a ref) publishes a debug APK as pre-release N, "BeatRealms 3D <base>.N".
 - N = releases so far + 1, reserved as tag `apk-v<base>.N` by `tools/release-number.sh`.
 - The version is set only in `gradle.properties` (`geode.versionBase`, `geode.versionCodeBase`).
 - The root `build.gradle.kts` makes versionName `<base>.N` and versionCode `codeBase + N` from `-PreleaseNumber=N`, else `<base>-dev`.

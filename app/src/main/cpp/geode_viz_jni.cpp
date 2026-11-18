@@ -444,12 +444,6 @@ Java_dev_geode_engine_bridge_GeodeNative_directorTuningWith(JNIEnv* env, jobject
     return geode::jni::utf8String(env, geode_director_tuning_with(chars.get(), index, value));
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_autoPickAmong(JNIEnv* env, jobject, jstring ids, jint onScreen, jboolean directorMoment) {
-    Utf8Chars chars(env, ids);
-    return geode_auto_pick_among(chars.get(), onScreen, directorMoment == JNI_TRUE ? 1 : 0);
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
     geode_note_response_set(enabled ? 1 : 0);
@@ -1070,24 +1064,6 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeShown(JNIEnv* env, jobject, js
     return env->NewStringUTF(geode_customize_shown(style.get()));
 }
 
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_customizeRandomize(JNIEnv* env, jobject, jstring styleId, jstring category, jstring locked,
-                                                            jlong seed, jfloatArray in, jfloatArray out) {
-    if (!in || !out || env->GetArrayLength(in) < geode_viz_param_count() || env->GetArrayLength(out) < geode_viz_param_count()) {
-        return JNI_FALSE;
-    }
-    Utf8Chars style(env, styleId);
-    Utf8Chars categoryName(env, category);
-    Utf8Chars lockedKeys(env, locked);
-    std::vector<float> input(static_cast<size_t>(geode_viz_param_count()));
-    std::vector<float> output(input.size());
-    env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
-    const int changed = geode_customize_randomize(style.get(), categoryName.get(), lockedKeys.get(), static_cast<uint64_t>(seed),
-                                                  input.data(), output.data());
-    env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
-    return changed ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_customizeReset(JNIEnv* env, jobject, jstring category, jfloatArray in, jfloatArray out) {
     if (!in || !out || env->GetArrayLength(in) < geode_viz_param_count() || env->GetArrayLength(out) < geode_viz_param_count()) return;
@@ -1141,50 +1117,9 @@ Java_dev_geode_engine_bridge_GeodeNative_randomizeAllPick(JNIEnv* env, jobject, 
     return ok ? env->NewStringUTF(picked) : nullptr;
 }
 
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_randomizeAllRoll(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
-                                                          jboolean rollCategories, jfloatArray before, jfloatArray base,
-                                                          jfloatArray out) {
-    const jsize count = static_cast<jsize>(geode_viz_param_count());
-    if (!before || !base || !out || env->GetArrayLength(before) < count || env->GetArrayLength(base) < count ||
-        env->GetArrayLength(out) < count) {
-        return JNI_FALSE;
-    }
-    Utf8Chars style(env, styleId);
-    Utf8Chars lockedKeys(env, locked);
-    std::vector<float> was(static_cast<size_t>(count));
-    std::vector<float> start(was.size());
-    std::vector<float> rolled(was.size());
-    env->GetFloatArrayRegion(before, 0, count, was.data());
-    env->GetFloatArrayRegion(base, 0, count, start.data());
-    const int changed =
-        geode_randomize_all_roll(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), rollCategories ? 1 : 0, was.data(),
-                                 start.data(), rolled.data());
-    env->SetFloatArrayRegion(out, 0, count, rolled.data());
-    return changed ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_config_schema_text());
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, jstring styleId, jstring tab, jstring locked,
-                                                         jlong seed, jfloatArray in, jfloatArray out) {
-    if (!in || !out || env->GetArrayLength(in) < geode_viz_param_count() || env->GetArrayLength(out) < geode_viz_param_count()) {
-        return JNI_FALSE;
-    }
-    Utf8Chars style(env, styleId);
-    Utf8Chars tabName(env, tab);
-    Utf8Chars lockedKeys(env, locked);
-    std::vector<float> input(static_cast<size_t>(geode_viz_param_count()));
-    std::vector<float> output(input.size());
-    env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
-    const int changed = geode_params_randomize(style.get(), tabName.get(), lockedKeys.get(), static_cast<uint64_t>(seed),
-                                               input.data(), output.data());
-    env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
-    return changed ? JNI_TRUE : JNI_FALSE;
 }
 
 // Fixed-rate frame clock (Cast): the state is a caller-owned long[GEODE_FRAME_CLOCK_STATE], copied in and out.

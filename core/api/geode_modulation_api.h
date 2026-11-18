@@ -134,6 +134,10 @@ GEODE_API unsigned geode_mod_recipe_state(int recipe, const char* style_id, int 
    keeps "@waves" or "#EXPERT". Returns 0 with an empty out when nothing changed. */
 GEODE_API int geode_mod_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only,
                                         const float* params, const char* lfos, char* out, int capacity);
+/* The same with a seed native draws per roll; all 1 is the wave editor's button (running_only 0). The new text,
+   or NULL when nothing changed; valid until this thread's next call. */
+GEODE_API const char* geode_mod_waves_roll(const char* style_id, const char* locked, int all, const float* params,
+                                           const char* lfos);
 
 /* A renderer's modulation, as the saved texts. May come from any thread; latched for the next frame.
    geode_viz_set_reactions takes NULL for Auto. What the matrix plays is resolved natively

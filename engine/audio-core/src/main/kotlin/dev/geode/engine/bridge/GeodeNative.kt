@@ -638,7 +638,7 @@ object GeodeNative {
 
     /**
      * Customize's keep set, which the director's reach never moves: one control key or `#CATEGORY` per
-     * line, the lock set [paramsRandomize] takes.
+     * line, the lock set [panelRoll] takes.
      */
     external fun directorKeepSet(keys: String)
 
@@ -837,16 +837,11 @@ object GeodeNative {
         mask: Int,
     ): Int
 
-    /**
-     * Randomize for the waves (core/viz/WaveRandomizer): [lfos] rolled on the look in [params]. [runningOnly]
-     * false is the wave editor's button (every wave on and rolled); true is a roll of everything, which only re-rolls
-     * the steady waves already on and none when [locked] keeps them. Null when it changed nothing.
-     */
-    external fun modWavesRandomize(
+    /** Randomize for the waves (core/viz/WaveRandomizer), seeded natively; [all] is the wave editor's button. Null when it changed nothing. */
+    external fun modWavesRoll(
         styleId: String?,
         locked: String?,
-        seed: Long,
-        runningOnly: Boolean,
+        all: Boolean,
         params: FloatArray,
         lfos: String,
     ): String?
@@ -1699,21 +1694,6 @@ object GeodeNative {
     const val GESTURE_HOLD_FILL_MS = 800L
 
     /**
-     * Rolls a new look (core/viz/ParamRandomizer) from [input], a scene params frame, into [output]:
-     * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
-     * except the newline-joined control keys in [locked]. Same arguments, same look. True when it changed
-     * something.
-     */
-    external fun paramsRandomize(
-        styleId: String?,
-        tab: String?,
-        locked: String?,
-        seed: Long,
-        input: FloatArray,
-        output: FloatArray,
-    ): Boolean
-
-    /**
      * The Customize panel's map (core/viz/CustomizeMap) as its versioned line table: the ten
      * categories, their Basics and Pro sections, and the controls in each. Static; parse once
      * (the app's CustomizeMapTable does).
@@ -1725,20 +1705,6 @@ object GeodeNative {
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
     external fun customizeShown(styleId: String): String
-
-    /**
-     * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
-     * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
-     * control keys in [locked]. Every other control holds. True when it changed something.
-     */
-    external fun customizeRandomize(
-        styleId: String?,
-        category: String,
-        locked: String?,
-        seed: Long,
-        input: FloatArray,
-        output: FloatArray,
-    ): Boolean
 
     /** How many fields of the wire frame [input] differ from the defaults (core/viz/CustomizeMap `changedCount`). */
     external fun customizeChangedCount(input: FloatArray): Int
@@ -1846,7 +1812,7 @@ object GeodeNative {
      * style not in [lockedStyles] (newline-joined ids), not [current] while another is open, MilkDrop
      * only when [milkCount] > 0. [picks] gets the index into [lookStyles] (each preset's style id, one
      * per line) of a preset made for it, or -1, then on MilkDrop with no preset a .milk index, or -1.
-     * Null when no style is open. Pass the same [seed] to [randomizeAllRoll].
+     * Null when no style is open. Pass the same [seed] to [panelRollAll].
      */
     external fun randomizeAllPick(
         seed: Long,
@@ -1858,19 +1824,63 @@ object GeodeNative {
     ): String?
 
     /**
-     * [base] (the look once the pick is applied) with the controls [locked] keeps put back to their
-     * values in [before], then, with [rollCategories], every Customize category's other controls that
-     * reach [styleId] rolled, into [output]. True when it changed [base].
+     * Customize's dice (core/viz/PanelRoll), seeded natively: [category] (a CustomizeMap name) or everything when null,
+     * from [input] into [output], holding [kept] (the user's lock set, one a line) and with [basicsOnly] every control
+     * below a Basics. Returns [PANEL_ROLL_CHANGED] and [PANEL_ROLL_WAVES] bits.
      */
-    external fun randomizeAllRoll(
+    external fun panelRoll(
         styleId: String,
-        locked: String,
+        category: String?,
+        kept: String,
+        basicsOnly: Boolean,
+        input: FloatArray,
+        output: FloatArray,
+    ): Int
+
+    /** Randomize everything's roll (core/viz/RandomizeAll) with every category rolled, [kept] and [basicsOnly] as [panelRoll]; the same bits. */
+    external fun panelRollAll(
+        styleId: String,
+        kept: String,
+        basicsOnly: Boolean,
         seed: Long,
-        rollCategories: Boolean,
         before: FloatArray,
         base: FloatArray,
         output: FloatArray,
-    ): Boolean
+    ): Int
+
+    const val PANEL_ROLL_CHANGED: Int = 1
+    const val PANEL_ROLL_WAVES: Int = 2
+
+    /** Music's new personality: [input] with the reaction DNA's seed one further, into [output]. */
+    external fun paramsRerollReactions(
+        input: FloatArray,
+        output: FloatArray,
+    )
+
+    /**
+     * Customize's undo (core/viz/ParamHistory): the look [before] (its frame and saved palette id) is about to be
+     * replaced at [nowMs]; edits close together fold into one entry, a [discrete] one never does. Returns
+     * [PARAM_HISTORY_UNDO] and [PARAM_HISTORY_REDO] bits.
+     */
+    external fun paramHistoryRecord(
+        before: FloatArray,
+        palette: String,
+        nowMs: Long,
+        discrete: Boolean,
+    ): Int
+
+    /** The look to put up instead of [current] ([redo]: the last undone one): its frame into [output], its palette id back; null for none. */
+    external fun paramHistoryStep(
+        redo: Boolean,
+        current: FloatArray,
+        palette: String,
+        output: FloatArray,
+    ): String?
+
+    external fun paramHistoryState(): Int
+
+    const val PARAM_HISTORY_UNDO: Int = 1
+    const val PARAM_HISTORY_REDO: Int = 2
 
     // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
 
@@ -2986,17 +2996,6 @@ object GeodeNative {
     )
 
     /**
-     * Whether [timer]'s next look is due: the interval plus this look's spread has passed. True restarts
-     * the wait. [running] false (off, paused, nothing to step to) is never due.
-     */
-    external fun autoTimerDue(
-        timer: Int,
-        nowMs: Long,
-        intervalSec: Int,
-        running: Boolean,
-    ): Boolean
-
-    /**
      * Auto is about to bring [key] on (a style id or a .milk path): the switch to it plays Auto's longer
      * fade (native `core/viz/TransitionChoice`).
      */
@@ -3008,16 +3007,91 @@ object GeodeNative {
         onScreen: Int,
     ): Int
 
-    /**
-     * Auto's pick among [ids] (the pool's style ids, one a line, in its order). At a [directorMoment] the style
-     * the Auto Director asks for (core/viz/DirectorStyle: a returning section's family, else the next along
-     * the catalogue), -1 to keep the style on screen; otherwise, or with no such ask, [autoPick]'s draw.
-     */
-    external fun autoPickAmong(
-        ids: String,
-        onScreen: Int,
-        directorMoment: Boolean,
+    /** Auto's timer range in seconds (GEODE_AUTO_INTERVAL_MIN_S, _MAX_S). */
+    const val AUTO_INTERVAL_MIN_S = 5
+    const val AUTO_INTERVAL_MAX_S = 300
+
+    /** A timer interval held to Auto's range (core/viz/AutoPlan). */
+    external fun autoIntervalSeconds(requested: Int): Int
+
+    /** Customize opened or closed: Auto holds while it is open, and both waits start over when it closes. */
+    external fun autoEditingSet(
+        on: Boolean,
+        nowMs: Long,
+    )
+
+    /** A style, a look or a .milk picked by hand: both of Auto's waits start over. */
+    external fun autoHandPick(nowMs: Long)
+
+    /** The visual playlist's entry (of [count]) to put up now, or -1 (core/viz/AutoPlan). */
+    external fun autoPlaylistTick(
+        count: Int,
+        enabled: Boolean,
+        playing: Boolean,
+        intervalSec: Int,
+        nowMs: Long,
     ): Int
+
+    /** A playlist step ([step] < 0 back): the entry to put up, or -1 with fewer than two. */
+    external fun autoPlaylistStep(
+        count: Int,
+        step: Int,
+        nowMs: Long,
+    ): Int
+
+    /** Whether Auto's timed draw is due now. */
+    external fun autoRandomTick(
+        enabled: Boolean,
+        playing: Boolean,
+        intervalSec: Int,
+        nowMs: Long,
+    ): Boolean
+
+    /** What a director moment brings on the look on screen: an [AUTO_MOMENT_NONE]..[AUTO_MOMENT_RANDOM]. */
+    external fun autoMoment(
+        style: String,
+        params: FloatArray,
+        paletteId: String,
+        playing: Boolean,
+        playlistEnabled: Boolean,
+    ): Int
+
+    /** Auto's own change is on screen now. */
+    external fun autoLeftAs(
+        style: String,
+        params: FloatArray,
+        paletteId: String,
+    )
+
+    /**
+     * Auto's draw (core/viz/AutoPlan over core/viz/AutoDraw and DirectorStyle) among [sources] ([AUTO_DRAW_STYLES]
+     * etc.): the entry's style id, its kind ([AUTO_KIND_STYLE] etc.) in `out[0]` and its index in that list in
+     * `out[1]`; null for none. [lockedStyles] (one a line) are what the entitlement refuses; [presetOnScreen] and
+     * [milkOnScreen] the saved look and .milk on screen, -1 for none.
+     */
+    external fun autoDraw(
+        lockedStyles: String,
+        current: String,
+        presetStyles: String,
+        presetOnScreen: Int,
+        milkCount: Int,
+        milkOnScreen: Int,
+        milkStyle: String,
+        sources: Int,
+        nowMs: Long,
+        out: IntArray,
+    ): String?
+
+    const val AUTO_MOMENT_NONE: Int = 0
+    const val AUTO_MOMENT_PLAYLIST: Int = 1
+    const val AUTO_MOMENT_RANDOM: Int = 2
+    const val AUTO_DRAW_STYLES: Int = 1
+    const val AUTO_DRAW_PRESETS: Int = 2
+    const val AUTO_DRAW_MILK: Int = 4
+    const val AUTO_DRAW_KEEP_LOOK: Int = 8
+    const val AUTO_KIND_STYLE: Int = 0
+    const val AUTO_KIND_PRESET: Int = 1
+    const val AUTO_KIND_MILK: Int = 2
 
     /**
      * Visuals › Styles' Random (core/viz/StylePick): the index of the style to load among the page's styles,

@@ -1398,6 +1398,57 @@ object GeodeNative {
     external fun templateIsStarter(id: String): Boolean
 
     /**
+     * A template file's text as native reads it (core/viz/TemplateFile, `geode_template_read`): 1 with [strings]
+     * (seven slots) the text this build writes for it, id, name, scene id, custom shader and milk preset (null when
+     * absent) and saved palette id, its params in [frame] and attack and decay in [envelope]; 0 for JSON that is no
+     * template and -1 for text that cannot be read, [strings] slot 0 the reason.
+     */
+    external fun templateRead(
+        text: String,
+        frame: FloatArray,
+        strings: Array<String?>,
+        envelope: FloatArray,
+    ): Int
+
+    /** A new template's text for this look, under a fresh id, every other section at its default (`geode_template_create`). */
+    external fun templateCreate(
+        name: String,
+        createdAtMs: Long,
+        sceneId: String,
+        attack: Float,
+        decay: Float,
+        customShader: String?,
+        milkPreset: String?,
+        frame: FloatArray,
+        customPaletteId: String,
+    ): String?
+
+    /** Template [text] under [name]; null when it is no template (`geode_template_renamed`). */
+    external fun templateRenamed(
+        text: String,
+        name: String,
+    ): String?
+
+    /** Template [text] as a fresh copy: new id, [name], no author, [createdAtMs] (`geode_template_new_copy`). */
+    external fun templateNewCopy(
+        text: String,
+        name: String,
+        createdAtMs: Long,
+    ): String?
+
+    /** The geode://template link in [text] as the preset link of the same payload, or null (`geode_template_link_in`). */
+    external fun templateLinkIn(text: String): String?
+
+    /** A preset link as the template link of its payload; null past [maxLength] (`geode_template_link_of`). */
+    external fun templateLinkOf(
+        presetLink: String,
+        maxLength: Int,
+    ): String?
+
+    /** The file name a shared copy of a template named [name] arrives under (`geode_template_share_name`). */
+    external fun templateShareName(name: String): String
+
+    /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
      * (`geode_params_write_json`). Null for a short frame. Pure.

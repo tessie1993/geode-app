@@ -84,14 +84,7 @@ internal class TemplateController(
                     customShader = customShader,
                     milkPreset = milkSource,
                 )
-            val template =
-                VideoTemplate(
-                    id = TemplateId.random(),
-                    name = cleaned,
-                    look = look,
-                    createdAtMs = System.currentTimeMillis(),
-                )
-            val result = templates.save(template)
+            val result = templates.save(templates.create(cleaned, look))
             withContext(Dispatchers.Main.immediate) { onResult(result) }
         }
     }

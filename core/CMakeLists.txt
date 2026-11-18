@@ -14,6 +14,7 @@ add_library(geode_core STATIC
     viz/ParamsPalette.cpp
     api/geode_looks_api.cpp
     viz/LookFiles.cpp
+    viz/TemplateFile.cpp
     api/geode_param_text_api.cpp
     api/geode_slider_api.cpp
     api/geode_colour_api.cpp

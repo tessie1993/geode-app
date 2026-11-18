@@ -180,9 +180,9 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `audio`
 
-- Open first: `AudioBus`, `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
+- Open first: `AudioCapturePump`, `PlaybackCaptureService`, `TapRenderersFactory`, `OboeAudioOutput`, `PlayoutSink`.
 - Capture sources: mic, other apps' audio.
-- `AudioBus` holds the session's player ring handle (0 for none) for the wallpaper and dream.
+- Which ring is live is native: `GeodeNative.pcmRingLive()` (`geode_pcm_ring_live`) is the player's ring while a playback session holds it, 0 otherwise, for the stage, wallpaper, dream and cast.
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.

@@ -8,7 +8,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.view.Surface
 import dev.geode.RingLog
-import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookStore
 import dev.geode.engine.bridge.GeodeNative
@@ -34,7 +33,7 @@ import java.util.concurrent.locks.LockSupport
  * Only while the stage draws nothing (the app in the background, the screen off: casting keeps going then,
  * owner 2026-11-02) does a renderer of its own draw here, made on first need and freed after a stretch unused:
  * the saved live look, the stage's style and params as last seen ([CastMirror]), the MilkDrop preset it last
- * picked ([CastMirror.milkPath]) and the same sound ([AudioBus.soundInput]). It is a second engine, so its
+ * picked ([CastMirror.milkPath]) and the same sound ([GeodeNative.pcmRingLive]). It is a second engine, so its
  * Auto, director and MilkDrop randomness can drift from what the phone last showed; nobody sees the phone then.
  * The saved look is read off this thread and only the parts that changed are handed over, so a store write (a
  * track change, a slider) never stalls the encoder's clock or restarts modulation.
@@ -237,7 +236,7 @@ internal class CastStream(
                 if (!fromStage && tee != 0L && GeodeNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
                     // The stage is on screen and its first copy is coming (a new surface stages its scene over
                     // several frames): wait for it rather than have a second renderer show another visual first.
-                    GeodeNative.castEncoderPump(encoder, AudioBus.soundInput, GeodeNative.frameClockAudioUntilUs(clock))
+                    GeodeNative.castEncoderPump(encoder, GeodeNative.pcmRingLive(), GeodeNative.frameClockAudioUntilUs(clock))
                     continue
                 }
                 if (!fromStage) {
@@ -252,7 +251,7 @@ internal class CastStream(
                 }
                 out.setPresentationTimeNs(ptsNs)
                 out.swapBuffers()
-                GeodeNative.castEncoderPump(encoder, AudioBus.soundInput, GeodeNative.frameClockAudioUntilUs(clock))
+                GeodeNative.castEncoderPump(encoder, GeodeNative.pcmRingLive(), GeodeNative.frameClockAudioUntilUs(clock))
             }
         } finally {
             CastMirror.setStreaming(false)

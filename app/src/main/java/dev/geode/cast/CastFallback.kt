@@ -1,7 +1,6 @@
 package dev.geode.cast
 
 import android.content.Context
-import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
 import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
@@ -53,7 +52,7 @@ internal class CastFallback(
      */
     fun draw() {
         val fps = CastStream.FPS.toFloat()
-        val events = viz.frame(AudioBus.soundInput, fps, fps)
+        val events = viz.frame(GeodeNative.pcmRingLive(), fps, fps)
         if (events and GeodeNative.FRAME_MILK_LOADED != 0) {
             viz.takeMilkPresetLoaded()?.let { if (GeodeNative.milkMemoryLoaded(it)) MilkPathPrefs.save(prefs, it) }
         }

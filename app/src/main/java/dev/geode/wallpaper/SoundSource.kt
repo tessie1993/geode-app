@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
-import dev.geode.audio.AudioBus
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 
@@ -15,7 +14,7 @@ import dev.geode.geodeContainer
  * What the wallpaper hears, and whether it is hearing anything at all.
  *
  * Two sources, in order:
- * 1. The app's own ring ([AudioBus.soundInput]) while something feeds it: BeatRealms playing, or the
+ * 1. The app's own ring ([GeodeNative.pcmRingLive]) while something feeds it: BeatRealms playing, or the
  *    app's capture mode. It is the full-quality signal, so it always wins.
  * 2. Otherwise, with the user's say-so, [OutputMixCapture]: whatever any other app is playing.
  *
@@ -45,7 +44,7 @@ class SoundSource(
     private val handler = Handler(Looper.getMainLooper())
 
     /** The ring handle the renderer should read this frame, 0 for none. Written on main, read on the GL thread. */
-    @Volatile var input: Long = AudioBus.soundInput
+    @Volatile var input: Long = GeodeNative.pcmRingLive()
         private set
 
     var silent: Boolean = false
@@ -101,7 +100,7 @@ class SoundSource(
 
     private fun tick() {
         val now = SystemClock.uptimeMillis()
-        val app = AudioBus.soundInput
+        val app = GeodeNative.pcmRingLive()
         val answer =
             GeodeNative.soundSourceStep(
                 sourceState,

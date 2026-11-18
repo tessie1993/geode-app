@@ -37,6 +37,7 @@ import dev.geode.data.StyleShelfCodec
 import dev.geode.data.StyleShelfStore
 import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VisualsSettingsRepository
+import dev.geode.data.backup.BackupRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
@@ -112,6 +113,20 @@ class GeodeContainer(
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
+        discardStaleRestore(context.applicationContext)
+    }
+
+    /**
+     * Drops a backup restore's staging (`no_backup/backup-restore`, up to the archive cap) that a
+     * previous process left: a restore is only ever finished by the process that inspected it, so
+     * staging found at start belongs to nobody. A swap the process did not outlive left the user's
+     * originals in its `aside` folder; [BackupRepository.discard] puts back every one with no file at
+     * its place before the folder goes, as the next inspect or restore would have.
+     */
+    private fun discardStaleRestore(context: Context) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "discard stale restore staging") { BackupRepository(context, Dispatchers.IO).discard() }
+        }
     }
 
     /**
@@ -254,11 +269,12 @@ class GeodeContainer(
         const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
 
         /**
-         * Kept in step with AudioTranscoder, LoopRender and RecordFiles (`studio-record-`). `studio-`
+         * Kept in step with AudioTranscoder, LoopRender, RecordFiles (`studio-record-`) and the backup
+         * export's whole zip (`BackupRepository.export`, `backup*.zip`). `studio-`
          * also covers what the Studio project render left behind (`studio-scene-*`, `studio-*`) when
          * its process died before #227 removed it, which an upgraded install may still hold.
          */
-        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
+        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-", "backup")
 
         fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
     }

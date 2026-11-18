@@ -123,4 +123,21 @@ object LibraryNative {
         fileName: String,
         untitled: String,
     ): String?
+
+    /**
+     * The session session.json's [text] holds (core/library/SessionDoc, `geode_session_read`): one record of index,
+     * position ms, then each track's uri, title and artist, split by U+001F and ended by U+001E; "" when it is no
+     * session (the file is moved aside); null when native failed.
+     */
+    external fun sessionRead(text: String): String?
+
+    /**
+     * The text session.json is written as (`geode_session_write`): [tracks] holds three strings per track (uri,
+     * title, artist); index and position come clamped. "" when there are no tracks (the file is deleted instead).
+     */
+    external fun sessionWrite(
+        tracks: Array<String>,
+        index: Int,
+        positionMs: Long,
+    ): String?
 }

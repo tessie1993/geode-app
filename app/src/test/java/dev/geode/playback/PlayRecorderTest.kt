@@ -1,15 +1,11 @@
 package dev.geode.playback
 
-import android.content.ContextWrapper
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import dev.geode.data.SessionStore
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
-import java.io.File
 
 /**
  * #371: with no UI session alive, the playback session alone must keep the resumption queue and the
@@ -18,14 +14,6 @@ import java.io.File
  * resumed at track 1, 0:30 and history missed tracks 2 to 6.
  */
 class PlayRecorderTest {
-    @get:Rule
-    val dir = TemporaryFolder()
-
-    private val context =
-        object : ContextWrapper(null) {
-            override fun getFilesDir(): File = dir.root
-        }
-
     private val album = (1..6).map { SessionStore.SavedTrack("content://media/$it", "Track $it", "Artist") }
 
     /** The player as the recorder reads it: an album, a current index and position. */
@@ -109,8 +97,8 @@ class PlayRecorderTest {
     fun serviceAloneKeepsResumptionAndHistoryCurrent() {
         val source = FakeSource(album)
         val history = FakeHistory()
-        val store = SessionStore(context)
-        val recorder = PlayRecorder(source, history, TestScope(), store::save)
+        val writes = mutableListOf<SessionStore.Saved>()
+        val recorder = PlayRecorder(source, history, TestScope()) { writes.add(it) }
 
         // Track 1 starts, then the UI goes away at 0:30; only the playback session is left.
         recorder.onMediaItemTransition(null, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
@@ -124,8 +112,9 @@ class PlayRecorderTest {
         source.positionMs = 42_000
         recorder.onIsPlayingChanged(false)
 
-        // What PlaybackService.onPlaybackResumption reads after process death.
-        val saved = SessionStore(context).load()!!
+        // The last session written: what PlaybackService.onPlaybackResumption reads back after process death (the
+        // file's round trip is native's: library_session_test).
+        val saved = writes.last()
         assertEquals(album, saved.tracks)
         assertEquals(5, saved.index)
         assertEquals(42_000L, saved.positionMs)

@@ -1,5 +1,5 @@
-// The C ABI of the library's documents (core/library: History, SmartPlaylist, PlaylistRules): text in and text out,
-// the arrays gathered and the file stem rule handed in. Marshals only.
+// The C ABI of the library's documents (core/library: History, SmartPlaylist, PlaylistRules, SessionDoc): text in
+// and text out, the arrays gathered and the file stem rule handed in. Marshals only.
 #include <string>
 #include <utility>
 #include <vector>
@@ -7,6 +7,7 @@
 #include "api/geode_api.h"
 #include "library/History.hpp"
 #include "library/PlaylistRules.hpp"
+#include "library/SessionDoc.hpp"
 #include "library/SmartPlaylist.hpp"
 #include "viz/LookFiles.hpp"
 
@@ -176,6 +177,30 @@ const char* geode_music_playlist_migration(const char* const* file_names, const 
 const char* geode_music_playlist_import_base(const char* parsed_name, const char* file_name, const char* untitled) try {
     thread_local std::string out;
     return hold(out, geode::library::playlistImportBase(textOf(parsed_name), textOf(file_name), textOf(untitled)));
+} catch (...) {
+    return nullptr;
+}
+
+// The saved play queue.
+const char* geode_session_read(const char* text) try {
+    thread_local std::string out;
+    const auto session = geode::library::sessionParse(textOf(text));
+    return hold(out, session ? geode::library::sessionWire(*session) : std::string());
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms) try {
+    thread_local std::string out;
+    geode::library::SavedSession session;
+    for (int i = 0; tracks && i < count; ++i) {
+        const char* const* cell = tracks + static_cast<size_t>(i) * 3;
+        session.tracks.push_back({textOf(cell[0]), textOf(cell[1]), textOf(cell[2])});
+    }
+    session.index = index;
+    session.positionMs = position_ms;
+    const geode::library::SessionWrite write = geode::library::sessionWrite(session);
+    return hold(out, write.clear ? std::string() : write.json);
 } catch (...) {
     return nullptr;
 }

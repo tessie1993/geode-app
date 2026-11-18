@@ -1282,7 +1282,7 @@ Counts: shell 49, mixed 21, engine 0 whole files, duplicate 0 whole files (1 dup
 | `data/RecordPrefs.kt` (70) | shell | none; fps must be in `EXPORT_FPS_OPTIONS` `:42`; length snap is native | caller | `recordSnapMaxLength` `:35` | `core/output/RecordPlan.*` | prefs |
 | `data/RecordSaveStore.kt` (78) | shell | none | caller | none | n/a | persisted URI grants |
 | `data/SessionRepository.kt` (22) | shell | none | IO | none | n/a | n/a |
-| `data/SessionStore.kt` (107) | shell | none (queue + position) | IO | none | n/a | filesDir |
+| `data/SessionStore.kt` | shell | none: which text is a session, the version gate, the clamps and what is written are native (`core/library/SessionDoc`, `geode_session_*`); it reads, writes, deletes and quarantines the file | IO | `LibraryNative.sessionRead`, `sessionWrite` | done | filesDir |
 | `data/SmartPlaylistStore.kt` | shell | none: the file format, the order and which tracks a rule set picks are native (`core/library/SmartPlaylist`, `geode_smart_*`); it lists and writes the files and splits the wire | caller (`ui/PlayerSession`) | `LibraryNative.smartList`, `smartSaveText`, `smartResolve` | done | library feature |
 | `data/SoundInputSettings.kt` (59) | shell | none; the tuning is a float list made and read by `engine/audio-core` `SoundTuning` (`savedFloats`, `fromFloats`) `:45-46`, `:50-58` | IO | none direct | sound engine tuning schema (`core/sound`, via `SoundTuning`) | prefs |
 | `data/StillFiles.kt` (49) | shell | none | worker | none | n/a | MediaStore, `Bitmap.compress` |
@@ -1430,7 +1430,7 @@ None in this scope. The nearest:
 | `smart-playlists/<safeFileName(name)>.json` | `{name, matchAll, limit, rules:[{field: RuleField name, op: RuleOp name, value}]}` | `core/library/SmartPlaylist.cpp` (`smartParse`, `smartToJson`); the file name `data/SmartPlaylistStore.kt` | native |
 | `library.json` | `{version: 3, tracks:[{uri,title,artist,durationMs,album,genre,year,trackNo,comment,fileName,sizeBytes}]}`; a bare array is also read | `data/TrackLibrary.kt:12`, `:64`, `:125-150` | Kotlin |
 | `history.json` | `{tracks:[{uri,last,count,title,artist,ms}]}`; a bare array is also read | `core/library/History.cpp` (`historyParse`, `fileOf`); `data/HistoryStore.kt` reads and writes the text | native |
-| `session.json` | `{version: 1, tracks:[{uri,title,artist}], index, positionMs}`; newer version → quarantined | `data/SessionStore.kt:93-103` | Kotlin |
+| `session.json` | `{version: 1, tracks:[{uri,title,artist}], index, positionMs}`; newer version → quarantined | `core/library/SessionDoc.cpp` (`sessionParse`, `sessionWrite`); `data/SessionStore.kt` reads and writes the text | native |
 | `lyrics/<sha1(track uri) hex>.lrc` | LRC text | `data/Lyrics.kt:44-54`, `:79` | Kotlin |
 | `*.tmp`, `*.corrupt` | AtomicWrite in-flight / quarantined | `data/AtomicWrite.kt:9-11` | n/a |
 
@@ -1483,7 +1483,7 @@ All under `app/src/test/java/dev/geode/` (JVM). No test for this scope exists un
 | `data/EditorProjectStoreFoldersTest.kt` | project folder per id; delete is scoped |
 | `data/FavouritesRepositoryTest.kt` | toggle saved under the URI; external write reloads; newest first |
 | `data/ByteBudgetCacheTest.kt`, `data/ReadCapTest.kt`, `data/PendingPublishTest.kt`, `data/MinTrackLengthTest.kt`, `data/DeviceTrackTagTest.kt`, `data/NotificationButtonTest.kt`, `data/SystemMotionTest.kt`, `data/TemplateStyleGateTest.kt` | helper behaviour (cache accounting, caps, publish retry, min length, tag fallback, button room, reduced motion = scale 0, template → Pro gate) |
-| `ui/SavedPalettesTest.kt`, `playback/PlayRecorderTest.kt`, `playback/ResumeSourceTest.kt` | use `PaletteStore` and `SessionStore` through their callers; `PlayRecorderTest` fakes the history (`PlayRecorder.History`) |
+| `ui/SavedPalettesTest.kt`, `playback/PlayRecorderTest.kt`, `playback/ResumeSourceTest.kt` | use `PaletteStore` and `SessionStore.Saved` through their callers; `PlayRecorderTest` fakes the history (`PlayRecorder.History`) and records the sessions handed to its writer |
 
 **Saved formats with no test on their text** (Grep of `app/src/test` and `app/src/androidTest` for the class names): the `lfos` / `adsrs` JSON and the `rateHz` migration (`LfoStore` appears only in `PrefsSchemaTest` for key names); `EditorProjectJson` (project.json); `TemplateFormat` round trip and unknown-key carry (only `SharedLinkNumbersTest` touches it); palette JSON; `auto_playlist_entries`; `library.json`; `history.json`; `session.json` versions; `PlaylistFormats`; LRC parsing; `MilkTextureLinks`; `texture-links.json`.
 
@@ -3345,7 +3345,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/model/StyleShelfTest.kt` (54, 5) | `main/model/StyleShelf` | recents newest first, no repeats, `RECENT_LIMIT`; favourites toggle; `randomFamilyOnly`; `yours(order, onScreen)` = on screen, favourites, recents, each once, unknown ids dropped | UI + FMT (shelf) | `core/tests/style_pick_test.cpp` (the random pick itself) | stays |
 | `test/model/TabLabelsTest.kt` (32, 3) | `TabLabels` | `AUTO/ALWAYS/SELECTED/NEVER.shows`; unknown name → `AUTO` | UI + FMT | – | stays |
 | `test/model/TourTest.kt` (236, 23) | `main/model/Tour`, `TourProgress`, `TourChapter`, `TourSpot` | tour step rules; `placeCard` geometry; `TourProgress.decode(done, resume, tips, legacySeen, off)`: unknown names ignored; legacy chapter names map (`WELCOME`→`START`; `PLAYER`, `LIBRARY`, `LIVE_VIEW`, `PRO`, `SETTINGS` dropped); legacy resume `"CUSTOMIZE:3"` → none; `legacySeen=true` → every chapter done | UI + FMT (tour progress strings) | – | stays |
-| `test/playback/PlayRecorderTest.kt` (3) | `main/playback/PlayRecorder` (a fake `PlayRecorder.History`), `SessionStore` | a restored paused queue is not a play; queue re-read only on timeline change; service alone keeps session (tracks, index 5, 42 000 ms) and records every play in order (newest first is `library_history_test`) | shell (Media3 listener, storage) | – | stays |
+| `test/playback/PlayRecorderTest.kt` (3) | `main/playback/PlayRecorder` (a fake `PlayRecorder.History`, its writer recorded) | a restored paused queue is not a play; queue re-read only on timeline change; service alone hands the writer the session (tracks, index 5, 42 000 ms; the file round trip is `library_session_test`) and records every play in order (newest first is `library_history_test`) | shell (Media3 listener, storage) | – | stays |
 | `test/playback/PlaybackQueueTest.kt` (111, 11) | `main/playback/PlaybackQueue` (`window`, `around`, `contextFor`, `MAX_QUEUE`) | window of `MAX_QUEUE` centred on the tapped track, clamped at both ends; browse list > device list > library; unknown track plays alone | shell (queue building for Media3) | – | stays |
 | `test/playback/ResumeSourceTest.kt` (34, 4) | `ResumeSource.of` | null/empty → `Nothing`; index and position clamped | shell | – | stays |
 | `test/playback/VoiceSearchTest.kt` (39, 3) | `VoiceSearch.of` | item with `searchQuery` and no id is a search; empty/null query = `""`; a browse id is not | shell | – | stays |

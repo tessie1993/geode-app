@@ -48,4 +48,22 @@ SessionWrite sessionWrite(const SavedSession& session) {
     return out;
 }
 
+std::string sessionWire(const SavedSession& session) {
+    constexpr char kField = '\x1f';
+    constexpr char kRecord = '\x1e';
+    const auto text = [](std::string& out, const std::string& s) {
+        out += kField;
+        for (const char c : s) {
+            if (c != kField && c != kRecord) out += c;
+        }
+    };
+    std::string out = std::to_string(session.index) + kField + std::to_string(session.positionMs);
+    for (const SavedTrack& t : session.tracks) {
+        text(out, t.uri);
+        text(out, t.title);
+        text(out, t.artist);
+    }
+    return out + kRecord;
+}
+
 }  // namespace geode::library

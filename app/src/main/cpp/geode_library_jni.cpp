@@ -1,5 +1,5 @@
-// JNI for the library's documents (core/library through api/geode_api.h): the play history and smart playlists as
-// text in and text out. Marshals only.
+// JNI for the library's documents (core/library through api/geode_api.h): the play history, smart playlists, the
+// ordinary playlists and the saved session as text in and text out. Marshals only.
 #include <jni.h>
 
 #include <algorithm>
@@ -157,6 +157,18 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_musicPlayli
     Utf8Chars file(env, fileName);
     Utf8Chars fallback(env, untitled);
     return utf8String(env, geode_music_playlist_import_base(textOf(parsed), textOf(file), textOf(fallback)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionRead(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_session_read(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionWrite(JNIEnv* env, jobject,
+                                                                                 jobjectArray tracks, jint index,
+                                                                                 jlong positionMs) {
+    const Texts cells = textsOf(env, tracks);
+    return utf8String(env, geode_session_write(cells.pointers.data(), cells.count() / 3, index, positionMs));
 }
 
 }  // extern "C"

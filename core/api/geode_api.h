@@ -627,6 +627,16 @@ GEODE_API const char* geode_music_playlist_migration(const char* const* file_nam
 GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, const char* file_name,
                                                        const char* untitled);
 
+/* The saved play queue, session.json (core/library/SessionDoc). The shell reads and writes the file's text. Text out
+ * is valid until the calling thread's next call of the same function; NULL texts read as "".
+ * session_read: the session the text holds as one record of index, position ms, then each track's uri, title and
+ * artist, split by U+001F and ended by U+001E; "" when the text is no session (the shell moves such a file aside):
+ * not an object, a version above 1, no track with a uri. Index and position come clamped.
+ * session_write: the text to write for `count` tracks (3 UTF-8 strings each: uri, title, artist), the index and the
+ * position (both clamped); "" for no tracks, when the shell deletes the file instead. */
+GEODE_API const char* geode_session_read(const char* text);
+GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

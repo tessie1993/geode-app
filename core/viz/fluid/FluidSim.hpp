@@ -168,6 +168,14 @@ private:
     GLuint linearSampler_ = 0;
     std::string baseVertSrc_;
     std::array<UniformCache, kProgCount> programs_;
+    // The sampler units bindTex has set on each program since it was built: a uniform keeps its value until the
+    // program is linked again, so each is set once rather than every pass. A program reads at most three.
+    struct SamplerUnit {
+        GLint loc = -1;
+        int unit = -1;
+    };
+    static constexpr size_t kTrackedSamplers = 4;
+    std::array<std::array<SamplerUnit, kTrackedSamplers>, kProgCount> samplerUnits_{};
     std::vector<Splat> pending_;
     std::optional<UniformCache> customForce_;
     std::optional<UniformCache> customDye_;

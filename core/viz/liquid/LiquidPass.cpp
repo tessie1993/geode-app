@@ -10,6 +10,11 @@ namespace geode::viz::liquid {
 
 namespace {
 constexpr const char* kTag = "GeodeLiquid";
+// liquid_frag.glsl's texture units; run() unbinds 0..kUnitVel after its draw.
+constexpr int kUnitPrev = 0;
+constexpr int kUnitStyle = 1;
+constexpr int kUnitBorn = 2;
+constexpr int kUnitVel = 3;
 
 GLuint makeTexture(int w, int h, bool halfFloat) {
     GLuint tex = 0;
@@ -37,6 +42,12 @@ bool LiquidPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, c
     program_ = program::build(vert, *frag, cache, error);
     if (program_ == 0) return false;
     uniforms_ = UniformCache(program_);
+    // The samplers' units, once: a uniform keeps its value until the program is linked again.
+    glUseProgram(program_);
+    glUniform1i(uniforms_.loc("uPrev"), kUnitPrev);
+    glUniform1i(uniforms_.loc("uStyle"), kUnitStyle);
+    glUniform1i(uniforms_.loc("uBorn"), kUnitBorn);
+    glUniform1i(uniforms_.loc("uVel"), kUnitVel);
     halfFloat_ = halfFloat;
     return true;
 }
@@ -128,15 +139,15 @@ GLuint LiquidPass::run(const Frame& f) {
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
     glUseProgram(program_);
-    auto bind = [this](const char* name, GLuint tex, int unit) {
-        glActiveTexture(GL_TEXTURE0 + unit);
+    // Each sampler's unit was set at create().
+    auto bind = [](int unit, GLuint tex) {
+        glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
         glBindTexture(GL_TEXTURE_2D, tex);
-        glUniform1i(uniforms_.loc(name), unit);
     };
-    bind("uPrev", sides_[read_].liquid, 0);
-    bind("uStyle", f.styleTex, 1);
-    bind("uBorn", f.bornTex != 0 ? f.bornTex : f.styleTex, 2);
-    bind("uVel", f.velocityTex, 3);
+    bind(kUnitPrev, sides_[read_].liquid);
+    bind(kUnitStyle, f.styleTex);
+    bind(kUnitBorn, f.bornTex != 0 ? f.bornTex : f.styleTex);
+    bind(kUnitVel, f.velocityTex);
     glUniform2f(uniforms_.loc("uVelScale"), f.velScaleX, f.velScaleY);
     glUniform2f(uniforms_.loc("uTexel"), 1.0f / static_cast<float>(width_), 1.0f / static_cast<float>(height_));
     glUniform2f(uniforms_.loc("uStyleTexel"), 1.0f / static_cast<float>(std::max(f.styleWidth, 1)),
@@ -172,7 +183,7 @@ GLuint LiquidPass::run(const Frame& f) {
     glBindVertexArray(f.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
-    for (int unit = 3; unit >= 0; unit--) {
+    for (int unit = kUnitVel; unit >= 0; unit--) {
         glActiveTexture(GL_TEXTURE0 + unit);
         glBindTexture(GL_TEXTURE_2D, 0);
     }

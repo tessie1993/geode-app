@@ -42,6 +42,17 @@ private:
     std::map<std::string, size_t> byName_;
 };
 
+// composite_frag.glsl's texture units. Each program here is told them once, when it is built (a sampler keeps its
+// unit until the program is linked again); CompositePass binds its textures to them every frame.
+namespace composite_unit {
+inline constexpr int kTexA = 0;
+inline constexpr int kTexB = 1;
+inline constexpr int kFlow = 2;
+inline constexpr int kNoise = 4;
+inline constexpr int kUnderlay = 5;
+inline constexpr int kTexL = 6;
+}  // namespace composite_unit
+
 // The base composite program plus an LRU of four spliced variants.
 class TransitionPrograms {
 public:

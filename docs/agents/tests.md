@@ -22,6 +22,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
+- Each test's flags, sources and run arguments are one entry in `core/tests/host-tests.txt`; `bash tools/host-tests.sh [--only NAME] [--dry-run] [GROUP]` builds and runs them, and the workflow only calls it. A new test is one entry there.
+
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
 - `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`AiffHeaderScan` in `core/audio/ingest/AiffReader.hpp`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
 - `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.

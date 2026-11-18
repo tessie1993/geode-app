@@ -32,7 +32,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/viz`: the renderer, scenes, parameters, reactions, macros, safety.
 - `core/output`: export and Record planning and timing.
 - `core/stage`: the surface threads (`core/stage/android/StageThread.cpp`, `VsyncThread.cpp`).
-- `core/tests`: host tests, built by `.github/workflows/native-host-tests.yml`.
+- `core/tests`: host tests; `core/tests/host-tests.txt` declares each one's flags and sources, `tools/host-tests.sh` builds and runs them, and `.github/workflows/native-host-tests.yml` calls it.
 - Shaders are in `app/src/main/assets/shaders`.
 - The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/MacroBank.cpp`).
 - The analysis runs on one thread per ring, shared by every surface that hears the ring (`core/sound/hop/SharedAnalysis.hpp`, `AnalysisThread`); a renderer reads it at the speaker's sample (`core/sound/interp/FrameBlend`). An export runs the same analysis inline.
@@ -328,3 +328,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The window surface prefers an EGL config with no depth buffer (the 16-bit one is the fallback), and the composite into FBO 0 invalidates the surface's colour and depth first (`core/stage/android/EglWindow.cpp`, `core/viz/RendererFrame.cpp`).
 - 2026-11-18: `arborGrow` runs one map call, not a 6-pass loop, while the grow controls and Life rest (`shaders/lib_arbor_field.glsl`).
 - 2026-11-18: The analysis thread runs at nice -2 on Android, one step below the stage thread (`core/sound/hop/AnalysisThread.cpp`).
+- 2026-11-18: Host tests are declared once: `core/tests/host-tests.txt` holds each test's flags, sources and run arguments (the 182 `g++` lines of `native-host-tests.yml`, 184 test binaries), `tools/host-tests.sh` builds and runs a group of them, and the workflow's steps only call it (same job, same tests, the sound golden, bench and ThreadSanitizer steps kept as groups); a moved C++ file now edits the manifest and no workflow line.

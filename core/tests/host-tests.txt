@@ -1,0 +1,664 @@
+# The native host tests: one entry per test, read by tools/host-tests.sh (CI: native-host-tests.yml; by hand: bash tools/host-tests.sh).
+# Each test's sources are named here and nowhere else, so moving a C++ file edits this file and no workflow.
+#
+#   name | profile | sources | run
+#
+#   name     the binary: the compiler's -o, built in the repository root.
+#   profile  a `profile` line below: the flags the test is built with.
+#   sources  every file the binary is built from, in link order; $VARS and globs expand as in a shell.
+#   run      the arguments the binary is run with (empty: none; `-`: built, not run).
+#            An optional fifth field is an environment prefix for the run (NAME="value").
+#
+# `@group NAME` puts the entries after it in that group; tools/host-tests.sh runs one group (default: main),
+# and the workflow runs a group per step. `@pre basisu` builds Basis Universal's objects before the next entry.
+# A line ending in a backslash goes on. A new test: add its entry here (nothing in the workflow), then
+# `bash tools/host-tests.sh --only NAME` builds and runs it alone; `--dry-run` prints every command instead.
+
+profile stub = -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub
+profile stub-mt = -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub
+profile core = -std=c++20 -O1 -Wall -Wextra -Werror -Icore
+profile mt = -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore
+profile bare = -std=c++20 -O1 -Wall -Wextra -Werror
+profile fakegl = -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl
+profile fakegl-mt = -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/fakegl
+profile o2 = -std=c++20 -O2 -Wall -Wextra -Werror -Icore
+# The same test under ThreadSanitizer: data races are the analysis thread's main risk.
+profile tsan = -std=c++20 -O1 -g -Wall -Wextra -Werror -pthread -fsanitize=thread -Icore
+# glTF import: cgltf, meshoptimizer and Basis Universal are the submodules' headers, as system headers.
+profile gltf = -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -isystem third_party/cgltf -isystem third_party/meshoptimizer/src -isystem $BASISU $BASISU_DEFS
+
+BASISU="third_party/basis_universal"
+BASISU_DEFS="-DBASISU_SUPPORT_SSE=0 -DBASISU_SUPPORT_OPENCL=0 -DBASISD_SUPPORT_KTX2=1 -DBASISD_SUPPORT_KTX2_ZSTD=1"
+INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp \
+    core/audio/ingest/SnapshotStitch.cpp core/api/geode_ingest_api.cpp core/output/FrameClock.cpp"
+EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp \
+    core/output/LoudnessAdvice.cpp core/output/EncodePlan.cpp core/output/RecordPlan.cpp core/output/Chapters.cpp \
+    core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
+EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
+ROWS_SRC="core/viz/CustomizeRows.cpp core/viz/CustomizeMap.cpp core/viz/PanelText.cpp core/viz/StyleNames.cpp \
+    core/viz/PalettePanel.cpp core/viz/Palette.cpp core/api/geode_customize_rows_api.cpp \
+    core/api/geode_palette_api.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp"
+
+# --- Native host tests
+viz_math_test | stub | core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+    core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+# The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
+params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+# Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
+colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+# The palette stack (Customize › Look): each gradient option, the 16-colour and 8-palette caps, Share and Mix, one colour's drawings, the codec and edits, old looks as they drew, recent colours, the library text.
+palette_test | stub | core/tests/palette_test.cpp core/viz/Palette.cpp core/api/geode_palette_api.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp | core/tests/palettes.txt
+# The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
+touch_transform_test | stub | core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+# A Customize slider's range (core/viz/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
+control_range_test | stub | core/tests/control_range_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+# The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir,
+# the gesture reader (tap, double tap, swipe, swirl, hold, pair kind, the strips), the gesture map and the keys.
+touch_gesture_test | stub | core/tests/touch_gesture_test.cpp core/api/geode_gesture_api.cpp |
+# Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
+touch_smear_test | stub | core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+# The touch field: a point that is not a number is dropped, not counted as a finger.
+touch_field_test | mt | core/tests/touch_field_test.cpp core/viz/TouchField.cpp |
+# The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
+fluid_math_test | stub | core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp |
+# Liquid mode's pure maths: its plan, inject weight, the random dive, gestures, born clock, drop flare.
+liquid_test | stub | core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp |
+# The physics layers' pure maths: off in every look, the plan, back fluid | style | front particles, the music clock, the params.
+physics_layers_test | stub-mt | core/tests/physics_layers_test.cpp core/viz/physics/PhysicsPlan.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+# The Pool style's surface: caustics within one safety step, nothing past 3 Hz, true derivatives, still in silence, 30/60/120 fps, wakes.
+pool_test | stub | core/tests/pool_test.cpp core/viz/pool/PoolMath.cpp |
+# The shape graph (core/viz/ShapeGraph, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, no turn, the colour's blend, 1-Lipschitz, the reach.
+shape_graph_test | stub | core/tests/shape_graph_test.cpp core/viz/ShapeGraph.cpp |
+# The feedback pass's motion, MilkDrop's per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
+feedback_motion_test | stub | core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+# The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
+resolver_test | stub | core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp \
+    core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp \
+    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/NoteResponse.cpp core/viz/Lfo.cpp \
+    core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/MacroBank.cpp core/viz/ModTargets.cpp \
+    core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+# The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
+# ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
+director_reach_test | stub | core/tests/director_reach_test.cpp core/signal/Resolver.cpp \
+    core/signal/EngineSettings.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
+    core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/NoteResponse.cpp \
+    core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/MacroBank.cpp \
+    core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+# Which built scenes stay on the GPU (#378): a bounded LRU with pins, a spare budget, lazy resize.
+scene_residency_test | core | core/tests/scene_residency_test.cpp |
+# The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
+cache_sentinels_test | mt | core/tests/cache_sentinels_test.cpp |
+sound_test | core | core/tests/sound_test.cpp core/sound/*.cpp |
+# Absolute loudness and the drive: a quiet sparse pad is low, a loud dense loop high, no normalising.
+absolute_level_test | core | core/tests/absolute_level_test.cpp core/sound/*.cpp |
+# Transients (core/sound/Transient): every click and pluck fires within a few frames; swells, crescendos, held tones, silence and near-silent clicks never; same at every rate.
+transient_test | core | core/tests/transient_test.cpp core/sound/*.cpp |
+musical_test | core | core/tests/musical_test.cpp core/sound/*.cpp |
+# The meter: 3/4 and 4/4 accents at 93 and 141 BPM each read as themselves; a backbeat and an even pulse never become 3.
+meter_test | core | core/tests/meter_test.cpp core/sound/*.cpp |
+# The auto-director: the emotion table, the live feeling and the director's decisions.
+director_test | stub | core/tests/director_test.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
+    core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/VisualSafety.cpp |
+# Note & key reactions: knobs by meaning, the drum weight, no param written, off = today.
+note_response_test | core | core/tests/note_response_test.cpp core/viz/NoteResponse.cpp |
+# The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
+pcm_handoff_test | core | core/tests/pcm_handoff_test.cpp |
+# The PCM ingest ring: random chunk sizes and a mid-stream rate change, every sample once, in order, with its rate; the C ABI.
+pcm_ring_test | stub-mt | core/tests/pcm_ring_test.cpp $INGEST_SRCS |
+# The rings the app keeps (RingKinds): the player's and the mic's one per process, sized as before, the mic layered
+# over the player and never freed; the output mix's stitched and its owner's, a reader outliving its destroy.
+pcm_ring_kinds_test | stub-mt | core/tests/pcm_ring_kinds_test.cpp $INGEST_SRCS |
+# The player's Media3 tap on the ring (what PcmTap decided in Kotlin): the format of the last flush, an epoch at every flush, the closed gate.
+pcm_tap_test | stub-mt | core/tests/pcm_tap_test.cpp $INGEST_SRCS |
+# An export's track audio (TrackFeed) and the AIFF reader, pinned to the Kotlin TrackAudio and AiffPcm: every
+# sample width and byte order, the header walk, the codec pre-roll and AIFF lead-in cuts, each video frame
+# hearing exactly its audio, an fd span.
+track_feed_test | stub-mt | core/tests/track_feed_test.cpp $INGEST_SRCS |
+# The AIFF header scan the export's reader and the player's extractor share: every layout, the chunk walk, the
+# 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
+aiff_header_test | stub-mt | core/tests/aiff_header_test.cpp $INGEST_SRCS |
+# A capture's format plan (CapturePlan): the mic's and other apps' rate, channel and encoding order and the
+# AudioRecord buffer, pinned to the Kotlin ladders they replaced; the C ABI.
+capture_plan_test | stub | core/tests/capture_plan_test.cpp core/audio/ingest/CapturePlan.cpp \
+    core/api/geode_capture_api.cpp |
+# Live input (MicInput) over a fake device stream: the mono ladder and source preset, a refused start, blocks
+# reaching the ring with their rate, nothing after stop, a disconnect reopened within the budget, other errors end it.
+mic_input_test | mt | core/tests/mic_input_test.cpp core/audio/ingest/MicInput.cpp core/audio/ingest/CapturePlan.cpp \
+    core/audio/ingest/PcmRing.cpp |
+# Another app's audio and the output mix (CapturePump) over a fake reader: blocks written as read on the pump's
+# own thread, a read error or refused begin ending it, stop interrupting a read, no write after stop, quiet, and
+# new captures refused while kMaxStuck threads are left behind. fakegl only for its <android/log.h>.
+capture_pump_test | fakegl-mt | core/tests/capture_pump_test.cpp core/audio/ingest/CapturePump.cpp |
+# An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
+# out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
+track_pump_test | stub | core/tests/track_pump_test.cpp core/audio/ingest/TrackPump.cpp \
+    core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/output/FrameClock.cpp |
+# The player's queue and transport (core/player, pure logic): next and previous across the repeat modes, a
+# seeded shuffle, edits around the current track, the previous-restarts rule, end of queue, seek and the A-B loop.
+player_queue_test | core | core/tests/player_queue_test.cpp core/player/*.cpp |
+player_transport_test | core | core/tests/player_transport_test.cpp core/player/*.cpp |
+# The music library's rules ported from Kotlin (core/library): tag fallbacks and the library document, playlist
+# edits, the smart-playlist matcher, play history and its retention, the saved session. Not called by the app yet.
+library_tracks_test | core | core/tests/library_tracks_test.cpp core/library/TrackRules.cpp \
+    core/library/TrackLibraryDoc.cpp core/util/Json.cpp |
+library_playlist_test | core | core/tests/library_playlist_test.cpp core/library/PlaylistRules.cpp core/util/Json.cpp |
+library_smart_playlist_test | core | core/tests/library_smart_playlist_test.cpp core/library/SmartPlaylist.cpp \
+    core/library/History.cpp core/util/Json.cpp |
+library_history_test | core | core/tests/library_history_test.cpp core/library/History.cpp core/util/Json.cpp |
+library_session_test | core | core/tests/library_session_test.cpp core/library/SessionDoc.cpp core/util/Json.cpp |
+# The shell's own rules ported from Kotlin (core/shell): the tour, the style shelf, preset filtering, opened-audio
+# routing, notification buttons, the saved Auto visuals and the export fps list, and their C ABI
+# (core/api/geode_shell_api.cpp). The app calls all but the tour.
+shell_tour_test | stub | core/tests/shell_tour_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
+    core/util/Json.cpp |
+shell_lists_test | stub | core/tests/shell_lists_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
+    core/util/Json.cpp |
+shell_opened_audio_test | stub | core/tests/shell_opened_audio_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
+    core/util/Json.cpp |
+shell_prefs_test | stub | core/tests/shell_prefs_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
+    core/util/Json.cpp |
+# The backup's rules ported from Kotlin (core/backup): sections and keys, the path-escape check, the size and
+# count caps, version migration, the manifest, and the export, unpack and restore plans. Not called by the app yet.
+backup_format_test | core | core/tests/backup_format_test.cpp core/backup/*.cpp core/util/Json.cpp |
+backup_archive_test | core | core/tests/backup_archive_test.cpp core/backup/*.cpp core/util/Json.cpp |
+backup_restore_test | core | core/tests/backup_restore_test.cpp core/backup/*.cpp core/util/Json.cpp |
+# The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
+# no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
+layer_mix_test | stub-mt | core/tests/layer_mix_test.cpp core/audio/ingest/LayerMix.cpp $INGEST_SRCS |
+# The output mix's snapshots (#999 F10): the ring gains the capture clock's time with no seam, the level holds, and
+# click tracks heard through 20 snapshots a second read their own tempo (butted together they read 2.3x fast).
+snapshot_stitch_test | stub | core/tests/snapshot_stitch_test.cpp $INGEST_SRCS core/sound/*.cpp |
+# The playback output's FIFO (Oboe's feed): odd chunk sizes lose and repeat nothing, an underrun is silence and
+# counted once, the position is monotonic, frozen in pause, reset by a flush and exact at 44.1/48/96 kHz, the
+# volume ramps without a step, a flush under a running consumer plays no torn frame, two threads keep a pattern.
+output_fifo_test | mt | core/tests/output_fifo_test.cpp core/audio/output/OutputFifo.cpp |
+# The playback output's retry back-off: no failure opens at once, a failure closes it for 60 s, a second restarts it.
+retry_backoff_test | core | core/tests/retry_backoff_test.cpp |
+# Which of Media3's output configs the native output plays (plain 16-bit or float mono or stereo media).
+output_choice_test | core | core/tests/output_choice_test.cpp core/audio/output/OutputFifo.cpp |
+# The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
+layer_state_test | core | core/tests/layer_state_test.cpp core/viz/LayerState.cpp |
+# Customize › Layers' blends: one native label each, in wire order, Screen first on, and a layerBlend case for every one.
+layer_blend_test | stub | core/tests/layer_blend_test.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp core/viz/Lfo.cpp |
+# Customize › Layers' style: the user's pick, Auto Director's at its moments or a knob's, never the style on screen.
+layer_pick_test | core | core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp core/viz/LayerState.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp |
+# Auto Director's style at its moments: a return's own family stepped on, the next along the catalogue, a drop's leap, stay; never random.
+director_style_test | stub | core/tests/director_style_test.cpp core/viz/DirectorStyle.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp |
+# Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
+sound_source_test | stub | core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |
+# Settings › Audio's saved tuning as the engine hears it: clamped, an older save without the trim, any other length the defaults.
+sound_tuning_test | stub | core/tests/sound_tuning_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |
+# Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
+gyro_look_test | core | core/tests/gyro_look_test.cpp |
+# An export segment's style schedule: every later style is gated by the entitlement (#357), and it holds in silence (#999 F3).
+style_schedule_test | core | core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp |
+# No hidden hit reactions (owner, 2026-11-12): no core source reads the retired beatResponse, and under
+# core/viz a hit is read only behind a control the user sets (the scenes still listed are known gaps).
+hidden_hits_test | bare | core/tests/hidden_hits_test.cpp | core/
+# Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
+cast_clock_test | stub | core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp |
+# The export post-passes' maths: watermark tiling, seam weights (#442).
+export_passes_test | core | core/tests/export_passes_test.cpp |
+# The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
+edge_glow_test | core | core/tests/edge_glow_test.cpp |
+# The live wallpaper's on-screen window from the launcher's raw offsets, and its fps pick (#605).
+wallpaper_window_test | core | core/tests/wallpaper_window_test.cpp |
+# The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its
+# lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
+edge_glow_pass_test | fakegl | core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/Program.cpp \
+    core/viz/ShaderSource.cpp |
+# Who deletes a GL name (core/viz/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
+# compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
+gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/Compute.cpp core/viz/Quad.cpp \
+    core/viz/Framebuffer.cpp core/viz/Texture.cpp |
+# The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
+transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
+# The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
+transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core/viz/Transition.cpp \
+    core/viz/Program.cpp core/viz/ShaderSource.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp |
+# Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
+quality_test | stub | core/tests/quality_test.cpp core/api/geode_perf_api.cpp core/viz/liquid/LiquidMath.cpp |
+# The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
+surface_run_test | stub | core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp \
+    core/sound/Tuning.cpp |
+# The background image bake (#651): the crop rect and dim exact with the old Kotlin, the blur keeps a flat image, the clamps.
+underlay_test | stub | core/tests/underlay_test.cpp core/viz/Underlay.cpp core/api/geode_underlay_api.cpp |
+# Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
+surface_motion_test | stub | core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp |
+# Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
+auto_timer_test | stub | core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp |
+# Auto visuals' decisions: the playlist's steps and holds, the timed draw, a director moment the user's or Auto's, the draw's pool and the interval's range.
+auto_plan_test | stub | core/tests/auto_plan_test.cpp core/api/geode_auto_api.cpp |
+# Customize's undo: a drag folds into one entry, a discrete write is its own, 64 deep, the palette id travels; the dice's #PRO lock and when the waves roll.
+param_history_test | stub | core/tests/param_history_test.cpp core/api/geode_param_history_api.cpp |
+# What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
+stage_step_test | stub | core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp |
+# Visuals › Styles: Random over every family (or the on-screen family alone), never the style on screen, a kept style first; every list leads with what is on screen.
+style_pick_test | stub | core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp |
+# A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
+milk_shader_note_test | core | core/tests/milk_shader_note_test.cpp |
+# A loaded .milk counts as shown, and is remembered for the next start, only once it has drawn clean frames.
+milk_shown_test | core | core/tests/milk_shown_test.cpp |
+# The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
+milk_memory_test | mt | core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp |
+# MilkDrop textures: header checks and caps, stored names and the rename strip, the show preset, the sampler scan and every rung of the link ladder, pack kinds, import collision names.
+milk_textures_test | core | core/tests/milk_textures_test.cpp core/viz/MilkTextures.cpp core/viz/Sha256.cpp |
+# A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
+transition_choice_test | core | core/tests/transition_choice_test.cpp |
+# The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
+pacer_test | core | core/tests/pacer_test.cpp |
+# Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the cap the pacer paces to.
+live_fps_test | core | core/tests/live_fps_test.cpp |
+# Settings › Performance's "Adapt to frame time": render scale, march, post FX, then the frame rate last, climbing back in reverse after the dwell, never above the user's settings, off/export/record pass through, a new style starts over.
+frame_governor_test | core | core/tests/frame_governor_test.cpp |
+# The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
+stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate restated, the client's service, a thread ending out of turn.
+stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp \
+    core/stage/StagePacing.cpp |
+# The look snapshot a renderer is handed whole: only the parts that differ reach it, all on a new one; its defaults.
+look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
+# A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
+live_client_test | mt | core/tests/live_client_test.cpp core/stage/LiveClient.cpp |
+# The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
+command_queue_test | mt | core/tests/command_queue_test.cpp |
+# The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
+stage_pacing_test | core | core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp |
+# What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
+renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |
+# The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
+shader_overrides_test | mt | core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp |
+# The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
+library_search_test | stub | core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp |
+# The lyrics parse and the line sung at a position (Player's Lyrics panel).
+lyrics_test | stub | core/tests/lyrics_test.cpp core/library/Lyrics.cpp core/api/geode_lyrics_api.cpp |
+# A picked playlist file (core/library/Playlist): M3U, PLS and XSPF, names, durations, the DOCTYPE refusal.
+playlist_test | stub | core/tests/playlist_test.cpp core/library/Playlist.cpp core/api/geode_playlist_api.cpp |
+# A Studio project's kind and edit (core/studio): saved edits read back the same, in order, with old
+# defaults; newer or unknown files are refused; a new project holds its song and its look.
+studio_edit_test | stub | core/tests/studio_edit_test.cpp core/studio/StudioEdit.cpp core/api/geode_studio_api.cpp \
+    core/util/Json.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp |
+# The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
+# Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps.
+playout_test | stub | core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp core/api/geode_playout_api.cpp |
+# Speaker sync (#349, #488): the real ring, cursor and playout clock behind a fake sink. A reader held
+# to the speaker reads nothing of the sink's first buffer until it plays, every frame once at
+# 30/60/120 fps, stands in a pause, drops a seek's unheard tail, reads a gapless tail, is not
+# overrun at 192 kHz over Bluetooth; the mic, Cast and a ring with no sink read the newest.
+speaker_sync_test | stub | core/tests/speaker_sync_test.cpp core/audio/ingest/PcmRing.cpp \
+    core/sound/interp/PlayoutClock.cpp |
+# The encoder fallback ladder (#607): the rungs, the 30 fps floor, the 2/3 bit rate, an unknown ceiling.
+encoder_ladder_test | stub | core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp |
+# glTF import (#474): #455's limits on fixture .glb files built by the test, the 4x decimation
+# with before/after counts, refusals, and the low-detail copy; and the textures (PNG, JPEG,
+# KTX2 built in the test): role caps, mips, ASTC/ETC2 blocks decoded back, the memory budget
+# fit and drops. Uses the cgltf, meshoptimizer and basis_universal submodules. Basis builds
+# as upstream does (C++17, NDEBUG, its warnings off), in parallel, the same file list as
+# geode_basisu in core/CMakeLists.txt.
+@pre basisu
+gltf_import_test | gltf | core/tests/gltf_import_test.cpp core/scene/object/GltfImport.cpp \
+    core/scene/object/ModelTextures.cpp third_party/meshoptimizer/src/simplifier.cpp \
+    third_party/meshoptimizer/src/vertexcodec.cpp third_party/meshoptimizer/src/indexcodec.cpp \
+    third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o |
+# One live frame as one call: the stage order, the clear-only frame, the scene retry, gyro sessions, the events.
+live_frame_test | stub-mt | core/tests/live_frame_test.cpp |
+# The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
+loop_seam_test | core | core/tests/loop_seam_test.cpp |
+# Cast's audio pump (#772, #1150): a steady feed, a paused feed padded to the cut, a feed ahead held, 3 h sample-exact at 48 kHz;
+# the whole pump (ring, resampler, hold, pad) sample for sample against the Kotlin one it replaced, 44.1 and 48 kHz, layouts.
+cast_audio_test | stub-mt | core/tests/cast_audio_test.cpp core/api/geode_frame_api.cpp \
+    core/api/geode_cast_audio_api.cpp core/output/CastAudioPump.cpp $INGEST_SRCS core/audio/dsp/PcmResampler.cpp \
+    core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp |
+# Morph World: the World Genome (bounds, lerp, seeds, 1000 random worlds open and lit, the
+# corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
+world_genome_test | stub | core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp \
+    core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp | app/src/main/assets/shaders/lib_world.glsl app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
+# Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
+hls_segments_test | stub | core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp |
+# Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the placement (a portrait stage turned, every stage centre-cropped).
+cast_tee_test | stub | core/tests/cast_tee_test.cpp |
+# Cast shows the phone's own visual: the stage keeps drawing while a cast streams (before Visuals was ever laid out too) in its whole rect, the tee turning a portrait stage and its centred crop filling the stream with no bars, and a new stream waits for its first copy.
+cast_same_visual_test | stub | core/tests/cast_same_visual_test.cpp core/api/geode_surface_api.cpp \
+    core/api/geode_sound_api.cpp core/sound/Tuning.cpp core/api/geode_frame_api.cpp |
+# Show on a computer: the browser link's routes and token check, every response head, the codecs from the init segment, the page's files, the share's state, the browser's live feed, WebRTC's signalling and the link maker.
+link_share_test | stub | core/tests/link_share_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp \
+    core/util/QrCode.cpp |
+# Its typed path for a computer with no scanner: the code (random, case-free, constant-time compare), one per session, its lifetime, the tries, gap and lock-out, the routes off the token and the C ABI.
+link_pair_test | stub | core/tests/link_pair_test.cpp core/api/geode_link_api.cpp core/api/geode_link_pair_api.cpp \
+    core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp core/util/QrCode.cpp |
+# Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
+webrtc_rule_test | stub | core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp |
+# Cast's live stream (core/cast/LiveSegments): the muxer's bytes cut into the init segment and fragments at any write size, the window of six, the playlist's exact text, the feed's order, the watchdog's clock, boxes no muxer writes.
+live_segments_test | stub | core/tests/live_segments_test.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp |
+# Cast's fragmented MP4 (core/cast/Fmp4Writer): the init segment's tracks and codecs, each moof + mdat's sizes, sequence numbers, decode times and data offsets, cuts on keyframes, Annex B to NAL lengths, and the stream through LiveSegments.
+fmp4_writer_test | stub | core/tests/fmp4_writer_test.cpp core/cast/Fmp4Writer.cpp core/cast/LiveSegments.cpp \
+    core/viz/frame/LinkShare.cpp |
+# Cast's encoders (core/cast/CastEncoder) on fake codecs: the cast format, the PCM backlog's order, drops and PTS, configs and frames to the fMP4 and WebRTC, Opus only while a browser listens and ten seconds after, and which codec errors end the stream.
+cast_encoder_test | stub-mt | core/tests/cast_encoder_test.cpp core/cast/CastEncoder.cpp core/cast/Fmp4Writer.cpp |
+# When a cast is given up on (core/cast/CastWatch): the start timeout, a frozen stream, a lost address, the poll cadence, the fallback renderer's release.
+cast_watch_test | stub | core/tests/cast_watch_test.cpp core/api/geode_cast_watch_api.cpp |
+# Cast's HTTP answers (core/cast/LiveHttp): the request reader's bounds, every file's exact response, hostile requests (oversize, malformed, wrong token, lying lengths), the browser's feed and its cap, the WebRTC offer's body.
+live_http_test | stub | core/tests/live_http_test.cpp core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp \
+    core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp |
+# Its QR code: the standard's vectors (RS, format and version bits, capacities) and every symbol read back by an independent reader.
+qr_code_test | stub | core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp \
+    core/util/QrCode.cpp |
+# The config params schema (#423): LFO, envelope, palette, look and morph rows; Lfo and Adsr clamp as before; the store conversions equal Kotlin's; the text.
+config_schema_test | stub | core/tests/config_schema_test.cpp core/viz/ConfigFields.cpp core/viz/Adsr.cpp \
+    core/viz/Lfo.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp |
+# The renderer's reaction resolve (#750): DNA, or the user's routes under the hand mask, as the old Kotlin path; resolved exactly on a change of scene, seed, routes or mask.
+reaction_resolve_test | stub | core/tests/reaction_resolve_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+    core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+
+# --- Field present host test
+# A simulation presented in 3D (core/viz/present): its surfaces, the eye's ray a finger is mapped by, the
+# field read the long way round, and the composite gate that leaves a rig scene's picture to the scene.
+field_present_test | fakegl | core/tests/field_present_test.cpp core/viz/present/FieldGeometry.cpp |
+
+# --- Catalogue host tests
+# On every pull request: run only by hand, a stale fixture and a failing crossfade test
+# went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
+# The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
+# meta rows, hence Params), ranges, the answers the shell asks for one at a time, and
+# its text table byte-equal to core/tests/catalogue.txt, the copy the tools read.
+catalogue_test | core | core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp | core/tests/catalogue.txt
+# Shader truth: each shader style's camera rig and march facts against what its assembled shader reads,
+# and every Customize control a style shows moves it (known gaps: core/tests/style_param_gaps.txt, only shrinks).
+style_reads_test | fakegl | core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp | app/src/main/assets/ --gaps core/tests/style_param_gaps.txt --core core/
+# The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
+visual_gate | core | core/tests/visual_gate.cpp | -
+# The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.
+presets_test | stub | core/tests/presets_test.cpp core/viz/CataloguePresets.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp |
+
+# --- Modulation target host tests
+# The modulation-target table (core/viz/ModTargets, #642): each target's scope and chained slot, the
+# slot defaults, each source's natural polarity, and its text byte-equal to core/tests/mod_targets.txt.
+mod_targets_test | stub | core/tests/mod_targets_test.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp | core/tests/mod_targets.txt
+
+# --- Reaction text host tests
+# The saved text of the user's reaction routes (core/viz/ReactionText).
+reaction_text_test | stub | core/tests/reaction_text_test.cpp core/viz/ReactionText.cpp core/viz/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+    core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp |
+
+# --- Modulation document host tests
+# The user's modulation (core/viz/ModDocument, ModCatalog): saved waves, envelopes and routes still read,
+# a forgiving read lands on a default or inside a range, every edit clamps, the pickers list what runs,
+# and Customize › Music's moment and action rows equal core/tests/mod_catalog_music.txt.
+mod_document_test | stub | core/tests/mod_document_test.cpp core/viz/ModDocument.cpp core/viz/ModCatalog.cpp \
+    core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/ReactionText.cpp core/viz/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+    core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp | core/tests/mod_catalog_music.txt
+# Which wave and envelope controls Customize shows (core/viz/ModControls).
+mod_controls_test | stub | core/tests/mod_controls_test.cpp core/viz/ModControls.cpp \
+    core/api/geode_mod_controls_api.cpp core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/util/Json.cpp \
+    core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+    core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/VisualSafety.cpp |
+# The modulation the app holds (core/viz/ModState, geode_mod_state_*): an event is the document's own edit,
+# no route of the user's is Auto with no mask, the keep set is normalised and toggled, and the hand mask and
+# keep set reach their process-wide setters.
+mod_state_test | stub-mt | core/tests/mod_state_test.cpp core/viz/ModState.cpp core/api/geode_mod_state_api.cpp \
+    core/api/geode_modulation_api.cpp core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/util/Json.cpp \
+    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/ReactionText.cpp core/viz/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+    core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp |
+
+# --- Random waves host tests
+# Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
+# a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
+lfo_random_test | stub | core/tests/lfo_random_test.cpp core/viz/WaveRandomizer.cpp core/viz/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+    core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp |
+
+# --- Macro bank host tests
+# The macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
+# the identity, both ways move, the range and the safety clamp hold, edits validate, the text round trips,
+# the process-wide bank (geode_macro_bank_set).
+macro_bank_test | stub | core/tests/macro_bank_test.cpp core/viz/MacroBank.cpp core/viz/MacroControls.cpp \
+    core/api/geode_macro_bank_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+    core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/VisualSafety.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp |
+
+# --- Native export DSP tests
+# The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin, the playback DSP's hand-off and its gain.
+resampler_test | stub | core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp \
+    core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp |
+loudness_test | stub | core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp \
+    core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp |
+# The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
+# until flush, and no block is ever processed past its buffer.
+dsp_handoff_test | stub | core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# The shell's raw block (geode_dsp_process_bytes): whole frames from encoding and channels, run as the
+# typed calls run them, part frames dropped; plus the encodings and AudioOutNative's event bits, pinned.
+dsp_bytes_test | stub | core/tests/dsp_bytes_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp | app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt
+# Which formats the playback DSP runs (16-bit or float, mono or stereo); any other passes through.
+dsp_runs_test | stub | core/tests/dsp_runs_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# The limiter, crossfeed and equalizer forget their state when switched off (or a band set flat), so
+# turning them back on never plays old audio.
+dsp_stage_state_test | stub | core/tests/dsp_stage_state_test.cpp core/audio/dsp/Equalizer.cpp \
+    core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
+# whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
+bit_perfect_test | stub | core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# The playback gain as native ramps (#483): linear in dB and sample-accurate, ReplayGain on the
+# boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
+gain_ramp_test | stub | core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# The built-in equalizer curves: each in its saved place, and no write for a curve that is not there.
+eq_presets_test | stub | core/tests/eq_presets_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# The sound effects' ranges: each control's range and clamp, and the band levels a session starts on.
+fx_ranges_test | stub | core/tests/fx_ranges_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+# Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
+playback_controls_test | stub | core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp \
+    core/api/geode_playback_api.cpp |
+# Which track positions are remembered: long tracks only, edges clear.
+track_bookmark_test | stub | core/tests/track_bookmark_test.cpp core/audio/dsp/TrackBookmark.cpp \
+    core/api/geode_bookmark_api.cpp |
+
+# --- Native export planning tests
+# Export planning and PCM maths ported from Kotlin (core/output): frame clock,
+# loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded
+# take's limits (core/output/RecordPlan: the offered maximum lengths, the stop, the file size estimate).
+output_test | stub | core/tests/output_test.cpp $EXPORT_SRCS |
+record_plan_test | stub | core/tests/record_plan_test.cpp $EXPORT_SRCS |
+export_pcm_test | stub | core/tests/export_pcm_test.cpp $EXPORT_SRCS |
+# A render's range and time left (core/output/ExportRange, RenderEta): the segment clamp and its
+# refusals, the estimate through a lead-in and an even render, a restart, the wording's thresholds.
+export_range_test | stub-mt | core/tests/export_range_test.cpp $EXPORT_RUN_SRCS |
+render_eta_test | stub-mt | core/tests/render_eta_test.cpp $EXPORT_RUN_SRCS |
+
+# --- Recorder host test
+# Record's clock (core/output/Recorder): which stage frames a live recording keeps and their PTS at
+# 30, 60 and 120 fps, where each heard sample sits, a pause, a seek, a rate change, the limits.
+recorder_test | stub-mt | core/tests/recorder_test.cpp core/api/geode_record_api.cpp core/output/Recorder.cpp \
+    core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp |
+
+# --- Encode sink host test
+# The encode sink (core/output/EncodeSink) and Record's session on it (core/output/RecordSession), on a fake
+# codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, the end of stream,
+# errors, no sample written twice or dropped, and the stop through the stage's tee.
+encode_sink_test | stub-mt | core/tests/encode_sink_test.cpp core/output/EncodeSink.cpp core/output/RecordSession.cpp \
+    core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp |
+
+# --- Loop render host test
+# The loop render job (core/output/LoopRender) on a fake host, encoder and muxer: the encoder it settles on,
+# each stop's frame counts and presentation times, the seam the reel reports, the drift, and what a cancel
+# and each failure leave behind.
+loop_render_test | stub | core/tests/loop_render_test.cpp core/output/LoopRender.cpp core/output/LoopPlan.cpp \
+    core/output/EncodePlan.cpp |
+
+# --- Video export host test
+# The video export job (core/output/VideoExport) on a fake host, encoder and muxer: the bit rate cap, the
+# encoder it settles on, the frame count and timestamps, the audio interleaved by timestamp, the progress,
+# what a cancel and each failure leave behind, and the teardown order.
+video_export_test | stub | core/tests/video_export_test.cpp core/output/VideoExport.cpp core/output/FrameClock.cpp \
+    core/output/EncodePlan.cpp core/audio/dsp/PcmTiming.cpp |
+
+# --- Params host tests
+# The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
+params_test | core | core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+# The params object of a preset, link, template look and saved look (core/viz/ParamsJson), with the app's preset fixtures.
+params_json_test | stub | core/tests/params_json_test.cpp core/viz/ParamsJson.cpp core/api/geode_params_json_api.cpp \
+    core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp | app/src/test/resources/presets
+# The look's own palette in its params, saved palettes, preset files and the template library (core/viz/ParamsPalette, LookFiles).
+look_files_test | stub | core/tests/look_files_test.cpp core/viz/ParamsPalette.cpp core/viz/LookFiles.cpp \
+    core/viz/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+    core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | app/src/test/resources/presets
+# The template file: read, defaults, carried keys, write, refusals, and its C ABI (core/viz/TemplateFile).
+template_file_test | stub | core/tests/template_file_test.cpp core/viz/TemplateFile.cpp core/api/geode_looks_api.cpp \
+    core/viz/LookFiles.cpp core/viz/ParamsPalette.cpp core/viz/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp |
+# The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
+param_text_test | stub | core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp |
+# A Customize slider's Reset offer, whole-number snap and log track (core/viz/SliderMap).
+slider_map_test | stub | core/tests/slider_map_test.cpp core/api/geode_slider_api.cpp |
+
+# --- Customize map host tests
+# The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
+customize_test | core | core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | core/tests/customize.txt
+
+# --- Customize rows host tests
+# What Customize draws (core/viz/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
+# range and when it hides, the panel's words, the style names, Your colours' editor, the stack card and the palette list.
+customize_rows_test | stub | core/tests/customize_rows_test.cpp $ROWS_SRC |
+palette_panel_test | stub | core/tests/palette_panel_test.cpp $ROWS_SRC |
+
+# --- Randomize everything host tests
+# The two-circle gesture's Randomize everything (core/viz/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
+randomize_all_test | stub | core/tests/randomize_all_test.cpp core/viz/RandomizeAll.cpp \
+    core/api/geode_randomize_all_api.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp \
+    core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+
+# --- Easter egg host tests
+# The hidden Visuals gestures: shake to screenshot's detector (core/viz/Shake) and tap along's beat matcher (core/viz/TapAlong).
+easter_eggs_test | stub | core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp |
+
+# --- Artwork palette
+# The artwork palette (core/viz/ArtPalette): a cover's base hue, span and confidence, pinned to the Kotlin it replaced.
+art_palette_test | stub | core/tests/art_palette_test.cpp core/viz/ArtPalette.cpp core/api/geode_art_palette_api.cpp |
+
+# --- Births
+# Life's births (core/viz/Births): nothing at Life 0, deterministic, every collapse kind, the clock the only input.
+births_test | stub | core/tests/births_test.cpp core/viz/Births.cpp |
+
+# --- Widget glow
+# The widget's generated glow (core/viz/WidgetGlow): light positions and hues per tick.
+widget_glow_test | stub | core/tests/widget_glow_test.cpp core/viz/WidgetGlow.cpp core/api/geode_widget_glow_api.cpp |
+
+# --- Sound across frame rates
+# The sound engine at 30 and 120 fps must equal 60 at every shared sample, and an export's cut equal live's.
+sound_rate_test | core | core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp |
+
+# --- Sound hops by position
+# Every analysis hop kept by its sample position: the same frame at a position whatever the block sizes, the clamps,
+# the phases moved on between hops as step() moves them.
+sound_history_test | core | core/tests/sound_history_test.cpp core/sound/*.cpp |
+
+# --- Sound hop from the FFT settings
+# The analysis hop is a sample count from the FFT settings: the same at 44.1, 48 and 96 kHz, and two settings
+# (2048/4, 2048/8) hear the same tempo, transients and silence in time.
+sound_hop_test | core | core/tests/sound_hop_test.cpp core/sound/*.cpp |
+
+# --- Analysis thread
+# One engine on its own thread (core/sound/hop/AnalysisThread, #1215): inline equals a bare engine at every position,
+# across irregular blocks, a new epoch and controls mid-stream; the thread equals inline, readers never see a torn
+# hop, it wakes per write and not on a clock, it stops cleanly, and a writer that stops lets the levels fall.
+analysis_thread_test | mt | core/tests/analysis_thread_test.cpp core/sound/hop/AnalysisThread.cpp core/sound/*.cpp \
+    core/audio/ingest/PcmRing.cpp |
+
+@group tsan
+
+# --- Analysis thread (ThreadSanitizer)
+analysis_thread_tsan | tsan | core/tests/analysis_thread_test.cpp core/sound/hop/AnalysisThread.cpp core/sound/*.cpp \
+    core/audio/ingest/PcmRing.cpp |  | TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1"
+
+@group main
+
+# --- Frame blend
+# The renderer's read (core/sound/interp/FrameBlend, #1215): the engine's frame at every hop, each field by its rule
+# between two, every hit once at any frame rate with its sample, two surfaces on one shared analysis alike, hops on
+# both sides of a speaker behind the writer, and an export equal at 30, 60 and 120 fps.
+frame_blend_test | mt | core/tests/frame_blend_test.cpp core/sound/interp/FrameBlend.cpp \
+    core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp |
+# The drawn waveform (core/sound/interp/Waveform): its block is the engine's configured FFT size / 512 at every rate.
+waveform_test | core | core/tests/waveform_test.cpp core/sound/interp/Waveform.cpp core/sound/*.cpp |
+
+# --- Export pre-roll
+# An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
+# half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
+# And F3: a silent stretch holds the export's frames and its beat cut, like the live visual.
+export_preroll_test | core | core/tests/export_preroll_test.cpp core/sound/*.cpp core/output/FrameClock.cpp \
+    core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/viz/StyleSchedule.cpp |
+# The render order (core/output/ExportFrame): prepare up to the look, the pre-roll's plan, each frame's audio to
+# its exact end and its draw at its exact time, the failures (no track, nothing heard, a track that ends).
+export_frame_test | stub | core/tests/export_frame_test.cpp core/output/ExportFrame.cpp core/output/FrameClock.cpp \
+    core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp |
+
+@group golden
+
+# --- Sound golden vector
+# A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
+sound_golden_test | core | core/tests/sound_golden_test.cpp core/sound/*.cpp | core/tests/sound_golden.txt
+
+@group bench
+
+# --- Sound accuracy bench (smoke)
+# The accuracy bench's smoke run (tools/sound_bench): a few synthetic pieces scored for tempo, beat, meter
+# and key. It measures and exits 0; this only keeps it building and running.
+sound_bench | o2 | tools/sound_bench/sound_bench.cpp core/sound/*.cpp | --quick
+
+@group main
+
+# --- Render plan host test
+# A render's plan (core/output/ExportRange): the part of a track a render covers and the free tier's cap.
+render_plan_test | stub | core/tests/render_plan_test.cpp core/output/ExportRange.cpp core/output/RenderBatch.cpp \
+    core/api/geode_render_plan_api.cpp |
+
+# --- Loudness scan host test
+# A finished render's loudness (core/output/LoudnessScan on a fake decoder: the meter fed every buffer, the
+# refusals) and the sentence and numbers its advice is worded with (core/output/LoudnessAdvice readingOf).
+loudness_scan_test | stub | core/tests/loudness_scan_test.cpp core/output/LoudnessScan.cpp \
+    core/output/LoudnessAdvice.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp |
+# An export's soundtrack to AAC (core/output/AacTranscode on a fake decoder, encoder and file): the AIFF and
+# decoder paths, the start skip and trim, the range's end, the fold, float input, the resample, each failure.
+aac_transcode_test | stub | core/tests/aac_transcode_test.cpp core/output/AacTranscode.cpp \
+    core/audio/ingest/AiffReader.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/PcmConvert.cpp \
+    core/audio/dsp/PcmTiming.cpp |

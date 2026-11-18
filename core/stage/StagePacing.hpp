@@ -67,8 +67,9 @@ public:
         float rateFps = 0.0f;
     };
 
-    // One vsync, after vsyncArrived said true.
-    Tick step(int64_t frameTimeNs);
+    // One vsync, after vsyncArrived said true. stageBusy: the stage has not finished the last frame it was asked
+    // for, so a draw due now waits for the first vsync after it does (Pacer::onVsync).
+    Tick step(int64_t frameTimeNs, bool stageBusy = false);
 
     // The rate the window is asked for: the cap, 0 (no preference) for Follow device or no cap. Follow device
     // states no rate: the system keeps choosing the panel's mode.

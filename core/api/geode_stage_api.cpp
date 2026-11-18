@@ -70,9 +70,10 @@ public:
     void surfaceChanged(int width, int height) override { geode_viz_surface_changed(v_, width, height); }
     uint32_t frame(const void* ring, float pacedFps, float capFps) override {
         return static_cast<uint32_t>(
-            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_));
+            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_, presentNs_));
     }
     void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
+    void framePresent(int64_t presentNs) override { presentNs_ = presentNs; }
     void trimSpares() override { geode_viz_trim_spares(v_); }
     // The feed's cursor and its hold on the ring's analysis go; the next frame's geode_viz_feed_ring makes both
     // again. Other surfaces hearing the ring keep their own hold, so its thread stops only with the last.
@@ -129,6 +130,7 @@ private:
     geode_viz* v_;
     AAssetManager* assets_;
     geode_export_pass* mark_ = nullptr;  // stage thread
+    int64_t presentNs_ = 0;  // stage thread: the next frame's expected presentation time (framePresent), 0 for none
     int64_t vsyncNs_ = 0;  // stage thread: the next frame's vsync time (frameTime), 0 for none
 };
 

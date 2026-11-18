@@ -88,6 +88,7 @@ void StageCore::step(int64_t nowMs) {
             draw(dueFps_, dueCapFps_, dueFrameNs_, duePresentNs_);
             runActions();
         }
+        port_.frameDone();
     }
 }
 
@@ -169,6 +170,7 @@ Outcome StageCore::execute(const Action& action) {
 void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs) {
     if (!client_) return;
     client_->frameTime(frameNs);
+    client_->framePresent(presentNs);
     events_.fetch_or(client_->frame(pacedFps, capFps), std::memory_order_relaxed);
     port_.presentAt(presentNs);
     switch (port_.swap()) {

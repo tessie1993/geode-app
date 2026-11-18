@@ -87,7 +87,7 @@ One fact per line. The design of the native host every live surface draws throug
 - `AChoreographer_postFrameCallback64` (API 29) on the vsync thread's own choreographer, re-posted from each callback.
 - The pacer is fed the callback's `frameTimeNanos`, `CLOCK_MONOTONIC`: the same time base as the Java `Choreographer.FrameCallback`, so pacing stays exactly as it was.
 - `AChoreographer_postVsyncCallback` (API 33) adds frame timelines and an expected presentation time; feeding that instead would change the dt the pacer sees, so any switch is a separate, later decision.
-- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap and nothing lowers it for heat or load.
+- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap and nothing lowers it for heat or load. The cap is a ceiling, not a cadence: a slot reached while the stage is still on the last frame (`Sink::stageBusy`, cleared by `StagePort::frameDone`) is missed, and the first vsync after the stage finishes draws.
 - A callback re-posts first, before the pacer runs, so the cadence survives a slow frame and a skipped vsync still wakes the next one.
 - There is no NDK call to remove a posted callback, so stop only clears the running flag and the pending callback lapses on its next vsync.
 - A start while a callback is still pending posts nothing, so two starts never double the callback and halve every dt.

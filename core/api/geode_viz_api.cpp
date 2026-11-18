@@ -157,6 +157,9 @@ struct geode_viz {
     std::mutex reactLock;
     geode::viz::ReactionResolve reactions{&styleTraits};
     geode::viz::HandRoutes userHand;
+    // When the display is expected to show the frame being drawn (CLOCK_MONOTONIC ns, 0: none), set by the live
+    // frame before it feeds the ring. Render thread only.
+    int64_t presentNs = 0;
     // The live feed (geode_viz_feed_ring): the ring this renderer hears and its place in it. The cursor is
     // declared after the ring it refers to. Render thread only.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
@@ -430,7 +433,8 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     const geode_playout* playout = ring->playout.load(std::memory_order_acquire);
     // A ring no sink plays is not the player's: its engine never takes the player's source, fade or boundary.
     v->renderer.setFedPlayersRing(playout != nullptr);
-    const int64_t limit = geode_playout_listen_limit(playout, nowNs);
+    // Read where the viewer sees the frame, not where it starts drawing: a frame waits in the swap queue.
+    const int64_t limit = geode_playout_listen_limit(playout, geode::viz::frame::listenAtNs(nowNs, v->presentNs));
     // The ring is analysed once, on its own thread, ahead of the speaker, for every renderer hearing it; this
     // frame reads it at the speaker's sample. The mic layered over it is heard by this renderer alone.
     const bool shared = v->feedLayer == nullptr;
@@ -575,7 +579,10 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs) : v_(v), ring_(ring), vsyncNs_(vsyncNs) {}
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, float pacedFps)
+        : v_(v), ring_(ring), vsyncNs_(vsyncNs), pacedFps_(pacedFps) {
+        v_.presentNs = presentNs;
+    }
 
     void setPacedFps(float pacedFps, float capFps) override { v_.renderer.setPacedFps(pacedFps, capFps); }
     void applyQuality(const frame::UserQuality& q) override {
@@ -602,7 +609,8 @@ public:
 private:
     // The frame's time: the vsync it was asked for at, on the boot clock, so the step is the vsyncs' own spacing and
     // not the thread hop's jitter; with no vsync (the cast's fallback) the clock at the draw. Never earlier than the
-    // last frame's, and never later than now.
+    // last frame's, and never later than now. A vsync older than 1.5 draw intervals is stale (the stage was behind):
+    // the step is then the clock at the draw, the time that really passed (frame::freshAgoSeconds).
     double frameSeconds() {
         const double boot = bootSeconds();
         double seconds = boot;
@@ -611,7 +619,7 @@ private:
             clock_gettime(CLOCK_MONOTONIC, &mono);
             const double ago = static_cast<double>(mono.tv_sec) + static_cast<double>(mono.tv_nsec) * 1e-9 -
                                static_cast<double>(vsyncNs_) * 1e-9;
-            seconds = boot - std::max(ago, 0.0);
+            seconds = boot - frame::freshAgoSeconds(ago, pacedFps_);
         }
         seconds = std::max(seconds, v_.liveSeconds);
         v_.liveSeconds = seconds;
@@ -621,6 +629,7 @@ private:
     geode_viz& v_;
     const geode_pcm_ring* ring_;
     int64_t vsyncNs_;
+    float pacedFps_;
 };
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
@@ -633,11 +642,12 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 // a drift is a compile error here, not a new overload that geode_stage_api.cpp fails to link against.
 
 // geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
-// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. Not part of the C ABI.
-int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs) {
+// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. presentNs, CLOCK_MONOTONIC, is when
+// the display is expected to show it (0: none); the sound is read there. Not part of the C ABI.
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs) {
     if (!v) return 0;
     try {
-        VizStages stages(*v, ring, vsyncNs);
+        VizStages stages(*v, ring, vsyncNs, presentNs, pacedFps);
         return static_cast<int>(v->live.run(stages, pacedFps, capFps));
     } catch (...) {
         // Nothing to tell the shell this frame; the next one starts over.

@@ -46,6 +46,7 @@ struct Port final : StagePort {
     float vsyncCapFps = -1.0f;
     int64_t applied = 0;
     bool surfaceAtAck = false;
+    int frameDones = 0;
     std::vector<int64_t> presented;  // each swap's presentation time, 0 for none
 
     Outcome createContext(bool& surfaceless) override {
@@ -88,6 +89,7 @@ struct Port final : StagePort {
         log.push_back("-context");
     }
     void presentAt(int64_t presentNs) override { presented.push_back(presentNs); }
+    void frameDone() override { frameDones++; }
     Outcome swap() override {
         swaps++;
         const Outcome out = nextSwap;
@@ -116,6 +118,7 @@ struct Client final : StageClient {
     float paced = -1.0f, cap = -1.0f;
     uint32_t nextEvents = 0;
     std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
+    std::vector<int64_t> presentTimes;  // the presentation time each frame was told, 0 for none
     bool lostWhileCurrent = false;
     bool releasedWithGl = false;
     bool serviceReady = false;
@@ -128,6 +131,7 @@ struct Client final : StageClient {
         height = h;
     }
     void frameTime(int64_t vsyncNs) override { vsyncTimes.push_back(vsyncNs); }
+    void framePresent(int64_t presentNs) override { presentTimes.push_back(presentNs); }
     uint32_t frame(float pacedFps, float capFps) override {
         frames++;
         paced = pacedFps;
@@ -266,6 +270,21 @@ void vsyncTimes() {
     check(r.client->vsyncTimes.back() == 0 && r.port.presented.back() == 0, "a request with no vsync time says so");
 }
 
+// Red against: a pacer never told the stage is free (frameDone not called, or called before the swap), a dropped
+// request that leaves the pacer waiting for ever, and a client not told when its frame is shown (the sound is
+// read there).
+void aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone() {
+    Rig r;
+    r.show();
+    r.send(command(kStageFrameDue, 0, 33'000'000, 30.0f, 30.0f, 2'000'000'000));
+    check(r.client->presentTimes.size() == 1 && r.client->presentTimes[0] == 2'033'000'000, "a frame is told when it is shown");
+    check(r.port.frameDones == 1, "the pacer is told the frame is done, once");
+    r.send(command(kStagePause, 1));
+    const int before = r.port.frameDones;
+    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f, 2'100'000'000));
+    check(r.client->frames == 1 && r.port.frameDones == before + 1, "a request dropped unseen is done too, so the pacer is not left waiting");
+}
+
 void pauseAndLoss() {
     Rig r;
     r.show();
@@ -334,6 +353,7 @@ int main() {
     windowAndFrames();
     handOvers();
     vsyncTimes();
+    aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone();
     pauseAndLoss();
     serviceAndQuit();
     endsOutOfTurn();

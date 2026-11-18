@@ -2,6 +2,7 @@ package dev.geode.audio
 
 import android.content.ComponentName
 import android.content.Context
+import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.provider.Settings
@@ -37,16 +38,37 @@ class NowPlayingBridge(
             .Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    fun current(): External? {
+    /** The other app's session the bridge speaks of and to: the one playing, else the first; none without access. */
+    private fun session(): MediaController? {
         if (!hasAccess()) return null
         val manager = context.getSystemService(MediaSessionManager::class.java) ?: return null
         val sessions =
             runCatching { manager.getActiveSessions(component) }.getOrNull().orEmpty()
-        val best =
-            sessions
-                .filter { it.packageName != context.packageName }
-                .maxByOrNull { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) 1 else 0 }
-                ?: return null
+        return sessions
+            .filter { it.packageName != context.packageName }
+            .maxByOrNull { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) 1 else 0 }
+    }
+
+    /** Play or pause in the other app, whichever it is not doing. */
+    fun playPause() {
+        val controls = session() ?: return
+        if (controls.playbackState?.state == PlaybackState.STATE_PLAYING) {
+            controls.transportControls.pause()
+        } else {
+            controls.transportControls.play()
+        }
+    }
+
+    fun next() {
+        session()?.transportControls?.skipToNext()
+    }
+
+    fun previous() {
+        session()?.transportControls?.skipToPrevious()
+    }
+
+    fun current(): External? {
+        val best = session() ?: return null
         val metadata = best.metadata
         return External(
             packageName = best.packageName,

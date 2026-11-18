@@ -147,7 +147,7 @@ internal class CaptureController(
                 .collect { projection ->
                     if (projection != null) {
                         startPlaybackCapture(projection)
-                    } else if (_externalAudio.value.active && !deviceMix.running) {
+                    } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
                         host.resetSound(!externalAudioOwnsRing())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
@@ -206,24 +206,39 @@ internal class CaptureController(
     fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(application, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
+    fun noteExternalAudioConsentPending() {
+        _externalAudio.update { it.copy(awaitingConsent = true, failure = null) }
+    }
+
     /**
-     * Hears whatever the phone is playing, through its output mix: no consent dialog and no foreground service,
-     * only the microphone permission Android asks of anything that reads the mix. Coarser than the player's
-     * tap (see [OutputMixCapture]). Null when it is running, else why not.
+     * The phone's output mix in place of a capture that hears only digital zero: an app that refuses capture
+     * (most streaming apps) is still in the mix. Coarser than the capture (see [OutputMixCapture]), so it runs
+     * only while the capture is quiet, and a phone that refuses the mix is asked once per capture.
      */
-    fun startDeviceAudio(): CaptureFailure? {
-        val failure =
-            when {
-                !hasMicPermission() -> CaptureFailure.PERMISSION
-                deviceMix.start(application) -> null
-                else -> CaptureFailure.UNAVAILABLE
-            }
-        if (failure == null) {
-            host.pausePlayback()
-            AudioBus.deviceInput = deviceMix.soundInput
+    private fun hearDeviceMix(wanted: Boolean) {
+        if (wanted == deviceMix.running) return
+        if (!wanted || deviceMixRefused) {
+            stopDeviceAudio()
+            return
         }
-        _externalAudio.update { it.copy(active = failure == null, awaitingConsent = false, failure = failure, refusedByApp = false) }
-        return failure
+        if (deviceMix.start(application)) {
+            AudioBus.deviceInput = deviceMix.soundInput
+        } else {
+            deviceMixRefused = true
+        }
+    }
+
+    private var deviceMixRefused = false
+
+    /** The other app's transport, through its media session: needs the notification access [refreshExternalAudio] reports. */
+    fun externalPlayPause() = control { nowPlayingBridge.playPause() }
+
+    fun externalNext() = control { nowPlayingBridge.next() }
+
+    fun externalPrevious() = control { nowPlayingBridge.previous() }
+
+    private fun control(action: () -> Unit) {
+        scope.launch(Dispatchers.IO) { action() }
     }
 
     /** The stage goes back to the player's ring before the mix stops being written. */
@@ -263,6 +278,7 @@ internal class CaptureController(
 
     fun stopExternalAudio() {
         stopDeviceAudio()
+        deviceMixRefused = false
         playbackCapture.stop()
         host.resetSound(!externalAudioOwnsRing())
         PlaybackCaptureService.stop(application)
@@ -297,14 +313,17 @@ internal class CaptureController(
                     val access = nowPlayingBridge.hasAccess()
                     access to (if (access) nowPlayingBridge.current() else null)
                 }
-            val refused = playbackCapture.active && playbackCapture.quiet && (now?.playing ?: false)
+            val quiet = playbackCapture.active && playbackCapture.quiet
+            hearDeviceMix(quiet)
+            // On the mix the app is heard after all, so neither notice applies.
+            val unheard = quiet && !deviceMix.running
             _externalAudio.update {
                 it.copy(
-                    active = playbackCapture.active || deviceMix.running,
+                    active = playbackCapture.active,
                     nowPlaying = now,
                     hasSessionAccess = access,
-                    refusedByApp = refused,
-                    hearingSilence = playbackCapture.active && playbackCapture.quiet,
+                    refusedByApp = unheard && (now?.playing ?: false),
+                    hearingSilence = unheard,
                 )
             }
             externalAudioRefreshInFlight = false

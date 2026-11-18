@@ -241,7 +241,7 @@ Java_dev_geode_engine_bridge_StageNative_stageSceneIds(JNIEnv* env, jobject, jlo
     StageViz viz(stage);
     std::vector<char> ids(geode_viz_scene_ids(viz, nullptr, 0) + 1, '\0');
     geode_viz_scene_ids(viz, ids.data(), ids.size());
-    return env->NewStringUTF(ids.data());
+    return geode::jni::utf8String(env, ids.data());
 }
 
 JNIEXPORT void JNICALL

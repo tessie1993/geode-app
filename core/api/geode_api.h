@@ -195,6 +195,10 @@ GEODE_API const char* geode_viz_look_defaults(void);
    changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
    quality (an export). */
 GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
+/* Settings › Performance's "Adapt to frame time" (core/viz/frame/FrameGovernor), 0 or 1, any thread: while frames
+   miss their budget the renderer steps render scale, march scale, post FX and then the frame rate down under the
+   user's own values, and back up once they keep up. Off until set; an export and a recording are never stepped. */
+GEODE_API void        geode_viz_set_adaptive(geode_viz*, int on);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
    GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
@@ -1395,6 +1399,11 @@ GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, fl
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
+/* "Adapt to frame time" as the live surface that drew last runs now (core/viz/frame/FrameGovernor), for the tab's
+   "Now: …" line: the paced fps (0 = free-running), render scale, march scale, post FX (0/1) and the steps taken
+   (-1 = no live frame yet). Returns the count, 0 when out is too small. Any thread. */
+#define GEODE_PERF_ADAPT_NOW_FLOATS 5
+GEODE_API int             geode_perf_adapt_now(float* out, int capacity);
 /* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is

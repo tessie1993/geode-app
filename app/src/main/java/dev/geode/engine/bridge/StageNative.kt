@@ -123,6 +123,12 @@ object StageNative {
         postFx: Boolean,
     )
 
+    /** Settings › Performance's "Adapt to frame time" (native `viz/frame/FrameGovernor`); every rule is native. */
+    external fun stageSetAdaptive(
+        stage: Long,
+        on: Boolean,
+    )
+
     external fun stageBeginParamMorph(
         stage: Long,
         seconds: Float,

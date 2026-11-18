@@ -63,6 +63,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
 - `field_present_test.cpp`: a simulation presented in 3D (`core/viz/present/FieldGeometry`): each surface's size and eye, where a finger's ray lands on the field, and the composite gate that leaves a rig scene's picture to it.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
+- `frame_governor_test.cpp`: `core/viz/frame/FrameGovernor`, Settings › Performance's "Adapt to frame time": the ladder (render scale, march scale, post FX, the frame rate last) and its climb in reverse, a step only after a sustained miss against the paced rate and back only after the dwell, never above the user's settings, settling frames not counted, a new style back on the user's settings, off, export and recording passing through, Follow device, the "Now" read-back.
 - `fx_ranges_test.cpp`: the sound effects' ranges and clamps (`core/audio/dsp/FxRanges`) and the band levels a session starts on, through `geode_dsp_fx_*` and `geode_dsp_restore_bands`, and the saved band-levels text (`geode_dsp_restore_bands_text`, `geode_dsp_encode_bands`).
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
 - `gltf_import_test.cpp`: glTF import: every limit, the fit and its counts, refusals and the low-detail copy.

@@ -963,7 +963,7 @@ GEODE_API const char* geode_panel_text(const char* id);
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);
 /* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
- * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * params' own colours (its stops, else its hue ramp), _from_look the same, for the editor to start over from them, _open a saved palette's stops
  * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
  * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
  * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next

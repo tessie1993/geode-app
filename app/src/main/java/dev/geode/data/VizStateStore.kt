@@ -4,12 +4,9 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-<<<<<<< HEAD
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
-=======
-import kotlinx.coroutines.flow.StateFlow
->>>>>>> origin/claude/save-sweep
 
 internal class VizStateStore(
     private val prefs: SharedPreferences,

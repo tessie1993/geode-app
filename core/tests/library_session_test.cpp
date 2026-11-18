@@ -1,7 +1,8 @@
 // Host-side checks for the saved play queue (core/library/SessionDoc): the file's JSON written and read back (the
 // Kotlin PlayRecorderTest's "service alone keeps resumption current": six tracks, index 5, 42 s come back whole),
 // the version gate (a newer app's file is refused, an absent version reads as 1), the index and position clamps
-// (the ResumeSourceTest's index 9 and position -40), and which texts are no session. No device.
+// (the ResumeSourceTest's index 9 and position -40), which texts are no session, and the wire the shell splits.
+// No device.
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_session_test.cpp
 //     core/library/SessionDoc.cpp core/util/Json.cpp -o library_session_test && ./library_session_test
@@ -108,6 +109,14 @@ void refused() {
     check(!sessionParse(R"({"tracks":[{"uri":""},{"title":"x"},3]})"), "no track with a uri is no session");
     check(sessionParse(R"({"tracks":[{"uri":"a"}]} trailing)").has_value(), "text after the object is ignored, as JSONObject(String) did");
 }
+
+void wire() {
+    check(sessionWire({{{"u", "t", "a"}, {"v", "", ""}}, 1, 42000}) == "1\x1f" "42000\x1fu\x1ft\x1f" "a\x1fv\x1f\x1f\x1e",
+          "index, position, then uri, title and artist per track");
+    check(sessionWire({{{"u\x1e", "T\x1fi", "\xC3\xA9"}}, 0, 0}) == "0\x1f" "0\x1fu\x1fTi\x1f\xC3\xA9\x1e", "separators dropped, UTF-8 kept");
+    const auto back = sessionParse(sessionWrite({{{"a", "A", "X"}}, 0, 5}).json);
+    check(back && sessionWire(*back) == "0\x1f" "5\x1f" "a\x1f" "A\x1fX\x1e", "a session read back goes out as written");
+}
 }  // namespace
 
 int main() {
@@ -117,6 +126,7 @@ int main() {
     fields();
     gate();
     refused();
+    wire();
     if (failures == 0) std::printf("library_session_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

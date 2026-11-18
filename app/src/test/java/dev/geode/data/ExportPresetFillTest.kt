@@ -46,11 +46,11 @@ class ExportPresetFillTest {
         assertEquals(youtube.ratio, changed.ratio)
     }
 
+    // That every platform's frame rate is offered is core/tests/shell_prefs_test.cpp's (native owns the rates).
     @Test
     fun everyPlatformFillsAnOfferedCombination() {
         for (preset in ExportPresets.ALL) {
             val filled = ExportDefaults().filledFrom(preset)
-            assertTrue("fps ${filled.fps}", filled.fps in EXPORT_FPS_OPTIONS)
             assertTrue(filled.quality in ExportQuality.entries)
             assertTrue(filled.ratio in ExportRatio.entries)
         }

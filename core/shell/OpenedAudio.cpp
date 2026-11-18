@@ -151,7 +151,7 @@ std::optional<std::string> openedAudioDisplayName(const std::optional<std::strin
     return out;
 }
 
-std::string openedAudioMediaId(const std::array<std::uint8_t, 16>& random) {
+std::string openedMediaId(const std::array<std::uint8_t, 16>& random) {
     std::array<std::uint8_t, 16> b = random;
     b[6] = static_cast<std::uint8_t>((b[6] & 0x0F) | 0x40);
     b[8] = static_cast<std::uint8_t>((b[8] & 0x3F) | 0x80);

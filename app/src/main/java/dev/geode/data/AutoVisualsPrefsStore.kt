@@ -4,10 +4,8 @@ import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.AutoNative
-import dev.geode.model.StyleCatalogue
+import dev.geode.engine.bridge.ShellNative
 import dev.geode.model.VizPlaylistEntry
-import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * Auto's remembered shape: the timed style change ("change style every N s", still called Random in
@@ -20,22 +18,81 @@ import org.json.JSONObject
  * Settings › Backup, so a reinstall brought the old phone's running timer back. A timer is something the listener
  * starts on purpose, for this session; what it does once started (interval, sources, colours) is
  * remembered. The old key is removed on the next save.
+ *
+ * This store only reads and writes the prefs: what the values mean (the playlist's JSON, each scene id
+ * resolved, the playlist off without entries, the intervals held to range, the timer off) is native's
+ * ([Rules], core/shell/AutoVisuals).
  */
 class AutoVisualsPrefsStore(
     private val prefs: SharedPreferences,
+    private val rules: Rules = NativeRules,
 ) {
+    /** Auto's saved-shape rules. The app asks native; a JVM test, which cannot load the library, hands in its own. */
+    interface Rules {
+        fun entriesFromJson(json: String): List<VizPlaylistEntry>
+
+        fun entriesToJson(entries: List<VizPlaylistEntry>): String
+
+        /** The `ShellNative.AUTO_SAVED_*` fields read: [state] now, [stored] where [has], the playlist's [playlistCount]. */
+        fun apply(
+            state: IntArray,
+            stored: IntArray,
+            has: BooleanArray,
+            playlistCount: Int,
+        ): IntArray
+    }
+
+    private object NativeRules : Rules {
+        override fun entriesFromJson(json: String): List<VizPlaylistEntry> =
+            ShellNative.autoPlaylistRead(json).asList().chunked(ShellNative.AUTO_ENTRY_FIELDS).map { f ->
+                VizPlaylistEntry(sceneId = f[0].orEmpty(), presetName = f[1], milkPath = f[2], label = f[3].orEmpty())
+            }
+
+        override fun entriesToJson(entries: List<VizPlaylistEntry>): String =
+            ShellNative.autoPlaylistToJson(
+                entries.flatMap { listOf(it.sceneId, it.presetName, it.milkPath, it.label) }.toTypedArray(),
+            )
+
+        override fun apply(
+            state: IntArray,
+            stored: IntArray,
+            has: BooleanArray,
+            playlistCount: Int,
+        ): IntArray = ShellNative.autoVisualsApply(state, stored, has, playlistCount)
+    }
+
     fun applyTo(state: VizUiState): VizUiState {
-        val entries = prefs.getString(KEY_PLAYLIST_ENTRIES, null)?.let(::entriesFromJson) ?: state.vizPlaylist
-        val playlistEnabled = prefs.getBoolean(KEY_PLAYLIST_ENABLED, state.vizPlaylistEnabled) && entries.isNotEmpty()
+        val entries = prefs.getString(KEY_PLAYLIST_ENTRIES, null)?.let(rules::entriesFromJson) ?: state.vizPlaylist
+        val now =
+            intArrayOf(
+                bit(state.randomEnabled),
+                state.randomIntervalSec,
+                bit(state.randomIncludeStyles),
+                bit(state.randomIncludePresets),
+                bit(state.randomIncludeMilk),
+                bit(state.vizPlaylistEnabled),
+                state.vizPlaylistIntervalSec,
+            )
+        val has = BooleanArray(ShellNative.AUTO_SAVED_FIELDS) { k -> SAVED_KEYS[k]?.let(prefs::contains) == true }
+        val stored =
+            IntArray(ShellNative.AUTO_SAVED_FIELDS) { k ->
+                val key = SAVED_KEYS[k]
+                when {
+                    key == null || !has[k] -> 0
+                    k == ShellNative.AUTO_SAVED_RANDOM_INTERVAL || k == ShellNative.AUTO_SAVED_PLAYLIST_INTERVAL -> prefs.getInt(key, 0)
+                    else -> bit(prefs.getBoolean(key, false))
+                }
+            }
+        val read = rules.apply(now, stored, has, entries.size)
         return state.copy(
-            randomEnabled = false,
-            randomIntervalSec = prefs.getInt(KEY_RANDOM_INTERVAL, state.randomIntervalSec).coerceIn(INTERVAL_SEC),
-            randomIncludeStyles = prefs.getBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles),
-            randomIncludePresets = prefs.getBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets),
-            randomIncludeMilk = prefs.getBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk),
+            randomEnabled = read[ShellNative.AUTO_SAVED_RANDOM_ON] != 0,
+            randomIntervalSec = read[ShellNative.AUTO_SAVED_RANDOM_INTERVAL],
+            randomIncludeStyles = read[ShellNative.AUTO_SAVED_RANDOM_STYLES] != 0,
+            randomIncludePresets = read[ShellNative.AUTO_SAVED_RANDOM_PRESETS] != 0,
+            randomIncludeMilk = read[ShellNative.AUTO_SAVED_RANDOM_MILK] != 0,
             vizPlaylist = entries,
-            vizPlaylistEnabled = playlistEnabled,
-            vizPlaylistIntervalSec = prefs.getInt(KEY_PLAYLIST_INTERVAL, state.vizPlaylistIntervalSec).coerceIn(INTERVAL_SEC),
+            vizPlaylistEnabled = read[ShellNative.AUTO_SAVED_PLAYLIST_ON] != 0,
+            vizPlaylistIntervalSec = read[ShellNative.AUTO_SAVED_PLAYLIST_INTERVAL],
         )
     }
 
@@ -49,7 +106,7 @@ class AutoVisualsPrefsStore(
             .putBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk)
             .putBoolean(KEY_PLAYLIST_ENABLED, state.vizPlaylistEnabled)
             .putInt(KEY_PLAYLIST_INTERVAL, state.vizPlaylistIntervalSec)
-            .putString(KEY_PLAYLIST_ENTRIES, entriesToJson(state.vizPlaylist))
+            .putString(KEY_PLAYLIST_ENTRIES, rules.entriesToJson(state.vizPlaylist))
             .apply()
     }
 
@@ -67,6 +124,20 @@ class AutoVisualsPrefsStore(
         private const val KEY_PLAYLIST_INTERVAL = "auto_playlist_interval_sec"
         private const val KEY_PLAYLIST_ENTRIES = "auto_playlist_entries"
 
+        /** The key each `ShellNative.AUTO_SAVED_*` field is kept under; the timer is never kept. */
+        private val SAVED_KEYS: List<String?> =
+            listOf(
+                null,
+                KEY_RANDOM_INTERVAL,
+                KEY_RANDOM_STYLES,
+                KEY_RANDOM_PRESETS,
+                KEY_RANDOM_MILK,
+                KEY_PLAYLIST_ENABLED,
+                KEY_PLAYLIST_INTERVAL,
+            )
+
+        private fun bit(on: Boolean): Int = if (on) 1 else 0
+
         internal val PREF_KEYS =
             prefKeys(GeodePrefsFiles.VIZ) {
                 portable(PrefType.INT, KEY_RANDOM_INTERVAL, KEY_PLAYLIST_INTERVAL)
@@ -74,41 +145,5 @@ class AutoVisualsPrefsStore(
                 portable(PrefType.STRING, KEY_PLAYLIST_ENTRIES)
                 retired(null, LEGACY_KEY_RANDOM_ENABLED)
             }
-
-        internal fun entriesToJson(entries: List<VizPlaylistEntry>): String {
-            val arr = JSONArray()
-            for (e in entries) {
-                arr.put(
-                    JSONObject()
-                        .put("sceneId", e.sceneId)
-                        .put("label", e.label)
-                        .apply {
-                            e.presetName?.let { put("presetName", it) }
-                            e.milkPath?.let { put("milkPath", it) }
-                        },
-                )
-            }
-            return arr.toString()
-        }
-
-        internal fun entriesFromJson(json: String): List<VizPlaylistEntry> =
-            runCatching {
-                val arr = JSONArray(json)
-                buildList {
-                    for (i in 0 until arr.length()) {
-                        val o = arr.optJSONObject(i) ?: continue
-                        val sceneId = o.optString("sceneId", "")
-                        if (sceneId.isEmpty()) continue
-                        add(
-                            VizPlaylistEntry(
-                                sceneId = StyleCatalogue.resolve(sceneId),
-                                presetName = o.optString("presetName", "").takeIf { it.isNotEmpty() },
-                                milkPath = o.optString("milkPath", "").takeIf { it.isNotEmpty() },
-                                label = o.optString("label", "").ifEmpty { sceneId },
-                            ),
-                        )
-                    }
-                }
-            }.getOrDefault(emptyList())
     }
 }

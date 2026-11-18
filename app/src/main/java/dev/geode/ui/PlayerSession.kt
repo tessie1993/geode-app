@@ -33,7 +33,7 @@ import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
 import dev.geode.data.SmartPlaylist
-import dev.geode.data.SmartPlaylistMatcher
+import dev.geode.data.SmartPlaylistStore
 import dev.geode.data.SystemMotion
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
@@ -508,7 +508,7 @@ class PlayerSession internal constructor(
     }
 
     fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =
-        SmartPlaylistMatcher.resolve(playlist, deviceTracks.value, listening::playCountOf, favourites.value)
+        SmartPlaylistStore.resolve(playlist, deviceTracks.value, listening.historyText(), favourites.value)
 
     fun playSmartPlaylist(playlist: SmartPlaylist) {
         val tracks = resolveSmartPlaylist(playlist).map(PlaybackQueue::queueTrack)

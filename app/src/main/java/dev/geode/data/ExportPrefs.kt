@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.SharedPreferences
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.ShellNative
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPreset
 import dev.geode.export.ExportPresets
@@ -28,6 +29,8 @@ data class ExportDefaults(
     val saveTo: SaveTarget = SaveTarget.VideosLibrary,
 )
 
+// Native's kExportDefaultFps (core/shell/ExportFps), an offered rate. A constant, not a question, because it is the
+// default of a data class built where no native library is loaded.
 internal const val DEFAULT_EXPORT_FPS: Int = 30
 
 /**
@@ -91,9 +94,47 @@ enum class ExportDestination {
 fun ExportDefaults.filledFrom(preset: ExportPreset): ExportDefaults =
     copy(quality = preset.quality, ratio = preset.ratio, fps = preset.fps, loopSafe = preset.loopSafe)
 
-// Kept in sync with the encoder ladder's 24..60 clamp (core/output/EncoderLadder): these are the frame rates
-// offered anywhere in the UI, so nothing outside this set is ever persisted or requested.
-internal val EXPORT_FPS_OPTIONS: List<Int> = listOf(24, 25, 30, 50, 60)
+/**
+ * The frame rates an export offers and keeps: native's (core/shell/ExportFps, written in terms of the encoder
+ * ladder), so nothing outside the set is ever persisted or requested. JVM tests cannot load libgeode, so they
+ * [install] a stand-in.
+ */
+object ExportFps {
+    interface Reads {
+        fun options(): List<Int>
+
+        fun read(
+            stored: Int,
+            fallback: Int,
+        ): Int
+    }
+
+    private object Native : Reads {
+        override fun options(): List<Int> = ShellNative.exportFpsOptions().asList()
+
+        override fun read(
+            stored: Int,
+            fallback: Int,
+        ): Int = ShellNative.exportFpsRead(stored, fallback)
+    }
+
+    @Volatile
+    private var reads: Reads = Native
+
+    /** Asks [next] from now on. */
+    fun install(next: Reads) {
+        reads = next
+    }
+
+    /** The rates offered anywhere in the UI, ascending. */
+    val options: List<Int> get() = reads.options()
+
+    /** [stored] when it is offered, else [fallback] as given. */
+    fun read(
+        stored: Int,
+        fallback: Int,
+    ): Int = reads.read(stored, fallback)
+}
 
 internal fun exportCodecLabel(codec: ExportCodec): String =
     when (codec) {
@@ -139,7 +180,7 @@ class ExportPrefsStore(
             quality =
                 runCatching { ExportQuality.valueOf(prefs.getString(prefix + KEY_QUALITY, null) ?: d.quality.name) }
                     .getOrDefault(d.quality),
-            fps = prefs.getInt(prefix + KEY_FPS, d.fps).let { if (it in EXPORT_FPS_OPTIONS) it else d.fps },
+            fps = ExportFps.read(prefs.getInt(prefix + KEY_FPS, d.fps), d.fps),
             ratio =
                 runCatching { ExportRatio.valueOf(prefs.getString(prefix + KEY_RATIO, null) ?: d.ratio.name) }
                     .getOrDefault(d.ratio),

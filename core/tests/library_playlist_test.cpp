@@ -1,8 +1,8 @@
 // Host-side checks for the playlist rules (core/library/PlaylistRules): the playlist file's JSON, the order the
 // store lists in, the add, remove, move, rename, create and import edits (clamps and refusals included), the free
-// name an import takes, and the one-time rename of files saved under an older name rule. The cases of the
-// Kotlin MusicPlaylistStoreTest (legacy "old-name.json" holding "Road" moves to "Road.json" on the first use)
-// are the migration cases here. No device, no files.
+// name a create or an import takes (by file stem), the one-time rename of files saved under an older name rule,
+// and the wires the shell splits. The cases of the Kotlin MusicPlaylistStoreTest (legacy "old-name.json" holding
+// "Road" moves to "Road.json" on the first use) are the migration cases here. No device, no files.
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_playlist_test.cpp
 //     core/library/PlaylistRules.cpp core/util/Json.cpp -o library_playlist_test && ./library_playlist_test
@@ -153,9 +153,17 @@ void creating() {
     e.name = " \t ";
     out = playlistApply(folderOf({}), e, kIdentity);
     check(!out.write, "a blank name creates nothing");
-    e.name = "Mix";
-    out = playlistApply(folderOf({{"Mix", {"old"}}}), e, kIdentity);
-    check(out.write && out.playlist.tracks == Names({"a", "b", "c"}), "creating over a name replaces it, as save did");
+    // The Kotlin MusicLibraryPlaylistEditsTest's aNameAlreadyTakenIsNotOverwritten: Road, then Road again.
+    e.name = "Road";
+    e.tracks = {"b"};
+    out = playlistApply(folderOf({{"Road", {"a"}}}), e, kIdentity);
+    check(out.write && out.playlist.name == "Road (2)" && out.playlist.tracks == Names({"b"}), "a taken name is not overwritten");
+    e.name = " Mix ";
+    out = playlistApply(folderOf({{"Mix", {}}, {"Mix (2)", {}}}), e, kIdentity);
+    check(out.playlist.name == "Mix (3)", "trimmed before the free name is found");
+    e.name = "A?B";
+    out = playlistApply(folderOf({{"AB", {}}}), e, kAlnum);
+    check(out.playlist.name == "A?B (2)", "a name whose file another playlist has is taken");
 }
 
 void importing() {
@@ -165,9 +173,13 @@ void importing() {
     check(out.write && out.playlist.name == "Mix" && out.playlist.tracks == Names({"a", "a", "b"}), "free name used, tracks as given");
     out = playlistApply(folderOf({{"Mix", {}}, {"Mix (2)", {}}}), e, kIdentity);
     check(out.playlist.name == "Mix (3)", "taken names count up");
-    check(playlistUniqueName({}, "X") == "X", "a free base is kept");
-    check(playlistUniqueName({"X", "X (3)"}, "X") == "X (2)", "the first free suffix");
-    check(playlistUniqueName({"x"}, "X") == "X", "taken names match exactly");
+    e.name = "A/B";
+    out = playlistApply(folderOf({{"AB", {}}}), e, kAlnum);
+    check(out.playlist.name == "A/B (2)", "an import is compared by file stem too");
+    check(playlistUniqueName({}, "X", kIdentity) == "X", "a free base is kept");
+    check(playlistUniqueName({"X", "X (3)"}, "X", kIdentity) == "X (2)", "the first free suffix");
+    check(playlistUniqueName({"x"}, "X", kIdentity) == "X", "names whose stems differ are both free");
+    check(playlistUniqueName({"A-B", "AB (2)"}, "AB", kAlnum) == "AB (3)", "every candidate is compared by its stem");
     check(playlistImportBase("Chosen", "file.m3u", "Untitled") == "Chosen", "the playlist's own name first");
     check(playlistImportBase("  ", "file.m3u", "Untitled") == "file.m3u", "then the file's name");
     check(playlistImportBase("", "", "Untitled") == "Untitled", "then the untitled name");
@@ -192,6 +204,23 @@ void migrating() {
     plan = playlistMigrationPlan({{"old.json", R"({"name":"A/B","tracks":[]})"}}, kAlnum);
     check(plan.size() == 1 && plan[0].to == "AB.json", "the stem function decides the file name");
 }
+
+void wires() {
+    check(playlistWire({}).empty() && playlistRenameWire({}).empty(), "nothing is an empty wire");
+    check(playlistWire({{"Road", {"a", "b"}}, {"E", {}}}) == "Road\x1f" "a\x1f" "b\x1e" "E\x1e", "name, then uris; an empty playlist is its name");
+    check(playlistWire({{"R\x1fo\x1e" "d", {"u\x1e"}}}) == "Rod\x1fu\x1e", "the separators are dropped from text");
+    PlaylistOutcome out;
+    out.write = true;
+    out.playlist = {"New", {"a"}};
+    out.json = playlistToJson(out.playlist);
+    out.deleteName = "Old";
+    check(playlistOutcomeWire(out) == "1\x1f" "1\x1fNew\x1fOld\x1f{\"name\":\"New\",\"tracks\":[\"a\"]}\x1e", "write, ok, name, deleteName, json");
+    PlaylistOutcome refused;
+    refused.ok = false;
+    check(playlistOutcomeWire(refused) == "0\x1f" "0\x1f\x1f\x1f\x1e", "a refusal writes nothing");
+    check(playlistRenameWire({{"old.json", "Road.json"}, {"a.json", "b.json"}}) == "old.json\x1fRoad.json\x1e" "a.json\x1f" "b.json\x1e",
+          "from, to");
+}
 }  // namespace
 
 int main() {
@@ -204,6 +233,7 @@ int main() {
     creating();
     importing();
     migrating();
+    wires();
     if (failures == 0) std::printf("library_playlist_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

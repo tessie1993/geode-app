@@ -1,17 +1,19 @@
 // Host-side checks for the shell's prefs rules: core/shell/Behaviour (the media notification's buttons, the
 // last-screen rule), core/shell/AutoVisuals (reading the visual playlist's JSON and the saved Auto settings)
-// and core/shell/ExportFps (the frame rates an export offers and accepts, in terms of the encoder ladder).
+// and core/shell/ExportFps (the frame rates an export offers and accepts, in terms of the encoder ladder), and
+// the C ABI the app calls them through (core/api/geode_shell_api.h).
 // Every case of the Kotlin NotificationButtonTest and ExportPresetFillTest is here with the same expected
 // result; BehaviourRepositoryTest's "a stored LAST_USED reads as the default" is the last-screen case. The
 // Auto visuals reading and the export fps rejection had no Kotlin unit test: those cases pin the Kotlin as read.
 //
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_prefs_test.cpp core/shell/*.cpp
-//     core/util/Json.cpp -o shell_prefs_test && ./shell_prefs_test
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/shell_prefs_test.cpp core/shell/*.cpp
+//     core/api/geode_shell_api.cpp core/util/Json.cpp -o shell_prefs_test && ./shell_prefs_test
 #include <cstdio>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "api/geode_shell_api.h"
 #include "output/EncoderLadder.hpp"
 #include "shell/AutoVisuals.hpp"
 #include "shell/Behaviour.hpp"
@@ -180,6 +182,51 @@ void playlistWritesAsTheKotlinDid() {
     check(autoVisualsEntriesToJson({}) == "[]", "empty");
 }
 
+const char* resolveC(const char* id) { return std::string(id) == "old_silk" ? "silk_a" : id; }
+
+void autoVisualsThroughTheAbi() {
+    geode_auto_playlist* p = geode_auto_playlist_read(
+        R"([{"sceneId":"old_silk","label":"Silk","presetName":"Calm"},{"sceneId":"fluid_a","milkPath":"/m/a.milk"},"x"])", resolveC);
+    check(geode_auto_playlist_count(p) == 2, "abi: two entries");
+    auto field = [&](int i, int f) {
+        const char* v = geode_auto_playlist_field(p, i, f);
+        return v ? std::string(v) : std::string("<none>");
+    };
+    check(field(0, 0) == "silk_a" && field(0, 1) == "Calm" && field(0, 2) == "<none>" && field(0, 3) == "Silk", "abi: entry 0");
+    check(field(1, 0) == "fluid_a" && field(1, 1) == "<none>" && field(1, 2) == "/m/a.milk" && field(1, 3) == "fluid_a", "abi: entry 1");
+    check(field(2, 0) == "<none>" && field(0, 4) == "<none>" && field(-1, 0) == "<none>", "abi: out of range");
+    geode_auto_playlist_destroy(p);
+    geode_auto_playlist* none = geode_auto_playlist_read(nullptr, resolveC);
+    check(geode_auto_playlist_count(none) == 0, "abi: no text, no entries");
+    geode_auto_playlist_destroy(none);
+    geode_auto_playlist* kept = geode_auto_playlist_read(R"([{"sceneId":"old_silk"}])", nullptr);
+    check(geode_auto_playlist_count(kept) == 1 && std::string(geode_auto_playlist_field(kept, 0, 0)) == "old_silk", "abi: no resolver");
+    geode_auto_playlist_destroy(kept);
+
+    const char* fields[] = {"silk_a", "Calm", nullptr, "Silk \"A\"", "fluid_a", nullptr, "/m/a.milk", "F"};
+    char json[256];
+    const int n = geode_auto_playlist_to_json(fields, 2, json, static_cast<int>(sizeof json));
+    check(n < static_cast<int>(sizeof json) &&
+              std::string(json) ==
+                  R"([{"sceneId":"silk_a","label":"Silk \"A\"","presetName":"Calm"},{"sceneId":"fluid_a","label":"F","milkPath":"\/m\/a.milk"}])",
+          "abi: written as the Kotlin did");
+    check(geode_auto_playlist_to_json(nullptr, 0, json, static_cast<int>(sizeof json)) == 2 && std::string(json) == "[]", "abi: empty");
+
+    const int state[GEODE_AUTO_SAVED_FIELDS] = {1, 40, 1, 0, 0, 1, 25};
+    int out[GEODE_AUTO_SAVED_FIELDS] = {};
+    const unsigned char none_stored[GEODE_AUTO_SAVED_FIELDS] = {};
+    geode_auto_visuals_apply(state, nullptr, none_stored, 1, out);
+    check(out[GEODE_AUTO_SAVED_RANDOM_ON] == 0, "abi: the timer always starts off");
+    check(out[1] == 40 && out[2] == 1 && out[3] == 0 && out[4] == 0 && out[5] == 1 && out[6] == 25, "abi: the state kept");
+    geode_auto_visuals_apply(state, nullptr, none_stored, 0, out);
+    check(out[GEODE_AUTO_SAVED_PLAYLIST_ON] == 0, "abi: no entries, no playlist");
+    const int stored[GEODE_AUTO_SAVED_FIELDS] = {1, 2, 0, 1, 1, 0, 9999};
+    const unsigned char all[GEODE_AUTO_SAVED_FIELDS] = {1, 1, 1, 1, 1, 1, 1};
+    geode_auto_visuals_apply(state, stored, all, 3, out);
+    check(out[0] == 0 && out[1] == 5 && out[2] == 0 && out[3] == 1 && out[4] == 1 && out[5] == 0 && out[6] == 300,
+          "abi: stored values win, the timer stays off, intervals clamp");
+}
+
 // Export fps
 
 void offeredRates() {
@@ -202,6 +249,37 @@ void readRejectsWhatIsNotOffered() {
     check(exportFpsRead(45, 30) == 30, "stored 45 falls back");
     check(exportFpsRead(std::nullopt, 60) == 60, "nothing stored is the fallback");
     check(exportFpsRead(std::nullopt, 45) == 45, "fallback taken as is");
+}
+
+void behaviourThroughTheAbi() {
+    // The ordinals are the shell's enum entries (data/BehaviourPrefs.kt): shuffle 0, repeat 1, favourite 2;
+    // last used 0, player 1, library 2, visuals 3, studio 4.
+    check(static_cast<int>(kShuffle) == 0 && static_cast<int>(kRepeat) == 1 && static_cast<int>(kFavourite) == 2, "button ordinals");
+    check(static_cast<int>(StartScreen::LastUsed) == 0 && static_cast<int>(StartScreen::Studio) == 4, "screen ordinals");
+    int out[4] = {-1, -1, -1, -1};
+    check(geode_notification_buttons_ordered(0b111u, out, 4) == 3 && out[0] == 2 && out[1] == 0 && out[2] == 1 && out[3] == -1,
+          "abi: favourite, shuffle, repeat");
+    int one[1] = {-1};
+    check(geode_notification_buttons_ordered(0b011u, one, 1) == 2 && one[0] == 0, "abi: short room");
+    check(geode_notification_buttons_ordered(0u, nullptr, 0) == 0, "abi: none chosen");
+    check(geode_notification_buttons_toggled(0b011u, 2, 1) == 0b101u, "abi: favourite on drops repeat");
+    check(geode_notification_buttons_toggled(0b011u, 0, 0) == 0b010u, "abi: shuffle off");
+    check(geode_behaviour_last_screen(0) == 1, "abi: last used reads as the player");
+    check(geode_behaviour_last_screen(3) == 3, "abi: a real screen is kept");
+    check(geode_behaviour_opens_on(0, 4) == 4, "abi: last used opens the last screen");
+    check(geode_behaviour_opens_on(2, 4) == 2, "abi: a chosen screen wins");
+}
+
+void exportFpsThroughTheAbi() {
+    int out[8] = {};
+    check(geode_export_fps_options(out, 8) == 5, "five rates");
+    check(std::vector<int>(out, out + 5) == exportFpsOptions(), "the same rates in the same order");
+    int two[3] = {0, 0, -1};
+    check(geode_export_fps_options(two, 2) == 5 && two[0] == 24 && two[1] == 25 && two[2] == -1, "short room: what fits");
+    check(geode_export_fps_options(nullptr, 0) == 5, "a count only");
+    check(geode_export_fps_read(50, 30) == 50, "abi: stored 50");
+    check(geode_export_fps_read(45, 30) == 30, "abi: stored 45 falls back");
+    check(geode_export_fps_read(120, 60) == 60, "abi: stored 120 falls back");
 }
 
 int fpsOf(const std::string& t, int fallback) {
@@ -239,6 +317,9 @@ int main() {
     everyPlatformPresetFpsIsOffered();
     readRejectsWhatIsNotOffered();
     jsonRejectionMatchesOptInt();
+    exportFpsThroughTheAbi();
+    behaviourThroughTheAbi();
+    autoVisualsThroughTheAbi();
     if (failures == 0) std::printf("shell_prefs_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

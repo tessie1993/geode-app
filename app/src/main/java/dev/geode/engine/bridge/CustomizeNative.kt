@@ -51,6 +51,12 @@ object CustomizeNative {
         params: FloatArray,
     ): String
 
+    /** Whether the panel search [query] matches [text] (core/viz/CustomizeRows `matches`): blank matches all, else case-blind. */
+    external fun customizeMatches(
+        query: String,
+        text: String,
+    ): Boolean
+
     /** A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. */
     external fun panelText(id: String): String
 

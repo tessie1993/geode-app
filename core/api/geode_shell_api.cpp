@@ -9,6 +9,7 @@
 #include "api/geode_text_out.hpp"
 #include "shell/Behaviour.hpp"
 #include "shell/ExportFps.hpp"
+#include "shell/PresetList.hpp"
 #include "shell/StyleShelf.hpp"
 
 namespace shell = geode::shell;
@@ -35,6 +36,28 @@ shell::StyleShelf shelfApply(std::vector<std::string> favourites, std::vector<st
                              shell::StyleShelfEvent::Kind kind, const char* id) {
     return shell::styleShelfApply({std::move(favourites), std::move(recents), false}, {kind, id ? id : "", false});
 }
+
+std::vector<shell::PresetEntry> presetRows(const char* const* names, const char* const* folders, const int* flags,
+                                           int count) {
+    std::vector<shell::PresetEntry> rows;
+    for (int i = 0; i < count; ++i) {
+        shell::PresetEntry e;
+        e.name = names && names[i] ? names[i] : "";
+        e.folder = folders && folders[i] ? folders[i] : "";
+        const int f = flags ? flags[i] : 0;
+        e.builtIn = (f & GEODE_PRESET_BUILT_IN) != 0;
+        e.forThisStyle = (f & GEODE_PRESET_FOR_THIS_STYLE) != 0;
+        e.onStage = (f & GEODE_PRESET_ON_STAGE) != 0;
+        rows.push_back(std::move(e));
+    }
+    return rows;
+}
+
+static_assert(static_cast<int>(shell::PresetFilter::Kind::All) == GEODE_PRESET_FILTER_ALL);
+static_assert(static_cast<int>(shell::PresetFilter::Kind::ThisStyle) == GEODE_PRESET_FILTER_THIS_STYLE);
+static_assert(static_cast<int>(shell::PresetFilter::Kind::Mine) == GEODE_PRESET_FILTER_MINE);
+static_assert(static_cast<int>(shell::PresetFilter::Kind::BuiltIn) == GEODE_PRESET_FILTER_BUILT_IN);
+static_assert(static_cast<int>(shell::PresetFilter::Kind::Folder) == GEODE_PRESET_FILTER_FOLDER);
 
 }  // namespace
 
@@ -85,6 +108,34 @@ int geode_style_shelf_yours(const char* const* favourites, int favourite_count, 
     const shell::StyleShelf shelf{idsOf(favourites, favourite_count), idsOf(recents, recent_count), false};
     const std::optional<std::string> screen = on_screen ? std::optional<std::string>(on_screen) : std::nullopt;
     return linesOut(shell::styleShelfYours(shelf, idsOf(order, order_count), screen), out, capacity);
+}
+
+int geode_preset_filters(const char* const* folders, int count, int* out, int capacity) {
+    const std::vector<std::string> names = idsOf(folders, count);
+    const auto chips = shell::presetFilters(names);
+    for (int i = 0; out && i < std::min(capacity, static_cast<int>(chips.size())); ++i) {
+        const shell::PresetFilter& chip = chips[static_cast<size_t>(i)];
+        int folder = -1;
+        if (chip.kind == shell::PresetFilter::Kind::Folder) {
+            folder = static_cast<int>(std::find(names.begin(), names.end(), chip.name) - names.begin());
+        }
+        out[2 * i] = static_cast<int>(chip.kind);
+        out[2 * i + 1] = folder;
+    }
+    return static_cast<int>(chips.size());
+}
+
+int geode_preset_apply(const char* const* names, const char* const* folders, const int* flags, int count, int filter_kind,
+                       const char* filter_folder, int* out) {
+    const shell::PresetFilter filter{static_cast<shell::PresetFilter::Kind>(filter_kind), filter_folder ? filter_folder : ""};
+    const auto rows = shell::presetApply(presetRows(names, folders, flags, count), filter);
+    if (out) std::copy(rows.begin(), rows.end(), out);
+    return static_cast<int>(rows.size());
+}
+
+int geode_preset_applied(const char* const* names, const int* flags, int count, const char* last_tapped) {
+    const std::optional<std::string> tapped = last_tapped ? std::optional<std::string>(last_tapped) : std::nullopt;
+    return shell::presetApplied(presetRows(names, nullptr, flags, count), tapped);
 }
 
 }  // extern "C"

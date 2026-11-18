@@ -199,6 +199,50 @@ void appliedPrefersLastTapped() {
     check(presetApplied(staged, std::string("B")) == -1, "nothing on stage");
 }
 
+void presetsThroughTheAbi() {
+    const auto e = entries();
+    std::vector<const char*> rowNames;
+    std::vector<const char*> rowFolders;
+    std::vector<int> flags;
+    for (const PresetEntry& x : e) {
+        rowNames.push_back(x.name.c_str());
+        rowFolders.push_back(x.folder.c_str());
+        flags.push_back((x.builtIn ? GEODE_PRESET_BUILT_IN : 0) | (x.forThisStyle ? GEODE_PRESET_FOR_THIS_STYLE : 0) |
+                        (x.onStage ? GEODE_PRESET_ON_STAGE : 0));
+    }
+    const int n = static_cast<int>(e.size());
+    auto shown = [&](int kind, const char* folder) {
+        std::vector<int> rows(e.size(), -1);
+        const int k = geode_preset_apply(rowNames.data(), rowFolders.data(), flags.data(), n, kind, folder, rows.data());
+        Ids out;
+        for (int i = 0; i < k; ++i) out.push_back(e[static_cast<size_t>(rows[static_cast<size_t>(i)])].name);
+        return out;
+    };
+    check(shown(GEODE_PRESET_FILTER_ALL, nullptr) == Ids({"Mine A", "Party", "Glow", "Ink"}), "abi: all");
+    check(shown(GEODE_PRESET_FILTER_MINE, nullptr) == Ids({"Mine A", "Party"}), "abi: mine");
+    check(shown(GEODE_PRESET_FILTER_BUILT_IN, nullptr) == Ids({"Glow", "Ink"}), "abi: built-in");
+    check(shown(GEODE_PRESET_FILTER_THIS_STYLE, nullptr) == Ids({"Mine A", "Glow"}), "abi: this style");
+    check(shown(GEODE_PRESET_FILTER_FOLDER, "Live") == Ids({"Party"}), "abi: a folder");
+    check(shown(GEODE_PRESET_FILTER_FOLDER, "Empty").empty(), "abi: an empty folder");
+
+    const char* folders[] = {"Live", "", "Slow", "Live"};
+    int chips[16];
+    for (int& c : chips) c = -9;
+    check(geode_preset_filters(folders, 4, chips, 8) == 6, "abi: six chips");
+    const std::vector<int> want{GEODE_PRESET_FILTER_ALL,      -1, GEODE_PRESET_FILTER_THIS_STYLE, -1, GEODE_PRESET_FILTER_MINE,   -1,
+                                GEODE_PRESET_FILTER_BUILT_IN, -1, GEODE_PRESET_FILTER_FOLDER,     0,  GEODE_PRESET_FILTER_FOLDER, 2};
+    check(std::vector<int>(chips, chips + 12) == want && chips[12] == -9, "abi: shelves, then each folder by its first index");
+    check(geode_preset_filters(nullptr, 0, nullptr, 0) == 4, "abi: the shelves alone");
+
+    const char* staged[] = {"A", "B", "C"};
+    int stage[] = {GEODE_PRESET_BUILT_IN | GEODE_PRESET_ON_STAGE, GEODE_PRESET_ON_STAGE, 0};
+    check(geode_preset_applied(staged, stage, 3, "B") == 1, "abi: B while on stage");
+    check(geode_preset_applied(staged, stage, 3, "C") == 0, "abi: C is not on stage");
+    check(geode_preset_applied(staged, stage, 3, nullptr) == 0, "abi: none tapped");
+    for (int& f : stage) f &= ~GEODE_PRESET_ON_STAGE;
+    check(geode_preset_applied(staged, stage, 3, "B") == -1, "abi: nothing on stage");
+}
+
 }  // namespace
 
 int main() {
@@ -214,6 +258,7 @@ int main() {
     folderHoldsOnlyUsersPresets();
     filtersListShelvesThenFolders();
     appliedPrefersLastTapped();
+    presetsThroughTheAbi();
     if (failures == 0) std::printf("shell_lists_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

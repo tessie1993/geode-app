@@ -71,4 +71,42 @@ object ShellNative {
         order: Array<String>,
         onScreen: String?,
     ): Array<String>
+
+    /**
+     * The Presets list (core/shell/PresetList). Its filter chips in order, the four shelves and then [folders]
+     * (blank ones dropped, each once), as (kind, folder index) pairs: the kind a [PRESET_FILTER_ALL] constant,
+     * the folder index into [folders], -1 for a shelf (`geode_preset_filters`).
+     */
+    external fun presetFilters(folders: Array<String>): IntArray
+
+    /**
+     * The rows a filter ([filterKind], and [filterFolder] for a folder chip) leaves, as indices into the rows
+     * ([names], [folders] and [flags], the [PRESET_BUILT_IN] marks), in list order (`geode_preset_apply`).
+     */
+    external fun presetApply(
+        names: Array<String>,
+        folders: Array<String>,
+        flags: IntArray,
+        filterKind: Int,
+        filterFolder: String?,
+    ): IntArray
+
+    /** The one row that gets the check, or -1 (`geode_preset_applied`). */
+    external fun presetApplied(
+        names: Array<String>,
+        flags: IntArray,
+        lastTapped: String?,
+    ): Int
+
+    /** A preset filter chip's kind (`GEODE_PRESET_FILTER_*`). */
+    const val PRESET_FILTER_ALL: Int = 0
+    const val PRESET_FILTER_THIS_STYLE: Int = 1
+    const val PRESET_FILTER_MINE: Int = 2
+    const val PRESET_FILTER_BUILT_IN: Int = 3
+    const val PRESET_FILTER_FOLDER: Int = 4
+
+    /** A preset row's marks, or-ed into its flags (`GEODE_PRESET_*`). */
+    const val PRESET_BUILT_IN: Int = 1
+    const val PRESET_FOR_THIS_STYLE: Int = 2
+    const val PRESET_ON_STAGE: Int = 4
 }

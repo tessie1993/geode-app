@@ -50,6 +50,14 @@ private:
     bool ok_ = true;
 };
 
+// A Java int[] copied out, padded with zeros to at least `count`.
+std::vector<int> intsIn(JNIEnv* env, jintArray array, int count) {
+    const jsize n = array ? env->GetArrayLength(array) : 0;
+    std::vector<int> out(static_cast<size_t>(n > count ? n : count), 0);
+    if (n > 0) env->GetIntArrayRegion(array, 0, n, reinterpret_cast<jint*>(out.data()));
+    return out;
+}
+
 // A Java String that could not be read must not reach native as "absent".
 bool unread(jstring str, const Utf8Chars& chars) { return str && !chars.get(); }
 
@@ -150,6 +158,39 @@ JNIEXPORT jobjectArray JNICALL Java_dev_geode_engine_bridge_ShellNative_styleShe
         return geode_style_shelf_yours(favouriteIds.get(), favouriteIds.count(), recentIds.get(), recentIds.count(),
                                        orderIds.get(), orderIds.count(), screen.get(), out, capacity);
     });
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_presetFilters(JNIEnv* env, jobject, jobjectArray folders) {
+    const Ids ids(env, folders);
+    if (!ids.ok()) return nullptr;
+    const int chips = geode_preset_filters(ids.get(), ids.count(), nullptr, 0);
+    std::vector<int> pairs(static_cast<size_t>(2 * chips));
+    geode_preset_filters(ids.get(), ids.count(), pairs.data(), chips);
+    return intsOf(env, pairs);
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_presetApply(JNIEnv* env, jobject, jobjectArray names,
+                                                                             jobjectArray folders, jintArray flags,
+                                                                             jint filterKind, jstring filterFolder) {
+    const Ids nameIds(env, names);
+    const Ids folderIds(env, folders);
+    const Utf8Chars folder(env, filterFolder);
+    if (!nameIds.ok() || !folderIds.ok() || unread(filterFolder, folder)) return nullptr;
+    const int count = nameIds.count() < folderIds.count() ? nameIds.count() : folderIds.count();
+    const std::vector<int> marks = intsIn(env, flags, count);
+    std::vector<int> rows(static_cast<size_t>(count));
+    const int shown = geode_preset_apply(nameIds.get(), folderIds.get(), marks.data(), count, filterKind, folder.get(), rows.data());
+    rows.resize(static_cast<size_t>(shown));
+    return intsOf(env, rows);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_presetApplied(JNIEnv* env, jobject, jobjectArray names,
+                                                                          jintArray flags, jstring lastTapped) {
+    const Ids nameIds(env, names);
+    const Utf8Chars tapped(env, lastTapped);
+    if (!nameIds.ok() || unread(lastTapped, tapped)) return -1;
+    const std::vector<int> marks = intsIn(env, flags, nameIds.count());
+    return geode_preset_applied(nameIds.get(), marks.data(), nameIds.count(), tapped.get());
 }
 
 }  // extern "C"

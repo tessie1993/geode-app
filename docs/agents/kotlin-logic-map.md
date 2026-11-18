@@ -1578,7 +1578,7 @@ Columns: File (lines) | Class | Engine logic | Thread | Native calls | Native ow
 | `MilkFile.kt` (6) | shell | none | n/a | none | n/a | data class |
 | `OpenedAudio.kt` (139) | shell | none (intent routing and refusal rules `:43-85`, name cleaning `:92-119`) | main, IO | none | n/a | intent and provider security |
 | `PresetLink.kt` (76) | shell (data format) | none; gzip + base64url link codec with caps `:13-17` | main | none | n/a (see section 7) | could be native, nothing forces it |
-| `PresetShelf.kt` (116) | shell | none; list filter, order and naming rules for the Presets page `:40-116` | main | none | n/a | UI list logic |
+| `PresetShelf.kt` | shell | none; the list's filter, order and applied rules are native's (`PresetFiltering` over `ShellNative.preset*`, core/shell/PresetList) | main | none | n/a | UI list logic |
 | `QueueTrack.kt` (12) | shell | none | n/a | none | n/a | data classes |
 | `ScreenRotation.kt` (17) | shell | none | n/a | none | n/a | UI pref enum |
 | `StyleLook.kt` (28) | duplicate, dead in production | mirrors `enum class Look` at `core/viz/Catalogue.hpp:57` (same nine entries, upper snake case). No production code names `StyleLook.` (Grep: only comments in `engine/scenes/.../render/scene/Catalogue.kt:13,125` and `StyleLookTest`). | n/a | none | `core/viz/Catalogue.hpp:57` | nothing |
@@ -1794,7 +1794,7 @@ All under `app/src/test/java/dev/geode/`; none under `app/src/androidTest` targe
 | `model/KnobSizeTest.kt` (1), `LibraryChoicesTest.kt` (2), `ScreenRotationTest.kt` (2), `TabLabelsTest.kt` (3) | saved enum names read back; unknown names fall to the old behaviour |
 | `model/OpenedAudioTest.kt` (12) | intent routing, refusal of own providers and ungranted uris, name cleaning |
 | `model/PresetLinkTest.kt` (9) | link round trip, length and inflate caps, bad payloads decode to null |
-| `model/PresetShelfTest.kt` (8) | preset list order, filters, the applied mark, rename and unique-name rules |
+| `model/PresetShelfTest.kt` (deleted) | its cases are `core/tests/shell_lists_test.cpp`'s |
 | `model/StyleLookTest.kt` (1) | every native catalogue look is a `StyleLook` and every group has styles |
 | `model/StyleShelfTest.kt` (deleted) | its cases are `core/tests/shell_lists_test.cpp`'s |
 | `model/TourTest.kt` (23) | the tour's step, skip, resume, replay and card placement rules |
@@ -3339,7 +3339,7 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/model/LibraryChoicesTest.kt` (24, 2) | `LibraryStartTab`, `TrackTap` | unknown → `TRACKS`, `PLAY_LIST` | FMT | – | stays |
 | `test/model/OpenedAudioTest.kt` (132, 12) | `main/model/OpenedAudio` | intent routing, provider refusal, display-name sanitising (bidi/control dropped, capped at `MAX_NAME_CODE_POINTS`) | shell (intent safety) | – | stays |
 | `test/model/PresetLinkTest.kt` (70, 9) | `main/model/PresetLink` | `geode://preset/<base64 gzip>`; case-insensitive; fragment/query stripped; `MAX_LINK_LENGTH` cap; bad payload → null; `findIn` text | FMT (shared link envelope) | none: `core/tests/link_share_test.cpp` is the Show-on-a-computer link (`core/viz/frame/LinkShare`), not `geode://preset`; grep for `geode://`, base64 or gzip in `core/tests` finds nothing | stays unless link decode moves; the envelope must keep decoding |
-| `test/model/PresetShelfTest.kt` (87, 8) | `PresetFiltering`, `PresetFilter`, `PresetEntry` | list order (mine first, then built-ins for this style), filters, rename errors, `cleanName` replaces `·` with `-`, `uniqueName` | UI | – | stays |
+| `test/model/PresetShelfTest.kt` (deleted) | `PresetFiltering`, `PresetFilter`, `PresetEntry` | its cases are `core/tests/shell_lists_test.cpp`'s; the rules are native's | UI | `core/tests/shell_lists_test.cpp` | gone |
 | `test/model/ScreenRotationTest.kt` (17, 2) | `ScreenRotation.fromName` | unknown → `FOLLOW` | FMT | – | stays |
 | `test/model/StyleLookTest.kt` (19, 1) | `main/model/StyleLook` vs `Catalogue.styles[].look` (reads `core/tests/catalogue.txt`) | the set of `StyleLook` enum names equals the set of look names in the native catalogue | JNI parity (enum mirror) | `core/tests/catalogue_test.cpp` keeps `catalogue.txt` | delete with the `StyleLook` mirror when the Styles page groups by the native look column directly; else stays |
 | `test/model/StyleShelfTest.kt` (deleted) | `main/model/StyleShelf` | its cases are `core/tests/shell_lists_test.cpp`'s; the rules are native's | UI + FMT (shelf) | `core/tests/shell_lists_test.cpp` | gone |

@@ -267,7 +267,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
 - Pure value types shared across layers, staged for `:core:model`. No `android.*`.
-- `PresetShelf` holds the Presets grid filters and naming.
+- `PresetShelf` holds the Presets list's row and chip types; which chips show, which rows a chip leaves and the applied mark are native's (`core/shell/PresetList`, asked by `PresetFiltering`).
 - `model/StyleCatalogue` asks the native catalogue (ids, picker families, retired ids, param scopes as `ParamScope`) and keeps nothing; it decides nothing.
 - A style's and a family's display name are native (`CustomizeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.

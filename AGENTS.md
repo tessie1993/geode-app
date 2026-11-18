@@ -27,7 +27,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
 - `core/audio/dsp`: playback and export DSP.
 - `core/player`: the queue and transport as pure logic (`geode_player`); nothing calls it yet.
-- `core/shell`: the shell's own rules ported from Kotlin. The app calls them through `core/api/geode_shell_api.h`, `geode_shell_jni.cpp` and `ShellNative`: the export frame rates (`ExportFps`), the notification buttons and start screen (`Behaviour`), the Styles page's shelf (`StyleShelf`). Not called by the app yet: the tour, the preset list, opened audio, the saved Auto visuals.
+- `core/shell`: the shell's own rules ported from Kotlin. The app calls them through `core/api/geode_shell_api.h`, `geode_shell_jni.cpp` and `ShellNative`: the export frame rates (`ExportFps`), the notification buttons and start screen (`Behaviour`), the Styles page's shelf (`StyleShelf`), the Presets list (`PresetList`). Not called by the app yet: the tour, opened audio, the saved Auto visuals.
 - `core/signal`: the scene parameter resolver (`Resolver`).
 - `core/viz`: the renderer, scenes, parameters, reactions, macros, safety.
 - `core/output`: export and Record planning and timing.
@@ -218,3 +218,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: Small waste: `WidgetPublisher.publish` returns early with no widget placed, the wallpaper's edge glow reuses one buffer per launcher pan (`EdgeGlow.writeTo`), and `CaptureController.refreshExternalAudio` stops polling while notification access is absent until the app is foregrounded again.
 - 2026-11-18: `core/tests/sound_golden.txt` rewritten from the CI `sound-golden` artifact for the sample-count hop and the onset-flux fix together; main's host tests failed on it after both merged.
 - 2026-11-18: `VisualsHub` reads the delegated `milkError` into a local before using it, and `CaptureController.refreshExternalAudio` names its two conditions; both stopped the build (smart cast, detekt ComplexCondition).
+- 2026-11-18: The Presets list's rules are native in the app: `PresetFiltering.filters`/`apply`/`applied` ask `ShellNative.presetFilters`/`presetApply`/`presetApplied` (`core/shell/PresetList`, `core/api/geode_shell_api.*`, chip kinds and row marks `GEODE_PRESET_*`); `PresetShelfTest` is gone (its cases are `shell_lists_test`'s) (`model/PresetShelf.kt`).

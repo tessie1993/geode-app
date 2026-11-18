@@ -46,11 +46,15 @@ class PaletteStackStore internal constructor(
     private val _state = MutableStateFlow(PaletteStackState())
     val state: StateFlow<PaletteStackState> = _state
 
+    // Set once the saved stack is read: an edit before it would start from "" and save over the real one.
+    @Volatile private var loaded = false
+
     init {
         scope.launch {
             val saved = repository.loaded()
             _state.value = stateOf(saved)
             push(saved)
+            loaded = true
         }
     }
 
@@ -70,7 +74,8 @@ class PaletteStackStore internal constructor(
 
     fun setBlend(blend: String) = edit { PaletteNative.paletteStackSetBlend(it, blend) }
 
-    private fun edit(change: (String) -> String) {
+    internal fun edit(change: (String) -> String) {
+        if (!loaded) return
         val text = runCatching { change(_state.value.text) }.getOrNull() ?: return
         if (text == _state.value.text) return
         _state.value = stateOf(text)

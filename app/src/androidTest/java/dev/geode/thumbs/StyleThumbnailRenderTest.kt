@@ -13,9 +13,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
 import dev.geode.engine.bridge.CatalogueNative
-import dev.geode.engine.bridge.ParamScope
-import dev.geode.engine.bridge.SceneParams
-import dev.geode.engine.bridge.StyleCatalogue
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import dev.geode.viz.NativeViz
 import org.junit.After
 import org.junit.Assert.assertTrue

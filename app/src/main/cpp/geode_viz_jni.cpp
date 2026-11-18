@@ -611,20 +611,20 @@ Java_dev_geode_engine_bridge_VizNative_vizSetUnderlay(JNIEnv* env, jobject, jlon
     env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
 }
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_catalogueStyleIds(JNIEnv* env, jobject, jint trait) {
-    return geode::jni::utf8String(env, geode_catalogue_style_ids(trait));
+    return geode::jni::utf8Lines(env, geode_catalogue_style_ids(trait));
 }
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_cataloguePickerNames(JNIEnv* env, jobject) {
-    return geode::jni::utf8String(env, geode_catalogue_picker_names());
+    return geode::jni::utf8Lines(env, geode_catalogue_picker_names());
 }
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_cataloguePickerIds(JNIEnv* env, jobject, jstring family) {
     Utf8Chars name(env, family);
-    return geode::jni::utf8String(env, geode_catalogue_picker_ids(name.get()));
+    return geode::jni::utf8Lines(env, geode_catalogue_picker_ids(name.get()));
 }
 
 JNIEXPORT jstring JNICALL
@@ -656,6 +656,13 @@ JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_CatalogueNative_catalogueStyleHas(JNIEnv* env, jobject, jint trait, jstring styleId) {
     Utf8Chars style(env, styleId);
     return geode_catalogue_style_has(trait, style.get()) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_CatalogueNative_catalogueHasOverride(JNIEnv* env, jobject, jstring styleId, jstring paramKey) {
+    Utf8Chars style(env, styleId);
+    Utf8Chars key(env, paramKey);
+    return geode_catalogue_has_override(style.get(), key.get()) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jfloat JNICALL
@@ -692,6 +699,22 @@ Java_dev_geode_engine_bridge_ParamsNative_paramsGet(JNIEnv* env, jobject, jfloat
     Utf8Chars key(env, name);
     const bool whole = values.get() && values.length() >= geode_viz_param_count();
     return geode_params_get(whole ? values.get() : nullptr, key.get());
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_ParamsNative_paramsGetInt(JNIEnv* env, jobject, jfloatArray frame, jstring name) {
+    FloatElements values(env, frame);
+    Utf8Chars key(env, name);
+    const bool whole = values.get() && values.length() >= geode_viz_param_count();
+    return geode_params_get_int(whole ? values.get() : nullptr, key.get());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_ParamsNative_paramsGetFlag(JNIEnv* env, jobject, jfloatArray frame, jstring name) {
+    FloatElements values(env, frame);
+    Utf8Chars key(env, name);
+    const bool whole = values.get() && values.length() >= geode_viz_param_count();
+    return geode_params_get_flag(whole ? values.get() : nullptr, key.get()) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jfloatArray JNICALL

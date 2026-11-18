@@ -1,4 +1,4 @@
-package dev.geode.engine.bridge
+package dev.geode.model
 
 import java.io.File
 import kotlin.math.roundToInt
@@ -51,6 +51,16 @@ object TestParams : SceneParams.Reads {
             }
         return frame.copyOf().also { it[row.slot] = kept }
     }
+
+    override fun int(
+        frame: FloatArray,
+        name: String,
+    ): Int = get(frame, name).let { if (it.isNaN()) 0 else it.roundToInt() }
+
+    override fun flag(
+        frame: FloatArray,
+        name: String,
+    ): Boolean = get(frame, name) > 0.5f
 
     /** Native's rule on the same rows: the id stays while a hue override or the first stop is set. */
     override fun paletteIdOn(

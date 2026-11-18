@@ -1,11 +1,11 @@
-package dev.geode.engine.bridge
+package dev.geode.model
 
-import java.util.concurrent.ConcurrentHashMap
+import dev.geode.engine.bridge.CatalogueNative
 
 /**
- * What the shell knows about styles: the native catalogue's answers (core/viz/Catalogue), asked through
- * `CatalogueNative.catalogue*` and kept, because no answer changes while the process lives and the Customize
- * panel asks the same ones on every recomposition.
+ * What the shell asks about styles: the native catalogue's answers (core/viz/Catalogue), one JNI call each
+ * (`CatalogueNative.catalogue*`). Native holds the lists and answers from tables built once, so nothing is
+ * kept here.
  *
  * Nothing here decides anything: which styles exist, their order, which family a style is in, what a
  * retired id became and which control reaches which style are all native's, and so are the names
@@ -20,16 +20,16 @@ object StyleCatalogue {
 
     /** The catalogue's questions. The app asks native; a JVM test, which cannot load the library, installs its own. */
     interface Reads {
-        fun styleIds(trait: Int): String
+        fun styleIds(trait: Int): List<String>
 
         fun styleHas(
             trait: Int,
             styleId: String,
         ): Boolean
 
-        fun pickerNames(): String
+        fun pickerNames(): List<String>
 
-        fun pickerIds(family: String): String
+        fun pickerIds(family: String): List<String>
 
         fun resolve(styleId: String): String
 
@@ -42,6 +42,11 @@ object StyleCatalogue {
             styleId: String,
         ): Boolean
 
+        fun holds(
+            styleId: String,
+            paramKey: String,
+        ): Boolean
+
         fun held(
             styleId: String,
             paramKey: String,
@@ -49,16 +54,16 @@ object StyleCatalogue {
     }
 
     private object Native : Reads {
-        override fun styleIds(trait: Int): String = CatalogueNative.catalogueStyleIds(trait)
+        override fun styleIds(trait: Int): List<String> = CatalogueNative.catalogueStyleIds(trait).asList()
 
         override fun styleHas(
             trait: Int,
             styleId: String,
         ): Boolean = CatalogueNative.catalogueStyleHas(trait, styleId)
 
-        override fun pickerNames(): String = CatalogueNative.cataloguePickerNames()
+        override fun pickerNames(): List<String> = CatalogueNative.cataloguePickerNames().asList()
 
-        override fun pickerIds(family: String): String = CatalogueNative.cataloguePickerIds(family)
+        override fun pickerIds(family: String): List<String> = CatalogueNative.cataloguePickerIds(family).asList()
 
         override fun resolve(styleId: String): String = CatalogueNative.catalogueResolve(styleId)
 
@@ -71,67 +76,55 @@ object StyleCatalogue {
             styleId: String,
         ): Boolean = CatalogueNative.catalogueReaches(scope, styleId)
 
+        override fun holds(
+            styleId: String,
+            paramKey: String,
+        ): Boolean = CatalogueNative.catalogueHasOverride(styleId, paramKey)
+
         override fun held(
             styleId: String,
             paramKey: String,
         ): Float = CatalogueNative.catalogueOverride(styleId, paramKey)
     }
 
-    /** One source's answers. Stores and screens ask from more than one thread, hence the concurrent maps. */
-    private class Answers(
-        val reads: Reads,
-    ) {
-        val ids = ConcurrentHashMap<Int, List<String>>()
-        val shelves = ConcurrentHashMap<String, String>()
-        val scopes = ConcurrentHashMap<String, String>()
-        val reach = ConcurrentHashMap<String, Boolean>()
-        val picker: Map<String, List<String>> by lazy {
-            lines(reads.pickerNames()).associateWith { lines(reads.pickerIds(it)) }
-        }
-
-        fun ids(trait: Int): List<String> = ids.getOrPut(trait) { lines(reads.styleIds(trait)) }
-    }
-
     @Volatile
-    private var answers = Answers(Native)
+    private var reads: Reads = Native
 
-    /** Asks [reads] from now on and forgets every kept answer. */
-    fun install(reads: Reads) {
-        answers = Answers(reads)
+    /** Asks [next] from now on. */
+    fun install(next: Reads) {
+        reads = next
     }
 
     /** Every style, in the order the picker lists them and the stage swipes. */
     val ids: List<String> get() = ids(CatalogueNative.STYLE_ANY)
 
     /** The styles with one of `CatalogueNative.STYLE_*`'s traits, in the same order. */
-    fun ids(trait: Int): List<String> = answers.ids(trait)
+    fun ids(trait: Int): List<String> = reads.styleIds(trait)
 
     /** The Styles page's families in order, each with its styles. */
-    val picker: Map<String, List<String>> get() = answers.picker
+    val picker: Map<String, List<String>> get() = reads.pickerNames().associateWith { reads.pickerIds(it) }
 
     /** True for every look of the Fluid solver, `fluid` itself included; Curl Flow is its own renderer. */
-    fun isFluid(id: String): Boolean = answers.reads.styleHas(CatalogueNative.STYLE_FLUID, id)
+    fun isFluid(id: String): Boolean = reads.styleHas(CatalogueNative.STYLE_FLUID, id)
 
     /** The style a saved id opens on: a retired id's replacement, any other id itself. */
-    fun resolve(id: String): String = answers.reads.resolve(id)
+    fun resolve(id: String): String = reads.resolve(id)
 
     /** The style a saved look of [id] is filed under: every look of Fluid or Cymatics shares one shelf. */
-    fun presetStyle(id: String): String = answers.let { a -> a.shelves.getOrPut(id) { a.reads.presetStyle(id) } }
+    fun presetStyle(id: String): String = reads.presetStyle(id)
 
     /** The value [styleId] holds the control [paramKey] at, or null when the control is the user's. */
     fun held(
         styleId: String,
         paramKey: String,
-    ): Float? = answers.reads.held(styleId, paramKey).takeUnless { it.isNaN() }
+    ): Float? = if (reads.holds(styleId, paramKey)) reads.held(styleId, paramKey) else null
 
-    internal fun scopeOf(paramKey: String): String = answers.let { a -> a.scopes.getOrPut(paramKey) { a.reads.scopeOf(paramKey) } }
+    internal fun scopeOf(paramKey: String): String = reads.scopeOf(paramKey)
 
     internal fun reaches(
         scope: String,
         styleId: String,
-    ): Boolean = answers.let { a -> a.reach.getOrPut("$scope|$styleId") { a.reads.reaches(scope, styleId) } }
-
-    private fun lines(text: String): List<String> = text.split('\n').filter { it.isNotEmpty() }
+    ): Boolean = reads.reaches(scope, styleId)
 }
 
 /**

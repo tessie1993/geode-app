@@ -1,6 +1,7 @@
-package dev.geode.engine.bridge
+package dev.geode.model
 
-import kotlin.math.roundToInt
+import dev.geode.engine.bridge.LooksNative
+import dev.geode.engine.bridge.ParamsNative
 
 /**
  * One look's scene params, opaque: the `geode_viz_set_params` frame native fills and the id of the saved
@@ -14,12 +15,14 @@ class SceneParams private constructor(
     /** The saved palette (data's `CustomPalette.id`) the look's own palette came from; "" for none. */
     val customPaletteId: String,
 ) {
-    /** Param [name] as native reads it from the frame, an int or a flag as a float; NaN for a name with no live row. */
+    /** Param [name] as native reads it from the frame, as a float; NaN for a name with no live row. */
     operator fun get(name: String): Float = reads.get(frame, name)
 
-    fun int(name: String): Int = get(name).roundToInt()
+    /** Param [name] as the int native reads it as (`geode_params_get_int`). */
+    fun int(name: String): Int = reads.int(frame, name)
 
-    fun flag(name: String): Boolean = get(name) > 0.5f
+    /** Param [name] as the flag native reads it as (`geode_params_get_flag`). */
+    fun flag(name: String): Boolean = reads.flag(frame, name)
 
     /** These params with [name] set to [value]; the saved palette's id kept. Throws for a name with no live row. */
     fun with(
@@ -107,6 +110,16 @@ class SceneParams private constructor(
             value: Float,
         ): FloatArray?
 
+        fun int(
+            frame: FloatArray,
+            name: String,
+        ): Int
+
+        fun flag(
+            frame: FloatArray,
+            name: String,
+        ): Boolean
+
         /** The saved palette id a look naming [lookId] keeps on [frame], a frame native wrote. */
         fun paletteIdOn(
             frame: FloatArray,
@@ -127,6 +140,16 @@ class SceneParams private constructor(
             name: String,
             value: Float,
         ): FloatArray? = ParamsNative.paramsSet(frame, name, value)
+
+        override fun int(
+            frame: FloatArray,
+            name: String,
+        ): Int = ParamsNative.paramsGetInt(frame, name)
+
+        override fun flag(
+            frame: FloatArray,
+            name: String,
+        ): Boolean = ParamsNative.paramsGetFlag(frame, name)
 
         override fun paletteIdOn(
             frame: FloatArray,

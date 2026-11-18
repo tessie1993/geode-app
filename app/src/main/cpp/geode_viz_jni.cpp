@@ -347,9 +347,15 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankModulated(JNIEnv*, jobject, jf
     return geode_macro_bank_modulated(turn, add);
 }
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankLiveMods(JNIEnv* env, jobject) {
-    return geode::jni::utf8String(env, geode_macro_bank_live_mods());
+    constexpr int kRows = 16;   // core/viz/MacroBank kMaxKnobs
+    constexpr int kFloats = 5;  // core/viz/MacroBank kLiveModFloats
+    float rows[kRows * kFloats];
+    const int count = geode_macro_bank_live_mods(rows, kRows);
+    jfloatArray out = env->NewFloatArray(count * kFloats);
+    if (out && count > 0) env->SetFloatArrayRegion(out, 0, count * kFloats, rows);
+    return out;
 }
 
 JNIEXPORT jstring JNICALL

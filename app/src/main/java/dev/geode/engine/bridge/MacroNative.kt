@@ -107,9 +107,10 @@ object MacroNative {
 
     /**
      * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
-     * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.
+     * five floats per knob (id, add, sources: 1 wave, 2 envelope, 3 both, lowest add, highest add); the knob's second arc
+     * polls it.
      */
-    external fun macroBankLiveMods(): String
+    external fun macroBankLiveMods(): FloatArray
 
     /** A knob's [turn] plus what modulation adds ([add]), held to -1..1 by native, as the engine draws it. */
     external fun macroBankModulated(

@@ -210,3 +210,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The Render tab hands `exportState` to `RenderBar` as a State and the bar reads it, so export progress recomposes the bar and not the tab (`ui/StudioRender.kt`, `ui/RenderBar.kt`).
 - 2026-11-18: Small waste: `WidgetPublisher.publish` returns early with no widget placed, the wallpaper's edge glow reuses one buffer per launcher pan (`EdgeGlow.writeTo`), and `CaptureController.refreshExternalAudio` stops polling while notification access is absent until the app is foregrounded again.
 - 2026-11-18: `core/tests/sound_golden.txt` rewritten from the CI `sound-golden` artifact for the sample-count hop and the onset-flux fix together; main's host tests failed on it after both merged.
+- 2026-11-18: `VisualsHub` reads the delegated `milkError` into a local before using it, and `CaptureController.refreshExternalAudio` names its two conditions; both stopped the build (smart cast, detekt ComplexCondition).

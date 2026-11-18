@@ -320,7 +320,9 @@ internal class CaptureController(
      */
     fun refreshExternalAudio() {
         val state = _externalAudio.value
-        if (!state.active && !state.awaitingConsent && (state.hasSessionAccess || notificationAccessAbsent)) return
+        val idle = !state.active && !state.awaitingConsent
+        val accessKnown = state.hasSessionAccess || notificationAccessAbsent
+        if (idle && accessKnown) return
         if (externalAudioRefreshInFlight) return
         externalAudioRefreshInFlight = true
         scope.launch {

@@ -210,8 +210,9 @@ private fun VisualsHubContent(
     }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
-        if (milkError != null && !pip && !onMilkPage) {
-            val text = resources.getString(R.string.milk_load_failed, milkError.substringAfterLast('/'))
+        val failed = milkError
+        if (failed != null && !pip && !onMilkPage) {
+            val text = resources.getString(R.string.milk_load_failed, failed.substringAfterLast('/'))
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }

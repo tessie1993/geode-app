@@ -236,6 +236,7 @@ The renderer runs these in order each frame.
 - `geode_library_search` answers voice "play X" and Android Auto.
 - `core/library/Playlist` reads a picked M3U, PLS or XSPF file (`geode_playlist_parse`); a DOCTYPE in an XSPF is refused.
 - Writing playlist files has no caller, so it does not exist.
+- `core/library/History` holds the play history's rules; `data/HistoryStore.kt` keeps history.json's text and asks `geode_history_*`.
 - `data/PlaylistFormats.kt` only splits the parse text and matches entries to the library by lower-cased file name.
 - `core/scene/object` is `geode::scene::object`, #302's object kinds.
 - `GltfImport` checks the user's .glb against #455's limits, decimates it with meshoptimizer when up to 4× over, refuses it otherwise, and makes a low-detail copy and its materials.

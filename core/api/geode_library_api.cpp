@@ -1,11 +1,21 @@
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "api/geode_api.h"
+#include "library/History.hpp"
 #include "library/Search.hpp"
 
 namespace {
 
 std::string_view view(const char* s) { return s ? std::string_view(s) : std::string_view(); }
+
+std::string textOf(const char* s) { return s ? s : ""; }
+
+const char* hold(std::string& slot, std::string value) {
+    slot = std::move(value);
+    return slot.c_str();
+}
 
 static_assert(geode::library::kMaxSheetTracks == GEODE_SEARCH_SHEET_TRACKS);
 
@@ -128,6 +138,50 @@ int geode_search_sheet(const char* const* tracks, const unsigned char* preferred
     return pack({hits.tracks, hits.playlists, hits.presets}, out, max_out);
 } catch (...) {
     return 0;
+}
+
+// The play history: the module's own calls, text in and text out.
+int geode_history_corrupt(const char* text) try {
+    return geode::library::historyParse(textOf(text)).corrupt ? 1 : 0;
+} catch (...) {
+    return 0;
+}
+
+const char* geode_history_record_play(const char* state, const char* uri, const char* title, const char* artist,
+                                      long long now_ms) try {
+    thread_local std::string out;
+    return hold(out, geode::library::historyRecordPlay(textOf(state), textOf(uri), textOf(title), textOf(artist), now_ms).state);
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_history_add_listen(const char* state, const char* uri, long long delta_ms) try {
+    thread_local std::string out;
+    return hold(out, geode::library::historyAddListen(textOf(state), textOf(uri), delta_ms).state);
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_history_file_text(const char* state) try {
+    thread_local std::string out;
+    return hold(out, geode::library::historyFileText(textOf(state)));
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_history_recent(const char* state, int limit) try {
+    thread_local std::string out;
+    return hold(out, geode::library::historyWire(geode::library::historyRecent(textOf(state), limit)));
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_history_entry(const char* state, const char* uri) try {
+    thread_local std::string out;
+    const auto entry = geode::library::historyEntry(textOf(state), textOf(uri));
+    return hold(out, entry ? geode::library::historyWire({*entry}) : std::string());
+} catch (...) {
+    return nullptr;
 }
 
 }  // extern "C"

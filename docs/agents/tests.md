@@ -80,6 +80,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `library_history_test.cpp`: `core/library/History`: how history.json reads, a play, listened time, newest first, what is kept on disk, and the wire the shell splits.
 - `look_snapshot_test.cpp`: `core/viz/LookSnapshot`, the look a renderer is handed whole: only the parts that differ pass (all on a new renderer), equal copies pass nothing, and the defaults the shell reads.
 - `lyrics_test.cpp`: the .lrc parse (stamps, fractions, headers, plain lyrics, the wire form) and the line sung at a position.
 - `playlist_test.cpp`: `core/library/Playlist`: M3U, PLS and XSPF reads, names, durations, base names, the DOCTYPE refusal and the wire text.

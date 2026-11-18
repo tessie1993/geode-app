@@ -168,4 +168,24 @@ std::optional<HistoryEntry> historyEntry(const std::string& state, const std::st
     return std::nullopt;
 }
 
+std::string historyWire(const std::vector<HistoryEntry>& entries) {
+    constexpr char kField = '';
+    constexpr char kRecord = '';
+    const auto field = [](std::string& out, const std::string& text) {
+        for (const char c : text) {
+            if (c != kField && c != kRecord) out += c;
+        }
+    };
+    std::string out;
+    for (const HistoryEntry& e : entries) {
+        field(out, e.uri);
+        out += kField + std::to_string(e.lastPlayedMs) + kField + std::to_string(e.playCount) + kField;
+        field(out, e.title);
+        out += kField;
+        field(out, e.artist);
+        out += kField + std::to_string(e.listenedMs) + kRecord;
+    }
+    return out;
+}
+
 }  // namespace geode::library

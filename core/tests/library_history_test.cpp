@@ -2,7 +2,8 @@
 // array, blank entries skipped, a repeated uri keeping its first place), what a play does (count, title,
 // artist kept when blank, a last-played stamp that is always newer than any held), listened time, the
 // newest-first list (the Kotlin PlayRecorderTest's "recent saw every track, newest first", and its empty-before-
-// play case), and what survives on disk: the union of the 200 most recent and the 200 most played. No device.
+// play case), what survives on disk: the union of the 200 most recent and the 200 most played, and the wire the
+// shell splits. No device.
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/library_history_test.cpp
 //     core/library/History.cpp core/util/Json.cpp -o library_history_test && ./library_history_test
@@ -168,6 +169,16 @@ void retention() {
     big = historyRecordPlay(big, "e0", "T", "", 100000).state;
     check(historyParse(big).entries.size() == 300 && historyEntry(big, "e0")->playCount == 2, "the state keeps what the file may drop");
 }
+void wire() {
+    check(historyWire({}).empty(), "no entries is an empty wire");
+    HistoryEntry a{"content://a", 12, 3, "Title", "Artist", 4500};
+    HistoryEntry b{"b", -1, 0, "", "", 0};
+    check(historyWire({a, b}) == "content://a" "12" "3Title" "Artist" "4500"
+                                 "b-1" "0" "0",
+          "fields split by U+001F, entries ended by U+001E, the two dropped from text");
+    const auto played = historyRecordPlay("", "u", "TÃ©", "A", 7).state;
+    check(historyWire(historyRecent(played, 5)) == "u" "7" "1TÃ©" "A" "0", "UTF-8 kept as it is");
+}
 }  // namespace
 
 int main() {
@@ -176,6 +187,7 @@ int main() {
     ordering();
     listening();
     retention();
+    wire();
     if (failures == 0) std::printf("library_history_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

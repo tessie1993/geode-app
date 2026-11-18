@@ -557,6 +557,24 @@ GEODE_API int         geode_lyrics_index_at(const long long* times_ms, int count
 GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned char* data, int len, char* out,
                                            int capacity);
 
+/* The play history (core/library/History). The shell holds history.json's text as the state, hands it to each call
+ * and keeps what comes back; it does the file, the lock, the quarantine and the write queue. Text out is valid until
+ * the calling thread's next call of the same function; NULL arguments read as "". Pure, any thread.
+ * corrupt: 1 when the text is not blank and does not read (the shell moves the file aside and starts empty).
+ * record_play: the state once `uri` starts playing at now_ms (made if new, count up, title set, artist unless
+ * blank, stamped after every play held). add_listen: the state with delta_ms (ignored at 0 or less, and for a uri
+ * not held) added to the track's listened time. file_text: the text to write (the 200 most recent and the 200 most
+ * played). recent: at most `limit` entries, newest first; entry: the entry for `uri` ("" when none). Entries go out
+ * as History's wire: uri, last-played ms, play count, title, artist and listened ms split by U+001F, each entry
+ * ended by U+001E. */
+GEODE_API int         geode_history_corrupt(const char* text);
+GEODE_API const char* geode_history_record_play(const char* state, const char* uri, const char* title,
+                                                const char* artist, long long now_ms);
+GEODE_API const char* geode_history_add_listen(const char* state, const char* uri, long long delta_ms);
+GEODE_API const char* geode_history_file_text(const char* state);
+GEODE_API const char* geode_history_recent(const char* state, int limit);
+GEODE_API const char* geode_history_entry(const char* state, const char* uri);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

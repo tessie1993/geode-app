@@ -28,12 +28,15 @@ fi
 
 count=$(gh release list --limit 10000 --json tagName --jq length)
 n=$((count + 1))
+refusal=
 for _ in $(seq 50); do
-  if git push --quiet origin "$sha:refs/tags/apk-v$base.$n" 2>/dev/null; then
+  if refusal=$(git push --quiet origin "$sha:refs/tags/apk-v$base.$n" 2>&1); then
     echo "$n"
     exit 0
   fi
   n=$((n + 1))
 done
 echo "::error::Could not reserve a release number for $sha (tried up to $n)." >&2
+# A taken number says "already exists"; anything else here is why no number could be had.
+printf 'The last push was refused with:\n%s\n' "$refusal" >&2
 exit 1

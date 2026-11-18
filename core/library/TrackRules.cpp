@@ -37,12 +37,10 @@ std::u32string decode(std::string_view s) {
             ++i;
             continue;
         }
-        if (i + extra >= s.size() + 0 && extra > 0 && i + extra > s.size() - 1 + 0) {
-            if (i + static_cast<size_t>(extra) > s.size() - 1) {
-                out.push_back(kReplacement);
-                ++i;
-                continue;
-            }
+        if (i + static_cast<size_t>(extra) >= s.size()) {
+            out.push_back(kReplacement);
+            ++i;
+            continue;
         }
         bool ok = true;
         for (int k = 1; k <= extra; ++k) {
@@ -110,7 +108,7 @@ bool isKotlinSpace(char32_t c) {
 }
 
 // String.trim(): drops Kotlin white space at both ends.
-std::string trimKotlin(std::string_view s) {
+std::string trimText(std::string_view s) {
     std::u32string cps = decode(s);
     size_t a = 0;
     size_t b = cps.size();
@@ -295,6 +293,8 @@ std::string lowerRoot(std::string_view utf8) {
     return encodeAll(out);
 }
 
+std::string trimKotlin(std::string_view utf8) { return trimText(utf8); }
+
 // CharSequence.isBlank(): every character is Kotlin white space (an empty string is blank).
 bool isBlank(std::string_view utf8) {
     for (const char32_t c : decode(utf8)) {
@@ -329,7 +329,7 @@ LibraryTrack tagFallbacks(const TagRead& tags, const FileFacts& file) {
     // MediaMetadataRetriever tag: trimmed, a blank one is none.
     auto tag = [](const std::optional<std::string>& raw) -> std::optional<std::string> {
         if (!raw) return std::nullopt;
-        std::string t = trimKotlin(*raw);
+        std::string t = trimText(*raw);
         if (t.empty()) return std::nullopt;
         return t;
     };
@@ -353,7 +353,7 @@ LibraryTrack tagFallbacks(const TagRead& tags, const FileFacts& file) {
     }
     if (const auto number = tag(tags.trackNumber)) {
         const size_t slash = number->find('/');
-        const std::string head = trimKotlin(slash == std::string::npos ? *number : number->substr(0, slash));
+        const std::string head = trimText(slash == std::string::npos ? *number : number->substr(0, slash));
         t.trackNo = toIntOrNull(decode(head)).value_or(0);
     }
     if (!title && !isBlank(file.displayName)) title = beforeLast(file.displayName, '.');

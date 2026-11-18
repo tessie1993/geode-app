@@ -169,6 +169,19 @@ void theGridsOutliveAShortDip() {
     check(keep.step(true), "a layer on again keeps them again");
 }
 
+// The idle window is a time, so it is the same two seconds at 30, 60 and 120 fps, and a stopped music clock does not stretch it.
+void theIdleWindowIsTwoSecondsAtAnyRate() {
+    for (const int fps : {30, 60, 120}) {
+        physics::Keep keep;
+        const float dt = 1.0f / static_cast<float>(fps);
+        check(keep.step(true, dt), "a layer on keeps its grids");
+        int kept = 0;
+        while (keep.step(false, dt) && kept < fps * 10) ++kept;
+        check(kept == static_cast<int>(physics::kIdleSeconds * static_cast<float>(fps)), "off, they stay for kIdleSeconds of frames");
+        check(!keep.step(false, dt), "then they stay freed");
+    }
+}
+
 void theParticlesAreBornOverTheWholeFrame() {
     for (float aspect : {0.45f, 1.0f, 2.2f}) {
         const auto s = physics::spawns(aspect);
@@ -217,6 +230,7 @@ int main() {
     theLayersStackBackToFront();
     theMusicClockDrivesEverything();
     theGridsOutliveAShortDip();
+    theIdleWindowIsTwoSecondsAtAnyRate();
     theParticlesAreBornOverTheWholeFrame();
     theParamsAreTargetsTheSafetyRulesHold();
     if (failures) {

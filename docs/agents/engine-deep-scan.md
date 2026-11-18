@@ -1,5 +1,7 @@
 # Engine deep scan: everything under `engine/` on origin/main
 
+**Historical, as of the scanned commit.** The `engine/` modules and most of the Kotlin rendering files named below (`render/*`, `ThermalGovernor`, `VisualizerRenderer` and the rest of that stack) no longer exist: the rendering, sound analysis and modulation are C++ in `core/`, and `:app` is the only Gradle module. Check the code, and see `AGENTS.md` for what is true now.
+
 Scanned commit: origin/main = a019454626940c143a5e14e8f52cf7e16bae59d2 (the Graphify index is built from the same commit). Read-only: nothing in the repository was touched.
 How the numbers were taken: line counts by `git show origin/main:<path> | wc -l`; "callers outside the module" are counts of files that reference the type, taken with `git grep` on origin/main (Graphify `file_neighbors` was used to confirm the picture for `NativeViz` and `VisualizerRenderer`); tests were listed, not run.
 Not compared: the port branch `ccr-0a1f1dcf-87b4sp-engine-to-cpp` is not on origin, so its progress is unknown to this scan.

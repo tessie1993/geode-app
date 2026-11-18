@@ -1,5 +1,7 @@
 # Kotlin logic map: the whole codebase, and the one-core port (2026-11-12)
 
+**Historical, as of the scanned commit.** The `engine/` modules and most of the Kotlin rendering files named below (`render/*`, `ThermalGovernor`, `VisualizerRenderer` and the rest of that stack) no longer exist: the rendering, sound analysis and modulation are C++ in `core/`, and `:app` is the only Gradle module. Check the code, and see `AGENTS.md` for what is true now.
+
 Scanned commit: `57fdf4a` (`main`; some scanners ran on `5dbfc69`, which differs in docs only).
 Sources: the code and the Graphify graph (indexed at `57fdf4a`). `AGENTS.md`, `CLAUDE.md` and `docs/` were not used as sources.
 Nothing was built or run. Every claim cites `path:line`; app paths are under `app/src/main/java/dev/geode/` unless they start with `app/`, `core/` or `engine/`.

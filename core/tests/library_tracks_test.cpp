@@ -454,8 +454,8 @@ void infoEdits() {
     eq(e.tracks[1].title, "T9", "new title");
     eq(e.tracks[1].artist, "R9", "new artist");
     e = saveTitleArtist(held, "a", "new title", "new artist");
-    check(e.tracks[0].year == 1999 && e.tracks[0].comment == "co" && e.tracks[0].genre == "ge" &&
-              e.tracks[0].trackNo == 2 && e.tracks[0].album == "al",
+    check(e.tracks[1].year == 1999 && e.tracks[1].comment == "co" && e.tracks[1].genre == "ge" &&
+              e.tracks[1].trackNo == 2 && e.tracks[1].album == "al",
           "the other info is kept");
     e = saveTitleArtist(held, "nobody", "t", "a");
     check(!e.changed && e.tracks.size() == 2, "an unknown uri changes nothing");

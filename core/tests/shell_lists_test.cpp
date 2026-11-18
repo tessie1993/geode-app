@@ -1,0 +1,160 @@
+// Host-side checks for core/shell/StyleShelf and core/shell/PresetList: the Styles page's own shelf (favourites,
+// recents, "yours") and the Presets list's filter, order and applied mark. Every case of the Kotlin
+// StyleShelfTest and PresetShelfTest (app/src/test/java/dev/geode/model/) is here with the same expected result.
+//
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/shell_lists_test.cpp core/shell/*.cpp
+//     core/util/Json.cpp -o shell_lists_test && ./shell_lists_test
+#include <cstdio>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "shell/PresetList.hpp"
+#include "shell/StyleShelf.hpp"
+
+using namespace geode::shell;
+
+namespace {
+
+int failures = 0;
+
+void check(bool ok, const std::string& what) {
+    if (!ok) {
+        std::printf("FAIL: %s\n", what.c_str());
+        ++failures;
+    }
+}
+
+using Ids = std::vector<std::string>;
+
+StyleShelf push(StyleShelf s, const std::string& id) { return styleShelfApply(s, {StyleShelfEvent::PushRecent, id, false}); }
+StyleShelf toggle(StyleShelf s, const std::string& id) {
+    return styleShelfApply(s, {StyleShelfEvent::ToggleFavourite, id, false});
+}
+
+void recentsNewestFirstWithoutRepeats() {
+    const StyleShelf s = push(push(push(StyleShelf{}, "a"), "b"), "a");
+    check(s.recents == Ids({"a", "b"}), "a b");
+}
+
+void recentsForgetPastTheLimit() {
+    StyleShelf s;
+    for (int i = 0; i < kStyleRecentLimit + 3; ++i) s = push(s, "s" + std::to_string(i));
+    check(static_cast<int>(s.recents.size()) == kStyleRecentLimit, "kept the limit");
+    check(s.recents.front() == "s" + std::to_string(kStyleRecentLimit + 2), "newest first");
+}
+
+void favouriteToggles() {
+    const StyleShelf on = toggle(StyleShelf{}, "x");
+    check(styleShelfIsFavourite(on, "x"), "on");
+    check(!styleShelfIsFavourite(toggle(on, "x"), "x"), "off again");
+}
+
+void randomFamilyOnlyLeavesTheShelfAlone() {
+    StyleShelf shelf;
+    shelf.favourites = {"x"};
+    shelf.recents = {"y"};
+    check(!shelf.randomFamilyOnly, "off until set");
+    const StyleShelf on = styleShelfApply(shelf, {StyleShelfEvent::SetRandomFamilyOnly, "", true});
+    check(on.randomFamilyOnly && on.favourites == shelf.favourites && on.recents == shelf.recents, "only the flag moved");
+    check(!styleShelfApply(on, {StyleShelfEvent::SetRandomFamilyOnly, "", false}).randomFamilyOnly, "off");
+}
+
+void removeRecentLeavesFavourites() {
+    StyleShelf s;
+    s.favourites = {"a"};
+    s.recents = {"a", "b"};
+    const StyleShelf r = styleShelfApply(s, {StyleShelfEvent::RemoveRecent, "a", false});
+    check(r.recents == Ids({"b"}) && r.favourites == Ids({"a"}), "removed from Recent only");
+    // Kotlin's `list - id` drops the first occurrence only.
+    StyleShelf twice;
+    twice.recents = {"a", "b", "a"};
+    check(styleShelfApply(twice, {StyleShelfEvent::RemoveRecent, "a", false}).recents == Ids({"b", "a"}), "first only");
+}
+
+void yoursOrder() {
+    const Ids order{"arbor_a", "arbor_b", "silk_a", "fluid_a"};
+    StyleShelf shelf;
+    shelf.favourites = {"silk_a", "arbor_a"};
+    shelf.recents = {"fluid_a", "missing", "arbor_a"};
+    check(styleShelfYours(shelf, order, std::string("arbor_b")) == Ids({"arbor_b", "arbor_a", "silk_a", "fluid_a"}), "on screen, favourites, recent");
+    StyleShelf recentOnly;
+    recentOnly.recents = {"fluid_a", "gone"};
+    check(styleShelfYours(recentOnly, order, std::nullopt) == Ids({"fluid_a"}), "recent only");
+    check(styleShelfYours(StyleShelf{}, order, std::string("gone")).empty(), "nothing in order");
+}
+
+// Presets
+
+std::vector<PresetEntry> entries() {
+    std::vector<PresetEntry> e(5);
+    e[0] = {"Glow", "cymatics", true, "", true, false};
+    e[1] = {"Ink", "fluid", true, "", false, false};
+    e[2] = {"Mine A", "cymatics", false, "", true, false};
+    e[3] = {"Party", "fluid", false, "Live", false, false};
+    e[4] = {"Party", "fluid", false, "Live", false, false};
+    return e;
+}
+
+Ids names(const std::vector<PresetEntry>& e, const PresetFilter& f) {
+    Ids out;
+    for (int i : presetApply(e, f)) out.push_back(e[static_cast<size_t>(i)].name);
+    return out;
+}
+
+PresetFilter shelf(PresetFilter::Kind k) { return {k, ""}; }
+
+void allPutsMineFirst() { check(names(entries(), shelf(PresetFilter::Kind::All)) == Ids({"Mine A", "Party", "Glow", "Ink"}), "all"); }
+
+void shelvesSplit() {
+    const auto e = entries();
+    check(names(e, shelf(PresetFilter::Kind::Mine)) == Ids({"Mine A", "Party"}), "mine");
+    check(names(e, shelf(PresetFilter::Kind::BuiltIn)) == Ids({"Glow", "Ink"}), "built-in");
+    check(names(e, shelf(PresetFilter::Kind::ThisStyle)) == Ids({"Mine A", "Glow"}), "this style");
+}
+
+void folderHoldsOnlyUsersPresets() {
+    const auto e = entries();
+    check(names(e, {PresetFilter::Kind::Folder, "Live"}) == Ids({"Party"}), "live");
+    check(names(e, {PresetFilter::Kind::Folder, "Empty"}).empty(), "empty");
+}
+
+void filtersListShelvesThenFolders() {
+    const auto f = presetFilters({"Live", "", "Slow", "Live"});
+    const std::vector<PresetFilter> want{{PresetFilter::Kind::All, ""},     {PresetFilter::Kind::ThisStyle, ""},
+                                         {PresetFilter::Kind::Mine, ""},    {PresetFilter::Kind::BuiltIn, ""},
+                                         {PresetFilter::Kind::Folder, "Live"}, {PresetFilter::Kind::Folder, "Slow"}};
+    check(f == want, "shelves then folders");
+    // A folder of only whitespace is blank (Kotlin isNotBlank), a folder with some is kept as written.
+    check(presetFilters({" \t", " x "}).size() == 5, "blank dropped, padded kept");
+}
+
+void appliedPrefersLastTapped() {
+    std::vector<PresetEntry> staged(3);
+    staged[0] = {"A", "s", true, "", false, true};
+    staged[1] = {"B", "s", false, "", false, true};
+    staged[2] = {"C", "s", false, "", false, false};
+    check(presetApplied(staged, std::string("B")) == 1, "B while on stage");
+    check(presetApplied(staged, std::string("C")) == 0, "C is not on stage: first on stage");
+    check(presetApplied(staged, std::nullopt) == 0, "none tapped: first on stage");
+    for (auto& s : staged) s.onStage = false;
+    check(presetApplied(staged, std::string("B")) == -1, "nothing on stage");
+}
+
+}  // namespace
+
+int main() {
+    recentsNewestFirstWithoutRepeats();
+    recentsForgetPastTheLimit();
+    favouriteToggles();
+    randomFamilyOnlyLeavesTheShelfAlone();
+    removeRecentLeavesFavourites();
+    yoursOrder();
+    allPutsMineFirst();
+    shelvesSplit();
+    folderHoldsOnlyUsersPresets();
+    filtersListShelvesThenFolders();
+    appliedPrefersLastTapped();
+    if (failures == 0) std::printf("shell_lists_test: all passed\n");
+    return failures == 0 ? 0 : 1;
+}

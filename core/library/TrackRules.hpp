@@ -90,6 +90,7 @@ PlaylistResolution resolvePlaylistEntries(const std::vector<std::string>& baseNa
 // Shared by TrackLibraryDoc.cpp: Kotlin's String.lowercase() (ROOT), isBlank(), and compareTo (UTF-16 order).
 std::string lowerRoot(std::string_view utf8);
 bool isBlank(std::string_view utf8);
+std::string trimKotlin(std::string_view utf8);
 int compareUtf16(std::string_view a, std::string_view b);
 std::u16string toUtf16(std::string_view utf8);
 

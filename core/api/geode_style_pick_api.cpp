@@ -7,6 +7,13 @@ namespace auto_draw = geode::viz::auto_draw;
 
 static_assert(style_pick::kRollInside == GEODE_STYLES_ROLL_INSIDE);
 
+namespace {
+// Auto's process-wide draw, as the page's Random uses.
+struct SessionDraw {
+    int pick(int count, int onScreen) { return auto_draw::pick(count, onScreen); }
+};
+}  // namespace
+
 extern "C" {
 
 int geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen, int family_only,
@@ -18,6 +25,11 @@ int geode_styles_random(const int* family, const unsigned char* open, int count,
     // Auto's process-wide draw, so the page and Auto share one seeded source.
     const int k = auto_draw::pick(static_cast<int>(candidates.size()), -1);
     return k < 0 ? -1 : candidates[static_cast<size_t>(k)];
+}
+
+int geode_styles_random_family(const int* family, const unsigned char* open, int count, int on_screen) {
+    SessionDraw draw;
+    return style_pick::pickFamily(draw, family, open, count, on_screen);
 }
 
 void geode_styles_lead(int count, int lead, int* out) { style_pick::lead(count, lead, out); }

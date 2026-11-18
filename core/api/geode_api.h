@@ -1520,6 +1520,10 @@ GEODE_API const char*     geode_auto_draw(const char* locked_styles, const char*
 #define GEODE_STYLES_ROLL_INSIDE             (-2)
 GEODE_API int             geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen,
                                               int family_only, int inner_count, int inner_on_screen);
+/* Random family: a family other than the one on screen's (equally likely, whatever its size), then a style in it;
+ * never on_screen; a kept style while one is left; -1 for none. */
+GEODE_API int             geode_styles_random_family(const int* family, const unsigned char* open, int count,
+                                                     int on_screen);
 GEODE_API void            geode_styles_lead(int count, int lead, int* out);
 
 /* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and

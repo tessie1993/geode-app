@@ -28,4 +28,15 @@ class ImportedMilkTest {
         listOf(outside.path, nested.path, other.path, escape).forEach { assertFalse(ImportedMilk.remove(milkDir, it)) }
         listOf(outside, nested, other).forEach { assertTrue(it.exists()) }
     }
+
+    @Test
+    fun aSavedLooksMilkGoesOnlyWhileItIsTheLooksOwnText() {
+        val written = File(milkDir, "look.milk").apply { writeText("look") }
+        assertTrue(ImportedMilk.removeIfText(written, "look"))
+        assertFalse(written.exists())
+
+        val imported = File(milkDir, "same.milk").apply { writeText("the user's own") }
+        assertFalse(ImportedMilk.removeIfText(imported, "look"))
+        assertTrue(imported.exists())
+    }
 }

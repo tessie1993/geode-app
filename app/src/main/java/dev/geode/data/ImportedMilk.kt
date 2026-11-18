@@ -19,4 +19,14 @@ object ImportedMilk {
         val inDir = runCatching { file.canonicalFile.parentFile == milkDir.canonicalFile }.getOrDefault(false)
         return inDir && file.extension == "milk" && file.isFile && file.delete()
     }
+
+    /**
+     * Deletes [file] only while its text is [text]: a saved look's `.milk` goes with the look, but
+     * a preset the user imported under the same name, which the look never wrote, stays.
+     */
+    @WorkerThread
+    fun removeIfText(
+        file: File,
+        text: String,
+    ): Boolean = runCatching { file.isFile && file.readText() == text && file.delete() }.getOrDefault(false)
 }

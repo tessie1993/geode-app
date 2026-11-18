@@ -14,7 +14,7 @@ namespace {
 constexpr float kDcCornerHz = 10.0f;
 }  // namespace
 
-Waveform::Waveform() {
+Waveform::Waveform(AnalysisSettings settings) : fftSize_(settings.checked().fftSize) {
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
     const float c = kPoints;
     for (int i = 0; i < kPoints; i++) {
@@ -37,10 +37,11 @@ void Waveform::write(const float* interleaved, int frames, int channels, int sam
     if (interleaved == nullptr || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
     if (sampleRateHz != rateHz_) {
         rateHz_ = sampleRateHz;
-        // The engine's block (its window / 512 analysis samples) in input samples: ~13 ms drawn at every rate.
+        // The engine's block (its configured window / 512 analysis samples, SoundEngine's waveBlock_) in input
+        // samples, so the drawing is as wide as the engine's at every rate.
         const int rate = std::max(8000, sampleRateHz);
         const int analysis = SoundEngine::analysisRateFor(rate);
-        block_ = std::clamp(std::max(1, SoundEngine::fftSizeFor(analysis) / 512) * (rate / analysis), 1, kMaxBlock);
+        block_ = std::clamp(std::max(1, fftSize_ / 512) * (rate / analysis), 1, kMaxBlock);
         dcR_ = std::exp(-2.0f * std::numbers::pi_v<float> * kDcCornerHz / static_cast<float>(rate));
         dcX_ = dcY_ = 0.0f;
     }

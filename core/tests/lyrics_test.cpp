@@ -22,10 +22,11 @@ void check(bool ok, const char* what) {
     }
 }
 
-std::string wireOf(const char* text) {
-    const int need = geode_lyrics_parse(text, nullptr, 0);
+std::string wireOf(const std::string& text) {
+    const int len = static_cast<int>(text.size());
+    const int need = geode_lyrics_parse(text.data(), len, nullptr, 0);
     std::string out(static_cast<size_t>(need) + 1, 'x');
-    geode_lyrics_parse(text, out.data(), static_cast<int>(out.size()));
+    geode_lyrics_parse(text.data(), len, out.data(), static_cast<int>(out.size()));
     out.resize(static_cast<size_t>(need));
     return out;
 }
@@ -85,9 +86,12 @@ void nothing() {
 void wire() {
     check(wireOf("[00:05.50]Hello\tthere\n[00:01]Hi\n") == "S\n1000\tHi\n5500\tHello\tthere\n", "timed wire");
     check(wireOf("one\ntwo\n") == "P\n-1\tone\n-1\ttwo\n", "plain wire");
-    check(geode_lyrics_parse(nullptr, nullptr, 0) == 0, "a null text is no lyrics");
+    check(geode_lyrics_parse(nullptr, 0, nullptr, 0) == 0, "a null text is no lyrics");
+    const std::string nul(1, '\0');
+    check(wireOf("one" + nul + "two\nthree\n") == "P\n-1\tone" + nul + "two\n-1\tthree\n",
+          "a NUL in the lyrics is text, not their end");
     char small[4];
-    check(geode_lyrics_parse("a\nb\n", small, 4) == static_cast<int>(std::string("P\n-1\ta\n-1\tb\n").size()), "a short buffer gets the size needed");
+    check(geode_lyrics_parse("a\nb\n", 4, small, 4) == static_cast<int>(std::string("P\n-1\ta\n-1\tb\n").size()), "a short buffer gets the size needed");
     check(small[3] == '\0', "a short buffer is still terminated");
 }
 

@@ -172,7 +172,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `HeadphoneAutoplay` lives here.
 - `QueueEnd`: stop, repeat, or similar tracks from `LibraryTree.similarTo`.
 - `NotificationButtons` adds shuffle, repeat and favourite as custom session commands.
-- Android draws two notification buttons, so `NotificationButton.ordered` lists a chosen favourite first and Settings keeps the choice to two.
+- Android draws two notification buttons, so `NotificationButton.ordered` lists a chosen favourite first and Settings keeps the choice to two; both rules are native's (`core/shell/Behaviour`, asked through `BehaviourRules`).
 - `PlayRecorder` is a listener on the one player: it saves the resumption queue and position to `SessionStore` and records each play in the session's one `HistoryStore`, whoever holds the player.
 - So playing on after the UI closes is still resumed and remembered; the UI only reads them.
 - `VoiceSearch` reads Media3's play-from-search item (Android Auto and Assistant) for `LibraryTree.search`; the match is native.
@@ -267,7 +267,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 - Open first: `DeviceTrack`, `LibraryTrack`, `LyricLine`, `QueueTrack` (with `QueueUiState`), `VizPlaylistEntry`, `MilkFile`, `PresetLink`, `PresetShelf`, `StyleShelf`, `Tour`, `TabLabels`, `ScreenRotation`, `ControlRange`, `WatermarkChoice`.
 - Pure value types shared across layers, staged for `:core:model`. No `android.*`.
-- `PresetShelf` holds the Presets grid filters and naming.
+- `PresetShelf` holds the Presets list's row and chip types; which chips show, which rows a chip leaves and the applied mark are native's (`core/shell/PresetList`, asked by `PresetFiltering`).
 - `model/StyleCatalogue` asks the native catalogue (ids, picker families, retired ids, param scopes as `ParamScope`) and keeps nothing; it decides nothing.
 - A style's and a family's display name are native (`CustomizeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
@@ -275,7 +275,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
 - `ControlRange` hands every Customize slider its range from native (`core/viz/ControlRange`, `geode_params_control_range`) and keeps each answer by name.
 - `WatermarkChoice` is a render's watermark, pinned at its start through `RenderLimits.withMark`.
-- `OpenedAudio` is the id an audio file opened from another app plays under.
+- `OpenedAudio` is the id an audio file opened from another app plays under; its routing, refusal, name and id rules are native's (`core/shell/OpenedAudio`).
 
 ## `data/backup`
 

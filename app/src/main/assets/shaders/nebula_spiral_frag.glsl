@@ -137,7 +137,8 @@ NebHit nebMap(vec3 p, float oct) {
     NebHit h;
 
     // The ring puffs the disk up where it passes: geometry, not light.
-    h.ring = exp(-pow((r - gFront) / 0.09, 2.0)) * gRing;
+    float ringD = (r - gFront) / 0.09;
+    h.ring = exp(-ringD * ringD) * gRing;
     float hgt = GS_THICK * (0.35 + 0.65 * exp(-r * 1.5)) * (1.0 + 0.7 * h.ring);
     float hy = q.y / hgt;
     float vert = exp(-hy * hy);

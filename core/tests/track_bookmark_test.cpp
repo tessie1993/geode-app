@@ -2,7 +2,8 @@
 // (geode_bookmark_verdict, geode_bookmark_resumes_from). Built and run by CI ("Native host tests"); no device.
 //
 // What is pinned: only tracks of 20 minutes or more get a bookmark, a position within 10 s of either end
-// clears it, and a resume only jumps when the track is still within 10 s of its start.
+// clears it, a resume only jumps when the track is still within 10 s of its start, and the cap the shell
+// keeps the count under is the engine's.
 #include <cstdio>
 
 #include "api/geode_api.h"
@@ -51,6 +52,7 @@ void cAbi() {
     check(geode_bookmark_verdict(5 * 60 * 1000, kLong) == static_cast<int>(BookmarkVerdict::Save), "the C ABI's verdict is the engine's");
     check(geode_bookmark_verdict(0, kLong) == static_cast<int>(BookmarkVerdict::Clear), "the C ABI clears at the edge");
     check(geode_bookmark_resumes_from(5) == 1 && geode_bookmark_resumes_from(20000) == 0, "the C ABI's resume is the engine's");
+    check(geode::audio::kMaxBookmarks == GEODE_BOOKMARK_MAX && GEODE_BOOKMARK_MAX > 0, "the C ABI's bookmark cap is the engine's");
 }
 
 }  // namespace

@@ -6,7 +6,9 @@
 // stays inside its wander disc and obeys two fingers, the whirlpool only grows under a held finger,
 // and the born clock swaps its look at the bottom of its dip, never while the disc is showing.
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <random>
 
 #include "viz/liquid/LiquidMath.hpp"
 
@@ -138,6 +140,26 @@ void bornSwapsInsideItsDip() {
     check(swaps >= 2 && swaps <= 5, "unsure of the beat it swaps every 8-16 s");
 }
 
+// The roll seed is two draws of the clock's engine in a fixed order, high then low, so every compiler rolls the
+// same born look from the same seed.
+void bornRollSeedIsHighThenLow() {
+    BornClock clock(5);
+    for (int i = 0; i < 20; i++) {
+        if (clock.step(1.0f / 60.0f, i == 0, true)) break;
+    }
+    const uint32_t high = static_cast<uint32_t>(clock.rollSeed() >> 32);
+    const uint32_t low = static_cast<uint32_t>(clock.rollSeed());
+    std::mt19937 engine(5u);
+    bool inOrder = false;
+    uint32_t last = engine();
+    for (int i = 0; i < 8 && !inOrder; i++) {
+        const uint32_t next = engine();
+        inOrder = last == high && next == low;
+        last = next;
+    }
+    check(inOrder, "the roll seed is the engine's next draw, then the one after");
+}
+
 }  // namespace
 
 int main() {
@@ -146,6 +168,7 @@ int main() {
     diveOnlyDivesInAndWanders();
     holdSwirlsDragPushes();
     bornSwapsInsideItsDip();
+    bornRollSeedIsHighThenLow();
     if (failures == 0) std::printf("liquid_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

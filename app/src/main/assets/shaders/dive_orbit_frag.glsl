@@ -51,7 +51,8 @@ void main() {
         vec3 base = mix(diveMaterial(gDiveHitMat, gDiveHitId, 0.0), brass, 0.45) * 0.55;
         col = diveShade(n, rd, hitT, used, base, 64.0);
         vec3 refl = reflect(rd, n);
-        col += brass * diveColor(0.4 + 0.4 * refl.y) * 0.3 * pow(1.0 - max(dot(n, -rd), 0.0), 2.0) * exp(-0.055 * hitT);
+        float graze = 1.0 - max(dot(n, -rd), 0.0);
+        col += brass * diveColor(0.4 + 0.4 * refl.y) * 0.3 * graze * graze * exp(-0.055 * hitT);
     }
 
     col *= 0.85 + 0.2 * swell;

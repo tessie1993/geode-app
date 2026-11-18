@@ -1,18 +1,14 @@
 package dev.geode.ui
 
-import android.content.SharedPreferences
 import android.os.SystemClock
-import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.KeepSetStore
 import dev.geode.data.LfoStore
-import dev.geode.data.prefs.PrefType
-import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
 import dev.geode.engine.bridge.PanelNative
 import dev.geode.model.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 
 /** What the panel's undo/redo buttons should look like right now. */
 data class ParamHistoryState(
@@ -31,10 +27,11 @@ data class ParamHistoryState(
  */
 internal class ModulationController(
     private val lfoStore: LfoStore,
-    private val prefs: SharedPreferences,
+    /** Customize's keep set as saved; what it may hold and a toggle are native (core/viz/CustomizeMap). */
+    private val keepSet: KeepSetStore,
     private val host: Host,
-    /** Hands the saved lock set to the director's keep set: `AutoDirectorStore.setKept`, its one writer. */
-    private val pushKept: (Set<String>) -> Unit,
+    /** Hands the saved keep document to the director's keep set: `AutoDirectorStore.setKept`, its one writer. */
+    private val pushKept: (String) -> Unit,
 ) {
     interface Host {
         val params: SceneParams
@@ -60,18 +57,16 @@ internal class ModulationController(
     private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { lfoStore.pushHand(it, _reactions.value != null) })
     val handMask: StateFlow<Int> = _handMask
 
-    private val _lockedParams =
-        MutableStateFlow<Set<String>>(prefs.getStringSet(KEY_LOCKED_PARAMS, emptySet()) ?: emptySet())
-    val lockedParams: StateFlow<Set<String>> = _lockedParams
+    val lockedParams: StateFlow<Set<String>> get() = keepSet.keys
 
     private val _history = MutableStateFlow(ParamHistoryState())
     val history: StateFlow<ParamHistoryState> = _history
 
     fun toggleParamLock(label: String) {
-        _lockedParams.update { if (label in it) it - label else it + label }
-        prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
+        val document = runCatching { CustomizeNative.customizeKeepToggle(kept(), label) }.getOrNull() ?: return
+        keepSet.save(document)
         // The director's reach leaves a kept control alone too; its store pushes the set, here and at start.
-        pushKept(_lockedParams.value)
+        pushKept(document)
     }
 
     /**
@@ -153,7 +148,7 @@ internal class ModulationController(
         return changed
     }
 
-    private fun kept(): String = _lockedParams.value.joinToString("\n")
+    private fun kept(): String = keepSet.document.value
 
     /**
      * Puts one category's controls back to their defaults (native: every field its controls
@@ -238,12 +233,5 @@ internal class ModulationController(
                 canUndo = bits and PanelNative.PARAM_HISTORY_UNDO != 0,
                 canRedo = bits and PanelNative.PARAM_HISTORY_REDO != 0,
             )
-
-        private const val KEY_LOCKED_PARAMS = "locked_params"
-
-        val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.MODULATION) {
-                portable(PrefType.STRING_SET, KEY_LOCKED_PARAMS)
-            }
     }
 }

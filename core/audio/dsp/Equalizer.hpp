@@ -46,6 +46,7 @@ private:
     std::array<Biquad, kMaxChannels> bass_{};
     bool bassActive_ = false;
     std::array<bool, kBands> active_{};
+    bool running_ = false;  // the audio thread's: whether the last process() filtered
 };
 
 }  // namespace geode::audio

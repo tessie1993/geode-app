@@ -250,8 +250,9 @@ class BackupRepository
         /**
          * Replaces [section]'s keys of one prefs file with the backup's, read from [path]. Device-local
          * keys and other sections' keys on this phone are left as they are, and any in the backup are
-         * ignored: restoring Settings keeps the macros, restoring Creative keeps the settings. commit(),
-         * not apply(): the restore must know the write landed before it reports success.
+         * ignored: restoring Settings keeps the macros, restoring Creative keeps the settings. A value of
+         * another type than its key's ([BackupFormat.hasDeclaredType]) is skipped, so the key reads as its
+         * default. commit(), not apply(): the restore must know the write landed before it reports success.
          */
         @SuppressLint("ApplySharedPref")
         private fun restorePrefs(
@@ -261,7 +262,10 @@ class BackupRepository
         ) {
             val file = File(stagedDir, path)
             if (!file.isFile) return
-            val values = PrefsJson.decode(file.readText()).filterKeys { BackupFormat.sectionOfKey(name, it) == section }
+            val values =
+                PrefsJson.decode(file.readText()).filter { (key, value) ->
+                    BackupFormat.sectionOfKey(name, key) == section && BackupFormat.hasDeclaredType(name, key, value)
+                }
             val prefs = prefsFile(name)
             val editor = prefs.edit()
             for (key in prefs.all.keys) {

@@ -58,7 +58,7 @@ const std::vector<Section>& sectionTable() {
          {},
          // MacroStore.KEYS + LfoStore.KEYS + PaletteStackStore.KEYS + LookStore.LAYER_KEYS
          {{kGeneral,
-           {"macro_bank", "lfos", "adsrs", "reactions", "reactions_hand", "palette_stack", "customize_layer"}}}},
+           {"macro_bank", "lfos", "adsrs", "reactions", "reactions_hand", "reactions_unread", "palette_stack", "customize_layer"}}}},
         {"music", {kFavourites}, {"music-playlists", "smart-playlists"}, {"library.json", "history.json"}, {}},
         {"milk", {}, {"milk"}, {}, {}},
     };

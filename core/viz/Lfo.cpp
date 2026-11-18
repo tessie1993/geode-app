@@ -119,13 +119,15 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
     constexpr float kEaseSeconds = 0.5f;
     const float n = std::clamp(c.beats, 1.0f, 32.0f);
     const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;
-    // The free clock keeps the last measured tempo, so silence runs on, never stops.
+    // Unlocked, the free clock runs on the tempo the music still reports; at bpm 0 oscillator() runs the slot on its own period.
     const float hz = safety::limitLfoRate(lastBpm_ / 60.0f / n, c.target);
     const bool limited = hz < lastBpm_ / 60.0f / n;
     float ph;
     if (locked && !limited) {
         // beatCount wraps at 4096, a multiple of 32, so the position stays continuous across the wrap.
-        const float pos = std::fmod(sound.beatCount + sound.beatPhase, n) / n;
+        // A non-finite clock holds the last position: NaN would stay in syncFree_ for good.
+        const float beat = sound.beatCount + sound.beatPhase;
+        const float pos = std::isfinite(beat) ? std::fmod(beat, n) / n : syncFree_[i];
         if (!syncLocked_[i]) {
             const float d = syncFree_[i] - pos;
             syncJump_[i] = d - std::round(d);
@@ -158,12 +160,13 @@ float LfoEngine::held(int i, std::uint32_t cycle) const {
 }
 
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
-    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
+    // bpm 0 is no tempo (none heard yet, or a whole window without a beat): nothing is kept to stand in for it.
+    lastBpm_ = sound.bpm > 0.0f ? sound.bpm : 0.0f;
     float ph;
-    // Beat timing needs a tempo the music gave: before the first one the slot runs on its own period. A slot on a
-    // moment runs on its own period from each one.
+    // Beat timing needs a tempo the music gives: without one the slot runs on its own period, on from where the
+    // beat left it. A slot on a moment runs on its own period from each one.
     if (c.beats >= 1.0f && lastBpm_ > 0.0f && c.moment < 0) {
-        ph = syncedPhase(i, c, dt, sound);
+        ph = phases_[i] = syncedPhase(i, c, dt, sound);
     } else {
         const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
         const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
@@ -199,7 +202,8 @@ float LfoEngine::follow(int i, float value, float dt) {
 }
 
 float LfoEngine::followBipolar(int i, float value, float dt) {
-    const float target = std::clamp(value, -1.0f, 1.0f);
+    // A non-finite field is no signal: clamp passes NaN, which would hold followed_ for good.
+    const float target = std::clamp(std::isfinite(value) ? value : 0.0f, -1.0f, 1.0f);
     const float tau = target > followed_[i] ? kFollowRiseSeconds : kFollowFallSeconds;
     followed_[i] += (target - followed_[i]) * std::clamp(dt / tau, 0.0f, 1.0f);
     return followed_[i];

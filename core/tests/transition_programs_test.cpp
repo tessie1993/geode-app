@@ -69,6 +69,7 @@ struct Context {
     std::map<GLuint, std::map<std::string, std::vector<float>>> uniforms;
     GLuint program = 0;
     int compiles = 0;
+    int locationQueries = 0;
 };
 
 Context gl;
@@ -122,6 +123,7 @@ void glGetProgramInfoLog(GLuint, GLsizei, GLsizei* length, GLchar*) {
 }
 // Every name has a location on a live program: the model does not parse the shader.
 GLint glGetUniformLocation(GLuint program, const GLchar* name) {
+    ++fake::gl.locationQueries;
     if (fake::gl.programs.count(program) == 0) return -1;
     auto& names = fake::gl.locations[program];
     const auto it = std::find(names.begin(), names.end(), name);
@@ -242,11 +244,35 @@ void aRebuiltTransitionGetsItsParamsAgain() {
     check(hasAmount(rebuilt), "the rebuilt program gets its params again");
 }
 
+// Kills a per-frame name lookup: an interned uniform is asked of the driver once per program, then read from
+// a slot; a rebuilt program (a new UniformCache) asks again, so it never reads the old program's locations.
+void anInternedUniformIsResolvedOncePerProgram() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    UniformCache& base = programs.programFor("fade");
+    const GLint first = base.loc(Uniform::uTime);
+    const int asked = fake::gl.locationQueries;
+    for (int frame = 0; frame < 100; ++frame) check(base.loc(Uniform::uTime) == first, "a slot returns the location it resolved");
+    check(fake::gl.locationQueries == asked, "later frames do not ask the driver again");
+    check(base.loc(std::string_view("uTime")) == first, "the interned and the named lookups agree");
+    check(base.arrayCount(Uniform::uKnob, 6) == base.arrayCount("uKnob", 6), "the interned and the named array counts agree");
+    check(base.loc(Uniform::uProgress) != first, "two names get two locations");
+
+    UniformCache elsewhere(base.program() + 100);
+    const int before = fake::gl.locationQueries;
+    check(elsewhere.loc(Uniform::uTime) == -1, "a program the driver does not have reports no location");
+    check(fake::gl.locationQueries == before + 1, "a new UniformCache resolves again instead of reusing another program's slot");
+}
+
 }  // namespace
 
 int main() {
     aTransitionThatFailsToBuildIsTriedOncePerContext();
     aRebuiltTransitionGetsItsParamsAgain();
+    anInternedUniformIsResolvedOncePerProgram();
     if (failures != 0) {
         std::printf("%d transition programs check(s) failed\n", failures);
         return 1;

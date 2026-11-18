@@ -143,6 +143,7 @@ void Renderer::readSound(const sound::SharedAnalysis& heard, float dt, float fad
     const bool paused =
         position >= 0 && listenStillSeconds_ > kListenStillSeconds && sound::interp::FrameReader::starved(analysis);
     if (paused) position = std::max(position, analysis.newestPosition());
+    trimmedValid_ = false;
     const bool heardNow = paused ? soundReader_.readStill(analysis, soundFrame_, soundEmotion_, soundHits_)
                                  : soundReader_.read(analysis, position, soundFrame_, soundEmotion_, soundHits_);
     if (heardNow) soundHeard_ = true;
@@ -208,6 +209,17 @@ Scene* Renderer::resolveActiveScene() {
     return activeScene_;
 }
 
+const GeodeSoundFrame& Renderer::trimmedSound(const SceneParams& p) {
+    if (bandTrimsAreIdentity(p)) return soundFrame_;
+    const std::array<float, 3> key{p.bassGain, p.midGain, p.trebGain};
+    if (!trimmedValid_ || key != trimmedKey_) {
+        bandTrimInto(soundFrame_, p, trimmedSound_);
+        trimmedKey_ = key;
+        trimmedValid_ = true;
+    }
+    return trimmedSound_;
+}
+
 SceneParams Renderer::resolveParams(float dt, float wallDt) {
     SceneParams requested;
     {
@@ -253,7 +265,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
-        resolver_.step(requested, bandTrimmed(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
+        resolver_.step(requested, trimmedSound(requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) {
         // The intent first, so a take that sees the count finds the moment's intent with it.
         {
@@ -409,7 +421,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         glClear(GL_COLOR_BUFFER_BIT);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        layerScene_->update(bandTrimmed(soundFrame_, p), dt);
+        layerScene_->update(trimmedSound(p), dt);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(timeSeconds_);
     }
@@ -423,7 +435,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
-            outgoingScene_->update(bandTrimmed(soundFrame_, op), dt);
+            outgoingScene_->update(trimmedSound(op), dt);
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(timeSeconds_);
         }
@@ -460,7 +472,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     scene.setParams(p);
     deliverPcm(scene);
-    scene.update(bandTrimmed(soundFrame_, p), dt);
+    scene.update(trimmedSound(p), dt);
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(timeSeconds_);
@@ -718,7 +730,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
-    overlays_.stepFlow(bandTrimmed(soundFrame_, p), dt, fp);
+    overlays_.stepFlow(trimmedSound(p), dt, fp);
 }
 
 GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
@@ -767,7 +779,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     glClear(GL_COLOR_BUFFER_BIT);
     next->setParams(p);
     deliverPcm(*next);
-    next->update(bandTrimmed(soundFrame_, p), dt);
+    next->update(trimmedSound(p), dt);
     const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
     next->draw(timeSeconds_);
     return bornFbo_.tex();

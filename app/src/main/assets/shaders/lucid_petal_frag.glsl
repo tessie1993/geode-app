@@ -292,7 +292,7 @@ void main() {
         if (fld.mat > 0.5) {
             float along = clamp((r / fld.a.z - gRin) / max(gRtip - gRin, 0.1), 0.0, 1.0);
             float across = clamp(abs(fld.a.w) / max(gW, 0.05), 0.0, 1.0);
-            float edge = (1.0 - 0.65 * across * across) * smoothstep(1.0, 0.7, along) * (0.55 + 0.45 * smoothstep(0.0, 0.2, along));
+            float edge = (1.0 - 0.65 * across * across) * (1.0 - smoothstep(0.7, 1.0, along)) * (0.55 + 0.45 * smoothstep(0.0, 0.2, along));
             vec3 surf = albedo * (0.10 + 0.55 * dif) * ao;
             surf *= 0.3 + 0.7 * edge;
             // Light from down the corridor through the thin petal, strongest at its base.
@@ -300,7 +300,7 @@ void main() {
 
             // Play of colour: small saturated cells fixed to the petal.
             vec3 c = lucidCells(q * 3.0 + nz.xy, 0.9);
-            float fleck = smoothstep(0.35, 0.05, c.x) * step(0.55, c.z);
+            float fleck = (1.0 - smoothstep(0.05, 0.35, c.x)) * step(0.55, c.z);
             surf += pal(c.z * 2.0 + nz.w + hue) * fleck * (0.3 + 0.35 * clamp(mid, 0.0, 1.0)) * lucidSpan(N.glow, 1.0, 0.4, 1.6) * edge;
             surf += pal(hue + 0.5 + 0.3 * nz.w) * fres * 0.15 + vec3(spec) * 0.18 * ao;
 

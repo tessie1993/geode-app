@@ -111,7 +111,7 @@ void keys() {
     for (const char* k : {"macro_knobs", "macro_locks", "macro_presets"}) {
         check(sectionOfKey("geode-prefs", k).empty(), std::string(k) + " is neither backed up nor restored");
     }
-    for (const char* k : {"lfos", "adsrs", "reactions", "reactions_hand", "palette_stack", "customize_layer"}) {
+    for (const char* k : {"lfos", "adsrs", "reactions", "reactions_hand", "reactions_unread", "palette_stack", "customize_layer"}) {
         check(sectionOfKey("geode-prefs", k) == "creative", std::string("borrowed ") + k);
     }
     for (const char* k : {"perf_render_scale", "perf_fps_cap", "perf_march_scale", "perf_post_fx", "perf_adaptive",

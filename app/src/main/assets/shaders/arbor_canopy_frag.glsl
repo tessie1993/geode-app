@@ -152,7 +152,7 @@ void main() {
         float dap = smoothstep(0.42, 0.62, fbm3(vec3(p.xz * 1.4, t * 0.05), 2));
         vec3 base;
         if (mat < -0.5) {
-            float path = smoothstep(1.9, 1.3, abs(p.x));
+            float path = 1.0 - smoothstep(1.3, 1.9, abs(p.x));
             base = mix(mix(vec3(0.16, 0.22, 0.08), pal(hue) * 0.3, 0.4), vec3(0.42, 0.34, 0.24), path);
             col = base * (0.35 + 0.7 * dap * lit.x) * ao;
         } else {
@@ -171,7 +171,7 @@ void main() {
     col += haze * shafts * (0.12 + 0.1 * swell) * glow;
 
     col *= 0.85 + 0.2 * swell;
-    col *= 0.75 + 0.25 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     // k0 PULSE: the emission, as lib_flame's finish.
     col *= emit;
     fragColor = vec4(grade(col), 1.0);

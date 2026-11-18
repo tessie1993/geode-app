@@ -2606,6 +2606,32 @@ void beatTimedLfoWithNoTempoRunsOnItsOwnSeconds() {
     check(std::fabs(prev - 1.0f) < 0.05f || std::fabs(prev + 1.0f) < 0.05f, "... and is at the end of its fourth turn after 12 s");
 }
 
+// A tempo gone is no tempo: once the music reports bpm 0 again (a whole window without a beat, the next track
+// not heard yet), a beat-timed slot runs on its own seconds (5 s here: four turns in 20 s), on from where the
+// beat left it, never on at the old tempo (4 beats at 141 BPM would turn it nearly twelve times).
+void beatTimedLfoDropsAGoneTempo() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Saw, 5.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    const double dt = 1.0 / 60.0;
+    double beats = 3.0;
+    float prev = 0.0f;
+    for (int i = 0; i < 60 * 10; ++i) {
+        beats += dt * 141.0 / 60.0;
+        prev = e.tick(static_cast<float>(dt), clockAt(beats, 141.0f))[0];
+    }
+    const GeodeSoundFrame quiet = silence();
+    int wraps = 0;
+    float worst = 0.0f;
+    for (int i = 0; i < 60 * 20; ++i) {
+        const float v = e.tick(static_cast<float>(dt), quiet)[0];
+        if (v < prev - 1.0f) wraps++;
+        else worst = std::max(worst, std::fabs(v - prev));
+        prev = v;
+    }
+    check(wraps >= 3 && wraps <= 5, "a beat-timed wave whose tempo is gone turns on its own seconds");
+    check(worst < 0.05f, "... and carries on from where the beat left it, with no jump");
+}
+
 void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
     LfoEngine a, g;
     a.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Random, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
@@ -2667,6 +2693,11 @@ void bandTrimsReachEveryBandRead() {
     check(t.mid == 0.6f && t.midAtt == 0.45f && t.middle == 0.3f && t.midPresence == 0.2f && t.fluxMid == 0.75f, "Mid gain trims every mid read");
     check(t.treble == 0.0f && t.high == 0.0f && t.treblePresence == 0.0f && t.fluxHigh == 0.0f, "Treble gain trims every treble read");
     check(t.kickEnv == f.kickEnv && t.bassTime == f.bassTime, "the trims leave drums and clocks alone");
+    GeodeSoundFrame into{};
+    bandTrimInto(f, p, into);
+    check(into.bass == t.bass && into.fluxMid == t.fluxMid && into.high == t.high && into.bassTime == t.bassTime,
+          "trimming into a held frame gives the frame bandTrimmed returns");
+    check(bandTrimsAreIdentity(SceneParams{}) && !bandTrimsAreIdentity(p), "only a trim away from 1 is not the identity");
 }
 
 int main() {
@@ -2755,6 +2786,7 @@ int main() {
     beatTimedLfoIsAtZeroOnMultiples();
     beatTimedLfoSurvivesTempoChangeAndSilence();
     beatTimedLfoWithNoTempoRunsOnItsOwnSeconds();
+    beatTimedLfoDropsAGoneTempo();
     randomLfoStepsOnTheBeatAndGlideIsContinuous();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

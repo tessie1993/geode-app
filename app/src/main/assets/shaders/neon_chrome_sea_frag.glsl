@@ -210,10 +210,10 @@ vec3 ocMandala(vec2 p) {
         float d = abs(r - petal) / R;
         col += neon(0.25 * fi + 0.4) * exp(-d * 24.0) * 1.2;
         float d2 = abs(q.y - q.x * tan(0.2 + 0.1 * fi)) / max(r, 1e-3);
-        col += neon(0.25 * fi + 0.7) * exp(-d2 * 160.0) * smoothstep(R * 0.5, R, r) * smoothstep(R * 2.2, R * 1.2, r) * 0.3;
+        col += neon(0.25 * fi + 0.7) * exp(-d2 * 160.0) * smoothstep(R * 0.5, R, r) * (1.0 - smoothstep(R * 1.2, R * 2.2, r)) * 0.3;
     }
     col += neon(0.55) * exp(-r * 18.0) * 1.5;
-    return col * smoothstep(0.75, 0.45, r);
+    return col * (1.0 - smoothstep(0.45, 0.75, r));
 }
 
 /** The pattern ocMandala through lib_shell's hooks: exactly ocMandala(uv) at rest, and ocMandala read once, in a loop the compiler cannot unroll. */

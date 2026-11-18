@@ -305,7 +305,7 @@ void main() {
     if (uStyle == 2) {
         // Drumhead: the membrane is CLAMPED at its rim - displacement pinned
         // to zero outside the head, the way a real skin is.
-        h *= smoothstep(1.04, 0.88, length(uv));
+        h *= 1.0 - smoothstep(0.88, 1.04, length(uv));
     } else if (uStyle == 3) {
         // Harmonograph: a second, slowly precessing sample of the same field,
         // superposed - two pendulums drawing over each other.
@@ -502,7 +502,7 @@ void main() {
         vec2 cellId = floor(bp);
         float hc = hash21(cellId);
         vec2 centre = vec2(0.5) + (vec2(hc, fract(hc * 7.31)) - 0.5) * 0.16;
-        float bead = smoothstep(0.30, 0.14, length(fract(bp) - centre));
+        float bead = 1.0 - smoothstep(0.14, 0.30, length(fract(bp) - centre));
         float antinode = smoothstep(0.3, 0.75, az);
         color *= 0.4; // dark chamber
         color += ridge * bead * antinode * live * (0.8 + 0.5 * clamp(uTreble, 0.0, 1.5));

@@ -874,7 +874,7 @@ void main() {
     // A gentle vignette rather than kaleido's full one: this is a lit 3D
     // scene, and crushing the corners to black would eat the outer arcades
     // that give it its scale.
-    col *= 0.55 + 0.45 * smoothstep(2.0, 0.4, length(uv));
+    col *= 0.55 + 0.45 * (1.0 - smoothstep(0.4, 2.0, length(uv)));
 
     fragColor = vec4(grade(col * emission), 1.0);
 }

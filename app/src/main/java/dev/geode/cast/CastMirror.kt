@@ -2,7 +2,7 @@ package dev.geode.cast
 
 import android.os.Handler
 import android.os.Looper
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.engine.bridge.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +57,7 @@ object CastMirror {
         streamingFlow.value = on
     }
 
-    /** What the shell last saw of the stage (the `GeodeNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
+    /** What the shell last saw of the stage (the `StageNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
     @Volatile
     var stageFlags: Int = 0
 
@@ -74,7 +74,7 @@ object CastMirror {
      * (core/viz/StageRun).
      */
     fun directorMoment() {
-        val leads = GeodeNative.stageRun(stageFlags or GeodeNative.STAGE_CASTING) and GeodeNative.STAGE_CAST_LEADS_AUTO != 0
+        val leads = SoundNative.stageRun(stageFlags or SoundNative.STAGE_CASTING) and SoundNative.STAGE_CAST_LEADS_AUTO != 0
         if (leads) main.post { onDirectorMoment?.invoke() }
     }
 

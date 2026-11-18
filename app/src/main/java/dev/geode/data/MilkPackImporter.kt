@@ -1,6 +1,6 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.MilkNative
 import java.io.File
 import java.io.InputStream
 
@@ -32,10 +32,10 @@ object MilkPackImporter {
         var skipped = 0
         val importedPresets = mutableListOf<File>()
         for (entry in entries) {
-            val kind = GeodeNative.milkPackEntryKind(entry.name)
-            if (kind != GeodeNative.MILK_PACK_PRESET && kind != GeodeNative.MILK_PACK_TEXTURE) continue
-            val preset = kind == GeodeNative.MILK_PACK_PRESET
-            val target = File(if (preset) milkDir else textureDir, GeodeNative.milkPackTargetName(entry.name))
+            val kind = MilkNative.milkPackEntryKind(entry.name)
+            if (kind != MilkNative.MILK_PACK_PRESET && kind != MilkNative.MILK_PACK_TEXTURE) continue
+            val preset = kind == MilkNative.MILK_PACK_PRESET
+            val target = File(if (preset) milkDir else textureDir, MilkNative.milkPackTargetName(entry.name))
             val written = if (target.exists()) false else copy(entry, target, if (preset) ReadCap.MILK else ReadCap.TEXTURE)
             when {
                 !written -> skipped++
@@ -66,5 +66,5 @@ object MilkPackImporter {
     fun missesATexture(
         preset: File,
         textureDir: File,
-    ): Boolean = GeodeNative.milkPresetMissesTexture(preset.path, textureDir.path)
+    ): Boolean = MilkNative.milkPresetMissesTexture(preset.path, textureDir.path)
 }

@@ -7,7 +7,7 @@ import dev.geode.data.RecordPrefs
 import dev.geode.data.SaveTarget
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.TrackRef
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.RecorderNative
 import dev.geode.pro.RenderLimits
 import dev.geode.stage.RecordMark
 import dev.geode.stage.Stage
@@ -128,13 +128,13 @@ internal class RecordController(
             ticker =
                 scope.launch {
                     while (isActive) {
-                        val phase = GeodeNative.recordSessionState(started.session)
-                        if (phase >= GeodeNative.RECORD_SESSION_CLOSING) closeTee(started)
-                        if (phase >= GeodeNative.RECORD_SESSION_SAVED) {
-                            scope.launch { finished(started, phase == GeodeNative.RECORD_SESSION_SAVED) }
+                        val phase = RecorderNative.recordSessionState(started.session)
+                        if (phase >= RecorderNative.RECORD_SESSION_CLOSING) closeTee(started)
+                        if (phase >= RecorderNative.RECORD_SESSION_SAVED) {
+                            scope.launch { finished(started, phase == RecorderNative.RECORD_SESSION_SAVED) }
                             break
                         }
-                        _state.update { it.copy(recordedMs = GeodeNative.recorderRecordedMs(started.recorder, GeodeNative.recordNowNs())) }
+                        _state.update { it.copy(recordedMs = RecorderNative.recorderRecordedMs(started.recorder, RecorderNative.recordNowNs())) }
                         delay(TICK_MS)
                     }
                 }
@@ -144,7 +144,7 @@ internal class RecordController(
     /** Ends the recording; the session finishes the file and [finished] saves it. */
     fun stop() {
         val a = active ?: return
-        GeodeNative.recorderStop(a.recorder, GeodeNative.RECORD_STOP_USER, GeodeNative.recordNowNs())
+        RecorderNative.recorderStop(a.recorder, RecorderNative.RECORD_STOP_USER, RecorderNative.recordNowNs())
         closeTee(a)
     }
 
@@ -157,17 +157,17 @@ internal class RecordController(
         val track = host.track()
         return withContext(Dispatchers.IO) {
             val prefs = host.prefs()
-            val recorder = GeodeNative.recorderCreate(width, height, prefs.fps, prefs.maxLengthSec, limits.capMs ?: 0L)
+            val recorder = RecorderNative.recorderCreate(width, height, prefs.fps, prefs.maxLengthSec, limits.capMs ?: 0L)
             if (recorder == 0L) return@withContext null
             val output = files.open(System.currentTimeMillis())
             val shortSide = prefs.quality.shortSide
-            val session = output?.let { GeodeNative.recordSessionOpen(recorder, it.rawFd, width, height, shortSide, prefs.fps) } ?: 0L
+            val session = output?.let { RecorderNative.recordSessionOpen(recorder, it.rawFd, width, height, shortSide, prefs.fps) } ?: 0L
             if (output == null || session == 0L) {
                 output?.finish(keep = false)
-                GeodeNative.recorderDestroy(recorder)
+                RecorderNative.recorderDestroy(recorder)
                 return@withContext null
             }
-            val size = IntArray(2).also { GeodeNative.recordSessionSize(session, it) }
+            val size = IntArray(2).also { RecorderNative.recordSessionSize(session, it) }
             Active(recorder, session, size, output, view, RecordMark(application, limits.watermark, size[0], size[1]), track)
         }
     }
@@ -188,17 +188,17 @@ internal class RecordController(
     ) {
         ticker?.cancel()
         ticker = null
-        val now = GeodeNative.recordNowNs()
-        val recordedMs = GeodeNative.recorderRecordedMs(a.recorder, now)
-        val why = GeodeNative.recorderStopped(a.recorder)
-        val limitMs = GeodeNative.recorderLimitMs(a.recorder)
+        val now = RecorderNative.recordNowNs()
+        val recordedMs = RecorderNative.recorderRecordedMs(a.recorder, now)
+        val why = RecorderNative.recorderStopped(a.recorder)
+        val limitMs = RecorderNative.recorderLimitMs(a.recorder)
         // The handles go only once the stage holds neither; a stage that is gone holds none.
         while (!a.stage.recordClosed) delay(TICK_MS)
-        GeodeNative.recordSessionDestroy(a.session)
-        GeodeNative.recorderDestroy(a.recorder)
+        RecorderNative.recordSessionDestroy(a.session)
+        RecorderNative.recorderDestroy(a.recorder)
         if (active === a) active = null
         _state.update { it.copy(recording = false, recordedMs = 0L) }
-        val keep = saved && GeodeNative.recordWorthKeeping(recordedMs)
+        val keep = saved && RecorderNative.recordWorthKeeping(recordedMs)
         val uri = withContext(Dispatchers.IO) { a.output.finish(keep) }
         val title = a.track?.title?.takeIf { it.isNotBlank() } ?: application.getString(R.string.record_default_name)
         when {
@@ -221,10 +221,10 @@ internal class RecordController(
         limitMs: Long,
     ): String? =
         when (why) {
-            GeodeNative.RECORD_STOP_MAX_LENGTH ->
+            RecorderNative.RECORD_STOP_MAX_LENGTH ->
                 application.getString(R.string.record_stopped_at_max, recordLengthLabel(application, (limitMs / MS_PER_SECOND).toInt()))
-            GeodeNative.RECORD_STOP_RESIZED -> application.getString(R.string.record_stopped_resized)
-            GeodeNative.RECORD_STOP_FILE_FULL -> application.getString(R.string.record_stopped_full)
+            RecorderNative.RECORD_STOP_RESIZED -> application.getString(R.string.record_stopped_resized)
+            RecorderNative.RECORD_STOP_FILE_FULL -> application.getString(R.string.record_stopped_full)
             else -> null
         }
 

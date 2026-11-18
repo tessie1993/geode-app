@@ -3,7 +3,7 @@ package dev.geode.data
 import android.content.ContentResolver
 import android.net.Uri
 import dev.geode.RingLog
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.TagsNative
 import java.io.FileNotFoundException
 
 data class TrackTags(
@@ -52,7 +52,7 @@ sealed class TagWriteOutcome {
     data object Unsupported : TagWriteOutcome()
 }
 
-/** TagLib behind [GeodeNative.tagsRead] and [GeodeNative.tagsWrite], fed by content URIs. */
+/** TagLib behind [TagsNative.tagsRead] and [TagsNative.tagsWrite], fed by content URIs. */
 object NativeTags {
     private const val TAG = "NativeTags"
     private const val TEXT_FIELDS = 6
@@ -69,7 +69,7 @@ object NativeTags {
         val texts = arrayOfNulls<ByteArray>(TEXT_FIELDS)
         val ints = IntArray(4)
         val gains = FloatArray(4)
-        val mask = GeodeNative.tagsRead(fd, texts, ints, gains)
+        val mask = TagsNative.tagsRead(fd, texts, ints, gains)
         if (mask < 0) return null
 
         fun text(index: Int): String = texts[index]?.toString(Charsets.UTF_8).orEmpty()
@@ -110,7 +110,7 @@ object NativeTags {
             arrayOf(edit.title, edit.artist, edit.album, edit.albumArtist, edit.genre, edit.comment)
                 .map { it.toByteArray(Charsets.UTF_8) }
                 .toTypedArray()
-        return if (GeodeNative.tagsWrite(fd, texts, edit.year, edit.track)) {
+        return if (TagsNative.tagsWrite(fd, texts, edit.year, edit.track)) {
             TagWriteOutcome.Written
         } else {
             TagWriteOutcome.Unsupported

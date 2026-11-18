@@ -8,7 +8,8 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import dev.geode.audio.AudioBus
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.IngestNative
+import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer
 
 /**
@@ -20,15 +21,15 @@ import dev.geode.geodeContainer
  * 2. Otherwise, with the user's say-so, [OutputMixCapture]: whatever any other app is playing.
  *
  * Which of the two, and when to start or stop the capture, is native (`core/sound/SoundSource`):
- * each poll hands [GeodeNative.soundSourceStep] the ring's written-frame counter, whether
+ * each poll hands [SoundNative.soundSourceStep] the ring's written-frame counter, whether
  * capture is permitted and whether it runs, and gets back the source and what to do with the
  * capture, with hysteresis so a ring fed in bursts never flaps it. This class only starts and stops
  * the [OutputMixCapture] it is told to.
  *
  * It also keeps the silence clock behind "rest when silent": one timestamp, the last time sound
  * was heard. The rule itself is native (`core/sound/Silence`): each poll has the ring judge its
- * newest samples ([GeodeNative.pcmRingHeardAt]) on their level, not on whether a
- * player is running, and [GeodeNative.silenceResting] says when the quiet has lasted long enough
+ * newest samples ([IngestNative.pcmRingHeardAt]) on their level, not on whether a
+ * player is running, and [SoundNative.silenceResting] says when the quiet has lasted long enough
  * to rest. Sound coming back wakes it on the next poll.
  *
  * Polled on the main thread at [POLL_MS] only while [start]ed, which the engine does only while
@@ -55,7 +56,7 @@ class SoundSource(
     private var hearOtherApps = false
 
     /** The source rule's state, kept here and handed to native each poll. */
-    private val sourceState = LongArray(GeodeNative.SOUND_SOURCE_STATE_LONGS)
+    private val sourceState = LongArray(SoundNative.SOUND_SOURCE_STATE_LONGS)
 
     private var heardRing = 0L
     private var heardWritten = -1L
@@ -103,26 +104,26 @@ class SoundSource(
         val now = SystemClock.uptimeMillis()
         val app = AudioBus.soundInput
         val answer =
-            GeodeNative.soundSourceStep(
+            SoundNative.soundSourceStep(
                 sourceState,
                 now,
                 ringPresent = app != 0L,
                 ringId = app,
-                ringWritten = GeodeNative.pcmRingWritten(app),
+                ringWritten = IngestNative.pcmRingWritten(app),
                 capturePermitted = hearOtherApps && (capture.running || hasRecordPermission()),
                 captureRunning = capture.running,
             )
-        if ((answer and GeodeNative.SOUND_SOURCE_STOP_CAPTURE) != 0) capture.stop()
-        if ((answer and GeodeNative.SOUND_SOURCE_START_CAPTURE) != 0) {
+        if ((answer and SoundNative.SOUND_SOURCE_STOP_CAPTURE) != 0) capture.stop()
+        if ((answer and SoundNative.SOUND_SOURCE_START_CAPTURE) != 0) {
             val opened = capture.start(context)
             prefs.saveMixRefused(!opened)
-            if (!opened) GeodeNative.soundSourceStartFailed(sourceState, now)
+            if (!opened) SoundNative.soundSourceStartFailed(sourceState, now)
         }
-        val useCapture = (answer and GeodeNative.SOUND_SOURCE_USE_CAPTURE) != 0
+        val useCapture = (answer and SoundNative.SOUND_SOURCE_USE_CAPTURE) != 0
         val chosen = if (useCapture && capture.running) capture.soundInput else app
         input = chosen
         if (chosen != 0L) soundAtMs = heardAt(chosen, now)
-        val nowSilent = GeodeNative.silenceResting(now, soundAtMs)
+        val nowSilent = SoundNative.silenceResting(now, soundAtMs)
         if (nowSilent != silent) {
             silent = nowSilent
             onSilenceChanged()
@@ -140,11 +141,11 @@ class SoundSource(
         ring: Long,
         now: Long,
     ): Long {
-        val written = GeodeNative.pcmRingWritten(ring)
+        val written = IngestNative.pcmRingWritten(ring)
         val fresh = ring == heardRing && written != heardWritten
         heardRing = ring
         heardWritten = written
-        return if (fresh) GeodeNative.pcmRingHeardAt(ring, LEVEL_FRAMES, now, soundAtMs) else soundAtMs
+        return if (fresh) IngestNative.pcmRingHeardAt(ring, LEVEL_FRAMES, now, soundAtMs) else soundAtMs
     }
 
     private companion object {

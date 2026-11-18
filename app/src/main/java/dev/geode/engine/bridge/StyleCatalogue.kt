@@ -4,12 +4,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * What the shell knows about styles: the native catalogue's answers (core/viz/Catalogue), asked through
- * `GeodeNative.catalogue*` and kept, because no answer changes while the process lives and the Customize
+ * `CatalogueNative.catalogue*` and kept, because no answer changes while the process lives and the Customize
  * panel asks the same ones on every recomposition.
  *
  * Nothing here decides anything: which styles exist, their order, which family a style is in, what a
  * retired id became and which control reaches which style are all native's, and so are the names
- * (core/viz/StyleNames, `GeodeNative.styleLabel`); the Pro rule is `pro/FreeTier`.
+ * (core/viz/StyleNames, `CustomizeNative.styleLabel`); the Pro rule is `pro/FreeTier`.
  */
 object StyleCatalogue {
     /**
@@ -49,32 +49,32 @@ object StyleCatalogue {
     }
 
     private object Native : Reads {
-        override fun styleIds(trait: Int): String = GeodeNative.catalogueStyleIds(trait)
+        override fun styleIds(trait: Int): String = CatalogueNative.catalogueStyleIds(trait)
 
         override fun styleHas(
             trait: Int,
             styleId: String,
-        ): Boolean = GeodeNative.catalogueStyleHas(trait, styleId)
+        ): Boolean = CatalogueNative.catalogueStyleHas(trait, styleId)
 
-        override fun pickerNames(): String = GeodeNative.cataloguePickerNames()
+        override fun pickerNames(): String = CatalogueNative.cataloguePickerNames()
 
-        override fun pickerIds(family: String): String = GeodeNative.cataloguePickerIds(family)
+        override fun pickerIds(family: String): String = CatalogueNative.cataloguePickerIds(family)
 
-        override fun resolve(styleId: String): String = GeodeNative.catalogueResolve(styleId)
+        override fun resolve(styleId: String): String = CatalogueNative.catalogueResolve(styleId)
 
-        override fun presetStyle(styleId: String): String = GeodeNative.cataloguePresetStyle(styleId)
+        override fun presetStyle(styleId: String): String = CatalogueNative.cataloguePresetStyle(styleId)
 
-        override fun scopeOf(paramKey: String): String = GeodeNative.catalogueScopeOf(paramKey)
+        override fun scopeOf(paramKey: String): String = CatalogueNative.catalogueScopeOf(paramKey)
 
         override fun reaches(
             scope: String,
             styleId: String,
-        ): Boolean = GeodeNative.catalogueReaches(scope, styleId)
+        ): Boolean = CatalogueNative.catalogueReaches(scope, styleId)
 
         override fun held(
             styleId: String,
             paramKey: String,
-        ): Float = GeodeNative.catalogueOverride(styleId, paramKey)
+        ): Float = CatalogueNative.catalogueOverride(styleId, paramKey)
     }
 
     /** One source's answers. Stores and screens ask from more than one thread, hence the concurrent maps. */
@@ -101,16 +101,16 @@ object StyleCatalogue {
     }
 
     /** Every style, in the order the picker lists them and the stage swipes. */
-    val ids: List<String> get() = ids(GeodeNative.STYLE_ANY)
+    val ids: List<String> get() = ids(CatalogueNative.STYLE_ANY)
 
-    /** The styles with one of `GeodeNative.STYLE_*`'s traits, in the same order. */
+    /** The styles with one of `CatalogueNative.STYLE_*`'s traits, in the same order. */
     fun ids(trait: Int): List<String> = answers.ids(trait)
 
     /** The Styles page's families in order, each with its styles. */
     val picker: Map<String, List<String>> get() = answers.picker
 
     /** True for every look of the Fluid solver, `fluid` itself included; Curl Flow is its own renderer. */
-    fun isFluid(id: String): Boolean = answers.reads.styleHas(GeodeNative.STYLE_FLUID, id)
+    fun isFluid(id: String): Boolean = answers.reads.styleHas(CatalogueNative.STYLE_FLUID, id)
 
     /** The style a saved id opens on: a retired id's replacement, any other id itself. */
     fun resolve(id: String): String = answers.reads.resolve(id)

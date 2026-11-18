@@ -6,6 +6,7 @@ import android.net.ConnectivityManager
 import android.net.LinkAddress
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.view.Surface
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
 import dev.geode.data.LookSnapshot
@@ -21,7 +22,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.locks.LockSupport
 
 /**
- * One cast: the phone's picture into [CastEncoder], served to the TV, a browser through "Show on a computer"
+ * One cast: the phone's picture into the cast's encoders (core/cast/CastEncoder), served to the TV, a browser through "Show on a computer"
  * ([ComputerLink]), or both.
  *
  * The picture is the stage's own (owner: "make sure the app is not rendering twice 2 different things, but
@@ -46,18 +47,23 @@ import java.util.concurrent.locks.LockSupport
  *
  * A browser on "Show on a computer" gets the same picture over WebRTC when it can ([WebRtcLink]): the encoder's
  * own H.264 buffers, copied as they leave the codec (no second render, no second encode), and the same PCM as
- * Opus ([OpusFeed], run only while a browser is connected); its media is encrypted (DTLS-SRTP). Where WebRTC
- * fails the page plays the fMP4 feed as before. The TV keeps HLS.
+ * Opus, run only while a browser is connected; its media is encrypted (DTLS-SRTP). Where WebRTC fails the page
+ * plays the fMP4 feed as before. The TV keeps HLS. The encoders, their thread, the fragmented MP4 and the Opus
+ * encoder's lifetime are native (core/cast/CastEncoder, Fmp4Writer); this thread draws and hands each frame's
+ * sound over.
  *
  * The sound goes to the TV inside the stream (the phone is a silent remote, see [CastController]).
  * Pacing is native (core/viz/frame/FixedRateClock, #572): when a frame is due, its PTS and the audio cut; a stall
  * drops frames, never bursts them. Each frame queues 48 kHz audio up to that cut, from what the ring gained, padded
  * with silence while the music is paused, so the TV's player never waits for audio and picture and sound stay together.
  * That pump is native too (core/output/CastAudioPump, #1150).
+ *
+ * The encoders write into the server and WebRTC by their native handles, so those two are freed only after
+ * the render thread closed the encoders, however late it ends ([freeLinksWhenDone]).
  */
 internal class CastStream(
     context: Context,
-    /** The player's ring handle, 0 for none: only its sound goes to the TV (see [AudioPump]). */
+    /** The player's ring handle, 0 for none: only its sound goes to the TV (core/output/CastAudioPump). */
     private val musicInput: Long,
     private val onFailed: () -> Unit,
 ) {
@@ -85,6 +91,11 @@ internal class CastStream(
 
     @Volatile
     private var running = false
+
+    /** Guards [rendering] and [stopped]: whichever of the render thread's end and [stop] comes last frees the links. */
+    private val links = Any()
+    private var rendering = false
+    private var stopped = false
 
     /** The saved live look, read on [lookReader] whenever the app saves one; null until the first read lands. */
     @Volatile
@@ -120,6 +131,7 @@ internal class CastStream(
         prefsFiles.general.registerOnSharedPreferenceChangeListener(lookListener)
         readSavedLook()
         running = true
+        rendering = true
         thread =
             Thread({ runRenderLoop() }, "cast-render").apply {
                 start()
@@ -133,8 +145,19 @@ internal class CastStream(
         prefsFiles.viz.unregisterOnSharedPreferenceChangeListener(lookListener)
         prefsFiles.general.unregisterOnSharedPreferenceChangeListener(lookListener)
         lookReader.shutdownNow()
+        // Nobody is served from now on, even while a stuck render thread still holds the encoders.
+        server.halt()
+        freeLinksWhenDone(renderEnded = false)
+    }
+
+    /** Frees the server, then WebRTC, once the stream stopped and the render thread closed the encoders. */
+    private fun freeLinksWhenDone(renderEnded: Boolean) {
+        synchronized(links) {
+            if (renderEnded) rendering = false else stopped = true
+            if (rendering || !stopped) return
+        }
+        if (renderEnded) RingLog.note(TAG, "the render thread ended after stop")
         server.stop()
-        // After the server (no new offer) and the render thread (the encoder and Opus feed are released).
         webrtc.close()
     }
 
@@ -179,67 +202,74 @@ internal class CastStream(
     /** The .milk last handed to the fallback renderer; render thread only. */
     private var mirroredMilk: String? = null
 
-    /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
-    val isFrozen: Boolean get() = server.msSinceLastSegment > FROZEN_MS
+    /** Milliseconds since the last segment was cut, 0 before the first; [CastService]'s watchdog reads it. */
+    val segmentAgeMs: Long get() = server.msSinceLastSegment
 
     private fun renderLoop() {
-        val encoder = CastEncoder(server.sink, webrtc::video)
-        val egl = EncoderSurface(encoder.surface)
-        val audio = AudioPump(encoder, musicInput, webrtc)
+        val encoder = GeodeNative.castEncoderOpen(server.native, webrtc.native, musicInput)
+        var surface: Surface? = null
+        var egl: EncoderSurface? = null
         var fallback: CastFallback? = null
         var fallbackDrewNs = 0L
         var tee = 0L
         try {
+            check(encoder != 0L) { "no cast encoder" }
+            val input = GeodeNative.castEncoderSurface(encoder) as? Surface ?: error("no encoder surface")
+            surface = input
+            val out = EncoderSurface(input).also { egl = it }
             // The TV plays the ring as written, not the muted phone's sink: no reader waits for the speaker.
             GeodeNative.playoutSetBypass(PlaybackEngine.playout, true)
-            egl.makeCurrent()
+            out.makeCurrent()
             // The stage's own picture wherever the stage draws; 0 on a driver without the GPU buffer extensions.
-            tee = GeodeNative.castTeeOpen(encoder.width, encoder.height, CastEncoder.FPS)
+            tee = GeodeNative.castTeeOpen(WIDTH, HEIGHT, FPS)
             if (tee == 0L) RingLog.note(TAG, "no tee: the cast renders on its own")
             val teeOpenedNs = System.nanoTime()
             CastMirror.setStreaming(true)
             val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
-            GeodeNative.frameClockStart(clock, CastEncoder.FPS, System.nanoTime())
+            GeodeNative.frameClockStart(clock, FPS, System.nanoTime())
             while (running) {
+                check(!GeodeNative.castEncoderFailed(encoder)) { "the cast encoder failed" }
                 LockSupport.parkNanos(GeodeNative.frameClockWaitNs(clock, System.nanoTime()))
                 val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
                 val now = System.nanoTime()
-                val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, encoder.width, encoder.height)
+                val fromStage = tee != 0L && GeodeNative.castTeeDraw(tee, now, WIDTH, HEIGHT)
                 val stageDraws = GeodeNative.stageRun(CastMirror.stageFlags) and GeodeNative.STAGE_DRAWS != 0
                 if (!fromStage && tee != 0L && GeodeNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
                     // The stage is on screen and its first copy is coming (a new surface stages its scene over
                     // several frames): wait for it rather than have a second renderer show another visual first.
-                    audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
+                    GeodeNative.castEncoderPump(encoder, AudioBus.soundInput, GeodeNative.frameClockAudioUntilUs(clock))
                     continue
                 }
                 if (!fromStage) {
-                    val renderer = fallback ?: fallbackRenderer(encoder).also { fallback = it }
+                    val renderer = fallback ?: fallbackRenderer().also { fallback = it }
                     syncLook(renderer)
                     renderer.draw()
                     fallbackDrewNs = now
-                } else if (fallback != null && now - fallbackDrewNs > FALLBACK_IDLE_NS) {
+                } else if (fallback != null && GeodeNative.castFallbackRelease(now, fallbackDrewNs)) {
                     // The stage has led for a while: give the fallback's scenes and sound engine back.
-                    bestEffort(TAG, "fallback.release()") { fallback?.release() }
+                    bestEffort(TAG, "fallback.release()") { fallback.release() }
                     fallback = null
                 }
-                egl.setPresentationTimeNs(ptsNs)
-                egl.swapBuffers()
-                audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
+                out.setPresentationTimeNs(ptsNs)
+                out.swapBuffers()
+                GeodeNative.castEncoderPump(encoder, AudioBus.soundInput, GeodeNative.frameClockAudioUntilUs(clock))
             }
         } finally {
             CastMirror.setStreaming(false)
             GeodeNative.playoutSetBypass(PlaybackEngine.playout, false)
             if (tee != 0L) bestEffort(TAG, "castTeeClose()") { GeodeNative.castTeeClose(tee) }
             bestEffort(TAG, "fallback.release()") { fallback?.release() }
-            audio.close()
-            egl.release()
-            encoder.release()
+            bestEffort(TAG, "egl.release()") { egl?.release() }
+            bestEffort(TAG, "surface.release()") { surface?.release() }
+            // After the surface is no longer drawn into; then the server and WebRTC may go.
+            GeodeNative.castEncoderClose(encoder)
+            freeLinksWhenDone(renderEnded = true)
         }
     }
 
     /** The renderer that draws while the stage does not; made on this thread, its context current. */
-    private fun fallbackRenderer(encoder: CastEncoder): CastFallback {
-        val renderer = CastFallback(appContext, encoder.width, encoder.height)
+    private fun fallbackRenderer(): CastFallback {
+        val renderer = CastFallback(appContext, WIDTH, HEIGHT)
         // A new renderer starts from the whole look and the stage's preset.
         applied = null
         mirrored = null
@@ -271,89 +301,19 @@ internal class CastStream(
         renderer.look = renderer.look.copy(sceneId = look.sceneId, params = look.params)
     }
 
-    /**
-     * Hands each frame's 48 kHz stereo to the encoders. The sound is native
-     * (core/output/CastAudioPump): the player's ring read, resampled, held and padded with silence to
-     * the frame's audio cut. Only the player's music is sent ([musicInput]); while the microphone or
-     * another app's audio feeds the visuals the TV gets silence (native compares the rings).
-     */
-    private class AudioPump(
-        private val encoder: CastEncoder,
-        musicInput: Long,
-        private val webrtc: WebRtcLink,
-    ) : AutoCloseable {
-        /** The Opus encoder for WebRTC browsers, while one is connected; made and freed here, on the render thread. */
-        private var opus: OpusFeed? = null
-        private var opusIdleSinceNs = 0L
-
-        /** No Opus encoder could be made: the browser gets the picture alone; not tried again this stream. */
-        private var opusMissing = false
-
-        // The pump keeps the ring itself; the player's ring handle is never freed.
-        private var handle = GeodeNative.castAudioCreate(musicInput, CastEncoder.AUDIO_RATE_HZ, CH)
-        private var block = ShortArray(CastEncoder.AUDIO_RATE_HZ * CH)
-
-        fun pump(untilUs: Long) {
-            if (handle == 0L) return
-            val frames = GeodeNative.castAudioPump(handle, AudioBus.soundInput, untilUs)
-            if (frames <= 0) return
-            if (block.size < frames * CH) block = ShortArray(frames * CH)
-            GeodeNative.castAudioRead(handle, block)
-            encoder.queueAudio(block, frames)
-            opusFor(System.nanoTime())?.let { feed -> runCatching { feed.queue(block, frames) } }
-        }
-
-        /** The Opus feed while a browser is on WebRTC; freed once none has been for [OPUS_IDLE_NS]. */
-        private fun opusFor(nowNs: Long): OpusFeed? {
-            if (webrtc.peers > 0) {
-                opusIdleSinceNs = 0L
-                if (opus == null && !opusMissing) {
-                    opus =
-                        runCatching { OpusFeed(webrtc) }
-                            .onFailure {
-                                opusMissing = true
-                                RingLog.note(TAG, "no Opus encoder: ${it.javaClass.simpleName}")
-                            }.getOrNull()
-                }
-                return opus
-            }
-            val feed = opus ?: return null
-            if (opusIdleSinceNs == 0L) opusIdleSinceNs = nowNs
-            if (nowNs - opusIdleSinceNs > OPUS_IDLE_NS) {
-                feed.close()
-                opus = null
-                return null
-            }
-            return feed
-        }
-
-        override fun close() {
-            opus?.close()
-            opus = null
-            if (handle != 0L) GeodeNative.castAudioDestroy(handle)
-            handle = 0L
-        }
-
-        private companion object {
-            const val CH = CastEncoder.CHANNELS
-
-            /** A browser that left may come back (a reload): the Opus encoder waits this long (10 s) before it goes. */
-            const val OPUS_IDLE_NS = 10_000_000_000L
-        }
-    }
-
     /** No Wi-Fi or Ethernet network with an IPv4 address: the TV has nothing to fetch the stream from. */
     class NoLanAddress : IllegalStateException("no Wi-Fi or Ethernet address to serve the TV from")
 
     companion object {
         const val TAG = "CastStream"
 
-        /** Segments arrive every second; five without one is a frozen picture on the TV. */
-        const val FROZEN_MS = 5_000L
-        const val JOIN_MS = 2_000L
+        // width, height, fps: core/viz/frame (CastFormat)
+        private val castFormat = IntArray(GeodeNative.CAST_FORMAT_INTS).also { GeodeNative.castFormat(it) }
+        private val WIDTH = castFormat[0]
+        private val HEIGHT = castFormat[1]
+        val FPS = castFormat[2]
 
-        /** The fallback renderer is freed after the stage has led this long (30 s): it costs scenes and a sound engine. */
-        const val FALLBACK_IDLE_NS = 30_000_000_000L
+        const val JOIN_MS = 2_000L
 
         /**
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active

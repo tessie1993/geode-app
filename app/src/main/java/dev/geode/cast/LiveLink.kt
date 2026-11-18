@@ -6,7 +6,6 @@ import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.nio.ByteBuffer
-import java.nio.channels.WritableByteChannel
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -18,12 +17,12 @@ import kotlin.concurrent.write
  * the only internet use).
  *
  * Everything is native: the listening socket on the phone's own Wi-Fi or Ethernet address (never the wildcard),
- * who is let in, the request parser and its bounds, the segment window, the playlist and every response. This
- * hands the muxer's bytes over ([sink]: Media3's muxer writes to a Java channel), says who the stream is for
+ * who is let in, the request parser and its bounds, the segment window, the playlist and every response, and the
+ * stream itself, which the cast's native encoders write in by [native]. This says who the stream is for
  * ([admit]) and reads back the few values the shell shows or watches.
  *
- * One per [CastStream]. [stop] must run before the stream's [WebRtcLink] closes: the server asks that link for
- * the answer to a browser's offer.
+ * One per [CastStream]. [stop] must run before the stream's [WebRtcLink] closes (the server asks that link for
+ * the answer to a browser's offer) and after the encoders are closed (they write into it).
  */
 internal class LiveLink(
     address: InetAddress,
@@ -34,26 +33,8 @@ internal class LiveLink(
     private var handle: Long =
         GeodeNative.castServerOpen(address.hostAddress.orEmpty(), ipv4(address), prefix, webrtc.native)
 
-    /** Where the muxer writes its fragmented MP4, in whatever pieces it likes. Closing it ends nothing here. */
-    val sink: WritableByteChannel =
-        object : WritableByteChannel {
-            @Volatile
-            private var open = true
-
-            override fun isOpen(): Boolean = open
-
-            override fun close() {
-                open = false
-            }
-
-            override fun write(src: ByteBuffer): Int {
-                val count = src.remaining()
-                val chunk = ByteArray(count)
-                src.get(chunk)
-                lock.read { if (handle != 0L) GeodeNative.castServerWrite(handle, chunk, count) }
-                return count
-            }
-        }
+    /** The native server, which the cast's encoders write into; 0 once stopped. */
+    val native: Long get() = lock.read { handle }
 
     /** Binds and starts serving; throws when the address cannot be bound. */
     fun start() {
@@ -94,6 +75,9 @@ internal class LiveLink(
 
     /** Milliseconds since the last segment was cut; 0 before the first. */
     val msSinceLastSegment: Long get() = state()[GeodeNative.CAST_STATE_SEGMENT_AGE_MS]
+
+    /** Ends every connection and serves nobody more, freeing nothing: the encoders may still write in. */
+    fun halt() = lock.read { if (handle != 0L) GeodeNative.castServerStop(handle) }
 
     /**
      * Ends every connection and frees the server. What it refused and what it could not find are noted once,

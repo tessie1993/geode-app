@@ -405,6 +405,8 @@ private:
     // because the setters are public; in practice one thread does everything.
     mutable std::mutex soundLock_;
     std::shared_ptr<sound::SharedAnalysis> sharedSound_;
+    // sharedSound_ is set, for writeAudio to look without soundLock_ (stored under it).
+    std::atomic<bool> sharedHeard_{false};
     std::shared_ptr<audio::ingest::PcmRing> ownRing_;
     std::shared_ptr<sound::SharedAnalysis> ownSound_;
     sound::SharedAnalysis::Listening ownListening_;  // after ownSound_: it lets go first

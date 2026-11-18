@@ -101,9 +101,11 @@ void Renderer::beginParamMorph(float seconds) {
 
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
-    {
+    // The waveform has its own lock, so the player's thread never waits on the frame's long hold of soundLock_;
+    // a live renderer, which a shared analysis hears for, takes that lock not at all.
+    soundWave_.write(interleaved, frames, channels, sampleRateHz);
+    if (!sharedHeard_.load(std::memory_order_acquire)) {
         std::lock_guard<std::mutex> lock(soundLock_);
-        soundWave_.write(interleaved, frames, channels, sampleRateHz);
         if (!sharedSound_) hearOwn(interleaved, frames, channels, sampleRateHz);
     }
     // MilkDrop's raw PCM is what this renderer just heard (#360): one ring, one cursor, every surface.
@@ -155,6 +157,7 @@ void Renderer::hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis) {
     std::lock_guard<std::mutex> lock(soundLock_);
     if (analysis == sharedSound_) return;
     sharedSound_ = std::move(analysis);
+    sharedHeard_.store(sharedSound_ != nullptr, std::memory_order_release);
     soundReader_.restart();
     if (!sharedSound_) return;
     sharedSound_->thread().setTuning(soundTuning_);

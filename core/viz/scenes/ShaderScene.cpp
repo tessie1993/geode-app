@@ -9,6 +9,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Colour.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/TwistShape.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
 
@@ -233,6 +234,11 @@ void ShaderScene::uploadParams() {
     set1f(Uniform::uDriftY, p.driftY);
     set1f(Uniform::uTile, p.tile);
     set1f(Uniform::uTwist, p.twist);
+    {
+        const TwistShape twist = twistShape(styleVariantSeed(id_), shaderTime_);
+        glUniform2f(uniforms_.loc(Uniform::uTwistCentre), twist.x, twist.y);
+        set1f(Uniform::uTwistBend, twist.bend);
+    }
     set1f(Uniform::uTemperature, p.temperature);
     set1f(Uniform::uSolarize, flag(p.solarize));
     set1f(Uniform::uContrast, p.contrast);

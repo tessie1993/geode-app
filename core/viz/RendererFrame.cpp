@@ -16,6 +16,7 @@
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
+#include "viz/MotionField.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
 #include "viz/SceneTarget.hpp"
@@ -535,6 +536,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.timeSeconds = static_cast<float>(timeSeconds_);
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = postRotationAngle_;
+    in.twistSeed = styleVariantSeed(activeScene_->id());
     in.postBirths = births::compute(static_cast<float>(lifeClock_), fx.life);
     in.quadVao = quadVao_.get();
     in.fx = fx;

@@ -5,6 +5,7 @@
 #include "util/Log.hpp"
 #include "viz/BlueNoise.hpp"
 #include "viz/CompositeGrade.hpp"
+#include "viz/TwistShape.hpp"
 
 namespace geode::viz {
 
@@ -154,6 +155,12 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     p.set1f(Uniform::uPostPixelate, fx.pixelate);
     p.set1f(Uniform::uPostTile, fx.tile);
     p.set1f(Uniform::uPostTwist, fx.twist);
+    {
+        // The composite's picture spans half a unit each side of the middle where the shader scenes' spans one.
+        const TwistShape twist = twistShape(inputs.twistSeed, inputs.timeSeconds);
+        p.set2f(Uniform::uPostTwistCentre, twist.x * 0.5f, twist.y * 0.5f);
+        p.set1f(Uniform::uPostTwistBend, twist.bend);
+    }
     p.set1f(Uniform::uPostBloom, fx.bloom);
     p.set1f(Uniform::uPostPosterize, fx.posterize);
     p.set1f(Uniform::uPostDriftX, fx.driftX);

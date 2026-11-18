@@ -48,6 +48,8 @@ public:
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
         float postRotationAngle = 0.0f;
+        // The playing style's variant seed (styleVariantSeed): where its twist turns from (viz/TwistShape).
+        std::uint32_t twistSeed = 0u;
         // Life's births (viz/Births) for a scene that has no shader to draw them (gate x): all 0 at Life 0.
         std::array<float, births::kFloats> postBirths{};
         GLuint quadVao = 0;

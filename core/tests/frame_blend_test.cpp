@@ -441,6 +441,80 @@ void testExportRates() {
     check(held == 0, "export: a 30 fps frame's triggers are the strongest of the faster frames it spans");
 }
 
+// 5. A paused speaker. Its frames show where the analysis stands and fire only the hops the starved engine ran on
+// silence; the hits the sink still held fire when the speaker plays them, each once, and the silence does not fire again.
+void testPause() {
+    const std::vector<int> triggers = triggerIndices();
+    const std::vector<float> pcm = music(113.0, 4.0);
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, true);
+    FrameReader reader;
+    Truth truth;
+    const int64_t total = static_cast<int64_t>(pcm.size() / 2) - 123;  // not on a hop: the silence stands alone at the head
+    const int64_t lag = 30000;  // the sink's buffer, over a beat long
+    const int64_t step = kRate / 60;
+    GeodeSoundFrame out{};
+    Emotion::State feel{};
+    Hits hits;
+    int64_t written = 0;
+    int64_t speaker = 0;
+    // Playing: the writer a sink's buffer ahead of the speaker.
+    while (written < total) {
+        const int n = static_cast<int>(std::min<int64_t>(step, total - written));
+        ring.writeFloat(pcm.data() + static_cast<size_t>(2 * written), n, 2, kRate);
+        written += n;
+        at.pump(0.0f);
+        truth.collect(at, triggers);
+        speaker = std::max<int64_t>(0, written - lag);
+        reader.read(at, speaker, out, feel, hits);
+    }
+    size_t pending = 0;
+    while (pending < truth.hops.size() && truth.hops[pending].position <= speaker) pending++;
+    int owed = 0;
+    for (size_t h = pending; h < truth.hops.size(); h++) {
+        for (const float v : truth.hops[h].triggers) owed += v > 0.0f ? 1 : 0;
+    }
+    check(owed > 0, "pause: the sink holds hits the speaker has not played");
+    const size_t played = truth.hops.size();
+
+    // Paused: the writer stops, the speaker stands, the analysis runs on silence.
+    const int silenceIndex = static_cast<int>(offsetof(GeodeSoundFrame, silence) / sizeof(float));
+    int early = 0;
+    int silences = 0;
+    bool shown = true;
+    for (int frame = 0; frame < 120; frame++) {
+        at.pump(1.0f / 60.0f);
+        truth.collect(at, triggers);
+        shown = reader.readStill(at, out, feel, hits) && shown;
+        for (const int t : triggers) {
+            if (floats(out)[t] <= 0.0f) continue;
+            if (hits.at[static_cast<size_t>(t)] != written) early++;
+            if (t == silenceIndex) silences++;
+        }
+    }
+    check(truth.hops.size() > played, "pause: the starved engine ran hops on silence");
+    check(shown && early == 0, "pause: a paused frame fires no hit the speaker has not played");
+    check(silences == 1, "pause: the silence fires once, while paused");
+
+    // Resumed: the speaker plays what the sink held.
+    int bad = 0;
+    int again = 0;
+    while (speaker < written) {
+        speaker = std::min(written, speaker + step);
+        reader.read(at, speaker, out, feel, hits);
+        std::vector<float> expect(triggers.size(), 0.0f);
+        for (; pending < played && truth.hops[pending].position <= speaker; pending++) {
+            for (size_t t = 0; t < triggers.size(); t++) expect[t] = std::max(expect[t], truth.hops[pending].triggers[t]);
+        }
+        for (size_t t = 0; t < triggers.size(); t++) {
+            if (floats(out)[triggers[t]] != expect[t]) bad++;
+        }
+        again += out.silence > 0.0f ? 1 : 0;
+    }
+    check(bad == 0 && pending == played, "pause: the hits the sink held fire as the speaker plays them, each once");
+    check(again == 0, "pause: the silence heard while paused does not fire again");
+}
+
 }  // namespace
 
 int main() {
@@ -448,6 +522,7 @@ int main() {
     testHits();
     testShared();
     testExportRates();
+    testPause();
     if (failures == 0) std::printf("frame_blend_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

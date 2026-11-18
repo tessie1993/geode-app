@@ -34,7 +34,8 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/tests`: host tests, built by `.github/workflows/native-host-tests.yml`.
 - Shaders are in `app/src/main/assets/shaders`.
 - The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/MacroBank.cpp`).
-- Today the analysis and the parameter resolver run on the drawing thread (`core/viz/RendererFrame.cpp`).
+- The analysis runs on one thread per ring, shared by every surface that hears the ring (`core/sound/hop/SharedAnalysis.hpp`, `AnalysisThread`); a renderer reads it at the speaker's sample (`core/sound/interp/FrameBlend`). An export runs the same analysis inline.
+- The parameter resolver still runs on the drawing thread (`core/viz/RendererFrame.cpp`).
 
 ## App packages (`app/src/main/java/dev/geode/`)
 
@@ -84,3 +85,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: One Android build setup for every Gradle job (`.github/actions/android-build-setup`, used by seven workflows); `build-lint.yml` and `ship-apk.yml` share one ccache (`ccache-debug-`); `tools/actions-pin-gate.sh` and Dependabot cover `.github/actions`; `ship-apk.yml` and `render-thumbs.yml` give write permission to the one job that writes.
 - 2026-11-18: Which ring a surface with no playback session hears is native (`geode_pcm_ring_set_live`, `geode_pcm_ring_live`, `core/api/geode_ingest_api.cpp`, `pcm_ring_kinds_test.cpp`); the Kotlin `AudioBus` object is gone (`playback/PlaybackEngine.kt`, `wallpaper/SoundSource.kt`, `cast/CastStream.kt`, `cast/CastFallback.kt`, `ui/EnginePlumbing.kt`).
 - 2026-11-18: `wallpaper/OutputMixCapture.kt` no longer imports `Visualizer` (native builds it); its debt line left `tools/audio-kotlin-allowlist.txt`.
+- 2026-11-18: A paused speaker fires only the hops the starved engine ran on silence; the hits the sink still held fire when the speaker plays them (`FrameReader::readStill`, `core/sound/interp/FrameBlend.*`, `core/viz/RendererFrame.cpp`, `frame_blend_test.cpp`).

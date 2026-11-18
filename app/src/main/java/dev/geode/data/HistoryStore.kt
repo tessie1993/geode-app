@@ -130,6 +130,8 @@ class HistoryStore(
     private fun writeNow() {
         if (!readable) return
         runCatching {
+            // Cleared before the snapshot: a listen added after it sets the flag again and is not lost.
+            dirty = false
             val all = snapshot()
             val text =
                 run {
@@ -160,8 +162,8 @@ class HistoryStore(
                     }
                     JSONObject().put("tracks", arr).toString()
                 }
-            if (AtomicWrite.text(file, text)) dirty = false
-        }
+            if (!AtomicWrite.text(file, text)) dirty = true
+        }.onFailure { dirty = true }
     }
 
     companion object {

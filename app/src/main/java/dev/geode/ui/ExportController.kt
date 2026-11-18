@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
+import dev.geode.R
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
@@ -165,8 +166,7 @@ internal class ExportController(
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
                     } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
+                        val detail = "${t.javaClass.simpleName}: ${t.message ?: application.getString(R.string.export_error_no_message)}"
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
@@ -195,8 +195,7 @@ internal class ExportController(
                 host.onStyleLocked()
                 ExportUiState()
             }
-            RenderResult.NothingToRender ->
-                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing)))
+            RenderResult.NothingToRender -> ExportUiState(phase = ExportPhase.Failed(application.getString(R.string.editor_export_nothing)))
         }
 
     /**
@@ -221,7 +220,7 @@ internal class ExportController(
         exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
-        ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
+        ExportRun.begin(application.getString(R.string.render_batch_label, tracks.size))
         ExportService.start(application)
         exportJob =
             ExportRun.launch {
@@ -251,11 +250,15 @@ internal class ExportController(
                 } catch (t: kotlinx.coroutines.CancellationException) {
                     _exportState.value = batch.cancelRest().toUiState()
                     throw t
+                } catch (t: Throwable) {
+                    _exportState.value = ExportUiState(phase = ExportPhase.Failed(t.message ?: t.javaClass.simpleName))
                 } finally {
                     ExportRun.finish()
                 }
             }
     }
+
+    private fun mixClip(uri: Uri) = MixClip(uri, uri.lastPathSegment.orEmpty().substringAfterLast('/'))
 
     private suspend fun renderBatchTrack(
         track: BatchTrack,
@@ -498,8 +501,7 @@ internal class ExportController(
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
                     } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
+                        val detail = "${t.javaClass.simpleName}: ${t.message ?: application.getString(R.string.export_error_no_message)}"
                         _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
@@ -523,13 +525,9 @@ internal class ExportController(
                 try {
                     val audio =
                         if (audioClips.isEmpty()) {
-                            LongFormAudio.SingleTrack(MixClip(trackUri, trackUri.lastPathSegment.orEmpty().substringAfterLast('/')))
+                            LongFormAudio.SingleTrack(mixClip(trackUri))
                         } else {
-                            LongFormAudio.Mix(
-                                audioClips.map { clip ->
-                                    MixClip(clip, clip.lastPathSegment.orEmpty().substringAfterLast('/'))
-                                },
-                            )
+                            LongFormAudio.Mix(audioClips.map(::mixClip))
                         }
                     val name = "beatrealms_loop_${System.currentTimeMillis()}.mp4"
                     val extended =

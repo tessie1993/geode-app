@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "api/geode_export_audio_api.h"
+#include "jni_util.hpp"
 
 namespace {
 
@@ -59,7 +60,7 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportAudioNative_aacJobFail
 }
 
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_ExportAudioNative_aacJobDetail(JNIEnv* env, jobject, jlong job) {
-    return env->NewStringUTF(geode_aac_job_detail(aacJobOf(job)));
+    return geode::jni::utf8String(env, geode_aac_job_detail(aacJobOf(job)));
 }
 
 JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_ExportAudioNative_aacJobProgress(JNIEnv*, jobject, jlong job) {

@@ -446,8 +446,8 @@ void ShaderScene::specializeWorld() {
     drawsCamera_ = uniforms_.loc(Uniform::uCamBasis) >= 0;
 }
 
-void ShaderScene::set1f(const char* name, float value) {
-    const GLint location = uniforms_.loc(name);
+void ShaderScene::set1f(Uniform id, float value) {
+    const GLint location = uniforms_.loc(id);
     if (location != -1) glUniform1f(location, value);
 }
 

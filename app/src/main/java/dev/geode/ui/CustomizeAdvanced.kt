@@ -416,7 +416,7 @@ internal fun AdsrCard(
         CardSubHeader(stringResource(R.string.customize_envelope_shape))
         AdsrSlider(ENV_ATTACK, v, GeodeNative.MOD_ADSR_ATTACK, "adsr.attack", GeodeNative.PARAM_UNIT_SECONDS, onChange)
         AdsrSlider(ENV_DECAY, v, GeodeNative.MOD_ADSR_DECAY, "adsr.decay", GeodeNative.PARAM_UNIT_SECONDS, onChange)
-        AdsrSlider(ENV_SUSTAIN, v, GeodeNative.MOD_ADSR_SUSTAIN, "adsr.sustain", null, onChange)
+        AdsrSlider(ENV_SUSTAIN, v, GeodeNative.MOD_ADSR_SUSTAIN, "adsr.sustain", GeodeNative.PARAM_UNIT_OWN, onChange)
         AdsrSlider(ENV_RELEASE, v, GeodeNative.MOD_ADSR_RELEASE, "adsr.release", GeodeNative.PARAM_UNIT_SECONDS, onChange)
         AdsrSlider(ENV_AMOUNT, v, GeodeNative.MOD_ADSR_AMOUNT, "adsr.amount", GeodeNative.PARAM_UNIT_PERCENT, onChange)
         CardSubHeader(stringResource(R.string.customize_envelope_hold))
@@ -426,7 +426,7 @@ internal fun AdsrCard(
         WordRow(ENV_GATE_SOURCE, "band", v.intAt(GeodeNative.MOD_ADSR_BAND), lockKey = ENV_GATE_SOURCE) {
             onChange(GeodeNative.MOD_ADSR_BAND, it)
         }
-        AdsrSlider(ENV_GATE_LEVEL, v, GeodeNative.MOD_ADSR_GATE_THRESHOLD, "adsr.gateThreshold", null, onChange)
+        AdsrSlider(ENV_GATE_LEVEL, v, GeodeNative.MOD_ADSR_GATE_THRESHOLD, "adsr.gateThreshold", GeodeNative.PARAM_UNIT_OWN, onChange)
         CheckRow(ENV_SUSTAIN_TRACK, v.flagAt(GeodeNative.MOD_ADSR_SUSTAIN_TRACK)) {
             onChange(GeodeNative.MOD_ADSR_SUSTAIN_TRACK, it.wire())
         }

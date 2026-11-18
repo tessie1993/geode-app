@@ -181,8 +181,12 @@ private:
     int64_t bars_ = 0;
     int64_t phrases_ = 0;
     bool phrasePending_ = false;
-    float hopKick_ = 0.0f;   // this hop's kick and snare onset strengths
-    float hopSnare_ = 0.0f;
+    // The accent bands' log levels this hop (kKick, kLow, kSnareBody, kSnareNoise), and around the current
+    // beat each one's lowest level so far and its largest rise from it.
+    static constexpr float kNoLevel = 1e30f;
+    std::array<float, 4> hopLog_{};
+    std::array<float, 4> accentLow_{kNoLevel, kNoLevel, kNoLevel, kNoLevel};
+    std::array<float, 4> accentRise_{};
 
     std::array<Tick, kMaxTicks> ticks_{};
     int tickCount_ = 0;

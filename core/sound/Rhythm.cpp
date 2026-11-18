@@ -40,6 +40,11 @@ constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected
 constexpr float kLatencySeconds = 0.0175f;
 constexpr float kCountWrap = 4096.0f;
 constexpr float kHarmonyLatency = 0.35f;   // a harmonic change is heard this long after the chord moved
+// The bands a beat's accent is read from, in Rhythm::hopLog_ order.
+constexpr std::array<int, 4> kAccentBands = {Rhythm::kKick, Rhythm::kLow, Rhythm::kSnareBody, Rhythm::kSnareNoise};
+// Accents that differ by less than this (log level, about 0.4 dB of power, RMS over the beats) make no
+// pattern: the meter is not read from them.
+constexpr float kMeterFloor = 0.1f;
 
 float wrapHalf(float x) { return x - std::round(x); }
 float frac(double x) { return static_cast<float>(x - std::floor(x)); }
@@ -114,6 +119,9 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
         // change from cfg_.change hops back (kChangeSeconds).
         const size_t slot = static_cast<size_t>(b * cfg_.change + changeHead_);
         const float x = mean > 0.0f ? std::log1p(100.0f * p / mean) : 0.0f;
+        for (size_t i = 0; i < kAccentBands.size(); i++) {
+            if (kAccentBands[i] == b) hopLog_[i] = x;
+        }
         change[b] = std::max(0.0f, x - bandLog_[slot]);
         bandLog_[slot] = x;
         // The beat's evidence is the same change against the shared reference: each band over its own
@@ -128,8 +136,6 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
     bandFluxPeak_[0] = std::max(bandFluxPeak_[0], change[kLow]);
     bandFluxPeak_[1] = std::max(bandFluxPeak_[1], change[kMiddle]);
     bandFluxPeak_[2] = std::max(bandFluxPeak_[2], change[kHigh]);
-    hopKick_ = change[kKick] + 0.5f * change[kLow];
-    hopSnare_ = std::min(change[kSnareBody], change[kSnareNoise]);
 
     localMean_ += (1.0f - std::exp(-dt / kLocalMeanSeconds)) * (odf - localMean_);
     ring_[static_cast<size_t>(ringHead_)] = std::max(0.0f, odf - localMean_);
@@ -332,10 +338,19 @@ void Rhythm::advance() {
         accentBeat_ = nearest;
         kickAccent_ = 0.0f;
         snareAccent_ = 0.0f;
+        accentLow_.fill(kNoLevel);
+        accentRise_ = {};
     }
     if (std::fabs(theta_ - static_cast<double>(nearest)) < 0.15) {
-        kickAccent_ = std::max(kickAccent_, hopKick_);
-        snareAccent_ = std::max(snareAccent_, hopSnare_);
+        // Each band's rise within the beat's window, from its lowest level there: a hit's full rise wherever
+        // it falls between two hops, where a change over a fixed span of hops shorter than the band's rise
+        // measured more or less of it with the hit's place on the hop grid.
+        for (size_t i = 0; i < hopLog_.size(); i++) {
+            accentLow_[i] = std::min(accentLow_[i], hopLog_[i]);
+            accentRise_[i] = std::max(accentRise_[i], hopLog_[i] - accentLow_[i]);
+        }
+        kickAccent_ = accentRise_[0] + 0.5f * accentRise_[1];
+        snareAccent_ = std::min(accentRise_[2], accentRise_[3]);
     }
 
     const int64_t beat = static_cast<int64_t>(std::floor(theta_));
@@ -414,7 +429,7 @@ void Rhythm::measureMeter(int64_t beat) {
     mean /= static_cast<float>(n);
     float spread = 0.0f;
     for (int i = 0; i < n; i++) spread += (accent(beat - i) - mean) * (accent(beat - i) - mean);
-    if (spread < 1e-6f) return;
+    if (spread < kMeterFloor * kMeterFloor * static_cast<float>(n)) return;
     auto explained = [&](int m) {
         std::array<float, 4> slot{};
         for (int i = 0; i < n; i++) slot[static_cast<size_t>(((beat - i) % m + m) % m)] += accent(beat - i);

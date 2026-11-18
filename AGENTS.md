@@ -327,3 +327,5 @@ A line records what was done; it is not a rule.
 - 2026-11-18: The window surface prefers an EGL config with no depth buffer (the 16-bit one is the fallback), and the composite into FBO 0 invalidates the surface's colour and depth first (`core/stage/android/EglWindow.cpp`, `core/viz/RendererFrame.cpp`).
 - 2026-11-18: `arborGrow` runs one map call, not a 6-pass loop, while the grow controls and Life rest (`shaders/lib_arbor_field.glsl`).
 - 2026-11-18: The analysis thread runs at nice -2 on Android, one step below the stage thread (`core/sound/hop/AnalysisThread.cpp`).
+- 2026-11-18: Saving while running: the live look (`data/VizStateStore`) and the background prefs (`ui/BackgroundController`) write through `data/WriteCoalescer` (once the changes pause, at most every 2 s / 1 s through a drag; the look is skipped when equal to what is on disk); the long-track bookmark (`playback/TrackBookmarks`) saves every 20 s and at once on pause.
+- 2026-11-18: `core/viz/ProgramBinaryCache` stamps a used program again only when its stamp is a day old (`core/viz/CacheTouchPolicy.hpp`, `core/tests/cache_touch_policy_test.cpp`), not on every load.

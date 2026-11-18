@@ -267,6 +267,8 @@ internal class CaptureController(
 
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
         if (!hasMicPermission()) {
+            // No capture without the permission: the service and its projection go, as when a start fails below.
+            PlaybackCaptureService.stop(application)
             _externalAudio.update {
                 it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
             }
@@ -352,8 +354,9 @@ internal class CaptureController(
         }
     }
 
+    /** A mic that stopped on its own is reported and forgotten; one [onBackground] paused is not dead, it comes back with the app. */
     fun refreshMicState() {
-        if (!_micState.value.active || IngestNative.micActive()) return
+        if (micPausedInBackground || !_micState.value.active || IngestNative.micActive()) return
         IngestNative.pcmRingBeginEpoch(micRing)
         CastService.setMicWanted(application, false)
         _micState.value = MicState(active = false, failure = CaptureFailure.UNAVAILABLE)

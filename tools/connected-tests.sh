@@ -17,6 +17,8 @@
 #   - Every failure is an instrumentation-process crash: only those tests again, once. A
 #     deterministic crash crashes twice and still fails the job.
 #   - Anything else (an assertion, a timeout in a waitUntil): no retry. That is a real failure.
+#   - A native crash of the app (a "Fatal signal" or a tombstone for its process in the first
+#     attempt's logcat): no retry, whatever the failure looked like. A retry could pass and hide it.
 # A test that passes only on the retry is reported as a ::warning:: so flakes stay visible.
 #
 # Evidence goes to ci-artifacts/ (uploaded by the workflow): each attempt's test results and
@@ -114,6 +116,14 @@ recover_adb() {
 }
 
 run_attempt 1 && exit 0
+
+# The tombstone header names the process ">>> <package> <<<"; libc's "Fatal signal" line ends with
+# "pid <n> (<process name>)", the name cut to its last 15 characters, which still end in app.debug.
+NATIVE_CRASH='>>> com\.beatrealms3d\.app\.debug <<<|Fatal signal .*pid [0-9]+ \([^)]*app\.debug\)'
+if grep -E "$NATIVE_CRASH" "$ART/logcat-attempt1.txt"; then
+    echo "::error title=Native crash::The app crashed natively in the first attempt (logcat above, ci-artifacts/logcat-attempt1.txt): no retry."
+    exit 1
+fi
 
 if grep -qE "$INFRA" "$ART/gradle-attempt1.log"; then
     echo "::warning title=Emulator infra failure::adb lost the device or the run did not complete; retrying the whole suite once."

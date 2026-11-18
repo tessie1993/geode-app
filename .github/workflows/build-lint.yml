@@ -42,7 +42,7 @@ jobs:
         run: |
           docs_only=false
           if git rev-parse -q --verify HEAD^2 >/dev/null; then
-            docs_only=$(git diff --name-only HEAD^1 HEAD | bash tools/ci-docs-only.sh)
+            docs_only=$(git diff --name-only --no-renames HEAD^1 HEAD | bash tools/ci-docs-only.sh)
           fi
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
           echo "docs_only=$docs_only"

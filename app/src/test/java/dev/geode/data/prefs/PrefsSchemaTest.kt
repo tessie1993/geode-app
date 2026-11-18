@@ -135,7 +135,7 @@ class PrefsSchemaTest {
                 val store = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
-                store.saveReactions("reactions/2")
+                store.saveReactions("reactions/2", 0)
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))

@@ -166,19 +166,33 @@ object IngestNative {
     external fun pcmRingMaxWriteFrames(handle: Long): Int
 
     /**
-     * Writes the whole frames in [bytes] bytes of [buffer] from [position], in the machine's byte order,
-     * where they lie (a heap buffer from its array); [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT`
-     * or `_FLOAT`. Returns the frames written, 0 for a read-only heap buffer or an encoding it does not read.
+     * The player's tap writing [handle]: the whole frames in [bytes] bytes of [buffer] from [position], in the format
+     * of the last [pcmTapFlush], where they lie (a heap buffer from its array). Returns the frames written, 0 with
+     * the gate closed ([pcmTapSetOwner]), before a flush, for a read-only heap buffer or an encoding it does not read.
      */
-    external fun pcmRingWriteDirect(
+    external fun pcmTapWrite(
         handle: Long,
         buffer: java.nio.ByteBuffer,
         position: Int,
         bytes: Int,
-        encoding: Int,
-        channels: Int,
-        sampleRate: Int,
     ): Int
+
+    /**
+     * The chain flushed with this format (`AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT` for [encoding]):
+     * native starts a ring epoch while the gate is open, then keeps the format for [pcmTapWrite]. The playback thread.
+     */
+    external fun pcmTapFlush(
+        handle: Long,
+        sampleRate: Int,
+        channels: Int,
+        encoding: Int,
+    )
+
+    /** Opens or closes the tap's gate: closed while a capture of another app writes the ring. Open by default. */
+    external fun pcmTapSetOwner(
+        handle: Long,
+        owns: Boolean,
+    )
 
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)

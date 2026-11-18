@@ -163,6 +163,9 @@ void searchHidesWholePagesAndMatchesWords() {
           "a search hides the whole pages");
     check(rowFor(rows, "PIECE", "@personality") != nullptr, "Personality is found by its words");
     check(!rowFor(rows, "PIECE", "@palette_stack"), "Palette is not found by 'pers'");
+    check(customize::matches("\tpal\t", "Palette") && customize::matches("  ", "") && !customize::matches("Palettes", "Palette") &&
+              customize::matches("Look", "Look") && customize::matches(" a b ", "Make a b"),
+          "match trims the query, blank matches all, whole query is one substring");
     check(customize::matches(" PAL ", "Palette") && !customize::matches("xyz", "Palette") && customize::matches("", "x"), "case-blind match");
 }
 

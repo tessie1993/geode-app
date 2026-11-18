@@ -66,7 +66,8 @@ void followRouteTracksSource() {
     f.kickEnv = 0.8f;
     e.tick(f, 1.0f / 60.0f);
     check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "follow with zero smoothing outputs amount * source");
-    const SceneParams p = e.apply(SceneParams{});
+    SceneParams p;
+    e.apply(p);
     check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
 }
 
@@ -722,7 +723,8 @@ void oddFrameTimesStayFiniteAndBounded() {
         p.camShake = 1.0f;
         for (int i = 0; i < 120; ++i) {
             e.tick(busyFrame(i), dt);
-            const SceneParams q = e.apply(p);
+            SceneParams q = p;
+            e.apply(q);
             rig.step(q, {0.5f, -0.5f}, dt, false);
             for (int r = 0; r < 3; ++r) check(std::isfinite(e.output(r)) && std::fabs(e.output(r)) <= 1.0001f, "route output finite and bounded for odd dt");
         }
@@ -1868,8 +1870,12 @@ void driveScalesTheMagnitudeOfMotion() {
     loudRoutes.tick(fat, 1.0f / 60.0f);
     quietRoutes.tick(pad, 1.0f / 60.0f);
     const float base = SceneParams{}.zoom;
-    const float loudMove = loudRoutes.apply(SceneParams{}).zoom - base;
-    const float quietMove = quietRoutes.apply(SceneParams{}).zoom - base;
+    SceneParams loudMoved;
+    SceneParams quietMoved;
+    loudRoutes.apply(loudMoved);
+    quietRoutes.apply(quietMoved);
+    const float loudMove = loudMoved.zoom - base;
+    const float quietMove = quietMoved.zoom - base;
     check(loudMove > 0.0f && quietMove > 0.0f && quietMove < 0.4f * loudMove, "a route's audio part follows the drive");
 
     MotionField loud;

@@ -469,13 +469,23 @@ SceneParams DirectorReach::applyModulation(const SceneParams& p) const {
     Deal wavesOnly = out_, followOnly = out_;
     for (auto& r : wavesOnly.followers) r.enabled = false;
     for (auto& w : followOnly.waves) w.enabled = false;
-    mix(wavesOnly, mixOut_, wavesOut_.apply(p, waveOutValues_));
-    mix(followOnly, mixOut_, followOut_.apply(p));
+    const auto waved = [&p](const LfoEngine& e, const auto& values) {
+        SceneParams q = p;
+        e.apply(q, values);
+        return q;
+    };
+    const auto followed = [&p](const ReactionEngine& e) {
+        SceneParams q = p;
+        e.apply(q);
+        return q;
+    };
+    mix(wavesOnly, mixOut_, waved(wavesOut_, waveOutValues_));
+    mix(followOnly, mixOut_, followed(followOut_));
     wavesOnly = followOnly = in_;
     for (auto& r : wavesOnly.followers) r.enabled = false;
     for (auto& w : followOnly.waves) w.enabled = false;
-    mix(wavesOnly, mixIn_, wavesIn_.apply(p, waveInValues_));
-    mix(followOnly, mixIn_, followIn_.apply(p));
+    mix(wavesOnly, mixIn_, waved(wavesIn_, waveInValues_));
+    mix(followOnly, mixIn_, followed(followIn_));
 
     SceneParams o = p;
     const auto& schema = SceneParams::schema();

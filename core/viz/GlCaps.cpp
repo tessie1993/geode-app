@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <vector>
 #include <sstream>
 
@@ -94,8 +95,11 @@ std::optional<GlVersion> GlVersion::parse(const std::string& versionString) {
         const size_t start = i;
         while (i < versionString.size() && std::isdigit(static_cast<unsigned char>(versionString[i]))) i++;
         if (i == start) return false;
-        out = std::stoi(versionString.substr(start, i - start));
-        return true;
+        // from_chars, not stoi: a driver's number too long for an int is unparseable, never a throw.
+        const char* first = versionString.data() + start;
+        const char* last = versionString.data() + i;
+        const auto [end, ec] = std::from_chars(first, last, out);
+        return ec == std::errc() && end == last;
     };
     GlVersion v;
     if (!digits(v.major)) return std::nullopt;

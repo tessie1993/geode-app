@@ -35,6 +35,8 @@ constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
 // Wall seconds the feedback pass may sit unused before its targets are freed.
 constexpr float kFeedbackIdleSeconds = 2.0f;
+// Wall seconds the UI blur may sit unused (no sheet over the visual) before its targets are freed.
+constexpr float kUiBlurIdleSeconds = 1.0f;
 // A sum of frame steps lands within this of its whole seconds (60 steps of 1/60 in float).
 constexpr float kStepSumSlack = 1e-4f;
 // A speaker that stands this long is paused (the sound engine's own starve time).
@@ -369,7 +371,11 @@ void Renderer::resolveLayerScene() {
 
 bool Renderer::ensureTargets() {
     if (!fboA_.ensure(renderWidth_, renderHeight_)) return false;
-    if (!fboB_.ensure(renderWidth_, renderHeight_)) {
+    // The outgoing style's target lives only while a transition runs, as the layer's (fboL_) lives only
+    // while a layer draws: made when one starts, released on the frame after it ends.
+    if (!outgoingScene_) {
+        fboB_.release();
+    } else if (!fboB_.ensure(renderWidth_, renderHeight_)) {
         layerScene_ = nullptr;
         outgoingScene_ = nullptr;
         outgoingParams_.reset();
@@ -607,16 +613,19 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         }
     }
     drawSceneTarget(*scene, p, dt);
+    // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
+    trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
     shown = drawPhysics(p, dt, wallDt, shown);
     composite(p, progress, targetFbo, shown);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     if (compositeHook_) compositeHook_(targetFbo, width_, height_);
-    drawUiBlur(targetFbo);
+    drawUiBlur(targetFbo, wallDt);
 }
 
-void Renderer::drawUiBlur(GLuint targetFbo) {
+void Renderer::drawUiBlur(GLuint targetFbo, float wallDt) {
+    uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
     if (offscreen_.load(std::memory_order_relaxed) || !uiBlurOn_.load(std::memory_order_relaxed)) return;
     UiBlurRegion region;
     {

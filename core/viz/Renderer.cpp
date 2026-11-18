@@ -597,7 +597,7 @@ void Renderer::applyRenderScale() {
     }
     overlays_.resize(renderWidth_, renderHeight_);
     fboA_.ensure(renderWidth_, renderHeight_);
-    fboB_.ensure(renderWidth_, renderHeight_);
+    if (outgoingScene_) fboB_.ensure(renderWidth_, renderHeight_);
 }
 
 float Renderer::supersampleFactor(int width, int height) {
@@ -697,7 +697,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
     };
     if (shed.passTargets) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
-        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        // sides and their display alone are five screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
         divePass_.releaseTarget();
         trailPass_.releaseTargets();

@@ -373,6 +373,13 @@ internal class MusicLibraryRepository(
 
     override fun removeMediaRoot(uriStr: String) {
         _mediaRoots.update { it - uriStr }
+        // Gives back the grant importFolder kept; one never released is a permission leak.
+        runCatching {
+            application.contentResolver.releasePersistableUriPermission(
+                Uri.parse(uriStr),
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
         libraryPrefs.edit().putStringSet(KEY_ROOTS, _mediaRoots.value).apply()
     }
 

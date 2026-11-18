@@ -202,7 +202,6 @@ class LoopExtend(
             val completed = target.descriptor.use { mux(it, reel, plan, soundtrack, onProgress, isCancelled) }
             finish(target, completed, plan)
         } catch (e: Exception) {
-            // MediaMuxer.stop() throws a plain RuntimeException when the disk is full.
             discard(target)
             if (e is CancellationException) throw e
             Result.Failed(

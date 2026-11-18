@@ -97,7 +97,6 @@ internal class RecordController(
     private var active: Active? = null
     private var waiting: Waiting? = null
     private var ticker: Job? = null
-    /** A stop that came while the recording was still opening: it takes effect once it exists. */
     private var stopRequested = false
 
     /** The stage on screen, or null once it goes; a recording without its stage stops. */

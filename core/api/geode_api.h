@@ -606,6 +606,10 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
  * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
 GEODE_API void        geode_params_sanitize(const float* in, float* out);
+/* A look's frame `in` (a preset, a template, Reset all) as it replaces the live frame `current`: every slot whose
+ * meta row has kInput (viz/ParamTable.inc: an input preference such as Tilt phone to look, not part of a look) keeps
+ * current's value, every other slot is in's (viz/Params SceneParams::keepInputs). Same wire; out may alias either. */
+GEODE_API void        geode_params_keep_inputs(const float* current, const float* in, float* out);
 /* The scene params object of a preset, shared link, template look or saved live look (viz/ParamsJson), the
  * text the shell's org.json wrote and read. write_json: the n-float geode_viz_set_params frame (n at least
  * geode_viz_param_count) and the two palette slot ids (NULL as "") as compact JSON, valid until the calling

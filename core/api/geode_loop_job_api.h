@@ -32,9 +32,9 @@ GEODE_API void geode_loop_job_add_codec(geode_loop_job*, const char* mime, int t
    AssetFileDescriptor declares (length < 0: none, the whole descriptor). */
 GEODE_API void geode_loop_job_set_track(geode_loop_job*, int fd, int64_t offset, int64_t length);
 /* The renderer's inputs, as geode_viz_create and geode_export_job_begin take them. The asset manager must
-   outlive the run. milk_path NULL: no MilkDrop preset. */
-GEODE_API void geode_loop_job_set_scene(geode_loop_job*, AAssetManager* assets, const char* milk_texture_dir,
-                                        const char* scene_id, const char* milk_path, int entitled);
+   outlive the run. */
+GEODE_API void geode_loop_job_set_scene(geode_loop_job*, AAssetManager* assets,
+                                        const char* scene_id, int entitled);
 /* The look, each part in the frame the geode_viz setter of the same name takes; all copied. The waves,
    envelopes and reactions are the saved texts (reactions NULL: Auto); the tuning is the saved one (NULL: the
    defaults). */

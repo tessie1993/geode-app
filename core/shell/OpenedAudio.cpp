@@ -45,25 +45,6 @@ std::vector<char32_t> trimmed(std::string_view utf8) {
     return std::vector<char32_t>(cps.begin() + static_cast<std::ptrdiff_t>(a), cps.begin() + static_cast<std::ptrdiff_t>(b));
 }
 
-// Kotlin's Char.equals(other, ignoreCase = true) against an ASCII letter: equal after uppercase, or after
-// lowercase of that. The few non-ASCII chars that fold to these four letters are the ones the JVM folds.
-bool foldsTo(char32_t c, char letter) {
-    if (c == static_cast<char32_t>(letter) || c == static_cast<char32_t>(letter - 'a' + 'A')) return true;
-    switch (letter) {
-        case 'i': return c == 0x0131 || c == 0x0130;  // dotless i (upper-cases to I), dotted I (lower-cases to i)
-        case 'k': return c == 0x212A;                 // Kelvin sign (lower-cases to k)
-        default: return false;
-    }
-}
-
-bool isMilkName(const std::optional<std::string>& segment) {
-    if (!segment) return false;
-    const std::vector<char32_t> t = trimmed(*segment);
-    if (t.size() < 5) return false;
-    const size_t n = t.size();
-    return t[n - 5] == U'.' && foldsTo(t[n - 4], 'm') && foldsTo(t[n - 3], 'i') && foldsTo(t[n - 2], 'l') && foldsTo(t[n - 1], 'k');
-}
-
 bool isAudioType(const std::string& type) {
     const size_t semi = type.find(';');
     // Kotlin's trim then lowercase(); the only strings that can match are ASCII, and no non-ASCII char folds
@@ -86,11 +67,10 @@ std::string hex(std::uint8_t b) {
 }  // namespace
 
 OpenedRoute openedAudioRoute(const std::optional<std::string>& action, const std::optional<std::string>& scheme,
-                             const std::optional<std::string>& type, const std::optional<std::string>& lastSegment,
-                             bool fromHistory) {
+                             const std::optional<std::string>& type, bool fromHistory) {
     if (action != std::optional<std::string>("android.intent.action.VIEW") || scheme != std::optional<std::string>("content"))
         return OpenedRoute::NotOurs;
-    const bool audio = type ? isAudioType(*type) : !isMilkName(lastSegment);
+    const bool audio = type ? isAudioType(*type) : true;
     if (!audio) return OpenedRoute::NotOurs;
     return fromHistory ? OpenedRoute::Stale : OpenedRoute::Open;
 }

@@ -217,7 +217,6 @@ static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
 static_assert(frame::kEventClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
-static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
 static_assert(static_cast<int>(BlendMode::Screen) == GEODE_LAYER_BLEND_DEFAULT);
@@ -350,29 +349,6 @@ void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
 
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
     if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
-}
-
-void geode_viz_load_milk_preset(geode_viz* v, const char* path) {
-    if (v && path) v->renderer.loadMilkPreset(path);
-}
-
-void geode_viz_reload_milk_preset(geode_viz* v) {
-    if (v) v->renderer.reloadMilkPreset();
-}
-
-void geode_viz_set_milk_texture_dir(geode_viz* v, const char* dir) {
-    if (v && dir) v->renderer.setMilkTextureDir(dir);
-}
-
-size_t geode_viz_take_milk_preset_loaded(geode_viz* v, char* out, size_t capacity) {
-    if (!v) return 0;
-    const std::string path = v->renderer.takeMilkPresetLoaded();
-    if (out && capacity > 0) {
-        const size_t n = std::min(capacity - 1, path.size());
-        std::memcpy(out, path.data(), n);
-        out[n] = '\0';
-    }
-    return path.size();
 }
 
 int geode_viz_take_director_style_moments(geode_viz* v) {
@@ -606,7 +582,6 @@ public:
     void feedRing() override { geode_viz_feed_ring(&v_, ring_); }
     void render() override { geode_viz_render(&v_, frameSeconds(), 0); }
     std::string lastError() override { return v_.renderer.lastError(); }
-    bool milkPresetLoaded() override { return v_.renderer.milkPresetLoadedPending(); }
     bool directorMomentsPending() override { return v_.renderer.directorStyleMomentsPending(); }
     bool stillReady() override { return std::exchange(v_.stillFresh, false); }
     bool frameRepeated() override { return v_.renderer.frameRepeated(); }
@@ -799,7 +774,7 @@ int geode_auto_pick_among(const char* ids, int on_screen, int director_moment) {
 }
 
 const char* geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
-                            int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style, int sources,
+                            int preset_on_screen, int sources,
                             long long now_ms, int* out2) {
     thread_local std::string picked;
     auto_timer::restart(auto_timer::kRandom, now_ms);
@@ -815,8 +790,7 @@ const char* geode_auto_draw(const char* locked_styles, const char* current_style
     const auto locked = lines(locked_styles);
     const auto pool = auto_plan::pool(lines(geode_catalogue_style_ids(GEODE_STYLE_AUTO_DRAW)),
                                       std::set<std::string>(locked.begin(), locked.end()), text(current_style),
-                                      lines(preset_styles), preset_on_screen, milk_count, milk_on_screen, text(milk_style),
-                                      sources);
+                                      lines(preset_styles), preset_on_screen, sources);
     const int pick = geode_auto_pick_among(pool.ids.c_str(), pool.onScreen, (sources & GEODE_AUTO_DRAW_KEEP_LOOK) ? 1 : 0);
     if (pick < 0 || pick >= static_cast<int>(pool.entries.size())) return nullptr;
     const auto [kind, index] = pool.entries[static_cast<size_t>(pick)];
@@ -1090,7 +1064,7 @@ int geode_viz_set_scene(geode_viz* v, const char* scene_id) {
 }
 
 void geode_viz_set_style_schedule(geode_viz* v, const double* at_ms, const char* const* scene_ids,
-                                  const char* const* milk_paths, int count, const char* const* cut_ids, int cut_count,
+                                  int count, const char* const* cut_ids, int cut_count,
                                   int every_beats, const char* const* locked_ids, int locked_count) {
     if (!v) return;
     std::vector<geode::viz::StyleCue> cues;
@@ -1099,7 +1073,6 @@ void geode_viz_set_style_schedule(geode_viz* v, const double* at_ms, const char*
         geode::viz::StyleCue cue;
         cue.atMs = at_ms[i];
         cue.sceneId = scene_ids[i];
-        cue.milkPath = (milk_paths && milk_paths[i]) ? milk_paths[i] : "";
         cues.push_back(std::move(cue));
     }
     std::vector<std::string> cut;

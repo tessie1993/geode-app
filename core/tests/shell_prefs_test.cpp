@@ -88,10 +88,9 @@ AutoVisualsState base() {
     s.randomIntervalSec = 40;
     s.randomIncludeStyles = true;
     s.randomIncludePresets = false;
-    s.randomIncludeMilk = false;
     s.playlistEnabled = true;
     s.playlistIntervalSec = 25;
-    s.playlist = {{"fluid_a", std::nullopt, std::nullopt, "Fluid"}};
+    s.playlist = {{"fluid_a", std::nullopt, "Fluid"}};
     return s;
 }
 
@@ -108,10 +107,9 @@ void storedValuesWinAndIntervalsClamp() {
     st.playlistIntervalSec = 9999;
     st.randomIncludeStyles = false;
     st.randomIncludePresets = true;
-    st.randomIncludeMilk = true;
     const AutoVisualsState s = autoVisualsApply(base(), st, resolve);
     check(s.randomIntervalSec == 5 && s.playlistIntervalSec == 300, "clamped to native's 5..300");
-    check(!s.randomIncludeStyles && s.randomIncludePresets && s.randomIncludeMilk, "sources");
+    check(!s.randomIncludeStyles && s.randomIncludePresets, "sources");
     st.randomIntervalSec = 5;
     st.playlistIntervalSec = 300;
     const AutoVisualsState edge = autoVisualsApply(base(), st, resolve);
@@ -121,17 +119,17 @@ void storedValuesWinAndIntervalsClamp() {
 void playlistReadFromJson() {
     AutoVisualsStored st;
     st.entriesJson = std::string(
-        R"([{"sceneId":"old_silk","label":"Silk","presetName":"Calm","milkPath":"/m/a.milk"},)"
+        R"([{"sceneId":"old_silk","label":"Silk","presetName":"Calm"},)"
         R"({"sceneId":"","label":"gone"},{"label":"no scene"},"text",null,7,)"
-        R"({"sceneId":"fluid_a"},{"sceneId":"x","label":"","presetName":"","milkPath":""},{"sceneId":42,"label":null}])");
+        R"({"sceneId":"fluid_a"},{"sceneId":"x","label":"","presetName":""},{"sceneId":42,"label":null}])");
     const AutoVisualsState s = autoVisualsApply(base(), st, resolve);
     check(s.playlist.size() == 4, "entries without a scene or not an object are skipped");
     if (s.playlist.size() != 4) return;
     check(s.playlist[0].sceneId == "silk_a" && s.playlist[0].label == "Silk", "scene resolved, label as written");
-    check(s.playlist[0].presetName == std::string("Calm") && s.playlist[0].milkPath == std::string("/m/a.milk"), "preset and milk");
+    check(s.playlist[0].presetName == std::string("Calm"), "preset");
     check(s.playlist[1].sceneId == "fluid_a" && s.playlist[1].label == "fluid_a", "an empty label is the raw scene id");
-    check(!s.playlist[1].presetName && !s.playlist[1].milkPath, "absent preset and milk");
-    check(s.playlist[2].sceneId == "x" && s.playlist[2].label == "x" && !s.playlist[2].presetName && !s.playlist[2].milkPath,
+    check(!s.playlist[1].presetName, "absent preset");
+    check(s.playlist[2].sceneId == "x" && s.playlist[2].label == "x" && !s.playlist[2].presetName,
           "empty strings are none");
     // org.json's optString spells a number or a null as text.
     check(s.playlist[3].sceneId == "42" && s.playlist[3].label == "null", "numbers and nulls read as text");
@@ -171,14 +169,14 @@ void playlistNeedsEntriesToBeEnabled() {
 }
 
 void playlistWritesAsTheKotlinDid() {
-    std::vector<PlaylistEntry> e{{"silk_a", std::string("Calm"), std::nullopt, "Silk \"A\""}, {"fluid_a", std::nullopt, std::string("/m/a.milk"), "F"}};
+    std::vector<PlaylistEntry> e{{"silk_a", std::string("Calm"), "Silk \"A\""}, {"fluid_a", std::string("Soft/Calm"), "F"}};
     const std::string json = autoVisualsEntriesToJson(e);
-    check(json == R"([{"sceneId":"silk_a","label":"Silk \"A\"","presetName":"Calm"},{"sceneId":"fluid_a","label":"F","milkPath":"\/m\/a.milk"}])",
-          "key order sceneId, label, presetName, milkPath; org.json escapes: " + json);
+    check(json == R"([{"sceneId":"silk_a","label":"Silk \"A\"","presetName":"Calm"},{"sceneId":"fluid_a","label":"F","presetName":"Soft\/Calm"}])",
+          "key order sceneId, label, presetName; org.json escapes: " + json);
     AutoVisualsStored st;
     st.entriesJson = json;
     const AutoVisualsState back = autoVisualsApply(base(), st, resolve);
-    check(back.playlist.size() == 2 && back.playlist[0].label == "Silk \"A\"" && back.playlist[1].milkPath == std::string("/m/a.milk"), "round trip");
+    check(back.playlist.size() == 2 && back.playlist[0].label == "Silk \"A\"" && back.playlist[1].presetName == std::string("Soft/Calm"), "round trip");
     check(autoVisualsEntriesToJson({}) == "[]", "empty");
 }
 
@@ -186,15 +184,15 @@ const char* resolveC(const char* id) { return std::string(id) == "old_silk" ? "s
 
 void autoVisualsThroughTheAbi() {
     geode_auto_playlist* p = geode_auto_playlist_read(
-        R"([{"sceneId":"old_silk","label":"Silk","presetName":"Calm"},{"sceneId":"fluid_a","milkPath":"/m/a.milk"},"x"])", resolveC);
+        R"([{"sceneId":"old_silk","label":"Silk","presetName":"Calm"},{"sceneId":"fluid_a","presetName":"Soft"},"x"])", resolveC);
     check(geode_auto_playlist_count(p) == 2, "abi: two entries");
     auto field = [&](int i, int f) {
         const char* v = geode_auto_playlist_field(p, i, f);
         return v ? std::string(v) : std::string("<none>");
     };
-    check(field(0, 0) == "silk_a" && field(0, 1) == "Calm" && field(0, 2) == "<none>" && field(0, 3) == "Silk", "abi: entry 0");
-    check(field(1, 0) == "fluid_a" && field(1, 1) == "<none>" && field(1, 2) == "/m/a.milk" && field(1, 3) == "fluid_a", "abi: entry 1");
-    check(field(2, 0) == "<none>" && field(0, 4) == "<none>" && field(-1, 0) == "<none>", "abi: out of range");
+    check(field(0, 0) == "silk_a" && field(0, 1) == "Calm" && field(0, 2) == "Silk", "abi: entry 0");
+    check(field(1, 0) == "fluid_a" && field(1, 1) == "Soft" && field(1, 2) == "fluid_a", "abi: entry 1");
+    check(field(2, 0) == "<none>" && field(0, 3) == "<none>" && field(-1, 0) == "<none>", "abi: out of range");
     geode_auto_playlist_destroy(p);
     geode_auto_playlist* none = geode_auto_playlist_read(nullptr, resolveC);
     check(geode_auto_playlist_count(none) == 0, "abi: no text, no entries");
@@ -203,27 +201,27 @@ void autoVisualsThroughTheAbi() {
     check(geode_auto_playlist_count(kept) == 1 && std::string(geode_auto_playlist_field(kept, 0, 0)) == "old_silk", "abi: no resolver");
     geode_auto_playlist_destroy(kept);
 
-    const char* fields[] = {"silk_a", "Calm", nullptr, "Silk \"A\"", "fluid_a", nullptr, "/m/a.milk", "F"};
+    const char* fields[] = {"silk_a", "Calm", "Silk \"A\"", "fluid_a", "Soft/Calm", "F"};
     char json[256];
     const int n = geode_auto_playlist_to_json(fields, 2, json, static_cast<int>(sizeof json));
     check(n < static_cast<int>(sizeof json) &&
               std::string(json) ==
-                  R"([{"sceneId":"silk_a","label":"Silk \"A\"","presetName":"Calm"},{"sceneId":"fluid_a","label":"F","milkPath":"\/m\/a.milk"}])",
+                  R"([{"sceneId":"silk_a","label":"Silk \"A\"","presetName":"Calm"},{"sceneId":"fluid_a","label":"F","presetName":"Soft\/Calm"}])",
           "abi: written as the Kotlin did");
     check(geode_auto_playlist_to_json(nullptr, 0, json, static_cast<int>(sizeof json)) == 2 && std::string(json) == "[]", "abi: empty");
 
-    const int state[GEODE_AUTO_SAVED_FIELDS] = {1, 40, 1, 0, 0, 1, 25};
+    const int state[GEODE_AUTO_SAVED_FIELDS] = {1, 40, 1, 0, 1, 25};
     int out[GEODE_AUTO_SAVED_FIELDS] = {};
     const unsigned char none_stored[GEODE_AUTO_SAVED_FIELDS] = {};
     geode_auto_visuals_apply(state, nullptr, none_stored, 1, out);
     check(out[GEODE_AUTO_SAVED_RANDOM_ON] == 0, "abi: the timer always starts off");
-    check(out[1] == 40 && out[2] == 1 && out[3] == 0 && out[4] == 0 && out[5] == 1 && out[6] == 25, "abi: the state kept");
+    check(out[1] == 40 && out[2] == 1 && out[3] == 0 && out[4] == 1 && out[5] == 25, "abi: the state kept");
     geode_auto_visuals_apply(state, nullptr, none_stored, 0, out);
     check(out[GEODE_AUTO_SAVED_PLAYLIST_ON] == 0, "abi: no entries, no playlist");
-    const int stored[GEODE_AUTO_SAVED_FIELDS] = {1, 2, 0, 1, 1, 0, 9999};
-    const unsigned char all[GEODE_AUTO_SAVED_FIELDS] = {1, 1, 1, 1, 1, 1, 1};
+    const int stored[GEODE_AUTO_SAVED_FIELDS] = {1, 2, 0, 1, 0, 9999};
+    const unsigned char all[GEODE_AUTO_SAVED_FIELDS] = {1, 1, 1, 1, 1, 1};
     geode_auto_visuals_apply(state, stored, all, 3, out);
-    check(out[0] == 0 && out[1] == 5 && out[2] == 0 && out[3] == 1 && out[4] == 1 && out[5] == 0 && out[6] == 300,
+    check(out[0] == 0 && out[1] == 5 && out[2] == 0 && out[3] == 1 && out[4] == 0 && out[5] == 300,
           "abi: stored values win, the timer stays off, intervals clamp");
 }
 

@@ -283,12 +283,6 @@ add_library(geode_core STATIC
     viz/scenes/FluidSceneBase.cpp
     viz/scenes/FluidScene.cpp
     viz/scenes/CurlFlowScene.cpp
-    viz/scenes/MilkdropScene.cpp
-    viz/MilkMemory.cpp
-    viz/MilkStarterPack.cpp
-    viz/MilkTextures.cpp
-    viz/android/AssetStarterSource.cpp
-    api/geode_milk_api.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -302,7 +296,7 @@ target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 # nativewindow: AHardwareBuffer, the GPU buffers Cast's tee hands the stage's picture over in (viz/frame/CastTee).
 # mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink), and
 # AMediaExtractor, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
-target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
+target_link_libraries(geode_core PUBLIC tag GLESv3 EGL log android nativewindow mediandk)
 # The playback output's stream (audio/output/OboeOutput.cpp) and the mic's (audio/ingest/android/OboeMic.cpp);
 # found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)

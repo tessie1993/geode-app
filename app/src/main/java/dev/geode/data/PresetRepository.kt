@@ -5,6 +5,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,19 +21,16 @@ data class Preset(
     val decay: Float,
     val customShader: String? = null,
     val params: SceneParams = SceneParams.DEFAULT,
-    val milkPreset: String? = null,
 )
 
 /**
- * The preset folders (files/presets and its sub-folders, with each preset's .milk source in files/milk): bytes and
+ * The preset folders (files/presets and its sub-folders): bytes and
  * folders only. A preset's text both ways, every file name and the list's order are native (core/viz/LookFiles).
  */
 class PresetStore(
     context: Context,
 ) {
     private val dir = File(context.filesDir, "presets").apply { mkdirs() }
-
-    private val milkDir = File(context.filesDir, "milk")
 
     private var migrated = false
 
@@ -48,10 +46,8 @@ class PresetStore(
         jsonFiles().forEach { f ->
             val stem = runCatching { safeFileName(fromJson(f.readText()).name) }.getOrNull() ?: return@forEach
             val target = File(f.parentFile, "$stem.json")
-            if (f.nameWithoutExtension == stem || target.exists() || !f.renameTo(target)) return@forEach
-            val milk = File(milkDir, f.nameWithoutExtension + ".milk")
-            val milkTarget = File(milkDir, "$stem.milk")
-            if (milk.isFile && !milkTarget.exists()) milk.renameTo(milkTarget)
+            if (f.nameWithoutExtension == stem || target.exists()) return@forEach
+            f.renameTo(target)
         }
     }
 
@@ -102,19 +98,6 @@ class PresetStore(
         return findFile(name)
     }
 
-    fun milkFileOf(presetName: String): File = File(milkDir, milkFileName(presetName))
-
-    @WorkerThread
-    fun materializeMilk(
-        presetName: String,
-        source: String?,
-    ): String? {
-        ensureMigrated()
-        val file = milkFileOf(presetName)
-        if (source != null && runCatching { !file.isFile || file.readText() != source }.getOrDefault(true)) AtomicWrite.text(file, source)
-        return file.takeIf { it.isFile }?.absolutePath
-    }
-
     @WorkerThread
     fun list(): List<Preset> {
         ensureMigrated()
@@ -140,15 +123,11 @@ class PresetStore(
         return written
     }
 
-    /** Deletes the preset [name], and its `.milk` while that is still [milkSource] (an imported one of the same name stays). */
+    /** Deletes the preset [name]. */
     @WorkerThread
-    fun delete(
-        name: String,
-        milkSource: String? = null,
-    ) {
+    fun delete(name: String) {
         ensureMigrated()
         findFile(name)?.delete()
-        milkSource?.let { ImportedMilk.removeIfText(milkFileOf(name), it) }
     }
 
     private fun jsonFiles(): List<File> = dir.walkTopDown().filter { it.isFile && it.extension == "json" }.toList()
@@ -170,30 +149,30 @@ class PresetStore(
                     p.attack,
                     p.decay,
                     p.customShader,
-                    p.milkPreset,
                     p.params.frame(),
                     p.params.customPaletteId,
                 ),
             )
 
-        /** A preset's text as native reads it; throws when it is no preset (callers skip it). */
+        /**
+         * A preset's text as native reads it; throws when it is no preset, or names a style this build does
+         * not have (a look saved by a build that had one more), so callers skip it.
+         */
         fun fromJson(json: String): Preset {
             val frame = FloatArray(SceneParams.FIELDS)
-            val strings = arrayOfNulls<String>(5)
+            val strings = arrayOfNulls<String>(4)
             val envelope = FloatArray(2)
             require(LooksNative.presetRead(json, frame, strings, envelope)) { "not a preset" }
+            require(strings[1].orEmpty() in StyleCatalogue.ids) { "no such style" }
             return Preset(
                 name = strings[0].orEmpty(),
                 sceneId = strings[1].orEmpty(),
                 attack = envelope[0],
                 decay = envelope[1],
                 customShader = strings[2],
-                params = SceneParams.read(frame, strings[4].orEmpty()),
-                milkPreset = strings[3],
+                params = SceneParams.read(frame, strings[3].orEmpty()),
             )
         }
-
-        fun milkFileName(presetName: String): String = LooksNative.presetMilkFileName(presetName)
 
         fun safeFileName(name: String): String = fileStem(name)
 
@@ -221,11 +200,8 @@ interface PresetRepository {
         folder: String = "",
     ): Boolean
 
-    /** Deletes the preset [name], with the `.milk` [materializeMilk] wrote for it when that still holds [milkSource]. */
-    suspend fun delete(
-        name: String,
-        milkSource: String? = null,
-    )
+    /** Deletes the preset [name]. */
+    suspend fun delete(name: String)
 
     suspend fun addFolder(path: String)
 
@@ -242,11 +218,6 @@ interface PresetRepository {
     suspend fun refreshFolders()
 
     fun fileOf(name: String): File?
-
-    fun materializeMilk(
-        presetName: String,
-        source: String?,
-    ): String?
 }
 
 class FilePresetRepository(
@@ -266,11 +237,8 @@ class FilePresetRepository(
         return written
     }
 
-    override suspend fun delete(
-        name: String,
-        milkSource: String?,
-    ) {
-        withContext(Dispatchers.IO) { store.delete(name, milkSource) }
+    override suspend fun delete(name: String) {
+        withContext(Dispatchers.IO) { store.delete(name) }
         refreshFolders()
     }
 
@@ -306,9 +274,4 @@ class FilePresetRepository(
     }
 
     override fun fileOf(name: String): File? = store.fileOf(name)
-
-    override fun materializeMilk(
-        presetName: String,
-        source: String?,
-    ): String? = store.materializeMilk(presetName, source)
 }

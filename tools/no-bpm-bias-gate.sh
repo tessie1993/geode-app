@@ -62,7 +62,7 @@ standin+="|$tv\\)?\\.coerceatleast\\([[:space:]]*$num"
 
 types=(--include='*.cpp' --include='*.hpp' --include='*.h' --include='*.inc' --include='*.kt' --include='*.kts'
        --include='*.glsl' --include='*.frag' --include='*.vert' --include='*.md' --include='*.py' --include='*.mjs'
-       --include='*.js' --include='*.html' --include='*.txt' --include='*.milk' --include='*.patch' --include='*.sh'
+       --include='*.js' --include='*.html' --include='*.txt' --include='*.patch' --include='*.sh'
        --include='*.yml' --include='*.yaml' --include='*.json' --include='*.csv' --include='*.tsv'
        --include='*.xml' --include='*.java' --include='*.toml' --include='*.cmake')
 

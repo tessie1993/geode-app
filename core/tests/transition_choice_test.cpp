@@ -5,7 +5,7 @@
 // - "random" never draws "cut", "random" or the transition it drew last, reaches every other id, and falls
 //   back sanely on a catalogue with nothing else in it;
 // - the Customize picker offers every built-in but "cut", then "random";
-// - a change by hand fades for the user's length; Auto's for MilkDrop's 2.7/1.7 of it, never shorter,
+// - a change by hand fades for the user's length; Auto's for 2.7/1.7 of it, never shorter,
 //   never past 5 s;
 // - Auto's mark is read once per reader, only for its own key, only inside the window; a new mark of the
 //   same key is read again.
@@ -63,7 +63,7 @@ int main() {
     check(tc::pickerIds({}) == std::vector<std::string>({"random"}), "with no built-ins only random");
 
     check(tc::durationMs(1200, false) == 1200, "by hand: the user's length");
-    check(tc::durationMs(1700, true) == 2700, "Auto: MilkDrop's 2.7 s for its 1.7 s");
+    check(tc::durationMs(1700, true) == 2700, "Auto: 2.7 s for a 1.7 s length");
     check(tc::durationMs(1200, true) > 1200, "Auto fades longer than a change by hand");
     check(tc::durationMs(4000, true) == tc::kMaxMs, "Auto's fade stops at 5 s");
     check(tc::durationMs(5000, true) == 5000, "Auto never fades shorter than by hand");
@@ -86,9 +86,9 @@ int main() {
     check(marks.take("style_19", 40.0, fresh), "the newest marks are kept");
 
     uint64_t live = 0;
-    tc::markAuto("/milk/a.milk");
-    check(tc::takeAuto("/milk/a.milk", live), "the process-wide mark reaches a reader");
-    check(!tc::takeAuto("/milk/a.milk", live), "and only once");
+    tc::markAuto("fluid_ink");
+    check(tc::takeAuto("fluid_ink", live), "the process-wide mark reaches a reader");
+    check(!tc::takeAuto("fluid_ink", live), "and only once");
 
     if (failures == 0) std::printf("transition_choice_test: all passed\n");
     return failures == 0 ? 0 : 1;

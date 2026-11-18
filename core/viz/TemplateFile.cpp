@@ -80,7 +80,7 @@ int intAt(const Value* source, const char* key, int fallback) {
     return (v ? json::asInt(*v) : std::nullopt).value_or(fallback);
 }
 
-// Present, not null and not empty: a custom shader or a milk preset.
+// Present, not null and not empty: a custom shader.
 std::optional<std::string> textOrNone(const Value* source, const char* key) {
     const Value* v = source ? source->get(key) : nullptr;
     if (!v || v->isNull()) return std::nullopt;
@@ -195,7 +195,6 @@ Value lookValue(const TemplateLook& look) {
         .put("decay", number(look.decay, 0.12f))
         .put("params", paramsValue(look));
     if (look.customShader) out.put("customShader", str(*look.customShader));
-    if (look.milkPreset) out.put("milkPreset", str(*look.milkPreset));
     return out.merge(look.foreign).build();
 }
 
@@ -293,10 +292,11 @@ TemplateLook readLook(const Value* source, const std::string& body) {
     TemplateLook look;
     const std::string scene = textAt(source, "sceneId");
     look.sceneId = catalogue::resolveId(blank(scene) ? catalogue::allIds().front() : scene);
+    // A style this build does not have (one since removed) opens on the default style.
+    if (!catalogue::knows(look.sceneId)) look.sceneId = catalogue::allIds().front();
     look.attack = std::clamp(floatAt(source, "attack", 0.6f), kAttackMin, kAttackMax);
     look.decay = std::clamp(floatAt(source, "decay", 0.12f), kDecayMin, kDecayMax);
     look.customShader = textOrNone(source, "customShader");
-    look.milkPreset = textOrNone(source, "milkPreset");
     const Value* params = objectAt(source, "params");
     if (params) {
         // From the text itself where it is standard JSON, as the preset reader does (viz/LookFiles).

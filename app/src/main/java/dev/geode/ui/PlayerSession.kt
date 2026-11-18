@@ -21,7 +21,6 @@ import dev.geode.data.LibraryState
 import dev.geode.data.LookSource
 import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
-import dev.geode.data.MilkPackImporter
 import dev.geode.data.MusicLibraryRepository
 import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PlayerPrefs
@@ -48,7 +47,6 @@ import dev.geode.data.persistGrant
 import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.data.releaseGrant
 import dev.geode.editor.ProjectId
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.IngestNative
 import dev.geode.engine.bridge.ParamsNative
 import dev.geode.engine.bridge.SoundNative
@@ -60,7 +58,6 @@ import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
-import dev.geode.model.MilkFile
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
 import dev.geode.model.SceneParams
@@ -164,9 +161,6 @@ class PlayerSession internal constructor(
                 }
 
                 override val presetMirrorUri: String? get() = container.library.value.value.presetMirrorUri
-                override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
-
-                override fun onMilkFilesChanged() = milkImport.relist()
             },
         )
 
@@ -181,7 +175,6 @@ class PlayerSession internal constructor(
             storeScope,
             object : TemplateController.Host {
                 override val vizState: StateFlow<VizUiState> get() = _vizState
-                override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
 
                 // Through the session's own applyPreset, not straight to the visual controller: that
                 // is where the Pro style gate sits, so a template on a locked style is refused and
@@ -212,11 +205,8 @@ class PlayerSession internal constructor(
     internal val visual: VisualSettingsController =
         VisualSettingsController(
             vizStateStore,
-            scope,
             object : VisualSettingsController.Host {
                 override val presetMorphSeconds: Float get() = container.visuals.value.value.presetMorphSeconds
-
-                override suspend fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
         )
 
@@ -238,19 +228,6 @@ class PlayerSession internal constructor(
 
     fun setPlayerPrefs(prefs: PlayerPrefs) = settings.setPlayerPrefs(prefs)
 
-    internal val textureController: TextureController =
-        TextureController(
-            application,
-            scope,
-            object : TextureController.Host {
-                override fun onGeneratedPresetsRemoved(paths: List<String>) {
-                    vizStateStore.dropRemovedMilkPaths(paths)
-                    // The MilkDrop page, the stage's step and Auto all read the one list: never a deleted preset.
-                    milkImport.relist()
-                }
-            },
-        )
-
     internal val modulation: ModulationController =
         ModulationController(
             LfoStore(prefsFiles.general),
@@ -268,40 +245,6 @@ class PlayerSession internal constructor(
     val adsrs: StateFlow<String> get() = modulation.adsrs
     val handMask: StateFlow<Int> get() = modulation.handMask
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
-
-    fun importTextures(
-        uris: List<Uri>,
-        onImported: () -> Unit,
-    ) = textureController.importTextures(uris, onImported)
-
-    fun useTexture(
-        name: String,
-        onReady: (String) -> Unit,
-    ) = textureController.useTexture(name, onReady)
-
-    internal val milkImport = MilkImportController(application, container.mediaStore, scope)
-
-    fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkImport.milkPresetFilesAsync(onDone)
-
-    /** Deletes an imported .milk; the stage, Auto and the saved look forget it, as for a removed texture's presets. */
-    fun removeMilkPreset(path: String) = milkImport.removeMilkAsync(path) { vizStateStore.dropRemovedMilkPaths(listOf(it)) }
-
-    fun importMilkPresetAsync(
-        uri: Uri,
-        onDone: (String?) -> Unit,
-    ) = milkImport.importMilkPresetAsync(uri, onDone)
-
-    fun assignMilkTextureAsync(
-        path: String,
-        expected: String,
-        texture: String?,
-        onDone: (List<dev.geode.data.MilkTextureLink>) -> Unit,
-    ) = milkImport.assignTextureAsync(path, expected, texture, onDone)
-
-    fun importMilkFolderAsync(
-        treeUri: Uri,
-        onDone: (MilkPackImporter.Report) -> Unit,
-    ) = milkImport.importMilkFolderAsync(treeUri, onDone)
 
     private var currentUri: Uri? = null
 
@@ -478,17 +421,6 @@ class PlayerSession internal constructor(
                 override fun applyPreset(preset: Preset) {
                     if (allowsStyle(preset.sceneId)) visual.applyPreset(preset)
                 }
-
-                override fun applyMilk(
-                    path: String,
-                    sceneId: String,
-                ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
-
-                override val milkFiles: List<MilkFile> get() = milkImport.files.value
-
-                override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
-
-                override fun relistMilk() = milkImport.relist()
             },
         )
 
@@ -722,43 +654,27 @@ class PlayerSession internal constructor(
      * Randomize everything, the two-circle gesture: a new style, a preset for it, every Customize
      * category rolled. Native decides all of it from one seed (core/viz/RandomizeAll): the style among
      * those [allowsStyle] lets the user keep (Auto's rule, so the paywall never opens), a saved or
-     * bundled preset made for it, else on MilkDrop a .milk file, then the roll over that look with
+     * bundled preset made for it, then the roll over that look with
      * Customize's kept controls held. This only lists what the shell knows and applies the pick through
      * [applyPreset] or [selectScene]. [basicsOnly] (no Pro) is the dice's free rule: the free Basics roll.
      */
     fun randomizeEverything(basicsOnly: Boolean) {
-        // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
-        if (allowsStyle(CatalogueNative.STYLE_MILKDROP)) {
-            milkPresetFilesAsync { randomizeEverything(basicsOnly, it) }
-        } else {
-            randomizeEverything(basicsOnly, emptyList())
-        }
-    }
-
-    private fun randomizeEverything(
-        basicsOnly: Boolean,
-        milk: List<MilkFile>,
-    ) {
         val seed = Random.nextLong()
         val viz = _vizState.value
         val locked = StyleCatalogue.ids.filterNot(allowsStyle)
-        val picks = IntArray(2)
+        val picks = IntArray(1)
         val style =
             ParamsNative.randomizeAllPick(
                 seed,
                 chosenSceneId,
                 locked.joinToString("\n"),
                 viz.presets.joinToString("\n") { it.sceneId },
-                milk.size,
                 picks,
             ) ?: return
         val preset = viz.presets.getOrNull(picks[0])
         if (preset != null) applyPreset(preset) else selectScene(style)
-        milk.getOrNull(picks[1])?.let { visual.emitApply(VizApply(milkPath = it.path, sceneId = style)) }
         modulation.randomizeAllRoll(viz.params, seed, basicsOnly)
     }
-
-    val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath
 
     fun importPresetFile(
         uri: Uri,
@@ -949,7 +865,6 @@ class PlayerSession internal constructor(
         presetLibrary.refreshInitial()
         templateLibrary.refreshInitial()
         musicLibrary.refresh()
-        textureController.refresh()
         // The home-screen widget shows the chosen style, and its style buttons step it like the stage swipe.
         // Only the style a burst of changes lands on: each publish is a prefs write and a widget redraw.
         scope.launch {

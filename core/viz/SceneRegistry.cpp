@@ -6,7 +6,6 @@
 #include "viz/scenes/CymaticsScene.hpp"
 #include "viz/scenes/FluidScene.hpp"
 #include "viz/scenes/LifeScene.hpp"
-#include "viz/scenes/MilkdropScene.hpp"
 #include "viz/scenes/MycoScene.hpp"
 #include "viz/scenes/ShaderScene.hpp"
 #include "viz/scenes/SilkScene.hpp"
@@ -50,7 +49,6 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
     if (const auto* style = styles::myco(id)) return std::make_unique<MycoScene>(*style, loader_, host_);
     if (const auto* style = styles::fluid(id)) return std::make_unique<FluidScene>(*style, loader_, host_);
     switch (catalogue::kindOf(id)) {
-        case catalogue::Kind::Milkdrop: return std::make_unique<MilkdropScene>(loader_, host_);
         case catalogue::Kind::CurlFlow: return std::make_unique<CurlFlowScene>(loader_, host_);
         default: return nullptr;
     }

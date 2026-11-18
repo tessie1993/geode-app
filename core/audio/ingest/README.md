@@ -18,7 +18,7 @@ The ring is here; `core/sound/hop` reads each live ring on a thread of its own.
 
 **Contract**
 - In: interleaved PCM from the tap's direct `ByteBuffer` (read where it lies), the mic's input stream, or a capture's native read thread, one writer at a time.
-- Out: what each reader's cursor has not seen yet, with its rate. Live, `core/sound/hop/AnalysisThread` reads it on a thread of its own, one per ring, and renderers read the published hops (`core/sound/hop/SharedAnalysis.hpp`); an export runs the analysis inline. The raw tail MilkDrop needs is the mono mix of what the renderer's engine heard (`core/viz/PcmHandoff`), so `pushPcm` is gone.
+- Out: what each reader's cursor has not seen yet, with its rate. Live, `core/sound/hop/AnalysisThread` reads it on a thread of its own, one per ring, and renderers read the published hops (`core/sound/hop/SharedAnalysis.hpp`); an export runs the analysis inline. The raw tail the renderer needs is the mono mix of what the renderer's engine heard (`core/viz/PcmHandoff`), so `pushPcm` is gone.
 - Clock: the sample count. No wall time, except where a snapshot ring's write lands on it (the capture clock, `SnapshotStitch`).
 
 **Moved in**

@@ -110,7 +110,6 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.PaletteNative
 import dev.geode.engine.bridge.TagsNative
 import dev.geode.geodeContainer
@@ -325,13 +324,12 @@ private fun AppContent(tourViewModel: TourViewModel) {
 
     VisualizerEngineBindings(viewModel, visualizerView)
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
-    // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
+    // The accent follows the visual: the middle of its palette's hues.
     // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
     val accentTarget by remember {
         derivedStateOf {
             val viz = vizState.value
-            val onMilk = viz.sceneId == CatalogueNative.STYLE_MILKDROP
-            if (onMilk) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+            paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
         }
     }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
@@ -611,7 +609,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
             CastHost()
             SharedLinkConfirm()
             AudioFileOpened(appState)
-            MilkFileOpened(appState)
         }
     }
 }

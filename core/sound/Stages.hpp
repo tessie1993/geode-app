@@ -8,7 +8,7 @@ namespace geode::sound {
 
 inline float clamp01(float v) { return std::clamp(v, 0.0f, 1.0f); }
 
-// MilkDrop tunes its smoothing as a factor per frame at 30 fps. Keeping the decay per second constant,
+// The smoothing is tuned as a factor per frame at 30 fps. Keeping the decay per second constant,
 // the factor for a frame of dt seconds is f0^(30·dt).
 inline float perFrame(float f0, float dt) { return std::pow(f0, 30.0f * dt); }
 
@@ -29,15 +29,15 @@ inline float follow(float y, float x, float tau, float dt) {
 }
 
 // Relative levels pass through untouched up to 2 (a strong hit) and bend smoothly toward 4 above it, so
-// one entrance after a quiet intro reads "very loud" instead of 200. MilkDrop leaves them unbounded.
+// one entrance after a quiet intro reads "very loud" instead of 200. The raw ratio stays unbounded (rawRatio).
 inline float softLimit(float r) { return r <= 2.0f ? r : 2.0f + 2.0f * std::tanh(0.5f * (r - 2.0f)); }
 
 // The core of the engine: a band's energy measured against its own running mean (~4 s), so 1.0 means
 // "typical for this song right now" whatever the volume or mastering. Alongside it, a fast envelope
 // (~20 ms rise, ~50 ms fall) over the same mean.
 //
-// Two departures from MilkDrop, both on purpose. The mean starts at the first sound it hears instead of
-// at zero, which removes MilkDrop's start-up spike (10× at 30 fps, 20× at 60). And digital silence
+// Two choices, both on purpose. The mean starts at the first sound it hears instead of
+// at zero, which removes a start-up spike (10× at 30 fps, 20× at 60). And digital silence
 // freezes the mean instead of letting it decay, so music returning after a pause reads 1-ish, not 50.
 class RelativeLevel {
 public:
@@ -61,14 +61,14 @@ public:
             ratio_ = softLimit(rawRatio_);
             attRatio_ = softLimit(att_ / mean_);
         } else {
-            // Nothing heard in this band yet: MilkDrop's answer, "normal", if there is anything now.
+            // Nothing heard in this band yet: the answer, "normal", if there is anything now.
             ratio_ = inst > 0.0f ? 1.0f : 0.0f;
             rawRatio_ = ratio_;
             attRatio_ = ratio_;
         }
     }
     float ratio() const { return ratio_; }
-    // The ratio before softLimit, unbounded as in MilkDrop: what the hard cut compares, since a threshold
+    // The ratio before softLimit, unbounded: what the hard cut compares, since a threshold
     // that doubles past 4 could never be reached by the limited one.
     float rawRatio() const { return rawRatio_; }
     float attRatio() const { return attRatio_; }
@@ -139,7 +139,7 @@ private:
     bool rising_ = false;
 };
 
-// MilkDrop's hard cut, kept as a trigger: fires when the mean relative level passes a threshold T, then
+// The hard cut, kept as a trigger: fires when the mean relative level passes a threshold T, then
 // doubles T so the next one needs an even bigger moment. T relaxes back toward its resting level, the
 // excess shrinking fourfold per `halfLife` seconds (an effective half-life of halfLife / 2). At most one
 // per second, so the doubling cannot be spent on one frame-long burst.

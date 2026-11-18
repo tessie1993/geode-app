@@ -62,7 +62,7 @@ Manifest manifestOf(const Files& listed, int version = kCurrentVersion) {
     m.version = version;
     m.appVersionCode = 33;
     m.createdAtMs = 1000;
-    m.sections = {"settings", "creative", "music", "milk"};
+    m.sections = {"settings", "creative", "music"};
     for (const auto& f : listed) m.entries.push_back(record(f.first, f.second));
     return m;
 }
@@ -165,12 +165,12 @@ void roundTrip() {
     const ExportResult done = finishExport(written, 33, 1000);
     check(done.failure.ok(), "finish export");
     Manifest m;
-    check(decodeManifest(done.manifestText, m).ok() && m.sections.size() == 4 && m.version == kCurrentVersion &&
+    check(decodeManifest(done.manifestText, m).ok() && m.sections.size() == 3 && m.version == kCurrentVersion &&
               m.appVersionCode == 33 && m.createdAtMs == 1000,
           "manifest of the export");
     const Outcome o = unpack(done.manifestText, zip);
     check(o.failure.ok(), "pack then unpack gives back the same files");
-    check(o.finish.sections.size() == 4, "every section known");
+    check(o.finish.sections.size() == 3, "every section known");
     std::vector<std::string> paths;
     for (const auto& e : m.entries) paths.push_back(e.path);
     // Prefs of every section first (settings' seven, creative's two), then its files; the vanished one is not listed.
@@ -214,18 +214,16 @@ void exportRules() {
 
     // Files: only what the allowlist keeps, section by section, in the shell's order within a section.
     ExportRequest files;
-    files.files = {{"creative", "presets/b.json"},         {"milk", "milk/generated/g.png"},
-                   {"milk", "milk/textures/.links/x"},     {"milk", "milk/textures/cloud.png"},
-                   {"creative", "presets/a.json.tmp"},     {"music", "history.json"},
-                   {"creative", "presets/a.json"},         {"music", "library.json"},
-                   {"creative", "../escape.json"},         {"milk", "milk/a.corrupt"},
+    files.files = {{"creative", "presets/b.json"},         {"creative", "presets/a.json.tmp"},
+                   {"music", "history.json"},              {"creative", "presets/a.json"},
+                   {"music", "library.json"},              {"creative", "../escape.json"},
                    {"music", "presets/wrong-root.json"}};
     const ExportPlan fp = planExport(files);
     std::vector<std::string> got;
     for (const auto& s : fp.sources) {
         if (!s.inlineBytes) got.push_back(s.path);
     }
-    check(got == std::vector<std::string>({"presets/b.json", "presets/a.json", "history.json", "library.json", "milk/textures/cloud.png"}),
+    check(got == std::vector<std::string>({"presets/b.json", "presets/a.json", "history.json", "library.json"}),
           "export keeps allowlisted files, grouped by section in order");
 
     // The entry cap counts every source, vanished or not.
@@ -292,7 +290,7 @@ void hostilePaths() {
 }
 
 void allowlist() {
-    for (const char* path : {"takes/t.json", "analysis/a.bin", "crash-latest.txt", "milk/generated/g.png", "milk-builtin/a.milk",
+    for (const char* path : {"takes/t.json", "analysis/a.bin", "crash-latest.txt",
                              "prefs/geode-widget.json", "presets/a.json.tmp", "session.json", "prefs/settings/geode-prefs.json"}) {
         const Files f = {{path, kPreset}};
         check(unpackFiles(f, f).failure.problem == Problem::UnsafePath, std::string("paths outside the allowlist are rejected: ") + path);

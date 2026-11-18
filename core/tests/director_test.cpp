@@ -287,7 +287,6 @@ void testNeverTouchesColour() {
     user.temperature = -0.2f;
     user.contrast = 0.9f;
     user.colorShift = 0.15f;
-    user.milkdropPaletteTint = 0.3f;
     int looks = 0;
     int moved = 0;
     for (int scale = 0; scale < geode::sound::scaleCount(); ++scale) {
@@ -1224,7 +1223,7 @@ void testStyleIntents() {
     check(d.styleIntent().kind == Kind::Progress && d.styleIntent().from == "first_style" && d.styleIntent().progress, "a new section: the next along");
     const uint64_t firstDraw = d.styleIntent().draw;
     {
-        // Another play of the same song draws its own (which .milk a moment lands on, viz/DirectorStyle).
+        // Another play of the same song draws its own (which entry a moment lands on, viz/DirectorStyle).
         Director other;
         other.configure({1.0f, 32});
         Player o{other, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};

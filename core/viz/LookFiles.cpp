@@ -247,10 +247,11 @@ std::optional<Preset> readPreset(std::string_view text) {
     Preset p;
     p.name = *name;
     p.sceneId = catalogue::resolveId(*sceneId);
+    // A look on a style this build does not have (one since removed) is not read: it would open on another style.
+    if (!catalogue::knows(p.sceneId)) return std::nullopt;
     p.attack = finiteIn(*attack, kAttackMin, kAttackMax);
     p.decay = finiteIn(*decay, kDecayMin, kDecayMax);
     if (doc->get("customShader")) p.customShader = textAt("customShader");
-    if (doc->get("milkPreset")) p.milkPreset = textAt("milkPreset");
     // The params are read from the stored text itself where it is standard JSON: org.json would print a whole
     // double as a long first. Anything else org.json took is read as org.json printed it.
     std::string ignored;
@@ -274,7 +275,6 @@ std::string writePreset(const Preset& p) {
         }
     }
     if (p.customShader) entries.emplace_back("customShader", json::quoted(*p.customShader));
-    if (p.milkPreset) entries.emplace_back("milkPreset", json::quoted(*p.milkPreset));
     std::string out = "{\n";
     for (size_t i = 0; i < entries.size(); ++i) line(out, 1, entries[i].first, entries[i].second, i + 1 == entries.size());
     return out + "}";
@@ -398,14 +398,6 @@ bool isStarter(std::string_view id) {
         if (id == std::string(kStarterIdPrefix) + s.slug) return true;
     }
     return false;
-}
-
-std::string milkFileName(std::string_view presetName) {
-    constexpr std::string_view kSuffix = ".milk";
-    if (presetName.size() >= kSuffix.size() && presetName.substr(presetName.size() - kSuffix.size()) == kSuffix) {
-        presetName.remove_suffix(kSuffix.size());
-    }
-    return safeFileName(presetName) + std::string(kSuffix);
 }
 
 namespace {

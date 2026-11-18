@@ -281,7 +281,6 @@ void testNoColourNarrowingNoFixedReactions() {
     requested.temperature = -0.2f;
     requested.contrast = 0.9f;
     requested.colorShift = 0.15f;
-    requested.milkdropPaletteTint = 0.3f;
     requested.motionHue = 0.0f;
     requested.paletteStop0 = 0x2244FF;
     requested.paletteStop1 = 0xFF8800;
@@ -290,7 +289,7 @@ void testNoColourNarrowingNoFixedReactions() {
     requested.paletteAmount1 = 0.3f;
     requested.paletteShift = 0.2f;
     static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "hueRange", "saturation",
-                                          "brightness", "temperature", "contrast", "colorShift", "milkdropPaletteTint",
+                                          "brightness", "temperature", "contrast", "colorShift",
                                           "paletteStop0", "paletteStop1", "paletteStop2",
                                           "paletteAmount0", "paletteAmount1", "paletteAmount2", "paletteAmount3", "paletteAmount4",
                                           "paletteAmount5", "paletteAmount6", "paletteAmount7", "paletteShift"};

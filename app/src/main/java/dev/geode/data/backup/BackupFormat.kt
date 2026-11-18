@@ -120,9 +120,6 @@ enum class BackupSection(
         listOf("music-playlists", "smart-playlists"),
         listOf("library.json", "history.json"),
     ),
-
-    /** User-imported Milk presets, textures and texture choices. `milk-builtin` is rebuilt from assets. */
-    MILK("milk", emptyList(), listOf("milk"), emptyList()),
     ;
 
     companion object {
@@ -194,12 +191,8 @@ object BackupFormat {
             GeodePrefsFiles.WALLPAPER to setOf(WallpaperPrefsStore.KEY_MIX_REFUSED),
         )
 
-    /**
-     * Subtrees inside a section directory that are caches: `milk/generated` is regenerated
-     * textures and `.links` is rebuilt by `MilkTextureLinks.relinkAll`. Never exported; a
-     * restore keeps the phone's own copy.
-     */
-    val excludedSubtrees: List<String> = listOf("milk/generated", "milk/textures/.links")
+    /** Subtrees inside a section directory that are caches: never exported, and a restore keeps the phone's own copy. */
+    val excludedSubtrees: List<String> = emptyList()
 
     /** AtomicWrite's in-flight and quarantined files. */
     private val excludedSuffixes = listOf(".tmp", ".corrupt")
@@ -244,7 +237,7 @@ object BackupFormat {
             BootAnimationStore.PREF_KEYS + CustomizeGroupsCodec.keys + MacroStore.PREF_KEYS + PaletteStackStore.PREF_KEYS +
             LfoStore.PREF_KEYS + AutoDirectorCodec.keys + NoteResponseCodec.keys + RecordPrefsStore.PREF_KEYS +
             WatermarkPrefsCodec.keys + PerformanceStore.PREF_KEYS + LookStore.PREF_KEYS + AutoVisualsPrefsStore.PREF_KEYS +
-            StyleShelfCodec.keys + GeodePrefsFiles.MILK_PRESET_PREF_KEYS + PlayerPrefsCodec.keys + BookmarkStore.PREF_KEYS +
+            StyleShelfCodec.keys + PlayerPrefsCodec.keys + BookmarkStore.PREF_KEYS +
             AudioFxController.PREF_KEYS + LibraryPrefsStore.PREF_KEYS + MEDIA_ROOTS_PREF_KEYS + BackgroundPrefsStore.PREF_KEYS +
             WallpaperPrefsStore.PREF_KEYS + FavouritesStore.PREF_KEYS + KeepSetStore.PREF_KEYS
     }

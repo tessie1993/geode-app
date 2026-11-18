@@ -5,9 +5,7 @@ import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.AutoNative
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.model.MilkFile
 import dev.geode.model.StyleCatalogue
 import dev.geode.model.VizPlaylistEntry
 import kotlinx.coroutines.flow.StateFlow
@@ -34,27 +32,7 @@ internal class AutoVisualsController(
         fun allowsStyle(sceneId: String): Boolean
 
         fun applyPreset(preset: Preset)
-
-        fun applyMilk(
-            path: String,
-            sceneId: String,
-        )
-
-        /**
-         * The session's one .milk list (MilkImportController.files), the MilkDrop page's: re-read after every
-         * import and removal, so Auto never draws from a list older than the page's.
-         */
-        val milkFiles: List<MilkFile>
-
-        /** The .milk on screen while MilkDrop is, else null. */
-        val activeMilkPath: String?
-
-        /** Reads [milkFiles] again (the first time Auto needs it before the MilkDrop page has). */
-        fun relistMilk()
     }
-
-    /** Whether [Host.relistMilk] was asked once; Auto's switches come back from the prefs, not a toggle. */
-    private var milkListed = false
 
     /** Customize is open: native holds every change meanwhile and starts its waits over when it closes. */
     var editing = false
@@ -63,7 +41,7 @@ internal class AutoVisualsController(
             AutoNative.autoEditingSet(value, SystemClock.elapsedRealtime())
         }
 
-    /** The user picked a style, a preset or a .milk by hand: native starts Auto's waits over. */
+    /** The user picked a style or a preset by hand: native starts Auto's waits over. */
     fun noteHandPick() = AutoNative.autoHandPick(SystemClock.elapsedRealtime())
 
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
@@ -157,7 +135,6 @@ internal class AutoVisualsController(
         SoundNative.autoTimerRestart(SoundNative.AUTO_TIMER_RANDOM, SystemClock.elapsedRealtime())
         // The poll first, so the timer is running before the first look loads.
         advanceRandomMode()
-        if (enabled && host.vizState.value.randomIncludeMilk) refreshMilkCache()
         if (enabled) randomStepNow()
         persistAutoVisuals()
     }
@@ -177,19 +154,8 @@ internal class AutoVisualsController(
         persistAutoVisuals()
     }
 
-    fun setRandomIncludeMilk(enabled: Boolean) {
-        host.updateViz { it.copy(randomIncludeMilk = enabled) }
-        if (enabled) refreshMilkCache()
-        persistAutoVisuals()
-    }
-
     private fun persistAutoVisuals() {
         prefsStore.save(host.vizState.value)
-    }
-
-    private fun refreshMilkCache() {
-        milkListed = true
-        host.relistMilk()
     }
 
     /**
@@ -208,8 +174,6 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
-        // "MilkDrop presets" restored on at start draws from the list too, not only after a toggle.
-        if (s.randomIncludeMilk && !milkListed) refreshMilkCache()
         if (AutoNative.autoRandomTick(s.randomEnabled, host.isPlaying, s.randomIntervalSec, SystemClock.elapsedRealtime())) randomStepNow()
     }
 
@@ -219,13 +183,11 @@ internal class AutoVisualsController(
      */
     fun randomStepNow(keepLook: Boolean = false) {
         val s = host.vizState.value
-        val milk = host.milkFiles
         var sources = 0
         if (s.randomIncludeStyles) sources = sources or AutoNative.AUTO_DRAW_STYLES
         if (s.randomIncludePresets) sources = sources or AutoNative.AUTO_DRAW_PRESETS
-        if (s.randomIncludeMilk) sources = sources or AutoNative.AUTO_DRAW_MILK
         if (keepLook) sources = sources or AutoNative.AUTO_DRAW_KEEP_LOOK
-        val styles = StyleCatalogue.ids + s.presets.map { it.sceneId } + CatalogueNative.STYLE_MILKDROP
+        val styles = StyleCatalogue.ids + s.presets.map { it.sceneId }
         val out = IntArray(2)
         val sceneId =
             AutoNative.autoDraw(
@@ -233,9 +195,6 @@ internal class AutoVisualsController(
                 s.sceneId,
                 s.presets.joinToString("\n") { it.sceneId },
                 s.presets.indexOfFirst { it.sceneId == s.sceneId && it.params == s.params },
-                milk.size,
-                milk.indexOfFirst { it.path == host.activeMilkPath },
-                CatalogueNative.STYLE_MILKDROP,
                 sources,
                 SystemClock.elapsedRealtime(),
                 out,
@@ -244,7 +203,6 @@ internal class AutoVisualsController(
         val entry =
             when (out[0]) {
                 AutoNative.AUTO_KIND_PRESET -> VizPlaylistEntry(sceneId, presetName = s.presets[i].name, label = s.presets[i].name)
-                AutoNative.AUTO_KIND_MILK -> VizPlaylistEntry(sceneId, milkPath = milk[i].path, label = milk[i].name)
                 else -> VizPlaylistEntry(sceneId = sceneId, label = sceneId)
             }
         applyVizEntry(entry, automatic = true)
@@ -257,16 +215,12 @@ internal class AutoVisualsController(
     ) {
         if (automatic) {
             SoundNative.autoMarkChange(entry.sceneId)
-            entry.milkPath?.let(SoundNative::autoMarkChange)
         }
         host.selectScene(entry.sceneId)
         if (entry.presetName != null) {
             host.vizState.value.presets
                 .firstOrNull { it.name == entry.presetName && it.sceneId == entry.sceneId }
                 ?.let { host.applyPreset(it) }
-        }
-        if (entry.milkPath != null) {
-            host.applyMilk(entry.milkPath, entry.sceneId)
         }
         // Auto's own change (a moment, the timer, the playlist) is not the user's hand.
         host.vizState.value.let { AutoNative.autoLeftAs(it.sceneId, it.params.frame(), it.params.customPaletteId) }

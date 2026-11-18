@@ -179,7 +179,6 @@ private fun sectionText(section: BackupSection): Int =
         BackupSection.SETTINGS -> R.string.backup_section_settings
         BackupSection.CREATIVE -> R.string.backup_section_creative
         BackupSection.MUSIC -> R.string.backup_section_music
-        BackupSection.MILK -> R.string.backup_section_milk
     }
 
 private fun problemText(problem: BackupProblem): Int =

@@ -31,7 +31,6 @@ void check(bool ok, const char* what) {
 static_assert(kEventClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
-static_assert(kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(kEventStillReady == GEODE_FRAME_STILL_READY);
 
@@ -41,7 +40,6 @@ struct Recorder : LiveStages {
     int liquid = -1;
     std::string knownScene = "a";
     std::string error;
-    bool milk = false;
     bool moments = false;
     bool still = false;
     bool repeated = false;
@@ -82,10 +80,6 @@ struct Recorder : LiveStages {
         log.push_back("error");
         return error;
     }
-    bool milkPresetLoaded() override {
-        log.push_back("milk");
-        return milk;
-    }
     bool directorMomentsPending() override {
         log.push_back("director");
         return moments;
@@ -121,7 +115,7 @@ void stageOrder() {
     frame(f, r, 90.0f, 120.0f);
     // The quality went on the clear frame; this one has nothing new for it.
     const std::vector<std::string> want = {"paced", "liquid", "gyroReset", "gyro", "scene", "ring",
-                                           "render", "error", "milk", "director", "still"};
+                                           "render", "error", "director", "still"};
     check(r.log == want, "the stages run in their one order");
     check(r.paced == 90.0f && r.cap == 120.0f, "the paced rate and the cap reach the renderer apart");
 }
@@ -133,7 +127,7 @@ void clearOnlyRunsNothingElse() {
     f.gyroPush(GyroReading{});
     f.surfaceCreated();
     r.liquid = 1;
-    r.milk = r.moments = r.still = true;
+    r.moments = r.still = true;
     r.error = "boom";
     const uint32_t events = frame(f, r);
     check(events == kEventClearOnly, "a new surface's first frame says clear-only and nothing else");
@@ -240,9 +234,6 @@ void eventBits() {
     r.error = "shader failed";
     check(frame(f, r) == kEventErrorChanged, "a new error is told");
     check(frame(f, r) == 0, "once");
-    r.milk = true;
-    check(frame(f, r) == kEventMilkLoaded, "a loaded preset is told");
-    r.milk = false;
     r.moments = true;
     check(frame(f, r) == kEventDirectorMoment, "pending director moments are told");
     r.moments = false;
@@ -252,7 +243,7 @@ void eventBits() {
     r.repeated = true;
     check(frame(f, r) == kEventNothingNew, "a frame that repeated the one on screen says nothing is new");
     r.repeated = false;
-    const uint32_t all[] = {kEventClearOnly, kEventLiquidChanged, kEventErrorChanged, kEventMilkLoaded, kEventDirectorMoment,
+    const uint32_t all[] = {kEventClearOnly, kEventLiquidChanged, kEventErrorChanged, kEventDirectorMoment,
                             kEventStillReady, kEventNothingNew};
     uint32_t seen = 0;
     bool apart = true;

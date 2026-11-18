@@ -220,7 +220,7 @@ void spinRateAndShaderStyleAgree() {
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
-    for (const char* id : {"silk_web", "milkdrop", "fluid", "curlflow", "cymatics", "no_such_style"}) {
+    for (const char* id : {"silk_web", "fluid", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
@@ -250,11 +250,11 @@ void paramScopesMatchTheOldParamScope() {
           "spin misses a style that holds still");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
-    check(!catalogue::reaches(Scope::ShaderLook, "milkdrop"), "milkdrop has no shader look");
-    check(catalogue::reaches(Scope::EndlessZoom, "milkdrop") && catalogue::reaches(Scope::EndlessZoom, "silk_web") &&
+    check(!catalogue::reaches(Scope::ShaderLook, "fluid_ink"), "a fluid style has no shader look");
+    check(catalogue::reaches(Scope::EndlessZoom, "silk_web") &&
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
-    check(!catalogue::reaches(Scope::SceneClock, "milkdrop"), "milkdrop paces itself");
+    check(catalogue::reaches(Scope::SceneClock, "silk_web") && catalogue::reaches(Scope::SceneClock, "fluid_ink"), "every style takes the scene clock");
     // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
     check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
               catalogue::reaches(Scope::TrebleBand, "life_orbium"),
@@ -292,7 +292,6 @@ const std::map<std::string, std::string> kOldFamilyLooks = {
 const std::map<Kind, std::string> kOldKindLooks = {
     {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"},
     {Kind::Life, "LIVING"},  {Kind::Mycelium, "LIVING"},   {Kind::Acid, "PSYCHEDELIC"}, {Kind::Cymatics, "PATTERNS"},
-    {Kind::Milkdrop, "CLASSIC"},
 };
 const std::map<std::string, std::string> kOldLooseLooks = [] {
     std::map<std::string, std::string> out;
@@ -403,8 +402,9 @@ void textRoundTrips() {
     // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
     // took over Spin drift's field on the turning styles' own scope; 84 once the palette cleanup retired Colour map,
     // Palette 2 and Palette blend; 88 with Grow's four (Spawn, Fractal, Front layer, Back layer) on the family scope;
-    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own.
-    check(kinds == catalogue::kKindCount && families == 19 && keys == 92 && overrides == 8, "row counts");
+    // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own;
+    // 90 once the two controls of the removed preset-script style went.
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 90 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.
@@ -435,7 +435,6 @@ void pickerFamiliesAreFlatAndCoverEveryStyleOnce() {
     std::vector<std::string> fluid = styles::fluidIds();
     fluid.emplace_back("curlflow");
     check(byName["fluid"] == fluid, "Fluid and Curl Flow are one picker family");
-    check(byName["milkdrop"] == std::vector<std::string>{"milkdrop"}, "MilkDrop is its own picker family");
 }
 
 // Every id of the listing is a real one: not empty, and listed once. (A null entry in a table never gets this
@@ -479,8 +478,7 @@ void theShellsQuestionsAgreeWithTheTables() {
     check(!follower.empty() && follower.size() < shader.size(), "followers are some of the shader styles");
     for (const auto& opener : openers) check(!catalogue::has(Trait::FamilyFollower, opener), opener + " opens its family");
     check(ids(Trait::AutoDraw) == autoDraw, "what Auto draws from");
-    check(!catalogue::has(Trait::AutoDraw, "milkdrop") && !catalogue::has(Trait::AutoDraw, "fluid"),
-          "Auto draws no MilkDrop or Fluid");
+    check(!catalogue::has(Trait::AutoDraw, "fluid"), "Auto draws no Fluid");
     check(ids(Trait::Fluid) == fluid && fluid == styles::fluidIds(), "the Fluid looks");
     check(!catalogue::has(Trait::Fluid, "curlflow"), "Curl Flow is not a Fluid look");
     check(ids(Trait::Cymatics) == cymatics && cymatics == styles::cymaticsIds(), "the cymatics styles");

@@ -116,7 +116,6 @@ Pages on pushes to `main` (the address is in the workflow's header); the owner o
 
 The in-app safety notice (`res/values/strings.xml`, `safety_prompt`, with `help_topic_safety_body`
 and `behavior_flash_guidance`) says what the code does: brightness, contrast and bloom are capped
-and brightness modulation slowed (`core/viz/VisualSafety`), nothing measures the finished picture,
-and a MilkDrop preset only gets the brightness cap (`core/viz/scenes/MilkdropScene` reads the
-clamped `brightness`), so the flashes it draws itself are not limited. The listing's
+and brightness modulation slowed (`core/viz/VisualSafety`), nothing measures the finished picture.
+The listing's
 photosensitivity warning says the same without naming strobe or flash effects (#994).

@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <mutex>
 
-// Auto's random draw (Visuals › Settings › Auto: styles, saved looks and .milk presets in one pool): which entry
+// Auto's random draw (Visuals › Settings › Auto: styles and saved looks in one pool): which entry
 // comes next. Never the one already on screen while there is anything else to draw, so a timer tick or a
-// director moment always changes something; MilkDrop's own random pick skips the preset playing the same way.
-// The old shell draw only re-rolled once, and only for a bare style, so the same .milk could come up twice
+// director moment always changes something.
+// The old shell draw only re-rolled once, and only for a bare style, so the same look could come up twice
 // running. Host-tested in core/tests/auto_timer_test.cpp.
 namespace geode::viz::auto_draw {
 

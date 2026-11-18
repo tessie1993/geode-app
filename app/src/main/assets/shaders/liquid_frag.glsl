@@ -7,7 +7,7 @@
 // liquid with its Surface lit on top, so the lighting never feeds back into the liquid.
 //
 // Per pixel:
-//   1. back-trace: MilkDrop's per-frame UV transform (lib_feedback: zoom, stretch, warp, rotation,
+//   1. back-trace: the per-frame UV transform (lib_feedback: zoom, stretch, warp, rotation,
 //      translation; LiquidMath.hpp says why the dive is not a force in the solver), then the flow
 //      field's velocity, folded back at the edges;
 //   2. read the liquid there, sharpened against the bilinear blur that a magnifying feedback adds

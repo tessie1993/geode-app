@@ -38,11 +38,10 @@ extern "C" {
 
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageCreate(JNIEnv* env, jobject, jobject assetManager, jstring cacheDir,
-                                                     jstring milkTextureDir, jint kind, jfloat capFps) {
+                                                     jint kind, jfloat capFps) {
     Utf8Chars cache(env, cacheDir);
-    Utf8Chars textures(env, milkTextureDir);
     AAssetManager* assets = assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr;
-    return reinterpret_cast<jlong>(geode_stage_create_live(kind, assets, cache.get(), textures.get(), capFps));
+    return reinterpret_cast<jlong>(geode_stage_create_live(kind, assets, cache.get(), capFps));
 }
 
 JNIEXPORT void JNICALL
@@ -167,25 +166,6 @@ Java_dev_geode_engine_bridge_StageNative_stageSetFluidInjection(JNIEnv* env, job
     Utf8Chars forceSrc(env, force);
     Utf8Chars dyeSrc(env, dye);
     geode_viz_set_fluid_injection(StageViz(stage), forceSrc.get(), dyeSrc.get());
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageLoadMilkPreset(JNIEnv* env, jobject, jlong stage, jstring path) {
-    Utf8Chars file(env, path);
-    geode_viz_load_milk_preset(StageViz(stage), file.get());
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageReloadMilkPreset(JNIEnv*, jobject, jlong stage) {
-    geode_viz_reload_milk_preset(StageViz(stage));
-}
-
-// One call: the take hands the path out once. A path longer than PATH_MAX is no file the renderer loaded.
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageTakeMilkLoaded(JNIEnv* env, jobject, jlong stage) {
-    char path[4096];
-    const size_t length = geode_stage_take_milk_loaded(stageOf(stage), path, sizeof(path));
-    return length > 0 && length < sizeof(path) ? geode::jni::utf8String(env, path) : nullptr;
 }
 
 JNIEXPORT jint JNICALL

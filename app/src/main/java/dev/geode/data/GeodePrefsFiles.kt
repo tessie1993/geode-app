@@ -2,8 +2,6 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import dev.geode.data.prefs.PrefType
-import dev.geode.data.prefs.prefKeys
 
 /**
  * The registry of the app's SharedPreferences files: every file the app keeps is named here, and
@@ -55,11 +53,5 @@ class GeodePrefsFiles(
          * needs the context for the folder grant anyway), so there is no property for it here.
          */
         const val RECORD = "geode-record"
-
-        /** The shown MilkDrop preset, which [MilkPathPrefs] reads and writes. */
-        internal val MILK_PRESET_PREF_KEYS =
-            prefKeys(VIZ) {
-                portable(PrefType.STRING, MilkPathPrefs.KEY)
-            }
     }
 }

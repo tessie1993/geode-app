@@ -225,10 +225,9 @@ void targetsFollowTheirMetaRow() {
 void reachFollowsTheScope() {
     check(modtargets::reaches(LfoTarget::Morph, "julia"), "Morph reaches a shader style");
     check(!modtargets::reaches(LfoTarget::Morph, "silk_web"), "Morph does not reach Silk");
-    check(!modtargets::reaches(LfoTarget::Speed, "milkdrop"), "Speed does not reach MilkDrop");
     check(modtargets::reaches(LfoTarget::FluidCurl, "fluid"), "Fluid curl reaches Fluid");
     check(!modtargets::reaches(LfoTarget::FluidCurl, "julia"), "Fluid curl does not reach a shader style");
-    check(modtargets::reaches(LfoTarget::Lfo2Depth, "milkdrop"), "a chained target reaches every style");
+    check(modtargets::reaches(LfoTarget::Lfo2Depth, "fluid"), "a chained target reaches every style");
     for (LfoTarget t : {LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38}) {
         check(!modtargets::reaches(t, "julia"), "a retired slot reaches nothing");
     }
@@ -245,7 +244,7 @@ void musicActionsReachWhatTheirTargetsReach() {
         check(modtargets::musicActionsFor(id) == want, "music actions of " + id);
     }
     // Every action's target is a universal one today, so every style offers all seven.
-    check(modtargets::musicActionsFor("milkdrop") == (1u << kMusicActionCount) - 1u, "MilkDrop offers every action");
+    check(modtargets::musicActionsFor("fluid") == (1u << kMusicActionCount) - 1u, "Fluid offers every action");
 }
 
 void chainedTargetsSteerTheirSlot() {
@@ -274,7 +273,7 @@ void pickersOfferWhatTheEngineRuns() {
     using modtargets::kPickerReaction;
     check(!modtargets::offeredTo(LfoTarget::Lfo1Rate, "julia", kPickerReaction), "a reaction steers no wave");
     check(modtargets::offeredTo(LfoTarget::Lfo1Rate, "julia", kPickerEnvelope), "an envelope steers wave 1");
-    check(modtargets::offeredTo(LfoTarget::Lfo3Depth, "milkdrop", kPickerEnvelope), "an envelope steers wave 3 anywhere");
+    check(modtargets::offeredTo(LfoTarget::Lfo3Depth, "fluid", kPickerEnvelope), "an envelope steers wave 3 anywhere");
     check(!modtargets::offeredTo(LfoTarget::Lfo1Rate, "julia", 0), "wave 1 does not steer itself");
     check(modtargets::offeredTo(LfoTarget::Lfo2Rate, "julia", 0) && modtargets::offeredTo(LfoTarget::Lfo3Depth, "julia", 0),
           "wave 1 steers the later waves");

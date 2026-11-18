@@ -6,9 +6,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 
 - The root `CMakeLists.txt` builds the native core, plus `core/CMakeLists.txt` for the static libraries `geode_core`, `geode_sound` over `geode_pcm`, and `geode_player`.
 - `app/src/main/cpp/*_jni.cpp` only marshal values into the `extern "C"` ABI in `core/api/geode_api.h`.
-- projectM gets `tools/projectm-v4.1.7-render-fbo-backport.patch` at configure time.
-- projectM also gets `tools/projectm-v4.1.7-shader-fallback.patch`, which reports the shaders it swapped for the default (`projectm_get_dropped_shaders`).
-- The submodules are `third_party/{projectm,taglib,cgltf,meshoptimizer,basis_universal,kissfft,libdatachannel,mbedtls}`.
+- The submodules are `third_party/{taglib,cgltf,meshoptimizer,basis_universal,kissfft,libdatachannel,mbedtls}`.
 - libdatachannel and its Mbed TLS (`core/cast/mbedtls_user_config.h`) build only for `core/cast/WebRtcLink`, Show on a computer's WebRTC; `core/cast/` is the only native directory that may include them or a socket header (`tools/network-gate.sh`).
 - `core/cast/LiveServer` is the cast's HTTP server on plain POSIX sockets, bound to the phone's LAN address; `LiveHttp` (requests and answers) and `LiveSegments` (the segment window and playlist) hold its decisions and include no socket header.
 - KISS FFT's header-only `kissfft.hh` is the transform under `core/sound/Fft`.
@@ -19,7 +17,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 ## `core/sound`: hearing
 
 - `Silence` is the wallpaper's and dream's rest-when-silent rule, polled through `geode_silence_*`.
-- The sound engine is MilkDrop's FFT path beside a per-sample filter bank, analysed every 10 ms of samples on its own thread per PCM ring live (inline for an export, `core/sound/hop/AnalysisThread`); a renderer reads the newest published hop into a `GeodeSoundFrame` each frame.
+- The sound engine is an FFT path beside a per-sample filter bank, analysed every 10 ms of samples on its own thread per PCM ring live (inline for an export, `core/sound/hop/AnalysisThread`); a renderer reads the newest published hop into a `GeodeSoundFrame` each frame.
 - How much the music is comes from absolute loudness, never from the song's own average.
 - `LufsMeter` gives BS.1770 momentary and short-term LUFS (`loudnessM`/`loudnessS`) and the one silence gate every detector reads.
 - `busy` is onset and drum density, the beat.
@@ -73,7 +71,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The fingers' maths (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, and touch play's stir; `VisualGestures.kt` keeps the pointer loop and which gesture fired.
 - The smear runs with Liquid off, live only, as an optional pass (`geode_viz_set_touch_smear`).
 - `liquid/LiquidMath` is Liquid mode's pure maths: inject weight, the random endless dive, gestures, born clock.
-- `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
+- `liquid/FeedbackMotion` is a per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
 - `LiquidPass` is a full-resolution feedback ping-pong between the scene target and the composite.
 - `LiquidPass` samples the last frame through that transform (`lib_feedback`, the same maths in GLSL), then the `FlowField` velocity, folds it back at the edges, and re-pours the style through `liquid_frag`.
 - `core/viz/CustomizeMap`'s text (version 2) carries each category's tab title and each section's header (`title`, `sectionTitle`).
@@ -93,7 +91,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `core/viz/ParamsPalette` is the look's own palette in its params: whether it draws one, clearing it, your colours, a hue gradient (`geode_params_uses_custom_palette`, `_palette_stops`, `_clear_custom_palette`, `_apply_stops`, `_apply_gradient`).
 - `core/viz/LookFiles` holds the user's look files, text in and text out: the file stem rule (`geode_file_safe_name`, `_safe_chars`) and list order (`geode_looks_order`).
 - `LookFiles` reads and writes saved palettes (`geode_saved_palette_*`): the id rule, defaults and clamps, the old-id migration, applying one to a look.
-- `LookFiles` reads and writes presets (`geode_preset_read`, `_write`, `_milk_file_name`): the envelope beside the params object, its slider ranges and the number guard, retired styles resolved.
+- `LookFiles` reads and writes presets (`geode_preset_read`, `_write`): the envelope beside the params object, its slider ranges and the number guard, retired styles resolved.
 - `LookFiles` names the template library's files, makes an import's name unique and holds the bundled starter templates (`geode_template_*`).
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - Customize › Layers is `core/viz/LayerState`: on, source, picked style, knob, blend and mix, process-wide; an export pins it.
@@ -119,7 +117,7 @@ The renderer runs these in order each frame.
 - `Director`, the auto-director: at sections and drops the feeling decides a behaviour look, held until the next.
 - The director's five axes are Energy, Speed, Complexity, Space and Chaos: offsets on scene params and the camera's music moves; never the user's macro bank.
 - The director also sets the camera's softness and the breath dial by a factor; a dial at 0 stays off; it never touches Spin (`motionDrift`).
-- The director is base plus modulation, MilkDrop's rule.
+- The director is base plus modulation.
 - The director's axis push scales into the room a slider has left above its default, so a slider between its default and the end still moves the picture (`director::applyAxes`).
 - Owner's rule: the director never touches a colour param and plays no route of its own, and nothing in it follows the frame.
 - The director remembers the look it first chose for each section Form names, the way it was heading and the style it was first shown on.
@@ -172,8 +170,10 @@ The renderer runs these in order each frame.
 - `ShaderScene` uploads them as `uLife` and `uBirths[6]` (lib_scene_uniforms); `lib_grow`'s births draw each as the style's own world again, small, in a ball round its spawn point.
 - The families run them as passes 3, 4 and 5 of the field loop they already run, one map read a pass; Flame reads its veils once a step at `growBirthsAt`, Opal and Hollows add a four-pass loop.
 - `lib_shell` runs them as wrapper passes 3..5 (the winner pass is 6; density and 2D loops run 6 passes); the styles with no field loop read their picture through `growBirths2`.
-- Scenes with no shader to run them in (simulations, fluids, Milkdrop) get them from the composite (`postBirths`, `uPostLife`, `uPostBirths`) on the renderer's `lifeClock_`, only where `grade::gateFor`'s geometry gate is on.
+- Scenes with no shader to run them in (simulations, fluids) get them from the composite (`postBirths`, `uPostLife`, `uPostBirths`) on the renderer's `lifeClock_`, only where `grade::gateFor`'s geometry gate is on.
 - `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the rows with the `Formula` flag in `core/viz/styles/StyleTable.inc` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
+- Scenes with no shader to run them in (simulations, fluids) get them from the composite (`postBirths`, `uPostLife`, `uPostBirths`) on the renderer's `lifeClock_`, only where `grade::gateFor`'s geometry gate is on.
+- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
 - Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style), which their styles read as `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
@@ -193,7 +193,7 @@ The renderer runs these in order each frame.
 
 ## Settling
 
-- The renderer notes settling frames (a staged build, a fresh switch, a transition, a secondary's compiles, a MilkDrop preset load).
+- The renderer notes settling frames (a staged build, a fresh switch, a transition, a secondary's compiles).
 - `Renderer::settling()` stays true until 1.5 s after the last settling frame (`Renderer::noteSettling`), so quick style changes do not read as a slow phone. There is no thermal step anywhere.
 - Settings › Performance's "Adapt to frame time" (`core/viz/frame/FrameGovernor`, one per renderer, fed in `Renderer::beginFrame`): frames that miss the paced rate for 2.5 s step render scale, then march scale, then post FX, then the frame rate down under the user's values (`fluid::quality::FrameMonitor` and `AutoDowngrade`); 45 s on time steps back one, in reverse. Settling frames are not counted, a new style resets it, and an export or a recording is never stepped. Its frame-rate step reaches the stage as `StageClient::governedCapFps`.
 
@@ -312,7 +312,7 @@ The renderer runs these in order each frame.
 ## Endless zoom, Trails, Liquid
 
 - Endless zoom is a stage of its own (`core/viz/EndlessZoom.hpp`, `core/viz/DivePass`, `dive_frag`).
-- It is drawn over the finished picture of every style kind (flat and 3D shaders, MilkDrop, simulations, particles), after Trails or Liquid and before the composite.
+- It is drawn over the finished picture of every style kind (flat and 3D shaders, simulations, particles), after Trails or Liquid and before the composite.
 - It shows the picture nested inside itself (`endless::tunnel`), an octave apart at Ring spacing 1.
 - Every copy grows at Dive speed (`endlessZoomSpeed`, signed: in falls, out rises) and dissolves into the next over a soft rim.
 - The rim has no outline, shadow or mirrored border: `viz_math_test` fails on a ridge.
@@ -324,9 +324,9 @@ The renderer runs these in order each frame.
 - It stops in silence like everything else: no sound, no movement.
 - The renderer's step is the frame's times `sound::motionRate`, 0 once `presence` has faded.
 - Slider glides and style transitions keep wall time.
-- Simulation, particle and MilkDrop styles hold their last frame in silence; an export holds the same way (`export_preroll_test`).
+- Simulation and particle styles hold their last frame in silence; an export holds the same way (`export_preroll_test`).
 - A flat style's Travel zoom (`CameraRig::flatDive`) travels the same stage; `CameraRig` no longer flies for Endless zoom.
-- A shader style's Trails are MilkDrop's feedback through `LiquidPass` with no flow (`Renderer::drawTrails`).
+- A shader style's Trails are a feedback through `LiquidPass` with no flow (`Renderer::drawTrails`).
 - Trails paint the whole frame, so nothing kept in the scene target survives.
 - Trail length is the feedback's sustain (`endless::feedback::sustainInject`).
 - Trail zoom is its video echo and Trail warp its warp (`motion::trailBase`), on flat and 3D shader styles alike.

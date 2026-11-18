@@ -4,7 +4,6 @@ kind|SILK|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_
 kind|LIFE|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,SHADER_LOOK,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM
 kind|MYCELIUM|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM
 kind|ACID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,FLOW_FIELD_SIM
-kind|MILKDROP|UNIVERSAL,ENDLESS_ZOOM,MILKDROP,FLOW_FIELD_SIM
 kind|FLUID|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,BASS_BAND,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,DYE_DENSITY,PARTICLE_SPRITE,FLUID_SIM,EMITTERS,JOURNEY
 kind|CURL_FLOW|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,MID_BAND,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,TURBULENCE,TRAIL_TOGGLE,TRAIL_LENGTH,TRAIL_ECHO,PARTICLE_SPRITE,JOURNEY,FLOW_FIELD_SIM
 kind|CYMATICS|UNIVERSAL,SCENE_CLOCK,AUDIO_DRIVE,TREBLE_BAND,BAND_GAINS,ENDLESS_ZOOM,CYMATICS,FLOW_FIELD_SIM
@@ -320,7 +319,6 @@ style|fold_twin|SHADER|FRACTALS|MARCH_DETAIL|FAMILY_FORM|FORMULA|SHADOW|ESCAPE
 style|fold_scaffold|SHADER|FRACTALS|MARCH_DETAIL|FAMILY_FORM|FORMULA|SHADOW|ESCAPE
 style|fold_thorn|SHADER|FRACTALS|MARCH_DETAIL|FAMILY_FORM|FORMULA|SHADOW|ESCAPE
 style|fold_quartz|SHADER|FRACTALS|MARCH_DETAIL|FAMILY_FORM|FORMULA|SHADOW|ESCAPE
-style|milkdrop|MILKDROP|CLASSIC
 style|fluid|FLUID|FLOWING
 style|fluid_ink|FLUID|FLOWING
 style|fluid_oilslick|FLUID|FLOWING
@@ -386,7 +384,6 @@ picker|loom|loom_braid,loom_net,loom_cloth,loom_cocoon,loom_spokes,loom_rope,loo
 picker|shard|shard_splinter,shard_burst,shard_panes,shard_spires,shard_wall,shard_stair,shard_needles,shard_tunnel,shard_rods,shard_ring
 picker|petal|petal_rose,petal_gates,petal_bells,petal_drift,petal_buds,petal_garland,petal_scales,petal_fern,petal_seed,petal_stair
 picker|fold|fold_lace,fold_nerve,fold_spire,fold_vault,fold_onion,fold_strata,fold_twin,fold_scaffold,fold_thorn,fold_quartz
-picker|milkdrop|milkdrop
 picker|fluid|fluid,fluid_ink,fluid_oilslick,fluid_neon,fluid_chrome,fluid_smoke,fluid_lava,fluid_marble,fluid_aurora,curlflow
 picker|cymatics|cymatics,chladni_sand,bessel_drum,harmonograph,faraday,harmonic_shell,caustic_sheet,levitator,standing_chamber,rosensweig,kundt_tube
 override|chladni_sand|Geometry|1
@@ -411,8 +408,6 @@ key|Trail warp (liquid echo)|TRAIL_ECHO
 key|Morph|SHADER_LOOK
 key|Particle shape|PARTICLE_SPRITE
 key|Particle size|PARTICLE_SPRITE
-key|MilkDrop palette tint|MILKDROP
-key|Blend preset changes|MILKDROP
 key|Duotone|SHADER_LOOK
 key|Bass gain|BASS_BAND
 key|Mid gain|MID_BAND

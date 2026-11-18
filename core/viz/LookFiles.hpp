@@ -94,23 +94,19 @@ struct Preset {
     float attack = 0.0f;
     float decay = 0.0f;
     std::optional<std::string> customShader;
-    std::optional<std::string> milkPreset;
     SceneParams params;
     std::string customPaletteId;
 };
 
 // As org.json read it: "name", "sceneId", "attack" and "decay" required (any value as its text or number; a retired
-// style id opens on the style that replaced it), the envelope through finiteIn, "customShader" and "milkPreset" when
+// style id opens on the style that replaced it), the envelope through finiteIn, "customShader" when
 // present, and the params object's keys beside them (viz/ParamsJson, which reads old looks as they were). nullopt
 // when the text is no object or misses a required key.
 std::optional<Preset> readPreset(std::string_view text);
 
 // The file text, as org.json's toString(2) wrote it: name, sceneId, attack, decay, the params object's keys, then
-// customShader and milkPreset when set.
+// customShader when set.
 std::string writePreset(const Preset& p);
-
-// The MilkDrop file a preset mirrors its .milk source to: its name's stem (a ".milk" suffix dropped) plus ".milk".
-std::string milkFileName(std::string_view presetName);
 
 // ---- Preset names ----------------------------------------------------------------------------------------------
 

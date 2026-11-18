@@ -909,7 +909,7 @@ void toggleFlipsBetweenZeroAndAmount() {
 // in three are shader styles.
 constexpr const char* kStyleIds[] = {
     "kaleido", "plasma", "julia", "tunnel", "aurora", "voronoi", "arbor_grove", "arbor_bolt", "bulb_julia", "bulb_ink",
-    "chrys_bloom", "chrys_fall", "lucid_mandala", "milkdrop", "fluid", "silk", "bars", "spiral", "kifs",
+    "chrys_bloom", "chrys_fall", "lucid_mandala", "fluid", "silk", "bars", "spiral", "kifs",
     "chrome_nebula", "crystal_canyon", "gyroid_cavern", "jelly_abyss", "fractal_dive", "aurora_ocean", "bead_vortex",
     "curl_bloom", "acid_show", "blacklight_bloom",
 };
@@ -1864,7 +1864,7 @@ void diveControlsAreClamped() {
     check(endless::copiesPerSecond(0.3f, NAN) == 0.3f && endless::copiesPerSecond(0.3f, 0.0f) == 0.6f, "spacing is clamped");
 }
 
-// A shader style's Trails in the feedback pass: MilkDrop's sustain. The echo zoom and warp are motion,
+// A shader style's Trails in the feedback pass: its sustain. The echo zoom and warp are motion,
 // pinned in feedback_motion_test.
 void sustainHoldsLongerAtLongerTrails() {
     namespace fb = endless::feedback;
@@ -2521,9 +2521,9 @@ void recipeOnlyAddsWhatTheStyleCanShow() {
     const int count = toggleRecipe(ER::SubWeight, RouteArray{}, 0, kShaderStyle, on);
     check(count == 1 && on[0].target == LT::Warp, "toggling on adds only what the style shows");
     check(recipeIsOn(ER::SubWeight, on, count, kShaderStyle), "and then reads as on");
-    check(!targetReaches(LT::Speed, "milkdrop") && targetReaches(LT::Speed, kShaderStyle), "MilkDrop presets pace themselves");
+    check(targetReaches(LT::Speed, kShaderStyle), "a shader style takes the scene clock");
     check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
-    check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
+    check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, kFluidStyle), "camera and composite targets are universal");
     check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
     // A shader style's trail is the feedback pass's sustain; a fluid has none of its own to lengthen.
     check(targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::TrailLength, kFluidStyle) &&

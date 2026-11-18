@@ -211,7 +211,6 @@ Content readContent(Reader& r, const Value& o) {
         SceneContent c;
         c.sceneId = viz::catalogue::resolveId(r.str(o, "sceneId"));
         c.presetId = r.strOrNull(o, "presetId");
-        c.milkPath = r.strOrNull(o, "milkPath");
         if (const Value* b = Reader::optObj(o, "beatCut")) c.beatCut = readBeatCut(r, *b);
         return c;
     }
@@ -427,7 +426,6 @@ void writeContent(Writer& w, const Content& content) {
         w.text("type", "scene");
         w.text("sceneId", c->sceneId);
         w.optText("presetId", c->presetId);
-        w.optText("milkPath", c->milkPath);
         if (c->beatCut) {
             w.key("beatCut");
             w.open('{');
@@ -688,7 +686,7 @@ Edit newEdit(const std::optional<Song>& song, const std::optional<Look>& look, c
         if (lengthMs > 0) {
             Clip clip;
             clip.id = ids();
-            clip.content = SceneContent{look->sceneId, std::nullopt, look->milkPath, std::nullopt};
+            clip.content = SceneContent{look->sceneId, std::nullopt, std::nullopt};
             clip.durationMs = lengthMs;
             visual.clips.push_back(std::move(clip));
         }

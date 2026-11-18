@@ -127,7 +127,6 @@ float Renderer::beginFrame(double timeSeconds) {
     for (const auto& [id, src] : pending) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
-    applyMilkRequests();
     applyUnderlayUpload();
     if (transition_choice::isRandom(frameTransitionId_) && nextRandomTransition_.empty()) {
         // Drawn and compiled a change ahead, so a library transition's build never lands on the switch frame.
@@ -467,7 +466,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     return progress;
 }
 
-// A simulation, particle or MilkDrop style steps once per draw whatever the step, so a stopped clock keeps
+// A simulation or particle style steps once per draw whatever the step, so a stopped clock keeps
 // the frame it last drew. A shader style is a function of the clock and redraws the same picture.
 bool Renderer::holds(const Scene& scene, const Scene* held) const {
     return frameStill_ && held == &scene && scene.family() != SceneFamily::Shader;
@@ -821,7 +820,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     if (liveLiquid_ != liquid::Mode::Full || born == liquid::Born::Live || born == liquid::Born::Forms) return fboA_.tex();
     if (!bornFbo_.ensure(renderWidth_, renderHeight_)) return fboA_.tex();
     if (born == liquid::Born::Rerolled) {
-        // A stateful family (MilkDrop, the fluid) cannot draw twice in one frame without stepping twice.
+        // A stateful family (the fluid) cannot draw twice in one frame without stepping twice.
         if (scene.family() != SceneFamily::Shader) return fboA_.tex();
         if (!bornRolled_) {
             const uint64_t seed = bornClock_.rollSeed();

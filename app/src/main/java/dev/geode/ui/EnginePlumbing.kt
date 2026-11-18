@@ -133,12 +133,8 @@ fun VisualizerEngineBindings(
         viewModel.morphFade.collect { visualizerView.stage.beginParamMorph(it) }
     }
     LaunchedEffect(Unit) {
-        visualizerView.stage.onMilkPresetLoaded = { visualsViewModel.noteMilkPreset(it) }
         visualizerView.stage.onDirectorStyleMoment = viewModel::onDirectorStyleMoment
         viewModel.vizApply.collect { apply ->
-            apply.milkPath?.let {
-                visualizerView.stage.loadMilkPreset(it)
-            }
             apply.customShader?.let {
                 visualizerView.stage.submitShader(apply.sceneId ?: activeSceneId, it)
             }

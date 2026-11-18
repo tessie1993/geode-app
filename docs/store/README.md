@@ -135,9 +135,9 @@ read 2026-11-11:
 9. **"Your colours stay yours"** (the Auto mode bullet). True in the code (the director touches
    no colour param, `core/tests/director_test.cpp`, `resolver_test.cpp`), but it is a promise;
    drop the sentence if Auto should be free to change colours later.
-10. **"MilkDrop" and "Google Cast" in the listing.** Both are other parties' names, used only to
-   say what the app is compatible with ("a MilkDrop-compatible engine", "with Google Cast").
-   If a reviewer objects, drop the words; nothing else depends on them.
+10. **"Google Cast" in the listing.** It is another party's name, used only to say what the app
+   is compatible with ("with Google Cast"). If a reviewer objects, drop the words; nothing else
+   depends on them.
 11. **Android TV.** The manifest now declares TV support (`android.software.leanback`, a
    `LEANBACK_LAUNCHER` entry, a TV banner, touchscreen not required). Play then offers the app
    to Android TV only if the owner opts in under Advanced settings › Form factors, which needs

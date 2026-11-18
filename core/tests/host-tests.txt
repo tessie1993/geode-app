@@ -78,7 +78,7 @@ physics_layers_test | stub-mt | core/tests/physics_layers_test.cpp core/viz/phys
 pool_test | stub | core/tests/pool_test.cpp core/viz/pool/PoolMath.cpp |
 # The shape graph (core/viz/ShapeGraph, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, no turn, the colour's blend, 1-Lipschitz, the reach.
 shape_graph_test | stub | core/tests/shape_graph_test.cpp core/viz/ShapeGraph.cpp |
-# The feedback pass's motion, MilkDrop's per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
+# The feedback pass's motion, a per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
 feedback_motion_test | stub | core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
     core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
 # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
@@ -244,25 +244,17 @@ surface_run_test | stub | core/tests/surface_run_test.cpp core/api/geode_surface
 underlay_test | stub | core/tests/underlay_test.cpp core/viz/Underlay.cpp core/api/geode_underlay_api.cpp |
 # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
 surface_motion_test | stub | core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp |
-# Auto's style timer: the interval plus a spread per look, never sooner than the interval; the duration a .milk preset's progress runs over; the random draw never repeating what is on screen.
+# Auto's style timer: the interval plus a spread per look, never sooner than the interval; the random draw never repeating what is on screen.
 auto_timer_test | stub | core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp |
 # Auto visuals' decisions: the playlist's steps and holds, the timed draw, a director moment the user's or Auto's, the draw's pool and the interval's range.
 auto_plan_test | stub | core/tests/auto_plan_test.cpp core/api/geode_auto_api.cpp |
 # Customize's undo: a drag folds into one entry, a discrete write is its own, 64 deep, the palette id travels; the dice's #PRO lock and when the waves roll.
 param_history_test | stub | core/tests/param_history_test.cpp core/api/geode_param_history_api.cpp |
-# What the stage's next/previous style steps: the open tab's list (.milk presets on MilkDrop or while it is on screen, saved looks on Presets, styles elsewhere), the walk's wrap and locks, the .milk history.
+# What the stage's next/previous style steps: the open tab's list (saved looks on Presets, styles elsewhere), the walk's wrap and locks.
 stage_step_test | stub | core/tests/stage_step_test.cpp core/api/geode_stage_step_api.cpp |
 # Visuals › Styles: Random over every family (or the on-screen family alone), never the style on screen, a kept style first; every list leads with what is on screen.
 style_pick_test | stub | core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp |
-# A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
-milk_shader_note_test | core | core/tests/milk_shader_note_test.cpp |
-# A loaded .milk counts as shown, and is remembered for the next start, only once it has drawn clean frames.
-milk_shown_test | core | core/tests/milk_shown_test.cpp |
-# The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
-milk_memory_test | mt | core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp |
-# MilkDrop textures: header checks and caps, stored names and the rename strip, the show preset, the sampler scan and every rung of the link ladder, pack kinds, import collision names.
-milk_textures_test | core | core/tests/milk_textures_test.cpp core/viz/MilkTextures.cpp core/viz/Sha256.cpp |
-# A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
+# A style change's transition: "random" draws one per change, never twice running; Auto's change fades for its own time, read once per renderer.
 transition_choice_test | core | core/tests/transition_choice_test.cpp |
 # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
 pacer_test | core | core/tests/pacer_test.cpp |

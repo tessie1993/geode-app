@@ -152,7 +152,7 @@ class VisualizerWallpaperService : WallpaperService() {
             stage?.capFps = SoundNative.surfaceFpsChoice(settings.fps).toFloat()
         }
 
-        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the stage's own (core/viz/MilkMemory). */
+        /** The app's saved look (LookStore), as it is. */
         private fun restoreLook(engine: Stage) {
             val looks = LookStore(prefsFiles, contentResolver)
             looks.pushProcessWide()

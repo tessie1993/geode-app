@@ -21,7 +21,6 @@ namespace geode::stage {
 inline constexpr uint32_t kFrameClearOnly = 0x1;
 inline constexpr uint32_t kFrameLiquidChanged = 0x4;
 inline constexpr uint32_t kFrameErrorChanged = 0x8;
-inline constexpr uint32_t kFrameMilkLoaded = 0x10;
 inline constexpr uint32_t kFrameDirectorMoment = 0x20;
 inline constexpr uint32_t kFrameStillReady = 0x40;
 
@@ -68,7 +67,6 @@ public:
     // Closes the tee (safe when none opened), frees the mark and tells the session its tee is closed.
     virtual void recordStop(const RecordAsk& ask) = 0;
     virtual std::string error() = 0;
-    virtual std::string takeMilkLoaded() = 0;
     virtual int takeDirectorMoments() = 0;
     virtual int liquidMode() = 0;
     virtual bool readStill(Still& out) = 0;
@@ -104,8 +102,6 @@ public:
     bool recordClosed() const { return recordsOpen_.load() == 0; }
 
     std::string error() const;
-    // The next loaded preset's path, "" when none waits.
-    std::string takeMilkLoaded();
     int takeDirectorMoments() { return moments_.exchange(0); }
     int liquidMode() const { return liquid_.load(); }
     bool takeStill(Still& out);
@@ -140,7 +136,6 @@ private:
 
     mutable std::mutex stateLock_;
     std::string error_;
-    std::vector<std::string> milkLoaded_;
     std::optional<Still> still_;
     std::atomic<int> moments_{0};
     std::atomic<int> liquid_{0};

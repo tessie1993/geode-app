@@ -142,8 +142,8 @@ void migration() {
 RestoreRequest base() {
     RestoreRequest r;
     r.hasStaged = true;
-    r.stagedSections = {"settings", "creative", "music", "milk"};
-    r.requested = {"settings", "creative", "music", "milk"};
+    r.stagedSections = {"settings", "creative", "music"};
+    r.requested = {"settings", "creative", "music"};
     r.stagedPrefs = {{"prefs/geode-prefs.json", prefsText({flag("gui_reduced_motion", true), flag("gui_tutorial_seen", true), text("macro_bank", "from-settings-file")})},
                      {"prefs/creative/geode-prefs.json", prefsText({text("macro_bank", "mb"), text("reactions", "r"), flag("gui_reduced_motion", false), text("macro_knobs", "old")})},
                      {"prefs/geode-mod.json", prefsText({number("slot", 1)})}};
@@ -162,8 +162,8 @@ void restore() {
     check(planRestore(RestoreRequest{}).failure.problem == Problem::IoFailed, "nothing staged");
     RestoreRequest req = base();
     const RestorePlan plan = planRestore(req);
-    check(plan.failure.ok() && plan.sections.size() == 4, "four sections in order");
-    check(plan.sections[0].id == "settings" && plan.sections[1].id == "creative" && plan.sections[2].id == "music" && plan.sections[3].id == "milk",
+    check(plan.failure.ok() && plan.sections.size() == 3, "three sections in order");
+    check(plan.sections[0].id == "settings" && plan.sections[1].id == "creative" && plan.sections[2].id == "music",
           "sections in layout order");
     const SectionRestore* settings = find(plan, "settings");
     const SectionRestore* creative = find(plan, "creative");
@@ -191,10 +191,6 @@ void restore() {
     check(music->targets == std::vector<std::string>({"music-playlists", "smart-playlists", "library.json", "history.json"}) &&
               music->ensureDirs.size() == 2 && music->prefs.empty(),
           "music: dirs then files, only the dirs are re-created, favourites file not staged");
-    const SectionRestore* milk = find(plan, "milk");
-    check(milk->targets == std::vector<std::string>({"milk"}) &&
-              milk->carryOver == std::vector<std::string>({"milk/generated", "milk/textures/.links"}),
-          "milk carries its caches over");
 
     // Only what was asked for and staged.
     req.requested = {"creative", "bogus"};

@@ -12,8 +12,6 @@ import java.io.OutputStream
 enum class ReadCap(
     val bytes: Long,
 ) {
-    MILK(2L * MIB),
-    TEXTURE(16L * MIB),
     PRESET(4L * MIB),
     LYRICS(1L * MIB),
     PLAYLIST(8L * MIB),

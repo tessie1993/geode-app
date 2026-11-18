@@ -30,7 +30,7 @@ Manifest sample() {
     m.version = kCurrentVersion;
     m.appVersionCode = 33;
     m.createdAtMs = 1000;
-    m.sections = {"settings", "creative", "music", "milk"};
+    m.sections = {"settings", "creative", "music"};
     m.entries = {{"presets/a.json", 17, std::string(64, 'a')}};
     return m;
 }
@@ -75,16 +75,13 @@ void sections() {
     check(sectionOfPath("history.json") == "music", "history music");
     check(sectionOfPath("library.json") == "music", "library music");
     check(sectionOfPath("prefs/geode-favourites.json") == "music", "favourites music");
-    check(sectionOfPath("milk/textures/cloud.png") == "milk", "milk texture");
     check(sectionOfPath("prefs/geode-prefs.json") == "settings", "prefs settings");
     check(sectionOfPath("prefs/geode-wallpaper.json") == "settings", "wallpaper settings");
     check(sectionOfPath("prefs/creative/geode-prefs.json") == "creative", "creative slice");
-    check(sectionOfPath("milk/textures/.links/p/cloud.png").empty(), "links cache out");
-    check(sectionOfPath("milk/generated/g.png").empty() && sectionOfPath("milk/generated").empty(), "generated out");
     check(sectionOfPath("presets/a.json.tmp").empty() && sectionOfPath("presets/a.corrupt").empty(), "tmp and corrupt out");
     check(sectionOfPath("prefs/geode-widget.json").empty(), "unknown prefs file out");
     check(sectionOfPath("session.json").empty(), "session out");
-    for (const char* p : {"takes/t.json", "analysis/a.bin", "crash-latest.txt", "milk-builtin/a.milk", "presets", "milk",
+    for (const char* p : {"takes/t.json", "analysis/a.bin", "crash-latest.txt", "presets",
                           "library.json/x", "prefs/geode-prefs", "prefs/.json", "prefs/a/b/c.json",
                           "prefs/settings/geode-prefs.json", "prefs/music/geode-prefs.json", "prefs/nosuch/geode-prefs.json",
                           "prefs/creative/geode-mod.json"}) {
@@ -133,12 +130,12 @@ void names() {
     check(defaultFileName(2026, 10, 30) == "beatrealms-backup-20261030.zip", "default file name");
     check(defaultFileName(2026, 1, 5) == "beatrealms-backup-20260105.zip", "zero padded");
     const auto l = layout();
-    check(l.size() == 4 && l[0].id == "settings" && l[1].id == "creative" && l[2].id == "music" && l[3].id == "milk",
+    check(l.size() == 3 && l[0].id == "settings" && l[1].id == "creative" && l[2].id == "music",
           "layout order");
     check(l[1].prefsEntries.size() == 2 && l[1].prefsEntries[0].path == "prefs/geode-mod.json" &&
               l[1].prefsEntries[1].path == "prefs/creative/geode-prefs.json" && l[1].prefsEntries[1].file == "geode-prefs",
           "creative prefs entries: own file then slice");
-    check(l[0].prefsEntries.size() == 7 && l[3].prefsEntries.empty(), "settings has seven files, milk none");
+    check(l[0].prefsEntries.size() == 7, "settings has seven files");
     check(l[2].roots == std::vector<std::string>({"music-playlists", "smart-playlists", "library.json", "history.json"}),
           "roots");
     check(kMaxTotalBytes == 536870912 && kMaxEntries == 20000 && kMaxManifestBytes == 8388608 && kCurrentVersion == 2 &&

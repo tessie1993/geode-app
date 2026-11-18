@@ -94,7 +94,7 @@ const std::vector<Section>& table() {
         {C::Liquid, "push_swirl", false, S::Always, {"Flow force", "Flow curl"}},
         {C::Liquid, "surface", false, S::Always, {"Born inside", "Colour age", "Surface"}},
 
-        // The style's own engine (Fluid, Cymatics, MilkDrop): one section each, split so no list runs
+        // The style's own engine (Fluid, Cymatics): one section each, split so no list runs
         // past a dozen rows; each shows only where its controls reach, and the category only with one.
         {C::Engine,
          "fluid_flow",
@@ -120,11 +120,6 @@ const std::vector<Section>& table() {
          false,
          S::Engine,
          {"Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen"}},
-        {C::Engine,
-         "milkdrop",
-         false,
-         S::Engine,
-         {"Blend preset changes", "MilkDrop palette tint"}},
 
         {C::Expert, "waves", false, S::Always, {"@waves"}},
         {C::Expert, "envelopes", false, S::Always, {"@envelopes"}},
@@ -245,7 +240,6 @@ constexpr SectionTitle kSectionTitles[] = {
     {"fluid_layers", "Fluid: layers"},
     {"plate", "Plate"},
     {"plate_look", "Plate: look"},
-    {"milkdrop", "MilkDrop"},
     {"layers", "Layers"},
     {"shader_code", "Shader code"},
 };
@@ -271,7 +265,7 @@ bool rule(Show show, const std::string& styleId) {
         case Show::Always: return true;
         case Show::ThreeD: return catalogue::fliesCamera(styleId);
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
-        case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
+        case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics;
         // Fluid's force and dye editors only: the owner took the style's own shader box out of
         // Customize (2026-11-11), so a shader style has no Shader code section to show.
         case Show::ShaderCode: return kind == Kind::Fluid;

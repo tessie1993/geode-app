@@ -10,7 +10,7 @@ import {
   VIDEO_MODELS,
 } from '../constants';
 import { isVideoKind, needsLogo } from '../lib/jobs';
-import type { ProjectMedia, Settings } from '../types';
+import type { ProjectAsset, Settings } from '../types';
 import { Icon, IconButton, PillButton, SectionLabel, SegmentedControl, SelectField, TextAreaField } from './Primitives';
 
 const EXTRA_MAX_CHARS = 600;
@@ -18,7 +18,7 @@ const EXTRA_MAX_CHARS = 600;
 interface SettingsPanelProps {
   settings: Settings;
   onChange: (patch: Partial<Settings>) => void;
-  logo: ProjectMedia | null;
+  logo: ProjectAsset | null;
   onChooseLogo: () => void;
   onClearLogo: () => void;
   prompt: string;

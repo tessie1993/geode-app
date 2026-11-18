@@ -32,7 +32,7 @@ static_assert(stage::kStateRefused == GEODE_STAGE_STATE_REFUSED && stage::kState
 static_assert(stage::kStateReleased == GEODE_STAGE_STATE_RELEASED && stage::kStateModeShift == GEODE_STAGE_STATE_MODE_SHIFT);
 static_assert(static_cast<int>(stage::Kind::View) == GEODE_STAGE_KIND_VIEW && static_cast<int>(stage::Kind::Surface) == GEODE_STAGE_KIND_SURFACE);
 static_assert(stage::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY && stage::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
-static_assert(stage::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED && stage::kFrameMilkLoaded == GEODE_FRAME_MILK_LOADED);
+static_assert(stage::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(stage::kFrameDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT && stage::kFrameStillReady == GEODE_FRAME_STILL_READY);
 
 namespace {
@@ -107,12 +107,6 @@ public:
     std::string error() override {
         const char* text = geode_viz_last_error(v_);
         return text ? text : "";
-    }
-    std::string takeMilkLoaded() override {
-        // One call: the take hands the path out once. A path longer than PATH_MAX is no file the renderer loaded.
-        char path[4096];
-        const size_t length = geode_viz_take_milk_preset_loaded(v_, path, sizeof(path));
-        return length > 0 && length < sizeof(path) ? std::string(path, length) : std::string();
     }
     int takeDirectorMoments() override { return geode_viz_take_director_style_moments(v_); }
     int liquidMode() override { return geode_viz_liquid_mode(v_); }
@@ -217,7 +211,7 @@ geode_stage* geode_stage_create(int kind, const geode_stage_client* client, floa
     }
 }
 
-geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir, const char* milk_texture_dir,
+geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir,
                                      float cap_fps) {
     if (kind != GEODE_STAGE_KIND_VIEW && kind != GEODE_STAGE_KIND_SURFACE) return nullptr;
     geode_viz* viz = nullptr;
@@ -225,7 +219,6 @@ geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char
     try {
         viz = geode_viz_create(assets, cache_dir);
         if (!viz) return nullptr;
-        geode_viz_set_milk_texture_dir(viz, milk_texture_dir);
         auto s = std::make_shared<Stage>();
         s->viz = viz;
         std::unique_ptr<stage::LiveViz> bound = std::make_unique<Viz>(viz, assets);
@@ -410,15 +403,6 @@ size_t geode_stage_error(const geode_stage* s, char* out, size_t capacity) {
     try {
         const std::shared_ptr<stage::LiveClient> live = liveOf(s);
         return copyText(live ? live->error() : std::string(), out, capacity);
-    } catch (...) {
-        return 0;
-    }
-}
-
-size_t geode_stage_take_milk_loaded(geode_stage* s, char* out, size_t capacity) {
-    try {
-        const std::shared_ptr<stage::LiveClient> live = liveOf(s);
-        return copyText(live ? live->takeMilkLoaded() : std::string(), out, capacity);
     } catch (...) {
         return 0;
     }

@@ -14,7 +14,7 @@
 // point is divergent, and the solver's pressure projection exists to remove divergence; it would cancel
 // the dive within a frame. So the solver carries the swirl, the pushes and the sound's stirring, and the
 // dive is a per-frame magnification about the vanishing point applied in the liquid's own advection,
-// MilkDrop's endless-zoom idiom: a feedback zoom never arrives, because each frame only ever samples
+// the endless-zoom idiom: a feedback zoom never arrives, because each frame only ever samples
 // the one before it.
 //
 // This file is the pure part (no GL), so core/tests/liquid_test.cpp can pin it on the host.

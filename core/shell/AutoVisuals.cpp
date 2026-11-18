@@ -31,8 +31,6 @@ std::vector<PlaylistEntry> autoVisualsEntriesFromJson(const std::string& text, c
         e.sceneId = resolve(sceneId);
         const std::string preset = optString(o, "presetName");
         if (!preset.empty()) e.presetName = preset;
-        const std::string milk = optString(o, "milkPath");
-        if (!milk.empty()) e.milkPath = milk;
         e.label = optString(o, "label");
         if (e.label.empty()) e.label = sceneId;
         out.push_back(std::move(e));
@@ -52,7 +50,6 @@ std::string autoVisualsEntriesToJson(const std::vector<PlaylistEntry>& entries) 
         put("sceneId", e.sceneId);
         put("label", e.label);
         if (e.presetName) put("presetName", *e.presetName);
-        if (e.milkPath) put("milkPath", *e.milkPath);
         arr.push_back(json::Value::object(std::move(o), std::move(keys)));
     }
     return json::orgJsonText(json::Value::array(std::move(arr))).value_or("[]");
@@ -66,7 +63,6 @@ AutoVisualsState autoVisualsApply(const AutoVisualsState& state, const AutoVisua
     out.randomIntervalSec = viz::auto_plan::clampInterval(stored.randomIntervalSec.value_or(state.randomIntervalSec));
     out.randomIncludeStyles = stored.randomIncludeStyles.value_or(state.randomIncludeStyles);
     out.randomIncludePresets = stored.randomIncludePresets.value_or(state.randomIncludePresets);
-    out.randomIncludeMilk = stored.randomIncludeMilk.value_or(state.randomIncludeMilk);
     out.playlistIntervalSec = viz::auto_plan::clampInterval(stored.playlistIntervalSec.value_or(state.playlistIntervalSec));
     return out;
 }

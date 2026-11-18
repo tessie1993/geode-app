@@ -174,7 +174,7 @@ inline void stopsFromHues(float base, float range, int n, int* out) {
 }
 
 // The hue the first stop sits on, and how far round the wheel the stops reach from it: what the
-// simulation and MilkDrop styles, which colour by one base hue and a span, take from your colours.
+// simulation styles, which colour by one base hue and a span, take from your colours.
 inline float baseHue(const int* stops, int n) { return count(stops, n) > 0 ? toHsv(unpack(stops[0]))[0] : 0.0f; }
 
 inline float hueSpan(const int* stops, int n) {

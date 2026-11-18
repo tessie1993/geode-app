@@ -76,7 +76,7 @@ object LooksNative {
 
     /**
      * A preset's text as org.json read it (core/viz/LookFiles, `geode_preset_read`): its params into [frame], into
-     * [strings] (five slots) the name, scene id, custom shader, milk preset (null when absent) and saved palette id,
+     * [strings] (four slots) the name, scene id, custom shader (null when absent) and saved palette id,
      * into [envelope] the attack and decay. False, nothing written, when it is no preset.
      */
     external fun presetRead(
@@ -93,13 +93,9 @@ object LooksNative {
         attack: Float,
         decay: Float,
         customShader: String?,
-        milkPreset: String?,
         frame: FloatArray,
         customPaletteId: String,
     ): String?
-
-    /** The .milk file a preset named [presetName] mirrors its source to (`geode_preset_milk_file_name`). */
-    external fun presetMilkFileName(presetName: String): String
 
     /** [presetRenameProblem] and [presetFolderNameProblem]: no name is left once cleaned. */
     const val NAME_BLANK: Int = 1
@@ -218,7 +214,7 @@ object LooksNative {
 
     /**
      * A template file's text as native reads it (core/viz/TemplateFile, `geode_template_read`): 1 with [strings]
-     * (seven slots) the text this build writes for it, id, name, scene id, custom shader and milk preset (null when
+     * (six slots) the text this build writes for it, id, name, scene id, custom shader (null when
      * absent) and saved palette id, its params in [frame] and attack and decay in [envelope]; 0 for JSON that is no
      * template and -1 for text that cannot be read, [strings] slot 0 the reason.
      */
@@ -237,7 +233,6 @@ object LooksNative {
         attack: Float,
         decay: Float,
         customShader: String?,
-        milkPreset: String?,
         frame: FloatArray,
         customPaletteId: String,
     ): String?

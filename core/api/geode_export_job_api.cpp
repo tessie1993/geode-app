@@ -37,7 +37,6 @@ public:
         geode_viz_surface_changed(viz_, width, height);
     }
     bool setScene(const std::string& sceneId) override { return geode_viz_set_scene(viz_, sceneId.c_str()) != 0; }
-    void loadMilkPreset(const std::string& path) override { geode_viz_load_milk_preset(viz_, path.c_str()); }
     uint32_t pinEngineSettings(bool entitled, int64_t durationMs) override {
         return geode_viz_pin_engine_settings(viz_, entitled ? 1 : 0, static_cast<long long>(durationMs));
     }
@@ -87,14 +86,13 @@ void geode_export_job_destroy(geode_export_job* job) {
 }
 
 int64_t geode_export_job_begin(geode_export_job* job, int width, int height, const char* scene_id,
-                               const char* milk_path, int entitled, int64_t pin_duration_ms) {
+                               int entitled, int64_t pin_duration_ms) {
     if (!job || !scene_id) return -1;
     try {
         geode::output::ExportStart start;
         start.width = width;
         start.height = height;
         start.sceneId = scene_id;
-        start.milkPresetPath = milk_path ? milk_path : "";
         start.entitled = entitled != 0;
         start.pinDurationMs = pin_duration_ms;
         return job->frames.begin(start, job->target);

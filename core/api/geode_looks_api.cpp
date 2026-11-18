@@ -138,15 +138,14 @@ int geode_preset_read(const char* text, float* out_frame, int n, const char** ou
     out_text[0] = read.name.c_str();
     out_text[1] = read.sceneId.c_str();
     out_text[2] = read.customShader ? read.customShader->c_str() : nullptr;
-    out_text[3] = read.milkPreset ? read.milkPreset->c_str() : nullptr;
-    out_text[4] = read.customPaletteId.c_str();
+    out_text[3] = read.customPaletteId.c_str();
     out_envelope[0] = read.attack;
     out_envelope[1] = read.decay;
     return 1;
 }
 
 const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay, const char* custom_shader,
-                               const char* milk_preset, const float* frame, int n, const char* custom_palette_id) {
+                               const float* frame, int n, const char* custom_palette_id) {
     if (!frame || n < SceneParams::kFieldCount) return nullptr;
     thread_local std::string out;
     files::Preset p;
@@ -155,15 +154,9 @@ const char* geode_preset_write(const char* name, const char* scene_id, float att
     p.attack = attack;
     p.decay = decay;
     if (custom_shader) p.customShader = custom_shader;
-    if (milk_preset) p.milkPreset = milk_preset;
     p.params = SceneParams::fromWire(frame);
     p.customPaletteId = textOf(custom_palette_id);
     return hold(out, files::writePreset(p));
-}
-
-const char* geode_preset_milk_file_name(const char* preset_name) {
-    thread_local std::string out;
-    return hold(out, files::milkFileName(textOf(preset_name)));
 }
 
 int geode_preset_is_built_in(const char* name) { return files::isBuiltInPreset(textOf(name)) ? 1 : 0; }
@@ -281,15 +274,14 @@ int geode_template_read(const char* text, float* out_frame, int n, const char** 
     out_text[2] = read.value.name.c_str();
     out_text[3] = look.sceneId.c_str();
     out_text[4] = look.customShader ? look.customShader->c_str() : nullptr;
-    out_text[5] = look.milkPreset ? look.milkPreset->c_str() : nullptr;
-    out_text[6] = look.customPaletteId.c_str();
+    out_text[5] = look.customPaletteId.c_str();
     out_envelope[0] = look.attack;
     out_envelope[1] = look.decay;
     return 1;
 }
 
 const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack, float decay,
-                                  const char* custom_shader, const char* milk_preset, const float* frame, int n,
+                                  const char* custom_shader, const float* frame, int n,
                                   const char* custom_palette_id) {
     if (!frame || n < SceneParams::kFieldCount) return nullptr;
     thread_local std::string out;
@@ -301,7 +293,6 @@ const char* geode_template_create(const char* name, long long created_at_ms, con
     t.look.attack = attack;
     t.look.decay = decay;
     if (custom_shader) t.look.customShader = custom_shader;
-    if (milk_preset) t.look.milkPreset = milk_preset;
     t.look.params = SceneParams::fromWire(frame);
     t.look.customPaletteId = textOf(custom_palette_id);
     return hold(out, files::writeTemplate(t));

@@ -25,7 +25,7 @@
 // family-specific fields stay in that family's rows and nothing shared has to know them. To move a
 // family next to its shaders, cut its BEGIN..END block into its own file and #include it from here.
 //
-// MilkDrop and the dedicated renderers' styles (silk, life, mycelium, acid, fluid, cymatics) are not
+// The dedicated renderers' styles (silk, life, mycelium, acid, fluid, cymatics) are not
 // rows: their tables live in core/viz/scenes/StyleCatalog.
 
 // Loose styles, in picker order.

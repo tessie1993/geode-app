@@ -41,6 +41,8 @@ constexpr int kLapTries = 4;
 constexpr int kAnalysisNice = -2;
 #endif
 
+std::atomic<AnalysisThread::WorkReporter> gWorkReporter{nullptr};
+
 float clampFade(float gain) { return std::isfinite(gain) ? std::clamp(gain, 0.0f, 1.0f) : 1.0f; }
 
 // The published words, the hints and the counters must be plain loads and stores on every target.
@@ -96,11 +98,14 @@ void AnalysisThread::notify() {
     if (timedWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
 }
 
+void AnalysisThread::setWorkReporter(WorkReporter reporter) { gWorkReporter.store(reporter, std::memory_order_relaxed); }
+
 // ADPF: a pass that wrote audio to the engine had that audio's own length to finish in.
 void AnalysisThread::reportWork(std::chrono::steady_clock::time_point started) {
-    if (workFrames_ <= 0 || workRateHz_ <= 0) return;
+    const WorkReporter reporter = gWorkReporter.load(std::memory_order_relaxed);
+    if (!reporter || workFrames_ <= 0 || workRateHz_ <= 0) return;
     const int64_t audioNs = workFrames_ * 1000000000 / workRateHz_;
-    workHint_.report(audioNs, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started).count());
+    reporter(audioNs, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started).count());
 }
 
 // A write the listen limit holds back changes nothing until the limit moves, which only time does: while this thread

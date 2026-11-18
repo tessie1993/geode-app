@@ -66,4 +66,10 @@ private:
 #endif
 };
 
+// For a worker thread that hands the hint to a layer that cannot include this one: the calling thread's own session.
+inline void reportThreadWork(int64_t targetNs, int64_t actualNs) {
+    thread_local WorkHint hint;
+    hint.report(targetNs, actualNs);
+}
+
 }  // namespace geode::util

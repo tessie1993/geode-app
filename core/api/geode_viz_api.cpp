@@ -23,6 +23,7 @@
 #include "api/geode_viz_internal.hpp"
 #include "sound/Tuning.hpp"
 #include "sound/hop/SharedAnalysis.hpp"
+#include "util/WorkHint.hpp"
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/AutoDraw.hpp"
@@ -267,6 +268,7 @@ std::shared_ptr<geode::sound::SharedAnalysis> ringAnalysis(const geode_pcm_ring&
     std::lock_guard<std::mutex> lock(ring.analysisLock);
     if (!ring.analysis) {
         try {
+            geode::sound::AnalysisThread::setWorkReporter(&geode::util::reportThreadWork);
             ring.analysis = std::make_shared<geode::sound::SharedAnalysis>(ring.ring);
         } catch (...) {
             return nullptr;

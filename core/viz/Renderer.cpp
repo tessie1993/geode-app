@@ -15,6 +15,7 @@
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"
+#include "util/WorkHint.hpp"
 
 namespace geode::viz {
 
@@ -120,6 +121,7 @@ void Renderer::hearOwn(const float* interleaved, int frames, int channels, int s
     const bool offscreen = offscreen_.load(std::memory_order_relaxed);
     if (!ownSound_) {
         try {
+            sound::AnalysisThread::setWorkReporter(&util::reportThreadWork);
             ownRing_ = std::make_shared<audio::ingest::PcmRing>(kOwnRingFrames, 2, kOwnRingRunway);
             ownSound_ = std::make_shared<sound::SharedAnalysis>(ownRing_);
         } catch (...) {

@@ -17,7 +17,6 @@
 #include "sound/Rhythm.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/SoundFrame.h"
-#include "util/WorkHint.hpp"
 
 namespace geode::sound {
 
@@ -79,6 +78,10 @@ public:
     // limit moves on with no write (playback resumed with the sink's buffer already in the ring): once the audio held
     // back has waited a second, the thread sleeps until a notify.
     void notify();
+    // What a pass that wrote audio reports on the analysis thread: its work in nanoseconds against the nanoseconds of
+    // audio it covered (ADPF, which the layer above hands in; null reports nothing). Process-wide; set before start().
+    using WorkReporter = void (*)(int64_t targetNs, int64_t actualNs);
+    static void setWorkReporter(WorkReporter reporter);
     // The ring's writer calls this, not notify(), after each write: the same, except that a thread asleep for the
     // listen limit to move on is not woken by audio the limit holds back anyway (the limit moves it, with time).
     void ringWritten();
@@ -216,7 +219,6 @@ private:
     std::mutex waitLock_;
     std::condition_variable waitCv_;
     std::atomic<uint64_t> passes_{0};
-    util::WorkHint workHint_;     // the analysis thread's own
     int64_t workFrames_ = 0;      // input frames the last pass wrote to the engine
     int workRateHz_ = 0;          // their rate
     std::atomic<bool> idle_{false};

@@ -496,7 +496,7 @@ int64_t heldLimit(void*) { return gHeldLimit.load(); }
 
 void heldBackSleepsThroughWrites() {
     const int rate = 48000;
-    const std::vector<float> pcm = clicks(rate, 120.5, 2.0);
+    const std::vector<float> pcm = clicks(rate, 133.0, 2.0);
     PcmRing ring(kRingFrames, 2, kRunway);
     AnalysisThread at(ring, false);
     gHeldLimit.store(kAll);

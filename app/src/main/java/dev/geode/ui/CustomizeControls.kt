@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.CustomizeNative
-import dev.geode.engine.bridge.ParamScope
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.geodeContainer
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 

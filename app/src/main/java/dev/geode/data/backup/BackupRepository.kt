@@ -115,12 +115,19 @@ class BackupRepository
             withContext(io) {
                 guarded("restore") {
                     val preview = staged ?: fail(BackupProblem.IO_FAILED, "nothing staged")
+                    var wrote = false
                     try {
                         for (section in BackupSection.entries.filter { it in sections && it in preview.sections }) {
                             swapFiles(section)
+                            // Files are on disk from here: the stores still hold the old copy in memory.
+                            wrote = true
                             BackupFormat.prefsEntries(section).forEach { (name, path) -> restorePrefs(section, name, path) }
                             RingLog.note(TAG, "restored ${section.id}")
                         }
+                    } catch (e: BackupException) {
+                        throw if (wrote) BackupException(e.problem, e.message.orEmpty(), e, wroteSomething = true) else e
+                    } catch (e: IOException) {
+                        throw if (wrote) BackupException(BackupProblem.IO_FAILED, "restore: ${e.message}", e, wroteSomething = true) else e
                     } finally {
                         discardStaging()
                     }
@@ -131,7 +138,28 @@ class BackupRepository
 
         private fun discardStaging() {
             staged = null
+            returnAside()
             workDir.deleteRecursively()
+        }
+
+        /**
+         * A swap the process did not outlive leaves the user's originals in the aside directory. Whatever
+         * has no file at its place in filesDir goes back before the work directory is deleted.
+         */
+        private fun returnAside() {
+            val aside = asideDir
+            if (!aside.isDirectory) return
+            aside
+                .walkTopDown()
+                .filter { it.isFile }
+                .forEach { file ->
+                    val home = File(filesDir, file.relativeTo(aside).path)
+                    if (home.exists()) return@forEach
+                    runCatching {
+                        home.parentFile?.mkdirs()
+                        file.renameTo(home)
+                    }.onFailure { RingLog.note(TAG, "could not return ${file.name} from ${aside.path}", it) }
+                }
         }
 
         private fun sourcesFor(section: BackupSection): List<BackupSource> {

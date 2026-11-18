@@ -91,6 +91,12 @@ const char* geode_macro_bank_reset_knob(const char* bank, int knob_id) try {
     return nullptr;
 }
 
+const char* geode_macro_bank_reset_all(const char* bank) try {
+    return handOut(macrobank::resetAll(bankOf(bank)));
+} catch (...) {
+    return nullptr;
+}
+
 const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down) try {
     return handOut(macrobank::setLink(bankOf(bank), knob_id, macrobank::targetNamed(target ? target : ""), up, down));
 } catch (...) {
@@ -178,6 +184,10 @@ const char* geode_macro_bank_live(const char* bank, const char* style_id) try {
     return handOut(macrobank::liveText(bankOf(bank), style_id ? style_id : ""));
 } catch (...) {
     return nullptr;
+}
+
+float geode_macro_bank_modulated(float turn, float add) {
+    return macrobank::modulated(turn, add);
 }
 
 const char* geode_macro_bank_live_mods(void) try {

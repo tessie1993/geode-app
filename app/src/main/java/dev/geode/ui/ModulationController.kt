@@ -9,7 +9,7 @@ import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
 import dev.geode.engine.bridge.PanelNative
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -93,15 +93,15 @@ internal class ModulationController(
     ) {
         val previous = host.params
         if (params == previous) return
-        _history.value =
-            historyOf(PanelNative.paramHistoryRecord(previous.frame(), previous.customPaletteId, SystemClock.elapsedRealtime(), discrete))
+        val now = SystemClock.elapsedRealtime()
+        _history.value = historyOf(PanelNative.paramHistoryRecord(previous.frame(), previous.customPaletteId, host.sceneId, now, discrete))
         host.setSceneParams(params)
     }
 
     private fun step(redo: Boolean) {
         val current = host.params
         val out = FloatArray(SceneParams.FIELDS)
-        val palette = PanelNative.paramHistoryStep(redo, current.frame(), current.customPaletteId, out) ?: return
+        val palette = PanelNative.paramHistoryStep(redo, current.frame(), current.customPaletteId, host.sceneId, out) ?: return
         host.setSceneParams(SceneParams.read(out, palette))
         _history.value = historyOf(PanelNative.paramHistoryState())
     }

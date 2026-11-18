@@ -199,10 +199,11 @@ geode_cast_encoder* geode_cast_encoder_open(int64_t server, int64_t webrtc, cons
             CastEncoder::open(geode::output::sink::mediaCodecs(-1), format, std::move(out));
         if (!encoder) return nullptr;
         std::shared_ptr<const geode::audio::ingest::PcmRing> ring = music ? music->ring : nullptr;
-        auto* made = new geode_cast_encoder{music, geode::output::CastAudioPump(std::move(ring), kRateHz, kChannels),
-                                            std::move(encoder)};
+        // Held until start() returns: a thread that cannot be created throws, and the encoder must not leak started.
+        std::unique_ptr<geode_cast_encoder> made(new geode_cast_encoder{
+            music, geode::output::CastAudioPump(std::move(ring), kRateHz, kChannels), std::move(encoder)});
         made->encoder->start();
-        return made;
+        return made.release();
     } catch (...) {
         return nullptr;
     }

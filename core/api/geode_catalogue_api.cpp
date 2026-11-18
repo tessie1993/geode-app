@@ -91,6 +91,14 @@ int geode_catalogue_reaches(const char* scope_name, const char* style_id) {
     }
 }
 
+int geode_catalogue_has_override(const char* style_id, const char* param_key) {
+    try {
+        return catalogue::overrideOf(style_id ? style_id : "", param_key ? param_key : "").has_value() ? 1 : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
 float geode_catalogue_override(const char* style_id, const char* param_key) {
     try {
         const auto held = catalogue::overrideOf(style_id ? style_id : "", param_key ? param_key : "");

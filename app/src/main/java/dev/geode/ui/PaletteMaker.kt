@@ -57,7 +57,7 @@ import dev.geode.data.PaletteStore
 import dev.geode.data.SavedPaletteFiles
 import dev.geode.data.withSavedPalette
 import dev.geode.engine.bridge.CustomizeNative
-import dev.geode.engine.bridge.SceneParams
+import dev.geode.model.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -206,6 +206,14 @@ internal fun YourColoursCard(
     palettes: SavedPalettes,
 ) {
     var state by remember { mutableStateOf(CustomizeNative.paletteMakerStart(p.frame())) }
+    // When the look changes under the editor (another style, preset or undo), it starts over from the look's colours
+    // instead of committing its stale stops. The editor's own commits leave the look with the editor's stops.
+    val lookStops = CustomizeNative.paletteMakerStops(CustomizeNative.paletteMakerStart(p.frame())).toList()
+    LaunchedEffect(lookStops) {
+        if (CustomizeNative.paletteMakerStops(state).toList() != lookStops) {
+            state = CustomizeNative.paletteMakerStart(p.frame())
+        }
+    }
     var name by rememberSaveable { mutableStateOf("") }
     var picking by remember { mutableStateOf<Bitmap?>(null) }
     val view = LocalView.current

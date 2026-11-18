@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
+import dev.geode.R
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
@@ -165,8 +166,7 @@ internal class ExportController(
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
                     } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
+                        val detail = "${t.javaClass.simpleName}: ${t.message ?: application.getString(R.string.export_error_no_message)}"
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
@@ -195,8 +195,7 @@ internal class ExportController(
                 host.onStyleLocked()
                 ExportUiState()
             }
-            RenderResult.NothingToRender ->
-                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing)))
+            RenderResult.NothingToRender -> ExportUiState(phase = ExportPhase.Failed(application.getString(R.string.editor_export_nothing)))
         }
 
     /**
@@ -221,7 +220,7 @@ internal class ExportController(
         exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
-        ExportRun.begin(application.getString(dev.geode.R.string.render_batch_label, tracks.size))
+        ExportRun.begin(application.getString(R.string.render_batch_label, tracks.size))
         ExportService.start(application)
         exportJob =
             ExportRun.launch {
@@ -251,6 +250,8 @@ internal class ExportController(
                 } catch (t: kotlinx.coroutines.CancellationException) {
                     _exportState.value = batch.cancelRest().toUiState()
                     throw t
+                } catch (t: Throwable) {
+                    _exportState.value = ExportUiState(phase = ExportPhase.Failed(t.message ?: t.javaClass.simpleName))
                 } finally {
                     ExportRun.finish()
                 }
@@ -498,8 +499,7 @@ internal class ExportController(
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
                     } else {
-                        val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
-                        val detail = "${t.javaClass.simpleName}: $reason"
+                        val detail = "${t.javaClass.simpleName}: ${t.message ?: application.getString(R.string.export_error_no_message)}"
                         _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {

@@ -23,17 +23,29 @@ struct Texts {
     int count() const { return static_cast<int>(pointers.size()); }
 };
 
-Texts textsOf(JNIEnv* env, jobjectArray array) {
+// With `keepNull` a null entry stays NULL, for cells where "none" and "" differ.
+Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
     Texts out;
     const jsize n = array ? env->GetArrayLength(array) : 0;
     out.owned.reserve(static_cast<size_t>(n));
+    std::vector<bool> absent;
     for (jsize i = 0; i < n; ++i) {
         auto* item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
         Utf8Chars chars(env, item);
         out.owned.emplace_back(textOf(chars));
+        absent.push_back(keepNull && item == nullptr);
         env->DeleteLocalRef(item);
     }
-    for (const auto& s : out.owned) out.pointers.push_back(s.c_str());
+    for (size_t i = 0; i < out.owned.size(); ++i) out.pointers.push_back(absent[i] ? nullptr : out.owned[i].c_str());
+    return out;
+}
+
+// An int[] as the C ABI's int, `count` values; a null or short array reads as zeros.
+std::vector<int> intsOf(JNIEnv* env, jintArray values, int count) {
+    std::vector<int> out(static_cast<size_t>(count), 0);
+    if (!values) return out;
+    const jsize n = std::min(static_cast<jsize>(count), env->GetArrayLength(values));
+    if (n > 0) env->GetIntArrayRegion(values, 0, n, reinterpret_cast<jint*>(out.data()));
     return out;
 }
 
@@ -169,6 +181,105 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionWrit
                                                                                  jlong positionMs) {
     const Texts cells = textsOf(env, tracks);
     return utf8String(env, geode_session_write(cells.pointers.data(), cells.count() / 3, index, positionMs));
+}
+
+// The track library: library.json's text in, the batch edit out (core/library/TrackLibraryDoc).
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackLibraryRead(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_track_library_read(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackLibraryAdd(JNIEnv* env, jobject, jstring text,
+                                                                                    jobjectArray tracks) {
+    Utf8Chars chars(env, text);
+    const Texts cells = textsOf(env, tracks);
+    return utf8String(env, geode_track_library_add(textOf(chars), cells.pointers.data(), cells.count() / GEODE_TRACK_FIELDS));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackLibrarySaveInfo(
+    JNIEnv* env, jobject, jstring text, jstring uri, jstring title, jstring artist, jstring album, jstring genre,
+    jint year, jint trackNo, jstring comment) {
+    Utf8Chars held(env, text);
+    Utf8Chars track(env, uri);
+    Utf8Chars name(env, title);
+    Utf8Chars by(env, artist);
+    Utf8Chars disc(env, album);
+    Utf8Chars kind(env, genre);
+    Utf8Chars note(env, comment);
+    return utf8String(env, geode_track_library_save_info(textOf(held), textOf(track), textOf(name), textOf(by),
+                                                         textOf(disc), textOf(kind), year, trackNo, textOf(note)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackLibraryApplyFresh(JNIEnv* env, jobject,
+                                                                                           jstring text,
+                                                                                           jobjectArray fresh) {
+    Utf8Chars held(env, text);
+    const Texts cells = textsOf(env, fresh);
+    return utf8String(env, geode_track_library_apply_fresh(textOf(held), cells.pointers.data(), cells.count() / 3));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackTagFallbacks(JNIEnv* env, jobject,
+                                                                                      jobjectArray files,
+                                                                                      jlongArray sizes,
+                                                                                      jstring untitled) {
+    const Texts cells = textsOf(env, files, true);
+    const int count = cells.count() / 9;
+    const std::vector<long long> bytes = longsOf(env, sizes, count);
+    Utf8Chars fallback(env, untitled);
+    return utf8String(env, geode_track_tag_fallbacks(cells.pointers.data(), bytes.data(), count, textOf(fallback)));
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackWalkActions(JNIEnv* env, jobject,
+                                                                                       jobjectArray names,
+                                                                                       jobjectArray mimes,
+                                                                                       jintArray isDir,
+                                                                                       jint parentDepth) {
+    const Texts nameCells = textsOf(env, names, true);
+    const Texts mimeCells = textsOf(env, mimes, true);
+    const int count = nameCells.count();
+    const std::vector<int> dirs = intsOf(env, isDir, count);
+    std::vector<int> actions(static_cast<size_t>(count), 0);
+    const std::vector<const char*> noMimes(static_cast<size_t>(count), nullptr);
+    const bool mimesFit = mimeCells.count() == count;
+    const int n = geode_track_walk_actions(nameCells.pointers.data(), mimesFit ? mimeCells.pointers.data() : noMimes.data(),
+                                           dirs.data(), count, parentDepth, actions.data());
+    jintArray out = env->NewIntArray(n);
+    if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(actions.data()));
+    return out;
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackTitleRefresh(JNIEnv* env, jobject,
+                                                                                        jobjectArray titleArtist) {
+    const Texts cells = textsOf(env, titleArtist);
+    const int count = cells.count() / 2;
+    std::vector<int> flags(static_cast<size_t>(count), 0);
+    const int n = geode_track_title_refresh(cells.pointers.data(), count, flags.data());
+    jintArray out = env->NewIntArray(n);
+    if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(flags.data()));
+    return out;
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackDeviceRows(JNIEnv* env, jobject,
+                                                                                    jobjectArray rows,
+                                                                                    jlongArray durationsMs,
+                                                                                    jint minSeconds,
+                                                                                    jobjectArray fallbacks) {
+    const Texts cells = textsOf(env, rows, true);
+    const int count = cells.count() / 4;
+    const std::vector<long long> durations = longsOf(env, durationsMs, count);
+    const Texts names = textsOf(env, fallbacks);
+    if (names.count() < 3) return utf8String(env, "");
+    return utf8String(env, geode_track_device_rows(cells.pointers.data(), durations.data(), count, minSeconds,
+                                                   names.pointers.data()));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackResolveEntries(JNIEnv* env, jobject,
+                                                                                        jobjectArray baseNames,
+                                                                                        jobjectArray library) {
+    const Texts entries = textsOf(env, baseNames);
+    const Texts tracks = textsOf(env, library);
+    return utf8String(env, geode_track_resolve_entries(entries.pointers.data(), entries.count(), tracks.pointers.data(),
+                                                       tracks.count() / 2));
 }
 
 }  // extern "C"

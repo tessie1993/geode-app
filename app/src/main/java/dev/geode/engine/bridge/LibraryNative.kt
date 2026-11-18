@@ -140,4 +140,86 @@ object LibraryNative {
         index: Int,
         positionMs: Long,
     ): String?
+
+    /** `GEODE_TRACK_FIELDS`: the strings one track crosses as (uri, title, artist, duration ms, album, genre, year, track no, comment, file name, size). */
+    const val TRACK_FIELDS = 11
+
+    /**
+     * What library.json's [text] holds (core/library/TrackLibraryDoc, `geode_track_library_read`): a record of changed,
+     * corrupt-input and json, then a record of [TRACK_FIELDS] fields per track, split by U+001F and ended by U+001E; the
+     * same answer shape as the edits below. Null when native failed.
+     */
+    external fun trackLibraryRead(text: String): String?
+
+    /** [text] with [tracks] ([TRACK_FIELDS] strings each) merged in and sorted (`geode_track_library_add`). */
+    external fun trackLibraryAdd(
+        text: String,
+        tracks: Array<String>,
+    ): String?
+
+    /** [text] with [uri]'s info set, the track added when it is not held (`geode_track_library_save_info`). */
+    external fun trackLibrarySaveInfo(
+        text: String,
+        uri: String,
+        title: String,
+        artist: String,
+        album: String,
+        genre: String,
+        year: Int,
+        trackNo: Int,
+        comment: String,
+    ): String?
+
+    /** [text] with re-read titles applied one after another; [fresh] holds uri, title and artist per track. */
+    external fun trackLibraryApplyFresh(
+        text: String,
+        fresh: Array<String>,
+    ): String?
+
+    /**
+     * One track record per file (`geode_track_tag_fallbacks`). [files] holds nine strings per file: the reader's
+     * title, artist, album, genre, year and track number (null for none), the uri, the display name ("" for none) and
+     * the uri's last path segment (null for none); [sizes] the provider's sizes; [untitled] the localized "Untitled track".
+     */
+    external fun trackTagFallbacks(
+        files: Array<String?>,
+        sizes: LongArray,
+        untitled: String,
+    ): String?
+
+    /** What `trackWalkActions` says of an entry: skip it (0), enter the folder, keep the file as audio. */
+    const val WALK_DESCEND = 1
+    const val WALK_KEEP_AUDIO = 2
+
+    /** Per entry of one folder listing its action (`geode_track_walk_actions`); [parentDepth] is 0 for the picked root. */
+    external fun trackWalkActions(
+        names: Array<String?>,
+        mimes: Array<String?>,
+        isDir: IntArray,
+        parentDepth: Int,
+    ): IntArray
+
+    /** Per track (a title and an artist each) 1 when its title should be read again from the file (`geode_track_title_refresh`). */
+    external fun trackTitleRefresh(titleArtist: Array<String>): IntArray
+
+    /**
+     * The device rows [minSeconds] keeps (`geode_track_device_rows`): [rows] holds title, artist, album and path per
+     * row (null for none), [fallbacks] the names for a missing title, artist and album. A record per kept row (index,
+     * title, artist, album, folder), then the count left out.
+     */
+    external fun trackDeviceRows(
+        rows: Array<String?>,
+        durationsMs: LongArray,
+        minSeconds: Int,
+        fallbacks: Array<String>,
+    ): String?
+
+    /**
+     * A playlist file's entries matched to the library by file name (`geode_track_resolve_entries`); [library] holds a
+     * file name and a uri per track. Three records: the uris, the missing entries' indices, the ambiguous ones'.
+     */
+    external fun trackResolveEntries(
+        baseNames: Array<String>,
+        library: Array<String>,
+    ): String?
 }

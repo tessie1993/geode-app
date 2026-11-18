@@ -197,7 +197,7 @@ bool titleArtist(std::vector<LibraryTrack>& tracks, const std::string& uri, cons
 }  // namespace
 
 // TrackLibrary.readLocked + parseOrNull: blank is empty; a bare array, or an object's "tracks" array, of objects
-// each with a "uri"; anything else is corrupt. org.json reads the first value and ignores what follows it.
+// each with a "uri" (an entry without one is dropped); anything else is corrupt. org.json reads the first value and ignores what follows it.
 LibraryRead readLibrary(std::string_view text) {
     LibraryRead r;
     if (isBlank(text)) return r;
@@ -215,13 +215,8 @@ LibraryRead readLibrary(std::string_view text) {
         return r;
     }
     for (const auto& element : array->array()) {
-        auto t = fromJson(element);
-        if (!t) {
-            r.corrupt = true;
-            r.tracks.clear();
-            return r;
-        }
-        r.tracks.push_back(std::move(*t));
+        // An entry that cannot be read (no uri, not an object) drops itself, not the library.
+        if (auto t = fromJson(element)) r.tracks.push_back(std::move(*t));
     }
     return r;
 }

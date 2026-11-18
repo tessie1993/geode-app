@@ -11,7 +11,7 @@
 namespace geode::library {
 
 // What a document held. Blank text is an empty library; text that is not a library (not JSON, no "tracks"
-// array, a track without a "uri") is `corrupt` with no tracks: the shell moves the file aside to
+// array) is `corrupt`; an entry without a "uri", or not an object, drops itself with no tracks: the shell moves the file aside to
 // "library.json.corrupt" and carries on with an empty library. A bare array is read too (the oldest form).
 struct LibraryRead {
     bool corrupt = false;

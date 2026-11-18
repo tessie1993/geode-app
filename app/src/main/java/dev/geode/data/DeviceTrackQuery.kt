@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import dev.geode.engine.bridge.LibraryNative
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 
@@ -18,7 +19,7 @@ data class DeviceTrackScan(
  *
  * Tracks shorter than the user's minimum ([LibraryPrefsStore.minTrackSeconds], 30 s unless
  * changed in Settings › Library folders) are left out here, once, so every caller agrees on what
- * the library holds. The rule itself is [MinTrackLength.keeps].
+ * the library holds. The rule itself is native's (`core/library/TrackRules`, `minTrackKeeps`).
  */
 object DeviceTrackQuery {
     fun query(context: Context): List<DeviceTrack> =
@@ -39,8 +40,11 @@ object DeviceTrackQuery {
                 .checkSelfPermission(context, permission) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
         if (!granted) return DeviceTrackScan(emptyList(), 0)
-        val out = mutableListOf<DeviceTrack>()
-        var hidden = 0
+        // The rows as the cursor holds them; native keeps or hides each and words its tags (`geode_track_device_rows`).
+        val ids = ArrayList<Long>()
+        val added = ArrayList<Long>()
+        val durations = ArrayList<Long>()
+        val cells = ArrayList<String?>()
         val proj =
             arrayOf(
                 MediaStore.Audio.Media._ID,
@@ -68,36 +72,46 @@ object DeviceTrackQuery {
                     val da = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
                     val ad = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                     while (c.moveToNext()) {
-                        val durationMs = c.getLong(du)
-                        if (!MinTrackLength.keeps(durationMs, minTrackSeconds)) {
-                            hidden++
-                            continue
-                        }
-                        val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, c.getLong(id))
-                        val path = c.getString(da).orEmpty()
-                        out +=
-                            DeviceTrack(
-                                uri = uri.toString(),
-                                title = tagOr(c.getString(ti), context.getString(dev.geode.R.string.library_unknown_title)),
-                                artist = tagOr(c.getString(ar), context.getString(dev.geode.R.string.subtitle_unknown_artist)),
-                                album = tagOr(c.getString(al), context.getString(dev.geode.R.string.library_unknown_album)),
-                                folder = path.substringBeforeLast('/', ""),
-                                durationMs = durationMs,
-                                addedSec = c.getLong(ad),
-                            )
+                        ids += c.getLong(id)
+                        added += c.getLong(ad)
+                        durations += c.getLong(du)
+                        cells += c.getString(ti)
+                        cells += c.getString(ar)
+                        cells += c.getString(al)
+                        cells += c.getString(da)
                     }
                 }
         }
-        return DeviceTrackScan(out, hidden)
+        val records =
+            TrackWire.records(
+                LibraryNative.trackDeviceRows(
+                    cells.toTypedArray(),
+                    durations.toLongArray(),
+                    minTrackSeconds,
+                    arrayOf(
+                        context.getString(dev.geode.R.string.library_unknown_title),
+                        context.getString(dev.geode.R.string.subtitle_unknown_artist),
+                        context.getString(dev.geode.R.string.library_unknown_album),
+                    ),
+                ),
+            )
+        // A record per kept row (index, title, artist, album, folder), then the count left out.
+        val kept = records.dropLast(1).filter { it.size >= DEVICE_ROW_FIELDS - 1 }
+        val out =
+            kept.map { r ->
+                val at = r[0].toInt()
+                DeviceTrack(
+                    uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ids[at]).toString(),
+                    title = r[1],
+                    artist = r[2],
+                    album = r[3],
+                    folder = r.getOrElse(4) { "" },
+                    durationMs = durations[at],
+                    addedSec = added[at],
+                )
+            }
+        return DeviceTrackScan(out, records.lastOrNull()?.firstOrNull()?.toIntOrNull() ?: 0)
     }
 
-    /**
-     * A tag as the library shows it: MediaStore writes [MediaStore.UNKNOWN_STRING] ("<unknown>")
-     * for an untagged file's artist and album, which the list and the mini player showed raw, so
-     * that, a missing and a blank tag all read as the localized [fallback].
-     */
-    fun tagOr(
-        value: String?,
-        fallback: String,
-    ): String = if (value.isNullOrBlank() || value == MediaStore.UNKNOWN_STRING) fallback else value
+    private const val DEVICE_ROW_FIELDS = 5
 }

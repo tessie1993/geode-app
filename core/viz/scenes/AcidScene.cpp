@@ -6,6 +6,7 @@
 
 #include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz {
 
@@ -175,8 +176,7 @@ void AcidScene::draw(float timeSeconds) {
     resetFrameState();
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    SceneTarget::read(prevFbo, prevViewport);
     fluid::DoubleFbo* loop = ensureState();
     if (!loop) return;
     const SceneParams& p = params_;

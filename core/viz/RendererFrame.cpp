@@ -17,6 +17,7 @@
 #include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
@@ -406,6 +407,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
         layerScene_->update(bandTrimmed(soundFrame_, p), dt);
+        const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -419,6 +421,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
             outgoingScene_->update(bandTrimmed(soundFrame_, op), dt);
+            const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(timeSeconds_);
         }
     }
@@ -455,6 +458,8 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     scene.setParams(p);
     deliverPcm(scene);
     scene.update(bandTrimmed(soundFrame_, p), dt);
+    // After the trail pass: its echo trades fboA_'s framebuffer for its own.
+    const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(timeSeconds_);
 }
 
@@ -731,7 +736,10 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
         glViewport(0, 0, renderWidth_, renderHeight_);
         glClear(GL_COLOR_BUFFER_BIT);
         scene.setParams(bornParams_);
-        scene.draw(timeSeconds_);
+        {
+            const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
+            scene.draw(timeSeconds_);
+        }
         scene.setParams(p);
         return bornFbo_.tex();
     }
@@ -757,6 +765,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     next->setParams(p);
     deliverPcm(*next);
     next->update(bandTrimmed(soundFrame_, p), dt);
+    const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
     next->draw(timeSeconds_);
     return bornFbo_.tex();
 }

@@ -222,6 +222,57 @@ fun AppRoot() {
 }
 
 @Composable
+private fun CrashReportDialog() {
+    val context = LocalContext.current
+    var crashText by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        crashText =
+            withContext(Dispatchers.IO) {
+                val file = java.io.File(context.filesDir, "crash-latest.txt")
+                if (file.exists()) {
+                    file.inputStream().use { stream ->
+                        val buf = ByteArray(CRASH_REPORT_MAX_BYTES)
+                        var read = 0
+                        while (read < buf.size) {
+                            val n = stream.read(buf, read, buf.size - read)
+                            if (n < 0) break
+                            read += n
+                        }
+                        String(buf, 0, read, Charsets.UTF_8)
+                    }
+                } else {
+                    null
+                }
+            }
+    }
+    val clipLabel = stringResource(R.string.crash_clip_label)
+    crashText?.let { text ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.crash_dialog_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.crash_dialog_body, text.take(600)),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
+                }) { Text(stringResource(R.string.action_copy)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    java.io.File(context.filesDir, "crash-latest.txt").delete()
+                    crashText = null
+                }) { Text(stringResource(R.string.action_dismiss)) }
+            },
+        )
+    }
+}
+
+@Composable
 private fun AppContent(tourViewModel: TourViewModel) {
     val viewModel: PlayerViewModel = geodeViewModel()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
@@ -272,27 +323,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
-    var crashText by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        crashText =
-            withContext(Dispatchers.IO) {
-                val file = java.io.File(context.filesDir, "crash-latest.txt")
-                if (file.exists()) {
-                    file.inputStream().use { stream ->
-                        val buf = ByteArray(CRASH_REPORT_MAX_BYTES)
-                        var read = 0
-                        while (read < buf.size) {
-                            val n = stream.read(buf, read, buf.size - read)
-                            if (n < 0) break
-                            read += n
-                        }
-                        String(buf, 0, read, Charsets.UTF_8)
-                    }
-                } else {
-                    null
-                }
-            }
-    }
     VisualizerEngineBindings(viewModel, visualizerView)
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
@@ -519,31 +549,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                     SearchScreen(viewModel, onClose = appState::closeSearch)
                 }
             }
-            val clipLabel = stringResource(R.string.crash_clip_label)
-            crashText?.let { text ->
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = {},
-                    title = { Text(stringResource(R.string.crash_dialog_title)) },
-                    text = {
-                        Text(
-                            stringResource(R.string.crash_dialog_body, text.take(600)),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            val cm = context.getSystemService(android.content.ClipboardManager::class.java)
-                            cm.setPrimaryClip(android.content.ClipData.newPlainText(clipLabel, text))
-                        }) { Text(stringResource(R.string.action_copy)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            java.io.File(context.filesDir, "crash-latest.txt").delete()
-                            crashText = null
-                        }) { Text(stringResource(R.string.action_dismiss)) }
-                    },
-                )
-            }
+            CrashReportDialog()
             // Read by MainActivity to decide whether leaving the app should be treated as "enter
             // PiP" at all: only Visuals shows the visual, and every other screen has nothing worth
             // shrinking into a window. Not while a connected display holds the visual either: this

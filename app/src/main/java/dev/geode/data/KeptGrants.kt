@@ -16,12 +16,3 @@ fun keptFolders(
     preset: String? = savedPresetFolder(context),
     record: String? = RecordSaveStore(context).savedFolder(),
 ): Set<String> = setOfNotNull(preset, record) + savedMusicFolders(context)
-
-private fun savedPresetFolder(context: Context): String? =
-    LibrarySettingsCodec.read(context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)).presetMirrorUri
-
-private fun savedMusicFolders(context: Context): Set<String> =
-    context
-        .getSharedPreferences(GeodePrefsFiles.LIBRARY, Context.MODE_PRIVATE)
-        .getStringSet(KEY_ROOTS, emptySet())
-        .orEmpty()

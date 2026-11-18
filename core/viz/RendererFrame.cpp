@@ -611,6 +611,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         }
     }
     drawSceneTarget(*scene, p, dt);
+    // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
+    trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
     shown = drawPhysics(p, dt, wallDt, shown);

@@ -49,6 +49,7 @@ void TrailPass::apply(const SceneParams& p, float keep, float timeSeconds, float
 
 void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeSeconds, float dt, Framebuffer& sceneTarget,
                               GLuint quadVao, int renderWidth, int renderHeight) {
+    warpIdleSeconds_ = 0.0f;
     if (!trail_.ensure(renderWidth, renderHeight) || sceneTarget.width() != renderWidth || sceneTarget.height() != renderHeight) {
         drawFadeQuad(fadeAlpha(retention, dt), quadVao);
         return;
@@ -71,6 +72,14 @@ void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeS
     glBindVertexArray(quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
+}
+
+void TrailPass::releaseIdle(float wallDt, float idleSeconds) {
+    // The echo's target holds only an older frame (the scene target has the newest), so freeing it loses
+    // nothing: the next echo makes a fresh one and trades it in.
+    if (!trail_.ok()) return;
+    warpIdleSeconds_ += wallDt;
+    if (warpIdleSeconds_ >= idleSeconds) trail_.release();
 }
 
 void TrailPass::drawFadeQuad(float alpha, GLuint quadVao) {

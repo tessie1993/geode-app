@@ -125,7 +125,9 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
     float ph;
     if (locked && !limited) {
         // beatCount wraps at 4096, a multiple of 32, so the position stays continuous across the wrap.
-        const float pos = std::fmod(sound.beatCount + sound.beatPhase, n) / n;
+        // A non-finite clock holds the last position: NaN would stay in syncFree_ for good.
+        const float beat = sound.beatCount + sound.beatPhase;
+        const float pos = std::isfinite(beat) ? std::fmod(beat, n) / n : syncFree_[i];
         if (!syncLocked_[i]) {
             const float d = syncFree_[i] - pos;
             syncJump_[i] = d - std::round(d);
@@ -199,7 +201,8 @@ float LfoEngine::follow(int i, float value, float dt) {
 }
 
 float LfoEngine::followBipolar(int i, float value, float dt) {
-    const float target = std::clamp(value, -1.0f, 1.0f);
+    // A non-finite field is no signal: clamp passes NaN, which would hold followed_ for good.
+    const float target = std::clamp(std::isfinite(value) ? value : 0.0f, -1.0f, 1.0f);
     const float tau = target > followed_[i] ? kFollowRiseSeconds : kFollowFallSeconds;
     followed_[i] += (target - followed_[i]) * std::clamp(dt / tau, 0.0f, 1.0f);
     return followed_[i];

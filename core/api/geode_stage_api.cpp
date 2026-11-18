@@ -1,5 +1,6 @@
 #include "api/geode_stage_api.h"
 #include "api/geode_modulation_api.h"
+#include "api/geode_viz_internal.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -17,13 +18,6 @@
 #include "stage/android/StageThread.hpp"
 #include "util/Log.hpp"
 #include "viz/SurfaceRun.hpp"
-
-// Defined in core/api/geode_viz_api.cpp; not part of the C ABI. geode_viz_frame at a vsync's frame time (0: none),
-// and the still geode_viz_still_request asked for, its buffer handed over instead of copied (false: none ready).
-namespace geode::api {
-int vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs);
-bool takeVizStill(geode_viz* v, int& width, int& height, std::vector<uint8_t>& rgba);
-}  // namespace geode::api
 
 namespace stage = geode::stage;
 using geode::stage::platform::StageThread;

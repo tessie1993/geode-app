@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include "api/geode_api.h"
@@ -125,12 +126,21 @@ void shakeTests() {
     geode_shake_destroy(s);
 }
 
-// A song at bpm whose beat the engine tracks from t = 0 (beat at every whole period).
+// Not constexpr, so a constant Song at 120 does not compile; a computed one stops the run.
+[[noreturn]] void refuseTheOldCentre() {
+    std::printf("FAIL: a Song at the old centre tempo: no bias on BPM, tests included (owner's rule, CLAUDE.md)\n");
+    std::abort();
+}
+
+// A song at bpm whose beat the engine tracks from t = 0 (beat at every whole period). Never at 120.
 struct Song {
     double bpm;
     float conf = 0.8f;
     float presence = 1.0f;
-    double period() const { return 60.0 / bpm; }
+    constexpr explicit Song(double tempo) : bpm(tempo) {
+        if (tempo == 120.0) refuseTheOldCentre();
+    }
+    constexpr double period() const { return 60.0 / bpm; }
     // One frame at t (60 fps grid), then the tap at tap.
     bool tapAt(TapAlong& m, double tap) const {
         const double frameT = std::floor(tap * 60.0) / 60.0;
@@ -147,7 +157,7 @@ int taps(TapAlong& m, const Song& song, const double* at, int n) {
 }
 
 void tapTests() {
-    const Song song{120.0};
+    constexpr Song song{93.0};
     const double p = song.period();
     {
         TapAlong m;
@@ -222,8 +232,8 @@ void tapTests() {
     }
     {
         TapAlong m;
-        m.frame(0.0, 0.0f, 120.0f, 0.8f, 1.0f);
-        check(!m.tap(5.0) && !m.tap(5.5) && !m.tap(6.0) && !m.tap(6.5), "taps against a stale frame never fire");
+        m.frame(0.0, 0.0f, static_cast<float>(song.bpm), song.conf, song.presence);
+        check(!m.tap(10 * p) && !m.tap(11 * p) && !m.tap(12 * p) && !m.tap(13 * p), "taps against a stale frame never fire");
     }
     {
         // Taps the way the chrome is woken, seconds apart at random, against songs from 70 to 180 bpm: never.

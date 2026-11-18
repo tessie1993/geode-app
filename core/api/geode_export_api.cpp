@@ -91,7 +91,7 @@ int geode_loudness_advise(int target, int gated, double lufs, double true_peak_d
 }
 
 int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t* offsets, int32_t* loop_index,
-                           int capacity) {
+                           int capacity) try {
     const auto plan = out::LoopExtendPlan::of(loop_us, total_us, loops);
     const auto& writes = plan.writes();
     const int writable = std::min(plan.repeats(), std::max(capacity, 0));
@@ -100,10 +100,14 @@ int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t
         if (loop_index) loop_index[i] = writes[static_cast<size_t>(i)].loopIndex;
     }
     return plan.repeats();
+} catch (...) {
+    return 0;
 }
 
-int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t loop_bytes, int64_t soundtrack_bytes) {
+int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t loop_bytes, int64_t soundtrack_bytes) try {
     return out::LoopExtendPlan::of(loop_us, total_us, 1).estimatedBytes(loop_bytes, soundtrack_bytes);
+} catch (...) {
+    return 0;
 }
 
 int geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes) {

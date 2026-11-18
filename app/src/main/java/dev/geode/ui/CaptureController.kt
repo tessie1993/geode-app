@@ -267,6 +267,8 @@ internal class CaptureController(
 
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
         if (!hasMicPermission()) {
+            // No capture without the permission: the service and its projection go, as when a start fails below.
+            PlaybackCaptureService.stop(application)
             _externalAudio.update {
                 it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
             }

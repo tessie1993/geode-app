@@ -42,25 +42,25 @@ std::vector<const char*> pointersOf(const std::vector<std::string>& texts) {
 extern "C" {
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkMemorySeed(JNIEnv* env, jobject, jstring saved) {
+Java_dev_geode_engine_bridge_MilkNative_milkMemorySeed(JNIEnv* env, jobject, jstring saved) {
     const Utf8Chars path(env, saved);
     geode_milk_memory_seed(path.get());
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkMemoryRequest(JNIEnv* env, jobject, jstring path) {
+Java_dev_geode_engine_bridge_MilkNative_milkMemoryRequest(JNIEnv* env, jobject, jstring path) {
     const Utf8Chars chars(env, path);
     geode_milk_memory_request(chars.get());
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkMemoryLoaded(JNIEnv* env, jobject, jstring path) {
+Java_dev_geode_engine_bridge_MilkNative_milkMemoryLoaded(JNIEnv* env, jobject, jstring path) {
     const Utf8Chars chars(env, path);
     return geode_milk_memory_loaded(chars.get()) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkMemoryForget(JNIEnv* env, jobject, jobjectArray paths) {
+Java_dev_geode_engine_bridge_MilkNative_milkMemoryForget(JNIEnv* env, jobject, jobjectArray paths) {
     const jsize count = paths ? env->GetArrayLength(paths) : 0;
     std::vector<std::string> texts;
     texts.reserve(static_cast<size_t>(count));
@@ -79,35 +79,35 @@ Java_dev_geode_engine_bridge_GeodeNative_milkMemoryForget(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkMemoryLastShown(JNIEnv* env, jobject) {
+Java_dev_geode_engine_bridge_MilkNative_milkMemoryLastShown(JNIEnv* env, jobject) {
     return utf8String(env, geode_milk_memory_last_shown());
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkMemoryRestorePath(JNIEnv* env, jobject, jobject assetManager, jstring milkDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkMemoryRestorePath(JNIEnv* env, jobject, jobject assetManager, jstring milkDir) {
     const Utf8Chars dir(env, milkDir);
     return utf8String(env, geode_milk_memory_restore_path(assetsOf(env, assetManager), dir.get()));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkStarterInstall(JNIEnv* env, jobject, jobject assetManager, jstring milkDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkStarterInstall(JNIEnv* env, jobject, jobject assetManager, jstring milkDir) {
     const Utf8Chars dir(env, milkDir);
     return geode_milk_starter_install(assetsOf(env, assetManager), dir.get());
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureMaxBytes(JNIEnv*, jobject) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureMaxBytes(JNIEnv*, jobject) {
     return static_cast<jlong>(geode_milk_texture_max_bytes());
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureAdmits(JNIEnv* env, jobject, jstring name, jlong declaredBytes) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureAdmits(JNIEnv* env, jobject, jstring name, jlong declaredBytes) {
     const Utf8Chars chars(env, name);
     return geode_milk_texture_admits(chars.get(), static_cast<long long>(declaredBytes)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureStoredName(JNIEnv* env, jobject, jstring name, jbyteArray bytes, jint width,
+Java_dev_geode_engine_bridge_MilkNative_milkTextureStoredName(JNIEnv* env, jobject, jstring name, jbyteArray bytes, jint width,
                                                               jint height) {
     const Utf8Chars chars(env, name);
     const jsize length = bytes ? env->GetArrayLength(bytes) : 0;
@@ -119,32 +119,32 @@ Java_dev_geode_engine_bridge_GeodeNative_milkTextureStoredName(JNIEnv* env, jobj
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureList(JNIEnv* env, jobject, jstring textureDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureList(JNIEnv* env, jobject, jstring textureDir) {
     const Utf8Chars dir(env, textureDir);
     return utf8Lines(env, geode_milk_texture_list(dir.get()));
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureRemovedPresets(JNIEnv* env, jobject, jstring texture, jstring textureDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureRemovedPresets(JNIEnv* env, jobject, jstring texture, jstring textureDir) {
     const Utf8Chars name(env, texture);
     const Utf8Chars dir(env, textureDir);
     return utf8Lines(env, geode_milk_texture_removed_presets(name.get(), dir.get()));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureShowPresetName(JNIEnv* env, jobject, jstring texture) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureShowPresetName(JNIEnv* env, jobject, jstring texture) {
     const Utf8Chars name(env, texture);
     return utf8String(env, geode_milk_texture_show_preset_name(name.get()));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureShowPresetText(JNIEnv* env, jobject, jstring texture) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureShowPresetText(JNIEnv* env, jobject, jstring texture) {
     const Utf8Chars name(env, texture);
     return utf8String(env, geode_milk_texture_show_preset_text(name.get()));
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureLinks(JNIEnv* env, jobject, jstring presetPath, jstring textureDir,
+Java_dev_geode_engine_bridge_MilkNative_milkTextureLinks(JNIEnv* env, jobject, jstring presetPath, jstring textureDir,
                                                          jobjectArray overrideKeys, jobjectArray overrideValues) {
     const Utf8Chars preset(env, presetPath);
     const Utf8Chars dir(env, textureDir);
@@ -157,38 +157,38 @@ Java_dev_geode_engine_bridge_GeodeNative_milkTextureLinks(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureLinkedPresets(JNIEnv* env, jobject, jstring milkDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureLinkedPresets(JNIEnv* env, jobject, jstring milkDir) {
     const Utf8Chars dir(env, milkDir);
     return utf8Lines(env, geode_milk_texture_linked_presets(dir.get()));
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkTextureStaleLinkDirs(JNIEnv* env, jobject, jstring milkDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkTextureStaleLinkDirs(JNIEnv* env, jobject, jstring milkDir) {
     const Utf8Chars dir(env, milkDir);
     return utf8Lines(env, geode_milk_texture_stale_link_dirs(dir.get()));
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkPackEntryKind(JNIEnv* env, jobject, jstring name) {
+Java_dev_geode_engine_bridge_MilkNative_milkPackEntryKind(JNIEnv* env, jobject, jstring name) {
     const Utf8Chars chars(env, name);
     return geode_milk_pack_entry_kind(chars.get());
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkPackTargetName(JNIEnv* env, jobject, jstring name) {
+Java_dev_geode_engine_bridge_MilkNative_milkPackTargetName(JNIEnv* env, jobject, jstring name) {
     const Utf8Chars chars(env, name);
     return utf8String(env, geode_milk_pack_target_name(chars.get()));
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkPresetMissesTexture(JNIEnv* env, jobject, jstring presetPath, jstring textureDir) {
+Java_dev_geode_engine_bridge_MilkNative_milkPresetMissesTexture(JNIEnv* env, jobject, jstring presetPath, jstring textureDir) {
     const Utf8Chars preset(env, presetPath);
     const Utf8Chars dir(env, textureDir);
     return geode_milk_preset_misses_texture(preset.get(), dir.get()) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_milkImportFileName(JNIEnv* env, jobject, jstring milkDir, jstring displayName,
+Java_dev_geode_engine_bridge_MilkNative_milkImportFileName(JNIEnv* env, jobject, jstring milkDir, jstring displayName,
                                                            jboolean keepExisting) {
     const Utf8Chars dir(env, milkDir);
     const Utf8Chars display(env, displayName);

@@ -16,7 +16,7 @@ Every line here was true when it was written and may have gone stale: check the 
 ## Gradle modules (`settings.gradle.kts`)
 
 - `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
-- `:app` is the only module. `GeodeNative.kt`, the JNI declarations, is `app/src/main/java/dev/geode/engine/bridge/GeodeNative.kt`.
+- `:app` is the only module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
 - The Media3 PCM tap is `app/src/main/java/dev/geode/engine/audioandroid/PcmTap.kt`, in `:app`.
 
 ## Native core (`core/`)
@@ -105,3 +105,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: the Kotlin `render` package is gone. Its two rules are native: which saved palette id a look keeps on a frame native wrote (`files::framePaletteId`, `geode_saved_palette_frame_id`) and whether a style has a trait (`geode_catalogue_style_has`). `ParamUnit` became `GeodeNative.PARAM_UNIT_*`; the fluid splat asset read is in `ui/CustomizeAdvanced.kt`; `SceneParams`, `StyleCatalogue` and `ParamScope` (opaque holders of native answers) and their test doubles moved to `dev.geode.engine.bridge`.
 - 2026-11-18: buffers and memory: the trail echo trades textures with the scene target (`Framebuffer::swap`, `core/viz/TrailPass`) where it copied the whole frame each frame; ring sizes come from durations (`core/sound/Budget.hpp`: the player's, mic's, output mix's and a renderer's own ring, each held to its old size by a static_assert); `OutputFifo::read` copies without a per-frame gain branch once the gain has settled; `PcmRing`'s write position has its own cache line.
 - 2026-11-18: `ui/CustomizeAdvanced.kt`: the sustain and gate-level envelope sliders pass `GeodeNative.PARAM_UNIT_OWN` where they passed null for the unit (a compile error since the unit became an Int).
+- 2026-11-18: `GeodeNative` split into one Kotlin `object` per JNI source file (31 `*Native` objects in `app/src/main/java/dev/geode/engine/bridge/`; `geode_viz_jni.cpp`: split by name prefix; `GeodeNative` keeps `geode_jni.cpp`: its functions and `ensureLoaded()`), the JNI symbols renamed to `Java_dev_geode_engine_bridge_<X>Native_<name>` in `app/src/main/cpp/*_jni.cpp`, every call site and import rewritten; `app/proguard-rules.pro`, `config/detekt/detekt.yml`, `tools/audio-kotlin-allowlist.txt`, `tools/engine-kotlin-gate.sh`, `arch-map.yml`, `native-host-tests.yml` and `core/tests/dsp_bytes_test.cpp` follow.

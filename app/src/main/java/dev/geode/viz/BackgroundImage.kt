@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import dev.geode.data.LookUnderlay
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.VizNative
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -47,7 +47,7 @@ object BackgroundImage {
         renderHeight: Int,
     ): LookUnderlay? =
         decode(context, spec.uri, renderWidth, renderHeight, spec.blurRadius, spec.dim)?.let {
-            LookUnderlay(it.pixels, it.width, it.height, GeodeNative.underlayBlendOf(spec.blend), spec.amount)
+            LookUnderlay(it.pixels, it.width, it.height, VizNative.underlayBlendOf(spec.blend), spec.amount)
         }
 
     suspend fun decode(
@@ -76,7 +76,7 @@ object BackgroundImage {
             scaled.getPixels(out, 0, targetW, 0, 0, targetW, targetH)
             scaled.recycle()
             // Blur, then dim, natively (core/viz/Underlay), the same bake for live and export.
-            GeodeNative.underlayFinish(out, targetW, targetH, blurRadius, dim)
+            VizNative.underlayFinish(out, targetW, targetH, blurRadius, dim)
             BackgroundPixels(out, targetW, targetH)
         }
 
@@ -98,7 +98,7 @@ object BackgroundImage {
                 }
             } ?: return null
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val sample = GeodeNative.underlaySampleSize(bounds.outWidth, bounds.outHeight, targetW, targetH, fit = false)
+        val sample = VizNative.underlaySampleSize(bounds.outWidth, bounds.outHeight, targetW, targetH, fit = false)
         return context.contentResolver.openInputStream(uri)?.use { stream ->
             BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
         }
@@ -110,7 +110,7 @@ object BackgroundImage {
         targetW: Int,
         targetH: Int,
     ): Bitmap {
-        val r = GeodeNative.underlayCropRect(src.width, src.height, targetW, targetH)
+        val r = VizNative.underlayCropRect(src.width, src.height, targetW, targetH)
         return if (r[2] == src.width && r[3] == src.height) src else Bitmap.createBitmap(src, r[0], r[1], r[2], r[3])
     }
 }

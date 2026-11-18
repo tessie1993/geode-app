@@ -1,7 +1,7 @@
 // The shell's raw block into the playback DSP (geode_dsp_process_bytes): native works out the whole frames from
 // the encoding and channel count the Kotlin processor passes through, runs them exactly as the typed calls do,
 // and answers the bytes to pass on. Also pins the numbers the shell hands across: Media3's encodings and the
-// GeodeNative mirror of the output's event bits. Usage: dsp_bytes_test <path to GeodeNative.kt>.
+// AudioOutNative mirror of the output's event bits. Usage: dsp_bytes_test <path to AudioOutNative.kt>.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -180,8 +180,8 @@ int constantIn(const std::string& kotlin, const std::string& name) {
     return at == std::string::npos ? -1 : std::atoi(kotlin.c_str() + at + key.size());
 }
 
-// GeodeNative mirrors the output's event bits for OboeAudioOutput; this keeps the mirror honest.
-void geodeNativeMirrorsTheEventBits(const char* path) {
+// AudioOutNative mirrors the output's event bits for OboeAudioOutput; this keeps the mirror honest.
+void audioOutNativeMirrorsTheEventBits(const char* path) {
     std::ifstream in(path, std::ios::binary);
     const std::string kotlin((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     CHECK(!kotlin.empty(), "cannot read %s", path);
@@ -194,7 +194,7 @@ void geodeNativeMirrorsTheEventBits(const char* path) {
 
 int main(int argc, char** argv) {
     if (argc != 2) {
-        std::printf("usage: dsp_bytes_test <path to GeodeNative.kt>\n");
+        std::printf("usage: dsp_bytes_test <path to AudioOutNative.kt>\n");
         return EXIT_FAILURE;
     }
     for (int channels : {1, 2}) {
@@ -208,7 +208,7 @@ int main(int argc, char** argv) {
     unknownFormatsPassOnWhole();
     nullAnswersWholeFrames();
     heldToCapacity();
-    geodeNativeMirrorsTheEventBits(argv[1]);
+    audioOutNativeMirrorsTheEventBits(argv[1]);
     if (failures != 0) {
         std::printf("%d failure(s)\n", failures);
         return EXIT_FAILURE;

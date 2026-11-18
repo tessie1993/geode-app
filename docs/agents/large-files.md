@@ -2,7 +2,6 @@
 
 Kotlin files over 640 lines under `app/src/main/java/dev/geode/`, largest first, counted with `wc -l`. One file per line; update the count in the PR that changes it.
 
-- `engine/bridge/GeodeNative.kt` 4149
 - `ui/LibraryScreen.kt` 1473
 - `ui/AppShell.kt` 1311
 - `ui/PlayerScreen.kt` 1031

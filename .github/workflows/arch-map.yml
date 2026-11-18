@@ -224,7 +224,7 @@ jobs:
           ok() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh >/dev/null; }
           ok "5${T}40${T}engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt" || { echo "::error::shrink failed"; exit 1; }
           ok "30${T}0${T}app/src/main/java/dev/geode/ui/AppShell.kt" || { echo "::error::ui change failed"; exit 1; }
-          ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
+          ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/VizNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
           if ok "40${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PlayoutClock.kt"; then echo "::error::new engine Kotlin passed"; exit 1; fi
           if ok "20${T}5${T}app/src/main/java/dev/geode/export/LoopRender.kt"; then echo "::error::export growth passed"; exit 1; fi
           # Spec 3.0 areas (#461): Record and the timeline, the Scene model, glTF and pack import, the render job.

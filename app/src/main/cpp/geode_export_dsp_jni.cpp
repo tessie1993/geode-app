@@ -11,9 +11,9 @@ extern "C" {
 
 // Encoder fallback ladder (core/output/EncoderLadder): marshalling only. ceilings is one entry per candidate
 // codec; the int[] returned is [codecIndex, fps, bitRate] triples in the order to try, the layout
-// GeodeNative.encoderAttempts documents.
+// ExportDspNative.encoderAttempts documents.
 JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_encoderAttempts(JNIEnv* env, jobject, jint requestedFps, jint bitRate,
+Java_dev_geode_engine_bridge_ExportDspNative_encoderAttempts(JNIEnv* env, jobject, jint requestedFps, jint bitRate,
                                                         jintArray ceilings) {
     constexpr jsize kMaxCodecs = 2;   // geode_encoder_attempts reads at most this many
     constexpr int kCapacity = 4;      // and writes at most this many attempts

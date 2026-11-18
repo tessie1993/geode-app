@@ -5,7 +5,7 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
-import dev.geode.engine.bridge.GeodeNative
+import dev.geode.engine.bridge.DirectorNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 class NoteResponseStore internal constructor(
     private val repository: SettingsRepository<Boolean>,
     private val scope: CoroutineScope,
-    private val push: (Boolean) -> Unit = { on -> bestEffort(TAG, "push note response") { GeodeNative.noteResponseSet(on) } },
+    private val push: (Boolean) -> Unit = { on -> bestEffort(TAG, "push note response") { DirectorNative.noteResponseSet(on) } },
 ) {
     /** The switch as the user set it, which is also what the engine runs. */
     val enabled: StateFlow<Boolean> = repository.value

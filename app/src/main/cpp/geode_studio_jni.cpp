@@ -25,21 +25,21 @@ bool unread(jstring str, const Utf8Chars& chars) { return str && !chars.get(); }
 extern "C" {
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_studioEditRead(JNIEnv* env, jobject, jstring json) {
+Java_dev_geode_engine_bridge_StudioNative_studioEditRead(JNIEnv* env, jobject, jstring json) {
     const Utf8Chars chars(env, json);
     if (unread(json, chars)) return nullptr;
     return stringOf(env, geode_studio_edit_read(chars.get()));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_studioKindRead(JNIEnv* env, jobject, jstring json) {
+Java_dev_geode_engine_bridge_StudioNative_studioKindRead(JNIEnv* env, jobject, jstring json) {
     const Utf8Chars chars(env, json);
     if (unread(json, chars)) return nullptr;
     return stringOf(env, geode_studio_kind_read(chars.get()));
 }
 
 JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_studioEditNew(JNIEnv* env, jobject, jstring songUri, jstring songTitle,
+Java_dev_geode_engine_bridge_StudioNative_studioEditNew(JNIEnv* env, jobject, jstring songUri, jstring songTitle,
                                                        jlong songMs, jstring sceneId, jstring milkPath,
                                                        jlong renderMs) {
     const Utf8Chars uri(env, songUri);
@@ -53,7 +53,7 @@ Java_dev_geode_engine_bridge_GeodeNative_studioEditNew(JNIEnv* env, jobject, jst
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_studioMinClipMs(JNIEnv*, jobject) {
+Java_dev_geode_engine_bridge_StudioNative_studioMinClipMs(JNIEnv*, jobject) {
     return geode_studio_min_clip_ms();
 }
 

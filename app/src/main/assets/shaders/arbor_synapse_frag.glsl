@@ -140,9 +140,11 @@ void main() {
     vec3 somaGlow = pal(hue + 0.15);
     // The hit epsilon follows the pixel footprint (floored at the old constant), so a low render scale does not burn its steps on grazing rays.
     float epsK = max(0.0008, 1.0 / uResolution.y);
+    // The far plane follows the step budget too: a smaller march shortens the ray (full SY_FAR at SY_MAX_STEPS).
+    float farT = SY_FAR * sqrt(clamp(uSteps / float(SY_MAX_STEPS), 0.0, 1.0));
     for (int i = 0; i < SY_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (tm > SY_FAR) break;
+        if (tm > farT) break;
         used = float(i);
         ArborHit h = arborField(ro + rd * tm);
         float d = h.d;

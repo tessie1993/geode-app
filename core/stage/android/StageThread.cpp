@@ -226,6 +226,8 @@ void StageThread::vsyncRun(bool on) { VsyncThread::process().run(sink_, on); }
 
 void StageThread::vsyncCap(float capFps) { VsyncThread::process().setCap(sink_, capFps); }
 
+void StageThread::frameDone() { VsyncThread::frameDone(sink_); }
+
 void StageThread::presentAt(int64_t presentNs) { egl_.presentAt(presentNs); }
 
 void StageThread::windowApplied(int64_t sequence) {

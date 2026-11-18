@@ -16,6 +16,7 @@
 #include "shell/OpenedAudio.hpp"
 #include "shell/PresetList.hpp"
 #include "shell/StyleShelf.hpp"
+#include "shell/Tour.hpp"
 
 namespace shell = geode::shell;
 
@@ -73,6 +74,64 @@ static_assert(static_cast<int>(shell::OpenedRoute::Stale) == GEODE_OPENED_STALE)
 static_assert(static_cast<int>(shell::OpenedRoute::Open) == GEODE_OPENED_OPEN);
 
 std::optional<std::string> textOf(const char* text) { return text ? std::optional<std::string>(text) : std::nullopt; }
+
+// The tour's wire forms (geode_shell_api.h): a run and a progress as ints.
+std::optional<shell::TourRun> runIn(const int* in, int len) {
+    if (!in || len < GEODE_TOUR_RUN_HEAD) return std::nullopt;
+    shell::TourRun run;
+    run.at = in[0];
+    run.seen = in[1];
+    run.replay = in[2] != 0;
+    for (int i = GEODE_TOUR_RUN_HEAD; i < len; ++i) run.chapters.push_back(static_cast<shell::TourChapter>(in[i]));
+    return run;
+}
+
+shell::TourProgress progressIn(const int* in, int len) {
+    shell::TourProgress p;
+    if (!in || len < GEODE_TOUR_PROGRESS_HEAD) return p;
+    p.off = in[0] != 0;
+    if (in[1] >= 0) p.resume = static_cast<shell::TourSpot>(in[1]);
+    const int rest = len - GEODE_TOUR_PROGRESS_HEAD;
+    const int done = std::clamp(in[2], 0, rest);
+    for (int i = 0; i < rest; ++i) {
+        const int v = in[GEODE_TOUR_PROGRESS_HEAD + i];
+        if (i < done) {
+            p.done.push_back(static_cast<shell::TourChapter>(v));
+        } else {
+            p.tips.push_back(static_cast<shell::GestureTip>(v));
+        }
+    }
+    return p;
+}
+
+shell::TourFacts factsOf(unsigned shown, int place, int playing) {
+    return {shown, static_cast<shell::TourPlace>(place), playing != 0};
+}
+
+shell::TourCover coverOf(unsigned mask) {
+    return {(mask & GEODE_TOUR_COVER_FIRST_RUN) != 0, (mask & GEODE_TOUR_COVER_PAYWALL) != 0, (mask & GEODE_TOUR_COVER_PIP) != 0,
+            (mask & GEODE_TOUR_COVER_PERMISSION_RATIONALE) != 0, (mask & GEODE_TOUR_COVER_AWAY) != 0};
+}
+
+int intsOut(const std::vector<int>& wire, int* out, int capacity) {
+    for (int i = 0; out && i < std::min(capacity, static_cast<int>(wire.size())); ++i) out[i] = wire[static_cast<size_t>(i)];
+    return static_cast<int>(wire.size());
+}
+
+int runOut(const shell::TourRun& run, int* out, int capacity) {
+    std::vector<int> wire{run.at, run.seen, run.replay ? 1 : 0};
+    for (shell::TourChapter c : run.chapters) wire.push_back(static_cast<int>(c));
+    return intsOut(wire, out, capacity);
+}
+
+int progressOut(const shell::TourProgress& p, int* out, int capacity) {
+    std::vector<int> wire{p.off ? 1 : 0, p.resume ? static_cast<int>(*p.resume) : -1, static_cast<int>(p.done.size())};
+    for (shell::TourChapter c : p.done) wire.push_back(static_cast<int>(c));
+    for (shell::GestureTip t : p.tips) wire.push_back(static_cast<int>(t));
+    return intsOut(wire, out, capacity);
+}
+
+shell::TourRect rectIn(const int* r) { return {r[0], r[1], r[2], r[3]}; }
 
 }  // namespace
 
@@ -179,6 +238,99 @@ int geode_opened_media_id(const unsigned char* random16, char* out, int capacity
 }
 
 int geode_opened_audio_is_opened(const char* media_id) { return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0; }
+
+int geode_tour_reached(int spot, unsigned shown, int place, int playing) {
+    return shell::tourReached(static_cast<shell::TourSpot>(spot), factsOf(shown, place, playing)) ? 1 : 0;
+}
+
+int geode_tour_step(const int* run, int run_len, unsigned shown, int place, int playing, int* out3) {
+    const auto r = runIn(run, run_len);
+    const auto step = r ? shell::tourStep(*r, factsOf(shown, place, playing)) : std::nullopt;
+    if (!step) return 0;
+    if (out3) {
+        out3[0] = static_cast<int>(step->spot);
+        out3[1] = step->index;
+        out3[2] = step->count;
+    }
+    return 1;
+}
+
+int geode_tour_pass(const int* run, int run_len, int spot, int* out, int capacity) {
+    const auto r = runIn(run, run_len);
+    return runOut(shell::tourPass(r.value_or(shell::TourRun{}), static_cast<shell::TourSpot>(spot)), out, capacity);
+}
+
+int geode_tour_next_chapter(const int* run, int run_len, int* out, int capacity) {
+    const auto r = runIn(run, run_len);
+    const auto next = r ? shell::tourNextChapter(*r) : std::nullopt;
+    return next ? runOut(*next, out, capacity) : -1;
+}
+
+int geode_tour_held(unsigned cover) { return shell::tourHeld(coverOf(cover)) ? 1 : 0; }
+
+int geode_tour_shows(const int* run, int run_len, const int* progress, int progress_len, unsigned cover) {
+    return shell::tourShows(runIn(run, run_len), progressIn(progress, progress_len), coverOf(cover)) ? 1 : 0;
+}
+
+int geode_tour_may_tip(int tip, const int* progress, int progress_len, unsigned cover, const int* run, int run_len) {
+    return shell::tourMayTip(static_cast<shell::GestureTip>(tip), progressIn(progress, progress_len), coverOf(cover),
+                             runIn(run, run_len))
+               ? 1
+               : 0;
+}
+
+int geode_tour_due(const int* progress, int progress_len, unsigned shown, int place, int playing) {
+    const auto due = shell::tourDue(progressIn(progress, progress_len), factsOf(shown, place, playing));
+    return due ? static_cast<int>(*due) : -1;
+}
+
+int geode_tour_resume(int chapter, const int* progress, int progress_len, int* out, int capacity) {
+    return runOut(shell::tourResume(static_cast<shell::TourChapter>(chapter), progressIn(progress, progress_len)), out, capacity);
+}
+
+int geode_tour_replay(unsigned chapters, int* out, int capacity) {
+    std::vector<shell::TourChapter> asked;
+    for (int c = 0; c < shell::kTourChapterCount; ++c) {
+        if (chapters & (1u << c)) asked.push_back(static_cast<shell::TourChapter>(c));
+    }
+    const auto run = shell::tourReplay(asked);
+    return run ? runOut(*run, out, capacity) : -1;
+}
+
+int geode_tour_ended(const int* progress, int progress_len, const int* run, int run_len, int skipped, int* out, int capacity) {
+    return progressOut(shell::tourEnded(progressIn(progress, progress_len), runIn(run, run_len).value_or(shell::TourRun{}),
+                                        skipped != 0),
+                       out, capacity);
+}
+
+int geode_tour_offers_pro(const int* run, int run_len, int skipped) {
+    return shell::tourOffersPro(runIn(run, run_len).value_or(shell::TourRun{}), skipped != 0) ? 1 : 0;
+}
+
+int geode_tour_decode(const char* done, const char* resume, const char* tips, int legacy_seen, int off, int* out, int capacity) {
+    return progressOut(shell::tourDecode(textOf(done), textOf(resume), textOf(tips), legacy_seen != 0, off != 0), out, capacity);
+}
+
+int geode_tour_encode(const int* progress, int progress_len, int which, char* out, int capacity) {
+    const shell::TourProgress p = progressIn(progress, progress_len);
+    switch (which) {
+        case GEODE_TOUR_TEXT_DONE: return geode::api::textOut(shell::tourEncodeDone(p), out, capacity);
+        case GEODE_TOUR_TEXT_RESUME: {
+            const auto resume = shell::tourEncodeResume(p);
+            return resume ? geode::api::textOut(*resume, out, capacity) : -1;
+        }
+        case GEODE_TOUR_TEXT_TIPS: return geode::api::textOut(shell::tourEncodeTips(p), out, capacity);
+        default: return -1;
+    }
+}
+
+void geode_tour_place_card(const int* hole, int card_width, int card_height, const int* safe, int gap, int* out2) {
+    if (!safe || !out2) return;
+    const shell::TourPoint at = shell::tourPlaceCard(hole ? std::optional<shell::TourRect>(rectIn(hole)) : std::nullopt,
+                                                     card_width, card_height, rectIn(safe), gap);
+    out2[0] = at.x;
+    out2[1] = at.y;
+}
 
 geode_auto_playlist* geode_auto_playlist_read(const char* json, const char* (*resolve)(const char*)) {
     auto* playlist = new geode_auto_playlist;

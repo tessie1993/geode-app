@@ -134,6 +134,8 @@ void VsyncThread::apply(const Command& command) {
     switch (command.kind) {
         case kVsyncRun:
             if (command.a != 0) {
+                // A frame request lost with the stage's last run leaves no frame to wait for.
+                sink->stageBusy.store(false, std::memory_order_relaxed);
                 if (sink->pacing.start() && choreographer_) AChoreographer_postVsyncCallback(choreographer_, &VsyncThread::onFrame, sink);
             } else {
                 sink->pacing.stop();
@@ -153,7 +155,7 @@ void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, v
     // Re-posted first: the cadence survives a slow stage, and a skipped vsync still wakes the next one.
     AChoreographer_postVsyncCallback(process().choreographer_, &VsyncThread::onFrame, sink);
     const int64_t frameTimeNanos = AChoreographerFrameCallbackData_getFrameTimeNanos(callbackData);
-    const StagePacing::Tick tick = sink->pacing.step(frameTimeNanos);
+    const StagePacing::Tick tick = sink->pacing.step(frameTimeNanos, sink->stageBusy.load(std::memory_order_acquire));
     if (tick.restateRate) {
         Command c;
         c.kind = kStageFrameRate;
@@ -170,7 +172,9 @@ void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, v
         // The vsync's own time, for the frame's step, and how far ahead of it the preferred timeline presents.
         c.t = frameTimeNanos;
         c.b = presentAfterNs(callbackData, frameTimeNanos);
-        sink->stage->queue.push(c, Merge::LastWins);
+        // Busy before the push, so a stage that finishes at once clears it after, never before.
+        sink->stageBusy.store(true, std::memory_order_release);
+        if (sink->stage->queue.push(c, Merge::LastWins) == Pushed::Full) sink->stageBusy.store(false, std::memory_order_release);
     }
 }
 

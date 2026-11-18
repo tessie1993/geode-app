@@ -7,24 +7,23 @@
 #include <string>
 #include <vector>
 
-// Which transition a style change plays and for how long. MilkDrop picks its blend at random on every
-// preset change and gives a change by hand a shorter fade than an automatic one (1.7 s and 2.7 s,
-// plugin.cpp), which is much of why it feels alive. Here:
+// Which transition a style change plays and for how long. A blend picked at random on every
+// change and a shorter fade for a change by hand than for an automatic one is much of what feels alive. Here:
 // - the transition id "random" draws one of the catalogue's transitions per change, never the same one
 //   twice in a row (and never "cut", which safety plays as a fade anyway);
-// - an automatic change (Auto's timer, the visual playlist, a director moment) fades for MilkDrop's
+// - an automatic change (Auto's timer, the visual playlist, a director moment) fades for a
 //   ratio of the user's Transition length (auto = length × 2.7 / 1.7), at most kMaxMs; a change by hand
 //   fades for the length itself. No tempo enters either. Until Settings has a row for the automatic time,
 //   the ratio is the rule.
 // Auto marks its changes here (geode_auto_mark_change) before it makes them; each renderer reads the mark
-// for the style it switches to, each MilkDrop scene for the preset it loads. Host-tested in
+// for the style it switches to. Host-tested in
 // core/tests/transition_choice_test.cpp.
 namespace geode::viz::transition_choice {
 
 inline constexpr const char* kRandomId = "random";
 inline constexpr const char* kCutId = "cut";
 inline constexpr int64_t kMaxMs = 5000;
-// MilkDrop's own two fades (plugin.cpp: m_fBlendTimeUser, m_fBlendTimeAuto).
+// The two fades: by hand, and automatic.
 inline constexpr double kManualSeconds = 1.7;
 inline constexpr double kAutoSeconds = 2.7;
 
@@ -132,7 +131,7 @@ inline double nowSeconds() {
 
 }  // namespace detail
 
-// Auto is about to bring `key` (a style id, or a .milk path) on. Any thread.
+// Auto is about to bring `key` (a style id) on. Any thread.
 inline void markAuto(const std::string& key) {
     auto& s = detail::shared();
     std::lock_guard<std::mutex> lock(s.lock);

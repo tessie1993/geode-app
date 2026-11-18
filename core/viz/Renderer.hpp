@@ -95,7 +95,7 @@ public:
         ownCapFps_.store(ownCapFps, std::memory_order_relaxed);
     }
     // The rate this surface really draws at: its paced rate under its own cap. Follow device has no cap of its
-    // own: its paced rate is the rate, free-running until a vsync says one. MilkDrop and the fluid scenes read it.
+    // own: its paced rate is the rate, free-running until a vsync says one. The fluid scenes read it.
     float pacedFps() const {
         const float paced = pacedFps_.load(std::memory_order_relaxed);
         const float own = ownCapFps_.load(std::memory_order_relaxed);
@@ -141,7 +141,7 @@ public:
     }
     // What this renderer hears: interleaved PCM in play order, every sample once, up to the sample it draws. Call
     // from the render thread before render(), live and in export alike. The samples are this frame's raw PCM for
-    // MilkDrop and the PCM scenes (PcmHandoff) and its waveform (sound/interp/Waveform). The analysis reads them
+    // the PCM scenes (PcmHandoff) and its waveform (sound/interp/Waveform). The analysis reads them
     // from the ring itself (hearAnalysis); without one they go to this renderer's own analysis: an export's,
     // inline (AnalysisThread::pump), or a live feed's with the mic layered in, on its own thread.
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
@@ -165,11 +165,6 @@ public:
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
-    void loadMilkPreset(const std::string& path);
-    void reloadMilkPreset();
-    void setMilkTextureDir(const std::string& dir);
-    // The path of the preset the MilkDrop scene last compiled, handed out once.
-    std::string takeMilkPresetLoaded();
     // How many times the director committed a look at a new section or a drop since the last take.
     // The shell's Auto changes style on each (one Auto mode: the director picks the moments). Taking them
     // publishes the director's style intent for Auto's pick (viz/DirectorStyle), so the renderer whose
@@ -177,8 +172,6 @@ public:
     int takeDirectorStyleMoments();
     // Whether a take would find any, without taking: the live frame's event (geode_viz_frame).
     bool directorStyleMomentsPending() const { return directorStyleMoments_.load(std::memory_order_acquire) > 0; }
-    // Whether a preset load waits for takeMilkPresetLoaded, without taking it. Any thread.
-    bool milkPresetLoadedPending() const;
     // The hand mask the reaction matrix merges under: an export's pinned one, else the process's (hand::global).
     uint32_t handMask() const { return settingsLatch_.handMask(); }
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
@@ -309,15 +302,13 @@ private:
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
     GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
-    // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame time
+    // This frame builds or blends a style (a staged build, a transition): its frame time
     // says nothing about what the phone can draw, so the fluid quality monitor and the governor sit out until a moment after
     // the last such frame. GL thread.
     void noteSettling() { settleHoldSeconds_ = kSettleHoldSeconds; }
     bool settling() const { return settleHoldSeconds_ > 0.0f; }
     void applyPendingFluidInjection();
-    void applyMilkRequests();
     void applyUnderlayUpload();
-    void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
     // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
@@ -513,20 +504,11 @@ private:
     int underlayBlend_ = 0;
     float underlayAmount_ = 0.0f;
     bool underlayDirty_ = false;
-    std::string lastMilkPreset_;
-    // lastMilkPreset_ is the latest request, which may have failed; this is the latest preset that
-    // compiled. A rebuilt scene is seeded with both (buildScene).
-    std::string lastGoodMilkPreset_;
-    std::string milkPresetRequest_;
     // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
     std::optional<StyleSchedule> styleScheduleRequest_;
     StyleSchedule styleSchedule_;
     std::function<void(const std::string&)> scheduledSceneHook_;
     std::function<void(GLuint, int, int)> compositeHook_;
-    bool milkReloadRequested_ = false;
-    std::string milkTextureDir_;
-    bool milkTextureDirDirty_ = false;
-    std::string milkPresetLoaded_;
     // Liquid mode. The dive and the born clock are reseeded from the device's entropy each time Liquid
     // is switched on: truly random each play, the user's call, so an export does not replay the screen.
     liquid::LiquidPass liquidPass_;
@@ -588,7 +570,7 @@ private:
     // The music's rate on the picture's clock this frame (sound::motionRate): 0 in silence.
     float musicRate_ = 0.0f;
     // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
-    // they were drawn at. redrawFrames_ lets a request the params do not carry (a MilkDrop preset) through.
+    // they were drawn at. redrawFrames_ lets a request the params do not carry through.
     bool frameStill_ = false;
     const Scene* heldScene_ = nullptr;
     // The rig's pose when heldScene_ last drew, so a held scene that draws the rig redraws when it moves.
@@ -599,7 +581,7 @@ private:
     int heldHeight_ = 0;
     int redrawFrames_ = 0;
     // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's
-    // build and first load, a MilkDrop preset. redrawFrames_ stays the count for "one more frame".
+    // build and first load. redrawFrames_ stays the count for "one more frame".
     static constexpr float kRedrawSeconds = 1.0f;
     float redrawSeconds_ = 0.0f;
     // The id read from stateLock_ each frame: assigned in place, so it keeps its buffer.

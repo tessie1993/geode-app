@@ -3,11 +3,11 @@
 /* What the sound engine hears in one rendered frame. Plain C and all floats, so the whole frame crosses JNI
  * as one float array in declaration order, and the C++ renderer, the shaders and Kotlin read the same thing.
  *
- * What it holds: the levels MilkDrop presets read (the relative levels and their att envelopes), the hard cut
+ * What it holds: the relative levels and their att envelopes, the hard cut
  * and the stabilised waveform; a shaped layer (low/middle/high with gain, threshold, offset, attack and
  * release; kick/snare/hat triggers with hysteresis and envelopes; counted hits; centroid and partial density;
  * the Band EQ); band clocks, presence, intensity, toggle- and random-on-hit; the peak frequency; the melody's
- * note, re-attack and evenness; and projectM's frame-rate-independent rates.
+ * note, re-attack and evenness; and the frame-rate-independent rates.
  *
  * Kinds of value:
  *  - Relative (bass … midHighAtt, flux, eq): energy over its own ~4 s running mean. 1.0 is typical for
@@ -41,7 +41,7 @@
 #define GEODE_SOUND_BPM_FASTEST 300.0f
 
 typedef struct GeodeSoundFrame {
-    /* Relative levels, the MilkDrop core, over a +6 dB/octave tilted spectrum. bass 20–250 Hz, mid 250 Hz–
+    /* Relative levels, the core, over a +6 dB/octave tilted spectrum. bass 20–250 Hz, mid 250 Hz–
      * 4 kHz, treble 4–16 kHz; sub 20–60 Hz and midHigh 2–6 kHz split out the floor and the presence region.
      * *Att is the same band through a fast envelope (~20 ms up, ~50 ms down). vol is the mean of the three. */
     float bass;

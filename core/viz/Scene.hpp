@@ -16,7 +16,7 @@
 
 namespace geode::viz {
 
-enum class SceneFamily { Shader, Milkdrop, Fluid };
+enum class SceneFamily { Shader, Fluid };
 
 // A scene, plus the optional hooks the renderer wires by capability rather than by class.
 class Scene {
@@ -65,14 +65,6 @@ public:
     // The fluid scene runs its own flow field.
     virtual bool isFluid() const { return false; }
     virtual void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) { (void) forceSrc; (void) dyeSrc; }
-    // The surface size in pixels, which MilkDrop renders at rather than the render-scaled target.
-    virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
-    virtual void queueMilkPreset(const std::string& path) { (void) path; }
-    // The last preset that compiled anywhere in this renderer: what a rebuilt MilkDrop scene falls
-    // back to when the preset it was asked for fails, rather than projectM's idle preset.
-    virtual void setMilkFallbackPreset(const std::string& path) { (void) path; }
-    virtual void reloadMilkPreset() {}
-    virtual void setMilkTextureDir(const std::string& dir) { (void) dir; }
 };
 
 struct SceneHost {
@@ -80,7 +72,6 @@ struct SceneHost {
     std::function<void(const std::string&)> onShaderError;
     // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
     std::function<float()> pacedFps;
-    std::function<void(const std::string& path)> onMilkPresetLoaded;
     // Settings › Performance's march-step multiplier (0..1); unset means full budget.
     std::function<float()> marchScale;
     // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)

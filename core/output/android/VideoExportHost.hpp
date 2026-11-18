@@ -36,10 +36,7 @@ struct Setup {
     int64_t rangeStartMs = 0;
 
     AAssetManager* assets = nullptr;
-    std::string milkTextureDir;
     std::string sceneId;
-    std::string milkPath;
-    bool hasMilkPath = false;
     bool entitled = false;
 
     // The look; lookSet false: none was handed over whole, the renderer keeps its own.

@@ -201,7 +201,7 @@ std::string autoName(const Bank& bank, int id);
 Reach reachMask(const std::string& styleId);
 
 // What the waves and the envelopes add to the knobs' turns this frame (a slot on LfoTarget::Macro names its knob by
-// id). Base plus modulation, MilkDrop's rule: the user's turn is never rewritten; a knob moves its links by its turn
+// id). Base plus modulation: the user's turn is never rewritten; a knob moves its links by its turn
 // plus this, held to -1..1 (effective). `sources` says who turns a knob and lo..hi how far they can, for the shell's
 // second arc (its still range under reduced motion).
 struct KnobMods {

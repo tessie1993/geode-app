@@ -340,17 +340,16 @@ constexpr auto kSpinning = std::to_array<Spin>({
     {"glow_vortex", -1.1f},   {"hex_hive", 0.3f},
 });
 
-constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
 // The Customize control a cymatics style can hold (its Customize key).
 constexpr const char* kGeometryKey = "Geometry";
 
 constexpr const char* kKindNames[kKindCount] = {"SHADER", "SILK",     "LIFE",  "MYCELIUM", "ACID",
-                                                "MILKDROP", "FLUID", "CURL_FLOW", "CYMATICS"};
+                                                "FLUID", "CURL_FLOW", "CYMATICS"};
 constexpr const char* kScopeNames[kScopeCount] = {
     "UNIVERSAL",    "SCENE_CLOCK",     "AUDIO_DRIVE", "BASS_BAND", "MID_BAND",     "TREBLE_BAND", "BAND_GAINS", "SHADER_LOOK",
     "MARCH_DETAIL", "ENDLESS_ZOOM",    "TURBULENCE",  "DYE_DENSITY", "TRAIL_TOGGLE", "TRAIL_LENGTH", "TRAIL_ECHO",
-    "PARTICLE_SPRITE", "MILKDROP",     "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
+    "PARTICLE_SPRITE", "FLUID_SIM",   "EMITTERS",  "JOURNEY",      "CYMATICS",
     "FLOW_FIELD_SIM",  "SPIN",            "FAMILY_FORM",   "FORMULA",
     "SHAPES",          "SHADOW",          "ESCAPE",
 };
@@ -368,7 +367,6 @@ Look kindLook(Kind k) {
         case Kind::Mycelium: return Look::Living;
         case Kind::Acid: return Look::Psychedelic;
         case Kind::Cymatics: return Look::Patterns;
-        case Kind::Milkdrop: return Look::Classic;
         case Kind::Shader: break;
     }
     return Look::Psychedelic;
@@ -441,14 +439,14 @@ bool inMarchedFamily(const std::string& id) {
 // shared block, so it reads the shader look, the bands and Turbulence as a shader style does, and marches.
 bool presentsIn3d(Kind k) { return k == Kind::Life; }
 
-// Per-band gain reaches only a style that reads that band's envelope; MilkDrop takes raw PCM.
+// Per-band gain reaches only a style that reads that band's envelope.
 bool readsBass(Kind k) {
     return k == Kind::Shader || k == Kind::Silk || k == Kind::Mycelium || k == Kind::Acid || k == Kind::Fluid || presentsIn3d(k);
 }
 bool readsMid(Kind k) {
     return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow || presentsIn3d(k);
 }
-bool readsTreble(Kind k) { return k != Kind::Milkdrop; }
+bool readsTreble(Kind) { return true; }
 
 // Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula, Shapes, Shadow and Escape
 // are per style, so no kind has them.
@@ -456,7 +454,7 @@ bool reachesKind(Scope s, Kind k) {
     switch (s) {
         case Scope::Universal: return true;
         case Scope::SceneClock:
-        case Scope::AudioDrive: return k != Kind::Milkdrop;
+        case Scope::AudioDrive: return true;
         case Scope::BassBand: return readsBass(k);
         case Scope::MidBand: return readsMid(k);
         case Scope::TrebleBand: return readsTreble(k);
@@ -472,7 +470,6 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::TrailLength: return k == Kind::Shader || k == Kind::Silk || k == Kind::CurlFlow;
         case Scope::TrailEcho: return k == Kind::Shader || k == Kind::CurlFlow;
         case Scope::ParticleSprite: return k == Kind::Fluid || k == Kind::CurlFlow;
-        case Scope::Milkdrop: return k == Kind::Milkdrop;
         case Scope::FluidSim: return k == Kind::Fluid;
         case Scope::Emitters: return k == Kind::Fluid;
         case Scope::Journey: return k == Kind::Fluid || k == Kind::CurlFlow;
@@ -496,7 +493,6 @@ const char* pickerName(Kind k) {
         case Kind::Life: return "life";
         case Kind::Mycelium: return "mycelium";
         case Kind::Acid: return "morphing";
-        case Kind::Milkdrop: return "milkdrop";
         case Kind::Fluid:
         case Kind::CurlFlow: return "fluid";
         case Kind::Cymatics: return "cymatics";
@@ -596,7 +592,6 @@ const std::vector<std::string>& allIds() {
         append(out, styles::acidIds());
         out.insert(out.end(), kLooseShaders.begin(), kLooseShaders.end());
         for (const auto& family : kFamilies) out.insert(out.end(), family.ids.begin(), family.ids.end());
-        out.emplace_back(kMilkdrop);
         append(out, styles::fluidIds());
         out.emplace_back(kCurlFlow);
         append(out, styles::cymaticsIds());
@@ -694,7 +689,7 @@ bool isShaderStyle(const std::string& id) { return listed(kLooseShaders, id) || 
 
 bool knows(const std::string& id) {
     return isShaderStyle(id) || styles::cymatics(id) || styles::silk(id) || styles::life(id) || styles::acid(id) ||
-           styles::myco(id) || styles::fluid(id) || id == kMilkdrop || id == kCurlFlow;
+           styles::myco(id) || styles::fluid(id) || id == kCurlFlow;
 }
 
 const std::string& resolveId(const std::string& id) {
@@ -711,7 +706,6 @@ const std::string& resolveId(const std::string& id) {
 
 Kind kindOf(const std::string& id) {
     if (isShaderStyle(id)) return Kind::Shader;
-    if (id == kMilkdrop) return Kind::Milkdrop;
     if (styles::fluid(id)) return Kind::Fluid;
     if (id == kCurlFlow) return Kind::CurlFlow;
     if (styles::cymatics(id)) return Kind::Cymatics;

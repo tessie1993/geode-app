@@ -10,38 +10,38 @@
 
 namespace geode::viz::liquid::motion {
 
-// MilkDrop's motion: every frame the last frame is re-sampled through one UV transform (zoom, zoomexp,
+// The feedback motion: every frame the last frame is re-sampled through one UV transform (zoom, zoomexp,
 // stretch, warp, rotation about a centre, translation) and decayed, so a small per-frame value compounds
 // into travel. This is that transform as pure maths, for the feedback pass to upload as uniforms.
 //
-// MilkDrop applies its values once per frame, so a preset moves twice as fast at 120 Hz as at 60. Here a
-// Motion is per second and perFrame() turns it into one frame's MilkDrop values for the frame's dt, so the
-// same travel per second results at any frame rate.
+// Per-frame values would move a picture twice as fast at twice the frame rate. Here a Motion is per second
+// and perFrame() turns it into one frame's values for the frame's dt, so the same travel per second results
+// at any frame rate.
 //
 // app/src/main/assets/shaders/lib_feedback.glsl is uvFor() and fold() in GLSL, term for term: change
 // both together.
 
-inline constexpr float kMilkDropHz = 60.0f;
-/** MilkDrop's warp displacement per frame per unit warp (milkdropfs.cpp:1812), as a rate at its 60 Hz. */
-inline constexpr float kWarpPerSecond = 0.0035f * kMilkDropHz;
+inline constexpr float kFrameHz = 60.0f;
+/** The warp displacement per frame per unit warp, as a rate at 60 Hz. */
+inline constexpr float kWarpPerSecond = 0.0035f * kFrameHz;
 
-/** Per-second motion with MilkDrop's names; the defaults are the identity. */
+/** Per-second motion; the defaults are the identity. */
 struct Motion {
     float zoom = 1.0f;       // magnification per second about the centre; above 1 dives in, below backs out
     float zoomExp = 1.0f;    // radial profile: the zoom at radius r is zoom^(zoomExp^(2r - 1))
     float rot = 0.0f;        // radians per second about (cx, cy)
-    float cx = 0.5f;         // centre of stretch and rotation in MilkDrop's aspect-fitted UV, v down
+    float cx = 0.5f;         // centre of stretch and rotation in the aspect-fitted UV, v down
     float cy = 0.5f;
     float dx = 0.0f;         // UV per second; positive moves the picture right
     float dy = 0.0f;         // UV per second; positive moves the picture down
     float sx = 1.0f;         // stretch per second about (cx, cy)
     float sy = 1.0f;
-    float warp = 0.0f;       // MilkDrop's warp amount (its preset default is 1); 0 is still
+    float warp = 0.0f;       // the warp amount; 0 is still
     float warpScale = 1.0f;  // spatial scale of the warp: larger is broader
-    float warpSpeed = 1.0f;  // MilkDrop's warp anim speed: how fast the warp's pattern drifts
+    float warpSpeed = 1.0f;  // the warp animation speed: how fast the warp's pattern drifts
 };
 
-/** One frame's values, MilkDrop's per-frame units: what the feedback shader takes as uniforms. */
+/** One frame's values, in per-frame units: what the feedback shader takes as uniforms. */
 struct FrameMotion {
     float zoom = 1.0f;
     float zoomExp = 1.0f;
@@ -99,51 +99,12 @@ inline Motion sanitize(const Motion& m) {
     return o;
 }
 
-/** A MilkDrop preset's per-frame values (at `hz`, normally its 60) as a per-second Motion. */
-inline Motion fromMilkDrop(const FrameMotion& f, float hz = kMilkDropHz) {
-    Motion m;
-    m.zoom = std::pow(f.zoom, hz);
-    m.zoomExp = f.zoomExp;
-    m.rot = f.rot * hz;
-    m.cx = f.cx;
-    m.cy = f.cy;
-    m.dx = f.dx * hz;
-    m.dy = f.dy * hz;
-    m.sx = std::pow(f.sx, hz);
-    m.sy = std::pow(f.sy, hz);
-    m.warp = f.warp * hz / kMilkDropHz;
-    m.warpScale = f.warpScale;
-    m.warpSpeed = f.warpSpeed;
-    return sanitize(m);
-}
-
-/** This frame's share of a per-second Motion: rates times dt, factors to the power dt. */
-inline FrameMotion perFrame(const Motion& motion, float dt) {
-    const Motion m = sanitize(motion);
-    const float t = std::isfinite(dt) ? std::clamp(dt, 0.0f, kMaxDt) : 0.0f;
-    FrameMotion f;
-    f.zoom = std::pow(m.zoom, t);
-    f.zoomExp = m.zoomExp;
-    f.rot = m.rot * t;
-    f.cx = m.cx;
-    f.cy = m.cy;
-    f.dx = m.dx * t;
-    f.dy = m.dy * t;
-    f.sx = std::pow(m.sx, t);
-    f.sy = std::pow(m.sy, t);
-    f.warp = m.warp * kWarpPerSecond * t;
-    f.warpScale = m.warpScale;
-    f.warpSpeed = m.warpSpeed;
-    return f;
-}
-
 /**
  * The UV of the last frame a destination pixel samples. `uv` is GL's (v up), `aspect` is width / height,
- * `time` the clock the warp drifts on (seconds). MilkDrop3 milkdropfs.cpp:1699-1705 (warp time and its
- * four drifting frequencies), 1794 (zoomexp), 1797-1799 (zoom about the centre), 1806-1807 (stretch),
- * 1812-1815 (warp), 1819-1825 (rotation), 1828-1829 (translation), 1832-1833 (undo the aspect fit);
- * aspect and rad as plugin.cpp:2035-2038 and 2289. MilkDrop's v runs down, so v is flipped in and out;
- * its half-texel offset is D3D9's and is left out. The result is unfolded: fold() it before sampling.
+ * `time` the clock the warp drifts on (seconds). The warp's time and its four drifting frequencies, the
+ * zoom's exponent, the zoom about the centre, the stretch, the warp, the rotation, the translation and the
+ * undo of the aspect fit are applied in that order. The mesh's v runs down, so v is flipped in and out.
+ * The result is unfolded: fold() it before sampling.
  */
 inline Uv uvFor(const FrameMotion& f, Uv uv, float aspect, float time) {
     if (!std::isfinite(uv.u) || !std::isfinite(uv.v)) return {};
@@ -151,7 +112,7 @@ inline Uv uvFor(const FrameMotion& f, Uv uv, float aspect, float time) {
     const float aspX = a < 1.0f ? a : 1.0f;
     const float aspY = a > 1.0f ? 1.0f / a : 1.0f;
     const float x = uv.u * 2.0f - 1.0f;
-    const float y = uv.v * 2.0f - 1.0f;  // MilkDrop's mesh y: 1 - 2 v with v down, which is 2 v - 1 with v up
+    const float y = uv.v * 2.0f - 1.0f;  // the mesh y: 1 - 2 v with v down, which is 2 v - 1 with v up
 
     const float rad = std::sqrt(x * x * aspX * aspX + y * y * aspY * aspY);
     const float zoom2 = std::pow(f.zoom, std::pow(f.zoomExp, rad * 2.0f - 1.0f));
@@ -197,7 +158,7 @@ inline float fold(float p) {
 }
 inline Uv fold(Uv p) { return {fold(p.u), fold(p.v)}; }
 
-// The music's hand on the motion, MilkDrop's idiom `zoom = base + k (bass_att - 1)`: each band's att is
+// The music's hand on the motion, the idiom `zoom = base + k (bass_att - 1)`: each band's att is
 // its level over its own running mean, 1 typical, so the motion surges on the hits and eases between
 // them and averages back to the base. Bass zooms, mids turn, treble boils the warp.
 
@@ -236,7 +197,7 @@ inline Motion fromSound(const Motion& base, const GeodeSoundFrame& s, bool reduc
 }
 
 // What the renderer asks of the pass while Liquid is off (Renderer::drawTrails): a shader style's Trails
-// as MilkDrop's video echo zoom and warp. Endless zoom is not here: it is its own stage (viz/DivePass).
+// as an echo zoom and warp. Endless zoom is not here: it is its own stage (viz/DivePass).
 struct TrailAsk {
     float trailZoom = 0.0f;  // -0.5..0.5
     float trailWarp = 0.0f;  // 0..1
@@ -262,10 +223,10 @@ inline Motion trailMotion(const TrailAsk& a, const GeodeSoundFrame& s, bool redu
 
 /**
  * Liquid mode's dive (LiquidMath's Dive: a zoom and a twist about a wandering vanishing point) as one
- * frame of MilkDrop's transform. MilkDrop zooms about the screen's centre and turns about (cx, cy), so
+ * frame of the feedback transform. It zooms about the screen's centre and turns about (cx, cy), so
  * a zoom about the vanishing point is that zoom, the turn about it, and the translation that carries the
  * centre's zoom over to it: d = R (0.5 - c) (1 - 1 / zoom). The vanishing point comes in centred units
- * (x times the aspect, y up), which are MilkDrop's aspect-fitted UV over 0.5 aspY, y flipped.
+ * (x times the aspect, y up), which are the aspect-fitted UV over 0.5 aspY, y flipped.
  */
 inline FrameMotion fromDive(const DiveFrame& d, float aspect) {
     using detail::finiteOr;

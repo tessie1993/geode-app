@@ -60,7 +60,6 @@ const std::vector<Section>& sectionTable() {
          {{kGeneral,
            {"macro_bank", "lfos", "adsrs", "reactions", "reactions_hand", "reactions_unread", "palette_stack", "customize_layer"}}}},
         {"music", {kFavourites}, {"music-playlists", "smart-playlists"}, {"library.json", "history.json"}, {}},
-        {"milk", {}, {"milk"}, {}, {}},
     };
     return table;
 }
@@ -89,9 +88,9 @@ const std::set<std::string>* deviceLocal(const std::string& file) {
     return it == table.end() ? nullptr : &it->second;
 }
 
-// Caches: regenerated textures and the links MilkTextureLinks rebuilds. Never exported; a restore keeps the phone's.
+// Caches: regenerated files a section's folder may hold. Never exported; a restore keeps the phone's. None today.
 const std::vector<std::string>& excludedSubtrees() {
-    static const std::vector<std::string> v = {"milk/generated", "milk/textures/.links"};
+    static const std::vector<std::string> v = {};
     return v;
 }
 

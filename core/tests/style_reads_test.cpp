@@ -11,7 +11,7 @@
 // The real ShaderSource resolves the //#include lines over the repo's assets folder. A uniform
 // counts as read when a function reachable from main() names it, comments and #ifdef'd-out code
 // stripped, macros followed: the nearest a host test gets to the driver's active-uniform list.
-// A dedicated renderer (Silk .. Cymatics, MilkDrop) counts a field as read when its scene sources
+// A dedicated renderer (Silk .. Cymatics) counts a field as read when its scene sources
 // name it or the composite applies it to that renderer's picture; one presented in 3D (core/viz/present:
 // Life) draws through a style-like shader on the shared block, and is held to that shader as a style is.
 #include <algorithm>
@@ -540,7 +540,6 @@ std::vector<std::string> kindSources(catalogue::Kind kind) {
         case K::Life: return {"viz/scenes/LifeScene.cpp"};
         case K::Mycelium: return {"viz/scenes/MycoScene.cpp"};
         case K::Acid: return {"viz/scenes/AcidScene.cpp"};
-        case K::Milkdrop: return {"viz/scenes/MilkdropScene.cpp"};
         case K::Cymatics: return {"viz/scenes/CymaticsScene.cpp", "viz/scenes/CymaticsMath.cpp"};
         case K::Fluid: return with({"viz/scenes/FluidScene.cpp"});
         case K::CurlFlow: return with({"viz/scenes/CurlFlowScene.cpp"});
@@ -557,16 +556,16 @@ std::string readFile(const std::string& path) {
 }
 
 // What the composite applies to the finished picture of a scene outside the shader family (grade::gateFor):
-// the geometry and stylize group to MilkDrop and the fluid family alike, mirror, invert and the colour grade
-// (zoom and rotation with it) to the fluid family only; MilkDrop's own post pass does those.
-bool compositeApplies(catalogue::Kind kind, const std::string& field) {
+// the geometry and stylize group, mirror, invert and the colour grade
+// (zoom and rotation with it) to the fluid family.
+bool compositeApplies(catalogue::Kind, const std::string& field) {
     static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
                                                "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize",
                                                "life"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
                                                      "intensity", "contrast", "gamma", "colorShift"};
     if (kGeo.count(field) != 0) return true;
-    return kind != catalogue::Kind::Milkdrop && kFluidOnly.count(field) != 0;
+    return kFluidOnly.count(field) != 0;
 }
 
 // The words a dedicated renderer's sources name that carry each field it is shown, where the field's own

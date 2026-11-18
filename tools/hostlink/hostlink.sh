@@ -15,15 +15,9 @@
 # trees (library/ needs taglib), or that anything runs.
 #
 # Stubs, all named: android/asset_manager.h and android/log.h are replaced by
-# C-linkage declarations, projectM's two CMake-generated headers
-# (projectM_export.h, version.h) are written by hand, and every extern "C"
-# symbol from those three libraries that the link needs is defined as an
-# empty function generated from `nm`. Nothing C++ is stubbed.
-#
-# projectM's public headers come from the exact commit the submodule pins,
-# fetched sparsely (one network round trip, ~2 MB), with the repo's own
-# render-fbo backport patch applied to them - the same patch the root
-# CMakeLists.txt applies at configure time.
+# C-linkage declarations, and every extern "C" symbol from those two
+# libraries that the link needs is defined as an empty function generated
+# from `nm`. Nothing C++ is stubbed.
 #
 #   tools/hostlink/hostlink.sh            # exit 0 on a clean link
 #   HOSTLINK_KEEP=1 tools/hostlink/hostlink.sh   # keep the work dir
@@ -31,29 +25,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="${HOSTLINK_WORK:-$(mktemp -d /tmp/hostlink-XXXXXX)}"
-PM_COMMIT="$(cd "$ROOT" && git ls-tree HEAD third_party/projectm | awk '{print $3}')"
-mkdir -p "$WORK/inc/android" "$WORK/inc/projectM-4" "$WORK/obj"
+mkdir -p "$WORK/inc/android" "$WORK/obj"
 trap '[[ -n "${HOSTLINK_KEEP:-}" ]] || rm -rf "$WORK"' EXIT
-
-# ---- projectM headers, pinned ------------------------------------------------
-if [[ ! -d "$WORK/pm" ]]; then
-  git clone -q --filter=blob:none --no-checkout https://github.com/projectM-visualizer/projectm.git "$WORK/pm"
-  git -C "$WORK/pm" sparse-checkout set src/api/include >/dev/null
-  git -C "$WORK/pm" fetch -q --depth 1 origin "$PM_COMMIT"
-  git -C "$WORK/pm" checkout -q FETCH_HEAD
-  git -C "$WORK/pm" apply --include='src/api/include/*' "$ROOT/tools/projectm-v4.1.7-render-fbo-backport.patch"
-  git -C "$WORK/pm" apply --include='src/api/include/*' "$ROOT/tools/projectm-v4.1.7-shader-fallback.patch"
-fi
-cp "$WORK/pm/src/api/include/projectM-4/"*.h "$WORK/inc/projectM-4/"
-printf '#pragma once\n#define PROJECTM_EXPORT\n' > "$WORK/inc/projectM-4/projectM_export.h"
-cat > "$WORK/inc/projectM-4/version.h" << 'HDR'
-#pragma once
-#define PROJECTM_VERSION_MAJOR 4
-#define PROJECTM_VERSION_MINOR 1
-#define PROJECTM_VERSION_PATCH 7
-#define PROJECTM_VERSION_STRING "4.1.7"
-#define PROJECTM_VERSION_VCS "hostlink"
-HDR
 
 # ---- the Android headers the viz tree includes -------------------------------
 cat > "$WORK/inc/android/asset_manager.h" << 'HDR'
@@ -99,11 +72,11 @@ for f in "${SRCS[@]}"; do
 done
 [[ $fail -eq 0 ]] || exit 1
 
-# ---- stubs for the three libraries that are not here --------------------------
-nm "$WORK"/obj/*.o | awk '$1 == "U" {print $2}' | sort -u | grep -E '^(projectm_|AAsset|__android)' > "$WORK/stubs.txt" || true
+# ---- stubs for the two libraries that are not here --------------------------
+nm "$WORK"/obj/*.o | awk '$1 == "U" {print $2}' | sort -u | grep -E '^(AAsset|__android)' > "$WORK/stubs.txt" || true
 { while read -r sym; do echo "void $sym(void) {}"; done < "$WORK/stubs.txt"; } > "$WORK/stubs.c"
 gcc -fPIC -c "$WORK/stubs.c" -o "$WORK/obj/zz_stubs.o"
-echo "hostlink: $(wc -l < "$WORK/stubs.txt") C symbols stubbed (projectM, AAsset, __android_log_print)"
+echo "hostlink: $(wc -l < "$WORK/stubs.txt") C symbols stubbed (AAsset, __android_log_print)"
 
 # ---- link -------------------------------------------------------------------------
 g++ -shared -fPIC -Wl,--no-undefined -o "$WORK/libgeode_viz_host.so" "$WORK"/obj/*.o -lGLESv2 -lEGL

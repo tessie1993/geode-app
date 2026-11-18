@@ -43,7 +43,7 @@ uniform float uFisheye;
 // PER-TEXTURE GATES. Which of the uPost* groups below the composite must
 // apply is a property of the SCENE, not of the frame: shader scenes already
 // warp/grade in view()/grade(), particle scenes in particle_vert/frag,
-// milkdrop in pm_post_frag, and the fluid family (Fluid, Curl Flow, Water)
+// and the fluid family (Fluid, Curl Flow, Water)
 // applies nothing of its own. main() routes BOTH uTexA (incoming) and uTexB
 // (outgoing) through postFx, and during a transition those two textures can
 // come from DIFFERENT families - so one gate per texture, never one shared
@@ -88,7 +88,7 @@ uniform float uPostMirror;
 uniform float uPostBloom;
 uniform float uPostPosterize;
 uniform float uPostInvert;
-// Motion + color params that particle/milkdrop pipelines can't honor natively
+// Motion + color params that particle pipelines can't honor natively
 // (shader scenes do these in-shader, so the gate's x is 0 for them and every
 // block below is skipped - the values themselves are uploaded raw).
 uniform float uPostDriftX;
@@ -98,8 +98,8 @@ uniform float uPostTemp;
 uniform float uPostSolarize;
 // Universal grading + zoom/rotation for scenes that grade NOTHING themselves
 // (the fluid family: Fluid, Curl Flow, Water). Shader scenes grade in
-// view()/grade(), particle scenes in particle_vert/particle_frag and milkdrop
-// in pm_post_frag, so for those the gate's z is 0 and the whole block below is
+// view()/grade(), and particle scenes in particle_vert/particle_frag,
+// so for those the gate's z is 0 and the whole block below is
 // skipped - a bitwise no-op, never a double grade.
 // The gate is required (not just neutral values) because the neutral value of
 // these uniforms is 1.0, not 0.0: a program that never uploads them would
@@ -112,7 +112,7 @@ uniform float uPostContrast;
 uniform float uPostGamma;
 uniform float uPostHue;
 // FlowField fluidWarp: the shared fluid velocity field bends the sampling
-// coordinate of ANY scene's output (particles, shaders, milkdrop) before the
+// coordinate of ANY scene's output (particles, shaders) before the
 // scene-texture fetch. A 1x1 zero texture is bound when disabled so the
 // sampler is always valid.
 uniform highp sampler2D uFlow;   // half-float velocities exceed lowp range
@@ -135,8 +135,7 @@ float compHash12(vec2 p) {
     return fract((p3.x + p3.y) * p3.z);
 }
 
-// Hue rotation about the grey axis, byte-for-byte the same formula as
-// pm_post_frag's hueRotate (and mirrored by CompositeGrade.hueRotate).
+// Hue rotation about the grey axis (mirrored by CompositeGrade.hueRotate).
 vec3 hueRotate(vec3 c, float a) {
     const vec3 w = vec3(0.299, 0.587, 0.114);
     float angle = a * 6.2831;
@@ -167,8 +166,8 @@ vec2 camFlat(vec2 c) {
 // Identity inside 0..1.
 vec2 mirrorUv(vec2 p) { return 1.0 - abs(1.0 - mod(p, 2.0)); }
 
-// Customize › Life on a scene with no shader of its own to run births in (the simulations, the fluids,
-// Milkdrop): core/viz/Births's births, laid over the finished picture the way lib_grow's growBirths2 lays
+// Customize › Life on a scene with no shader of its own to run births in (the simulations, the fluids):
+// core/viz/Births's births, laid over the finished picture the way lib_grow's growBirths2 lays
 // them over a 2D style's (the composite does not include lib_grow, so this is its own copy of that law:
 // birth units 0.3 of the half-height, a ball of 2 units, Implode's shrink, Fold back's reflection, Cave
 // in's hollow). uPostLife is 0 unless Life is up, and geo() then skips this (a bitwise no-op), as it does
@@ -210,14 +209,14 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
     // Rotation and sway share one angle, exactly like plasma_frag's view()
     // (a = uRotation + uSway * 0.35 * sin(uTime * 0.7)). uPostRotation is an
     // angle, not a rate: the renderer integrates rotation * dt so the slider
-    // stays a SPEED here, matching ShaderScene/ParticleSceneBase/MilkdropScene.
+    // stays a SPEED here, matching ShaderScene/ParticleSceneBase.
     float sa = gradeOn ? uPostRotation : 0.0;
     if (geoOn && abs(uPostSway) > 0.001) sa += uPostSway * 0.35 * sin(uTime * 0.7);
     if (abs(sa) > 0.0001) {
         c = mat2(cos(sa), -sin(sa), sin(sa), cos(sa)) * c;
     }
-    // Zoom about the centre, same form as the shader scenes and the milkdrop
-    // post pass (uv /= max(z, 0.05)), so a given slider value magnifies by the
+    // Zoom about the centre, same form as the shader scenes
+    // (uv /= max(z, 0.05)), so a given slider value magnifies by the
     // same amount on a fluid style as on julia/mandel.
     if (gradeOn && abs(uPostZoom - 1.0) > 0.0001) {
         c /= max(uPostZoom, 0.05);
@@ -262,7 +261,7 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
 }
 
 // Screen-space FX chain applied to the final composited frame, so it works
-// identically for shader, particle and milkdrop scenes and during
+// identically for shader and particle scenes and during
 // transitions. Order: geometry -> distortion (fisheye) -> sample
 // (chromatic aberration) -> shading (posterize, scanlines, grain, vignette,
 // bloom, invert).
@@ -299,8 +298,8 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         float levels = mix(24.0, 3.0, uPostPosterize);
         col = floor(col * levels + 0.5) / levels;
     }
-    // Colour grade: identical chain and order to plasma_frag's grade() and
-    // pm_post_frag (hue -> saturation -> contrast -> gamma, brightness last,
+    // Colour grade: identical chain and order to plasma_frag's grade()
+    // (hue -> saturation -> contrast -> gamma, brightness last,
     // just before invert), so a slider value lands the same on every style.
     // Mirrored on the CPU by CompositeGrade for the headless test.
     if (gradeOn) {

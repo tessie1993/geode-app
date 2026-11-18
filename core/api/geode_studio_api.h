@@ -17,10 +17,10 @@ GEODE_API geode_studio_text* geode_studio_edit_read(const char* json);
 /* The kind read from json, in canonical form; NULL json is the standard kind every new project starts as. */
 GEODE_API geode_studio_text* geode_studio_kind_read(const char* json);
 /* A new project's edit: song_uri NULL for none (a recording of the mic or another app), song_ms 0 when its
-   length is not known yet; scene_id NULL for no look, milk_path NULL unless the look is a MilkDrop preset.
+   length is not known yet; scene_id NULL for no look.
    The look runs over the song or the render (render_ms), whichever is longer. Ids are fresh random UUIDs. */
 GEODE_API geode_studio_text* geode_studio_edit_new(const char* song_uri, const char* song_title, long long song_ms,
-                                                   const char* scene_id, const char* milk_path, long long render_ms);
+                                                   const char* scene_id, long long render_ms);
 GEODE_API const char*        geode_studio_text_get(const geode_studio_text*);
 GEODE_API void               geode_studio_text_destroy(geode_studio_text*);
 

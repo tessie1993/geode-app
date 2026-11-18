@@ -115,7 +115,7 @@ void neverRolledFieldsNeverChange() {
 
 void aRollOnAStyleTouchesOnlyWhatItCanShow() {
     const SceneParams base = everythingChanged();
-    for (const char* style : {"plasma", "vanishing", "silk_web", "fluid_ink", "milkdrop", "kundt_tube", "curlflow"}) {
+    for (const char* style : {"plasma", "vanishing", "silk_web", "fluid_ink", "kundt_tube", "curlflow"}) {
         for (uint64_t seed = 1; seed <= 40; ++seed) {
             const SceneParams out = randomizer::randomize(base, seed, std::nullopt, style, {});
             for (const auto& roll : randomizer::rolledKeys()) {
@@ -133,7 +133,7 @@ void aRollOnAStyleTouchesOnlyWhatItCanShow() {
 
 void aTabRollTouchesOnlyThatTab() {
     const SceneParams base = everythingChanged();
-    for (Tab tab : {Tab::Shape, Tab::Color, Tab::Motion, Tab::Fx, Tab::Reactivity, Tab::Scene, Tab::Fluid, Tab::Cymatics}) {
+    for (Tab tab : {Tab::Shape, Tab::Color, Tab::Motion, Tab::Fx, Tab::Reactivity, Tab::Fluid, Tab::Cymatics}) {
         const auto owned = fieldsOf(tab);
         check(!owned.empty(), std::string(randomizer::name(tab)) + " owns fields");
         for (uint64_t seed = 1; seed <= 20; ++seed) {
@@ -147,7 +147,7 @@ void aTabRollTouchesOnlyThatTab() {
 
 void resetTabRestoresExactlyItsFields() {
     const SceneParams base = everythingChanged();
-    for (Tab tab : {Tab::Shape, Tab::Color, Tab::Motion, Tab::Fx, Tab::Reactivity, Tab::Scene, Tab::Fluid, Tab::Cymatics}) {
+    for (Tab tab : {Tab::Shape, Tab::Color, Tab::Motion, Tab::Fx, Tab::Reactivity, Tab::Fluid, Tab::Cymatics}) {
         const auto owned = fieldsOf(tab);
         const SceneParams out = randomizer::resetTab(base, tab);
         for (const char* f : SceneParams::fieldNames()) {

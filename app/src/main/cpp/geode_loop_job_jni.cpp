@@ -57,13 +57,10 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_LoopJobNative_loopJobSetTrac
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_LoopJobNative_loopJobSetScene(JNIEnv* env, jobject, jlong job,
                                                                                 jobject assetManager,
-                                                                                jstring milkTextureDir, jstring sceneId,
-                                                                                jstring milkPath, jboolean entitled) {
-    Utf8Chars textures(env, milkTextureDir);
+                                                                                jstring sceneId, jboolean entitled) {
     Utf8Chars scene(env, sceneId);
-    Utf8Chars milk(env, milkPath);
     geode_loop_job_set_scene(jobOf(job), assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr,
-                             textures.get(), scene.get(), milk.get(), entitled == JNI_TRUE ? 1 : 0);
+                             scene.get(), entitled == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_LoopJobNative_loopJobSetParams(JNIEnv* env, jobject, jlong job,

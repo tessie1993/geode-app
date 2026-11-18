@@ -31,9 +31,9 @@ GEODE_API void geode_video_export_add_codec(geode_video_export*, const char* mim
 GEODE_API void geode_video_export_set_track(geode_video_export*, int fd, int64_t offset, int64_t length,
                                             int64_t range_start_ms);
 /* The renderer's inputs, as geode_viz_create and geode_export_job_begin take them. The asset manager must outlive
-   the run. milk_path NULL: no MilkDrop preset. */
-GEODE_API void geode_video_export_set_scene(geode_video_export*, AAssetManager* assets, const char* milk_texture_dir,
-                                            const char* scene_id, const char* milk_path, int entitled);
+   the run. */
+GEODE_API void geode_video_export_set_scene(geode_video_export*, AAssetManager* assets,
+                                            const char* scene_id, int entitled);
 /* The pinned look, copied, as geode_viz_set_look takes it; its scene_id is ignored (set_scene's is drawn). */
 GEODE_API void geode_video_export_set_look(geode_video_export*, const geode_viz_look* look);
 /* pixels NULL, or fewer than width * height of them (count): no image. */

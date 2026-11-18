@@ -265,13 +265,12 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_presetApplied(JN
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ShellNative_openedAudioRoute(JNIEnv* env, jobject, jstring action,
                                                                              jstring scheme, jstring type,
-                                                                             jstring lastSegment, jboolean fromHistory) {
+                                                                             jboolean fromHistory) {
     const Utf16Chars a(env, action);
     const Utf16Chars s(env, scheme);
     const Utf16Chars t(env, type);
-    const Utf16Chars l(env, lastSegment);
     if (env->ExceptionCheck()) return GEODE_OPENED_NOT_OURS;
-    return geode_opened_audio_route(a.get(), s.get(), t.get(), l.get(), fromHistory == JNI_TRUE ? 1 : 0);
+    return geode_opened_audio_route(a.get(), s.get(), t.get(), fromHistory == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_openedAudioRefuses(JNIEnv* env, jobject, jstring scheme,

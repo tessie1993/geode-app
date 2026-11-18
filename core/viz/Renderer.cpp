@@ -37,7 +37,6 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return pacedFps(); },
-                          [this](const std::string& path) { notePresetLoaded(path); },
                           // The user's march scale under the governor's steps (frame::FrameGovernor).
                           [this] { return governor_.governed().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
@@ -106,7 +105,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
         soundWave_.write(interleaved, frames, channels, sampleRateHz);
         if (!sharedSound_) hearOwn(interleaved, frames, channels, sampleRateHz);
     }
-    // MilkDrop's raw PCM is what this renderer just heard (#360): one ring, one cursor, every surface.
+    // The raw PCM is what this renderer just heard (#360): one ring, one cursor, every surface.
     // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.write(interleaved, frames, channels, sampleRateHz);
@@ -212,30 +211,6 @@ void Renderer::setFluidInjectionShaders(const std::string& forceSrc, const std::
     fluidInjectionDirty_ = true;
 }
 
-void Renderer::loadMilkPreset(const std::string& path) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    lastMilkPreset_ = path;
-    milkPresetRequest_ = path;
-}
-
-void Renderer::reloadMilkPreset() {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    milkReloadRequested_ = true;
-}
-
-void Renderer::setMilkTextureDir(const std::string& dir) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    milkTextureDir_ = dir;
-    milkTextureDirDirty_ = true;
-}
-
-void Renderer::notePresetLoaded(const std::string& path) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    lastMilkPreset_ = path;
-    lastGoodMilkPreset_ = path;
-    milkPresetLoaded_ = path;
-}
-
 int Renderer::takeDirectorStyleMoments() {
     const int moments = directorStyleMoments_.exchange(0, std::memory_order_acq_rel);
     if (moments > 0) {
@@ -243,43 +218,6 @@ int Renderer::takeDirectorStyleMoments() {
         director::publishStyleIntent(directorIntent_);
     }
     return moments;
-}
-
-bool Renderer::milkPresetLoadedPending() const {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    return !milkPresetLoaded_.empty();
-}
-
-std::string Renderer::takeMilkPresetLoaded() {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    std::string out;
-    out.swap(milkPresetLoaded_);
-    return out;
-}
-
-// GL thread: the preset requests wait here so the scene table is only ever touched on one thread.
-void Renderer::applyMilkRequests() {
-    std::string preset;
-    std::string textureDir;
-    bool reload = false;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        preset.swap(milkPresetRequest_);
-        reload = milkReloadRequested_;
-        milkReloadRequested_ = false;
-        if (milkTextureDirDirty_) textureDir = milkTextureDir_;
-        milkTextureDirDirty_ = false;
-    }
-    Scene* milk = builtScene("milkdrop");
-    if (!milk) return;
-    // A preset picked in silence still loads and shows: about a second of redraws.
-    if (!preset.empty() || reload || !textureDir.empty()) {
-        redrawSeconds_ = kRedrawSeconds;
-        noteSettling();  // projectM compiles the preset's shaders on this thread
-    }
-    if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
-    if (!preset.empty()) milk->queueMilkPreset(preset);
-    if (reload) milk->reloadMilkPreset();
 }
 
 void Renderer::applyPendingFluidInjection() {
@@ -587,7 +525,6 @@ void Renderer::applyRenderScale() {
         Scene* s = entry.second.get();
         if (s != activeScene_ && s != outgoingScene_ && s != layerScene_) continue;
         s->resize(renderWidth_, renderHeight_);
-        s->setWindowSize(width_, height_);
         residency_.markSized(entry.first, sizeStamp_);
     }
     overlays_.resize(renderWidth_, renderHeight_);
@@ -627,11 +564,9 @@ void Renderer::applyStyleSchedule(float dt) {
     const StyleCue* cue = styleSchedule_.advance(dt, musicRate_, soundFrame_.beatCount);
     if (!cue) return;
     std::string requestedScene;
-    std::string requestedMilk;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         requestedScene = requestedSceneId_;
-        requestedMilk = lastMilkPreset_;
     }
     // The segment's first look is already requested (prepare()); asking again would only reload it.
     const std::string& cueScene = catalogue::resolveId(cue->sceneId);
@@ -639,7 +574,6 @@ void Renderer::applyStyleSchedule(float dt) {
         setScene(cueScene);
         if (scheduledSceneHook_) scheduledSceneHook_(cueScene);
     }
-    if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
 }
 
 void Renderer::warmTransition(const std::string& id) { compositePass_.warmTransition(id); }
@@ -667,7 +601,7 @@ void Renderer::dropScene(const std::string& id) {
 }
 
 void Renderer::admitScene(const std::string& id, const Scene& scene) {
-    residency_.insert(id, SceneResidency::heavy(scene.isFluid(), scene.family() == SceneFamily::Milkdrop), sizeStamp_);
+    residency_.insert(id, SceneResidency::heavy(scene.isFluid()), sizeStamp_);
     trimScenes(id);
 }
 
@@ -742,7 +676,6 @@ Scene* Renderer::readyScene(const std::string& id) {
         // Skipped by a scale change while it was not drawn: sized now, as it comes back.
         if (residency_.needsResize(id, sizeStamp_)) {
             scene->resize(renderWidth_, renderHeight_);
-            scene->setWindowSize(width_, height_);
             residency_.markSized(id, sizeStamp_);
         }
         return scene;
@@ -863,17 +796,11 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     SceneParams initialParams;
     std::string force;
     std::string dye;
-    std::string preset;
-    std::string goodPreset;
-    std::string textureDir;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         initialParams = requestedParams_;
         force = fluidForceSrc_;
         dye = fluidDyeSrc_;
-        preset = lastMilkPreset_;
-        goodPreset = lastGoodMilkPreset_;
-        textureDir = milkTextureDir_;
     }
     if (paletteLutTex_) scene->setPaletteLut(paletteLutTex_.get());
     scene->setTouchField(&touchField_);
@@ -888,10 +815,6 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     appliedShaders_[id] = custom;
     if (!custom.empty()) scene->setFragmentSource(custom);
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
-    scene->setWindowSize(width_, height_);
-    if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
-    if (!goodPreset.empty()) scene->setMilkFallbackPreset(goodPreset);
-    if (!preset.empty()) scene->queueMilkPreset(preset);
     return scene;
 }
 

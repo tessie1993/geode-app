@@ -1,10 +1,10 @@
-// Host-side checks for the feedback pass's motion (core/viz/liquid/FeedbackMotion), MilkDrop's per-frame
+// Host-side checks for the feedback pass's motion (core/viz/liquid/FeedbackMotion), a per-frame
 // UV transform made per second. Built and run by CI (.github/workflows/native-host-tests.yml); no GL.
 //
 // What is pinned: the neutral motion is the identity; zoom (in and out), zoomexp, stretch, rotation about
-// an off-centre point and translation each move a sample by MilkDrop's formula; the warp is bounded, boils
+// an off-centre point and translation each move a sample by the formula; the warp is bounded, boils
 // with time, never drifts and scales by its warp scale; the same second of motion lands in the same place
-// at 30, 60 and 120 fps; silence is the identity, the bass zooms the MilkDrop way; nothing non-finite gets
+// at 30, 60 and 120 fps; silence is the identity, the bass zooms; nothing non-finite gets
 // through; the mirror fold is the identity inside 0..1 and continuous at the edges. And the renderer's glue:
 // Dive speed and Fly dive in and out, Trails keep their echo zoom and warp, the bass pushes only a dive,
 // silence stops it all at 30, 60 and 120 fps, and Liquid's dive lands where its old back-trace did.
@@ -91,7 +91,7 @@ void zoomExpShapesTheZoomByRadius() {
     for (float r : {0.25f, 0.5f, 1.0f}) {
         const Uv src = uvFor(f, {0.5f + r * 0.5f, 0.5f}, 1.0f, 0.0f);
         const float zoom2 = std::pow(std::pow(4.0f, dt), std::pow(2.0f, r * 2.0f - 1.0f));
-        check(near(src.u, 0.5f + r * 0.5f / zoom2, 1e-5f), "zoomexp: zoom^(zoomexp^(2 rad - 1)), MilkDrop's profile");
+        check(near(src.u, 0.5f + r * 0.5f / zoom2, 1e-5f), "zoomexp: zoom^(zoomexp^(2 rad - 1)), the profile");
         check(near(src.v, 0.5f, 1e-6f), "a point on the axis stays on it");
         const float shrink = r / ((src.u - 0.5f) * 2.0f);
         check(shrink > lastShrink, "zoomexp above 1 zooms the edge faster than the middle");
@@ -106,7 +106,7 @@ void rotationAboutAnOffCentrePoint() {
     Motion m;
     m.rot = 1.0f;
     m.cx = 0.3f;
-    m.cy = 0.6f;  // MilkDrop's v runs down: this is GL's v 0.4
+    m.cy = 0.6f;  // the mesh's v runs down: this is GL's v 0.4
     const FrameMotion f = perFrame(m, dt);
     const Uv c{0.3f, 0.4f};
     check(near(uvFor(f, c, 1.0f, 0.0f), c, 2e-6f), "the centre of rotation stays put");
@@ -139,7 +139,7 @@ void translationAndStretch() {
     const float ky = std::pow(0.5f, kMaxDt);
     check(near(t.u, 0.5f + (p.u - 0.5f) / kx, 1e-5f), "sx stretches about cx");
     const float vDown = 1.0f - p.v;
-    check(near(1.0f - t.v, 0.25f + (vDown - 0.25f) / ky, 1e-5f), "sy stretches about cy, MilkDrop's v down");
+    check(near(1.0f - t.v, 0.25f + (vDown - 0.25f) / ky, 1e-5f), "sy stretches about cy, v down");
     check(perFrame(stretch, 0.5f).sx == perFrame(stretch, kMaxDt).sx, "a long frame is clamped, never a jump");
 }
 
@@ -149,7 +149,7 @@ void warpIsBoundedAndBoils() {
     m.warp = 2.0f;
     const FrameMotion f = perFrame(m, dt);
     const float amp = 2.0f * kWarpPerSecond * dt;
-    check(near(f.warp, amp, 1e-7f), "warp per frame is MilkDrop's 0.0035 at 60 Hz");
+    check(near(f.warp, amp, 1e-7f), "warp per frame is 0.0035 at 60 Hz");
     bool moved = false;
     bool boils = false;
     for (float u = 0.0f; u <= 1.0f; u += 0.1f) {
@@ -243,7 +243,7 @@ void silenceIsStill() {
     }
 }
 
-void bassZoomsTheMilkDropWay() {
+void bassZooms() {
     Motion base;
     base.zoom = 2.0f;
     const float atMean = fromSound(base, playing(1.0f)).zoom;
@@ -329,7 +329,7 @@ void trailsKeepTheirOwnMotion() {
     trails.trailWarp = 0.6f;
     const Motion t = trailMotion(trails, playing(2.5f, 1.0f), false);
     check(near(std::log2(t.zoom), 0.1f * kTrailZoomOctaves, 1e-4f), "Trails keep their echo zoom whatever the bass");
-    check(t.rot == 0.0f && near(t.warp, 0.6f, 1e-6f), "Trail warp is MilkDrop's warp, unpushed");
+    check(t.rot == 0.0f && near(t.warp, 0.6f, 1e-6f), "Trail warp is the warp, unpushed");
     check(trailBase(TrailAsk{}).zoom == 1.0f, "nothing asked, nothing moves");
     TrailAsk back;
     back.trailZoom = -0.5f;
@@ -372,14 +372,14 @@ Uv oldLiquidBackTrace(const liquid::DiveFrame& d, Uv uv, float aspect) {
     return {((d.vpX + rx) / aspect) * 0.5f + 0.5f, (d.vpY + ry) * 0.5f + 0.5f};
 }
 
-void liquidDiveIsMilkDropsTransform() {
+void liquidDiveIsTheFeedbackTransform() {
     for (float a : kAspects) {
         for (liquid::DiveFrame d : {liquid::DiveFrame{1.02f, 0.0f, 0.0f, 0.0f}, liquid::DiveFrame{1.03f, 0.01f, 0.2f, -0.1f},
                                     liquid::DiveFrame{1.01f, -0.008f, -0.15f, 0.18f}}) {
             const FrameMotion f = fromDive(d, a);
             for (Uv p : {Uv{0.1f, 0.2f}, Uv{0.5f, 0.5f}, Uv{0.9f, 0.7f}, Uv{0.3f, 0.95f}}) {
                 check(near(uvFor(f, p, a, 4.0f), oldLiquidBackTrace(d, p, a), 2e-6f),
-                      "Liquid's dive through MilkDrop's transform lands where the old back-trace did");
+                      "Liquid's dive through the transform lands where the old back-trace did");
             }
         }
     }
@@ -400,12 +400,12 @@ int main() {
     warpIsBoundedAndBoils();
     sameTravelAtAnyFrameRate();
     silenceIsStill();
-    bassZoomsTheMilkDropWay();
+    bassZooms();
     nothingNonFiniteGetsThrough();
     mirrorFoldReflectsTheEdges();
     trailsKeepTheirOwnMotion();
     trailsAreStillInSilence();
-    liquidDiveIsMilkDropsTransform();
+    liquidDiveIsTheFeedbackTransform();
     if (failures > 0) {
         std::printf("%d feedback motion check(s) failed\n", failures);
         return 1;

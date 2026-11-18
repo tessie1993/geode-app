@@ -108,9 +108,6 @@ const std::vector<Roll>& rolls() {
         {T::Reactivity, "Mid gain", [](SceneParams& p, Rng& r) { p.midGain = drawn(r, ParamSlot::midGain); }},
         {T::Reactivity, "Treble gain", [](SceneParams& p, Rng& r) { p.trebGain = drawn(r, ParamSlot::trebGain); }},
 
-        {T::Scene, "Blend preset changes",
-         [](SceneParams& p, Rng& r) { p.milkdropBlendPresets = r.chance(0.35f); }},
-
         // A rolled palette replaces a user-made one: the custom hue overrides and your colours go back to unset.
         // It deals the listed built-ins only, never a retired row (SceneParams::kListedPalettes).
         {T::Color, "Palette",
@@ -120,8 +117,6 @@ const std::vector<Roll>& rolls() {
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
              p.paletteStop0 = p.paletteStop1 = p.paletteStop2 = p.paletteStop3 = p.paletteStop4 = SceneParams::kNoStop;
          }},
-        {T::Color, "MilkDrop palette tint",
-         [](SceneParams& p, Rng& r) { p.milkdropPaletteTint = maybe(r, 0.4f, ParamSlot::milkdropPaletteTint); }},
         {T::Color, "Hue shift", [](SceneParams& p, Rng& r) { p.colorShift = drawn(r, ParamSlot::colorShift); }},
         {T::Color, "Hue range", [](SceneParams& p, Rng& r) { p.hueRange = drawn(r, ParamSlot::hueRange); }},
         {T::Color, "Saturation", [](SceneParams& p, Rng& r) { p.saturation = drawn(r, ParamSlot::saturation); }},
@@ -211,7 +206,7 @@ const std::vector<Roll>& rolls() {
     return kRolls;
 }
 
-constexpr const char* kTabNames[] = {"SHAPE", "COLOR", "MOTION", "FX", "REACTIVITY", "SCENE", "FLUID", "CYMATICS"};
+constexpr const char* kTabNames[] = {"SHAPE", "COLOR", "MOTION", "FX", "REACTIVITY", "FLUID", "CYMATICS"};
 
 bool sameWire(const SceneParams& a, const SceneParams& b) {
     float x[SceneParams::kFieldCount];

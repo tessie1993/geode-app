@@ -26,8 +26,6 @@ inline constexpr uint32_t kEventClearOnly = kFrameClearOnly;
 inline constexpr uint32_t kEventLiquidChanged = kFrameLiquidChanged;
 // The renderer's error text changed (a handle's first drawing frame always says so): read it.
 inline constexpr uint32_t kEventErrorChanged = kFrameErrorChanged;
-// MilkDrop finished loading a preset: take its path.
-inline constexpr uint32_t kEventMilkLoaded = 1u << 4;
 // The director committed a look at a new section or a drop: take the count.
 inline constexpr uint32_t kEventDirectorMoment = 1u << 5;
 // The still asked for was read back this frame: read it.
@@ -124,7 +122,6 @@ public:
     virtual void render() = 0;
     virtual std::string lastError() = 0;
     // Pending, not taken: the shell takes each on its bit.
-    virtual bool milkPresetLoaded() = 0;
     virtual bool directorMomentsPending() = 0;
     // True once, on the frame the still was read back.
     virtual bool stillReady() = 0;
@@ -180,7 +177,6 @@ public:
         s.render();
         // An error raised while this frame drew is told on this frame.
         if (cadence_.offerError(s.lastError())) events |= kEventErrorChanged;
-        if (s.milkPresetLoaded()) events |= kEventMilkLoaded;
         if (s.directorMomentsPending()) events |= kEventDirectorMoment;
         if (s.stillReady()) events |= kEventStillReady;
         return events;

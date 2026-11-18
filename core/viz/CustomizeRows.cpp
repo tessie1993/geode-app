@@ -153,7 +153,7 @@ const std::vector<Control>& table() {
         {"Born inside", W::Chips, "liquidBorn", nullptr, kOwn, R::Always, false},
         {"Colour age", W::Chips, "liquidAge", nullptr, kOwn, R::Always, false},
         {"Surface", W::Chips, "liquidSurface", nullptr, kOwn, R::Always, false},
-        // Engine: Fluid's solver and look, Cymatics' plate, MilkDrop's hand-over.
+        // Engine: Fluid's solver and look, and Cymatics' plate.
         {"Solver iterations", W::IntSlider, "fluidIterations", "Accuracy", kOwn, R::Always, false},
         {"Fluid curl", W::Slider, "fluidCurl", "Fluid swirl", kOwn, R::FluidStyle, false},
         {"Motion fade", W::Slider, "fluidVelocityDissipation", nullptr, kOwn, R::Always, false},
@@ -186,8 +186,6 @@ const std::vector<Control>& table() {
         {"Nodal glow", W::Slider, "cymaticsGlow", "Line glow", kOwn, R::Always, false},
         {"Iridescence", W::Slider, "cymaticsIridescence", "Rainbow sheen", kOwn, R::Always, false},
         {"Caustic sheen", W::Slider, "cymaticsCaustic", "Light ripples", kOwn, R::Always, false},
-        {"Blend preset changes", W::Check, "milkdropBlendPresets", nullptr, kOwn, R::Always, false},
-        {"MilkDrop palette tint", W::Slider, "milkdropPaletteTint", "Tint toward the palette", kOwn, R::Always, false},
         // Panel pieces. A piece's label is a PanelText id: the words Pro and the screen reader name it by.
         {"@macros", W::Piece, "", "", kOwn, R::Always, false},
         {"@macro_editor", W::Piece, "", "macro_editor_title", kOwn, R::Always, false},

@@ -151,7 +151,7 @@ void followDeviceDrawsThePanelsOwnRate() {
     Follow f;
     check(frame::pacerCapFps(f.p, -1.0f) == 0.0f, "before the panel is measured Follow draws every vsync");
     check(f.run(120.0, 2) == 120, "a 120 Hz panel: 120 frames a second");
-    check(f.p.divisor == 1 && f.p.pacedMilliHz == 120'000, "every vsync, and the paced rate says 120 for MilkDrop and the target");
+    check(f.p.divisor == 1 && f.p.pacedMilliHz == 120'000, "every vsync, and the paced rate says 120 for the target");
     // The system changes the panel (battery saver, Smooth display off): Follow follows it.
     check(f.run(60.0, 3) == 60 && f.p.pacedMilliHz == 60'000, "the panel drops to 60: 60 frames a second");
     check(f.run(90.0, 3) == 90 && f.p.pacedMilliHz == 90'000, "a 90 Hz mode: 90");

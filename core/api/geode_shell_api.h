@@ -73,10 +73,9 @@ GEODE_API int geode_preset_applied(const char* const* names, const int* flags, i
 #define GEODE_OPENED_NOT_OURS 0 /* not an opened audio file: left for the other handlers */
 #define GEODE_OPENED_STALE 1    /* delivered again from Recents, after its grant may have ended: dropped */
 #define GEODE_OPENED_OPEN 2     /* an opened audio file to play */
-/* Routes a delivered intent (GEODE_OPENED_*) from its action, its data uri's scheme and last path segment and the
+/* Routes a delivered intent (GEODE_OPENED_*) from its action, its data uri's scheme and the
    type the sender declared. */
-GEODE_API int geode_opened_audio_route(const char* action, const char* scheme, const char* type, const char* last_segment,
-                                       int from_history);
+GEODE_API int geode_opened_audio_route(const char* action, const char* scheme, const char* type, int from_history);
 /* 1 when the app must refuse to play the uri: provider_package owns the uri's authority (NULL when no provider
    answers to it), read_granted says this app holds an explicit read grant on it. */
 GEODE_API int geode_opened_audio_refuses(const char* scheme, const char* authority, const char* own_package,
@@ -90,23 +89,22 @@ GEODE_API int geode_opened_media_id(const unsigned char* random16, char* out, in
 GEODE_API int geode_opened_audio_is_opened(const char* media_id);
 
 /* Auto's remembered shape as the prefs keep it (shell/AutoVisuals). The visual playlist crosses as
-   GEODE_AUTO_ENTRY_FIELDS texts per entry: scene id, preset name, milk path, label; a NULL preset name or milk path
+   GEODE_AUTO_ENTRY_FIELDS texts per entry: scene id, preset name, label; a NULL preset name
    is none. The scalar settings cross as GEODE_AUTO_SAVED_FIELDS ints in this order: */
-#define GEODE_AUTO_ENTRY_FIELDS 4
+#define GEODE_AUTO_ENTRY_FIELDS 3
 #define GEODE_AUTO_SAVED_RANDOM_ON 0       /* the timer (never stored: it always reads as off) */
 #define GEODE_AUTO_SAVED_RANDOM_INTERVAL 1 /* s */
 #define GEODE_AUTO_SAVED_RANDOM_STYLES 2
 #define GEODE_AUTO_SAVED_RANDOM_PRESETS 3
-#define GEODE_AUTO_SAVED_RANDOM_MILK 4
-#define GEODE_AUTO_SAVED_PLAYLIST_ON 5
-#define GEODE_AUTO_SAVED_PLAYLIST_INTERVAL 6 /* s */
-#define GEODE_AUTO_SAVED_FIELDS 7
+#define GEODE_AUTO_SAVED_PLAYLIST_ON 4
+#define GEODE_AUTO_SAVED_PLAYLIST_INTERVAL 5 /* s */
+#define GEODE_AUTO_SAVED_FIELDS 6
 typedef struct geode_auto_playlist geode_auto_playlist;
 /* The entries a saved playlist text holds, read as org.json reads it, each scene id put through resolve (the
    catalogue's, geode_catalogue_resolve; NULL keeps it). NULL json is no entries. Never NULL. */
 GEODE_API geode_auto_playlist* geode_auto_playlist_read(const char* json, const char* (*resolve)(const char*));
 GEODE_API int                  geode_auto_playlist_count(const geode_auto_playlist*);
-/* Field (0 .. GEODE_AUTO_ENTRY_FIELDS - 1) of entry i; NULL for a preset name or milk path that is none, or out of
+/* Field (0 .. GEODE_AUTO_ENTRY_FIELDS - 1) of entry i; NULL for a preset name that is none, or out of
    range. Valid until the playlist is destroyed. */
 GEODE_API const char*          geode_auto_playlist_field(const geode_auto_playlist*, int i, int field);
 GEODE_API void                 geode_auto_playlist_destroy(geode_auto_playlist*);

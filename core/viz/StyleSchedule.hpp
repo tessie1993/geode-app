@@ -6,11 +6,10 @@
 
 namespace geode::viz {
 
-// One look a schedule switches to: a style, and the MilkDrop preset it loads ("" for none).
+// One look a schedule switches to: a style.
 struct StyleCue {
     double atMs = 0.0;
     std::string sceneId;
-    std::string milkPath;
 };
 
 // Which style an export draws, frame by frame, for one rendered segment (Studio 2D).
@@ -39,7 +38,7 @@ struct StyleCue {
 // frame, and the first cut after the silence comes on the music's own beats.
 //
 // Pure: no GL, no locks. The renderer owns one, steps it once per frame from beginFrame and
-// applies whatever change it returns through its own setScene / loadMilkPreset.
+// applies whatever change it returns through its own setScene.
 class StyleSchedule {
 public:
     // Replaces the schedule. Cues need not be sorted. everyBeats below 1 counts as 1. Cues and cut ids

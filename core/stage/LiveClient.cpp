@@ -39,15 +39,6 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
             error_ = std::move(text);
         }
     }
-    if ((events & kFrameMilkLoaded) != 0) {
-        std::string path = viz_->takeMilkLoaded();
-        if (path.empty()) {
-            events &= ~kFrameMilkLoaded;
-        } else {
-            std::lock_guard<std::mutex> state(stateLock_);
-            milkLoaded_.push_back(std::move(path));
-        }
-    }
     if ((events & kFrameDirectorMoment) != 0) {
         const int moments = viz_->takeDirectorMoments();
         if (moments > 0) {
@@ -169,14 +160,6 @@ void LiveClient::runJobs(bool ready) {
 std::string LiveClient::error() const {
     std::lock_guard<std::mutex> state(stateLock_);
     return error_;
-}
-
-std::string LiveClient::takeMilkLoaded() {
-    std::lock_guard<std::mutex> state(stateLock_);
-    if (milkLoaded_.empty()) return {};
-    std::string path = std::move(milkLoaded_.front());
-    milkLoaded_.erase(milkLoaded_.begin());
-    return path;
 }
 
 bool LiveClient::takeStill(Still& out) {

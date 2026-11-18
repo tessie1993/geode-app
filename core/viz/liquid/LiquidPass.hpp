@@ -11,8 +11,9 @@
 namespace geode::viz::liquid {
 
 // The liquid itself (LiquidMath.hpp has the why): a pair of liquid targets carried frame to frame and
-// swapped after each run, each with a second attachment for what the composite shows. One fullscreen
-// pass a frame over liquid_frag.glsl; the composite then reads display() in place of the scene target.
+// swapped after each run, both with one shared second attachment for what the composite shows (the pass
+// reads only the liquid, and the frame reads the display only after the run that wrote it). One fullscreen
+// pass a frame over liquid_frag.glsl; the composite then reads the display in place of the scene target.
 //
 // The liquid is half float where the GPU renders it (FluidBuffers' probe), so the slow pour-back of
 // deep Liquidity does not band; RGBA8 otherwise. Both sides filter linearly: the back-trace lands
@@ -64,14 +65,17 @@ private:
     struct Side {
         GLuint fbo = 0;
         GLuint liquid = 0;
-        GLuint display = 0;
     };
     bool makeSide(Side& s);
     void releaseSide(Side& s);
+    // Both sides and the shared display.
+    void releaseSides();
 
     GLuint program_ = 0;
     UniformCache uniforms_;
     Side sides_[2];
+    // RGBA8, what run() returns: attachment 1 of both sides, written by every run.
+    GLuint display_ = 0;
     int read_ = 0;
     int width_ = 0;
     int height_ = 0;

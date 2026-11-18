@@ -4,6 +4,7 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <thread>
 
 namespace geode::audio::ingest {
 
@@ -137,8 +138,18 @@ PcmRing::Written PcmRing::put(const unsigned char* data, int frames, int sourceC
         }
         out.frames += block;
     }
-    if (RingListener* listener = listener_.load(std::memory_order_acquire)) listener->ringWritten();
+    // Counted before the load, so setListener sees a write that holds the old listener and waits it out.
+    notifying_.fetch_add(1, std::memory_order_seq_cst);
+    if (RingListener* listener = listener_.load(std::memory_order_seq_cst)) listener->ringWritten();
+    notifying_.fetch_sub(1, std::memory_order_release);
     return out;
+}
+
+void PcmRing::setListener(RingListener* listener) const {
+    listener_.store(listener, std::memory_order_seq_cst);
+    // A write that counted itself before this store may still hold the old listener; one that counts itself
+    // after it loads the new one. The writer's own work between the two is short and never blocks.
+    while (notifying_.load(std::memory_order_seq_cst) != 0) std::this_thread::yield();
 }
 
 PcmRing::Written PcmRing::writeFloat(const float* interleaved, int frames, int sourceChannels, int sampleRateHz) {

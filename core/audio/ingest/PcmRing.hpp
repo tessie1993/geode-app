@@ -99,8 +99,10 @@ public:
     bool snapshotLatest(float* interleaved, int frames) const;
 
     // The one listener (sound/hop/SharedAnalysis), null for none. Not the ring's state, so a reader may set it;
-    // it must outlive every write made while it is set.
-    void setListener(RingListener* listener) const { listener_.store(listener, std::memory_order_release); }
+    // it must outlive every write made while it is set. When this returns, no write is still inside the
+    // previous listener's ringWritten and none will call it again, so the caller may destroy it. Waits only
+    // for a write already under way (the writer never waits); not from inside ringWritten.
+    void setListener(RingListener* listener) const;
 
 private:
     friend class Cursor;
@@ -144,6 +146,7 @@ private:
     std::atomic<uint32_t> markCount_{0};
     std::atomic_flag markBusy_;  // held for the few stores of one append, so two writers cannot tear a slot
     mutable std::atomic<RingListener*> listener_{nullptr};
+    mutable std::atomic<int> notifying_{0};  // writes between loading the listener and returning from it
 };
 
 // One reader's place in a ring: every frame once, in order (SoundCursor.take's rules). The sound engine

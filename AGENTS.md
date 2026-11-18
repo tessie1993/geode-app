@@ -186,3 +186,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: A projection that arrives without the mic permission stops `PlaybackCaptureService` (and so the projection and its notification) as a failed capture start already did (`ui/CaptureController.kt`).
 - 2026-11-18: A stage that goes while a recording is still opening asks that recording to stop once it opens, as an open one already stopped (`RecordController.attach`, `ui/RecordController.kt`).
 - 2026-11-18: A cancel that lands after the loop job rendered (in the poll's join or on the way back from `withContext`) deletes the reel's scratch loops instead of leaking them; three doc comments in the file were reflowed to keep the engine paths at no net growth (`export/LoopRender.kt`).
+- 2026-11-18: `NativeDspProcessor.update` takes the same lock as the lazy `nativeHandle()`, so a settings change racing the handle's creation is either applied by it or after it, never lost (`audio/dsp/NativeDspProcessor.kt`).

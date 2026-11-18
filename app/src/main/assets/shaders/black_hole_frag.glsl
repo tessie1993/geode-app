@@ -66,15 +66,10 @@ float bhNoise3(vec3 p) {
     vec3 t = p - f;
     t = t * t * (3.0 - 2.0 * t);
     ivec3 i = ivec3(f);
-    float a = hashCell(i);
-    float b = hashCell(i + ivec3(1, 0, 0));
-    float c = hashCell(i + ivec3(0, 1, 0));
-    float d = hashCell(i + ivec3(1, 1, 0));
-    float e = hashCell(i + ivec3(0, 0, 1));
-    float g = hashCell(i + ivec3(1, 0, 1));
-    float h = hashCell(i + ivec3(0, 1, 1));
-    float k = hashCell(i + ivec3(1, 1, 1));
-    return mix(mix(mix(a, b, t.x), mix(c, d, t.x), t.y), mix(mix(e, g, t.x), mix(h, k, t.x), t.y), t.z);
+    vec4 lo;
+    vec4 hi;
+    hashCellCube(i, i + 1, lo, hi);
+    return mix(mix(mix(lo.x, lo.y, t.x), mix(lo.z, lo.w, t.x), t.y), mix(mix(hi.x, hi.y, t.x), mix(hi.z, hi.w, t.x), t.y), t.z);
 }
 
 float bhFbm(vec3 p) {

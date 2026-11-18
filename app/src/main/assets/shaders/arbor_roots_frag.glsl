@@ -119,18 +119,13 @@ float wnoise3(vec3 p, float pz) {
     int y0 = int(f.y);
     int z0 = int(mod(f.z, pz));
     int z1 = int(mod(f.z + 1.0, pz));
-    float c000 = hashCell(ivec3(x0, y0, z0));
-    float c100 = hashCell(ivec3(x0 + 1, y0, z0));
-    float c010 = hashCell(ivec3(x0, y0 + 1, z0));
-    float c110 = hashCell(ivec3(x0 + 1, y0 + 1, z0));
-    float c001 = hashCell(ivec3(x0, y0, z1));
-    float c101 = hashCell(ivec3(x0 + 1, y0, z1));
-    float c011 = hashCell(ivec3(x0, y0 + 1, z1));
-    float c111 = hashCell(ivec3(x0 + 1, y0 + 1, z1));
-    float x00 = mix(c000, c100, w.x);
-    float x10 = mix(c010, c110, w.x);
-    float x01 = mix(c001, c101, w.x);
-    float x11 = mix(c011, c111, w.x);
+    vec4 lo;
+    vec4 hi;
+    hashCellCube(ivec3(x0, y0, z0), ivec3(x0 + 1, y0 + 1, z1), lo, hi);
+    float x00 = mix(lo.x, lo.y, w.x);
+    float x10 = mix(lo.z, lo.w, w.x);
+    float x01 = mix(hi.x, hi.y, w.x);
+    float x11 = mix(hi.z, hi.w, w.x);
     return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
 }
 

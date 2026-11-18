@@ -17,7 +17,11 @@ extern "C" {
 
 geode_resampler* geode_resampler_create(int in_rate, int out_rate, int channels) {
     if (in_rate <= 0 || out_rate <= 0 || channels <= 0) return nullptr;
-    return new geode_resampler{geode::audio::PcmResampler(in_rate, out_rate, channels)};
+    try {
+        return new geode_resampler{geode::audio::PcmResampler(in_rate, out_rate, channels)};
+    } catch (...) {
+        return nullptr;  // an allocation failure must not cross the C ABI
+    }
 }
 
 void geode_resampler_destroy(geode_resampler* r) {
@@ -45,7 +49,11 @@ int geode_loudness_supports(int channels) {
 
 geode_loudness* geode_loudness_create(int sample_rate, int channels) {
     if (sample_rate <= 0 || !geode::audio::LoudnessAnalyser::supports(channels)) return nullptr;
-    return new geode_loudness{geode::audio::LoudnessAnalyser(sample_rate, channels)};
+    try {
+        return new geode_loudness{geode::audio::LoudnessAnalyser(sample_rate, channels)};
+    } catch (...) {
+        return nullptr;
+    }
 }
 
 void geode_loudness_destroy(geode_loudness* l) {

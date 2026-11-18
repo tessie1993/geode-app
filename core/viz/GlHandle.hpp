@@ -47,6 +47,8 @@ public:
     }
     // The context that made the name is gone: drop it without a GL call.
     void forget() { name_ = 0; }
+    // Trades names with `other`; nothing is deleted.
+    void swap(GlHandle& other) noexcept { std::swap(name_, other.name_); }
 
 private:
     GLuint name_ = 0;
@@ -58,12 +60,43 @@ inline void vertexArray(GLuint name) { glDeleteVertexArrays(1, &name); }
 inline void buffer(GLuint name) { glDeleteBuffers(1, &name); }
 inline void texture(GLuint name) { glDeleteTextures(1, &name); }
 inline void framebuffer(GLuint name) { glDeleteFramebuffers(1, &name); }
+inline void sampler(GLuint name) { glDeleteSamplers(1, &name); }
 }  // namespace gl_delete
+
+// One new name of each kind, for a handle's reset(): `tex_.reset(gl_gen::texture())`.
+namespace gl_gen {
+inline GLuint vertexArray() {
+    GLuint name = 0;
+    glGenVertexArrays(1, &name);
+    return name;
+}
+inline GLuint buffer() {
+    GLuint name = 0;
+    glGenBuffers(1, &name);
+    return name;
+}
+inline GLuint texture() {
+    GLuint name = 0;
+    glGenTextures(1, &name);
+    return name;
+}
+inline GLuint framebuffer() {
+    GLuint name = 0;
+    glGenFramebuffers(1, &name);
+    return name;
+}
+inline GLuint sampler() {
+    GLuint name = 0;
+    glGenSamplers(1, &name);
+    return name;
+}
+}  // namespace gl_gen
 
 using GlProgram = GlHandle<gl_delete::program>;
 using GlVertexArray = GlHandle<gl_delete::vertexArray>;
 using GlBuffer = GlHandle<gl_delete::buffer>;
 using GlTexture = GlHandle<gl_delete::texture>;
 using GlFramebuffer = GlHandle<gl_delete::framebuffer>;
+using GlSampler = GlHandle<gl_delete::sampler>;
 
 }  // namespace geode::viz

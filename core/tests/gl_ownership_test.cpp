@@ -20,11 +20,14 @@
 #include <utility>
 
 #include "viz/Compute.hpp"
+#include "viz/Framebuffer.hpp"
 #include "viz/GlHandle.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ProgramStager.hpp"
+#include "viz/Program.hpp"
 #include "viz/Quad.hpp"
 #include "viz/Scene.hpp"
+#include "viz/Texture.hpp"
 #include "viz/Transition.hpp"
 #include "viz/compute/SimPass.hpp"
 #include "viz/frame/ExportPasses.hpp"
@@ -61,6 +64,12 @@ static_assert(std::is_nothrow_move_constructible_v<viz::ComputePass>);
 static_assert(std::is_nothrow_move_constructible_v<viz::FullscreenTriangle> && std::is_nothrow_move_assignable_v<viz::FullscreenTriangle>);
 // A handle is one name and nothing else.
 static_assert(sizeof(viz::GlProgram) == sizeof(GLuint));
+// A program built into a uniform cache is owned with it.
+static_assert(kNotCopyable<viz::GlSampler>);
+static_assert(kNotCopyable<viz::OwnedProgram>);
+static_assert(std::is_nothrow_move_constructible_v<viz::OwnedProgram> && std::is_nothrow_move_assignable_v<viz::OwnedProgram>);
+static_assert(kNotCopyable<viz::Framebuffer>);
+static_assert(kNotCopyable<viz::Texture>);
 
 // ---- the APK's log, our own code's link seams --------------------------------------------------------------
 extern "C" int __android_log_print(int, const char*, const char*, ...) { return 0; }
@@ -95,7 +104,8 @@ struct Kind {
 };
 
 struct Context {
-    Kind shaders, programs, vaos, buffers, textures, framebuffers;
+    Kind shaders, programs, vaos, buffers, textures, framebuffers, samplers;
+    GLenum status = GL_FRAMEBUFFER_COMPLETE;  // what glCheckFramebufferStatus answers
     GLint linkedSize[3] = {1, 1, 1};
 };
 
@@ -104,7 +114,13 @@ Context gl;
 void newContext() { gl = Context{}; }
 
 int strays() {
-    return gl.shaders.strays + gl.programs.strays + gl.vaos.strays + gl.buffers.strays + gl.textures.strays + gl.framebuffers.strays;
+    return gl.shaders.strays + gl.programs.strays + gl.vaos.strays + gl.buffers.strays + gl.textures.strays + gl.framebuffers.strays +
+           gl.samplers.strays;
+}
+
+size_t liveNames() {
+    return gl.shaders.live.size() + gl.programs.live.size() + gl.vaos.live.size() + gl.buffers.live.size() + gl.textures.live.size() +
+           gl.framebuffers.live.size() + gl.samplers.live.size();
 }
 
 }  // namespace fake
@@ -174,6 +190,27 @@ void glStencilMask(GLuint) {}
 void glBlendEquation(GLenum) {}
 void glPixelStorei(GLenum, GLint) {}
 void glBindSampler(GLuint, GLuint) {}
+void glGenTextures(GLsizei n, GLuint* textures) {
+    for (GLsizei i = 0; i < n; ++i) textures[i] = fake::gl.textures.make();
+}
+void glGenFramebuffers(GLsizei n, GLuint* framebuffers) {
+    for (GLsizei i = 0; i < n; ++i) framebuffers[i] = fake::gl.framebuffers.make();
+}
+void glGenSamplers(GLsizei n, GLuint* samplers) {
+    for (GLsizei i = 0; i < n; ++i) samplers[i] = fake::gl.samplers.make();
+}
+void glDeleteSamplers(GLsizei n, const GLuint* samplers) {
+    for (GLsizei i = 0; i < n; ++i) fake::gl.samplers.drop(samplers[i]);
+}
+void glTexParameteri(GLenum, GLenum, GLint) {}
+void glTexImage2D(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const void*) {}
+void glTexSubImage2D(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const void*) {}
+void glFramebufferTexture2D(GLenum, GLenum, GLenum, GLuint, GLint) {}
+GLenum glCheckFramebufferStatus(GLenum) { return fake::gl.status; }
+void glClearColor(GLfloat, GLfloat, GLfloat, GLfloat) {}
+void glClear(GLbitfield) {}
+void glInvalidateFramebuffer(GLenum, GLsizei, const GLenum*) {}
+void glBindFramebuffer(GLenum, GLuint) {}
 }  // extern "C"
 
 // ---- the checks -----------------------------------------------------------------------------------------
@@ -326,12 +363,118 @@ void aTriangleMovedOnIsDeletedOnce() {
     check(fake::strays() == 0, "no triangle name is deleted twice");
 }
 
+// The owning uniform cache: the program goes with the cache, and the cache never names a program it gave up.
+void anOwnedProgramDeletesItsProgramOnce() {
+    fake::newContext();
+    const GLuint first = glCreateProgram();
+    const GLuint second = glCreateProgram();
+    {
+        viz::OwnedProgram held(first);
+        check(held.program() == first, "an owned program names its program");
+        viz::OwnedProgram moved(std::move(held));
+        check(held.program() == 0 && moved.program() == first, "a move leaves the source naming no program");
+        moved.reset(second);
+        check(fake::gl.programs.live.count(first) == 0 && moved.program() == second, "reset deletes the old program and names the new one");
+        viz::OwnedProgram other;
+        other = std::move(moved);
+        check(moved.program() == 0 && other.program() == second && fake::gl.programs.deletes == 1, "move assignment hands it over");
+        other.release();
+        check(other.program() == 0 && fake::gl.programs.live.count(second) == 0, "release deletes it");
+    }
+    check(fake::gl.programs.deletes == 2, "nothing is deleted twice when they go");
+
+    const GLuint lost = glCreateProgram();
+    {
+        viz::OwnedProgram orphan(lost);
+        orphan.forget();
+        check(orphan.program() == 0, "forget leaves the cache naming no program");
+    }
+    check(fake::gl.programs.live.count(lost) == 1, "a forgotten program is not deleted");
+
+    const GLuint kept = glCreateProgram();
+    {
+        viz::OwnedProgram scoped(kept);
+    }
+    check(fake::gl.programs.live.count(kept) == 0, "an owned program still held is deleted when it goes");
+
+    {
+        viz::GlSampler a(viz::gl_gen::sampler());
+        viz::GlSampler b(viz::gl_gen::sampler());
+        const GLuint aName = a.get();
+        const GLuint bName = b.get();
+        a.swap(b);
+        check(a.get() == bName && b.get() == aName && fake::gl.samplers.deletes == 0, "a swap trades names and deletes none");
+    }
+    check(fake::gl.samplers.deletes == 2 && fake::gl.samplers.live.empty(), "samplers are deleted as samplers");
+    check(fake::strays() == 0, "no program or sampler is deleted twice");
+}
+
+// A framebuffer and a texture: every name made is deleted exactly once on release, none after forget, and none
+// is left behind when they go.
+void framebuffersAndTexturesDeleteEachNameOnce() {
+    fake::newContext();
+    {
+        viz::Framebuffer fb("ownership");
+        check(fb.ensure(4, 4) && fb.fbo() != 0 && fb.tex() != 0, "a framebuffer makes its FBO and texture");
+        check(fb.ensure(8, 8), "and makes them again at a new size");
+        check(fake::gl.framebuffers.deletes == 1 && fake::gl.textures.deletes == 1, "deleting the old pair once");
+        viz::Framebuffer other("other");
+        other.ensure(2, 2);
+        const GLuint mine = fb.fbo();
+        const GLuint theirs = other.fbo();
+        fb.swap(other);
+        check(fb.fbo() == theirs && other.fbo() == mine && fake::gl.framebuffers.deletes == 1, "a swap trades the pairs and deletes none");
+        other.release();
+        check(other.fbo() == 0 && other.tex() == 0 && fake::gl.framebuffers.live.count(mine) == 0, "release deletes the pair");
+        other.release();
+    }
+    check(fake::liveNames() == 0, "a framebuffer still holding its pair deletes it when it goes");
+
+    fake::gl.status = 0;
+    {
+        viz::Framebuffer broken("incomplete");
+        check(!broken.ensure(4, 4) && broken.fbo() == 0, "an incomplete framebuffer gives its pair back");
+    }
+    check(fake::liveNames() == 0, "and leaves nothing behind");
+    fake::gl.status = GL_FRAMEBUFFER_COMPLETE;
+
+    {
+        viz::Framebuffer lost("lost");
+        lost.ensure(4, 4);
+        lost.forget();
+        check(lost.fbo() == 0 && !lost.ok(), "forget drops the pair");
+    }
+    check(fake::gl.framebuffers.live.size() == 1 && fake::gl.textures.live.size() == 1, "a forgotten pair is not deleted");
+
+    fake::newContext();
+    {
+        viz::Texture texture;
+        texture.createImage(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 4, 4, GL_LINEAR, GL_CLAMP_TO_EDGE);
+        const GLuint first = texture.id();
+        texture.createImage(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 8, 8, GL_LINEAR, GL_CLAMP_TO_EDGE);
+        check(fake::gl.textures.live.count(first) == 0 && texture.id() != 0, "a texture made again deletes the old one");
+        texture.release();
+        check(texture.id() == 0 && fake::gl.textures.live.empty(), "release deletes it");
+        texture.createImage(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 4, 4, GL_LINEAR, GL_CLAMP_TO_EDGE);
+    }
+    check(fake::gl.textures.live.empty(), "a texture still held is deleted when it goes");
+    {
+        viz::Texture lost;
+        lost.createImage(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, 4, 4, GL_LINEAR, GL_CLAMP_TO_EDGE);
+        lost.forget();
+    }
+    check(fake::gl.textures.live.size() == 1, "a forgotten texture is not deleted");
+    check(fake::strays() == 0, "no framebuffer or texture name is deleted twice");
+}
+
 }  // namespace
 
 int main() {
     aHandleDeletesItsNameOnceWhereverItMoved();
     aComputeProgramMovedIntoAPassIsDeletedOnce();
     aTriangleMovedOnIsDeletedOnce();
+    anOwnedProgramDeletesItsProgramOnce();
+    framebuffersAndTexturesDeleteEachNameOnce();
     if (failures != 0) {
         std::printf("%d GL ownership check(s) failed\n", failures);
         return 1;

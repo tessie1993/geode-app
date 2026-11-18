@@ -293,7 +293,11 @@ void geode_params_reroll_reactions(const float* in, float* out) {
     if (!in || !out) return;
     SceneParams look = SceneParams::fromWire(in);
     const int slot = SceneParams::slotOf("reactSeed");
-    if (slot >= 0) look.setSlot(slot, static_cast<float>(std::lround(look.getSlot(slot)) + 1));
+    if (slot >= 0) {
+        // One step on, wrapping to 0 past the row's top: held to the range, the top would stay the top.
+        const long next = std::lround(look.getSlot(slot)) + 1;
+        look.setSlot(slot, next > static_cast<long>(SceneParams::schema()[static_cast<size_t>(slot)].max) ? 0.0f : static_cast<float>(next));
+    }
     look.toWire(out);
 }
 

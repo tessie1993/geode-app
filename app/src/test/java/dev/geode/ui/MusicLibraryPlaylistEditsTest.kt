@@ -49,6 +49,20 @@ class MusicLibraryPlaylistEditsTest {
         }
 
     @Test
+    fun aNameAlreadyTakenIsNotOverwritten() =
+        runTest {
+            val controller = MusicLibraryRepository(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
+
+            controller.createMusicPlaylist("Road", listOf("a"))
+            controller.createMusicPlaylist("Road", listOf("b"))
+            runCurrent()
+
+            val playlists = controller.library.value.playlists
+            val sorted = playlists.sortedBy { it.name }
+            assertEquals(listOf(MusicPlaylist("Road", listOf("a")), MusicPlaylist("Road (2)", listOf("b"))), sorted)
+        }
+
+    @Test
     fun editsLandInTheOrderTheyWereAskedFor() =
         runTest {
             val controller = MusicLibraryRepository(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))

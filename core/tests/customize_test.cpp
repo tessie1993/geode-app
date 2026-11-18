@@ -389,6 +389,9 @@ void changedCountCountsLiveFieldsOffTheDefault() {
     check(customize::changedCount(p) == 3, "a flag and a pick count too");
     p.speed = defaults.speed;
     check(customize::changedCount(p) == 2, "a value put back stops counting");
+    p.camTouch = !defaults.camTouch;
+    check(customize::changedCount(p) == 2, "an input preference Reset keeps is not counted");
+    p.camTouch = defaults.camTouch;
     float wire[SceneParams::kFieldCount];
     defaults.toWire(wire);
     wire[SceneParams::slotOf("speed")] = defaults.speed + 1.0f;

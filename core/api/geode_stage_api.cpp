@@ -74,6 +74,9 @@ public:
     }
     void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void trimSpares() override { geode_viz_trim_spares(v_); }
+    // The feed's cursor and its hold on the ring's analysis go; the next frame's geode_viz_feed_ring makes both
+    // again. Other surfaces hearing the ring keep their own hold, so its thread stops only with the last.
+    void letSoundGo() override { geode_viz_feed_ring(v_, nullptr); }
     void releaseScenes() override { geode_viz_release_scenes(v_); }
     void warmTransition(const std::string& id) override { geode_viz_warm_transition(v_, id.c_str()); }
     bool recordStart(const stage::RecordAsk& ask) override {

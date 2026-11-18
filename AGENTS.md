@@ -367,3 +367,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `motion::perFrame` is back in `core/viz/liquid/FeedbackMotion.hpp` (the preset-script removal took it with `fromMilkDrop`, but `RendererFrame.cpp` and `feedback_motion_test` use it).
 - 2026-11-18: Arbor synapse far plane follows the step budget (`farT = SY_FAR * sqrt(uSteps / SY_MAX_STEPS)` in `arbor_synapse_frag.glsl`), so a throttled march also shortens the ray instead of stopping short of the far plane.
 - 2026-11-18: The twist shape uniforms (`uTwistCentre`, `uTwistBend`, `uPostTwistCentre`, `uPostTwistBend`) are in `core/viz/UniformId.hpp`; `backup_api_test` expects three backup sections now that `milk` is gone.
+- 2026-11-18: `studio_edit_test` builds `studio::Look` as {sceneId, renderMs}: the preset-script field it still named left with #1328.

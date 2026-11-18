@@ -323,10 +323,10 @@ void newProjectsHoldTheirSong() {
     check(look.lanes[0].clips[0].durationMs == 141'000 && look.durationMs == 141'000 &&
               look.lanes[0].clips[0].sourceDurationMs == 0,
           "a render longer than the song stretches the look and the timeline");
-    const Edit longer = newEdit(Song{"u", "t", 141'000}, Look{"silk", std::nullopt, 77'000}, counter());
+    const Edit longer = newEdit(Song{"u", "t", 141'000}, Look{"silk", 77'000}, counter());
     check(longer.lanes[0].clips[0].durationMs == 141'000 && longer.durationMs == 141'000,
           "a song longer than the render sets the look's length");
-    const Edit none = newEdit(Song{"u", "t", 0}, Look{"silk", std::nullopt, 0}, counter());
+    const Edit none = newEdit(Song{"u", "t", 0}, Look{"silk", 0}, counter());
     check(none.lanes.size() == 2 && none.lanes[0].clips.empty(), "a look of no length is an empty visual lane");
 
     const auto read = readEdit(writeEdit(look));

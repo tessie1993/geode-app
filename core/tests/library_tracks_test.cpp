@@ -376,9 +376,12 @@ void merging() {
     eq(titles(e), V({"\xD0\xB0", "\xD0\x96"}), "Cyrillic is lower-cased before it is compared");
 
     // Identity is lower-cased with the JVM's rules.
-    e = addTracks(doc({track("a", "x", "\xCE\x9F\xCE\x94\xCE\x9F\xCE\xA3.mp3", 5)}),
-                  doc({track("b", "y", "\xCE\xBF\xCE\xB4\xCE\xBF\xCF\x82.mp3", 5)}));
+    e = addTracks(doc({track("a", "x", "\xCE\x9F\xCE\x94\xCE\x9F\xCE\xA3", 5)}),
+                  doc({track("b", "y", "\xCE\xBF\xCE\xB4\xCE\xBF\xCF\x82", 5)}));
     eq(e.tracks.size(), size_t(1), "a final capital sigma lowers to the final form");
+    e = addTracks(doc({track("a", "x", "\xCE\x9F\xCE\x94\xCE\x9F\xCE\xA3.mp3", 5)}),
+                  doc({track("b", "y", "\xCE\xBF\xCE\xB4\xCE\xBF\xCF\x83.mp3", 5)}));
+    eq(e.tracks.size(), size_t(1), "a sigma before .mp3 is not final: a cased letter follows the full stop");
     e = addTracks(doc({track("a", "x", "\xCE\xA3\xCE\x91.mp3", 5)}), doc({track("b", "y", "\xCF\x83\xCE\xB1.mp3", 5)}));
     eq(e.tracks.size(), size_t(1), "a sigma at the start lowers to the plain small sigma");
     e = addTracks(doc({track("a", "x", "\xC4\xB0.mp3", 5)}), doc({track("b", "y", "i.mp3", 5)}));

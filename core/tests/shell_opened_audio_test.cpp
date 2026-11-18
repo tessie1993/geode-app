@@ -145,7 +145,7 @@ void longNameIsCappedWithoutSplittingAPair() {
     check(n && n->size() == 120u * 4u, "120 code points of 4 bytes");
     check(n && n->substr(n->size() - 4) == "\xF0\x9F\x8E\xB5", "ends on a whole emoji");
     const auto x = openedAudioDisplayName(std::string(10000, 'x'));
-    check(x && x->size() == kOpenedNameMaxCodePoints, "x capped");
+    check(x && static_cast<int>(x->size()) == kOpenedNameMaxCodePoints, "x capped");
     // The same emoji as JNI's modified UTF-8 (a surrogate pair of two three-byte forms) is one code point.
     const auto m = openedAudioDisplayName(std::string("\xED\xA0\xBC\xED\xBE\xB5"));
     check(m && *m == "\xF0\x9F\x8E\xB5", "CESU pair joined");

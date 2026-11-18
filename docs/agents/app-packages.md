@@ -187,7 +187,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
 - `OboeAudioOutput` keeps the channel-mask check (`MONO` or `STEREO` exactly): native sees only a channel count, which would also take two channels that are not a stereo pair.
-- `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
+- `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`AiffHeaderScan` in `core/audio/ingest/AiffReader.hpp`, `geode_aiff_*`).
 - The extractor's read sizes, the gap to the samples and the whole-frame cut of what it holds are native too (`aiffReadBytes`, `aiffGapBytes`, `aiffWholeBytes`).
 - `AudioFxController`'s band and dB labels are native (`core/audio/dsp/FxRanges`, `geode_dsp_band_label`, `geode_dsp_db_label`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).

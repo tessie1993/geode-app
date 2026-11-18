@@ -340,22 +340,22 @@ void MilkdropScene::draw(float timeSeconds) {
     glUseProgram(postProgram_);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_.tex());
-    glUniform1i(postLocs_.loc("uTex"), 0);
+    postLocs_.set1i(Uniform::uTex, 0);
     // The user's Zoom only. A hidden 8 % kick on every hit (the hit times the retired beat-response slot)
     // is gone: what moves on a hit is the reaction matrix alone.
-    set1f("uZoom", p.zoom);
-    set1f("uRotation", rotationAngle_);
-    set1f("uMirrorX", p.mirror ? 1.0f : 0.0f);
-    set1f("uPalBase", p.paletteBase());
-    set1f("uPalSpan", grade::paletteSpan(p.hueRange, p.paletteRange()));
-    set1f("uPalTint", grade::paletteTintAmount(p.milkdropPaletteTint));
-    set1f("uHue", p.colorShift);
-    set1f("uSat", p.saturation);
-    set1f("uBright", p.brightness);
-    set1f("uContrast", p.contrast);
-    set1f("uGamma", p.gamma);
-    set1f("uInvert", p.invert ? 1.0f : 0.0f);
-    set1f("uIntensity", p.intensity);
+    postLocs_.set1f(Uniform::uZoom, p.zoom);
+    postLocs_.set1f(Uniform::uRotation, rotationAngle_);
+    postLocs_.set1f(Uniform::uMirrorX, p.mirror ? 1.0f : 0.0f);
+    postLocs_.set1f(Uniform::uPalBase, p.paletteBase());
+    postLocs_.set1f(Uniform::uPalSpan, grade::paletteSpan(p.hueRange, p.paletteRange()));
+    postLocs_.set1f(Uniform::uPalTint, grade::paletteTintAmount(p.milkdropPaletteTint));
+    postLocs_.set1f(Uniform::uHue, p.colorShift);
+    postLocs_.set1f(Uniform::uSat, p.saturation);
+    postLocs_.set1f(Uniform::uBright, p.brightness);
+    postLocs_.set1f(Uniform::uContrast, p.contrast);
+    postLocs_.set1f(Uniform::uGamma, p.gamma);
+    postLocs_.set1f(Uniform::uInvert, p.invert ? 1.0f : 0.0f);
+    postLocs_.set1f(Uniform::uIntensity, p.intensity);
     glBindVertexArray(postVao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

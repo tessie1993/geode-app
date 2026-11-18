@@ -115,6 +115,10 @@ void glUniform2i(GLint location, GLint v0, GLint v1);
 void glUniform3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 void glUniform3i(GLint location, GLint v0, GLint v1, GLint v2);
 void glUniform4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
+void glUniform1fv(GLint location, GLsizei count, const GLfloat* value);
+void glUniform2fv(GLint location, GLsizei count, const GLfloat* value);
+void glUniform3fv(GLint location, GLsizei count, const GLfloat* value);
+void glUniform4fv(GLint location, GLsizei count, const GLfloat* value);
 
 /* State and drawing. */
 void glBindFramebuffer(GLenum target, GLuint framebuffer);

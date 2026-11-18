@@ -70,7 +70,6 @@ private:
     std::optional<std::string> takeError();
     void diagnoseBlackFrame();
     void drainEngineErrors();
-    void set1f(const char* name, float value) { glUniform1f(postLocs_.loc(name), value); }
 
     std::string id_ = "milkdrop";
     ProgramLoader loader_;

@@ -291,6 +291,9 @@ void main() {
         vec3 la2 = normalize(cross(ln2, vec3(1.0, 0.0, 0.2)));
         float shockR = gR + 2.2 * ext * (1.0 - kick);
 
+        // The prominence and shock colours do not change along the ray: one palette read each, not one per sample.
+        vec3 promCol = pal(hue - 0.02);
+        vec3 shockCol = pal(hue + 0.12);
         vec3 glow = vec3(0.0);
         for (int i = 0; i < SO_CORONA_SAMPLES; i++) {
             vec3 p = ro + rd * (t0 + (float(i) + jit) * dt);
@@ -319,8 +322,8 @@ void main() {
             float shock = kick * exp(-sd * sd * 30.0) * exp(-x * 0.8);
 
             vec3 c = pal(hue + 0.078 * r / SO_R) * dens
-                   + pal(hue - 0.02) * prom * 2.0
-                   + pal(hue + 0.12) * shock * 0.9;
+                   + promCol * prom * 2.0
+                   + shockCol * shock * 0.9;
             glow += c;
         }
         col += glow * dt * 0.6;

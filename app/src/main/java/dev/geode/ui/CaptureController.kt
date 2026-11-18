@@ -38,6 +38,9 @@ data class ExternalAudioState(
     val hearingSilence: Boolean = false,
 ) {
     val refusingApp: String? get() = if (refusedByApp) nowPlaying?.appLabel else null
+
+    /** The other app while it is the sound source and its media session answers: the transport is its, not the player's. */
+    val driven: NowPlayingBridge.External? get() = nowPlaying.takeIf { active }
 }
 
 internal class CaptureController(

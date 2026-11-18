@@ -395,6 +395,9 @@ private fun PlayerHero(
     val hasSource = foreign || roomOnly || state.hasMedia
     val isFavourite = uri != null && uri in favourites
     val showFavourite = state.hasMedia && !foreign
+    // The transport drives the other app while it is the sound source (PlayerViewModel.next and its two twins).
+    val canDrive = state.hasMedia || external.driven != null
+    val playing = external.driven?.playing ?: state.isPlaying
     Column(
         modifier
             .fillMaxWidth()
@@ -511,21 +514,6 @@ private fun PlayerHero(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // The other app's own transport, through its media session: only with notification access.
-                external.nowPlaying?.let { other ->
-                    IconButton(onClick = viewModel::externalPrevious) {
-                        StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
-                    }
-                    IconButton(onClick = viewModel::externalPlayPause) {
-                        StoneIconArt(
-                            if (other.playing) StoneIcon.PAUSE else StoneIcon.PLAY,
-                            stringResource(if (other.playing) R.string.action_pause else R.string.action_play),
-                        )
-                    }
-                    IconButton(onClick = viewModel::externalNext) {
-                        StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
-                    }
-                }
                 FilledTonalButton(
                     onClick = viewModel::stopExternalAudio,
                     contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
@@ -638,21 +626,21 @@ private fun TransportCard(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ShuffleButton(state.shuffle, viewModel::toggleShuffle)
-            IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
+            IconButton(onClick = viewModel::previous, enabled = canDrive) {
                 StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
             }
             // 64 dp, the size the old play button drew itself at, so the transport row keeps its rhythm.
             FilledIconButton(
                 onClick = viewModel::togglePlayPause,
                 modifier = Modifier.size(64.dp),
-                enabled = state.hasMedia,
+                enabled = canDrive,
             ) {
                 StoneIconArt(
-                    if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                    stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                    if (playing) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    stringResource(if (playing) R.string.action_pause else R.string.action_play),
                 )
             }
-            IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
+            IconButton(onClick = viewModel::next, enabled = canDrive) {
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
             RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)

@@ -131,11 +131,13 @@ class PresetStore(
     fun save(
         preset: Preset,
         folder: String = "",
-    ) {
+    ): Boolean {
         ensureMigrated()
         val dest = File(folderDir(folder), safeFileName(preset.name) + ".json")
         val previous = findFile(preset.name)?.takeIf { it != dest }
-        if (AtomicWrite.text(dest, toJson(preset))) previous?.delete()
+        val written = AtomicWrite.text(dest, toJson(preset))
+        if (written) previous?.delete()
+        return written
     }
 
     @WorkerThread
@@ -208,10 +210,11 @@ interface PresetRepository {
 
     suspend fun list(): List<Preset>
 
+    /** True when the file was written. */
     suspend fun save(
         preset: Preset,
         folder: String = "",
-    )
+    ): Boolean
 
     suspend fun delete(name: String)
 
@@ -248,9 +251,10 @@ class FilePresetRepository(
     override suspend fun save(
         preset: Preset,
         folder: String,
-    ) {
-        withContext(Dispatchers.IO) { store.save(preset, folder) }
+    ): Boolean {
+        val written = withContext(Dispatchers.IO) { store.save(preset, folder) }
         refreshFolders()
+        return written
     }
 
     override suspend fun delete(name: String) {

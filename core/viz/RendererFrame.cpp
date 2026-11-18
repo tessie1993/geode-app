@@ -138,12 +138,15 @@ void Renderer::readSound(const sound::SharedAnalysis& heard, float dt, float fad
     listenStillSeconds_ = position == lastListen_ ? listenStillSeconds_ + dt : 0.0f;
     lastListen_ = position;
     // A paused speaker, once its writer has stopped and the analysis runs on silence: the frame is that silence, as
-    // the renderer's own engine heard it, not the last sample played held forever. The hops not yet played fire now.
+    // the renderer's own engine heard it, not the last sample played held forever. The hops the sink still holds
+    // fire when the speaker plays them, not now.
     const bool paused =
         position >= 0 && listenStillSeconds_ > kListenStillSeconds && sound::interp::FrameReader::starved(analysis);
     if (paused) position = std::max(position, analysis.newestPosition());
     trimmedValid_ = false;
-    if (soundReader_.read(analysis, position, soundFrame_, soundEmotion_, soundHits_)) soundHeard_ = true;
+    const bool heardNow = paused ? soundReader_.readStill(analysis, soundFrame_, soundEmotion_, soundHits_)
+                                 : soundReader_.read(analysis, position, soundFrame_, soundEmotion_, soundHits_);
+    if (heardNow) soundHeard_ = true;
     if (sectionChangeOwed_ && soundHeard_) {
         // A boundary is the event (the engine's step fired it): Form was reset and cannot fire for eight bars.
         soundFrame_.sectionChange = 1.0f;

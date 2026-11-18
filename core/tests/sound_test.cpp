@@ -364,6 +364,81 @@ void testStarvedGoesQuiet() {
     CHECK(f.rms == 0.0f, "rms after starving %f", f.rms);
 }
 
+// The tempo is the music's: after a whole window of audio with no beat in it the engine reads bpm 0 again,
+// not the last song's tempo.
+void testTempoIsLetGoWhenTheBeatIsGone() {
+    const int rate = 48000;
+    const double period = 60.0 / 93.0;
+    SoundEngine e(rate);
+    auto bed = std::make_shared<Noise>();
+    const double clickSeconds = 14.0;
+    float bpmWithBeat = 0.0f;
+    float bpmAfter = -1.0f;
+    run(
+        e,
+        [&](int64_t s, float& l, float& r) {
+            const double t = static_cast<double>(s) / rate;
+            if (t >= clickSeconds) {
+                l = r = 0.0f;
+                return;
+            }
+            const double phase = std::fmod(t, period);
+            const double k = phase < 0.15 ? std::sin(kTau * 55.0 * phase) * std::exp(-phase / 0.05) : 0.0;
+            l = r = static_cast<float>(0.8 * k) + 0.01f * bed->next();
+        },
+        clickSeconds + 24.0, 60.0,
+        [&](double t, const GeodeSoundFrame& f) {
+            if (t < clickSeconds) bpmWithBeat = f.bpm;
+            bpmAfter = f.bpm;
+        });
+    CHECK(bpmWithBeat > 0.0f, "a tempo is heard over the click track: %f", bpmWithBeat);
+    CHECK(bpmAfter == 0.0f, "and let go after the beat is gone: %f", bpmAfter);
+}
+
+// A pause holds the song: while the writer is away the zeros the engine feeds itself are not music, so no beat,
+// bar or phrase fires on them and the tempo lock is still there when the audio returns.
+void testStarvationHoldsTheRhythm() {
+    const int rate = 48000;
+    const double bpm = 93.0;
+    const double period = 60.0 / bpm;
+    SoundEngine e(rate);
+    auto bed = std::make_shared<Noise>();
+    const Signal clicks = [&](int64_t s, float& l, float& r) {
+        const double t = static_cast<double>(s) / rate;
+        const double phase = std::fmod(t, period);
+        const double k = phase < 0.15 ? std::sin(kTau * 55.0 * phase) * std::exp(-phase / 0.05) : 0.0;
+        l = r = static_cast<float>(0.8 * k) + 0.01f * bed->next();
+    };
+    GeodeSoundFrame last{};
+    run(e, clicks, 14.0, 60.0, [&](double, const GeodeSoundFrame& f) { last = f; });
+    CHECK(last.bpm > 0.0f && last.beatConf > 0.35f, "locked before the gap: bpm %f conf %f", last.bpm, last.beatConf);
+    // The gap: no audio for four seconds. Past kStarved the engine feeds itself silence; none of it may beat.
+    GeodeSoundFrame f{};
+    for (int i = 0; i < 30; i++) e.step(1.0f / 60.0f, f);
+    const float countAtStart = f.beatCount;
+    const float barAtStart = f.barCount;
+    for (int i = 0; i < 4 * 60; i++) {
+        e.step(1.0f / 60.0f, f);
+        CHECK(f.beat == 0.0f && f.downbeat == 0.0f && f.phrase == 0.0f, "a trigger fired on silence at gap frame %d", i);
+    }
+    CHECK(f.beatCount == countAtStart, "beatCount moved over the gap: %f to %f", countAtStart, f.beatCount);
+    CHECK(f.barCount == barAtStart, "barCount moved over the gap: %f to %f", barAtStart, f.barCount);
+    // The audio returns where the click track left off (a pause, not a skip): the lock survives the gap.
+    const int64_t resumeAt = static_cast<int64_t>(std::llround(14.0 * rate));
+    std::vector<float> buf;
+    int64_t done = resumeAt;
+    for (int i = 1; i <= 6 * 60; i++) {
+        const int64_t end = resumeAt + static_cast<int64_t>(std::llround(i * rate / 60.0));
+        buf.resize(static_cast<size_t>(2 * (end - done)));
+        for (int64_t s = done; s < end; s++) clicks(s, buf[2 * (s - done)], buf[2 * (s - done) + 1]);
+        e.write(buf.data(), static_cast<int>(end - done), 2);
+        done = end;
+        e.step(1.0f / 60.0f, f);
+    }
+    CHECK(f.beatConf > 0.35f && std::fabs(f.bpm - static_cast<float>(bpm)) < 4.0f, "lock after the gap: bpm %f conf %f", f.bpm,
+          f.beatConf);
+}
+
 // A decoder hands over about 100 ms at a time, so a block a frame or two late leaves the engine with
 // nothing new for 100 ms or more. That is jitter, not a stall: no frame between blocks may read silence
 // (kills kStarved back at 0.1 s, where the 8-frame gap's 117 ms starves).
@@ -707,6 +782,8 @@ int main() {
     testSilenceAndReturn();
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
+    testStarvationHoldsTheRhythm();
+    testTempoIsLetGoWhenTheBeatIsGone();
     testLateBlocksAreNotStarvation();
     testSpectrumStaysGatedUnderNoise();
     testDcOffsetIsSilence();

@@ -136,6 +136,13 @@ void stringsAreEscapedAsOrgJsonEscapedThem() {
     check(json::quoted("a/b\"c\\\n\t\b\f\r\x01" "\xC3\xA9") == "\"a\\/b\\\"c\\\\\\n\\t\\b\\f\\r\\u0001\xC3\xA9\"",
           "quoted: slash, quote, backslash, the letter escapes, a control as hex, UTF-8 as it is");
     check(json::quoted("") == "\"\"", "quoted: empty");
+    // A high surrogate escape pairs only with a low one; any other escape after it is read on its own.
+    const auto pair = json::asString(val("\"\\ud83d\\ude00\""));
+    check(pair && *pair == "\xF0\x9F\x98\x80", "string: a surrogate pair is one code point");
+    const auto unpaired = json::asString(val("\"\\ud800A\""));
+    check(unpaired && unpaired->size() == 4 && unpaired->back() == 'A', "string: a high surrogate then a plain letter keeps the letter");
+    const auto escaped = json::asString(val("\"\\ud800\\u0041\""));
+    check(escaped && escaped->size() == 4 && escaped->back() == 'A', "string: a high surrogate then another escape keeps it");
 }
 
 void valuesCoerceAsOrgJsonOptCoerces() {

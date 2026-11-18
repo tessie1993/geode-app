@@ -963,7 +963,7 @@ GEODE_API const char* geode_panel_text(const char* id);
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);
 /* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
- * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * params' own colours (its stops, else its hue ramp), _from_look the same, for the editor to start over from them, _open a saved palette's stops
  * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
  * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
  * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next
@@ -1017,14 +1017,15 @@ GEODE_API void        geode_params_reroll_reactions(const float* in, float* out)
 /* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
  * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
  * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
- * put up instead of current (redo 1: the last undone), its frame into out (count floats) and its palette id returned,
+ * put up instead of current (redo 1: the last undone; entries recorded on another style_id are dropped, never applied), its frame into out (count floats) and its palette id returned,
  * valid until this thread's next step; NULL when there is none. Both report GEODE_PARAM_HISTORY_* bits through state
  * (record returns them too). */
 #define GEODE_PARAM_HISTORY_UNDO 1
 #define GEODE_PARAM_HISTORY_REDO 2
-GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms,
-                                                 int discrete);
-GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out);
+GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, const char* style_id,
+                                                 long long now_ms, int discrete);
+GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette,
+                                               const char* style_id, float* out);
 GEODE_API int         geode_param_history_state(void);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
@@ -1064,6 +1065,8 @@ GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id
 GEODE_API const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta);
 GEODE_API const char* geode_macro_bank_reset_knob(const char* bank, int knob_id);
+/* The default bank, keeping the ids the given bank already spent. */
+GEODE_API const char* geode_macro_bank_reset_all(const char* bank);
 GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
 GEODE_API const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target);
 GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
@@ -1080,6 +1083,8 @@ GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_live_mods(void);
+/* A knob's turn plus what modulation adds to it, held to -1..1: what the engine draws it at. */
+GEODE_API float       geode_macro_bank_modulated(float turn, float add);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
@@ -1754,6 +1759,11 @@ GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
  * size, the mic's layered over the player's, and never freed: a handle any thread holds stays valid. NULL
  * for another kind or no memory. Any thread. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_shared(int kind);
+/* The app's sound input, for the surfaces that hold no playback session (the stage, the wallpaper, the dream, a
+ * cast): the player's ring while a session holds it, else NULL. The shell says so as a session begins and ends.
+ * Process-wide, any thread. */
+GEODE_API void              geode_pcm_ring_set_live(int on);
+GEODE_API geode_pcm_ring*   geode_pcm_ring_live(void);
 /* A new ring of a kind's size and rules (the output mix's writes are snapshots), its owner's to destroy.
  * NULL for an unknown kind or no memory. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_create_kind(int kind);
@@ -1781,6 +1791,16 @@ GEODE_API int               geode_pcm_ring_set_snapshots(geode_pcm_ring*, int on
 GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
+/* The player's Media3 tap (the shell's PcmTap), on the ring the tap writes. The tap thread is the writer
+ * while the gate is open; the gate is open by default. `owns` 0 closes it: a capture of another app writes
+ * the ring, and a paused player still pushes buffers until its AudioTrack is full. Any thread. */
+GEODE_API void              geode_pcm_ring_tap_set_owner(geode_pcm_ring*, int owns);
+/* The chain flushed with this format (Android's AudioFormat.ENCODING_PCM_* for `encoding`): with the gate
+ * open every flush starts a ring epoch, before a sample of the new format is written. Tap thread. */
+GEODE_API void              geode_pcm_ring_tap_flush(geode_pcm_ring*, int sample_rate, int channels, int encoding);
+/* One buffer of the chain in the format of the last flush, written where it lies. Returns the frames
+ * written; 0 with the gate closed, before a flush gave a format, or for a refused block. Tap thread. */
+GEODE_API int               geode_pcm_ring_tap_write(geode_pcm_ring*, const void* data, size_t bytes);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */
 GEODE_API int64_t           geode_pcm_ring_head(const geode_pcm_ring*);      /* frames ever written, across epochs */
 /* The playout clock of the sink that plays this ring (the player's), or NULL for none: a renderer fed this

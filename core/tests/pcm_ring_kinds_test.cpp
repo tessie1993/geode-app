@@ -153,9 +153,19 @@ void testOwnedRingReaderOutlivesOwner() {
 
 }  // namespace
 
+// Which ring the surfaces with no session hear is native's to say: the player's while a session holds it.
+void testLive() {
+    CHECK(geode_pcm_ring_live() == nullptr, "a ring is live before any session");
+    geode_pcm_ring_set_live(1);
+    CHECK(geode_pcm_ring_live() == geode_pcm_ring_shared(GEODE_PCM_RING_PLAYER), "a live session's ring is not the player's");
+    geode_pcm_ring_set_live(0);
+    CHECK(geode_pcm_ring_live() == nullptr, "the ring stayed live after its session ended");
+}
+
 int main() {
     testSizes();
     testShared();
+    testLive();
     testProcessRingsOutliveDestroy();
     testOwnedRingReaderOutlivesOwner();
     if (failures) {

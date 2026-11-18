@@ -506,7 +506,26 @@ private fun PlayerHero(
             }
         }
         if (foreign) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = CARD_INSET), horizontalArrangement = Arrangement.End) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = CARD_INSET),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The other app's own transport, through its media session: only with notification access.
+                external.nowPlaying?.let { other ->
+                    IconButton(onClick = viewModel::externalPrevious) {
+                        StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
+                    }
+                    IconButton(onClick = viewModel::externalPlayPause) {
+                        StoneIconArt(
+                            if (other.playing) StoneIcon.PAUSE else StoneIcon.PLAY,
+                            stringResource(if (other.playing) R.string.action_pause else R.string.action_play),
+                        )
+                    }
+                    IconButton(onClick = viewModel::externalNext) {
+                        StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
+                    }
+                }
                 FilledTonalButton(
                     onClick = viewModel::stopExternalAudio,
                     contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
@@ -807,16 +826,39 @@ private fun QuickActions(
     canShuffle: Boolean,
     contentPadding: PaddingValues,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     // Once Android stops showing the dialog, request() opens the app's Settings page instead, so
     // the button never silently does nothing.
     val micPermission =
         rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) { viewModel.setMicEnabled(true) }
+    val projectionLauncher =
+        androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts
+                .StartActivityForResult(),
+        ) { result ->
+            val data = result.data
+            if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
+                dev.geode.audio.PlaybackCaptureService
+                    .start(context, result.resultCode, data)
+            } else {
+                viewModel.noteExternalAudioConsentDenied()
+            }
+        }
     val capturePermissions =
         androidx.activity.compose.rememberLauncherForActivityResult(
             androidx.activity.result.contract.ActivityResultContracts
                 .RequestMultiplePermissions(),
-        ) { _ ->
-            viewModel.startDeviceAudio()
+        ) { granted ->
+            if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
+                viewModel.noteExternalAudioConsentPending()
+                projectionLauncher.launch(
+                    context
+                        .getSystemService(android.media.projection.MediaProjectionManager::class.java)
+                        .createScreenCaptureIntent(),
+                )
+            } else {
+                viewModel.noteExternalAudioConsentDenied()
+            }
         }
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
@@ -849,6 +891,7 @@ private fun QuickActions(
                     capturePermissions.launch(
                         arrayOf(
                             android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.POST_NOTIFICATIONS,
                         ),
                     )
                 }

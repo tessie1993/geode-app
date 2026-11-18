@@ -91,7 +91,15 @@ class PlayerViewModel
 
         fun hasMicPermission(): Boolean = session.captureController.hasMicPermission()
 
-        fun startDeviceAudio() = session.captureController.startDeviceAudio()
+        fun noteExternalAudioConsentPending() = session.captureController.noteExternalAudioConsentPending()
+
+        fun noteExternalAudioConsentDenied() = session.captureController.noteExternalAudioConsentDenied()
+
+        fun externalPlayPause() = session.captureController.externalPlayPause()
+
+        fun externalNext() = session.captureController.externalNext()
+
+        fun externalPrevious() = session.captureController.externalPrevious()
 
         fun stopExternalAudio() = session.stopExternalAudio()
 

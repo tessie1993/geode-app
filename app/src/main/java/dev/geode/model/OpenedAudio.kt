@@ -69,7 +69,7 @@ object OpenedAudio {
     fun displayName(raw: String?): String? = ShellNative.openedAudioDisplayName(raw)
 
     /** A fresh queue id for an opened file: distinct per open, and carrying no part of the uri. */
-    fun mediaId(): String = ShellNative.openedAudioMediaId(ByteArray(16).also(random::nextBytes))
+    fun mediaId(): String = ShellNative.openedMediaId(ByteArray(16).also(random::nextBytes))
 
     /** Whether [mediaId] marks an opened file, so `PlayRecorder` leaves it out of history and resumption. */
     fun isOpened(mediaId: String?): Boolean = ShellNative.openedAudioIsOpened(mediaId)

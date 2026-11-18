@@ -138,8 +138,8 @@ object ShellNative {
     /** The provider's display name made fit to show; null when nothing is left (`geode_opened_audio_display_name`). */
     external fun openedAudioDisplayName(raw: String?): String?
 
-    /** A queue id for an opened file from 16 [random] bytes the caller drew (`geode_opened_audio_media_id`). */
-    external fun openedAudioMediaId(random: ByteArray): String
+    /** A queue id for an opened file from 16 [random] bytes the caller drew (`geode_opened_media_id`). */
+    external fun openedMediaId(random: ByteArray): String
 
     /** Whether a queue id marks an opened file (`geode_opened_audio_is_opened`). */
     external fun openedAudioIsOpened(mediaId: String?): Boolean

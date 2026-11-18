@@ -294,12 +294,12 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_ShellNative_openedAudioDi
     return textOf(env, [&](char* out, int capacity) { return geode_opened_audio_display_name(chars.get(), out, capacity); });
 }
 
-JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_ShellNative_openedAudioMediaId(JNIEnv* env, jobject,
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_ShellNative_openedMediaId(JNIEnv* env, jobject,
                                                                                   jbyteArray random) {
     unsigned char bytes[16] = {};
     const jsize n = random ? env->GetArrayLength(random) : 0;
     if (n > 0) env->GetByteArrayRegion(random, 0, n < 16 ? n : 16, reinterpret_cast<jbyte*>(bytes));
-    return textOf(env, [&](char* out, int capacity) { return geode_opened_audio_media_id(bytes, out, capacity); });
+    return textOf(env, [&](char* out, int capacity) { return geode_opened_media_id(bytes, out, capacity); });
 }
 
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_openedAudioIsOpened(JNIEnv* env, jobject, jstring mediaId) {

@@ -166,8 +166,8 @@ void openedIdsAreFreshMarkedAndCarryNoUri() {
         r1[static_cast<size_t>(i)] = static_cast<std::uint8_t>(i * 7 + 1);
         r2[static_cast<size_t>(i)] = static_cast<std::uint8_t>(i * 11 + 3);
     }
-    const std::string a = openedAudioMediaId(r1);
-    const std::string b = openedAudioMediaId(r2);
+    const std::string a = openedMediaId(r1);
+    const std::string b = openedMediaId(r2);
     check(openedAudioIsOpened(a), "marked");
     check(a != b, "distinct");
     check(a.size() == std::string(kOpenedMediaIdPrefix).size() + 36, "a uuid after the prefix");
@@ -214,10 +214,10 @@ void openedAudioThroughTheAbi() {
     unsigned char random[16];
     for (int i = 0; i < 16; ++i) random[i] = static_cast<unsigned char>(i * 7 + 1);
     char id[64];
-    const int n = geode_opened_audio_media_id(random, id, static_cast<int>(sizeof id));
+    const int n = geode_opened_media_id(random, id, static_cast<int>(sizeof id));
     std::array<std::uint8_t, 16> same{};
     for (int i = 0; i < 16; ++i) same[static_cast<size_t>(i)] = random[i];
-    check(n == static_cast<int>(openedAudioMediaId(same).size()) && std::string(id) == openedAudioMediaId(same), "abi: the id");
+    check(n == static_cast<int>(openedMediaId(same).size()) && std::string(id) == openedMediaId(same), "abi: the id");
     check(geode_opened_audio_is_opened(id) == 1, "abi: marked");
     check(geode_opened_audio_is_opened("content://media/1") == 0 && geode_opened_audio_is_opened(nullptr) == 0, "abi: not one");
 }

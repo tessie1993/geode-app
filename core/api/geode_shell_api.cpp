@@ -172,10 +172,10 @@ int geode_opened_audio_display_name(const char* raw, char* out, int capacity) {
     return name ? geode::api::textOut(*name, out, capacity) : -1;
 }
 
-int geode_opened_audio_media_id(const unsigned char* random16, char* out, int capacity) {
+int geode_opened_media_id(const unsigned char* random16, char* out, int capacity) {
     std::array<std::uint8_t, 16> random{};
     if (random16) std::copy_n(random16, random.size(), random.begin());
-    return geode::api::textOut(shell::openedAudioMediaId(random), out, capacity);
+    return geode::api::textOut(shell::openedMediaId(random), out, capacity);
 }
 
 int geode_opened_audio_is_opened(const char* media_id) { return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0; }

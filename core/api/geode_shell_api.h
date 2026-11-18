@@ -85,7 +85,7 @@ GEODE_API int geode_opened_audio_refuses(const char* scheme, const char* authori
    NUL-terminated; the return is the length the whole text needs), or -1 when nothing is left. */
 GEODE_API int geode_opened_audio_display_name(const char* raw, char* out, int capacity);
 /* A queue id for an opened file from 16 random bytes the caller drew, as text-out. */
-GEODE_API int geode_opened_audio_media_id(const unsigned char* random16, char* out, int capacity);
+GEODE_API int geode_opened_media_id(const unsigned char* random16, char* out, int capacity);
 /* 1 when a queue id marks an opened file (NULL: no id). */
 GEODE_API int geode_opened_audio_is_opened(const char* media_id);
 

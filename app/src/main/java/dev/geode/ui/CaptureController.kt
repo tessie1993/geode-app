@@ -38,6 +38,9 @@ data class ExternalAudioState(
     val hearingSilence: Boolean = false,
 ) {
     val refusingApp: String? get() = if (refusedByApp) nowPlaying?.appLabel else null
+
+    /** The other app while it is the sound source and its media session answers: the transport is its, not the player's. */
+    val driven: NowPlayingBridge.External? get() = nowPlaying.takeIf { active }
 }
 
 internal class CaptureController(
@@ -308,25 +311,28 @@ internal class CaptureController(
         if (externalAudioRefreshInFlight) return
         externalAudioRefreshInFlight = true
         scope.launch {
-            val (access, now) =
-                withContext(Dispatchers.IO) {
-                    val access = nowPlayingBridge.hasAccess()
-                    access to (if (access) nowPlayingBridge.current() else null)
+            try {
+                val (access, now) =
+                    withContext(Dispatchers.IO) {
+                        val access = nowPlayingBridge.hasAccess()
+                        access to (if (access) nowPlayingBridge.current() else null)
+                    }
+                val quiet = playbackCapture.active && playbackCapture.quiet
+                hearDeviceMix(quiet)
+                // On the mix the app is heard after all, so neither notice applies.
+                val unheard = quiet && !deviceMix.running
+                _externalAudio.update {
+                    it.copy(
+                        active = playbackCapture.active,
+                        nowPlaying = now,
+                        hasSessionAccess = access,
+                        refusedByApp = unheard && (now?.playing ?: false),
+                        hearingSilence = unheard,
+                    )
                 }
-            val quiet = playbackCapture.active && playbackCapture.quiet
-            hearDeviceMix(quiet)
-            // On the mix the app is heard after all, so neither notice applies.
-            val unheard = quiet && !deviceMix.running
-            _externalAudio.update {
-                it.copy(
-                    active = playbackCapture.active,
-                    nowPlaying = now,
-                    hasSessionAccess = access,
-                    refusedByApp = unheard && (now?.playing ?: false),
-                    hearingSilence = unheard,
-                )
+            } finally {
+                externalAudioRefreshInFlight = false
             }
-            externalAudioRefreshInFlight = false
         }
     }
 

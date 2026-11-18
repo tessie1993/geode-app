@@ -242,7 +242,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Customize › Layers' layer is native's (`core/viz/LayerState`); Kotlin keeps no layer state.
 - `LookStore` saves the line native hands back after each Layers edit (`customize_layer` in `geode-prefs`, Creative in a backup).
 - `LookStore.pushLayer` hands native the saved line: the container on IO at process start, `pushProcessWide` for the wallpaper and the dream.
-- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws native's values and lists (`GeodeNative.layerValues`, `layerList`, `layerShown`) and hands each choice back by place (`layerEdit`).
+- The Layers page (`ui/CustomizeAdvanced.LayersPage`) draws native's values and lists (`VizNative.layerValues`, `layerList`, `layerShown`) and hands each choice back by place (`layerEdit`).
 - Each macro edit is saved as made; a new knob is a draft until saved.
 - A knob off screen is kept in the bank's library for Add macro to put back.
 - `MacroEditorTable` reads the knob editor's rows.
@@ -275,7 +275,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Pure value types shared across layers, staged for `:core:model`. No `android.*`.
 - `PresetShelf` holds the Presets grid filters and naming.
 - `engine/bridge/StyleCatalogue` keeps the native catalogue's answers (ids, picker families, retired ids, param scopes as `ParamScope`); it decides nothing.
-- A style's and a family's display name are native (`GeodeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
+- A style's and a family's display name are native (`CustomizeNative.styleLabel`, `styleFamilyLabel`; `core/viz/StyleNames`).
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
@@ -307,7 +307,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `SceneFactory` is what an offscreen render knows of its scene (id, MilkDrop preset); `Stage.exportSceneFactory` makes it.
 - Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
-- The rate a mix's clips share is native (`GeodeNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
+- The rate a mix's clips share is native (`ExportNative.mixRateHz`, `core/audio/dsp/PcmTiming`).
 - The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
 - A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.
 - The watermark: `WatermarkOverlay` rasterises the tile.

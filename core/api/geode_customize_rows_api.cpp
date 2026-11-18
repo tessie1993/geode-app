@@ -57,6 +57,23 @@ int geode_customize_matches(const char* query, const char* text) try {
     return 1;
 }
 
+int geode_customize_query_blank(const char* query) try {
+    return customize::blank(query ? query : "") ? 1 : 0;
+} catch (...) {
+    return 1;
+}
+
+const char* geode_panel_format(const char* id, const char* const* args, int count) try {
+    std::vector<std::string> filled;
+    for (int i = 0; args && i < count; ++i) filled.emplace_back(args[i] ? args[i] : "");
+    // The placeholders reach at most four arguments; a missing one is dropped as an empty text is.
+    filled.resize(4);
+    std::string text = geode::viz::panel::format(id ? id : "", {filled[0], filled[1], filled[2], filled[3]});
+    return handOut(std::move(text));
+} catch (...) {
+    return nullptr;
+}
+
 const char* geode_panel_text(const char* id) try {
     return geode::viz::panel::text(id ? id : "");
 } catch (...) {

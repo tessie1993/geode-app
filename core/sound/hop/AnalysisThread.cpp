@@ -65,9 +65,13 @@ void AnalysisThread::stop() {
     idle_.store(false, std::memory_order_release);
 }
 
+// No lost wake (every access below and in run()'s untimed wait is seq_cst, so they fall in one order): if this
+// load of waiting_ misses the flag, it comes before the thread's store of it, so the thread's wait then compares
+// against the signal this call already moved and returns at once. If it sees the flag, the notify follows the
+// add, which reaches a wait that compared against an older value.
 void AnalysisThread::notify() {
     signal_.fetch_add(1, std::memory_order_seq_cst);
-    signal_.notify_one();
+    if (waiting_.load(std::memory_order_seq_cst)) signal_.notify_one();
     if (timedWaiting_.load(std::memory_order_seq_cst)) waitCv_.notify_one();
 }
 
@@ -92,7 +96,9 @@ void AnalysisThread::run() {
                 break;
             case Next::kWait:
                 idle_.store(true, std::memory_order_release);
+                waiting_.store(true, std::memory_order_seq_cst);
                 signal_.wait(seen, std::memory_order_seq_cst);
+                waiting_.store(false, std::memory_order_seq_cst);
                 idle_.store(false, std::memory_order_release);
                 break;
         }

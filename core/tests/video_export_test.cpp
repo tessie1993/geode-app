@@ -48,6 +48,7 @@ struct World {
     bool neverAnnounce = false;
     bool neverEnd = false;
     bool emptyBuffer = false;
+    int32_t nullForSize = -1;  // a sample of this size comes with no buffer
     int failFrame = -1;
     int cancelFrame = -1;
     ve::Job* job = nullptr;
@@ -69,6 +70,8 @@ struct World {
     int muxStops = 0;
     int idleWaits = 0;
     int reads = 0;
+    int samplesOut = 0;
+    int samplesReleased = 0;
     size_t audioCount = 0;
 
     size_t audioWrites() const { return audioCount; }
@@ -110,19 +113,25 @@ public:
         w_.ready.pop_front();
         *index = 0;
         *info = out.info;
+        if (out.kind == sink::Out::Sample) ++w_.samplesOut;
+        size_ = out.info.size;
         return out.kind;
     }
     const uint8_t* outputBuffer(int, size_t* capacity) override {
         *capacity = sizeof(bytes_);
-        return w_.emptyBuffer ? nullptr : bytes_;
+        return w_.emptyBuffer || size_ == w_.nullForSize ? nullptr : bytes_;
     }
-    bool releaseOutput(int) override { return true; }
+    bool releaseOutput(int) override {
+        ++w_.samplesReleased;
+        return true;
+    }
     std::unique_ptr<sink::TrackFormat> outputFormat() override { return std::make_unique<FakeFormat>(0); }
 
 private:
     World& w_;
     std::string mime_;
     uint8_t bytes_[16] = {};
+    int32_t size_ = 0;  // the size of the sample last dequeued
 };
 
 class FakeMuxer final : public sink::Muxer {
@@ -421,6 +430,28 @@ void testFailures() {
         run.go();
         check(run.job->failure() == ve::Failure::EmptyBuffer, "a sample with no buffer");
     }
+    {
+        // A frame's 16 bytes with no buffer: bytes the codec cannot hand over are a broken codec.
+        Run run(request(1));
+        run.world.nullForSize = 16;
+        run.go();
+        check(run.job->failure() == ve::Failure::EmptyBuffer, "a frame's bytes with no buffer fail");
+        check(run.world.samplesReleased == run.world.samplesOut, "the bufferless frame is handed back");
+    }
+}
+
+void testEmptyEndOfStream() {
+    // The end-of-stream marker holds nothing, and a codec may hand it with no buffer: the export finishes.
+    const ve::Request r = request(1);
+    Run run(r);
+    run.world.nullForSize = 0;
+    run.go();
+    const World& w = run.world;
+    check(run.job->failure() == ve::Failure::None, "an empty end-of-stream sample with no buffer is no failure");
+    check(run.job->state() == ve::State::Rendered, "the export with a bufferless end of stream renders");
+    check(w.muxStops == 1 && w.audioWrites() == r.audio.size(), "its end of stream is honoured: audio fed, file finished");
+    check(w.idleWaits == 0, "no wait for an end of stream already seen");
+    check(w.samplesOut > 0 && w.samplesReleased == w.samplesOut, "every sample handed back, the bufferless one too");
 }
 
 }  // namespace
@@ -433,6 +464,7 @@ int main() {
     testRejected();
     testCancel();
     testFailures();
+    testEmptyEndOfStream();
     if (failures == 0) std::printf("video_export_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

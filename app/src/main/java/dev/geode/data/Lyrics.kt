@@ -55,6 +55,12 @@ object LyricsLoader {
             true
         }.getOrDefault(false)
 
+    /** Removes the .lrc [attach] kept for [trackUri]; false when there was none. The sidecar and the tags show again. */
+    fun detach(
+        context: Context,
+        trackUri: Uri,
+    ): Boolean = runCatching { attachedFile(context, trackUri).delete() }.getOrDefault(false)
+
     private fun attached(
         context: Context,
         trackUri: Uri,

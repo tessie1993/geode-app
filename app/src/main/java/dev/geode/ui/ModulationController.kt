@@ -175,11 +175,11 @@ internal class ModulationController(
     ) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
         val out = FloatArray(SceneParams.FIELDS)
-        CustomizeNative.customizeBorrow(category.name, host.params.frame(), from.frame(), out)
+        CustomizeNative.customizeBorrow(category.name, host.params.frame(), from.keepingInputsOf(host.params).frame(), out)
         commitSceneParams(SceneParams.fromFrame(out, host.params))
     }
 
-    fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
+    fun resetAll() = commitSceneParams(SceneParams.DEFAULT.keepingInputsOf(host.params))
 
     /** One [field] (a `ModulationNative.MOD_ADSR_*`) of the envelope at [index]; native sets it and keeps it in range. */
     fun setAdsr(

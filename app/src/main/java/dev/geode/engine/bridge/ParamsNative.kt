@@ -81,6 +81,15 @@ object ParamsNative {
     ): FloatArray
 
     /**
+     * The look frame [look] as it replaces the live frame [current]: the input preferences (Tilt phone to look, Drag
+     * to look) stay [current]'s, every other slot is [look]'s, as a new frame (`geode_params_keep_inputs`). Pure.
+     */
+    external fun paramsKeepInputs(
+        current: FloatArray,
+        look: FloatArray,
+    ): FloatArray
+
+    /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON
      * (`geode_params_write_json`). Null for a short frame. Pure.

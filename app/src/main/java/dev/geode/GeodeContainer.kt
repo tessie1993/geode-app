@@ -134,9 +134,9 @@ class GeodeContainer(
         val startedAt = System.currentTimeMillis() - (SystemClock.uptimeMillis() - Process.getStartUptimeMillis())
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep stale temps") {
-                listOf(context.filesDir, context.noBackupFilesDir).forEach { dir ->
-                    AtomicWrite.staleTemps(dir, startedAt).forEach { it.delete() }
-                }
+                listOf(context.filesDir, context.noBackupFilesDir)
+                    .flatMap { AtomicWrite.staleTemps(it, startedAt) }
+                    .forEach { it.delete() }
             }
         }
     }

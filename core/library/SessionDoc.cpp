@@ -48,6 +48,19 @@ SessionWrite sessionWrite(const SavedSession& session) {
     return out;
 }
 
+std::string sessionPositionWrite(int index, long long positionMs) {
+    return "{\"version\":" + std::to_string(kSessionVersion) + ",\"index\":" + std::to_string(std::max(index, 0)) +
+           ",\"positionMs\":" + std::to_string(std::max(positionMs, 0LL)) + "}";
+}
+
+void sessionApplyPosition(SavedSession& session, const std::string& text) {
+    const auto root = jsonread::objectOf(text);
+    if (!root || jsonread::optInt(*root, "version", 1) > kSessionVersion) return;
+    if (session.tracks.empty()) return;
+    session.index = std::clamp(jsonread::optInt(*root, "index", session.index), 0, static_cast<int>(session.tracks.size()) - 1);
+    session.positionMs = std::max(jsonread::optLong(*root, "positionMs", session.positionMs), 0LL);
+}
+
 std::string sessionWire(const SavedSession& session) {
     constexpr char kField = '\x1f';
     constexpr char kRecord = '\x1e';

@@ -27,6 +27,7 @@ enum StageCommand : uint16_t {
     kStageFrameRate = 9,   // LastWins, from the vsync thread: f = the window's hint
     kStageQuit = 10,       // Ordered
     kStageService = 11,    // LastWins: the client has work for the stage thread (StageClient::service)
+    kStageTrim = 12,       // LastWins: the system wants memory back (Lifecycle::trimRequested)
 };
 
 // The platform a stage runs on, called on the stage thread only. A window is opaque here.

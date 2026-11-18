@@ -51,6 +51,8 @@ public:
     void setCap(float capFps);
     // Has the stage thread call the client's service once, between frames.
     void service();
+    // A system memory trim: the stage sheds its spares even when it draws no frame to read the signal.
+    void trim();
 
     uint32_t state() const { return core_.state(); }
     uint32_t takeEvents() { return core_.takeEvents(); }

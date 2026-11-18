@@ -84,7 +84,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
 - `library_playlist_test.cpp`: `core/library/PlaylistRules`: the playlist file, the order, add, remove, move, rename, create and import (a free name by file stem), the legacy rename plan and the wires the shell splits.
-- `library_session_test.cpp`: `core/library/SessionDoc`: session.json written and read back, the version gate, the clamps, which texts are no session, and the wire the shell splits.
+- `library_session_test.cpp`: `core/library/SessionDoc`: session.json written and read back, the version gate, the clamps, which texts are no session, the wire the shell splits, and the position file the tick writes (`sessionPositionWrite`, `sessionApplyPosition`).
 - `library_smart_playlist_test.cpp`: `core/library/SmartPlaylist`: the file read and written, text rules (case folded in every script with case), number rules, favourites, match all or any, the limit, the order, rule tokens and the wire the shell splits.
 - `library_history_test.cpp`: `core/library/History`: how history.json reads, a play, listened time, newest first, what is kept on disk, and the wire the shell splits.
 - `look_snapshot_test.cpp`: `core/viz/LookSnapshot`, the look a renderer is handed whole: only the parts that differ pass (all on a new renderer), equal copies pass nothing, and the defaults the shell reads.

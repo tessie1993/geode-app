@@ -1584,6 +1584,30 @@ void flowTimeRunsAtSpeedAndNeverJumps() {
     check(std::fabs(b.state().flowTime - 2.0f * a.state().flowTime) < 1e-3f, "uFlowTime runs at Speed's rate");
 }
 
+// A clock that has run for hours must still advance at a slow rate: one float ulp past 4096 s is
+// 0.000488 s, which swallows a frame's 0.0002 s step whole. The accumulators are doubles.
+void speedClockAdvancesAtASlowRateLateInASession() {
+    const float dt = 1.0f / 60.0f;
+    const float rate = 1.0f;
+    const float speed = 0.02f;
+    const int frames = 60 * 600;  // ten minutes
+    double clock = 5000.0;        // deep in the range where a float clock stalls
+    for (int k = 0; k < frames; ++k) clock = speedclock::advance(clock, speed, rate, dt, 7100.0f);
+    const double expected = 5000.0 + static_cast<double>(frames) * dt * speed * rate;
+    check(std::fabs(clock - expected) < 0.01, "a slow Speed late in a session advances at its true rate");
+    // A follower on a sound clock does the same.
+    speedclock::Follower f;
+    double src = 3000.0;
+    f.step(static_cast<float>(src), 0.02f, 7100.0f);
+    const double start = f.value;
+    for (int k = 0; k < frames; ++k) {
+        src += 0.016;
+        f.step(static_cast<float>(src), 0.02f, 7100.0f);
+    }
+    check(std::fabs((f.value - start) - 0.02 * 0.016 * frames) < 0.5 * 0.02 * 0.016 * frames,
+          "the follower keeps moving at a slow Speed late in a session");
+}
+
 void followerScalesASoundClockWithoutJumps() {
     using speedclock::Follower;
     Follower one;
@@ -1599,11 +1623,11 @@ void followerScalesASoundClockWithoutJumps() {
     check(std::fabs(one.value - source) < 1e-3f, "at Speed 1 the follower reads the source");
     check(std::fabs((two.value - 12.5f) - 2.0f * (source - 12.5f)) < 1e-3f, "at Speed 2 it advances twice as far");
     // The source wraps or restarts (a new track): the follower takes one small step, not a jump.
-    const float held = two.value;
+    const double held = two.value;
     two.step(0.01f, 2.0f, 7100.0f);
     check(two.value > held && two.value - held < 0.05f, "a source that steps back never jumps the follower");
     // Changing Speed moves nothing by itself.
-    const float at = one.value;
+    const double at = one.value;
     one.step(source, 1.5f, 7100.0f);
     check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
 }
@@ -2817,6 +2841,7 @@ int main() {
     flowTimeIsFlowPhaseAtSpeedOne();
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();
+    speedClockAdvancesAtASlowRateLateInASession();
     motionFieldDriftSpinIsBoundedAndContinuous();
     motionFieldReducedMotionScalesRatesOnce();
     motionFieldDriftWrapNeverPopsAStyle();

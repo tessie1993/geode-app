@@ -520,7 +520,10 @@ double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap
 }
 
 void geode_memory_trim(int android_level) {
-    geode::viz::SceneResidency::trimSignal().request(geode::viz::SceneResidency::trimForAndroidLevel(android_level));
+    const auto trim = geode::viz::SceneResidency::trimForAndroidLevel(android_level);
+    geode::viz::SceneResidency::trimSignal().request(trim);
+    // The signal is read inside a frame; a stage that draws none is told on its own thread.
+    if (trim != geode::viz::MemoryTrim::None) geode::api::trimStages();
 }
 
 void geode_pacer_resume(long long* state) {

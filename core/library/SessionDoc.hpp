@@ -39,4 +39,13 @@ SessionWrite sessionWrite(const SavedSession& session);
 // U+001F and ended by U+001E. Those two characters are dropped from the text.
 std::string sessionWire(const SavedSession& session);
 
+// Where the queue is when only that moved (session_position.json, beside session.json): the tick that keeps a
+// resume close writes this small text, and the queue is written only when it or the track changes.
+//   {"version":1,"index":n,"positionMs":ms}
+std::string sessionPositionWrite(int index, long long positionMs);
+
+// Moves `session` to the track and position `text` holds (the tick writes only these, so they are newer than the
+// queue file's). Anything unreadable changes nothing.
+void sessionApplyPosition(SavedSession& session, const std::string& text);
+
 }  // namespace geode::library

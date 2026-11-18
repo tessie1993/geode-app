@@ -69,6 +69,10 @@ namespace geode::viz {
 // The frame graph: scene pass -> trail -> liquid -> dive -> physics layers -> composite -> target.
 class Renderer {
 public:
+    // The scene clocks accumulate in double and wrap here, about every two hours. The wrap stays: what reaches
+    // the GPU is a highp float, whose step at 7100 s is already 0.0005 s, so a longer period would only coarsen
+    // uTime; a sin(uTime * k) jumps at the wrap unless k * 7100 is a whole number of turns (Births and uDrift
+    // are built to land on one). Moving the wrap needs a two-float uTime in the shaders, which changes them.
     static constexpr float kTimeWrapSeconds = 7100.0f;
 
     Renderer(AAssetManager* assets, std::string cacheDir);
@@ -559,7 +563,7 @@ private:
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;
     // Life's births in the composite run on this clock: Speed-integrated like a scene's uTime, wrapping with it.
-    float lifeClock_ = 0.0f;
+    double lifeClock_ = 0.0;  // double: a float clock stalls at a slow Speed late in a session
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;
@@ -575,7 +579,7 @@ private:
     size_t loggedResident_ = SIZE_MAX;
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
-    float timeSeconds_ = 0.0f;
+    double timeSeconds_ = 0.0;  // double, wrapped as one; cast to float where a scene or uniform takes it
     // The music's rate on the picture's clock this frame (sound::motionRate): 0 in silence.
     float musicRate_ = 0.0f;
     // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size

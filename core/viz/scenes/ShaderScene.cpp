@@ -84,7 +84,7 @@ void ShaderScene::resize(int width, int height) {
 void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     sound_.step(sound, dt);
     const SceneParams& p = params_;
-    shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
+    shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, static_cast<double>(kTimeWrapSeconds));
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt, p.speed);
@@ -169,7 +169,7 @@ void ShaderScene::draw(float timeSeconds) {
 
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
-    set1f(Uniform::uTime, shaderTime_);
+    set1f(Uniform::uTime, static_cast<float>(shaderTime_));
     set1f(Uniform::uZoom, p.zoom);
     set1f(Uniform::uRotation, rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
@@ -223,7 +223,7 @@ void ShaderScene::uploadParams() {
     // birth passes are all skipped.
     set1f(Uniform::uLife, p.life);
     {
-        const auto b = births::compute(shaderTime_, p.life);
+        const auto b = births::compute(static_cast<float>(shaderTime_), p.life);
         glUniform4fv(uniforms_.loc(Uniform::uBirths), uniforms_.arrayCount(Uniform::uBirths, 2 * births::kBirths), b.data());
     }
     set1f(Uniform::uPixelate, p.pixelate);
@@ -273,7 +273,7 @@ void ShaderScene::uploadMotion() {
     set1f(Uniform::uBreath, m.breath);
     set1f(Uniform::uFlowPhase, m.flowPhase);
     set1f(Uniform::uFlowTime, m.flowTime);
-    glUniform3f(uniforms_.loc(Uniform::uSoundTimeSped), soundTimeSped_[0].value, soundTimeSped_[1].value, soundTimeSped_[2].value);
+    glUniform3f(uniforms_.loc(Uniform::uSoundTimeSped), static_cast<float>(soundTimeSped_[0].value), static_cast<float>(soundTimeSped_[1].value), static_cast<float>(soundTimeSped_[2].value));
 
     // Legacy since wave three, held at their neutral constant until R08
     // deletes the readers: a spawn born once and never re-rolled, a direction

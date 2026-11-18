@@ -330,3 +330,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `arborGrow` runs one map call, not a 6-pass loop, while the grow controls and Life rest (`shaders/lib_arbor_field.glsl`).
 - 2026-11-18: The analysis thread runs at nice -2 on Android, one step below the stage thread (`core/sound/hop/AnalysisThread.cpp`).
 - 2026-11-18: Customize's search match for hand-placed controls asks native (`customize::matches`, `geode_customize_matches`) instead of a Kotlin substring test (`ui/CustomizeTabs.kt`, `core/api/geode_customize_rows_api.cpp`).
+- 2026-11-18: Deleted `ExportDspNative.kt` and `geode_export_dsp_jni.cpp` (its only function, `encoderAttempts`, had no Kotlin caller: `VideoExport` and `LoopRender` walk `output/EncoderLadder` natively); `geode_encoder_attempts` stays, tested by `core/tests/encoder_ladder_test.cpp`.

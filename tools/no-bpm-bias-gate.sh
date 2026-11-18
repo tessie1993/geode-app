@@ -12,6 +12,9 @@
 #   preferred  a preferred or favoured tempo (preferredBpm, preferenceOctaves, start_bpm)
 #   default    a default, fallback or assumed tempo (periodOrDefault, "fallback BPM", LEGACY_MORPH_BPM)
 #   literal    a BPM variable or field set to a number other than 0 (lastBpm_ = 93.0f)
+#   standin    a number put in for a missing or low tempo: bpm ?: 93f, bpm ?? 93, bpm || 93, bpm or 93,
+#              ${BPM:-93}, bpm > 0 ? bpm : 93, bpm <= 0 ? 93 : bpm, max(bpm, 60), maxOf(60f, bpm),
+#              bpm.coerceAtLeast(60f). Tests included.
 #   onetwenty  the old centre as a tempo anywhere, tests included: "120 BPM", bpm = 120, a beat of
 #              60.0 / 120.0 s or 0.5 s. A test plays other tempos (77, 93, 141, 174), so nothing
 #              passes because of a hidden pull to 120. A 120 that is no tempo (fps, Hz, ms) passes.
@@ -21,7 +24,7 @@
 #              (..., 120, ...)) and TapAlong's frame(t, phase, 120, ...). Any 120 among such a
 #              carrier's own arguments is read as its tempo: give a time there in other units.
 #
-# Usage: tools/no-bpm-bias-gate.sh [repo-root]. The first four shapes skip host tests (core/tests,
+# Usage: tools/no-bpm-bias-gate.sh [repo-root]. The default and literal shapes skip host tests (core/tests,
 # */src/test, androidTest) and tools/glslcheck, where a stimulus may set any tempo it plays. The
 # detector's search limits (Rhythm::kFastestBpm, kSlowestBpm) are limits, flat inside, and pass.
 # There is deliberately no override. If the gate is wrong about a line, reword the line.
@@ -50,15 +53,22 @@ carrier='([a-z_]*(song|groove)s?|clicks?|metronome|clockat|musicat|[a-z_]*(tempo
 args="[({]+([^;{}()]*[^0-9.a-z_])?$n120$end"
 onetwenty+="|\\b$carrier$args|\\b$carrier[[:space:]]+[a-z_][a-z0-9_]*(\\[[0-9]*\\])?([[:space:]]*=[[:space:]]*)?$args"
 onetwenty+="|\\.frame\\([^;,()]*,[^;,()]*,[[:space:]]*$n120$end"
+num='0*[1-9][0-9]*(\.[0-9]*)?f?'
+tv='(bpm|tempo)[a-z_]*'
+standin="$tv[]).)]*[[:space:]]*(\\?:|\\?\\?|\\|\\||[[:space:]]or)[[:space:]]*$num$end|\\\$\\{$tv:?-[[:space:]]*$num"
+standin+="|$tv[^;?]*[^?]\\?[^;?:]*:[[:space:]]*$num$end|$tv[^;?]*[^?]\\?[[:space:]]*$num[[:space:]]*:"
+standin+="|\\b(max|fmaxf?|maxof)[[:space:]]*(<[a-z ]+>)?[[:space:]]*\\(([^;()]*$tv[[:space:]]*,[[:space:]]*$num[[:space:]]*\\)|[[:space:]]*$num[[:space:]]*,[^;()]*$tv)"
+standin+="|$tv\\)?\\.coerceatleast\\([[:space:]]*$num"
 
 types=(--include='*.cpp' --include='*.hpp' --include='*.h' --include='*.inc' --include='*.kt' --include='*.kts'
        --include='*.glsl' --include='*.frag' --include='*.vert' --include='*.md' --include='*.py' --include='*.mjs'
        --include='*.js' --include='*.html' --include='*.txt' --include='*.milk' --include='*.patch' --include='*.sh'
-       --include='*.yml' --include='*.yaml' --include='*.json' --include='*.csv' --include='*.tsv')
+       --include='*.yml' --include='*.yaml' --include='*.json' --include='*.csv' --include='*.tsv'
+       --include='*.xml' --include='*.java' --include='*.toml' --include='*.cmake')
 
-bias=$(grep -rnEi "${types[@]}" -e "$prior" -e "$preferred" -e "$default" -e "$literal" "${paths[@]}" 2>/dev/null \
+bias=$(grep -rnEi "${types[@]}" -e "$default" -e "$literal" "${paths[@]}" 2>/dev/null \
     | grep -vE '^[^:]*/src/(test|androidTest)/|^(core/tests|tools/glslcheck)/' || true)
-centre=$(grep -rnEi "${types[@]}" -e "$onetwenty" "${paths[@]}" 2>/dev/null || true)
+centre=$(grep -rnEi "${types[@]}" -e "$prior" -e "$preferred" -e "$standin" -e "$onetwenty" "${paths[@]}" 2>/dev/null || true)
 
 hits=$(printf '%s\n%s\n' "$bias" "$centre" | sed '/^$/d' | sort -u \
     | grep -vE '^(tools/no-bpm-bias-gate\.sh|\.github/workflows/arch-map\.yml):' \

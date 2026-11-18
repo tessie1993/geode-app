@@ -5,7 +5,7 @@
 # Not a document: docs/privacy-policy.md, which PrivacyPolicyTest compares with the app's copy.
 # build-lint.yml and native-host-tests.yml skip their heavy job on "true"; arch-map.yml never skips.
 #
-# Usage: git diff --name-only <base> <head> | tools/ci-docs-only.sh
+# Usage: git diff --name-only --no-renames <base> <head> | tools/ci-docs-only.sh
 #        tools/ci-docs-only.sh --self-test
 set -euo pipefail
 

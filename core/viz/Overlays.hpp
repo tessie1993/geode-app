@@ -21,7 +21,7 @@ public:
     void recreate();
     void resize(int width, int height);
     void release();
-    void stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p);
+    void stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p, bool live);
 
 private:
     const ProgramLoader& loader_;

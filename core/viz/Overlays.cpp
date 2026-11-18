@@ -17,8 +17,8 @@ void Overlays::release() {
     flow_.reset();
 }
 
-void Overlays::stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
-    if (flow_) flow_->step(features, dt, p);
+void Overlays::stepFlow(const GeodeSoundFrame& features, float dt, const SceneParams& p, bool live) {
+    if (flow_) flow_->step(features, dt, p, live);
 }
 
 }  // namespace geode::viz

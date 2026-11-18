@@ -35,12 +35,13 @@ void FlowField::setGrid(int cells, bool macCormack) {
     if (cells > 0 && sim_.available()) sim_.applyResolution(cells, sim_.dyeRes);
 }
 
-void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParams& p) {
+void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParams& p, bool live) {
     if (!sim_.available()) return;
-    // The whole frame; FluidSim::step splits it into stable steps (#383). A stopped clock solves nothing: the
-    // liquid holds its picture then (LiquidPass::run), so a solve would be read by nobody. A push or whirlpool
-    // queued over no time is dropped, so a held swirl does not pile up kicks until the clock runs again.
-    const float simDt = math::frameSimDt(dt);
+    // The whole frame (live, up to math::kLiveMaxSubsteps steps); FluidSim::step splits it into stable steps
+    // (#383). A stopped clock solves nothing: the liquid holds its picture then (LiquidPass::run), so a solve
+    // would be read by nobody. A push or whirlpool queued over no time is dropped, so a held swirl does not pile
+    // up kicks until the clock runs again.
+    const float simDt = live ? math::liveFrameSimDt(dt) : math::frameSimDt(dt);
     if (!(simDt > 0.0f)) {
         sim_.dropSplats();
         return;
@@ -58,7 +59,8 @@ void FlowField::stepTouch(float dt, float dissipation) {
     if (!sim_.available()) return;
     sim_.curlStrength = 0.0f;
     sim_.velocityDissipation = std::max(dissipation, 0.0f);
-    sim_.step(math::frameSimDt(dt));
+    // Smear runs on live surfaces only (Renderer::stepSmear).
+    sim_.step(math::liveFrameSimDt(dt));
 }
 
 }  // namespace geode::viz::fluid

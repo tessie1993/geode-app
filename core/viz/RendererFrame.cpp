@@ -739,7 +739,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
-    overlays_.stepFlow(trimmedSound(p), dt, fp);
+    overlays_.stepFlow(trimmedSound(p), dt, fp, !offscreen_.load(std::memory_order_relaxed));
 }
 
 GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
@@ -863,6 +863,7 @@ GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuin
     // The music's clock, as every simulation steps: silence holds the layers, an export steps exactly 1/fps.
     f.dt = dt;
     f.wallDt = wallDt;
+    f.live = !offscreen_.load(std::memory_order_relaxed);
     f.time = timeSeconds_;
     f.zeroTex = compositePass_.zeroTex();
     f.quadVao = quadVao_;

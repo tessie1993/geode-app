@@ -258,6 +258,8 @@ internal class ExportController(
             }
     }
 
+    private fun mixClip(uri: Uri) = MixClip(uri, uri.lastPathSegment.orEmpty().substringAfterLast('/'))
+
     private suspend fun renderBatchTrack(
         track: BatchTrack,
         aspect: ExportAspect,
@@ -523,13 +525,9 @@ internal class ExportController(
                 try {
                     val audio =
                         if (audioClips.isEmpty()) {
-                            LongFormAudio.SingleTrack(MixClip(trackUri, trackUri.lastPathSegment.orEmpty().substringAfterLast('/')))
+                            LongFormAudio.SingleTrack(mixClip(trackUri))
                         } else {
-                            LongFormAudio.Mix(
-                                audioClips.map { clip ->
-                                    MixClip(clip, clip.lastPathSegment.orEmpty().substringAfterLast('/'))
-                                },
-                            )
+                            LongFormAudio.Mix(audioClips.map(::mixClip))
                         }
                     val name = "beatrealms_loop_${System.currentTimeMillis()}.mp4"
                     val extended =

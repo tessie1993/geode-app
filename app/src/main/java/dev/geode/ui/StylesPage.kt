@@ -49,9 +49,9 @@ import dev.geode.R
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.geodeContainer
 import dev.geode.model.MilkFile
+import dev.geode.model.StyleCatalogue
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.stage.StageView

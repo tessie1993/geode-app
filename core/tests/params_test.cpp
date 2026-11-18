@@ -304,6 +304,16 @@ void aNamedEditMovesOneSlotOfTheFrame() {
     check(wire(edited)[retiredSlot] == before[retiredSlot], "a refused edit changes nothing");
 }
 
+// What geode_params_get_int and _get_flag make of a wire float.
+void aWireFloatReadsAsAnIntOrAFlag() {
+    check(SceneParams::asInt(6.6f) == 7 && SceneParams::asInt(-2.5f) == -3 && SceneParams::asInt(3.0f) == 3, "an int is the nearest");
+    check(SceneParams::asInt(std::numeric_limits<float>::quiet_NaN()) == 0, "NaN is 0");
+    check(SceneParams::asInt(1e30f) > 0 && SceneParams::asInt(-1e30f) < 0, "a huge float is held to the int range");
+    check(SceneParams::asFlag(1.0f) && SceneParams::asFlag(0.6f), "above half is on");
+    check(!SceneParams::asFlag(0.5f) && !SceneParams::asFlag(0.0f), "half and below is off");
+    check(!SceneParams::asFlag(std::numeric_limits<float>::quiet_NaN()), "NaN is off");
+}
+
 }  // namespace
 
 int main() {
@@ -324,6 +334,7 @@ int main() {
     overflowingNumbersReadAsTheDefaults();
     aRetiredSlotReadsAsItsDefault();
     aNamedEditMovesOneSlotOfTheFrame();
+    aWireFloatReadsAsAnIntOrAFlag();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;
 }

@@ -1,7 +1,7 @@
 package dev.geode.data
 
-import dev.geode.engine.bridge.SceneParams
 import dev.geode.engine.bridge.VizNative
+import dev.geode.model.SceneParams
 
 /**
  * The look snapshot: everything the user set that decides what a renderer draws, as one immutable value

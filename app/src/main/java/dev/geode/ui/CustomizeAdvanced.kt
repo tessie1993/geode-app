@@ -48,12 +48,12 @@ import dev.geode.RingLog
 import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
-import dev.geode.engine.bridge.ParamScope
 import dev.geode.engine.bridge.ParamsNative
-import dev.geode.engine.bridge.SceneParams
-import dev.geode.engine.bridge.StyleCatalogue
 import dev.geode.engine.bridge.VizNative
 import dev.geode.geodeContainer
+import dev.geode.model.ParamScope
+import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds

@@ -182,6 +182,51 @@ void playlistWritesAsTheKotlinDid() {
     check(autoVisualsEntriesToJson({}) == "[]", "empty");
 }
 
+const char* resolveC(const char* id) { return std::string(id) == "old_silk" ? "silk_a" : id; }
+
+void autoVisualsThroughTheAbi() {
+    geode_auto_playlist* p = geode_auto_playlist_read(
+        R"([{"sceneId":"old_silk","label":"Silk","presetName":"Calm"},{"sceneId":"fluid_a","milkPath":"/m/a.milk"},"x"])", resolveC);
+    check(geode_auto_playlist_count(p) == 2, "abi: two entries");
+    auto field = [&](int i, int f) {
+        const char* v = geode_auto_playlist_field(p, i, f);
+        return v ? std::string(v) : std::string("<none>");
+    };
+    check(field(0, 0) == "silk_a" && field(0, 1) == "Calm" && field(0, 2) == "<none>" && field(0, 3) == "Silk", "abi: entry 0");
+    check(field(1, 0) == "fluid_a" && field(1, 1) == "<none>" && field(1, 2) == "/m/a.milk" && field(1, 3) == "fluid_a", "abi: entry 1");
+    check(field(2, 0) == "<none>" && field(0, 4) == "<none>" && field(-1, 0) == "<none>", "abi: out of range");
+    geode_auto_playlist_destroy(p);
+    geode_auto_playlist* none = geode_auto_playlist_read(nullptr, resolveC);
+    check(geode_auto_playlist_count(none) == 0, "abi: no text, no entries");
+    geode_auto_playlist_destroy(none);
+    geode_auto_playlist* kept = geode_auto_playlist_read(R"([{"sceneId":"old_silk"}])", nullptr);
+    check(geode_auto_playlist_count(kept) == 1 && std::string(geode_auto_playlist_field(kept, 0, 0)) == "old_silk", "abi: no resolver");
+    geode_auto_playlist_destroy(kept);
+
+    const char* fields[] = {"silk_a", "Calm", nullptr, "Silk \"A\"", "fluid_a", nullptr, "/m/a.milk", "F"};
+    char json[256];
+    const int n = geode_auto_playlist_to_json(fields, 2, json, static_cast<int>(sizeof json));
+    check(n < static_cast<int>(sizeof json) &&
+              std::string(json) ==
+                  R"([{"sceneId":"silk_a","label":"Silk \"A\"","presetName":"Calm"},{"sceneId":"fluid_a","label":"F","milkPath":"\/m\/a.milk"}])",
+          "abi: written as the Kotlin did");
+    check(geode_auto_playlist_to_json(nullptr, 0, json, static_cast<int>(sizeof json)) == 2 && std::string(json) == "[]", "abi: empty");
+
+    const int state[GEODE_AUTO_SAVED_FIELDS] = {1, 40, 1, 0, 0, 1, 25};
+    int out[GEODE_AUTO_SAVED_FIELDS] = {};
+    const unsigned char none_stored[GEODE_AUTO_SAVED_FIELDS] = {};
+    geode_auto_visuals_apply(state, nullptr, none_stored, 1, out);
+    check(out[GEODE_AUTO_SAVED_RANDOM_ON] == 0, "abi: the timer always starts off");
+    check(out[1] == 40 && out[2] == 1 && out[3] == 0 && out[4] == 0 && out[5] == 1 && out[6] == 25, "abi: the state kept");
+    geode_auto_visuals_apply(state, nullptr, none_stored, 0, out);
+    check(out[GEODE_AUTO_SAVED_PLAYLIST_ON] == 0, "abi: no entries, no playlist");
+    const int stored[GEODE_AUTO_SAVED_FIELDS] = {1, 2, 0, 1, 1, 0, 9999};
+    const unsigned char all[GEODE_AUTO_SAVED_FIELDS] = {1, 1, 1, 1, 1, 1, 1};
+    geode_auto_visuals_apply(state, stored, all, 3, out);
+    check(out[0] == 0 && out[1] == 5 && out[2] == 0 && out[3] == 1 && out[4] == 1 && out[5] == 0 && out[6] == 300,
+          "abi: stored values win, the timer stays off, intervals clamp");
+}
+
 // Export fps
 
 void offeredRates() {
@@ -274,6 +319,7 @@ int main() {
     jsonRejectionMatchesOptInt();
     exportFpsThroughTheAbi();
     behaviourThroughTheAbi();
+    autoVisualsThroughTheAbi();
     if (failures == 0) std::printf("shell_prefs_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

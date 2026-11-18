@@ -89,6 +89,37 @@ GEODE_API int geode_opened_audio_media_id(const unsigned char* random16, char* o
 /* 1 when a queue id marks an opened file (NULL: no id). */
 GEODE_API int geode_opened_audio_is_opened(const char* media_id);
 
+/* Auto's remembered shape as the prefs keep it (shell/AutoVisuals). The visual playlist crosses as
+   GEODE_AUTO_ENTRY_FIELDS texts per entry: scene id, preset name, milk path, label; a NULL preset name or milk path
+   is none. The scalar settings cross as GEODE_AUTO_SAVED_FIELDS ints in this order: */
+#define GEODE_AUTO_ENTRY_FIELDS 4
+#define GEODE_AUTO_SAVED_RANDOM_ON 0       /* the timer (never stored: it always reads as off) */
+#define GEODE_AUTO_SAVED_RANDOM_INTERVAL 1 /* s */
+#define GEODE_AUTO_SAVED_RANDOM_STYLES 2
+#define GEODE_AUTO_SAVED_RANDOM_PRESETS 3
+#define GEODE_AUTO_SAVED_RANDOM_MILK 4
+#define GEODE_AUTO_SAVED_PLAYLIST_ON 5
+#define GEODE_AUTO_SAVED_PLAYLIST_INTERVAL 6 /* s */
+#define GEODE_AUTO_SAVED_FIELDS 7
+typedef struct geode_auto_playlist geode_auto_playlist;
+/* The entries a saved playlist text holds, read as org.json reads it, each scene id put through resolve (the
+   catalogue's, geode_catalogue_resolve; NULL keeps it). NULL json is no entries. Never NULL. */
+GEODE_API geode_auto_playlist* geode_auto_playlist_read(const char* json, const char* (*resolve)(const char*));
+GEODE_API int                  geode_auto_playlist_count(const geode_auto_playlist*);
+/* Field (0 .. GEODE_AUTO_ENTRY_FIELDS - 1) of entry i; NULL for a preset name or milk path that is none, or out of
+   range. Valid until the playlist is destroyed. */
+GEODE_API const char*          geode_auto_playlist_field(const geode_auto_playlist*, int i, int field);
+GEODE_API void                 geode_auto_playlist_destroy(geode_auto_playlist*);
+/* The playlist as the prefs keep it, a JSON array as org.json wrote it, from count entries' fields
+   (GEODE_AUTO_ENTRY_FIELDS * count texts), as text-out. */
+GEODE_API int geode_auto_playlist_to_json(const char* const* fields, int count, char* out, int capacity);
+/* The saved settings read over the state: state the GEODE_AUTO_SAVED_FIELDS now, stored what the prefs hold where
+   has is 1, playlist_count how many entries the playlist has once read. Writes the fields read into out: the
+   timer off, an absent value the state's, the playlist on only when it is stored on (or was on) and has entries,
+   both intervals held to native's range. */
+GEODE_API void geode_auto_visuals_apply(const int* state, const int* stored, const unsigned char* has, int playlist_count,
+                                        int* out);
+
 #ifdef __cplusplus
 }
 #endif

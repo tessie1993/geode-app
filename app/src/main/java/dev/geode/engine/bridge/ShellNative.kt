@@ -148,4 +148,40 @@ object ShellNative {
     const val OPENED_NOT_OURS: Int = 0
     const val OPENED_STALE: Int = 1
     const val OPENED_OPEN: Int = 2
+
+    /**
+     * Auto's remembered shape as the prefs keep it (core/shell/AutoVisuals). The entries a saved playlist text
+     * holds, each scene id resolved by the catalogue, as [AUTO_ENTRY_FIELDS] texts per entry: scene id, preset
+     * name, milk path, label; a null preset name or milk path is none. A null [json] is no entries
+     * (`geode_auto_playlist_read`).
+     */
+    external fun autoPlaylistRead(json: String?): Array<String?>
+
+    /** The playlist as the prefs keep it, from [AUTO_ENTRY_FIELDS] [fields] per entry (`geode_auto_playlist_to_json`). */
+    external fun autoPlaylistToJson(fields: Array<String?>): String
+
+    /**
+     * The saved settings read over the state: [state] the [AUTO_SAVED_FIELDS] now, [stored] what the prefs hold
+     * where [has], [playlistCount] the playlist's entries once read. The fields read: the timer off, an absent
+     * value the state's, the playlist on only with entries, the intervals held to range (`geode_auto_visuals_apply`).
+     */
+    external fun autoVisualsApply(
+        state: IntArray,
+        stored: IntArray,
+        has: BooleanArray,
+        playlistCount: Int,
+    ): IntArray
+
+    /** Texts per playlist entry in [autoPlaylistRead] and [autoPlaylistToJson] (`GEODE_AUTO_ENTRY_FIELDS`). */
+    const val AUTO_ENTRY_FIELDS: Int = 4
+
+    /** [autoVisualsApply]'s fields, in order (`GEODE_AUTO_SAVED_*`); the booleans are 0 or 1. */
+    const val AUTO_SAVED_RANDOM_ON: Int = 0
+    const val AUTO_SAVED_RANDOM_INTERVAL: Int = 1
+    const val AUTO_SAVED_RANDOM_STYLES: Int = 2
+    const val AUTO_SAVED_RANDOM_PRESETS: Int = 3
+    const val AUTO_SAVED_RANDOM_MILK: Int = 4
+    const val AUTO_SAVED_PLAYLIST_ON: Int = 5
+    const val AUTO_SAVED_PLAYLIST_INTERVAL: Int = 6
+    const val AUTO_SAVED_FIELDS: Int = 7
 }

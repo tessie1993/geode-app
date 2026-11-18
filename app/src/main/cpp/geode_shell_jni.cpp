@@ -12,23 +12,26 @@ namespace {
 using geode::jni::Utf8Chars;
 using geode::jni::utf8Lines;
 
-// A Java String[] as the standard UTF-8 texts and pointers the C ABI takes. Not ok() when an entry could not be
-// read (out of memory, with the exception pending for the caller's Java frame).
+// A Java String[] as the standard UTF-8 texts and pointers the C ABI takes; a null entry is NULL when keepNull,
+// else empty. Not ok() when an entry could not be read (out of memory, with the exception pending for the
+// caller's Java frame).
 class Ids {
 public:
-    Ids(JNIEnv* env, jobjectArray array) {
+    Ids(JNIEnv* env, jobjectArray array, bool keepNull = false) {
         if (env->ExceptionCheck()) {
             ok_ = false;
             return;
         }
         const jsize count = array ? env->GetArrayLength(array) : 0;
         texts_.reserve(static_cast<size_t>(count));
+        std::vector<bool> absent;
         for (jsize i = 0; i < count; ++i) {
             auto* entry = static_cast<jstring>(env->GetObjectArrayElement(array, i));
             {
                 const Utf8Chars chars(env, entry);
                 if (entry && !chars.get()) ok_ = false;
                 texts_.emplace_back(chars.get() ? chars.get() : "");
+                absent.push_back(keepNull && !entry);
             }
             env->DeleteLocalRef(entry);
             if (!ok_ || env->ExceptionCheck()) {
@@ -36,7 +39,7 @@ public:
                 return;
             }
         }
-        for (const std::string& text : texts_) pointers_.push_back(text.c_str());
+        for (size_t i = 0; i < texts_.size(); ++i) pointers_.push_back(absent[i] ? nullptr : texts_[i].c_str());
     }
     Ids(const Ids&) = delete;
     Ids& operator=(const Ids&) = delete;
@@ -303,6 +306,55 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_ShellNative_openedAudioI
     const Utf16Chars chars(env, mediaId);
     if (env->ExceptionCheck()) return JNI_FALSE;
     return geode_opened_audio_is_opened(chars.get()) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jobjectArray JNICALL Java_dev_geode_engine_bridge_ShellNative_autoPlaylistRead(JNIEnv* env, jobject, jstring json) {
+    const Utf8Chars chars(env, json);
+    if (unread(json, chars)) return nullptr;
+    geode_auto_playlist* playlist = geode_auto_playlist_read(chars.get(), &geode_catalogue_resolve);
+    const int count = geode_auto_playlist_count(playlist);
+    jclass type = env->FindClass("java/lang/String");
+    jobjectArray out = type ? env->NewObjectArray(count * GEODE_AUTO_ENTRY_FIELDS, type, nullptr) : nullptr;
+    for (int i = 0; out && i < count; ++i) {
+        for (int f = 0; f < GEODE_AUTO_ENTRY_FIELDS; ++f) {
+            const char* field = geode_auto_playlist_field(playlist, i, f);
+            if (!field) continue;
+            jstring text = geode::jni::utf8String(env, field);
+            if (!text) {
+                out = nullptr;
+                break;
+            }
+            env->SetObjectArrayElement(out, i * GEODE_AUTO_ENTRY_FIELDS + f, text);
+            env->DeleteLocalRef(text);
+        }
+    }
+    geode_auto_playlist_destroy(playlist);
+    env->DeleteLocalRef(type);
+    return out;
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_ShellNative_autoPlaylistToJson(JNIEnv* env, jobject,
+                                                                                   jobjectArray fields) {
+    const Ids texts(env, fields, true);
+    if (!texts.ok()) return nullptr;
+    const int count = texts.count() / GEODE_AUTO_ENTRY_FIELDS;
+    return textOf(env, [&](char* out, int capacity) { return geode_auto_playlist_to_json(texts.get(), count, out, capacity); });
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_ShellNative_autoVisualsApply(JNIEnv* env, jobject, jintArray state,
+                                                                                  jintArray stored, jbooleanArray has,
+                                                                                  jint playlistCount) {
+    const std::vector<int> now = intsIn(env, state, GEODE_AUTO_SAVED_FIELDS);
+    const std::vector<int> saved = intsIn(env, stored, GEODE_AUTO_SAVED_FIELDS);
+    unsigned char present[GEODE_AUTO_SAVED_FIELDS] = {};
+    const jsize n = has ? env->GetArrayLength(has) : 0;
+    if (n > 0) {
+        env->GetBooleanArrayRegion(has, 0, n < GEODE_AUTO_SAVED_FIELDS ? n : GEODE_AUTO_SAVED_FIELDS,
+                                   reinterpret_cast<jboolean*>(present));
+    }
+    std::vector<int> read(GEODE_AUTO_SAVED_FIELDS);
+    geode_auto_visuals_apply(now.data(), saved.data(), present, playlistCount, read.data());
+    return intsOf(env, read);
 }
 
 }  // extern "C"

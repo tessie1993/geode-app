@@ -3,12 +3,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "api/geode_text_out.hpp"
+#include "shell/AutoVisuals.hpp"
 #include "shell/Behaviour.hpp"
 #include "shell/ExportFps.hpp"
 #include "shell/OpenedAudio.hpp"
@@ -16,6 +18,10 @@
 #include "shell/StyleShelf.hpp"
 
 namespace shell = geode::shell;
+
+struct geode_auto_playlist {
+    std::vector<shell::PlaylistEntry> entries;
+};
 
 namespace {
 
@@ -173,5 +179,73 @@ int geode_opened_audio_media_id(const unsigned char* random16, char* out, int ca
 }
 
 int geode_opened_audio_is_opened(const char* media_id) { return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0; }
+
+geode_auto_playlist* geode_auto_playlist_read(const char* json, const char* (*resolve)(const char*)) {
+    auto* playlist = new geode_auto_playlist;
+    if (!json) return playlist;
+    playlist->entries = shell::autoVisualsEntriesFromJson(json, [resolve](const std::string& id) {
+        const char* resolved = resolve ? resolve(id.c_str()) : nullptr;
+        return resolved ? std::string(resolved) : id;
+    });
+    return playlist;
+}
+
+int geode_auto_playlist_count(const geode_auto_playlist* playlist) {
+    return playlist ? static_cast<int>(playlist->entries.size()) : 0;
+}
+
+const char* geode_auto_playlist_field(const geode_auto_playlist* playlist, int i, int field) {
+    if (!playlist || i < 0 || i >= static_cast<int>(playlist->entries.size())) return nullptr;
+    const shell::PlaylistEntry& e = playlist->entries[static_cast<size_t>(i)];
+    switch (field) {
+        case 0: return e.sceneId.c_str();
+        case 1: return e.presetName ? e.presetName->c_str() : nullptr;
+        case 2: return e.milkPath ? e.milkPath->c_str() : nullptr;
+        case 3: return e.label.c_str();
+        default: return nullptr;
+    }
+}
+
+void geode_auto_playlist_destroy(geode_auto_playlist* playlist) { delete playlist; }
+
+int geode_auto_playlist_to_json(const char* const* fields, int count, char* out, int capacity) {
+    std::vector<shell::PlaylistEntry> entries;
+    for (int i = 0; fields && i < count; ++i) {
+        const char* const* f = fields + static_cast<std::ptrdiff_t>(i) * GEODE_AUTO_ENTRY_FIELDS;
+        entries.push_back({f[0] ? f[0] : "", textOf(f[1]), textOf(f[2]), f[3] ? f[3] : ""});
+    }
+    return geode::api::textOut(shell::autoVisualsEntriesToJson(entries), out, capacity);
+}
+
+void geode_auto_visuals_apply(const int* state, const int* stored, const unsigned char* has, int playlist_count, int* out) {
+    if (!state || !out) return;
+    shell::AutoVisualsState now;
+    now.randomEnabled = state[GEODE_AUTO_SAVED_RANDOM_ON] != 0;
+    now.randomIntervalSec = state[GEODE_AUTO_SAVED_RANDOM_INTERVAL];
+    now.randomIncludeStyles = state[GEODE_AUTO_SAVED_RANDOM_STYLES] != 0;
+    now.randomIncludePresets = state[GEODE_AUTO_SAVED_RANDOM_PRESETS] != 0;
+    now.randomIncludeMilk = state[GEODE_AUTO_SAVED_RANDOM_MILK] != 0;
+    now.playlistEnabled = state[GEODE_AUTO_SAVED_PLAYLIST_ON] != 0;
+    now.playlistIntervalSec = state[GEODE_AUTO_SAVED_PLAYLIST_INTERVAL];
+    // Only the playlist's size takes part in the rules here; its entries are read by geode_auto_playlist_read.
+    now.playlist.resize(static_cast<size_t>(std::max(playlist_count, 0)));
+    auto saved = [&](int k) { return stored && has && has[k] != 0 ? std::optional<int>(stored[k]) : std::nullopt; };
+    auto flag = [&](int k) { return saved(k) ? std::optional<bool>(*saved(k) != 0) : std::nullopt; };
+    shell::AutoVisualsStored st;
+    st.randomIntervalSec = saved(GEODE_AUTO_SAVED_RANDOM_INTERVAL);
+    st.randomIncludeStyles = flag(GEODE_AUTO_SAVED_RANDOM_STYLES);
+    st.randomIncludePresets = flag(GEODE_AUTO_SAVED_RANDOM_PRESETS);
+    st.randomIncludeMilk = flag(GEODE_AUTO_SAVED_RANDOM_MILK);
+    st.playlistEnabled = flag(GEODE_AUTO_SAVED_PLAYLIST_ON);
+    st.playlistIntervalSec = saved(GEODE_AUTO_SAVED_PLAYLIST_INTERVAL);
+    const shell::AutoVisualsState read = shell::autoVisualsApply(now, st, [](const std::string& id) { return id; });
+    out[GEODE_AUTO_SAVED_RANDOM_ON] = read.randomEnabled ? 1 : 0;
+    out[GEODE_AUTO_SAVED_RANDOM_INTERVAL] = read.randomIntervalSec;
+    out[GEODE_AUTO_SAVED_RANDOM_STYLES] = read.randomIncludeStyles ? 1 : 0;
+    out[GEODE_AUTO_SAVED_RANDOM_PRESETS] = read.randomIncludePresets ? 1 : 0;
+    out[GEODE_AUTO_SAVED_RANDOM_MILK] = read.randomIncludeMilk ? 1 : 0;
+    out[GEODE_AUTO_SAVED_PLAYLIST_ON] = read.playlistEnabled ? 1 : 0;
+    out[GEODE_AUTO_SAVED_PLAYLIST_INTERVAL] = read.playlistIntervalSec;
+}
 
 }  // extern "C"

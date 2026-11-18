@@ -47,6 +47,12 @@ struct BufferInfo {
     uint32_t flags = 0;
 };
 
+// A sample out of an encoder that only a broken codec hands over: a negative size, or bytes with no buffer or more
+// bytes than the buffer holds. A null buffer holding nothing (an end-of-stream marker often is one) is not.
+inline bool brokenSample(const BufferInfo& info, const uint8_t* data, size_t capacity) {
+    return info.size < 0 || (info.size > 0 && (!data || static_cast<size_t>(info.size) > capacity));
+}
+
 inline constexpr char kMimeAvc[] = "video/avc";
 inline constexpr char kMimeAac[] = "audio/mp4a-latm";
 // MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface: the encoder reads its input surface.

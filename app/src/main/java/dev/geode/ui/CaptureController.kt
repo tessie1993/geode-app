@@ -5,8 +5,10 @@ import android.app.Application
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import androidx.core.content.ContextCompat
+import dev.geode.audio.AudioBus
 import dev.geode.audio.CaptureFailure
 import dev.geode.audio.NowPlayingBridge
+import dev.geode.audio.OutputMixCapture
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
 import dev.geode.cast.CastService
@@ -145,7 +147,7 @@ internal class CaptureController(
                 .collect { projection ->
                     if (projection != null) {
                         startPlaybackCapture(projection)
-                    } else if (_externalAudio.value.active) {
+                    } else if (_externalAudio.value.active && !deviceMix.running) {
                         playbackCapture.stop()
                         host.resetSound(!externalAudioOwnsRing())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
@@ -204,8 +206,30 @@ internal class CaptureController(
     fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(application, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
-    fun noteExternalAudioConsentPending() {
-        _externalAudio.update { it.copy(awaitingConsent = true, failure = null) }
+    /**
+     * Hears whatever the phone is playing, through its output mix: no consent dialog and no foreground service,
+     * only the microphone permission Android asks of anything that reads the mix. Coarser than the player's
+     * tap (see [OutputMixCapture]). Null when it is running, else why not.
+     */
+    fun startDeviceAudio(): CaptureFailure? {
+        val failure =
+            when {
+                !hasMicPermission() -> CaptureFailure.PERMISSION
+                deviceMix.start(application) -> null
+                else -> CaptureFailure.UNAVAILABLE
+            }
+        if (failure == null) {
+            host.pausePlayback()
+            AudioBus.deviceInput = deviceMix.soundInput
+        }
+        _externalAudio.update { it.copy(active = failure == null, awaitingConsent = false, failure = failure, refusedByApp = false) }
+        return failure
+    }
+
+    /** The stage goes back to the player's ring before the mix stops being written. */
+    private fun stopDeviceAudio() {
+        AudioBus.deviceInput = 0L
+        deviceMix.stop()
     }
 
     fun noteExternalAudioConsentDenied() {
@@ -238,6 +262,7 @@ internal class CaptureController(
     }
 
     fun stopExternalAudio() {
+        stopDeviceAudio()
         playbackCapture.stop()
         host.resetSound(!externalAudioOwnsRing())
         PlaybackCaptureService.stop(application)
@@ -275,7 +300,7 @@ internal class CaptureController(
             val refused = playbackCapture.active && playbackCapture.quiet && (now?.playing ?: false)
             _externalAudio.update {
                 it.copy(
-                    active = playbackCapture.active,
+                    active = playbackCapture.active || deviceMix.running,
                     nowPlaying = now,
                     hasSessionAccess = access,
                     refusedByApp = refused,
@@ -294,6 +319,11 @@ internal class CaptureController(
         host.setMicReactivePref(false)
     }
 
+    private companion object {
+        /** One for the process: its ring is read by the stage's drawing thread, so it is never freed. */
+        val deviceMix = OutputMixCapture()
+    }
+
     fun shutdown() {
         stopMic()
         // Stop the pump on the pump's own state, not the UI mirror of it. After this the owning
@@ -301,6 +331,7 @@ internal class CaptureController(
         // a pump left running here keeps an AudioRecord and its reader thread alive, writing into
         // a released playback session, for the rest of the process.
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
+        stopDeviceAudio()
         // The playback session outlives this one: its tap must not stay shut out of its own ring.
         host.resetSound(playerOwnsRing = true)
     }

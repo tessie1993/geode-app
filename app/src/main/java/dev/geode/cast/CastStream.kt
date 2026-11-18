@@ -240,7 +240,7 @@ internal class CastStream(
                 if (!fromStage && tee != 0L && CastNative.castTeeAwaitStage(stageDraws, fallback != null, now - teeOpenedNs)) {
                     // The stage is on screen and its first copy is coming (a new surface stages its scene over
                     // several frames): wait for it rather than have a second renderer show another visual first.
-                    CastNative.castEncoderPump(encoder, AudioBus.soundInput, PerfNative.frameClockAudioUntilUs(clock))
+                    CastNative.castEncoderPump(encoder, AudioBus.heard, PerfNative.frameClockAudioUntilUs(clock))
                     continue
                 }
                 if (!fromStage) {
@@ -255,7 +255,7 @@ internal class CastStream(
                 }
                 out.setPresentationTimeNs(ptsNs)
                 out.swapBuffers()
-                CastNative.castEncoderPump(encoder, AudioBus.soundInput, PerfNative.frameClockAudioUntilUs(clock))
+                CastNative.castEncoderPump(encoder, AudioBus.heard, PerfNative.frameClockAudioUntilUs(clock))
             }
         } finally {
             CastMirror.setStreaming(false)

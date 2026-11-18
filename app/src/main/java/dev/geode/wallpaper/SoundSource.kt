@@ -8,6 +8,7 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import dev.geode.audio.AudioBus
+import dev.geode.audio.OutputMixCapture
 import dev.geode.engine.bridge.IngestNative
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.geodeContainer

@@ -1,4 +1,4 @@
-package dev.geode.wallpaper
+package dev.geode.audio
 
 import android.Manifest
 import android.content.Context
@@ -9,7 +9,8 @@ import dev.geode.RingLog
 import dev.geode.engine.bridge.IngestNative
 
 /**
- * Whatever any app is playing, as a native ring the wallpaper's renderer can hear.
+ * Whatever any app is playing, as a native ring a renderer can hear: the app's "hear other apps" and the
+ * wallpaper both use it.
  *
  * The app's own capture path (`audio/PlaybackCaptureService`) needs a MediaProjection consent
  * and a foreground service, which a wallpaper can neither ask for nor keep running. A
@@ -69,6 +70,6 @@ class OutputMixCapture {
     }
 
     private companion object {
-        const val TAG = "WallpaperMix"
+        const val TAG = "OutputMix"
     }
 }

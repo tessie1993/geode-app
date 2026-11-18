@@ -54,7 +54,7 @@ internal class CastFallback(
      */
     fun draw() {
         val fps = CastStream.FPS.toFloat()
-        val events = viz.frame(AudioBus.soundInput, fps, fps)
+        val events = viz.frame(AudioBus.heard, fps, fps)
         if (events and StageNative.FRAME_MILK_LOADED != 0) {
             viz.takeMilkPresetLoaded()?.let { if (MilkNative.milkMemoryLoaded(it)) MilkPathPrefs.save(prefs, it) }
         }

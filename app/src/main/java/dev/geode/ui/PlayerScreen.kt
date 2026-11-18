@@ -807,39 +807,16 @@ private fun QuickActions(
     canShuffle: Boolean,
     contentPadding: PaddingValues,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     // Once Android stops showing the dialog, request() opens the app's Settings page instead, so
     // the button never silently does nothing.
     val micPermission =
         rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) { viewModel.setMicEnabled(true) }
-    val projectionLauncher =
-        androidx.activity.compose.rememberLauncherForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts
-                .StartActivityForResult(),
-        ) { result ->
-            val data = result.data
-            if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
-                dev.geode.audio.PlaybackCaptureService
-                    .start(context, result.resultCode, data)
-            } else {
-                viewModel.noteExternalAudioConsentDenied()
-            }
-        }
     val capturePermissions =
         androidx.activity.compose.rememberLauncherForActivityResult(
             androidx.activity.result.contract.ActivityResultContracts
                 .RequestMultiplePermissions(),
-        ) { granted ->
-            if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
-                viewModel.noteExternalAudioConsentPending()
-                projectionLauncher.launch(
-                    context
-                        .getSystemService(android.media.projection.MediaProjectionManager::class.java)
-                        .createScreenCaptureIntent(),
-                )
-            } else {
-                viewModel.noteExternalAudioConsentDenied()
-            }
+        ) { _ ->
+            viewModel.startDeviceAudio()
         }
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
@@ -872,7 +849,6 @@ private fun QuickActions(
                     capturePermissions.launch(
                         arrayOf(
                             android.Manifest.permission.RECORD_AUDIO,
-                            android.Manifest.permission.POST_NOTIFICATIONS,
                         ),
                     )
                 }

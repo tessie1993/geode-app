@@ -205,7 +205,7 @@ Cast
 
 Record, wallpaper, viz, playback
 - `wallpaper/VisualizerWallpaperService.kt` (472): its own GLSurfaceView subclass and FramePacer; `VisualizerDreamService.kt` (352); `WallpaperRenderer.kt` (36).
-- `wallpaper/OutputMixCapture.kt` (126): `Visualizer` capture into the ring; `SoundSource.kt` (148); `WallpaperRunState.kt` (83).
+- `audio/OutputMixCapture.kt` (126): `Visualizer` capture into the ring; `SoundSource.kt` (148); `WallpaperRunState.kt` (83).
 - `viz/BackgroundImage.kt` (119): decode and crop on a worker.
 - `playback/PlaybackEngine.kt` (301), `ReplayGain.kt` (92), `SleepTimer.kt` (126), `TrackCrossfade.kt` (52), `AutoDirectorFeed.kt` (77): hand targets to native; `PlaybackQueue` and `QueueOps` are pure queue rules.
 

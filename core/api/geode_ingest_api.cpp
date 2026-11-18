@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -69,6 +70,9 @@ const ProcessRings& processRings() {
     return rings;
 }
 
+// A playback session holds the player's ring (geode_pcm_ring_set_live).
+std::atomic<bool> gPlayerLive{false};
+
 }  // namespace
 
 struct geode_aiff {
@@ -121,6 +125,12 @@ geode_pcm_ring* geode_pcm_ring_shared(int kind) {
         // The first ask could not lock the layer's mutex: nothing was kept, and the next ask tries again.
         return nullptr;
     }
+}
+
+void geode_pcm_ring_set_live(int on) { gPlayerLive.store(on != 0, std::memory_order_release); }
+
+geode_pcm_ring* geode_pcm_ring_live(void) {
+    return gPlayerLive.load(std::memory_order_acquire) ? geode_pcm_ring_shared(GEODE_PCM_RING_PLAYER) : nullptr;
 }
 
 void geode_pcm_ring_destroy(geode_pcm_ring* r) {

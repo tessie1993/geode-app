@@ -83,6 +83,14 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingShared(
     return reinterpret_cast<jlong>(geode_pcm_ring_shared(kind));
 }
 
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingSetLive(JNIEnv*, jobject, jboolean on) {
+    geode_pcm_ring_set_live(on ? 1 : 0);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingLive(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_pcm_ring_live());
+}
+
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingCreateKind(JNIEnv*, jobject, jint kind) {
     return reinterpret_cast<jlong>(geode_pcm_ring_create_kind(kind));
 }

@@ -1754,6 +1754,11 @@ GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
  * size, the mic's layered over the player's, and never freed: a handle any thread holds stays valid. NULL
  * for another kind or no memory. Any thread. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_shared(int kind);
+/* The app's sound input, for the surfaces that hold no playback session (the stage, the wallpaper, the dream, a
+ * cast): the player's ring while a session holds it, else NULL. The shell says so as a session begins and ends.
+ * Process-wide, any thread. */
+GEODE_API void              geode_pcm_ring_set_live(int on);
+GEODE_API geode_pcm_ring*   geode_pcm_ring_live(void);
 /* A new ring of a kind's size and rules (the output mix's writes are snapshots), its owner's to destroy.
  * NULL for an unknown kind or no memory. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_create_kind(int kind);

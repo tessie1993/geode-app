@@ -3,7 +3,6 @@ package dev.geode.audio
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.media.audiofx.Visualizer
 import androidx.core.content.ContextCompat
 import dev.geode.RingLog
 import dev.geode.engine.bridge.IngestNative
@@ -14,19 +13,19 @@ import dev.geode.engine.bridge.IngestNative
  *
  * The app's own capture path (`audio/PlaybackCaptureService`) needs a MediaProjection consent
  * and a foreground service, which a wallpaper can neither ask for nor keep running. A
- * [Visualizer] on the output mix (audio session 0) needs neither: the microphone permission,
+ * `Visualizer` on the output mix (audio session 0) needs neither: the microphone permission,
  * granted once in the app, and `MODIFY_AUDIO_SETTINGS`, which the manifest already holds. It is
  * the platform's own answer for "visualize what is playing", and the wallpaper process is bound
  * by the system with the capabilities a visible wallpaper needs to keep it.
  *
  * What it hands over is coarser than the app's tap: 8-bit mono, and only the newest
- * [Visualizer.getCaptureSize] samples at each capture (about 20 a second, ~21 ms of every 50).
+ * `Visualizer.getCaptureSize` samples at each capture (about 20 a second, ~21 ms of every 50).
  * Those are snapshots, not a stream, and the ring is told so: each capture is written as it
  * arrives, its bytes as they are, with the mix's true rate, and native stitches it onto the
  * capture clock (`core/audio/ingest/SnapshotStitch`), so the engine's sample clock (tempo, bars,
  * loudness) is real time and no two snapshots meet at a seam. What falls between captures is lost.
  *
- * Native builds the [Visualizer] (session 0, as played), polls its waveform into the ring on its own thread
+ * Native builds the `Visualizer` (session 0, as played), polls its waveform into the ring on its own thread
  * and releases it (`core/audio/ingest/CapturePump`); this class only checks the permission and says start and
  * stop. Main thread only; that native thread is the ring's one writer and the renderer's GL thread its one reader.
  */

@@ -151,7 +151,7 @@ class PlaybackSession internal constructor(
         player.addListener(crossfade)
         player.addListener(recorder)
         IngestNative.pcmRingSetPlayout(sampleRing, PlaybackEngine.playout)
-        dev.geode.audio.AudioBus.soundInput = sampleRing
+        IngestNative.pcmRingSetLive(true)
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
@@ -203,7 +203,7 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        if (dev.geode.audio.AudioBus.soundInput == sampleRing) dev.geode.audio.AudioBus.soundInput = 0L
+        IngestNative.pcmRingSetLive(false)
         recorder.release()
         scope.cancel()
         player.removeListener(replayGain)

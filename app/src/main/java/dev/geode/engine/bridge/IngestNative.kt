@@ -150,6 +150,12 @@ object IngestNative {
     /** The process's ring of [kind] ([PCM_RING_PLAYER], or [PCM_RING_MIC] layered over it), never freed; 0 for another kind. */
     external fun pcmRingShared(kind: Int): Long
 
+    /** A playback session holds the player's ring ([on]) or let it go: what [pcmRingLive] answers. */
+    external fun pcmRingSetLive(on: Boolean)
+
+    /** The player's ring while a playback session holds it, else 0: the sound a surface with no session hears. Any thread. */
+    external fun pcmRingLive(): Long
+
     /** A new ring of [kind] ([PCM_RING_OUTPUT_MIX]), its owner's to free with [pcmRingDestroy]; 0 without memory. */
     external fun pcmRingCreateKind(kind: Int): Long
 

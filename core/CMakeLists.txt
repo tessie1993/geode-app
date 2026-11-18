@@ -43,6 +43,7 @@ add_library(geode_core STATIC
     api/geode_tags_api.cpp
     api/geode_library_api.cpp
     api/geode_library_docs_api.cpp
+    api/geode_backup_api.cpp
     api/geode_lyrics_api.cpp
     api/geode_playlist_api.cpp
     api/geode_catalogue_api.cpp

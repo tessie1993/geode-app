@@ -643,6 +643,49 @@ GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, 
 GEODE_API const char* geode_session_read(const char* text);
 GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
 
+/* The backup's rules (core/backup/Backup). The shell reads and writes the zip, files and SharedPreferences, and hashes
+ * with the platform's SHA-256; each call is one plan or one answer, never one file. Lists cross as arrays of UTF-8
+ * strings in both directions, read in order: a count is decimal text, a flag is "1" or "0", a digest is lowercase hex,
+ * a preference value is its type ("s" string, "i" int, "l" long, "f" float, "b" boolean, "t" string set, "u" anything
+ * else) then its text (a float as its double text, a boolean as "1" or "0") then its item count and items (a set's).
+ * An answer starts with the problem number (core/backup Problem: 0 none) and a message for the log; what follows is
+ * meant only when the problem is 0 unless said. The answer is valid until the next backup call on the same thread;
+ * `*out_count` is its length. A malformed argument list answers problem 6.
+ *   _layout: the manifest's archive path, the byte cap on a manifest, the byte cap on a backup file, the entry cap,
+ *     the section count, then per section its id, its prefs-file count and (file, archive path) each, its root
+ *     count and roots (filesDir-relative dirs, then files). No problem or message.
+ *   _plan_export: prefs = snapshot count, then per file its name, entry count and per entry key, type, text, item
+ *     count, items; files = (section, path) pairs. Answers the byte cap on the files of the zip, then the
+ *     sources in zip order: count, per source its path, "1" when the next string is its content (else the shell opens filesDir/path) and the content.
+ *   _finish_export: per written entry its path, size and digest. Answers the manifest text, to be written last.
+ *   _plan_unpack: the zip's entry count, "1" when manifest.json exists, "1" when reading it passed the cap, its text,
+ *     then per entry its name and "1" for a directory. Answers the failure to raise after extracting (problem,
+ *     message), the staged prefs paths to read for _finish_unpack, then the items to extract: count, per item its
+ *     entry index, path, promised size, promised digest and byte budget.
+ *   _check_staging: the canonical staging directory, the path separator, then per item its entry name and canonical
+ *     target. Answers the first target outside staging as an unsafe path.
+ *   _check_extracted: an item's path, promised size, promised digest and budget as the plan gave them, then the
+ *     bytes read, their digest and "1" when the read was cut at the budget.
+ *   _finish_unpack: the manifest text, then (path, text) per staged prefs file. Answers the backup's creation time
+ *     (ms), its app version code, the section ids to offer, then the files migration rewrote: count, (path, text).
+ *   _plan_restore: "1" when something is staged, the staged section ids (count first), the requested ids (count
+ *     first), the staged prefs as (path, text) pairs (count first), then per prefs file the phone holds its name,
+ *     key count and keys. Answers per section to restore its id, its targets, carry-over subtrees, directories to
+ *     create and its prefs (count first each; per prefs file its name, staged path, keys to remove, and the values
+ *     to put, each as key, type, text, item count, items). */
+GEODE_API const char* const* geode_backup_layout(int* out_count);
+GEODE_API const char* const* geode_backup_plan_export(const char* const* prefs, int prefs_len, const char* const* files,
+                                                      int files_len, int* out_count);
+GEODE_API const char* const* geode_backup_finish_export(const char* const* entries, int entries_len, int app_version_code,
+                                                        long long created_at_ms, int* out_count);
+GEODE_API const char* const* geode_backup_plan_unpack(const char* const* request, int request_len, int* out_count);
+GEODE_API const char* const* geode_backup_check_staging(const char* const* request, int request_len, int* out_count);
+GEODE_API const char* const* geode_backup_check_extracted(const char* const* item, int item_len, int* out_count);
+GEODE_API const char* const* geode_backup_finish_unpack(const char* const* request, int request_len, int* out_count);
+GEODE_API const char* const* geode_backup_plan_restore(const char* const* request, int request_len, int* out_count);
+/* beatrealms-backup-YYYYMMDD.zip; valid until the next call on the same thread. */
+GEODE_API const char* geode_backup_file_name(int year, int month, int day);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

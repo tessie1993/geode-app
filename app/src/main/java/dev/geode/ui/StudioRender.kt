@@ -287,7 +287,7 @@ internal fun StudioRenderTab(
     var loopOpen by rememberSaveable { mutableStateOf(false) }
     var proBlock by remember { mutableStateOf<ProFeature?>(null) }
     var keepAsk by remember { mutableStateOf<ExportDefaults?>(null) }
-    val startExport = rememberVisualizerExport(viewModel, visualizerView)
+    val startExport = rememberVisualizerExport(viewModel, visualizerView, studioViewModel::renderStartTried)
 
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val queue by viewModel.queue.collectAsStateWithLifecycle()

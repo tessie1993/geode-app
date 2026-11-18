@@ -24,13 +24,10 @@ import java.io.File
 import java.io.FileNotFoundException
 
 /**
- * The shape of one visual loop: how long it runs, how long its seam takes to dissolve, and at
- * what rate it was rendered.
- *
- * A long-form render never draws three hours of frames. It draws this much, once, and
- * [LoopExtend] repeats the encoded result. Everything downstream — the seam preview, the
- * repeat count, the palette stops — is derived from these three numbers, so they are settled
- * once, at the boundary, and passed around as a value.
+ * The shape of one visual loop: how long it runs, how long its seam takes to dissolve, and at what rate it was
+ * rendered. A long-form render draws this much, once, and [LoopExtend] repeats the encoded result. Everything
+ * downstream (the seam preview, the repeat count, the palette stops) derives from these three numbers, so they
+ * are settled once, at the boundary, and passed around as a value.
  */
 data class LoopSpec(
     val loopMs: Long,
@@ -72,15 +69,11 @@ data class LoopSpec(
 }
 
 /**
- * Slow palette movement across the whole finished video, so a three-hour render is not the same
- * picture for three hours.
- *
- * The extension step reuses one encoded loop verbatim, so pixels cannot change from one repeat
- * to the next without decoding and re-encoding them — which is exactly the cost long-form mode
- * exists to avoid. The drift is therefore quantised: [stops] loops are rendered, each with its
- * own palette offset, and each fills its share of the running time. A step lands on a loop seam,
- * where the motion has already dissolved, and a few degrees of hue an hour reads as drift rather
- * than as a cut.
+ * Slow palette movement across the whole finished video, so a three-hour render is not the same picture for
+ * three hours. The extension step reuses one encoded loop verbatim, so pixels cannot change between repeats
+ * without the re-encode long-form mode exists to avoid. The drift is therefore quantised: [stops] loops are
+ * rendered, each with its own palette offset, each filling its share of the running time. A step lands on a
+ * loop seam, where the motion has already dissolved, and a few degrees of hue an hour reads as drift, not a cut.
  */
 data class TimeOfDayDrift(
     val hueTurns: Float,
@@ -123,10 +116,9 @@ class LoopReel(
 /**
  * Renders the visual loop that a long-form video is built from.
  *
- * The renderer draws the loop's source frames — one loop plus a tail — and dissolves the
- * tail into the stashed opening frames, so the last frame of the encoded loop flows into the
- * first exactly as two consecutive frames would. Repeating that loop is then seamless without
- * anything downstream having to touch pixels again.
+ * The renderer draws the loop's source frames (one loop plus a tail) and dissolves the tail into the stashed
+ * opening frames, so the last frame of the encoded loop flows into the first exactly as two consecutive frames
+ * would. Repeating that loop is then seamless without anything downstream touching pixels again.
  *
  * The render itself is one native job (`core/output/LoopRender`): the encoder it settles on, each
  * drift stop's frames, seam and presentation times, and the scratch file each stop is written to.
@@ -198,39 +190,47 @@ class LoopRender(
         audioUri: Uri,
         // How long the long-form file LoopExtend will repeat this reel into, or 0 when unknown.
         longFormMs: Long = 0L,
-    ): Result =
-        withContext(Dispatchers.Default) {
-            val job = LoopJobNative.loopJobCreate()
-            if (job == 0L) return@withContext failed(R.string.export_error_loop_stopped)
-            try {
-                setOutput(job, aspect, spec, drift, codec, longFormMs)
-                setScene(job, sceneFactory, look)
-                if (!setTrack(job, audioUri)) return@withContext Result.Failed("the track cannot be opened")
-                if (!setMark(job, watermark, aspect)) return@withContext Result.Failed("watermark pass failed: out of memory")
-                coroutineScope {
-                    val poll =
-                        launch {
-                            try {
-                                while (isActive) {
-                                    if (isCancelled()) LoopJobNative.loopJobCancel(job)
-                                    onProgress(LoopJobNative.loopJobProgress(job))
-                                    delay(POLL_MS)
+    ): Result {
+        var reel: LoopReel? = null // A cancel landing once the job rendered drops the result: its reel is deleted, not leaked.
+        try {
+            return withContext(Dispatchers.Default) {
+                val job = LoopJobNative.loopJobCreate()
+                if (job == 0L) return@withContext failed(R.string.export_error_loop_stopped)
+                try {
+                    setOutput(job, aspect, spec, drift, codec, longFormMs)
+                    setScene(job, sceneFactory, look)
+                    if (!setTrack(job, audioUri)) return@withContext Result.Failed("the track cannot be opened")
+                    if (!setMark(job, watermark, aspect)) return@withContext Result.Failed("watermark pass failed: out of memory")
+                    coroutineScope {
+                        val poll =
+                            launch {
+                                try {
+                                    while (isActive) {
+                                        if (isCancelled()) LoopJobNative.loopJobCancel(job)
+                                        onProgress(LoopJobNative.loopJobProgress(job))
+                                        delay(POLL_MS)
+                                    }
+                                } finally {
+                                    // A cancel of the caller ends this poll while the run below still blocks its
+                                    // thread: only this stops the job. After the run has ended it changes nothing.
+                                    LoopJobNative.loopJobCancel(job)
                                 }
-                            } finally {
-                                // A cancel of the caller ends this poll while the run below still blocks its
-                                // thread: only this stops the job. After the run has ended it changes nothing.
-                                LoopJobNative.loopJobCancel(job)
                             }
-                        }
-                    // Blocks this worker thread for the whole render; the poll above runs on another.
-                    LoopJobNative.loopJobRun(job)
-                    poll.cancelAndJoin()
+                        // Blocks this worker thread for the whole render; the poll above runs on another.
+                        LoopJobNative.loopJobRun(job)
+                        val result = resultOf(job, aspect, spec).also { reel = (it as? Result.Rendered)?.reel }
+                        poll.cancelAndJoin()
+                        result
+                    }.also { if (it is Result.Rendered) onProgress(1f) }
+                } finally {
+                    LoopJobNative.loopJobDestroy(job)
                 }
-                resultOf(job, aspect, spec).also { if (it is Result.Rendered) onProgress(1f) }
-            } finally {
-                LoopJobNative.loopJobDestroy(job)
             }
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            reel?.delete()
+            throw c
         }
+    }
 
     private fun setOutput(
         job: Long,

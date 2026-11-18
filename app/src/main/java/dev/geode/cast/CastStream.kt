@@ -221,7 +221,7 @@ internal class CastStream(
             surface = input
             val out = EncoderSurface(input).also { egl = it }
             // The TV plays the ring as written, not the muted phone's sink: no reader waits for the speaker.
-            PlayoutNative.playoutSetBypass(PlaybackEngine.playout, true)
+            flags.take(this) { PlayoutNative.playoutSetBypass(PlaybackEngine.playout, true) }
             out.makeCurrent()
             // The stage's own picture wherever the stage draws; 0 on a driver without the GPU buffer extensions.
             tee = CastNative.castTeeOpen(WIDTH, HEIGHT, FPS)
@@ -258,8 +258,10 @@ internal class CastStream(
                 CastNative.castEncoderPump(encoder, AudioBus.heard, PerfNative.frameClockAudioUntilUs(clock))
             }
         } finally {
-            CastMirror.setStreaming(false)
-            PlayoutNative.playoutSetBypass(PlaybackEngine.playout, false)
+            flags.release(this) {
+                CastMirror.setStreaming(false)
+                PlayoutNative.playoutSetBypass(PlaybackEngine.playout, false)
+            }
             if (tee != 0L) bestEffort(TAG, "castTeeClose()") { CastNative.castTeeClose(tee) }
             bestEffort(TAG, "fallback.release()") { fallback?.release() }
             bestEffort(TAG, "egl.release()") { egl?.release() }
@@ -318,6 +320,9 @@ internal class CastStream(
 
         const val JOIN_MS = 2_000L
 
+        /** The stream holding the playout bypass and [CastMirror.streaming], both plain flags for the whole process. */
+        private val flags = CastFlagHolder()
+
         /**
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active
          * network: with a VPN up, or cellular preferred, that one has no address the TV can reach.
@@ -356,5 +361,33 @@ internal class CastStream(
                 ?.linkAddresses
                 ?.firstOrNull { it.address is Inet4Address && it.address.isSiteLocalAddress }
         }
+    }
+}
+
+/**
+ * Which stream holds process-wide flags its render thread sets. A stopped stream's render thread can end after
+ * the next stream set them (it is stopped on a thread of its own and may outlive the join), so it clears them only
+ * while it is still their holder.
+ */
+internal class CastFlagHolder {
+    private var holder: Any? = null
+
+    @Synchronized
+    fun take(
+        stream: Any,
+        set: () -> Unit,
+    ) {
+        holder = stream
+        set()
+    }
+
+    @Synchronized
+    fun release(
+        stream: Any,
+        clear: () -> Unit,
+    ) {
+        if (holder !== stream) return
+        holder = null
+        clear()
     }
 }

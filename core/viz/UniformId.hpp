@@ -110,6 +110,8 @@ namespace geode::viz {
     X(uPostTemp) \
     X(uPostTile) \
     X(uPostTwist) \
+    X(uPostTwistBend) \
+    X(uPostTwistCentre) \
     X(uPostWarp) \
     X(uPostZoom) \
     X(uPosterize) \
@@ -156,6 +158,8 @@ namespace geode::viz {
     X(uTrebRel) \
     X(uTurbulence) \
     X(uTwist) \
+    X(uTwistBend) \
+    X(uTwistCentre) \
     X(uUnderlay) \
     X(uUnderlayAmount) \
     X(uUnderlayBlend) \

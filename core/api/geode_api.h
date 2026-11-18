@@ -1017,14 +1017,15 @@ GEODE_API void        geode_params_reroll_reactions(const float* in, float* out)
 /* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
  * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
  * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
- * put up instead of current (redo 1: the last undone), its frame into out (count floats) and its palette id returned,
+ * put up instead of current (redo 1: the last undone; entries recorded on another style_id are dropped, never applied), its frame into out (count floats) and its palette id returned,
  * valid until this thread's next step; NULL when there is none. Both report GEODE_PARAM_HISTORY_* bits through state
  * (record returns them too). */
 #define GEODE_PARAM_HISTORY_UNDO 1
 #define GEODE_PARAM_HISTORY_REDO 2
-GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, long long now_ms,
-                                                 int discrete);
-GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette, float* out);
+GEODE_API int         geode_param_history_record(const float* before, int count, const char* before_palette, const char* style_id,
+                                                 long long now_ms, int discrete);
+GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette,
+                                               const char* style_id, float* out);
 GEODE_API int         geode_param_history_state(void);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned

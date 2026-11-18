@@ -1106,6 +1106,19 @@ Java_dev_geode_engine_bridge_CustomizeNative_customizeLockableKeys(JNIEnv* env, 
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_CustomizeNative_customizeKeepNormalize(JNIEnv* env, jobject, jstring document) {
+    Utf8Chars text(env, document);
+    return geode::jni::utf8String(env, geode_customize_keep_normalize(text.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_CustomizeNative_customizeKeepToggle(JNIEnv* env, jobject, jstring document, jstring key) {
+    Utf8Chars text(env, document);
+    Utf8Chars name(env, key);
+    return geode::jni::utf8String(env, geode_customize_keep_toggle(text.get(), name.get()));
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_customizeShown(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars style(env, styleId);
     return geode::jni::utf8String(env, geode_customize_shown(style.get()));

@@ -27,6 +27,7 @@ import dev.geode.data.FavouritesStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.GeneralSettingsCodec
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.KeepSetStore
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryPrefsStore
 import dev.geode.data.LibrarySettings
@@ -58,12 +59,10 @@ import dev.geode.data.backup.BackupSection
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
-import dev.geode.model.SceneParams
 import dev.geode.model.StyleShelf
 import dev.geode.model.TestCatalogue
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
-import dev.geode.ui.ModulationController
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
 import dev.geode.widget.WidgetState
@@ -169,16 +168,9 @@ class PrefsSchemaTest {
             Owner("$DATA/BackgroundPrefsStore.kt", BackgroundPrefsStore.PREF_KEYS) {
                 BackgroundPrefsStore(it[GeodePrefsFiles.BACKGROUND]).save(BackgroundPrefs(uri = "content://image"))
             },
-            Owner("$APP/ui/ModulationController.kt", ModulationController.PREF_KEYS) {
-                val host =
-                    object : ModulationController.Host {
-                        override val params = SceneParams.DEFAULT
-                        override val sceneId = "plasma"
-
-                        override fun setSceneParams(params: SceneParams) = Unit
-                    }
-                val lfos = LfoStore(it[general], readReactions = { null }, handLoad = { _, _, _ -> 0 })
-                ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host, pushKept = {}).toggleParamLock("speed")
+            Owner("$DATA/KeepSetStore.kt", KeepSetStore.PREF_KEYS) {
+                // The toggle that wrote this is native (core/viz/CustomizeMap keepToggle); the store saves what it returns.
+                KeepSetStore(it[GeodePrefsFiles.MODULATION]) { document -> document }.save("speed\n")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)
@@ -317,9 +309,7 @@ class PrefsSchemaTest {
     @Test
     fun aRestoreChecksTypesAgainstEveryKeyOfTheFilesItWrites() {
         val restored = BackupSection.entries.flatMap { it.prefsFiles + it.borrowedKeys.keys }.toSet()
-        // Data may not name ui (tools/layer-gate.sh), so ModulationController's key goes unchecked.
-        val expected = allKeys.filter { it.file in restored } - ModulationController.PREF_KEYS.toSet()
-        assertEquals(expected.toSet(), BackupFormat.declaredKeys.toSet())
+        assertEquals(allKeys.filter { it.file in restored }.toSet(), BackupFormat.declaredKeys.toSet())
     }
 
     @Test

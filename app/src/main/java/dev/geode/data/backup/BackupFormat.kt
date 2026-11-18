@@ -13,6 +13,7 @@ import dev.geode.data.ExportPrefsStore
 import dev.geode.data.FavouritesStore
 import dev.geode.data.GeneralSettingsCodec
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.KeepSetStore
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryPrefsStore
 import dev.geode.data.LibrarySettingsCodec
@@ -236,10 +237,7 @@ object BackupFormat {
         key: String,
     ): Boolean = key !in deviceLocalKeys[prefsFile].orEmpty()
 
-    /**
-     * The stores' own key lists for the files a backup restores, held to them by `PrefsSchemaTest`.
-     * `ModulationController`'s one key is not here: data may not name ui (`tools/layer-gate.sh`).
-     */
+    /** The stores' own key lists for the files a backup restores, held to them by `PrefsSchemaTest`. */
     internal val declaredKeys: List<PrefKey> by lazy {
         GeneralSettingsCodec.keys + SoundInputSettingsCodec.keys + VisualsSettingsCodec.keys + LibrarySettingsCodec.keys +
             AppStateCodec.keys + BehaviourCodec.keys + ExportPrefsStore.PREF_KEYS + StudioPrefsStore.PREF_KEYS +
@@ -248,7 +246,7 @@ object BackupFormat {
             WatermarkPrefsCodec.keys + PerformanceStore.PREF_KEYS + LookStore.PREF_KEYS + AutoVisualsPrefsStore.PREF_KEYS +
             StyleShelfCodec.keys + GeodePrefsFiles.MILK_PRESET_PREF_KEYS + PlayerPrefsCodec.keys + BookmarkStore.PREF_KEYS +
             AudioFxController.PREF_KEYS + LibraryPrefsStore.PREF_KEYS + MEDIA_ROOTS_PREF_KEYS + BackgroundPrefsStore.PREF_KEYS +
-            WallpaperPrefsStore.PREF_KEYS + FavouritesStore.PREF_KEYS
+            WallpaperPrefsStore.PREF_KEYS + FavouritesStore.PREF_KEYS + KeepSetStore.PREF_KEYS
     }
 
     /**

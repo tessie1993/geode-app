@@ -247,7 +247,7 @@ class PlayerSession internal constructor(
     internal val modulation: ModulationController =
         ModulationController(
             LfoStore(prefsFiles.general),
-            prefsFiles.modulation,
+            container.keepSet,
             object : ModulationController.Host {
                 override val params: SceneParams get() = _vizState.value.params
 

@@ -217,6 +217,22 @@ const char* geode_customize_lockable_keys(void) try {
     return nullptr;
 }
 
+const char* geode_customize_keep_normalize(const char* document) try {
+    thread_local std::string out;
+    out = customize::keepNormalize(document ? document : "");
+    return out.c_str();
+} catch (...) {
+    return nullptr;
+}
+
+const char* geode_customize_keep_toggle(const char* document, const char* key) try {
+    thread_local std::string out;
+    out = customize::keepToggle(document ? document : "", key ? key : "");
+    return out.c_str();
+} catch (...) {
+    return nullptr;
+}
+
 const char* geode_customize_shown(const char* style_id) try {
     thread_local std::string shown;
     shown = customize::shownOn(style_id ? style_id : "");

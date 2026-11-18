@@ -65,6 +65,11 @@ class MacroStore internal constructor(
     private val _state = MutableStateFlow(MacroBankState())
     val state: StateFlow<MacroBankState> = _state
 
+    // Bumped by every edit except a knob's turn (setValue, centreAll): what depends on the bank's links, names and
+    // knob set (not on the values) keys on this, so a drag does not re-read it.
+    private val _revision = MutableStateFlow(0)
+    val revision: StateFlow<Int> = _revision
+
     // Set once the saved bank is read: an edit before it would start from the default and save over the real one.
     @Volatile private var loaded = false
 
@@ -72,6 +77,7 @@ class MacroStore internal constructor(
         scope.launch {
             val saved = repository.loaded()
             _state.value = stateOf(saved)
+            _revision.value++
             push(saved)
             loaded = true
         }
@@ -108,6 +114,7 @@ class MacroStore internal constructor(
         val draft = _state.value.draft ?: return
         val text = runCatching { MacroNative.macroBankRename(draft.text, draft.id, name) }.getOrDefault(draft.text)
         _state.value = stateOf(text)
+        _revision.value++
         push(text)
         write()
     }
@@ -115,6 +122,7 @@ class MacroStore internal constructor(
     fun discardDraft() {
         if (_state.value.draft == null) return
         _state.value = _state.value.copy(draft = null)
+        _revision.value++
         push(_state.value.text)
     }
 
@@ -193,6 +201,7 @@ class MacroStore internal constructor(
         val before = _state.value.knobs.mapTo(mutableSetOf()) { it.id }
         val id = knobsOf(text).firstOrNull { it.id !in before }?.id ?: return null
         _state.value = _state.value.copy(draft = MacroDraft(text, id))
+        _revision.value++
         push(text)
         return id
     }
@@ -203,13 +212,13 @@ class MacroStore internal constructor(
         value: Float,
         persist: Boolean = true,
     ) {
-        edit(persist) { MacroNative.macroBankSetValue(it, id, value) }
+        edit(persist, turn = true) { MacroNative.macroBankSetValue(it, id, value) }
     }
 
     /** Every knob back to centre; the knobs and what they move stay. */
     fun centreAll() {
         val ids = knobsOf(_state.value.working).map { it.id }
-        edit(persist = true) { text -> ids.fold(text) { bank, id -> MacroNative.macroBankSetValue(bank, id, 0f) } }
+        edit(persist = true, turn = true) { text -> ids.fold(text) { bank, id -> MacroNative.macroBankSetValue(bank, id, 0f) } }
     }
 
     /** Saves what a drag left behind (see [setValue]). */
@@ -217,6 +226,7 @@ class MacroStore internal constructor(
 
     internal fun edit(
         persist: Boolean = true,
+        turn: Boolean = false,
         change: (String) -> String,
     ) {
         if (!loaded) return
@@ -230,10 +240,12 @@ class MacroStore internal constructor(
             // A draft is live but not saved; a draft that lost its knob (deleted) is gone.
             val kept = knobsOf(text).any { it.id == draft.id }
             _state.value = if (kept) current.copy(draft = draft.copy(text = text)) else current.copy(draft = null)
+            if (!turn || !kept) _revision.value++
             push(if (kept) text else current.text)
             return
         }
         _state.value = stateOf(text)
+        if (!turn) _revision.value++
         push(text)
         if (persist) write()
     }

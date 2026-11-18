@@ -116,6 +116,7 @@ class VisualizerWallpaperService : WallpaperService() {
         /** The launcher's last [onOffsetsChanged], raw (`GEODE_WALLPAPER_OFFSETS`), and the window native makes of it. */
         private val offsets = FloatArray(6)
         private val window = FloatArray(4)
+        private val glowOut = FloatArray(GLOW_FLOATS)
 
         override fun onCreate(holder: SurfaceHolder) {
             super.onCreate(holder)
@@ -203,7 +204,7 @@ class VisualizerWallpaperService : WallpaperService() {
         private fun pushGlow(next: EdgeGlow) {
             if (next == glow) return
             glow = next
-            stage?.setEdgeGlow(next.toFloatArray())
+            stage?.setEdgeGlow(next.writeTo(glowOut))
         }
 
         /**
@@ -383,5 +384,8 @@ class VisualizerWallpaperService : WallpaperService() {
 
     private companion object {
         const val TAG = "VisualizerWallpaper"
+
+        /** GEODE_EDGE_GLOW_FLOATS (`core/api/geode_api.h`). */
+        const val GLOW_FLOATS = 5
     }
 }

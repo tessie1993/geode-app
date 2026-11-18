@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +43,7 @@ import dev.geode.ui.tour.tourTarget
  */
 @Composable
 internal fun RenderBar(
-    export: ExportUiState,
+    exportState: State<ExportUiState>,
     scope: @Composable (Modifier) -> Unit,
     renderLabel: String,
     canRender: Boolean,
@@ -51,6 +52,8 @@ internal fun RenderBar(
     onClearResult: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Read here, not by the caller: progress moves up to 20 times a second and only this bar needs it.
+    val export = exportState.value
     Column(
         modifier
             .fillMaxWidth()

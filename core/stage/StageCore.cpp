@@ -184,6 +184,7 @@ void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t pres
     client_->framePresent(presentNs);
     const uint32_t events = client_->frame(pacedFps, capFps);
     events_.fetch_or(events & ~kFrameNothingNew, std::memory_order_relaxed);
+    followGovernor();
     // The picture is the one already on screen: no new buffer, so no swap, and the display keeps the last.
     if ((events & kFrameNothingNew) != 0) return;
     port_.presentAt(presentNs);

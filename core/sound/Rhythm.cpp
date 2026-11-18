@@ -26,11 +26,9 @@ constexpr float kChangeSeconds = 0.02f;
 constexpr float kRefFloor = 1e-10f;
 constexpr float kCompress = 3.0f;
 constexpr float kFlatEnvelope = 1e-6f;  // mean square per hop under which there are no onsets
-// A lag's evidence is its own autocorrelation plus this share of its double's: a true period repeats at
-// twice itself, a chance alignment does not.
+// A lag's periodicity is its own autocorrelation plus this share of its double's: a true period repeats
+// at twice itself, a chance alignment does not.
 constexpr float kComb = 0.5f;
-// The beat is the fastest lag whose evidence reaches this share of the strongest lag's.
-constexpr float kLevel = 0.45f;
 constexpr float kLockOn = 0.35f;
 constexpr float kLockOff = 0.2f;
 constexpr float kLockAfter = 1.0f;         // seconds past the line before locking, ...
@@ -191,28 +189,50 @@ void Rhythm::estimateTempo() {
         ac_[lag] = norm > 1e-12f ? sum / norm : 0.0f;
     }
     auto score = [&](int lag) { return (std::max(0.0f, ac_[lag]) + kComb * std::max(0.0f, ac_[2 * lag])) / (1.0f + kComb); };
-    float strongest = 0.0f;
+    // A peak's lag to a fraction of a hop, from its neighbours.
+    auto refine = [&](int lag) {
+        const float a = score(lag - 1);
+        const float b = score(lag);
+        const float c = score(lag + 1);
+        const float curve = a - 2.0f * b + c;
+        return static_cast<float>(lag) + (curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f);
+    };
+    // How much of the envelope falls on one phase of a period: its Fourier coefficient there, over the
+    // same window for every lag, so the magnitudes compare as they are.
+    auto pulse = [&](float period) {
+        const std::complex<float> rot = std::polar(1.0f, 2.0f * std::numbers::pi_v<float> / period);
+        std::complex<float> z(1.0f, 0.0f);
+        std::complex<float> sum(0.0f, 0.0f);
+        for (int i = 0; i < n; i++) {
+            sum += line_[i] * z;
+            z *= rot;
+        }
+        return std::abs(sum);
+    };
+    // The beat is the peak with the most evidence, and nothing else decides. A pulse repeats at every
+    // multiple of its period, so the autocorrelation alone scores the slower levels as high as the beat;
+    // the Fourier coefficient alone scores the faster ones as high. Their product is high only where both
+    // hold: a slower level's onsets fall on several of its phases and cancel, a faster level's lag does
+    // not repeat. Neither the order of the lags nor any tempo enters the choice.
+    int best = -1;
+    float found = 0.0f;
+    float most = 0.0f;
     for (int lag = cfg_.lagMin; lag <= hi; lag++) {
         const float s = score(lag);
-        if (s > strongest && s >= score(lag - 1) && s >= score(lag + 1)) strongest = s;
-    }
-    // The beat is the fastest level about as periodic as the strongest one: a pulse repeats at every
-    // multiple of its period, so the strongest peak alone could be any of them. The rule names no tempo.
-    int best = -1;
-    for (int lag = cfg_.lagMin; lag <= hi && best < 0; lag++) {
-        const float s = score(lag);
-        if (s > 0.0f && s >= kLevel * strongest && s >= score(lag - 1) && s >= score(lag + 1)) best = lag;
+        if (s <= 0.0f || s < score(lag - 1) || s < score(lag + 1)) continue;
+        const float at = refine(lag);
+        const float evidence = s * pulse(at);
+        if (evidence > most) {
+            most = evidence;
+            best = lag;
+            found = at;
+        }
     }
     if (best < 0) {
         acConf_ = 0.0f;
         return;
     }
     acConf_ = std::clamp(ac_[best], 0.0f, 1.0f);
-    const float a = score(best - 1);
-    const float b = score(best);
-    const float c = score(best + 1);
-    const float curve = a - 2.0f * b + c;
-    const float found = static_cast<float>(best) + (curve < 0.0f ? std::clamp(0.5f * (a - c) / curve, -0.5f, 0.5f) : 0.0f);
     if (acConf_ < 0.05f) return;
 
     if (period_ <= 0.0f) {

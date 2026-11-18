@@ -327,8 +327,8 @@ internal fun VisualsTabRow(
         selectedTabIndex = selectedTab,
         modifier = modifier.edgeFade(tabScroll, horizontal = true),
         scrollState = tabScroll,
-        // Tabs as wide as their labels with no edge padding, so all four fit beside × on a
-        // phone instead of reading "tyles" or "MilkDr" at the scroll window's ends.
+        // Tabs as wide as their labels with no edge padding, so all three fit beside × on a
+        // phone instead of reading "tyles" or "Customiz" at the scroll window's ends.
         edgePadding = 0.dp,
         minTabWidth = 0.dp,
         containerColor = Color.Transparent,

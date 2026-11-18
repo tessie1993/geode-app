@@ -28,10 +28,10 @@ ABIs arm64-v8a and x86_64. The full version history is in
 - **Visual scenes** — particle, simulation and fragment-shader scenes with an
   in-app editor for the fluid scenes' force and dye shaders; the GPU fluid
   family (Fluid looks over one solver, plus Curl Flow);
-  Cymatics; MilkDrop via projectM 4 built in-tree from a git submodule. Every
+  Cymatics. Every
   scene is rendered by the native core; the Customize panel exposes every
   parameter with per-param locks, a randomizer, LFO and ADSR modulation, a
-  palette maker, presets (JSON + `.milk`) and photosensitivity clamps.
+  palette maker, presets (JSON) and photosensitivity clamps.
 - **Studio** — renders the visualizer over a song, a queue, a playlist or
   chosen tracks (one render, a loop render or a batch) and keeps the results in
   My videos; Record captures the live visual. There is no timeline editor. The
@@ -47,7 +47,7 @@ ABIs arm64-v8a and x86_64. The full version history is in
 ## Build
 
 ```bash
-git submodule update --init --recursive   # projectM, TagLib and the other third_party libraries
+git submodule update --init --recursive   # TagLib and the other third_party libraries
 ./gradlew assembleDebug                   # debug APK, native core included
 ./gradlew installDebug                    # install on a connected device
 ./gradlew ktlintCheck detekt              # style and static analysis
@@ -69,8 +69,7 @@ Gradle modules, package `dev.geode`:
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |
 
 The native core lives outside the modules and is built by the root
-`CMakeLists.txt` into one `libgeode.so` (plus `libprojectM-4.so`, LGPL,
-dynamically linked):
+`CMakeLists.txt` into one `libgeode.so`:
 
 | Directory | What it holds |
 |---|---|
@@ -81,7 +80,7 @@ dynamically linked):
 | `core/library` | TagLib tag reading and writing over a file descriptor; the library's pure rules (tracks, playlists, search, history) |
 | `core/stage`, `core/output`, `core/player`, `core/shell`, `core/backup`, `core/cast`, `core/studio` | The surface threads, export and Record planning, the queue and transport (not wired to the app yet), shell rules, backup rules, Cast, project documents |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
-| `third_party/` | Git submodules: projectm, taglib, cgltf, meshoptimizer, basis_universal, kissfft, libdatachannel, mbedtls |
+| `third_party/` | Git submodules: taglib, cgltf, meshoptimizer, basis_universal, kissfft, libdatachannel, mbedtls |
 
 Shaders ship as assets under `app/src/main/assets/shaders/` and are loaded by
 the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
@@ -105,14 +104,11 @@ portability, not device checks.
   now launches `MediaStore.createWriteRequest` for the user's consent and
   retries the write once if it is granted; below API 30, for a non-MediaStore
   URI, or if consent is denied, it reports the refused write instead.
-- `ENABLE_PLAYLIST` in the root `CMakeLists.txt` is now `OFF`: nothing calls
-  `libprojectM-4-playlist.so`, so it is no longer packaged.
 - `compileSdk = 37` while the workflows install `platforms;android-36`; both
   are left as they are.
 
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) — version history, newest first.
-- `tools/build-projectm.md` — how projectM is built from the submodule.
 - `THIRD_PARTY_NOTICES` — licences and attributions; the in-app notices asset
   mirrors this file.

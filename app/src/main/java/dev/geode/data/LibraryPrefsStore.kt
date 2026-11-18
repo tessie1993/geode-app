@@ -22,7 +22,7 @@ object MinTrackLength {
 
 /**
  * The library's own choices, in `geode-library` beside the music folders' roots. The roots are
- * device-local (`BackupFormat.deviceLocalKeys`); [minTrackSeconds] is a setting and travels with
+ * device-local (`core/backup/Backup.cpp`); [minTrackSeconds] is a setting and travels with
  * Settings in a backup.
  */
 class LibraryPrefsStore(

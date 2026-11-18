@@ -177,8 +177,8 @@ std::vector<float> wire(const SceneParams& p) {
 }
 
 // Presets and shared links (PresetStore, PresetGoldenTest and SharedLinkNumbersTest before): the envelope beside
-// the params object, the golden files in app/src/test/resources/presets, hostile numbers and the .milk mirror's
-// name. The params object's own rules are params_json_test's.
+// the params object, the golden files in app/src/test/resources/presets, hostile numbers
+// and a style this build does not have. The params object's own rules are params_json_test's.
 void presets(const std::string& folder) {
     const float nan = std::numeric_limits<float>::quiet_NaN();
     const float inf = std::numeric_limits<float>::infinity();
@@ -196,39 +196,39 @@ void presets(const std::string& folder) {
         check(golden->name == "Golden" && golden->sceneId == "silk", "its name and style");
         check(golden->attack == 0.25f && golden->decay == 0.5f, "its envelope");
         check(golden->customShader == std::optional<std::string>("void main() {}"), "its shader");
-        check(golden->milkPreset == std::optional<std::string>("golden.milk"), "its milk preset");
         check(golden->customPaletteId == "palette-a", "its saved palette");
         check(golden->params.speed == 2.03125f && golden->params.paletteStop0 == 0xFF8800, "its params");
         const std::string written = files::writePreset(*golden);
         const auto again = files::readPreset(written);
         check(again && again->name == golden->name && again->sceneId == golden->sceneId && again->attack == golden->attack &&
                   again->decay == golden->decay && again->customShader == golden->customShader &&
-                  again->milkPreset == golden->milkPreset && again->customPaletteId == golden->customPaletteId &&
+                  again->customPaletteId == golden->customPaletteId &&
                   wire(again->params) == wire(golden->params),
               "it round-trips");
         check(written.rfind("{\n  \"name\": \"Golden\",\n  \"sceneId\": \"silk\",\n  \"attack\": 0.25,\n  \"decay\": 0.5,\n  \"speed\": 2.03125,", 0) == 0,
               "the envelope first, then the params object's keys, as org.json's toString(2)");
-        check(written.find("\"customPaletteId\": \"palette-a\",\n  \"customPalette2Id\": \"\",\n  \"customShader\": \"void main() {}\",\n"
-                           "  \"milkPreset\": \"golden.milk\"\n}") != std::string::npos,
-              "the palette ids, then the shader and the milk preset last");
+        check(written.find("\"customPaletteId\": \"palette-a\",\n  \"customPalette2Id\": \"\",\n  \"customShader\": \"void main() {}\"\n}") != std::string::npos,
+              "the palette ids, then the shader last");
     }
 
     const auto legacy = files::readPreset(fixture(folder, "legacy.json"));
     check(legacy && legacy->name == "Old Kyanite" && legacy->params.speed == 1.5f, "an old preset reads its params");
-    check(legacy && legacy->sceneId == "raymarch" && !legacy->customShader && !legacy->milkPreset, "and has no shader or milk preset");
+    check(legacy && legacy->sceneId == "tunnel" && !legacy->customShader, "and has no shader");
 
     const auto hostile = files::readPreset(fixture(folder, "hostile.json"));
     check(hostile && hostile->attack == files::kAttackMax && hostile->decay == files::kDecayMin, "a hostile envelope is clamped");
 
     const auto water = files::readPreset(R"({"name":"w","sceneId":"water","attack":0.1,"decay":0.2,"waterDepth":0.7})");
     check(water && water->sceneId == "pool", "a look saved on the retired Water opens on Pool");
+    check(!files::readPreset(R"({"name":"gone","sceneId":"no_such_style","attack":0.1,"decay":0.2})"),
+          "a look on a style this build does not have is not read, so it is dropped rather than opened on another");
 
     const auto overflow = files::readPreset(R"({"name":"x","sceneId":"silk","attack":1e39,"decay":-1e999})");
     check(overflow && overflow->attack == files::kAttackMin && overflow->decay == files::kDecayMin, "overflowing numbers read as the low end");
     if (overflow) {
         const auto again = files::readPreset(files::writePreset(*overflow));
         check(again && again->attack == overflow->attack, "and it saves again");
-        check(files::writePreset(*overflow).find("\"customPalette2Id\": \"\"\n}") != std::string::npos, "no shader, no milk preset keys");
+        check(files::writePreset(*overflow).find("\"customPalette2Id\": \"\"\n}") != std::string::npos, "no shader key");
     }
 
     check(!files::readPreset(R"({"sceneId":"silk","attack":0.1,"decay":0.2})"), "no name, no preset");
@@ -237,8 +237,6 @@ void presets(const std::string& folder) {
     const auto texts = files::readPreset(R"({"name":7,"sceneId":"silk","attack":"0.5","decay":0.2})");
     check(texts && texts->name == "7" && texts->attack == 0.5f, "a number as the name and a string as a number read as org.json did");
 
-    check(files::milkFileName("Deep") == "Deep.milk" && files::milkFileName("Deep.milk") == "Deep.milk", "the milk mirror's name");
-    check(files::milkFileName("a/b.milk") == "a_b-c14cddc0.milk", "an unsafe one hashed");
     check(files::safeChars("a/b c") == "a_b c", "a folder name keeps no slash");
 }
 

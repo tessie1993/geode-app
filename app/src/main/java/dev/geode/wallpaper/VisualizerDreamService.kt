@@ -118,7 +118,7 @@ class VisualizerDreamService : DreamService() {
         val view = StageView(this, StageNative.STAGE_KIND_SURFACE, SoundNative.SURFACE_DEFAULT_FPS.toFloat())
         visualizerView = view
         // The app's saved look in the gentle flight (owner, wave 1): the camera keeps flying without big
-        // moves, because a dream is watched from across a room. The MilkDrop preset is the stage's own.
+        // moves, because a dream is watched from across a room.
         val looks = LookStore(prefsFiles, contentResolver)
         looks.pushProcessWide()
         view.stage.look = looks.current().gentleFlight()

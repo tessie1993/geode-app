@@ -48,7 +48,6 @@ public:
     const char* prepareScene(const Scene& scene) override {
         viz_ = geode_viz_create(setup_.assets, setup_.cacheDir.c_str());
         if (!viz_) return "native renderer could not be created";
-        geode_viz_set_milk_texture_dir(viz_, setup_.milkTextureDir.c_str());
         // The export job owns the descriptor it is given.
         const int fd = setup_.trackFd >= 0 ? ::dup(setup_.trackFd) : -1;
         if (fd < 0) return "the track cannot be opened";
@@ -57,7 +56,7 @@ public:
         if (!job_) return "export job not created";
         const int64_t handMask =
             geode_export_job_begin(job_, setup_.width, setup_.height, setup_.sceneId.c_str(),
-                                   setup_.hasMilkPath ? setup_.milkPath.c_str() : nullptr, setup_.entitled ? 1 : 0,
+                                   setup_.entitled ? 1 : 0,
                                    scene.durationMs);
         if (handMask < 0) {
             error_ = "native renderer cannot draw \"" + setup_.sceneId + "\"";

@@ -15,7 +15,6 @@ free=$((shader - (family_styles - families) - neon_pro))
 loose=$((shader - family_styles))
 generic=$(awk '/genericLooks\(\) \{/,/return kLooks/' core/viz/CataloguePresets.cpp | grep -c '^        {"')
 variants=$(awk '/variants\(\) \{/,/return kVariants/' core/viz/CataloguePresets.cpp | grep -c '^        {"')
-milk=$(find app/src/main/assets/milk -name '*.milk' | wc -l)
 val() { grep -E "^\s*$1\s*=" "$2" | head -1 | sed -E 's/.*=\s*//'; }
 
 echo "styles                      $styles"
@@ -26,7 +25,6 @@ echo "style families              $families ($family_styles styles: $family_size
 echo "free styles                 $free (shader $shader - family non-openers $((family_styles - families)) - neon Pro $neon_pro)"
 echo "Pro-only styles             $((styles - free))"
 echo "bundled looks (presets)     $((loose * generic + variants)) ($generic generic x $loose loose shader styles + $variants hand-tuned)"
-echo "bundled MilkDrop presets    $milk"
 echo "Customize categories        $(awk '/^enum class CustomizeCategory/,/;/' app/src/main/java/dev/geode/ui/*.kt | grep -cE '^\s+[A-Z_]+[(,]' || true)"
 echo "export resolutions          $(awk '/^enum class ExportQuality/,/^}/' app/src/main/java/dev/geode/export/VideoExporter.kt | grep -oE '^\s+[A-Z0-9]+\(' | tr -d ' (' | paste -sd' ')"
 echo "export codecs               $(awk '/^enum class ExportCodec/,/;/' app/src/main/java/dev/geode/export/VideoExporter.kt | grep -oE '^\s+[A-Z0-9]+\(' | tr -d ' (' | paste -sd' ')"

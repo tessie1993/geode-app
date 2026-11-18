@@ -10,14 +10,12 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.engine.bridge.LooksNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * Owns the video-template library the same way PresetLibraryController owns presets:
@@ -35,8 +33,6 @@ internal class TemplateController(
 ) {
     interface Host {
         val vizState: StateFlow<VizUiState>
-
-        val activeMilkPath: String?
 
         /** Applies a template's look through the same path a preset apply uses. */
         fun applyLook(
@@ -68,14 +64,7 @@ internal class TemplateController(
     ) {
         val cleaned = LooksNative.presetCleanName(name, application.getString(dev.geode.R.string.template_untitled))
         val s = host.vizState.value
-        val milkPath = host.activeMilkPath
         storeScope.launch {
-            val milkSource =
-                if (s.sceneId == CatalogueNative.STYLE_MILKDROP) {
-                    milkPath?.let { src -> runCatching { File(src).readText() }.getOrNull() }
-                } else {
-                    null
-                }
             val look =
                 TemplateLook(
                     sceneId = s.sceneId,
@@ -83,7 +72,6 @@ internal class TemplateController(
                     decay = s.decay,
                     params = s.params,
                     customShader = customShader,
-                    milkPreset = milkSource,
                 )
             val result = templates.save(templates.create(cleaned, look))
             withContext(Dispatchers.Main.immediate) { onResult(result) }

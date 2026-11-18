@@ -26,6 +26,7 @@
 #include "viz/Reactions.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SpeedClock.hpp"
+#include "viz/TwistShape.hpp"
 
 using namespace geode::viz;
 
@@ -909,7 +910,7 @@ void toggleFlipsBetweenZeroAndAmount() {
 // in three are shader styles.
 constexpr const char* kStyleIds[] = {
     "kaleido", "plasma", "julia", "tunnel", "aurora", "voronoi", "arbor_grove", "arbor_bolt", "bulb_julia", "bulb_ink",
-    "chrys_bloom", "chrys_fall", "lucid_mandala", "milkdrop", "fluid", "silk", "bars", "spiral", "kifs",
+    "chrys_bloom", "chrys_fall", "lucid_mandala", "fluid", "silk", "bars", "spiral", "kifs",
     "chrome_nebula", "crystal_canyon", "gyroid_cavern", "jelly_abyss", "fractal_dive", "aurora_ocean", "bead_vortex",
     "curl_bloom", "acid_show", "blacklight_bloom",
 };
@@ -1007,6 +1008,41 @@ void twistIsRareAcrossStyles() {
     }
     check(twisted > 0, "some styles still draw a twist on a big moment or a transient");
     check(twisted * 100 <= pairs * 35, "a twist on a big moment or a transient is drawn by a minority of styles");
+}
+
+// The owner: the same S bend shows across many styles. Where the twist turns from and how it falls off are each
+// style's own: off the middle, different from style to style, wandering slowly, and bounded.
+void twistShapeIsEachStylesOwn() {
+    std::set<int> centres;
+    std::set<int> bends;
+    bool bounded = true;
+    bool slow = true;
+    bool moves = false;
+    int centred = 0;
+    int ids = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        ++ids;
+        const std::uint32_t seed = styleVariantSeed(id);
+        const TwistShape a = twistShape(seed, 10.0f);
+        const TwistShape again = twistShape(seed, 10.0f);
+        const TwistShape later = twistShape(seed, 11.0f);
+        const TwistShape far = twistShape(seed, 70.0f);
+        if (a.x != again.x || a.y != again.y || a.bend != again.bend) bounded = false;
+        if (std::hypot(a.x, a.y) > 0.7f || a.bend < -0.35f || a.bend > 0.6f) bounded = false;
+        if (std::hypot(later.x - a.x, later.y - a.y) > 0.01f) slow = false;
+        if (std::hypot(far.x - a.x, far.y - a.y) > 0.005f) moves = true;
+        if (std::hypot(a.x, a.y) < 0.05f) ++centred;
+        centres.insert(static_cast<int>(std::lround(a.x * 20.0f)) * 100 + static_cast<int>(std::lround(a.y * 20.0f)));
+        bends.insert(static_cast<int>(std::lround(a.bend * 10.0f)));
+    }
+    check(bounded, "a style's twist shape is deterministic and bounded");
+    check(slow, "a twist centre drifts slowly (under 0.01 a second)");
+    check(moves, "a twist centre wanders over a minute");
+    check(centred * 10 <= ids, "few styles twist about the middle");
+    check(static_cast<int>(centres.size()) * 3 >= ids, "styles twist about many different centres");
+    check(bends.size() >= 5, "styles fall off at many different rates");
+    const TwistShape plain;
+    check(plain.x == 0.0f && plain.y == 0.0f && plain.bend == 0.0f, "an unset shape is the plain centred twist");
 }
 
 // A zoom personality (Pulse, Lens) zooms on the beat it hears, by a fixed amount, beside its push or bulge.
@@ -1584,6 +1620,30 @@ void flowTimeRunsAtSpeedAndNeverJumps() {
     check(std::fabs(b.state().flowTime - 2.0f * a.state().flowTime) < 1e-3f, "uFlowTime runs at Speed's rate");
 }
 
+// A clock that has run for hours must still advance at a slow rate: one float ulp past 4096 s is
+// 0.000488 s, which swallows a frame's 0.0002 s step whole. The accumulators are doubles.
+void speedClockAdvancesAtASlowRateLateInASession() {
+    const float dt = 1.0f / 60.0f;
+    const float rate = 1.0f;
+    const float speed = 0.02f;
+    const int frames = 60 * 600;  // ten minutes
+    double clock = 5000.0;        // deep in the range where a float clock stalls
+    for (int k = 0; k < frames; ++k) clock = speedclock::advance(clock, speed, rate, dt, 7100.0f);
+    const double expected = 5000.0 + static_cast<double>(frames) * dt * speed * rate;
+    check(std::fabs(clock - expected) < 0.01, "a slow Speed late in a session advances at its true rate");
+    // A follower on a sound clock does the same.
+    speedclock::Follower f;
+    double src = 3000.0;
+    f.step(static_cast<float>(src), 0.02f, 7100.0f);
+    const double start = f.value;
+    for (int k = 0; k < frames; ++k) {
+        src += 0.016;
+        f.step(static_cast<float>(src), 0.02f, 7100.0f);
+    }
+    check(std::fabs((f.value - start) - 0.02 * 0.016 * frames) < 0.5 * 0.02 * 0.016 * frames,
+          "the follower keeps moving at a slow Speed late in a session");
+}
+
 void followerScalesASoundClockWithoutJumps() {
     using speedclock::Follower;
     Follower one;
@@ -1599,11 +1659,11 @@ void followerScalesASoundClockWithoutJumps() {
     check(std::fabs(one.value - source) < 1e-3f, "at Speed 1 the follower reads the source");
     check(std::fabs((two.value - 12.5f) - 2.0f * (source - 12.5f)) < 1e-3f, "at Speed 2 it advances twice as far");
     // The source wraps or restarts (a new track): the follower takes one small step, not a jump.
-    const float held = two.value;
+    const double held = two.value;
     two.step(0.01f, 2.0f, 7100.0f);
     check(two.value > held && two.value - held < 0.05f, "a source that steps back never jumps the follower");
     // Changing Speed moves nothing by itself.
-    const float at = one.value;
+    const double at = one.value;
     one.step(source, 1.5f, 7100.0f);
     check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
 }
@@ -1864,7 +1924,7 @@ void diveControlsAreClamped() {
     check(endless::copiesPerSecond(0.3f, NAN) == 0.3f && endless::copiesPerSecond(0.3f, 0.0f) == 0.6f, "spacing is clamped");
 }
 
-// A shader style's Trails in the feedback pass: MilkDrop's sustain. The echo zoom and warp are motion,
+// A shader style's Trails in the feedback pass: its sustain. The echo zoom and warp are motion,
 // pinned in feedback_motion_test.
 void sustainHoldsLongerAtLongerTrails() {
     namespace fb = endless::feedback;
@@ -2521,9 +2581,9 @@ void recipeOnlyAddsWhatTheStyleCanShow() {
     const int count = toggleRecipe(ER::SubWeight, RouteArray{}, 0, kShaderStyle, on);
     check(count == 1 && on[0].target == LT::Warp, "toggling on adds only what the style shows");
     check(recipeIsOn(ER::SubWeight, on, count, kShaderStyle), "and then reads as on");
-    check(!targetReaches(LT::Speed, "milkdrop") && targetReaches(LT::Speed, kShaderStyle), "MilkDrop presets pace themselves");
+    check(targetReaches(LT::Speed, kShaderStyle), "a shader style takes the scene clock");
     check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
-    check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
+    check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, kFluidStyle), "camera and composite targets are universal");
     check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
     // A shader style's trail is the feedback pass's sustain; a fluid has none of its own to lengthen.
     check(targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::TrailLength, kFluidStyle) &&
@@ -2785,6 +2845,7 @@ int main() {
     zoomPersonalitiesZoomOnTheBeat();
     twistRoutesDrawTheirOwnDirection();
     twistIsRareAcrossStyles();
+    twistShapeIsEachStylesOwn();
     kickAndSnareSidesAnswerDifferently();
     everyStyleAnswersTheDrums();
     dnaSourcesVaryAcrossStyles();
@@ -2817,6 +2878,7 @@ int main() {
     flowTimeIsFlowPhaseAtSpeedOne();
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();
+    speedClockAdvancesAtASlowRateLateInASession();
     motionFieldDriftSpinIsBoundedAndContinuous();
     motionFieldReducedMotionScalesRatesOnce();
     motionFieldDriftWrapNeverPopsAStyle();

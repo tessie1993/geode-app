@@ -84,4 +84,7 @@ std::string rows(std::string_view keys, const SceneParams& p, const RowContext& 
 // Whether text matches the panel's search: blank matches, else a case-blind part of it.
 bool matches(std::string_view query, std::string_view text);
 
+// Whether the panel's search has nothing in it (only spaces and tabs): the whole panel shows.
+bool blank(std::string_view query);
+
 }  // namespace geode::viz::customize

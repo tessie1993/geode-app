@@ -2,8 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComplexCondition:AutoVisualsController.kt$AutoVisualsController$choices.size &gt; 1 &amp;&amp; pick.sceneId == s.sceneId &amp;&amp; pick.presetName == null &amp;&amp; pick.milkPath == null</ID>
-    <ID>ComplexCondition:TextureStore.kt$TextureStore$bytes.size &gt;= 4 &amp;&amp; bytes[0] == 'D'.code.toByte() &amp;&amp; bytes[1] == 'D'.code.toByte() &amp;&amp; bytes[2] == 'S'.code.toByte() &amp;&amp; bytes[3] == ' '.code.toByte()</ID>
     <ID>ComplexCondition:VideoExporter.kt$VideoExporter$(p.flowEnabled || sceneNeedsFlow) &amp;&amp; flowField != null &amp;&amp; flowField.available</ID>
     <ID>EmptyFunctionBlock:AiffExtractor.kt$AiffExtractor${}</ID>
     <ID>InstanceOfCheckForException:ExportController.kt$ExportController$t is kotlinx.coroutines.CancellationException</ID>
@@ -27,7 +25,6 @@
     <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun move( name: String, from: Int, to: Int, ): MusicPlaylist</ID>
     <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun rename( oldName: String, newName: String, ): Boolean</ID>
     <ID>ReturnCount:NowPlayingBridge.kt$NowPlayingBridge$fun current(): External?</ID>
-    <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Recorder$fun append( atMs: Long, sceneId: String, params: SceneParams, milkPath: String?, ): Boolean</ID>
     <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Timeline$fun stateAt(ms: Long): State?</ID>
     <ID>ReturnCount:PlaybackCapture.kt$PlaybackCapture$@Synchronized fun start( projection: MediaProjection, onSampleRate: (Int) -&gt; Unit = {}, ): CaptureFailure?</ID>
     <ID>ReturnCount:PlaybackCaptureService.kt$PlaybackCaptureService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
@@ -38,7 +35,6 @@
     <ID>ReturnCount:PresetLibraryController.kt$PresetLibraryController$fun importPresetLink(text: String): String?</ID>
     <ID>ReturnCount:PresetLink.kt$PresetLink$fun decode(text: String): String?</ID>
     <ID>ReturnCount:TakeStore.kt$TakeStore$fun rename( from: String, to: String, ): Boolean</ID>
-    <ID>ReturnCount:TextureStore.kt$TextureStore$private fun importOne(uri: Uri): TextureImportResult</ID>
     <ID>ReturnCount:TrackLibrary.kt$TrackLibrary$private fun readLocked(): List&lt;LibraryTrack&gt;?</ID>
     <ID>SwallowedException:VideoExporter.kt$VideoExporter$e: Exception</ID>
     <ID>ThrowsCount:AudioTranscoder.kt$AudioTranscoder$fun transcode( uri: Uri, maxDurationMs: Long, startMs: Long = 0L, outputRateHz: Int? = null, isCancelled: () -&gt; Boolean = { false }, onProgress: (Float) -&gt; Unit = {}, ): Result</ID>

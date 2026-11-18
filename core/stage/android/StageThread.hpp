@@ -51,9 +51,16 @@ public:
     void setCap(float capFps);
     // Has the stage thread call the client's service once, between frames.
     void service();
+    // A system memory trim: the stage sheds its spares even when it draws no frame to read the signal.
+    void trim();
 
     uint32_t state() const { return core_.state(); }
-    uint32_t takeEvents() { return core_.takeEvents(); }
+    // The frame events since the last call. Drains the wake descriptor first, then clears its flag, then takes, so an
+    // event that lands in between still has a signal waiting (a spare wake is harmless, a lost one is not).
+    uint32_t takeEvents();
+    // A new descriptor the shell may poll: readable from the moment frame events are waiting until takeEvents, so
+    // the main thread sleeps between events instead of looking every vsync. The caller closes it; -1 if none.
+    int eventFd() const;
 
     // Asks the thread to quit and waits up to kQuitWait in all: joined when the thread finished, else left to
     // finish on its own.
@@ -85,6 +92,10 @@ private:
     VsyncThread::Sink* sink_ = nullptr;  // stage thread only
     float startCap_;
     StageCore core_;
+
+    // Readable while frame events wait; written by the stage thread after a step, drained by takeEvents. -1: none.
+    int eventFd_ = -1;
+    std::atomic<bool> eventSignalled_{false};
 
     std::atomic<int64_t> nextSeq_{0};
     // Quit is this flag, which no full queue can lose; its command only wakes the thread.

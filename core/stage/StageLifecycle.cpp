@@ -118,6 +118,11 @@ void Lifecycle::redrawNeeded() {
     drawOnce_ = true;
 }
 
+void Lifecycle::trimRequested() {
+    if (quit_ || lost_ || vsync_ || !clientCreated_) return;
+    trimDue_ = true;
+}
+
 void Lifecycle::contextLost() {
     if (quit_) return;
     markLost();

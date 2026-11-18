@@ -46,6 +46,11 @@ internal class ListeningTracker(
 
     val favourites: StateFlow<Set<String>> = favouritesRepository.favourites
 
+    // Native parses and rewrites the whole history on every listen added, so the half-second ticks are gathered
+    // and added in memory every few seconds. The disk is written at a track change, a pause, a stop, when the app
+    // goes to the background, and every ListenBatch.DISK_INTERVAL_MS of playing in between.
+    private val listenBatch = ListenBatch(addToHistory = historyStore::addListenTime, writeToDisk = historyStore::flush)
+
     private var listenTickAtMs = 0L
     private var listenTickUri: String? = null
 
@@ -68,19 +73,19 @@ internal class ListeningTracker(
         val now = System.currentTimeMillis()
         val playing = host.player.isPlaying && uri != null
         if (!playing || uri != listenTickUri) {
-            if (listenTickAtMs != 0L) historyStore.flush()
+            if (listenTickAtMs != 0L) listenBatch.commit()
             listenTickAtMs = if (playing) now else 0L
             listenTickUri = if (playing) uri else null
             return
         }
         val delta = now - listenTickAtMs
         listenTickAtMs = now
-        if (delta in 1..MAX_LISTEN_TICK_MS) historyStore.addListenTime(uri, delta)
+        if (delta in 1..MAX_LISTEN_TICK_MS) listenBatch.add(uri, delta)
     }
 
     fun flushListenTime() {
         accrueListenTime()
-        historyStore.flush()
+        listenBatch.commit()
     }
 
     fun awaitHistoryWrites(timeoutMs: Long) = historyStore.awaitWrites(timeoutMs)

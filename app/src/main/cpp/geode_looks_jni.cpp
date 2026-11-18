@@ -266,18 +266,18 @@ Java_dev_geode_engine_bridge_LooksNative_savedPaletteFrameId(JNIEnv* env, jobjec
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_LooksNative_presetRead(JNIEnv* env, jobject, jstring text, jfloatArray frame,
                                                                              jobjectArray strings, jfloatArray envelope) {
     const jsize count = static_cast<jsize>(geode_viz_param_count());
-    if (!frame || env->GetArrayLength(frame) < count || !strings || env->GetArrayLength(strings) < 5 || !envelope ||
+    if (!frame || env->GetArrayLength(frame) < count || !strings || env->GetArrayLength(strings) < 4 || !envelope ||
         env->GetArrayLength(envelope) < 2) {
         return JNI_FALSE;
     }
     Utf8Chars chars(env, text);
     std::vector<float> values(static_cast<size_t>(count));
-    const char* read[5] = {};
+    const char* read[4] = {};
     float pair[2] = {};
     if (!geode_preset_read(textOf(chars), values.data(), count, read, pair)) return JNI_FALSE;
     env->SetFloatArrayRegion(frame, 0, count, values.data());
     env->SetFloatArrayRegion(envelope, 0, 2, pair);
-    for (jsize i = 0; i < 5; ++i) {
+    for (jsize i = 0; i < 4; ++i) {
         jstring s = utf8String(env, read[i]);
         if (env->ExceptionCheck()) return JNI_FALSE;
         env->SetObjectArrayElement(strings, i, s);
@@ -288,22 +288,16 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_LooksNative_presetRead(J
 
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LooksNative_presetWrite(JNIEnv* env, jobject, jstring name, jstring sceneId,
                                                                              jfloat attack, jfloat decay, jstring customShader,
-                                                                             jstring milkPreset, jfloatArray frame,
+                                                                             jfloatArray frame,
                                                                              jstring customPaletteId) {
     Utf8Chars label(env, name);
     Utf8Chars scene(env, sceneId);
     Utf8Chars shader(env, customShader);
-    Utf8Chars milk(env, milkPreset);
     Utf8Chars paletteId(env, customPaletteId);
     FloatElements values(env, frame);
     if (!values.get()) return nullptr;
-    return utf8String(env, geode_preset_write(textOf(label), textOf(scene), attack, decay, shader.get(), milk.get(), values.get(),
+    return utf8String(env, geode_preset_write(textOf(label), textOf(scene), attack, decay, shader.get(), values.get(),
                                               values.length(), textOf(paletteId)));
-}
-
-JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LooksNative_presetMilkFileName(JNIEnv* env, jobject, jstring presetName) {
-    Utf8Chars chars(env, presetName);
-    return utf8String(env, geode_preset_milk_file_name(textOf(chars)));
 }
 
 JNIEXPORT jstring JNICALL
@@ -344,7 +338,7 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_LooksNative_templateIsSt
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_LooksNative_templateRead(JNIEnv* env, jobject, jstring text, jfloatArray frame,
                                                                            jobjectArray strings, jfloatArray envelope) {
-    constexpr jsize kStrings = 7;
+    constexpr jsize kStrings = 6;
     const jsize count = static_cast<jsize>(geode_viz_param_count());
     if (!frame || env->GetArrayLength(frame) < count || !strings || env->GetArrayLength(strings) < kStrings || !envelope ||
         env->GetArrayLength(envelope) < 2) {
@@ -371,17 +365,16 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_LooksNative_templateRead(JNI
 
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LooksNative_templateCreate(JNIEnv* env, jobject, jstring name, jlong createdAtMs,
                                                                                 jstring sceneId, jfloat attack, jfloat decay,
-                                                                                jstring customShader, jstring milkPreset,
+                                                                                jstring customShader,
                                                                                 jfloatArray frame, jstring customPaletteId) {
     Utf8Chars label(env, name);
     Utf8Chars scene(env, sceneId);
     Utf8Chars shader(env, customShader);
-    Utf8Chars milk(env, milkPreset);
     Utf8Chars paletteId(env, customPaletteId);
     FloatElements values(env, frame);
     if (!values.get()) return nullptr;
     return utf8String(env, geode_template_create(textOf(label), static_cast<long long>(createdAtMs), textOf(scene), attack, decay,
-                                                 shader.get(), milk.get(), values.get(), values.length(), textOf(paletteId)));
+                                                 shader.get(), values.get(), values.length(), textOf(paletteId)));
 }
 
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LooksNative_templateRenamed(JNIEnv* env, jobject, jstring text, jstring name) {

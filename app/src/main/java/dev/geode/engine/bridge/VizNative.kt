@@ -76,18 +76,6 @@ object VizNative {
         durationMs: Long,
     )
 
-    external fun vizLoadMilkPreset(
-        handle: Long,
-        path: String,
-    )
-
-    external fun vizSetMilkTextureDir(
-        handle: Long,
-        dir: String,
-    )
-
-    external fun vizTakeMilkPresetLoaded(handle: Long): String?
-
     external fun vizTakeDirectorStyleMoments(handle: Long): Int
 
     external fun vizWriteAudio(

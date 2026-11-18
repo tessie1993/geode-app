@@ -12,7 +12,7 @@
 // video frame, so live, export and loop renders share one rule and the shell only presents what is drawn.
 //
 // begin(): the renderer pinned for an export (full tier, cut transitions, fixed fluid quality), its fixed step of
-// 1/fps from the first frame on (#377), the surface, the scene (false: it cannot draw it), the MilkDrop preset,
+// 1/fps from the first frame on (#377), the surface, the scene (false: it cannot draw it),
 // and the engine settings pinned for the render's length (#350), whose hand mask the reactions merge under.
 // The shell then applies its look, which needs that mask; preRoll() is the rest of the prepare: the engine hears
 // the track before frame 0 (output/PreRoll, #999 F1), the pre-roll ends, and the range's own decode opens.
@@ -31,7 +31,6 @@ public:
     // The new GL surface and its size.
     virtual void surface(int width, int height) = 0;
     virtual bool setScene(const std::string& sceneId) = 0;
-    virtual void loadMilkPreset(const std::string& path) = 0;
     // Pins the engine settings for durationMs; the hand mask the pin holds.
     virtual uint32_t pinEngineSettings(bool entitled, int64_t durationMs) = 0;
     // output::endPreRoll on the renderer's engine; false when it heard nothing.
@@ -44,8 +43,7 @@ struct ExportStart {
     int width = 0;
     int height = 0;
     std::string sceneId;
-    std::string milkPresetPath;  // empty: none
-    bool entitled = false;       // the pinned director's free-taste rule (ProFeature.AUTO_DIRECTOR)
+    bool entitled = false;  // the pinned director's free-taste rule (ProFeature.AUTO_DIRECTOR)
     int64_t pinDurationMs = 0;   // the render's length
 };
 

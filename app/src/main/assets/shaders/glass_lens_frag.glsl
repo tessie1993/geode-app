@@ -59,7 +59,7 @@ out vec4 fragColor;
 //                  2026-11-12, no style spins to the music);
 //   kick           jostles the lenses (an eased bump, never a jump);
 //   pan            the lanes lean toward the louder side;
-//   flatness       frosts the glass: grain on the faces, the magnified image milky;
+//   flatness       frosts the glass: grain on the faces, the magnified image hazy;
 //   hi-hat         glints on the faces;
 //   key            uKeyHue walks the palette, gated by uKeyStrength.
 //

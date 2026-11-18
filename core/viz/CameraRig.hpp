@@ -100,7 +100,7 @@ public:
     void step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat = true,
               const GeodeSoundFrame* sound = nullptr);
 
-    // Hard cuts closer together than this are ignored; projectM's default minimum preset time is 20 s.
+    // Hard cuts closer together than this are ignored.
     static constexpr float kCutGapSeconds = 15.0f;
 
     static constexpr float kTraumaRadians = 0.04f;

@@ -35,16 +35,15 @@ std::set<std::string> lineSet(const char* text) {
 extern "C" {
 
 int geode_randomize_all_pick(uint64_t seed, const char* current_style, const char* locked_styles, const char* look_styles,
-                             int milk_count, char* style_out, int style_capacity, int* look_out, int* milk_out) try {
+                             char* style_out, int style_capacity, int* look_out) try {
     const randomize_all::Pick picked =
-        randomize_all::pick(seed, current_style ? current_style : "", lineSet(locked_styles), lines(look_styles), milk_count);
+        randomize_all::pick(seed, current_style ? current_style : "", lineSet(locked_styles), lines(look_styles));
     if (style_out && style_capacity > 0) {
         const size_t n = std::min(picked.style.size(), static_cast<size_t>(style_capacity - 1));
         std::memcpy(style_out, picked.style.data(), n);
         style_out[n] = '\0';
     }
     if (look_out) *look_out = picked.look;
-    if (milk_out) *milk_out = picked.milk;
     return picked.style.empty() ? 0 : 1;
 } catch (...) {
     return 0;

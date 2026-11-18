@@ -230,6 +230,16 @@ void windowAndFrames() {
     check(r.client->frames == 3 && r.client->paced == 90.0f && r.client->cap == 90.0f, "a redraw while stopped draws one frame at the cap");
 }
 
+void trimReachesAStageThatDrawsNothing() {
+    Rig r;
+    r.show();
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Still)));
+    r.core.step(r.now + 5000);
+    const int before = r.client->trims;
+    r.send(command(kStageTrim));
+    check(r.client->trims == before + 1, "a trim command makes the idle stage shed its spares");
+}
+
 void handOvers() {
     Rig r;
     r.show();
@@ -403,6 +413,7 @@ void endsOutOfTurn() {
 
 int main() {
     windowAndFrames();
+    trimReachesAStageThatDrawsNothing();
     handOvers();
     vsyncTimes();
     aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone();

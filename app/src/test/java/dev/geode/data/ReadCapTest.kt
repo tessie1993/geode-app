@@ -29,7 +29,7 @@ class ReadCapTest {
 
     @Test(expected = IOException::class)
     fun stopsAnEndlessStream() {
-        ReadCap.MILK.copy(stream(Long.MAX_VALUE), ByteArrayOutputStream())
+        ReadCap.PRESET.copy(stream(Long.MAX_VALUE), ByteArrayOutputStream())
     }
 
     @Test

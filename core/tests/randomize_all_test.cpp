@@ -26,8 +26,6 @@ void check(bool ok, const std::string& what) {
     }
 }
 
-bool isMilk(const std::string& id) { return catalogue::kindOf(id) == catalogue::Kind::Milkdrop; }
-
 bool sameWire(const SceneParams& a, const SceneParams& b) {
     float x[SceneParams::kFieldCount];
     float y[SceneParams::kFieldCount];
@@ -48,12 +46,12 @@ std::set<std::string> lockAllBut(const std::set<std::string>& open) {
 void samePickForTheSameSeed() {
     const std::vector<std::string> looks = {catalogue::allIds()[0], catalogue::allIds()[1], catalogue::allIds()[0]};
     for (uint64_t seed = 0; seed < 64; ++seed) {
-        const auto a = randomize_all::pick(seed, "", {}, looks, 3);
-        const auto b = randomize_all::pick(seed, "", {}, looks, 3);
-        check(a.style == b.style && a.look == b.look && a.milk == b.milk, "pick is a function of its seed");
+        const auto a = randomize_all::pick(seed, "", {}, looks);
+        const auto b = randomize_all::pick(seed, "", {}, looks);
+        check(a.style == b.style && a.look == b.look, "pick is a function of its seed");
     }
     std::set<std::string> seen;
-    for (uint64_t seed = 0; seed < 400; ++seed) seen.insert(randomize_all::pick(seed, "", {}, {}, 3).style);
+    for (uint64_t seed = 0; seed < 400; ++seed) seen.insert(randomize_all::pick(seed, "", {}, {}).style);
     check(seen.size() > 50, "different seeds reach many styles");
 }
 
@@ -63,20 +61,19 @@ void neverALockedStyle() {
     open.insert("neon_chrome_sea");
     const auto locked = lockAllBut(open);
     for (uint64_t seed = 0; seed < 2000; ++seed) {
-        const auto picked = randomize_all::pick(seed, "", locked, {}, 10);
+        const auto picked = randomize_all::pick(seed, "", locked, {});
         check(open.count(picked.style) == 1, "picked an open style, not " + picked.style);
     }
     // Everything locked: nothing to pick, and the ABI says so.
     std::set<std::string> all(catalogue::allIds().begin(), catalogue::allIds().end());
-    check(randomize_all::pick(7, "", all, {}, 10).style.empty(), "no style when every style is locked");
+    check(randomize_all::pick(7, "", all, {}).style.empty(), "no style when every style is locked");
     std::string lockedText;
     for (const auto& id : all) lockedText += id + "\n";
     char style[64] = "x";
     int look = 5;
-    int milk = 5;
-    check(geode_randomize_all_pick(7, "", lockedText.c_str(), "", 10, style, sizeof style, &look, &milk) == 0,
+    check(geode_randomize_all_pick(7, "", lockedText.c_str(), "", style, sizeof style, &look) == 0,
           "ABI: 0 when every style is locked");
-    check(style[0] == '\0' && look == -1 && milk == -1, "ABI: empty style, no look, no milk");
+    check(style[0] == '\0' && look == -1, "ABI: empty style, no look");
 }
 
 void notTheStyleOnScreen() {
@@ -84,28 +81,10 @@ void notTheStyleOnScreen() {
     const std::string other = catalogue::families()[1].opener();
     const auto locked = lockAllBut({current, other});
     for (uint64_t seed = 0; seed < 200; ++seed) {
-        check(randomize_all::pick(seed, current, locked, {}, 0).style == other, "randomize everything leaves the style on screen");
+        check(randomize_all::pick(seed, current, locked, {}).style == other, "randomize everything leaves the style on screen");
     }
     // The only open style is the one on screen: it stays, the look and roll still move.
-    check(randomize_all::pick(3, current, lockAllBut({current}), {}, 0).style == current, "the only open style is kept");
-}
-
-void milkDropOnlyWithAFileAndItsFileIsItsPreset() {
-    for (uint64_t seed = 0; seed < 3000; ++seed) {
-        check(!isMilk(randomize_all::pick(seed, "", {}, {}, 0).style), "no MilkDrop without a .milk file");
-    }
-    std::string milk;
-    for (const auto& id : catalogue::allIds()) {
-        if (isMilk(id)) milk = id;
-    }
-    const auto onlyMilk = lockAllBut({milk});
-    for (uint64_t seed = 0; seed < 200; ++seed) {
-        const auto picked = randomize_all::pick(seed, "", onlyMilk, {}, 5);
-        check(picked.style == milk && picked.look == -1 && picked.milk >= 0 && picked.milk < 5, "MilkDrop takes a random .milk");
-    }
-    // A saved look for MilkDrop is a look like any other: it wins, and no second file is loaded over it.
-    const auto withLook = randomize_all::pick(1, "", onlyMilk, {"x", milk}, 5);
-    check(withLook.look == 1 && withLook.milk == -1, "a MilkDrop preset is used as the look");
+    check(randomize_all::pick(3, current, lockAllBut({current}), {}).style == current, "the only open style is kept");
 }
 
 void aLookMadeForTheStyle() {
@@ -114,14 +93,13 @@ void aLookMadeForTheStyle() {
     const auto locked = lockAllBut({ids[0], ids[1], ids[2], ids[3]});
     std::set<int> used;
     for (uint64_t seed = 0; seed < 400; ++seed) {
-        const auto picked = randomize_all::pick(seed, "", locked, looks, 0);
+        const auto picked = randomize_all::pick(seed, "", locked, looks);
         if (picked.style == ids[3]) {
             check(picked.look == -1, "no look for a style none was made for");
         } else {
             check(picked.look >= 0 && looks[static_cast<size_t>(picked.look)] == picked.style, "the look fits the style");
             used.insert(picked.look);
         }
-        check(picked.milk == -1, "no .milk off MilkDrop");
     }
     check(used.count(0) && used.count(2), "every look made for a style can be drawn");
 }
@@ -286,7 +264,6 @@ int main() {
     samePickForTheSameSeed();
     neverALockedStyle();
     notTheStyleOnScreen();
-    milkDropOnlyWithAFileAndItsFileIsItsPreset();
     aLookMadeForTheStyle();
     rollIsAFunctionOfItsSeed();
     everyCategoryMoves();

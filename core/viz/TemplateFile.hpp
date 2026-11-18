@@ -36,7 +36,6 @@ struct TemplateLook {
     SceneParams params;
     std::string customPaletteId;
     std::optional<std::string> customShader;
-    std::optional<std::string> milkPreset;
     Carried foreign;
     Carried paramsForeign;
 };

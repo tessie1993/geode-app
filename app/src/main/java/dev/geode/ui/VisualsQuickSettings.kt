@@ -101,7 +101,7 @@ import kotlin.math.roundToInt
  *
  * Every control is one row, at least [GeodeSpacing.TouchTarget] tall. From [TWO_COLUMN_WIDTH] the
  * rows split into two columns (the landscape panel, a tablet). Back is the sheet's: the page is on
- * the route like Textures, so Back returns to the tab under it.
+ * the route, so Back returns to the tab under it.
  *
  * [onOpenPlaylist], when the shell has a place to edit the playlist, turns the playlist row into its
  * entry point; without it the row only shows how many looks the playlist holds.
@@ -544,7 +544,7 @@ private fun SourceRow(
 }
 
 /**
- * What Random picks from: styles, saved presets and MilkDrop presets.
+ * What Random picks from: styles and saved presets.
  * One row with the picks as its value; the menu stays open while they are ticked.
  */
 @Composable
@@ -556,7 +556,6 @@ private fun RandomPicksRow(
         buildList {
             add(RandomPick(R.string.autoviz_pick_styles, viz.randomIncludeStyles, viewModel::setRandomIncludeStyles))
             add(RandomPick(R.string.visuals_qs_pick_presets, viz.randomIncludePresets, viewModel::setRandomIncludePresets))
-            add(RandomPick(R.string.visuals_qs_pick_milk, viz.randomIncludeMilk, viewModel::setRandomIncludeMilk))
         }
     val names = picks.filter { it.checked }.map { stringResource(it.labelRes) }
     MenuRow(

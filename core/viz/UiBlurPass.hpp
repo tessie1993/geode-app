@@ -59,15 +59,24 @@ public:
     void releaseTargets();
     // Once a frame, on the wall step: frees the targets once `idleSeconds` pass without a draw.
     void releaseIdle(float wallDt, float idleSeconds);
-    // After the composite, with `targetFbo` holding the finished frame of width × height pixels.
+    // After the composite, with `targetFbo` holding the finished frame (or the frame_ beginFrame handed out) of width × height pixels.
+    // Before the composite: the framebuffer the frame should be drawn into so the blur never reads the window
+    // (a window surface read back after its draw costs a tile flush and reload every frame), or 0 when no blur
+    // will run and the frame goes straight to the window. A non-zero answer must be followed by draw().
+    GLuint beginFrame(const UiBlurRegion& region, int width, int height);
     void draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao);
 
 private:
+    bool drawBlur(const UiBlurRegion& region, GLuint srcFbo, GLuint targetFbo, int width, int height, GLuint quadVao);
+    static void copyFrame(GLuint srcFbo, GLuint dstFbo, int width, int height);
+
     OwnedProgram blurUniforms_;  // the blur program and its locations
     OwnedProgram maskUniforms_;  // the mask program and its locations
     Framebuffer half_{"uiBlurHalf"};
     Framebuffer quarterA_{"uiBlurQuarterA"};
     Framebuffer quarterB_{"uiBlurQuarterB"};
+    Framebuffer frame_{"uiBlurFrame"};  // the finished frame while a blur runs, copied to the window by draw
+    bool framePending_ = false;
     // Wall seconds since the last draw (releaseIdle).
     float idleSeconds_ = 0.0f;
 };

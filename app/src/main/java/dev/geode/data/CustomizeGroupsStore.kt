@@ -61,7 +61,7 @@ object CustomizeGroupsCodec : PrefsCodec<CustomizeGroups> {
     private const val KEY_OPEN = "customize_open_groups"
     private const val KEY_TAB = "customize_tab"
 
-    /** Screen memory, like the tour's progress: `BackupFormat` leaves these out. */
+    /** Screen memory, like the tour's progress: `core/backup/Backup.cpp` leaves these out. */
     val KEYS: Set<String> = setOf(KEY_OPEN, KEY_TAB)
 
     override val defaults = CustomizeGroups()

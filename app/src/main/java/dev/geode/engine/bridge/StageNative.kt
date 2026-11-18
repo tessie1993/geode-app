@@ -12,9 +12,6 @@ object StageNative {
     /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [VizNative.vizLastError]. */
     const val FRAME_ERROR_CHANGED: Int = 0x8
 
-    /** Mirrors GEODE_FRAME_MILK_LOADED: MilkDrop finished loading a preset; take it with [VizNative.vizTakeMilkPresetLoaded]. */
-    const val FRAME_MILK_LOADED: Int = 0x10
-
     /** Mirrors GEODE_FRAME_DIRECTOR_MOMENT: take the moments with [VizNative.vizTakeDirectorStyleMoments]. */
     const val FRAME_DIRECTOR_MOMENT: Int = 0x20
 
@@ -29,7 +26,6 @@ object StageNative {
     external fun stageCreate(
         assets: Any,
         cacheDir: String,
-        milkTextureDir: String,
         kind: Int,
         capFps: Float,
     ): Long
@@ -79,6 +75,9 @@ object StageNative {
 
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
+
+    /** A new descriptor, readable while frame events wait and until [stageTakeEvents]; the caller owns it. -1: none. */
+    external fun stageEventFd(stage: Long): Int
 
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
@@ -152,16 +151,6 @@ object StageNative {
         force: String?,
         dye: String?,
     )
-
-    external fun stageLoadMilkPreset(
-        stage: Long,
-        path: String,
-    )
-
-    external fun stageReloadMilkPreset(stage: Long)
-
-    /** After [FRAME_MILK_LOADED]: each loaded preset's path once, in order; null when none waits. */
-    external fun stageTakeMilkLoaded(stage: Long): String?
 
     /** After [FRAME_DIRECTOR_MOMENT]: the moments since the last call. */
     external fun stageTakeDirectorMoments(stage: Long): Int

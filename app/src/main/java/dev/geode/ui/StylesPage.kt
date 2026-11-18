@@ -67,7 +67,7 @@ import dev.geode.ui.theme.performStoneHaptic
  *
  * The families are one flat level, in the native catalogue's order ([StyleCatalogue.picker]): Silk,
  * Life, Mycelium, Morphing, Shaders (every shader style outside a shader family), each shader
- * family (Arbor, Bulb…), MilkDrop, Fluid, Cymatics. Which style is in which family is native.
+ * family (Arbor, Bulb…), Fluid, Cymatics. Which style is in which family is native.
  *
  * "Your styles" (on screen, favourites, recent) is the dropdown's first entry rather than a section
  * above the list, so the page stays one control over one list. The style on screen leads every list

@@ -19,7 +19,7 @@ import java.io.InputStream
  * The `ContentResolver` calls the screens and the session's controllers used to make themselves: the
  * system consent requests for a write or a delete on tracks the app does not own, the persisted
  * grants for a document or a folder the user picked, and the reads, names and folder copies of those
- * documents (a background image, a preset, a template, a .milk or a folder of them, a queued file).
+ * documents (a background image, a preset, a template or a folder of them, a queued file).
  *
  * One class for the one source, with every function main-safe: each hops to [io] itself, so a
  * composable can call it from its own scope without knowing which thread a binder call wants. What

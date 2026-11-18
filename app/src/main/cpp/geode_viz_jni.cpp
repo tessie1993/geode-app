@@ -179,28 +179,6 @@ Java_dev_geode_engine_bridge_VizNative_vizSetTransition(JNIEnv* env, jobject, jl
     geode_viz_set_transition(vizOf(handle), name.get(), durationMs);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_vizLoadMilkPreset(JNIEnv* env, jobject, jlong handle, jstring path) {
-    Utf8Chars file(env, path);
-    geode_viz_load_milk_preset(vizOf(handle), file.get());
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_vizSetMilkTextureDir(JNIEnv* env, jobject, jlong handle, jstring dir) {
-    Utf8Chars path(env, dir);
-    geode_viz_set_milk_texture_dir(vizOf(handle), path.get());
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_VizNative_vizTakeMilkPresetLoaded(JNIEnv* env, jobject, jlong handle) {
-    // One call: the take hands the path out once, so a length query first would leave the copy
-    // empty. A path longer than PATH_MAX cannot be a file the renderer loaded.
-    char buffer[4096];
-    const size_t length = geode_viz_take_milk_preset_loaded(vizOf(handle), buffer, sizeof(buffer));
-    if (length == 0 || length >= sizeof(buffer)) return nullptr;
-    return geode::jni::utf8String(env, buffer);
-}
-
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_VizNative_vizTakeDirectorStyleMoments(JNIEnv*, jobject, jlong handle) {
     return geode_viz_take_director_style_moments(vizOf(handle));
@@ -347,9 +325,15 @@ Java_dev_geode_engine_bridge_MacroNative_macroBankModulated(JNIEnv*, jobject, jf
     return geode_macro_bank_modulated(turn, add);
 }
 
-JNIEXPORT jstring JNICALL
+JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_MacroNative_macroBankLiveMods(JNIEnv* env, jobject) {
-    return geode::jni::utf8String(env, geode_macro_bank_live_mods());
+    constexpr int kRows = 16;   // core/viz/MacroBank kMaxKnobs
+    constexpr int kFloats = 5;  // core/viz/MacroBank kLiveModFloats
+    float rows[kRows * kFloats];
+    const int count = geode_macro_bank_live_mods(rows, kRows);
+    jfloatArray out = env->NewFloatArray(count * kFloats);
+    if (out && count > 0) env->SetFloatArrayRegion(out, 0, count * kFloats, rows);
+    return out;
 }
 
 JNIEXPORT jstring JNICALL
@@ -1143,18 +1127,17 @@ Java_dev_geode_engine_bridge_CustomizeNative_customizeBorrow(JNIEnv* env, jobjec
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_ParamsNative_randomizeAllPick(JNIEnv* env, jobject, jlong seed, jstring current, jstring lockedStyles,
-                                                          jstring lookStyles, jint milkCount, jintArray picks) {
-    if (!picks || env->GetArrayLength(picks) < 2) return nullptr;
+                                                          jstring lookStyles, jintArray picks) {
+    if (!picks || env->GetArrayLength(picks) < 1) return nullptr;
     Utf8Chars style(env, current);
     Utf8Chars locked(env, lockedStyles);
     Utf8Chars looks(env, lookStyles);
     char picked[128];
     int look = -1;
-    int milk = -1;
-    const int ok = geode_randomize_all_pick(static_cast<uint64_t>(seed), style.get(), locked.get(), looks.get(), milkCount, picked,
-                                            static_cast<int>(sizeof picked), &look, &milk);
-    const jint out[2] = {look, milk};
-    env->SetIntArrayRegion(picks, 0, 2, out);
+    const int ok = geode_randomize_all_pick(static_cast<uint64_t>(seed), style.get(), locked.get(), looks.get(), picked,
+                                            static_cast<int>(sizeof picked), &look);
+    const jint out[1] = {look};
+    env->SetIntArrayRegion(picks, 0, 1, out);
     return ok ? geode::jni::utf8String(env, picked) : nullptr;
 }
 

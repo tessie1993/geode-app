@@ -102,7 +102,7 @@ std::string fixture(const std::string& dir, const char* name) {
     return text.str();
 }
 
-const std::set<std::string> kEnvelope = {"name", "sceneId", "attack", "decay", "customShader", "milkPreset"};
+const std::set<std::string> kEnvelope = {"name", "sceneId", "attack", "decay", "customShader"};
 
 std::set<std::string> liveNamesAndIds() {
     std::set<std::string> out = {viz::kCustomPaletteIdKey, viz::kCustomPalette2IdKey};

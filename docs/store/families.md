@@ -25,8 +25,7 @@ four were not, as the code stood on 2026-11-11:
    9-12 it would have had to be rewritten, with a contact for parents.
 3. **The first-run safety notice** used to promise that nothing could flash more than three
    times a second, while the engine limits parameters and no longer measures the finished frame
-   (#947). Closed (#994): `safety_prompt` now says what is limited and that MilkDrop presets only
-   get the brightness cap.
+   (#947). Closed (#994): `safety_prompt` now says what is limited.
 4. **The style kind labelled "Acid"** (`core/viz/Catalogue`). Play's examples of Families
    violations include glamorising controlled substances.
 

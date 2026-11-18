@@ -96,7 +96,7 @@ inline int liveFpsCap(int stored, const float* rates, int count) {
 // hears every vsync whether or not it draws, so it follows the system's mode changes and needs no Display):
 // the panel's rate as it is, to the half hertz the paced rate is read in, so the pacer draws every vsync (a
 // 144 Hz panel draws 144, an odd rate included: the divide is 1, never uneven) and its paced slot names the
-// real rate for MilkDrop's fps and the fluid quality monitor. Until the estimate settles: 0, every vsync.
+// real rate for the fluid quality monitor. Until the estimate settles: 0, every vsync.
 inline float followCapFps(const PacerState& s) {
     const bool settled = s.periodNs > 0 && s.samples >= Pacer::kSettleFrames;
     const int64_t panelMilliHz = settled ? std::llround(Pacer::panelHz(s) * 2.0) * 500 : 0;

@@ -17,9 +17,8 @@ namespace plan = geode::viz::auto_plan;
 static_assert(plan::kMomentNone == GEODE_AUTO_MOMENT_NONE && plan::kMomentPlaylist == GEODE_AUTO_MOMENT_PLAYLIST &&
               plan::kMomentRandom == GEODE_AUTO_MOMENT_RANDOM);
 static_assert(plan::kDrawStyles == GEODE_AUTO_DRAW_STYLES && plan::kDrawPresets == GEODE_AUTO_DRAW_PRESETS &&
-              plan::kDrawMilk == GEODE_AUTO_DRAW_MILK && plan::kDrawKeepLook == GEODE_AUTO_DRAW_KEEP_LOOK);
-static_assert(plan::kKindStyle == GEODE_AUTO_KIND_STYLE && plan::kKindPreset == GEODE_AUTO_KIND_PRESET &&
-              plan::kKindMilk == GEODE_AUTO_KIND_MILK);
+              plan::kDrawKeepLook == GEODE_AUTO_DRAW_KEEP_LOOK);
+static_assert(plan::kKindStyle == GEODE_AUTO_KIND_STYLE && plan::kKindPreset == GEODE_AUTO_KIND_PRESET);
 
 namespace {
 

@@ -22,7 +22,6 @@ namespace geode::shell {
 struct PlaylistEntry {
     std::string sceneId;
     std::optional<std::string> presetName;
-    std::optional<std::string> milkPath;
     std::string label;
 };
 
@@ -32,7 +31,6 @@ struct AutoVisualsState {
     int randomIntervalSec = 0;
     bool randomIncludeStyles = false;
     bool randomIncludePresets = false;
-    bool randomIncludeMilk = false;
     std::vector<PlaylistEntry> playlist;
     bool playlistEnabled = false;
     int playlistIntervalSec = 0;
@@ -43,7 +41,6 @@ struct AutoVisualsStored {
     std::optional<int> randomIntervalSec;
     std::optional<bool> randomIncludeStyles;
     std::optional<bool> randomIncludePresets;
-    std::optional<bool> randomIncludeMilk;
     std::optional<bool> playlistEnabled;
     std::optional<int> playlistIntervalSec;
     std::optional<std::string> entriesJson;
@@ -58,13 +55,13 @@ using StyleResolver = std::function<std::string(const std::string&)>;
 // when it is stored on (or was on) and has entries; both intervals are held to native's range.
 AutoVisualsState autoVisualsApply(const AutoVisualsState& state, const AutoVisualsStored& stored, const StyleResolver& resolve);
 
-// The playlist as the prefs keep it: a JSON array of {sceneId, label[, presetName][, milkPath]}, as org.json
+// The playlist as the prefs keep it: a JSON array of {sceneId, label[, presetName]}, as org.json
 // wrote it (AutoVisualsPrefsStore.entriesToJson).
 std::string autoVisualsEntriesToJson(const std::vector<PlaylistEntry>& entries);
 
 // The entries a saved text holds (AutoVisualsPrefsStore.entriesFromJson): read as org.json reads, the first
 // array in the text; an element that is not an object, or has no scene id, is skipped; the scene id is
-// resolved, an empty preset name or milk path is none, an empty label is the raw scene id. Text that is not
+// resolved, an empty preset name is none, an empty label is the raw scene id. Text that is not
 // an array is no entries.
 std::vector<PlaylistEntry> autoVisualsEntriesFromJson(const std::string& json, const StyleResolver& resolve);
 

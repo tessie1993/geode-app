@@ -48,8 +48,6 @@
   "paletteRangeOverride": 0.25,
   "customPaletteId": "palette-a",
   "customPalette2Id": "palette-b",
-  "milkdropPaletteTint": 0.5,
-  "milkdropBlendPresets": true,
   "duotone": true,
   "bloom": 0.5,
   "driftX": -0.5,
@@ -181,6 +179,5 @@
   "paletteStop5": 65280,
   "paletteStop6": 255,
   "paletteStop7": 16711935,
-  "customShader": "void main() {}",
-  "milkPreset": "golden.milk"
+  "customShader": "void main() {}"
 }

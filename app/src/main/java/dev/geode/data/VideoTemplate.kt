@@ -17,6 +17,7 @@ import dev.geode.RingLog
 import dev.geode.engine.bridge.LooksNative
 import dev.geode.model.PresetLink
 import dev.geode.model.SceneParams
+import dev.geode.model.StyleCatalogue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,7 +77,6 @@ data class TemplateLook(
     val decay: Float,
     val params: SceneParams,
     val customShader: String? = null,
-    val milkPreset: String? = null,
 ) {
     /** Bridges into the existing preset machinery so applying a template reuses it. */
     fun toPreset(name: String): Preset =
@@ -87,7 +87,6 @@ data class TemplateLook(
             decay = decay,
             customShader = customShader,
             params = params,
-            milkPreset = milkPreset,
         )
 }
 
@@ -121,7 +120,7 @@ sealed interface TemplateParse {
 internal object TemplateCodec {
     private const val PARSED = 1
     private const val NOT_A_TEMPLATE = 0
-    private const val STRINGS = 7
+    private const val STRINGS = 6
 
     /** A whole template file or a pasted message holding one or a geode://template link. */
     fun read(text: String): TemplateParse {
@@ -146,7 +145,6 @@ internal object TemplateCodec {
                 look.attack,
                 look.decay,
                 look.customShader,
-                look.milkPreset,
                 look.params.frame(),
                 look.params.customPaletteId,
             ),
@@ -182,22 +180,26 @@ internal object TemplateCodec {
         val envelope = FloatArray(2)
         return when (LooksNative.templateRead(body, frame, strings, envelope)) {
             PARSED ->
-                TemplateParse.Parsed(
-                    VideoTemplate(
-                        id = TemplateId(strings[1].orEmpty()),
-                        name = strings[2].orEmpty(),
-                        look =
-                            TemplateLook(
-                                sceneId = strings[3].orEmpty(),
-                                attack = envelope[0],
-                                decay = envelope[1],
-                                params = SceneParams.read(frame, strings[6].orEmpty()),
-                                customShader = strings[4],
-                                milkPreset = strings[5],
-                            ),
-                        document = strings[0].orEmpty(),
-                    ),
-                )
+                // A look of a style this build no longer has is not read, so it is never applied.
+                if (strings[3].orEmpty() !in StyleCatalogue.ids) {
+                    TemplateParse.NotATemplate("no such style")
+                } else {
+                    TemplateParse.Parsed(
+                        VideoTemplate(
+                            id = TemplateId(strings[1].orEmpty()),
+                            name = strings[2].orEmpty(),
+                            look =
+                                TemplateLook(
+                                    sceneId = strings[3].orEmpty(),
+                                    attack = envelope[0],
+                                    decay = envelope[1],
+                                    params = SceneParams.read(frame, strings[5].orEmpty()),
+                                    customShader = strings[4],
+                                ),
+                            document = strings[0].orEmpty(),
+                        ),
+                    )
+                }
             NOT_A_TEMPLATE -> TemplateParse.NotATemplate(strings[0].orEmpty())
             else -> TemplateParse.Malformed(strings[0].orEmpty())
         }

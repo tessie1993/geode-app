@@ -7,8 +7,8 @@
 // - the timed draw is due only while on, playing and not held; closing Customize starts both waits over;
 // - a director moment is skipped while held, and when the look changed since Auto's last change (and every moment
 //   while the user keeps changing it); otherwise it brings the playlist's next entry or a draw;
-// - the draw's pool: styles, then saved looks, then .milk files, none the entitlement refuses; a moment's draw takes
-//   no saved look; the entry on screen is the first equal one, a .milk only while MilkDrop is on screen;
+// - the draw's pool: styles, then saved looks, none the entitlement refuses; a moment's draw takes
+//   no saved look; the entry on screen is the first equal one;
 // - the timer interval is held to 5..300 s.
 #include <cmath>
 #include <cstdio>
@@ -103,27 +103,21 @@ void moments() {
 }
 
 void pools() {
-    const std::vector<std::string> styles = {"silk", "julia", "milkdrop", "fluid"};
+    const std::vector<std::string> styles = {"silk", "julia", "plasma", "fluid"};
     const std::set<std::string> locked = {"fluid"};
     const std::vector<std::string> looks = {"julia", "fluid", "silk"};
-    const int all = plan::kDrawStyles | plan::kDrawPresets | plan::kDrawMilk;
-    auto p = plan::pool(styles, locked, "julia", looks, 0, 2, 1, "milkdrop", all);
-    check(p.ids == "silk\njulia\nmilkdrop\njulia\nsilk\nmilkdrop\nmilkdrop", "styles, looks, .milk; no refused style");
+    const int all = plan::kDrawStyles | plan::kDrawPresets;
+    auto p = plan::pool(styles, locked, "julia", looks, 0, all);
+    check(p.ids == "silk\njulia\nplasma\njulia\nsilk", "styles, then looks; no refused style");
     check(p.onScreen == 1, "the style on screen comes first");
-    check(p.entries.size() == 7 && p.entries[3] == std::make_pair(plan::kKindPreset, 0) &&
-              p.entries[4] == std::make_pair(plan::kKindPreset, 2) && p.entries[6] == std::make_pair(plan::kKindMilk, 1),
+    check(p.entries.size() == 5 && p.entries[3] == std::make_pair(plan::kKindPreset, 0) &&
+              p.entries[4] == std::make_pair(plan::kKindPreset, 2),
           "each entry names its own list");
-    p = plan::pool(styles, locked, "julia", looks, 0, 2, 1, "milkdrop", plan::kDrawPresets | plan::kDrawMilk);
+    p = plan::pool(styles, locked, "julia", looks, 0, plan::kDrawPresets);
     check(p.onScreen == 0, "without styles the saved look on screen");
-    p = plan::pool(styles, locked, "julia", looks, -1, 2, 1, "milkdrop", plan::kDrawMilk);
-    check(p.onScreen == -1, "a .milk counts as on screen only on MilkDrop");
-    p = plan::pool(styles, locked, "milkdrop", looks, -1, 2, 1, "milkdrop", plan::kDrawMilk);
-    check(p.onScreen == 1, "the .milk playing on MilkDrop");
-    p = plan::pool(styles, {"milkdrop"}, "silk", looks, -1, 2, -1, "milkdrop", plan::kDrawMilk);
-    check(p.ids.empty() && p.entries.empty(), "MilkDrop refused: no .milk");
-    p = plan::pool(styles, locked, "silk", looks, 2, 0, -1, "milkdrop", all | plan::kDrawKeepLook);
-    check(p.ids == "silk\njulia\nmilkdrop", "a moment's draw keeps the look: no saved look");
-    p = plan::pool(styles, locked, "silk", looks, -1, 0, -1, "milkdrop", 0);
+    p = plan::pool(styles, locked, "silk", looks, 2, all | plan::kDrawKeepLook);
+    check(p.ids == "silk\njulia\nplasma", "a moment's draw keeps the look: no saved look");
+    p = plan::pool(styles, locked, "silk", looks, -1, 0);
     check(p.ids.empty() && p.onScreen == -1, "no source: an empty pool");
 }
 

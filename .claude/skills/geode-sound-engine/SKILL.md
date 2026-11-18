@@ -38,4 +38,4 @@ g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.c
 g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o /tmp/musical_test && /tmp/musical_test
 ```
 
-`.github/workflows/native-host-tests.yml` has the exact line for every other native test (director, note response, resampler, loudness). Write the test first: the engine is pure C++, so every detector can be driven with synthetic PCM (clicks for beats, sines for chroma, silence for `Silence`).
+`core/tests/host-tests.txt` has the entry for every other native test (director, note response, resampler, loudness). Write the test first: the engine is pure C++, so every detector can be driven with synthetic PCM (clicks for beats, sines for chroma, silence for `Silence`).

@@ -95,7 +95,7 @@ void testFftSizes() {
     CHECK(SoundEngine::fftSizeFor(192000) == 8192, "%d", SoundEngine::fftSizeFor(192000));
 }
 
-// Steady music reads ~1.0 on every relative level, which is the whole point of the MilkDrop core.
+// Steady music reads ~1.0 on every relative level, which is the whole point of the relative levels.
 void testSteadyReadsOne() {
     SoundEngine e(48000);
     double bass = 0, mid = 0, treble = 0, low = 0;
@@ -506,7 +506,7 @@ void testDcOffsetIsSilence() {
     CHECK(std::fabs(last.rms / want - 1.0) < 0.01, "a 100 Hz sine's rms %f, without the blocker %f", last.rms, want);
 }
 
-// A loud entrance after a quiet intro is MilkDrop's hard cut: it fires at once, and only once. Steady
+// A loud entrance after a quiet intro is a hard cut: it fires at once, and only once. Steady
 // music never cuts. On soft-limited ratios (below 4) the starting threshold of 5 could never be reached.
 void testHardCut() {
     const int rate = 44100;

@@ -40,16 +40,15 @@ Java_dev_geode_engine_bridge_StudioNative_studioKindRead(JNIEnv* env, jobject, j
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_StudioNative_studioEditNew(JNIEnv* env, jobject, jstring songUri, jstring songTitle,
-                                                       jlong songMs, jstring sceneId, jstring milkPath,
+                                                       jlong songMs, jstring sceneId,
                                                        jlong renderMs) {
     const Utf8Chars uri(env, songUri);
     const Utf8Chars title(env, songTitle);
     const Utf8Chars scene(env, sceneId);
-    const Utf8Chars milk(env, milkPath);
-    if (unread(songUri, uri) || unread(songTitle, title) || unread(sceneId, scene) || unread(milkPath, milk)) {
+    if (unread(songUri, uri) || unread(songTitle, title) || unread(sceneId, scene)) {
         return nullptr;
     }
-    return stringOf(env, geode_studio_edit_new(uri.get(), title.get(), songMs, scene.get(), milk.get(), renderMs));
+    return stringOf(env, geode_studio_edit_new(uri.get(), title.get(), songMs, scene.get(), renderMs));
 }
 
 JNIEXPORT jlong JNICALL

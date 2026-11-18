@@ -222,19 +222,18 @@ void trimShedsByWhetherTheSurfaceDraws() {
     }
 }
 
-// #999: the budget counts what a scene weighs. A MilkDrop scene (a projectM instance with its own screen-size
-// textures) is as heavy as a fluid, and the pinned scenes past the heaviest take their weight out of it.
+// #999: the budget counts what a scene weighs. A fluid scene is heavy, and the pinned scenes past the heaviest take their weight out of it.
 void budgetCountsWeightAndPins() {
-    check(SceneResidency::heavy(true, false) && SceneResidency::heavy(false, true), "fluid and MilkDrop scenes are heavy");
-    check(!SceneResidency::heavy(false, false), "a shader style is light");
+    check(SceneResidency::heavy(true), "a fluid scene is heavy");
+    check(!SceneResidency::heavy(false), "a shader style is light");
     const int full = SceneResidency::kSpareBudget;
     {
         SceneResidency r;
-        r.insert("milk_spare_a", SceneResidency::heavy(false, true), 0);
-        r.insert("milk_spare_b", SceneResidency::heavy(false, true), 0);
+        r.insert("fluid_spare_a", SceneResidency::heavy(true), 0);
+        r.insert("fluid_spare_b", SceneResidency::heavy(true), 0);
         r.insert("drawn", false, 0);
         const auto victims = r.evict([](const std::string& id) { return id == "drawn"; }, full);
-        check(victims.size() == 1 && victims[0] == "milk_spare_a", "two MilkDrop spares no longer fit where three shader styles do");
+        check(victims.size() == 1 && victims[0] == "fluid_spare_a", "two fluid spares no longer fit where three shader styles do");
     }
     {
         // One scene drawn: the whole budget, as before.

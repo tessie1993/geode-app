@@ -7,8 +7,7 @@
 #include <mutex>
 
 // Auto's style timer (Visuals › Settings: the random draw and the visual playlist): when the next look is
-// due. MilkDrop waits its time between presets plus a random spread (16 s + up to 10 s, 5 s on its F3
-// steps), so changes never tick like a metronome; here the wait is the user's interval plus up to a
+// due. The wait is the interval plus a random spread, so changes never tick like a metronome: the user's interval plus up to a
 // quarter of it, 10 s at most, drawn afresh for every look. The interval stays the floor: "every 20 s" is
 // never sooner. Pure, host-tested in core/tests/auto_timer_test.cpp; the shell only polls it.
 namespace geode::viz::auto_timer {

@@ -6,6 +6,7 @@ import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.MediaStoreSource
+import dev.geode.data.WriteCoalescer
 import dev.geode.engine.bridge.VizNative
 import dev.geode.viz.BackgroundImage
 import dev.geode.viz.BackgroundPixels
@@ -47,6 +48,9 @@ internal class BackgroundController(
         MutableStateFlow(BackgroundPushState(null, VizNative.underlayBlendOf(_prefs.value.blend), _prefs.value.amount))
     val push: StateFlow<BackgroundPushState> = _push
 
+    // A slider drag reports every point; the prefs file is written once it pauses (see WriteCoalescer).
+    private val saver = WriteCoalescer(storeScope, SAVE_QUIET_MS, SAVE_MAX_WAIT_MS, Dispatchers.IO) { store.save(_prefs.value) }
+
     // Read/written on scope (Main.immediate) only.
     private var renderWidth = 0
     private var renderHeight = 0
@@ -68,11 +72,13 @@ internal class BackgroundController(
         storeScope.launch { mediaStore.keepReadAccess(listOf(uri)) }
         releasePermission(_prefs.value.uri)
         setPrefs(_prefs.value.copy(uri = uri.toString()))
+        saver.flush()
     }
 
     fun clear() {
         releasePermission(_prefs.value.uri)
         setPrefs(_prefs.value.copy(uri = null))
+        saver.flush()
     }
 
     fun setBlend(blend: Int) = setPrefs(_prefs.value.copy(blend = VizNative.underlayBlendName(blend)), redecode = false)
@@ -110,7 +116,7 @@ internal class BackgroundController(
         debounceMs: Long = 0L,
     ) {
         _prefs.value = next
-        storeScope.launch { store.save(next) }
+        saver.request()
         if (redecode) {
             redecode(debounceMs)
         } else {
@@ -156,5 +162,7 @@ internal class BackgroundController(
 
         /** Long enough to swallow a slider drag's whole stream of onValueChange calls as one decode. */
         const val SLIDER_DEBOUNCE_MS = 200L
+        const val SAVE_QUIET_MS = 300L
+        const val SAVE_MAX_WAIT_MS = 1_000L
     }
 }

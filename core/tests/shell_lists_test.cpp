@@ -52,16 +52,6 @@ void favouriteToggles() {
     check(!styleShelfIsFavourite(toggle(on, "x"), "x"), "off again");
 }
 
-void randomFamilyOnlyLeavesTheShelfAlone() {
-    StyleShelf shelf;
-    shelf.favourites = {"x"};
-    shelf.recents = {"y"};
-    check(!shelf.randomFamilyOnly, "off until set");
-    const StyleShelf on = styleShelfApply(shelf, {StyleShelfEvent::SetRandomFamilyOnly, "", true});
-    check(on.randomFamilyOnly && on.favourites == shelf.favourites && on.recents == shelf.recents, "only the flag moved");
-    check(!styleShelfApply(on, {StyleShelfEvent::SetRandomFamilyOnly, "", false}).randomFamilyOnly, "off");
-}
-
 void removeRecentLeavesFavourites() {
     StyleShelf s;
     s.favourites = {"a"};
@@ -249,7 +239,6 @@ int main() {
     recentsNewestFirstWithoutRepeats();
     recentsForgetPastTheLimit();
     favouriteToggles();
-    randomFamilyOnlyLeavesTheShelfAlone();
     removeRecentLeavesFavourites();
     yoursOrder();
     styleShelfThroughTheAbi();

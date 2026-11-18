@@ -22,6 +22,14 @@ class ComputerLinkUiTest {
     }
 
     @Test
+    fun stopSharingIsOfferedWhileTheShareRunsAndOnlyThen() {
+        assertTrue(linkStopShown(LinkState.Starting))
+        assertTrue(linkStopShown(live))
+        assertFalse(linkStopShown(LinkState.Idle))
+        assertFalse(linkStopShown(LinkState.Ended(CastNative.LINK_REASON_STREAM)))
+    }
+
+    @Test
     fun theRowSaysWhatTheShareIsDoing() {
         assertEquals(R.string.link_row_live, linkRowValue(live, locked = false))
         assertEquals(R.string.link_row_starting, linkRowValue(LinkState.Starting, locked = false))

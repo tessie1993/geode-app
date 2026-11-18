@@ -100,7 +100,7 @@ bool step(ReactionResolve& r, std::string_view scene, int seed, const HandRoutes
 }
 
 void testMatchesOldPath() {
-    const char* scenes[] = {"neon_chrome_sea", "glow_vortex", "milkdrop", "arbor_1"};
+    const char* scenes[] = {"neon_chrome_sea", "glow_vortex", "fluid", "arbor_1"};
     const std::uint32_t masks[] = {hand::kAll, hand::bit(Moment::Kick), hand::bit(Moment::Hat) | hand::kUnclaimed, 0u};
     for (const char* scene : scenes) {
         for (int seed : {0, 1, 7, 4242}) {

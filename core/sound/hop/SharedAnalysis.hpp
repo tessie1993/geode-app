@@ -34,7 +34,7 @@ public:
     SharedAnalysis(const SharedAnalysis&) = delete;
     SharedAnalysis& operator=(const SharedAnalysis&) = delete;
 
-    void ringWritten() override { thread_.notify(); }
+    void ringWritten() override { thread_.ringWritten(); }
 
     AnalysisThread& thread() { return thread_; }
     const AnalysisThread& thread() const { return thread_; }

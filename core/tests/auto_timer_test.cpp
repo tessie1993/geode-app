@@ -1,16 +1,13 @@
-// Host-side checks for Auto's style timer (core/viz/AutoTimer, geode_auto_timer_*) and for the duration a
-// .milk preset's `progress` runs over (core/viz/MilkProgress). No GL, no device.
+// Host-side checks for Auto's style timer (core/viz/AutoTimer, geode_auto_timer_*). No GL, no device.
 //
 // What is pinned:
 // - the wait is the user's interval plus a spread drawn per look: never shorter than the interval, never
-//   longer than a quarter more (10 s at most), and not the same from look to look (MilkDrop: 16 s + rand 10 s);
+//   longer than a quarter more (10 s at most), and not the same from look to look;
 // - a timer that is not running (off, paused, nothing to step to) is never due and holds nothing;
-// - the interval is read on every poll, and a restart's new wait is the hold at once, so a preset loaded
-//   right after the step runs its progress over the wait that will really pass;
-// - a preset's progress runs over Auto's hold; held (Auto off) and in an export it stays at 0, as MilkDrop's
-//   does on a locked preset;
+// - the interval is read on every poll, and a restart's new wait is the hold at once, so a look put up
+//   right after the step is held for the wait that will really pass;
 // - Auto's random draw (core/viz/AutoDraw) never brings back the entry on screen while there is another, so the
-//   same .milk (or style, or look) cannot come up twice running, and it still reaches every other entry.
+//   same style (or look) cannot come up twice running, and it still reaches every other entry.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -21,10 +18,8 @@
 #include "api/geode_api.h"
 #include "viz/AutoDraw.hpp"
 #include "viz/AutoTimer.hpp"
-#include "viz/MilkProgress.hpp"
 
 namespace auto_timer = geode::viz::auto_timer;
-namespace milk = geode::viz::milk;
 namespace auto_draw = geode::viz::auto_draw;
 
 namespace {
@@ -42,8 +37,8 @@ bool near(double a, double b) { return std::fabs(a - b) < 1e-9; }
 
 void spreadIsModest() {
     check(near(auto_timer::spreadSeconds(5.0), 1.25), "5 s: a quarter");
-    check(near(auto_timer::spreadSeconds(20.0), 5.0), "20 s (the default): 5 s, MilkDrop's F3 spread");
-    check(near(auto_timer::spreadSeconds(40.0), 10.0), "40 s: 10 s, MilkDrop's default spread");
+    check(near(auto_timer::spreadSeconds(20.0), 5.0), "20 s (the default): 5 s");
+    check(near(auto_timer::spreadSeconds(40.0), 10.0), "40 s: 10 s");
     check(near(auto_timer::spreadSeconds(300.0), 10.0), "300 s: capped at 10 s");
     check(near(auto_timer::spreadSeconds(0.0), 0.0) && near(auto_timer::spreadSeconds(-3.0), 0.0), "no interval, no spread");
 }
@@ -152,34 +147,6 @@ void theAbi() {
     check(geode_auto_timer_hold_s() == 0.0, "and holds nothing");
 }
 
-void milkProgressDuration() {
-    check(milk::progressSeconds(23.4, false) == 23.4, "Auto's timer runs: progress goes 0 to 1 over the wait");
-    check(milk::progressSeconds(0.0, false) == 30.0, "Auto off: a held preset runs over projectM's 30 s");
-    check(milk::progressSeconds(23.4, true) == milk::kHeldSeconds, "an export never reads the live timer");
-    check(milk::progressSeconds(-1.0, false) == milk::kHeldSeconds, "a negative hold is no hold");
-    check(milk::progressSeconds(std::nan(""), false) == milk::kHeldSeconds, "nor is NaN");
-    check(milk::progressSeconds(0.2, false) == milk::kMinSeconds, "projectM's floor of one second");
-}
-
-void milkProgressOfAHeldPreset() {
-    const double held = milk::progressSeconds(0.0, false);
-    check(milk::progressAt(0.0, held) == 0.0, "a held preset starts at 0");
-    check(milk::progressAt(15.0, held) == 0.5, "is halfway at 15 s");
-    check(milk::progressAt(30.0, held) == 1.0, "reaches 1 at 30 s");
-    check(milk::progressAt(3600.0, held) == 1.0, "and holds at 1 for as long as it stays");
-    double last = -1.0;
-    bool rising = true;
-    for (int frame = 0; frame <= 30 * 60; ++frame) {
-        const double p = milk::progressAt(frame / 60.0, held);
-        rising = rising && p > last;
-        last = p;
-    }
-    check(rising && last == 1.0, "rising every frame on the way");
-    check(milk::progressAt(-1.0, held) == 0.0, "never below 0");
-    check(milk::progressAt(30.0, milk::progressSeconds(20.0, false)) == 1.0, "a preset that outstays Auto's wait holds at 1");
-    check(milk::progressAt(0.5, 0.0) == 0.5, "the floor guards a zero duration");
-}
-
 }  // namespace
 
 void drawNeverRepeatsTheScreen() {
@@ -221,8 +188,6 @@ int main() {
     notRunningIsNeverDue();
     holdIsTheWaitOfThisLook();
     theAbi();
-    milkProgressDuration();
-    milkProgressOfAHeldPreset();
     drawNeverRepeatsTheScreen();
     if (failures == 0) std::printf("auto_timer_test: all passed\n");
     return failures == 0 ? 0 : 1;

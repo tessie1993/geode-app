@@ -23,7 +23,7 @@ namespace geode::sound {
 //
 // The spectrum: audio is written into a ring as it arrives, and every analysis hop the engine reads the newest
 // window out of it, transforms it and sums the spectrum into bands measured against their own running means
-// (bass, mid, treble, their att envelopes, everything spectral: the levels MilkDrop presets read).
+// (bass, mid, treble, their att envelopes, everything spectral: the relative levels).
 //
 // The filter bank: every sample also runs through a filter bank as it is written (4-pole bands with a power
 // envelope), and each hop reduces the slice since the last hop to one level per band, which then goes
@@ -160,13 +160,13 @@ private:
         std::array<RelativeLevel, kBands> band;
         std::array<float, 3> shaped{};
         std::array<float, 3> presence{};
-        std::array<float, 3> bandTime{};
-        float curvedTime = 0.0f;
+        std::array<double, 3> bandTime{};  // double: a float clock stalls at a slow rate late in a session
+        double curvedTime = 0.0;
         float drive = 0.0f;      // the eased magnitude of the music (SoundFrame.h)
         float rise = 0.0f;       // momentary loudness over the short-term one, eased
         float onsetRate = 0.0f;  // onsets per second over ~2 s
         float hitRate = 0.0f;    // kicks and snares per second over ~2 s
-        float warmSeconds = 50.0f / 30.0f;  // MilkDrop's 50 warm-up frames at its 30 fps reference
+        float warmSeconds = 50.0f / 30.0f;  // 50 warm-up frames at a 30 fps reference
         float quietSeconds = 0.0f;
         std::array<RelativeLevel, GEODE_SOUND_EQ_BANDS> eq;
         float spectrumPeak = 1e-6f;

@@ -93,7 +93,7 @@ An entry that passes again is reported as stale; remove it by hand. The
 still PNGs are in the `visual-stills-*` artifacts: look at them before
 baselining a style.
 
-Not covered: scenes glslcheck cannot draw (MilkDrop presets, the simulation
+Not covered: scenes glslcheck cannot draw (the simulation
 and compute scenes); the fluid looks and Liquid mode, which have their own
 modes (`--fluid-display`, `--liquid`) but not the gate yet; the endless zoom
 stage (`--dive <id> [--speed <octaves/s>] [--frames <n>] [--look <control>=<value>]`: the style, then

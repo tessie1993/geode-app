@@ -5,7 +5,7 @@
 #include <vector>
 
 // The user's own shelf on the Styles page, ported from Kotlin model/StyleShelf.kt: the styles they starred,
-// the ones they chose last, and whether Random stays in the family on screen. The rules are newest first, no
+// the ones they chose last. The rules are newest first, no
 // repeats, a short memory. The prefs file that keeps it stays in the shell. Host-tested in
 // core/tests/shell_lists_test.cpp.
 namespace geode::shell {
@@ -17,22 +17,20 @@ inline constexpr int kStyleRecentLimit = 12;
 struct StyleShelf {
     std::vector<std::string> favourites;
     std::vector<std::string> recents;
-    bool randomFamilyOnly = false;
 };
 
 struct StyleShelfEvent {
     enum Kind {
         ToggleFavourite,     // id: starred if it was not, unstarred if it was
         PushRecent,          // id moves to the front; no repeats; kStyleRecentLimit kept
-        RemoveRecent,        // id leaves Recent (its first place only, as Kotlin's `list - id`); favourites untouched
-        SetRandomFamilyOnly  // flag
+        RemoveRecent         // id leaves Recent (its first place only, as Kotlin's `list - id`); favourites untouched
     };
     Kind kind = ToggleFavourite;
     std::string id;
     bool flag = false;
 };
 
-// The shelf after the event (StyleShelf.toggleFavourite / pushRecent / removeRecent / withRandomFamilyOnly).
+// The shelf after the event (StyleShelf.toggleFavourite / pushRecent / removeRecent).
 StyleShelf styleShelfApply(const StyleShelf& shelf, const StyleShelfEvent& event);
 
 bool styleShelfIsFavourite(const StyleShelf& shelf, const std::string& id);

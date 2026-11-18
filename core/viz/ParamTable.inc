@@ -106,7 +106,7 @@ GEODE_PARAM(Float, shake, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, audioDrive, 1.0f, 0.2f, 2.5f, Fade)
 GEODE_PARAM_META(audioDrive, "Audio drive", AudioDrive, 0, 0.6f, 1.8f)
 // Retired (SceneParams::retired): it only scaled the hidden hit reactions some scenes played on their own
-// (MilkDrop's zoom kick, the simulations' beat pulses), which are gone: what moves on a hit is the
+// (the simulations' beat pulses), which are gone: what moves on a hit is the
 // reaction matrix alone (owner, 2026-11-12).
 GEODE_PARAM(Float, beatResponse, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM(Float, turbulence, 0.0f, 0.0f, 1.5f, Fade)
@@ -180,10 +180,6 @@ GEODE_PARAM(Float, palette2RangeOverride, SceneParams::kUnsetOverride, ScenePara
 // Retired (SceneParams::retired): Colour map, the five cyclic colour maps as a list of their own. They are
 // palettes of the stack's library now (PaletteTable.inc rows 21..25), so Look has one palette list.
 GEODE_PARAM(Int, paletteLut, SceneParams::kNoPaletteLut, SceneParams::kNoPaletteLut, 4, Hold)
-GEODE_PARAM(Float, milkdropPaletteTint, 0.0f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(milkdropPaletteTint, "MilkDrop palette tint", Milkdrop, 0, 0.2f, 0.9f)
-GEODE_PARAM(Bool, milkdropBlendPresets, false, 0, 1, Hold)
-GEODE_PARAM_META(milkdropBlendPresets, "Blend preset changes", Milkdrop, 0, 0, 0)
 // A hue turn: 1 is the full circle, and the LFO adds to it unclamped.
 GEODE_PARAM(Circular, colorShift, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(colorShift, "Hue shift", Universal, kMod, 0.0f, 1.0f)
@@ -725,7 +721,7 @@ GEODE_PARAM_META(life, "Life", Universal, kMod, 0, 0)
 GEODE_PARAM_MOD(life, 1.0f, 0)
 
 // Your colours' sixth to eighth stops (paletteStop0..4 above): the owner asked for more than five. Same range,
-// default and meaning as the first five; appended at wire slots 202..204 so every wire index survives.
+// default and meaning as the first five; appended at wire slots 200..202 so every wire index survives.
 GEODE_PARAM(Int, paletteStop5, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
 GEODE_PARAM_META(paletteStop5, "Palette", Universal, 0, 0, 0)
 GEODE_PARAM(Int, paletteStop6, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)

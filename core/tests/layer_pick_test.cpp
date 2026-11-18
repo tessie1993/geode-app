@@ -51,8 +51,7 @@ void thePoolIsAutosDraw() {
     check(at == pool.size(), "the pool is in the catalogue's order");
     for (const std::string& id : pool) {
         check(catalogue::has(catalogue::Trait::AutoDraw, id), id + " is one Auto draws");
-        check(catalogue::kindOf(id) != catalogue::Kind::Milkdrop && catalogue::kindOf(id) != catalogue::Kind::Fluid,
-              id + ": no MilkDrop preset or fluid solver starts as a layer on its own");
+        check(catalogue::kindOf(id) != catalogue::Kind::Fluid, id + ": no fluid solver starts as a layer on its own");
     }
 }
 
@@ -82,7 +81,7 @@ void theUsersPickIsKept() {
     check(pick::userPick("", a) == pick::suggest(a), "none picked suits the style on screen");
     check(pick::userPick("no_such_style", a) == pick::suggest(a), "an unknown id suits the style on screen");
     check(pick::userPick("water", a) == catalogue::resolveId("water"), "a retired style is the one that replaced it");
-    check(pick::userPick("milkdrop", a) == "milkdrop", "the user may pick any style, not only the pool's");
+    check(pick::userPick("fluid_ink", a) == "fluid_ink", "the user may pick any style, not only the pool's");
 }
 
 void theKnobWalksWithADeadBand() {

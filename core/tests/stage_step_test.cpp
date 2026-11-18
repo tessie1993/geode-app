@@ -2,20 +2,11 @@
 // geode_stage_step_*). No GL, no device.
 //
 // What is pinned (owner, 2026-11-12: "Step presets and types as well (they are separate different tabs)"):
-// - on the MilkDrop tab (and Textures, under it) the step walks the user's .milk presets while MilkDrop can play
-//   and one is listed; with the sheet hidden only while MilkDrop is still on screen;
-// - on Presets it walks the saved looks the same way, with the sheet hidden only while one is on screen;
-// - while MilkDrop is on screen it walks the .milk presets from every tab but a Presets tab stepping looks
-//   (owner, 2026-11-12: a swipe on MilkDrop surfs presets instead of leaving it);
-// - everywhere else, and whenever fewer than two .milk are listed or MilkDrop is locked or missing, the styles;
+// - on Presets the step walks the saved looks, with the sheet hidden only while one is on screen;
+// - everywhere else, and whenever no look may be applied, the styles;
 // - the walk wraps, skips what is on screen and what is locked, starts from an end when nothing listed is on
-//   screen, and says -1 when nothing else is open (the old Kotlin nextStageStyle's cases, StageStyleTest);
-// - the .milk walk's previous retraces the steps taken, a hand pick or a removed preset ends that chain, and the
-//   history stays bounded.
+//   screen, and says -1 when nothing else is open (the old Kotlin nextStageStyle's cases, StageStyleTest).
 #include <cstdio>
-#include <string>
-#include <string_view>
-#include <vector>
 
 #include "api/geode_api.h"
 #include "viz/StageStep.hpp"
@@ -33,54 +24,21 @@ void check(bool ok, const char* what) {
     }
 }
 
-void milkTabStepsMilk() {
-    const uint32_t shown = step::kSheetShown | step::kMilkOpen;
-    check(step::target(step::kPageMilkdrop, shown, 5, 3) == step::kMilk, "MilkDrop tab, sheet up: .milk presets");
-    check(step::target(step::kPageMilkdrop, shown | step::kOnMilk, 5, 3) == step::kMilk, "MilkDrop on screen too: .milk");
-    check(step::target(step::kPageTextures, shown, 5, 3) == step::kMilk, "Textures sits on MilkDrop: .milk");
-    check(step::target(step::kPageMilkdrop, step::kMilkOpen | step::kOnMilk, 5, 3) == step::kMilk,
-          "full screen after the MilkDrop tab, MilkDrop still on: .milk");
-    check(step::target(step::kPageMilkdrop, step::kMilkOpen, 5, 3) == step::kStyles,
-          "full screen after the MilkDrop tab, another style on (Auto moved on): styles");
-    check(step::target(step::kPageMilkdrop, shown, 0, 3) == step::kStyles, "no .milk listed: styles");
-    check(step::target(step::kPageMilkdrop, shown | step::kOnMilk, 1, 3) == step::kStyles, "one .milk listed: styles");
-    check(step::target(step::kPageMilkdrop, shown, 2, 3) == step::kMilk, "two .milk listed: .milk");
-    check(step::target(step::kPageMilkdrop, step::kSheetShown | step::kOnMilk, 5, 3) == step::kStyles,
-          "MilkDrop locked or not built in: styles");
-}
-
 void presetsTabStepsLooks() {
-    check(step::target(step::kPagePresets, step::kSheetShown, 0, 4) == step::kLooks, "Presets tab, sheet up: saved looks");
-    check(step::target(step::kPagePresets, step::kOnLook, 0, 4) == step::kLooks, "full screen on a saved look: looks");
-    check(step::target(step::kPagePresets, 0, 0, 4) == step::kStyles, "full screen, the look changed since: styles");
-    check(step::target(step::kPagePresets, step::kSheetShown, 7, 0) == step::kStyles, "no look the user may apply: styles");
-    check(step::target(step::kPagePresets, step::kSheetShown | step::kMilkOpen | step::kOnMilk, 7, 4) == step::kLooks,
-          "MilkDrop on screen does not pull the Presets tab to .milk");
+    check(step::target(step::kPagePresets, step::kSheetShown, 4) == step::kLooks, "Presets tab, sheet up: saved looks");
+    check(step::target(step::kPagePresets, step::kOnLook, 4) == step::kLooks, "full screen on a saved look: looks");
+    check(step::target(step::kPagePresets, 0, 4) == step::kStyles, "full screen, the look changed since: styles");
+    check(step::target(step::kPagePresets, step::kSheetShown, 0) == step::kStyles, "no look the user may apply: styles");
 }
 
 void otherTabsStepStyles() {
-    const uint32_t notMilk = step::kSheetShown | step::kOnLook | step::kMilkOpen;
-    check(step::target(step::kPageStyles, notMilk, 5, 4) == step::kStyles, "Styles, another style on: styles");
-    check(step::target(step::kPageStyles, step::kMilkOpen, 5, 4) == step::kStyles, "full screen after Styles: styles");
-    check(step::target(step::kPageCustomize, notMilk, 5, 4) == step::kStyles, "Customize: styles");
-    check(step::target(step::kPageSettings, notMilk, 5, 4) == step::kStyles, "Visuals › Settings: styles");
-    check(step::target(42, notMilk, 5, 4) == step::kStyles, "an unknown page: styles");
-}
-
-void milkOnScreenStepsMilk() {
-    const uint32_t on = step::kOnMilk | step::kMilkOpen;
-    const int pages[] = {step::kPageStyles, step::kPageCustomize, step::kPageSettings, 42};
-    for (const int page : pages) {
-        check(step::target(page, on | step::kSheetShown, 5, 4) == step::kMilk, "MilkDrop on, sheet up: .milk on any tab");
-        check(step::target(page, on, 5, 4) == step::kMilk, "MilkDrop on, full screen: .milk");
-        check(step::target(page, on, 2, 4) == step::kMilk, "two .milk are enough");
-        check(step::target(page, on, 1, 4) == step::kStyles, "one .milk: styles, as before");
-        check(step::target(page, on, 0, 4) == step::kStyles, "no .milk: styles, as before");
-        check(step::target(page, step::kOnMilk, 5, 4) == step::kStyles, "MilkDrop locked (trial over) or missing: styles");
-    }
-    check(step::target(step::kPagePresets, on, 5, 4) == step::kMilk, "Presets left hidden, no look on screen: .milk");
-    check(step::target(step::kPagePresets, on | step::kSheetShown, 5, 0) == step::kMilk, "Presets with no look to step: .milk");
-    check(step::target(step::kPagePresets, on | step::kOnLook, 5, 4) == step::kLooks, "a saved look on screen: its walk");
+    const uint32_t shown = step::kSheetShown | step::kOnLook;
+    check(step::target(step::kPageStyles, shown, 4) == step::kStyles, "Styles, another style on: styles");
+    check(step::target(step::kPageStyles, 0, 4) == step::kStyles, "full screen after Styles: styles");
+    check(step::target(step::kPageCustomize, shown, 4) == step::kStyles, "Customize: styles");
+    check(step::target(step::kPageTextures, shown, 4) == step::kStyles, "Textures: styles");
+    check(step::target(step::kPageSettings, shown, 4) == step::kStyles, "Visuals › Settings: styles");
+    check(step::target(42, shown, 4) == step::kStyles, "an unknown page: styles");
 }
 
 void indexWrapsAndSkipsLocked() {
@@ -111,106 +69,24 @@ void indexNothingElseOpen() {
     check(step::pickIndex(none, 2, -1, -1) == -1, "everything locked: nothing");
 }
 
-std::vector<std::string_view> views(const std::vector<std::string>& v) { return {v.begin(), v.end()}; }
-
-void milkWalksTheListWithHistory() {
-    const std::vector<std::string> files = {"/m/a.milk", "/m/b.milk", "/m/c.milk", "/m/d.milk"};
-    const auto list = views(files);
-    step::MilkSteps walk;
-    check(walk.step(list, "", 1) == 0, "MilkDrop not on screen: next loads the first .milk");
-    check(walk.step(list, "", -1) == 3, "MilkDrop not on screen: previous loads the last .milk");
-    walk.clear();
-    check(walk.step(list, "/m/a.milk", 1) == 1, "a -> b");
-    check(walk.step(list, "/m/b.milk", 1) == 2, "b -> c");
-    check(walk.step(list, "/m/c.milk", 1) == 3, "c -> d");
-    check(walk.step(list, "/m/d.milk", 1) == 0, "d -> a, wrapping");
-    check(walk.step(list, "/m/a.milk", -1) == 3, "back: a -> d, the one it came from");
-    check(walk.step(list, "/m/d.milk", -1) == 2, "back again: c");
-    check(walk.step(list, "/m/c.milk", -1) == 1, "and again: b");
-    check(walk.step(list, "/m/b.milk", -1) == 0, "and again: a");
-    check(walk.depth() == 0, "the chain is spent");
-    check(walk.step(list, "/m/a.milk", -1) == 3, "past the chain, previous follows the list: d");
-}
-
-void milkHistoryIsNotListOrder() {
-    // The list changes under the walk (an import puts a new one first, the page lists newest first): back still
-    // returns where it came from, where the list order would now give the new one.
-    const std::vector<std::string> before = {"/m/a.milk", "/m/b.milk", "/m/c.milk"};
-    const std::vector<std::string> after = {"/m/new.milk", "/m/a.milk", "/m/b.milk", "/m/c.milk"};
-    step::MilkSteps walk;
-    check(walk.step(views(before), "/m/c.milk", 1) == 0, "c -> a, wrapping");
-    check(walk.step(views(after), "/m/a.milk", -1) == 3, "after an import, back from a is c (index 3 now), not new");
-}
-
-void milkHandPickBreaksTheChain() {
-    const std::vector<std::string> files = {"/m/a.milk", "/m/b.milk", "/m/c.milk", "/m/d.milk"};
-    const auto list = views(files);
-    step::MilkSteps walk;
-    check(walk.step(list, "/m/a.milk", 1) == 1, "a -> b");
-    // The user tapped d on the MilkDrop page: no step landed there.
-    check(walk.step(list, "/m/d.milk", -1) == 2, "back from a hand-picked d follows the list: c, not a");
-    check(walk.depth() == 0, "and the stale chain is gone");
-}
-
-void milkRemovedPresetEndsTheChain() {
-    const std::vector<std::string> files = {"/m/a.milk", "/m/b.milk", "/m/c.milk"};
-    step::MilkSteps walk;
-    check(walk.step(views(files), "/m/a.milk", 1) == 1, "a -> b");
-    const std::vector<std::string> without = {"/m/b.milk", "/m/c.milk"};
-    check(walk.step(views(without), "/m/b.milk", -1) == 1, "a was removed: back from b follows the list (wraps to c)");
-}
-
-void milkSinglePreset() {
-    const std::vector<std::string> one = {"/m/a.milk"};
-    step::MilkSteps walk;
-    check(walk.step(views(one), "/m/a.milk", 1) == -1, "the only .milk already on: nothing to step to");
-    check(walk.step(views(one), "", 1) == 0, "the only .milk, MilkDrop not on: load it");
-    check(walk.step({}, "", 1) == -1, "no .milk: nothing");
-}
-
-void milkHistoryIsBounded() {
-    const std::vector<std::string> files = {"/m/a.milk", "/m/b.milk"};
-    const auto list = views(files);
-    step::MilkSteps walk;
-    std::string_view on = list[0];
-    for (int i = 0; i < 500; ++i) on = list[static_cast<size_t>(walk.step(list, on, 1))];
-    check(walk.depth() == step::MilkSteps::kMaxHistory, "500 steps keep the last 64");
-}
-
 void theAbi() {
-    geode_stage_step_milk_reset();
-    const char* paths[] = {"/m/a.milk", "/m/b.milk", "/m/c.milk"};
-    check(geode_stage_step_milk(paths, 3, "/m/a.milk", 1) == 1, "C ABI: a -> b");
-    check(geode_stage_step_milk(paths, 3, "/m/b.milk", -1) == 0, "C ABI: back to a");
-    check(geode_stage_step_milk(paths, 3, nullptr, 1) == 0, "C ABI: null current is MilkDrop not on screen");
-    check(geode_stage_step_milk(nullptr, 3, "", 1) == -1 && geode_stage_step_milk(paths, 0, "", 1) == -1, "C ABI: no list");
-    geode_stage_step_milk_reset();
     const unsigned char open[] = {1, 0, 1};
     check(geode_stage_step_index(open, 3, 0, 1) == 2, "C ABI: index skips the locked one");
     check(geode_stage_step_index(nullptr, 3, -1, -1) == 2, "C ABI: null open is all open");
-    check(geode_stage_step_target(GEODE_STAGE_STEP_PAGE_MILKDROP, GEODE_STAGE_STEP_SHEET_SHOWN | GEODE_STAGE_STEP_MILK_OPEN, 2, 0) ==
-              GEODE_STAGE_STEP_MILK,
-          "C ABI: target");
-    check(geode_stage_step_target(GEODE_STAGE_STEP_PAGE_PRESETS, GEODE_STAGE_STEP_ON_LOOK, 0, 1) == GEODE_STAGE_STEP_LOOKS,
+    check(geode_stage_step_target(GEODE_STAGE_STEP_PAGE_PRESETS, GEODE_STAGE_STEP_ON_LOOK, 1) == GEODE_STAGE_STEP_LOOKS,
           "C ABI: looks");
+    check(geode_stage_step_target(GEODE_STAGE_STEP_PAGE_STYLES, GEODE_STAGE_STEP_SHEET_SHOWN, 1) == GEODE_STAGE_STEP_STYLES,
+          "C ABI: styles");
 }
 
 }  // namespace
 
 int main() {
-    milkTabStepsMilk();
     presetsTabStepsLooks();
     otherTabsStepStyles();
-    milkOnScreenStepsMilk();
     indexWrapsAndSkipsLocked();
     indexFromOutsideTheList();
     indexNothingElseOpen();
-    milkWalksTheListWithHistory();
-    milkHistoryIsNotListOrder();
-    milkHandPickBreaksTheChain();
-    milkRemovedPresetEndsTheChain();
-    milkSinglePreset();
-    milkHistoryIsBounded();
     theAbi();
     if (failures == 0) std::printf("stage_step_test: all passed\n");
     return failures == 0 ? 0 : 1;

@@ -56,6 +56,7 @@ namespace geode::viz {
     X(uHarmony) \
     X(uHasLayer) \
     X(uHueRange) \
+    X(uHue) \
     X(uIntensity) \
     X(uInvert) \
     X(uKaleido) \
@@ -76,6 +77,8 @@ namespace geode::viz {
     X(uPalLutMix) \
     X(uPalLutRow) \
     X(uPalRange) \
+    X(uPalSpan) \
+    X(uPalTint) \
     X(uPalStopCount) \
     X(uPalStops) \
     X(uPixelate) \
@@ -124,6 +127,11 @@ namespace geode::viz {
     X(uShapeMix) \
     X(uShapes) \
     X(uSolarize) \
+    X(uSound) \
+    X(uSoundCounts) \
+    X(uSoundDrive) \
+    X(uSoundEvents) \
+    X(uSoundTex) \
     X(uSoundTimeSped) \
     X(uSpawn) \
     X(uSpawnAge) \
@@ -135,6 +143,7 @@ namespace geode::viz {
     X(uTemperature) \
     X(uTexA) \
     X(uTexB) \
+    X(uTex) \
     X(uTexL) \
     X(uTile) \
     X(uTime) \

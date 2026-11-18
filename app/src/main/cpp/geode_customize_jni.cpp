@@ -57,6 +57,31 @@ Java_dev_geode_engine_bridge_CustomizeNative_customizeMatches(JNIEnv* env, jobje
     return geode_customize_matches(textOf(search), textOf(shown)) != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_CustomizeNative_customizeQueryBlank(JNIEnv* env, jobject, jstring query) {
+    Utf8Chars search(env, query);
+    return geode_customize_query_blank(textOf(search)) != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_CustomizeNative_panelFormat(JNIEnv* env, jobject, jstring id, jobjectArray args) {
+    Utf8Chars name(env, id);
+    const jsize count = args ? env->GetArrayLength(args) : 0;
+    std::vector<std::string> texts;
+    for (jsize i = 0; i < count; ++i) {
+        auto* entry = static_cast<jstring>(env->GetObjectArrayElement(args, i));
+        {
+            Utf8Chars chars(env, entry);
+            texts.emplace_back(chars.get() ? chars.get() : "");
+        }
+        env->DeleteLocalRef(entry);
+        if (env->ExceptionCheck()) return nullptr;
+    }
+    std::vector<const char*> pointers;
+    for (const std::string& t : texts) pointers.push_back(t.c_str());
+    return utf8String(env, geode_panel_format(textOf(name), pointers.data(), static_cast<int>(pointers.size())));
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_panelText(JNIEnv* env, jobject, jstring id) {
     Utf8Chars text(env, id);

@@ -40,7 +40,7 @@ int StyleSchedule::beatsBetween(float before, float after) {
 
 const StyleCue* StyleSchedule::change(const StyleCue& cue) {
     if (cue.sceneId.empty()) return nullptr;
-    if (cue.sceneId == current_.sceneId && cue.milkPath == current_.milkPath) return nullptr;
+    if (cue.sceneId == current_.sceneId) return nullptr;
     current_ = cue;
     pending_ = cue;
     return &pending_;

@@ -171,9 +171,16 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_musicPlayli
     return utf8String(env, geode_music_playlist_import_base(textOf(parsed), textOf(file), textOf(fallback)));
 }
 
-JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionRead(JNIEnv* env, jobject, jstring text) {
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionRead(JNIEnv* env, jobject, jstring text,
+                                                                               jstring positionText) {
     Utf8Chars chars(env, text);
-    return utf8String(env, geode_session_read(textOf(chars)));
+    Utf8Chars position(env, positionText);
+    return utf8String(env, geode_session_read(textOf(chars), textOf(position)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionPositionWrite(JNIEnv* env, jobject, jint index,
+                                                                                         jlong positionMs) {
+    return utf8String(env, geode_session_position_write(index, positionMs));
 }
 
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LibraryNative_sessionWrite(JNIEnv* env, jobject,

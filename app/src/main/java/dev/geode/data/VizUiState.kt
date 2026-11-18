@@ -22,7 +22,6 @@ data class VizUiState(
     val randomIntervalSec: Int = NativeLookDefaults.styleTimerSec,
     val randomIncludeStyles: Boolean = true,
     val randomIncludePresets: Boolean = true,
-    val randomIncludeMilk: Boolean = false,
 )
 
 private const val MS_PER_SECOND = 1000f

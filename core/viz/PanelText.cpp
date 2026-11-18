@@ -31,6 +31,13 @@ constexpr Row kRows[] = {
     {"customize_transition_length", "Transition length"},
     {"customize_liquid_mode", "Liquid mode"},
     {"customize_shape_held", "Shape set by this style: %1$s."},
+    // A reaction's one-line summary: source, target, mode, amount.
+    {"customize_reaction_summary", "When %1$s → %2$s · %3$s %4$s"},
+    // A reaction or wave aimed at a control this style does not draw (the wave asks for another).
+    {"customize_target_inert", "%1$s does nothing on this style."},
+    {"customize_target_inert_pick", "%1$s does nothing on this style - pick another."},
+    // A control's label and its value, as one line.
+    {"customize_label_value", "%1$s · %2$s"},
     // Look's palette list on a style the stack does not draw.
     {"look_summary_custom", "Custom palette"},
     // Your colours (Customize › Look).

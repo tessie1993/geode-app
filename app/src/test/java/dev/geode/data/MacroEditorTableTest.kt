@@ -49,11 +49,11 @@ class MacroEditorTableTest {
 
     @Test
     fun `the live modulation reads per knob, dropping what it cannot read`() {
-        val live = MacroLiveTable.parse("mod|3|0.625|3|-0.5|1.25\nmod|7|0.1|1|-0.3|0.3\nmod|x|1|1|0|0\nmod|9|1|1\n")
+        val live = MacroLiveTable.read(floatArrayOf(3f, 0.625f, 3f, -0.5f, 1.25f, 7f, 0.1f, 1f, -0.3f, 0.3f, 9f, 1f, 1f))
         assertEquals(MacroLiveMod(0.625f, 3, -0.5f, 1.25f), live[3])
         assertEquals(MacroLiveMod.WAVE, live[7]?.sources)
         assertEquals(setOf(3, 7), live.keys)
-        assertTrue(MacroLiveTable.parse("").isEmpty())
+        assertTrue(MacroLiveTable.read(floatArrayOf()).isEmpty())
     }
 
     @Test

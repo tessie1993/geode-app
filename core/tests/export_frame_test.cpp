@@ -1,5 +1,5 @@
 // Host-side checks for an export's render order (core/output/ExportFrame) against a recording renderer: the
-// prepare order up to the look (offscreen pin, frame rate, surface, scene, MilkDrop preset, settings pin and its
+// prepare order up to the look (offscreen pin, frame rate, surface, scene, settings pin and its
 // hand mask; a scene it cannot draw stops before the pin), the pre-roll (output/PreRoll's plan: the decode from
 // fromMs heard for heardMs, then its end, then the range's decode opened from the range start; a track that does
 // not open or is not heard fails), and each frame (the audio up to FrameClock::samplesThrough, then a draw at
@@ -110,7 +110,6 @@ public:
         log.push_back("scene " + sceneId);
         return drawable;
     }
-    void loadMilkPreset(const std::string& path) override { log.push_back("milk " + path); }
     uint32_t pinEngineSettings(bool entitled, int64_t durationMs) override {
         log.push_back("pin " + std::to_string(entitled ? 1 : 0) + " " + std::to_string(durationMs));
         return 0x5u;
@@ -156,20 +155,18 @@ void beginOrder() {
     start.width = 1280;
     start.height = 720;
     start.sceneId = "neon";
-    start.milkPresetPath = "/presets/a.milk";
     start.entitled = true;
     start.pinDurationMs = 77000;
     check(frames.begin(start, r) == 5, "begin returns the pinned hand mask");
     const std::vector<std::string> order = {"offscreen", "fps 30", "surface 1280x720", "scene neon",
-                                            "milk /presets/a.milk", "pin 1 77000"};
+                                            "pin 1 77000"};
     check(r.log == order, "the prepare order up to the look");
     check(track.starts.empty(), "begin opens no track");
 
-    Recorder noMilk;
-    start.milkPresetPath.clear();
+    Recorder notEntitled;
     start.entitled = false;
-    frames.begin(start, noMilk);
-    check(noMilk.log.size() == 5 && noMilk.log[4] == "pin 0 77000", "no preset: none loaded");
+    frames.begin(start, notEntitled);
+    check(notEntitled.log.size() == 5 && notEntitled.log[4] == "pin 0 77000", "not entitled: pinned as such");
 
     Recorder cannot;
     cannot.drawable = false;

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <mutex>
 
 #include "sound/AnalysisSettings.hpp"
 #include "sound/SoundFrame.h"
@@ -11,7 +12,8 @@ namespace geode::sound::interp {
 // The frame's waveform (GeodeSoundFrame::waveform), drawn per frame from the audio a surface hears, since a
 // published analysis step carries none: the newest ~13 ms of the mono mix as block means, slid over a little
 // slack to best match the last drawing so a steady tone stands still (SoundEngine's drawing, at the input rate).
-// One thread; no allocation.
+// No allocation. Each call takes the object's own lock, held for microseconds, so the thread that writes (the
+// player's) and the one that draws (the frame's) never wait on anything else of each other's.
 class Waveform {
 public:
     // `settings` are the analysis's (sound/AnalysisSettings): the block is the engine's, n / 512 analysis samples.
@@ -29,6 +31,7 @@ private:
     static constexpr int kMaxBlock = 32;
     static constexpr int kHistory = (kPoints + kSlack) * kMaxBlock;
 
+    mutable std::mutex lock_;
     std::array<float, kHistory> mono_{};
     int head_ = 0;
     int rateHz_ = 0;

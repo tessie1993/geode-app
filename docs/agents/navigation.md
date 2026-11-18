@@ -58,7 +58,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 
 - Visuals is `VisualsHub`, the root.
 - `ui/VisualsStage.kt` is the visual, its gestures and stage icons.
-- `ui/VisualsSheet.kt` is the options; `ui/MilkDropPage.kt` and `ui/TexturesPage.kt` are pages.
+- `ui/VisualsSheet.kt` is the options; its pages are `ui/StylesPage.kt`, `ui/CustomizePanel.kt` and `ui/PresetsPage.kt`.
 - Visuals is the visual at full window size under translucent options (`VisualsOptions`, its glass `GeneralSettings.barOpacity`).
 - In portrait the options are a snap sheet (`SheetHeight`: hidden, peek, half, tall); a list at its top hands the drag to the sheet.
 - In landscape (wider than tall, from the medium width class) the options are a right-hand panel, full height, 30–50 % wide, resized or hidden by its leading edge.
@@ -66,7 +66,6 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - The stage icons fade with the mini player through their alpha, staying composed.
 - Stage icons: Settings, Studio and Fullscreen top-right; the Cast slot and a connected display left of them; ‹ › at the sides; Record bottom-right.
 - A stage icon is drawn and takes touches only where all of it lies in the part of the stage the sheet or panel leaves in view, below the top row for the arrows and Record (`stageIconRoom`, `StageIconRoomTest`).
-- MilkDrop opens on its overview cards: your presets open, the loaded preset's textures, Textures ›.
 
 ## Visuals: gestures
 
@@ -77,7 +76,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - Default: a tap anywhere wakes the chrome.
 - Default: double tap hides or brings back the sheet.
 - Default: sideways swipe is next/previous style (‹ › step the same).
-- That step walks what the open tab lists (native `core/viz/StageStep`, owner 2026-11-12): the `.milk` presets from MilkDrop or Textures, and from any tab while MilkDrop is on screen (with a history, so previous retraces the steps; two listed at least, else the styles), the saved looks from Presets, the styles elsewhere.
+- That step walks what the open tab lists (native `core/viz/StageStep`, owner 2026-11-12): the saved looks from Presets, the styles elsewhere.
 - With the sheet hidden, the tab holds only while what is on screen still comes from it; TalkBack and ‹ › name what it steps.
 - Default: swipe up is the mini player.
 - Default: swipe down is `MacrosDrawer` (the macro bank's knobs; its edit icon opens Customize).
@@ -91,7 +90,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 
 ## Visuals: pages and back
 
-- The sheet's pages (`VisualsPage`: Styles, Customize, Presets, MilkDrop; Textures opens from MilkDrop) are the app's first Navigation 3 back stack (`NavDisplay`, saved by name, no per-entry ViewModel decorator).
+- The sheet's pages (`VisualsPage`: Styles, Customize, Presets) are the app's first Navigation 3 back stack (`NavDisplay`, saved by name, no per-entry ViewModel decorator).
 - Every Visuals navigation decision (the route, the sheet height, back order) is `VisualsNavState` in `ui/VisualsNavigation.kt`.
 - There is one `VisualsKey` per page on a `NavHistory` (`ui/NavHistory.kt`, the true-history pattern Studio reuses).
 - On a `NavHistory` a tab goes forward and a key already on the route is returned to.
@@ -102,12 +101,12 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 ## Visuals: Styles and Presets
 
 - Styles (`StylesTab` in `ui/StylesPage.kt`) is one family dropdown over a plain list of that family's styles (no stills, no search, no family inside a family).
-- The families are one flat level in the native catalogue's order (`StyleCatalogue.picker`, `picker` rows of `core/viz/Catalogue`): Silk, Life, Mycelium, Morphing, Shaders for every shader style outside a family, each shader family, MilkDrop, Fluid, Cymatics.
+- The families are one flat level in the native catalogue's order (`StyleCatalogue.picker`, `picker` rows of `core/viz/Catalogue`): Silk, Life, Mycelium, Morphing, Shaders for every shader style outside a family, each shader family, Fluid, Cymatics.
 - The stage swipes styles in the same order.
 - Your styles (on screen, favourites, recent, kept by `data/StyleShelfStore`) is the dropdown's first entry, with Random the icon beside it.
 - The style on screen leads every list: first in Your styles, its family next in the dropdown, first in that family's list (owner 2026-11-12).
 - Random draws from every family, never the style on screen; with the "Family only" chip (off by default, `StyleShelfCodec`, portable) from the on-screen style's family alone, never leaving it.
-- A family of one rolls inside its style: MilkDrop draws a `.milk` as Auto does. Both rolls are native (`core/viz/StylePick`, `geode_styles_*`).
+- A family of one keeps its style. The roll is native (`core/viz/StylePick`, `geode_styles_*`).
 - Styles opens on the family on screen and keeps the last pick.
 - A tap loads the style; a Pro one plays while the paywall offers it (`PlayerSession.leaveScenePreview` puts the chosen style back).
 - Presets is `PresetsTab` in `ui/PresetsPage.kt`; its sheet, dialogs and share are in `ui/PresetActions.kt`.

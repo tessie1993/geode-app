@@ -106,7 +106,7 @@ private:
     MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
-    float shaderTime_ = 0.0f;
+    double shaderTime_ = 0.0;  // double: a float clock stalls at a slow Speed late in a session
     // The sound engine's bass, mid and treble clocks at Speed's rate (uSoundTimeSped,
     // viz/SpeedClock.hpp), beside uTime and the motion field's uFlowTime: integrated,
     // never clock * uSpeed, so moving Speed changes how fast they run, not where they are.

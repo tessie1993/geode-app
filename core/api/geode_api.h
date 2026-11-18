@@ -41,12 +41,6 @@ GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int p
 GEODE_API void        geode_viz_set_touch_smear(geode_viz*, int on, float strength);
 /* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
 GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
-GEODE_API void        geode_viz_load_milk_preset(geode_viz*, const char* path);
-GEODE_API void        geode_viz_reload_milk_preset(geode_viz*);
-GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir);
-/* The preset MilkDrop last compiled successfully, once; returns the full length, 0 when none is pending.
- * Every call takes it, a length query (out = NULL) too: pass a buffer the first time. */
-GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 /* Section changes and drops the auto-director committed a look at since the last call; handed out once. */
 GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
 /* The auto-director (core/viz/Director): the music's feeling deciding behaviour (its axes, camera moves,
@@ -79,7 +73,7 @@ GEODE_API float       geode_director_tuning_value(const char* text, int index);
 GEODE_API const char* geode_director_tuning_value_text(const char* text, int index);
 GEODE_API const char* geode_director_tuning_with(const char* text, int index, float value);
 /* Auto's pick at a director moment or a timer tick (core/viz/DirectorStyle, core/viz/AutoDraw): ids is the
- * shell's pool, one style id a line in its order (a saved look or a .milk preset by its style's id);
+ * shell's pool, one style id a line in its order (a saved look by its style's id);
  * on_screen the entry showing (-1 none). With director_moment, the style the moment's director asks for: a
  * returning section's family stepped on by its returns, else the next style along the catalogue; -1 to
  * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
@@ -209,7 +203,6 @@ GEODE_API void        geode_viz_set_adaptive(geode_viz*, int on);
 #define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
 #define GEODE_FRAME_LIQUID_CHANGED  0x4  /* Liquid mode changed: geode_viz_liquid_mode */
 #define GEODE_FRAME_ERROR_CHANGED   0x8  /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
-#define GEODE_FRAME_MILK_LOADED     0x10 /* MilkDrop finished loading a preset: geode_viz_take_milk_preset_loaded */
 #define GEODE_FRAME_DIRECTOR_MOMENT 0x20 /* director moments wait: geode_viz_take_director_style_moments */
 #define GEODE_FRAME_STILL_READY     0x40 /* the still asked for is ready: geode_viz_still_size / _read */
 GEODE_API int         geode_viz_frame(geode_viz*, const geode_pcm_ring* ring, float paced_fps, float cap_fps);
@@ -265,12 +258,12 @@ GEODE_API void        geode_viz_warm_transition(geode_viz*, const char* id);
 /* Forgets the drawn scene so the next frame cuts instead of transitioning from it. */
 GEODE_API void        geode_viz_cut(geode_viz*);
 /* Export (Studio 2D): the styles this segment switches to. `count` timed cues (render ms since the
- * segment began, style id, MilkDrop preset path or "" for none) and a beat cut stepping through
+ * segment began, style id) and a beat cut stepping through
  * `cut_count` style ids every `every_beats` beats of the renderer's own sound engine. Both empty
  * clears it. `locked_ids` is the entitlement: the `locked_count` styles this user may not draw (none
  * for Pro); cues and cut ids naming one are dropped. Strings are copied. */
 GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_ms, const char* const* scene_ids,
-                                                   const char* const* milk_paths, int count,
+                                                   int count,
                                                    const char* const* cut_ids, int cut_count, int every_beats,
                                                    const char* const* locked_ids, int locked_count);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
@@ -639,8 +632,12 @@ GEODE_API const char* geode_music_playlist_import_base(const char* parsed_name, 
  * artist, split by U+001F and ended by U+001E; "" when the text is no session (the shell moves such a file aside):
  * not an object, a version above 1, no track with a uri. Index and position come clamped.
  * session_write: the text to write for `count` tracks (3 UTF-8 strings each: uri, title, artist), the index and the
- * position (both clamped); "" for no tracks, when the shell deletes the file instead. */
-GEODE_API const char* geode_session_read(const char* text);
+ * position (both clamped); "" for no tracks, when the shell deletes the file instead.
+ * session_position_write: the small text session_position.json is written as when only the position moved; the
+ * queue is not written again. session_read's position_text is that file's text (NULL: none): it moves the
+ * session's track and position (newer than the queue's); unreadable text changes nothing. */
+GEODE_API const char* geode_session_read(const char* text, const char* position_text);
+GEODE_API const char* geode_session_position_write(int index, long long position_ms);
 GEODE_API const char* geode_session_write(const char* const* tracks, int count, int index, long long position_ms);
 
 /* The app's own track library and the rules around it (core/library/TrackRules, TrackLibraryDoc). The shell reads
@@ -675,6 +672,48 @@ GEODE_API const char* geode_track_device_rows(const char* const* rows, const lon
                                               int min_seconds, const char* const* fallbacks);
 GEODE_API const char* geode_track_resolve_entries(const char* const* base_names, int entry_count,
                                                   const char* const* library, int track_count);
+/* The backup's rules (core/backup/Backup). The shell reads and writes the zip, files and SharedPreferences, and hashes
+ * with the platform's SHA-256; each call is one plan or one answer, never one file. Lists cross as arrays of UTF-8
+ * strings in both directions, read in order: a count is decimal text, a flag is "1" or "0", a digest is lowercase hex,
+ * a preference value is its type ("s" string, "i" int, "l" long, "f" float, "b" boolean, "t" string set, "u" anything
+ * else) then its text (a float as its double text, a boolean as "1" or "0") then its item count and items (a set's).
+ * An answer starts with the problem number (core/backup Problem: 0 none) and a message for the log; what follows is
+ * meant only when the problem is 0 unless said. The answer is valid until the next backup call on the same thread;
+ * `*out_count` is its length. A malformed argument list answers problem 6.
+ *   _layout: the manifest's archive path, the byte cap on a manifest, the byte cap on a backup file, the entry cap,
+ *     the section count, then per section its id, its prefs-file count and (file, archive path) each, its root
+ *     count and roots (filesDir-relative dirs, then files). No problem or message.
+ *   _plan_export: prefs = snapshot count, then per file its name, entry count and per entry key, type, text, item
+ *     count, items; files = (section, path) pairs. Answers the byte cap on the files of the zip, then the
+ *     sources in zip order: count, per source its path, "1" when the next string is its content (else the shell opens filesDir/path) and the content.
+ *   _finish_export: per written entry its path, size and digest. Answers the manifest text, to be written last.
+ *   _plan_unpack: the zip's entry count, "1" when manifest.json exists, "1" when reading it passed the cap, its text,
+ *     then per entry its name and "1" for a directory. Answers the failure to raise after extracting (problem,
+ *     message), the staged prefs paths to read for _finish_unpack, then the items to extract: count, per item its
+ *     entry index, path, promised size, promised digest and byte budget.
+ *   _check_staging: the canonical staging directory, the path separator, then per item its entry name and canonical
+ *     target. Answers the first target outside staging as an unsafe path.
+ *   _check_extracted: an item's path, promised size, promised digest and budget as the plan gave them, then the
+ *     bytes read, their digest and "1" when the read was cut at the budget.
+ *   _finish_unpack: the manifest text, then (path, text) per staged prefs file. Answers the backup's creation time
+ *     (ms), its app version code, the section ids to offer, then the files migration rewrote: count, (path, text).
+ *   _plan_restore: "1" when something is staged, the staged section ids (count first), the requested ids (count
+ *     first), the staged prefs as (path, text) pairs (count first), then per prefs file the phone holds its name,
+ *     key count and keys. Answers per section to restore its id, its targets, carry-over subtrees, directories to
+ *     create and its prefs (count first each; per prefs file its name, staged path, keys to remove, and the values
+ *     to put, each as key, type, text, item count, items). */
+GEODE_API const char* const* geode_backup_layout(int* out_count);
+GEODE_API const char* const* geode_backup_plan_export(const char* const* prefs, int prefs_len, const char* const* files,
+                                                      int files_len, int* out_count);
+GEODE_API const char* const* geode_backup_finish_export(const char* const* entries, int entries_len, int app_version_code,
+                                                        long long created_at_ms, int* out_count);
+GEODE_API const char* const* geode_backup_plan_unpack(const char* const* request, int request_len, int* out_count);
+GEODE_API const char* const* geode_backup_check_staging(const char* const* request, int request_len, int* out_count);
+GEODE_API const char* const* geode_backup_check_extracted(const char* const* item, int item_len, int* out_count);
+GEODE_API const char* const* geode_backup_finish_unpack(const char* const* request, int request_len, int* out_count);
+GEODE_API const char* const* geode_backup_plan_restore(const char* const* request, int request_len, int* out_count);
+/* beatrealms-backup-YYYYMMDD.zip; valid until the next call on the same thread. */
+GEODE_API const char* geode_backup_file_name(int year, int month, int day);
 
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
@@ -802,16 +841,15 @@ GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const cha
  * still draws its own palette, "" once it does not. Thread-local text. */
 GEODE_API const char* geode_saved_palette_frame_id(const char* look_id, const float* frame);
 /* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
- * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
- * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =
+ * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[4] = name, scene id (a
+ * retired style resolved), custom shader (NULL when absent), saved palette id, and out_envelope[2] =
  * attack and decay held to the sliders' ranges; 1, or 0 with nothing written when it is no preset. The strings stay
- * valid until the calling thread's next read. write: the file text org.json wrote (toString(2)); custom_shader and
- * milk_preset NULL to leave them out; NULL for a short frame. milk_file_name: the .milk file a preset mirrors to. */
+ * valid until the calling thread's next read. write: the file text org.json wrote (toString(2)); custom_shader
+ * NULL to leave it out; NULL for a short frame. A look on a style this build does not have is no preset (0). */
 GEODE_API int         geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
 GEODE_API const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay,
-                                         const char* custom_shader, const char* milk_preset, const float* frame, int n,
+                                         const char* custom_shader, const float* frame, int n,
                                          const char* custom_palette_id);
-GEODE_API const char* geode_preset_milk_file_name(const char* preset_name);
 /* Preset names (viz/LookFiles). is_built_in: 1 when the name holds the built-ins' " · ". clean_name: the separator
  * as " - ", trimmed, `fallback` when nothing is left; folder_name: trimmed. rename_problem and folder_name_problem:
  * 0 fine, 1 blank, 2 taken (another of the `count` names, case ignored); `current` NULL for a new folder.
@@ -855,7 +893,7 @@ GEODE_API int         geode_template_starter_count(void);
 GEODE_API const char* geode_template_starter(int index);
 GEODE_API int         geode_template_is_starter(const char* id);
 /* The template file (viz/TemplateFile): the shell hands the text in and keeps the text out. read: 1 when `text` is a
- * template, out_text[7] = the file text this build writes for it, id, name, scene id, custom shader and milk preset
+ * template, out_text[6] = the file text this build writes for it, id, name, scene id, custom shader
  * (NULL when absent), saved palette id, the params into out_frame (n at least geode_viz_param_count) and attack and
  * decay into out_envelope[2]; 0 when it is JSON but no template and -1 when it cannot be read, out_text[0] the reason
  * either way. create: a new template's text (fresh id, every other section at its default) for the look given;
@@ -866,7 +904,7 @@ GEODE_API int         geode_template_is_starter(const char* id);
  * valid until the calling thread's next call of the same function. Pure, any thread. */
 GEODE_API int         geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
 GEODE_API const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack,
-                                            float decay, const char* custom_shader, const char* milk_preset,
+                                            float decay, const char* custom_shader,
                                             const float* frame, int n, const char* custom_palette_id);
 GEODE_API const char* geode_template_renamed(const char* text, const char* name);
 GEODE_API const char* geode_template_new_copy(const char* text, const char* name, long long created_at_ms);
@@ -910,7 +948,7 @@ GEODE_API void        geode_params_palette_preview(const float* params, int samp
  * style's own palette; stack_resolve_default puts style_default in as the only layer of an unset stack.
  * stack_layer: a layer as a palette line, "" out of range. stack_set_layer at layer_count appends.
  * from_colours: a palette of `count` 0xRRGGBB colours (invalid skipped, 16 kept) from source BUILT_IN,
- * COLOUR_MAP, STYLE (ref = style id), MILK (ref = .milk file name), ARTWORK or YOURS. Palette edits return ""
+ * COLOUR_MAP, STYLE (ref = style id), ARTWORK or YOURS. Palette edits return ""
  * for a line that is not a palette; set_stop and add_stop keep or append the place when pos < 0.
  * swatch: `samples` colours of a palette's own run, first stop to last; stack_ramp: the stack's composed ramp
  * at texel centres under amounts[8] (NULL: 1 for the primary, 0.5 for the rest). stack_from_params: an old
@@ -1085,6 +1123,11 @@ GEODE_API const char* geode_customize_rows(const char* style_id, const char* key
 /* 1 when the panel search query matches text (core/viz/CustomizeRows matches): blank matches all, else a case-blind substring
  * of the trimmed query. */
 GEODE_API int geode_customize_matches(const char* query, const char* text);
+/* 1 when the panel search query has nothing in it (only spaces and tabs), so whole sections show. */
+GEODE_API int geode_customize_query_blank(const char* query);
+/* A word or sentence of the panel's with its placeholders filled by the count texts of args (geode_panel_text's table,
+ * "%1$s" the first); "" for an unknown id. Valid until this thread's next call into core/api/geode_customize_rows_api.cpp. */
+GEODE_API const char* geode_panel_format(const char* id, const char* const* args, int count);
 /* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
 GEODE_API const char* geode_panel_text(const char* id);
 /* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */
@@ -1115,9 +1158,9 @@ GEODE_API const char* geode_palette_stack_card(const char* stack, const float* p
 /* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
  * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
  * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement
- * locks), not current_style while another is open, MilkDrop only when milk_count > 0; then a look for it:
+ * locks), not current_style while another is open; then a look for it:
  * look_styles is the style id of each of the shell's presets, one per line, and *look_out the index of one made for
- * the chosen style (-1 when none), else on MilkDrop *milk_out a .milk file index below milk_count (-1 otherwise).
+ * the chosen style (-1 when none).
  * Writes the style id into style_out (NUL-terminated, truncated to style_capacity); 1 when a style was picked.
  * geode_randomize_all_roll is base with every control locked keeps (keys and "#CATEGORY" lines) put back to its value in
  * before, then, when roll_categories is 1, every category's other controls that reach style_id rolled (0: the kept
@@ -1125,8 +1168,8 @@ GEODE_API const char* geode_palette_stack_card(const char* stack, const float* p
  * them keep base's values (it is not Keep, so nothing it names is put back). Wire as geode_params_randomize; 1 when
  * out differs from base. */
 GEODE_API int         geode_randomize_all_pick(uint64_t seed, const char* current_style, const char* locked_styles,
-                                               const char* look_styles, int milk_count, char* style_out, int style_capacity,
-                                               int* look_out, int* milk_out);
+                                               const char* look_styles, char* style_out, int style_capacity,
+                                               int* look_out);
 GEODE_API int         geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories,
                                                const float* before, const float* base, float* out);
 /* Customize's dice (core/viz/PanelRoll), seeded natively per roll. kept is the user's lock set (keys and "#CATEGORY"
@@ -1181,7 +1224,8 @@ GEODE_API int         geode_param_history_state(void);
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
  * adds to its params each frame, after the director and the note layer and before the LFOs. geode_macro_bank_live_mods is
  * what the waves and envelopes on a knob (LfoTarget MACRO) add to its turn on the on-screen surface's last frame, one row
- * "mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>" per knob, for the knob's second arc; poll it from the UI. */
+ * 5 floats per knob (id, add, sources: 1 wave, 2 envelope, 3 both, lowest add, highest add) written to out, at most
+ * capacity rows, the row count returned, for the knob's second arc; poll it from the UI. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
 GEODE_API const char* geode_macro_bank_targets_text(void);
@@ -1210,7 +1254,7 @@ GEODE_API const char* geode_macro_bank_show_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
-GEODE_API const char* geode_macro_bank_live_mods(void);
+GEODE_API int         geode_macro_bank_live_mods(float* out, int capacity);
 /* A knob's turn plus what modulation adds to it, held to -1..1: what the engine draws it at. */
 GEODE_API float       geode_macro_bank_modulated(float turn, float add);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
@@ -1493,31 +1537,30 @@ GEODE_API int             geode_surface_proximity_near(float distance_cm, float 
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the
  * interval. now_ms is the shell's monotonic clock. restart: a look just went up. due: 1 once the wait is over
  * (it restarts itself); running = 0 (off, paused, nothing to step to) is never due. hold_s: how long the look
- * on screen is expected to show, 0 with no timer running; a .milk preset's `progress` runs over it. */
+ * on screen is expected to show, 0 with no timer running. */
 #define GEODE_AUTO_TIMER_PLAYLIST            0
 #define GEODE_AUTO_TIMER_RANDOM              1
 GEODE_API void            geode_auto_timer_restart(int timer, long long now_ms);
 GEODE_API int             geode_auto_timer_due(int timer, long long now_ms, int interval_s, int running);
 GEODE_API double          geode_auto_timer_hold_s(void);
-/* Auto is about to bring `key` on (a style id, or a .milk path): the renderer that switches to it, or the
- * MilkDrop scene that loads it, within a few seconds plays Auto's longer fade (core/viz/TransitionChoice). */
+/* Auto is about to bring `key` on (a style id): the renderer that switches to it within a few seconds plays Auto's longer fade (core/viz/TransitionChoice). */
 GEODE_API void            geode_auto_mark_change(const char* key);
-/* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles, saved looks
- * and .milk presets, never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
+/* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles and saved looks,
+ * never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
 /* Auto visuals' decisions (core/viz/AutoPlan), process-wide over the two timers above. now_ms as above; playing 0
  * (nothing plays) and Customize open (editing_set 1) hold every change.
  * interval_s: a timer interval held to its range. editing_set: Customize opened (1) or closed (0, both waits start
- * over). hand_pick: a style, a look or a .milk picked by hand (both waits start over). playlist_tick: the playlist
+ * over). hand_pick: a style or a look picked by hand (both waits start over). playlist_tick: the playlist
  * entry (of count) to put up now, or -1; it runs while enabled with two entries or more. playlist_step: a step by
  * hand or a moment's (step < 0 back): the entry, or -1 with fewer than two. random_tick: 1 when the timed draw is due.
  * moment: a director moment on the look on screen (style, count floats of its params, its saved palette id): a
  * GEODE_AUTO_MOMENT_*; NONE when the user changed the look since Auto's last change. left_as: Auto's own change is on
  * screen now (after the shell put it up).
  * draw: Auto's draw (restarting the timed wait) among the sources (GEODE_AUTO_DRAW_* bits): the AutoDraw styles,
- * the saved looks (preset_styles, each one's style id a line), the .milk files (milk_count, shown as milk_style),
+ * the saved looks (preset_styles, each one's style id a line),
  * none in locked_styles (one a line, what the entitlement refuses). preset_on_screen is the first saved look equal
- * to the one on screen, milk_on_screen the .milk playing (-1 for none). KEEP_LOOK is a moment's draw: no saved look,
+ * to the one on screen (-1 for none). KEEP_LOOK is a moment's draw: no saved look,
  * and the style the director asks for (geode_auto_pick_among). Writes the entry's kind (GEODE_AUTO_KIND_*) and its
  * index in that list (the AutoDraw list for a style) to out2 and returns its style id, valid until this thread's
  * next draw; NULL for none. */
@@ -1526,11 +1569,9 @@ GEODE_API int             geode_auto_pick(int count, int on_screen);
 #define GEODE_AUTO_MOMENT_RANDOM             2
 #define GEODE_AUTO_DRAW_STYLES               1
 #define GEODE_AUTO_DRAW_PRESETS              2
-#define GEODE_AUTO_DRAW_MILK                 4
 #define GEODE_AUTO_DRAW_KEEP_LOOK            8
 #define GEODE_AUTO_KIND_STYLE                0
 #define GEODE_AUTO_KIND_PRESET               1
-#define GEODE_AUTO_KIND_MILK                 2
 #define GEODE_AUTO_INTERVAL_MIN_S 5
 #define GEODE_AUTO_INTERVAL_MAX_S 300
 GEODE_API int             geode_auto_interval_s(int requested_s);
@@ -1543,13 +1584,13 @@ GEODE_API int             geode_auto_moment(const char* style, const float* fram
                                             int playing, int playlist_enabled);
 GEODE_API void            geode_auto_left_as(const char* style, const float* frame, int count, const char* palette_id);
 GEODE_API const char*     geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
-                                          int preset_on_screen, int milk_count, int milk_on_screen, const char* milk_style,
+                                          int preset_on_screen,
                                           int sources, long long now_ms, int* out2);
 /* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
  * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
  * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for
  * none. With family_only in a family of one style it never leaves the family: GEODE_STYLES_ROLL_INSIDE when that
- * style has variety of its own to roll (inner_count: its variations, the .milk presets for MilkDrop, 0 for none;
+ * style has variety of its own to roll (inner_count: its variations, 0 for none;
  * inner_on_screen: the one showing, -1 for none; it rolls when one is not on screen), else -1. lead: writes
  * into out (count ints) the order a list shows, lead first (the item on screen, or the family holding it), the
  * rest in order; lead outside the list keeps the order. */
@@ -1603,30 +1644,21 @@ GEODE_API int             geode_stage_pick_display(const int* ids, const unsigne
 GEODE_API int             geode_stage_presents(unsigned flags);
 
 /* What the stage's "next / previous style" steps (core/viz/StageStep; owner 2026-11-12: it walks what the open
- * Visuals tab lists, and the .milk presets from any tab while MilkDrop is on screen and two are listed). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
- * milk_count the .milk presets listed and look_count the saved looks the user may apply; the answer is
- * GEODE_STAGE_STEP_STYLES, _LOOKS or _MILK. index: the item step (+1 next, -1 previous) places from here among
- * count items, wrapping, skipping here and every open[i] == 0 (open null: all open), from an end when here is
- * outside the list; -1 when nothing else is open. milk: the index in paths (the MilkDrop page's order) to load,
- * current the .milk on screen ("" or null when MilkDrop is not); previous retraces the process-wide history of
- * steps while no hand pick broke it, else the list order. milk_reset drops that history. */
+ * Visuals tab lists). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
+ * look_count the saved looks the user may apply; the answer is GEODE_STAGE_STEP_STYLES or _LOOKS. index: the item
+ * step (+1 next, -1 previous) places from here among count items, wrapping, skipping here and every open[i] == 0
+ * (open null: all open), from an end when here is outside the list; -1 when nothing else is open. */
 #define GEODE_STAGE_STEP_PAGE_STYLES         0
 #define GEODE_STAGE_STEP_PAGE_CUSTOMIZE      1
 #define GEODE_STAGE_STEP_PAGE_PRESETS        2
-#define GEODE_STAGE_STEP_PAGE_MILKDROP       3
 #define GEODE_STAGE_STEP_PAGE_TEXTURES       4
 #define GEODE_STAGE_STEP_PAGE_SETTINGS       5
 #define GEODE_STAGE_STEP_SHEET_SHOWN         (1u << 0)
-#define GEODE_STAGE_STEP_ON_MILK             (1u << 1)
 #define GEODE_STAGE_STEP_ON_LOOK             (1u << 2)
-#define GEODE_STAGE_STEP_MILK_OPEN           (1u << 3)
 #define GEODE_STAGE_STEP_STYLES              0
 #define GEODE_STAGE_STEP_LOOKS               1
-#define GEODE_STAGE_STEP_MILK                2
-GEODE_API int             geode_stage_step_target(int page, unsigned flags, int milk_count, int look_count);
+GEODE_API int             geode_stage_step_target(int page, unsigned flags, int look_count);
 GEODE_API int             geode_stage_step_index(const unsigned char* open, int count, int here, int step);
-GEODE_API int             geode_stage_step_milk(const char* const* paths, int count, const char* current, int step);
-GEODE_API void            geode_stage_step_milk_reset(void);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
@@ -1689,6 +1721,24 @@ GEODE_API int     geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int 
 GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t loop_bytes,
                                              int64_t soundtrack_bytes);
 GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
+
+/* What a loop extend decides while it copies encoded samples (output/LoopExtend); the shell only reads and
+ * writes them. geode_loop_repeat_samples: the leading samples of one repeat, times shifted by offset_us, that
+ * land before limit_us; fills out_pts_us and out_flags (muxer flags from the extractor's) and returns how many.
+ * geode_loop_clip_starts: where back-to-back clips begin, then the total, in out[clip_count + 1].
+ * geode_loop_audio_due: the soundtrack samples due before until_us as (clip, sample) pairs with their time in the
+ * soundtrack, from and advancing cursor[2] = {clip, sample}; sample_pts_us holds every clip's sample times, clip after clip. Returns how many
+ * it wrote (fewer than capacity = caught up). The progress calls give the 0..1 bar position; the sample buffer
+ * is the bytes one sample read may need. */
+GEODE_API int     geode_loop_repeat_samples(const int64_t* sample_times_us, const int* extractor_flags, int count,
+                                            int64_t offset_us, int64_t limit_us, int64_t* out_pts_us, int* out_flags);
+GEODE_API void    geode_loop_clip_starts(const int64_t* durations_us, int clip_count, int64_t* out);
+GEODE_API int     geode_loop_audio_due(const int64_t* clip_starts_us, const int* sample_counts, int clip_count,
+                                       const int64_t* sample_pts_us, int* cursor, int64_t until_us, int* out_clip,
+                                       int* out_sample, int64_t* out_pts_us, int capacity);
+GEODE_API float   geode_loop_copy_progress(int done, int repeats);
+GEODE_API float   geode_loop_transcode_progress(int index, float clip_progress, int clip_count);
+GEODE_API int     geode_loop_sample_buffer_bytes(int declared_bytes, int width, int height);
 
 /* Loudness advice (output/LoudnessAdvice): what an export's measured loudness asks of a platform target
  * (0 Leave as-is, 1 YouTube, 2 Shorts and TikTok). geode_loudness_window fills aim, low, high (LUFS) and the

@@ -76,15 +76,14 @@ Java_dev_geode_engine_bridge_AutoNative_autoLeftAs(JNIEnv* env, jobject, jstring
 // out[0] the entry's kind, out[1] its index in that list; null for none.
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_AutoNative_autoDraw(JNIEnv* env, jobject, jstring lockedStyles, jstring current, jstring presetStyles,
-                                                  jint presetOnScreen, jint milkCount, jint milkOnScreen, jstring milkStyle,
+                                                  jint presetOnScreen,
                                                   jint sources, jlong nowMs, jintArray out) {
     if (!out || env->GetArrayLength(out) < 2) return nullptr;
     Utf8Chars locked(env, lockedStyles);
     Utf8Chars style(env, current);
     Utf8Chars looks(env, presetStyles);
-    Utf8Chars milk(env, milkStyle);
     int picked[2] = {-1, -1};
-    const char* id = geode_auto_draw(locked.get(), style.get(), looks.get(), presetOnScreen, milkCount, milkOnScreen, milk.get(),
+    const char* id = geode_auto_draw(locked.get(), style.get(), looks.get(), presetOnScreen,
                                      sources, nowMs, picked);
     const jint values[2] = {picked[0], picked[1]};
     env->SetIntArrayRegion(out, 0, 2, values);

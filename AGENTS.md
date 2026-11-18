@@ -117,3 +117,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `GlVersion::parse` reads the version numbers with `std::from_chars`: a number too long for an int makes the string unparseable instead of throwing (`core/viz/GlCaps.cpp`).
 - 2026-11-18: Morph World frees its shape and map bytes once they are uploaded or refused (`ShaderScene::uploadWorld`, `core/viz/scenes/ShaderScene.cpp`).
 - 2026-11-18: `ShaderScene::set1f` makes no `glUniform1f` call for a uniform the style linked away (location -1); the comment above `uploadMotion` says what that costs (`core/viz/scenes/ShaderScene.cpp`).
+- 2026-11-18: The Life census reads its five probes into a pixel pack buffer and maps them once a fence has passed, a frame or more later, instead of five blocking `glReadPixels` (`LifeScene::startCensus` / `finishCensus`, `core/viz/scenes/LifeScene.*`).

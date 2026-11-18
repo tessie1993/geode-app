@@ -113,6 +113,59 @@ These are the recommended answers to the questions the owner did not answer one 
 
 ## 4. Target architecture
 
+```mermaid
+flowchart TD
+    subgraph KOTLIN["Kotlin shell (main thread only)"]
+        UI["Compose UI and ViewModels"]
+        SVC["Android services, stores, platform calls"]
+        JNI["GeodeNative (JNI declarations)"]
+        UI --> JNI
+        SVC --> JNI
+    end
+
+    subgraph CORE["C++ core (libgeode.so)"]
+        API["api: commands in, state out"]
+        RUN["run: threads, live / wallpaper / dream / export"]
+        VIZ["viz: renderer, scenes, passes"]
+        SHADER["shader: sources, programs, uniforms"]
+        SIGNAL["signal: resolver, routes, modulation, safety"]
+        SOUND["sound: analysis engine and its thread"]
+        PLAYER["player: queue, transport, decode"]
+        AUDIO["audio: PCM ring, DSP, output, budget"]
+        UTIL["util: json, text, time"]
+
+        API --> RUN
+        RUN --> VIZ
+        RUN --> PLAYER
+        VIZ --> SHADER
+        VIZ --> SIGNAL
+        SIGNAL --> SOUND
+        PLAYER --> AUDIO
+        SOUND --> AUDIO
+        AUDIO --> UTIL
+        SHADER --> UTIL
+    end
+
+    JNI -- "commands" --> API
+    API -- "PlayerState, LookState, SurfaceState" --> JNI
+
+    subgraph FLOW["Data between threads"]
+        DEC["decode thread"] -- "sample ring" --> CB["audio callback: DSP then output"]
+        DEC -- "sample ring" --> AN["analysis thread: 10 ms hops"]
+        AN -- "published snapshot" --> SIG["signal thread: parameters"]
+        SIG -- "published snapshot" --> GL["render thread: draw only"]
+        CMD["command queue"] --> DEC
+        CMD --> SIG
+        CMD --> GL
+    end
+
+    PLAYER -.-> DEC
+    SOUND -.-> AN
+    SIGNAL -.-> SIG
+    VIZ -.-> GL
+    API -.-> CMD
+```
+
 ### 4.1 Modules
 
 Each module is its own CMake static library with a small public header folder. A module may link only modules above it in this list, so the build itself refuses a wrong include.

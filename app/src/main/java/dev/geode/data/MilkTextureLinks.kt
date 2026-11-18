@@ -70,6 +70,9 @@ class MilkTextureLinks(
     private val linksRoot = File(textureDir, LINKS_DIR_NAME)
     private val overridesFile = File(milkDir, "texture-links.json")
 
+    /** Where a pinned preset can be: the user's folder, and the texture show presets (`TextureStore`). */
+    private val presetDirs = listOf(milkDir, File(milkDir, "generated"))
+
     /** Native's answer for one preset: the links, the file names each is made under, and whether the person must look. */
     private class Resolution(
         val needsYou: Boolean,
@@ -94,7 +97,10 @@ class MilkTextureLinks(
         // Link directories for presets that no longer exist are swept here rather than leaked:
         // this is the one place that sees the whole set.
         MilkNative.milkTextureStaleLinkDirs(milkDir.path).forEach { File(linksRoot, it).deleteRecursively() }
-        return MilkNative.milkTextureLinkedPresets(milkDir.path).count { relinked(File(milkDir, it)).needsYou }
+        // Read once for the pass; pins for presets that are gone (deleted, renamed) go here too.
+        val overrides = loadOverrides()
+        if (dropDeadPins(overrides) { name -> presetDirs.any { File(it, name).isFile } }) saveOverrides(overrides)
+        return MilkNative.milkTextureLinkedPresets(milkDir.path).count { relinked(File(milkDir, it), overrides).needsYou }
     }
 
     /** What [relink] would decide right now, without touching the filesystem links. */
@@ -113,17 +119,24 @@ class MilkTextureLinks(
         val forPreset = all.optJSONObject(preset.name) ?: JSONObject()
         if (textureName == null) forPreset.remove(expected.lowercase()) else forPreset.put(expected.lowercase(), textureName)
         if (forPreset.length() == 0) all.remove(preset.name) else all.put(preset.name, forPreset)
-        runCatching { AtomicWrite.text(overridesFile, all.toString()) }
-            .onFailure { RingLog.note(TAG, "override save failed", it) }
+        saveOverrides(all)
         return relink(preset)
     }
 
-    private fun relinked(preset: File): Resolution {
+    private fun saveOverrides(all: JSONObject) {
+        runCatching { AtomicWrite.text(overridesFile, all.toString()) }
+            .onFailure { RingLog.note(TAG, "override save failed", it) }
+    }
+
+    private fun relinked(
+        preset: File,
+        overrides: JSONObject = loadOverrides(),
+    ): Resolution {
         val linkDir = linkDirFor(preset)
         // Rebuilt from scratch every time: a stale link to a removed texture, or one left by a
         // cleared override, is exactly the state this exists to prevent.
         linkDir.deleteRecursively()
-        val resolution = resolution(preset)
+        val resolution = resolution(preset, overrides)
         resolution.links.forEachIndexed { i, link ->
             val texture = link.texture ?: return@forEachIndexed
             materialize(File(textureDir, texture), linkDir, resolution.linkNames[i])
@@ -131,8 +144,11 @@ class MilkTextureLinks(
         return resolution
     }
 
-    private fun resolution(preset: File): Resolution {
-        val overrides = overridesFor(preset.name)
+    private fun resolution(
+        preset: File,
+        all: JSONObject = loadOverrides(),
+    ): Resolution {
+        val overrides = overridesFor(preset.name, all)
         val answer =
             MilkNative.milkTextureLinks(preset.path, textureDir.path, overrides.keys.toTypedArray(), overrides.values.toTypedArray())
         val rows = answer.drop(1).chunked(MilkNative.MILK_LINK_FIELDS).filter { it.size == MilkNative.MILK_LINK_FIELDS }
@@ -171,8 +187,11 @@ class MilkTextureLinks(
 
     private fun loadOverrides(): JSONObject = runCatching { JSONObject(overridesFile.readText()) }.getOrDefault(JSONObject())
 
-    private fun overridesFor(presetFileName: String): Map<String, String> {
-        val entry = loadOverrides().optJSONObject(presetFileName) ?: return emptyMap()
+    private fun overridesFor(
+        presetFileName: String,
+        all: JSONObject,
+    ): Map<String, String> {
+        val entry = all.optJSONObject(presetFileName) ?: return emptyMap()
         return entry.keys().asSequence().associateWith { entry.optString(it) }
     }
 
@@ -184,5 +203,20 @@ class MilkTextureLinks(
 
         /** Lives inside the textures dir, but hidden from [TextureStore.list] by being a directory. */
         const val LINKS_DIR_NAME = ".links"
+
+        /** Removes from [overrides] the pins of every preset [exists] no longer finds; true when one went. */
+        fun dropDeadPins(
+            overrides: JSONObject,
+            exists: (String) -> Boolean,
+        ): Boolean {
+            val dead =
+                overrides
+                    .keys()
+                    .asSequence()
+                    .filterNot(exists)
+                    .toList()
+            dead.forEach { overrides.remove(it) }
+            return dead.isNotEmpty()
+        }
     }
 }

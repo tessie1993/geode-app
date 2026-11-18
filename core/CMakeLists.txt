@@ -325,6 +325,7 @@ add_library(geode_basisu STATIC
     ${GEODE_BASISU_DIR}/encoder/basisu_xbc7_encode.cpp
     ${GEODE_BASISU_DIR}/encoder/basisu_tinyexr.cpp
     ${GEODE_BASISU_DIR}/encoder/3rdparty/android_astc_decomp.cpp
+    ${GEODE_BASISU_DIR}/encoder/3rdparty/basisu_wuffs.cpp
     ${GEODE_BASISU_DIR}/transcoder/basisu_transcoder.cpp
     ${GEODE_BASISU_DIR}/zstd/zstd.c)
 set_target_properties(geode_basisu PROPERTIES CXX_STANDARD 17 CXX_EXTENSIONS OFF)

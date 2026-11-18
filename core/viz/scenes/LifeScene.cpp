@@ -7,6 +7,7 @@
 
 #include "viz/Quad.hpp"
 #include "viz/Reactions.hpp"
+#include "viz/SceneTarget.hpp"
 
 namespace geode::viz {
 
@@ -328,8 +329,7 @@ void LifeScene::draw(float timeSeconds) {
     resetFrameState();
     GLint prevFbo = 0;
     GLint prevViewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevViewport);
+    SceneTarget::read(prevFbo, prevViewport);
     fluid::DoubleFbo* field = ensureState();
     if (!field) return;
     const SceneParams& p = params_;

@@ -12,6 +12,7 @@
 #include "viz/MilkProgress.hpp"
 #include "viz/MilkShaderNote.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
@@ -301,8 +302,7 @@ void MilkdropScene::loadPendingPreset(double now) {
 void MilkdropScene::draw(float timeSeconds) {
     (void) timeSeconds;
     if (!postProgramOk_) return;
-    GLint prevFbo = 0;
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbo);
+    const GLint prevFbo = SceneTarget::fbo();
     // Reset before the engine as well as after: projectM assumes default GL state and restores little.
     resetFrameState();
     const double now = nowSeconds();

@@ -90,6 +90,7 @@ void StageCore::step(int64_t nowMs) {
             draw(dueFps_, cap_, dueFrameNs_, duePresentNs_);
             runActions();
         }
+        port_.frameDone();
     }
 }
 
@@ -181,8 +182,12 @@ Outcome StageCore::execute(const Action& action) {
 void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs) {
     if (!client_) return;
     client_->frameTime(frameNs);
-    events_.fetch_or(client_->frame(pacedFps, capFps), std::memory_order_relaxed);
+    client_->framePresent(presentNs);
+    const uint32_t events = client_->frame(pacedFps, capFps);
+    events_.fetch_or(events & ~kFrameNothingNew, std::memory_order_relaxed);
     followGovernor();
+    // The picture is the one already on screen: no new buffer, so no swap, and the display keeps the last.
+    if ((events & kFrameNothingNew) != 0) return;
     port_.presentAt(presentNs);
     switch (port_.swap()) {
         case Outcome::Done: lifecycle_.frameDrawn(); break;

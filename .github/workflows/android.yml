@@ -100,8 +100,8 @@ jobs:
       # tools/connected-tests.sh runs the suite, keeps the device's full logcat
       # (events buffer included: am_anr, am_kill), ANR traces and tombstones, and
       # retries once only for an emulator failure (adb lost the device) or for
-      # tests whose instrumentation process was killed; an assertion failure is
-      # never retried. Runs 41178519245, 41181213744 and 41190866232 failed on
+      # tests whose instrumentation process was killed; an assertion failure or a
+      # native crash of the app is never retried. Runs 41178519245, 41181213744 and 41190866232 failed on
       # exactly those two signatures.
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0

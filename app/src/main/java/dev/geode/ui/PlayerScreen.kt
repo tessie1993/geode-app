@@ -827,8 +827,10 @@ private fun QuickActions(
         ) { result ->
             val data = result.data
             if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
-                dev.geode.audio.PlaybackCaptureService
-                    .start(context, result.resultCode, data)
+                val started =
+                    dev.geode.audio.PlaybackCaptureService
+                        .start(context, result.resultCode, data)
+                if (!started) viewModel.noteExternalAudioConsentDenied()
             } else {
                 viewModel.noteExternalAudioConsentDenied()
             }

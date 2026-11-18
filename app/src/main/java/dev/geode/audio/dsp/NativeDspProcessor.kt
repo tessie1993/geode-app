@@ -80,7 +80,7 @@ class NativeDspProcessor : BaseAudioProcessor() {
             if (h != 0L) GeodeNative.dspSetBitPerfect(h, on)
         }
 
-    fun update(next: DspSettings) {
+    @Synchronized fun update(next: DspSettings) {
         settings = next
         val h = handle
         if (h != 0L) apply(h, next)

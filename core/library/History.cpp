@@ -169,8 +169,8 @@ std::optional<HistoryEntry> historyEntry(const std::string& state, const std::st
 }
 
 std::string historyWire(const std::vector<HistoryEntry>& entries) {
-    constexpr char kField = '';
-    constexpr char kRecord = '';
+    constexpr char kField = '\x1f';
+    constexpr char kRecord = '\x1e';
     const auto field = [](std::string& out, const std::string& text) {
         for (const char c : text) {
             if (c != kField && c != kRecord) out += c;

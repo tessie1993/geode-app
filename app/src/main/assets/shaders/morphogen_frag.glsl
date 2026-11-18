@@ -645,7 +645,7 @@ float morphField(vec3 p) {
     float db = bulgeDist(p);
     // The bank orbits in undeformed space and needs no Lipschitz correction,
     // so it sits in a plain min() with whatever the body reports.
-    float sat = dmtSatellites(p, gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    float sat = dmtSatellites(p);
     if (bound > BODY_MARGIN) {
         float outside = smin(bound, db, BULGE_K);
         gHitSat = sat < outside ? 1.0 : 0.0;
@@ -940,6 +940,7 @@ void main() {
     gBodyBound = gBulgeN > 0 ? TOUCH_BOUND : BODY_BOUND;
     // Detail buys population: three satellites at the floor, six at the top.
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
+    dmtSatPrepare(gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
 
     // ---- camera ------------------------------------------------------------
     vec3 ro = vec3(0.0, 0.0, -CAM_DIST);

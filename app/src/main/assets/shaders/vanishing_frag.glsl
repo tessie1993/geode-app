@@ -727,13 +727,14 @@ void main() {
     // the stack's whenever it is nearer, and fades toward the core the way a
     // shell at the same depth would.
     float satCount = dmtSatelliteCount();
-    float satT = dmtMarchSatellites(ro, rd, farT, uSteps * 0.5, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    dmtSatPrepare(satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+    float satT = dmtMarchSatellites(ro, rd, farT, uSteps * 0.5);
     bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
 
     vec3 col = backdrop;
     if (satWins) {
         vec3 p = ro + rd * satT;
-        col = dmtSatelliteColor(p, rd, hb + 0.35 + 0.08 * midAmt, trebAmt, satCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+        col = dmtSatelliteColor(p, rd, hb + 0.35 + 0.08 * midAmt, trebAmt);
         float kSat = log(max(length(p), R_MIN));
         float fade = 1.0 - exp(-(satT * FOG_T / reach + max(0.0, -kSat) * FOG_K));
         col = mix(col, backdrop, fade);

@@ -351,33 +351,29 @@ float gDmtSatLife;
  */
 float gDmtSatBand;
 
+/** The bank as dmtSatPrepare() left it: everything that depends on the uniforms and the index, not on the point. */
+float gDmtSatCount;
+float gDmtSatLifeOf[DMT_MAX_SATELLITES];
+float gDmtSatSeed[DMT_MAX_SATELLITES];
+float gDmtSatRadius[DMT_MAX_SATELLITES];
+vec3 gDmtSatCentre[DMT_MAX_SATELLITES];
+mat3 gDmtSatTumble[DMT_MAX_SATELLITES];
+
 /**
- * A bank of up to DMT_MAX_SATELLITES morphing bodies orbiting the origin,
- * each on its own tilted, precessing orbit, its own spin, its own point on
- * the morph ring and its own life. Bodies bud out of nothing, tumble past
- * each other on unrelated clocks and dissolve - the "many things living next
- * to each other" every reference insists on, as opposed to one object
- * turning.
+ * Fills the bank's per-body state: centre, radius, life, seed and tumble
+ * matrix. None of it depends on the point, so a style calls this ONCE in
+ * main() (with the same arguments every dmtSatellites / dmtMarchSatellites /
+ * dmtSatelliteColor call then reads) and the march keeps only the per-point
+ * work.
  *
  *   count    how many are alive at all (a runtime budget; bodies past it are
  *            never evaluated - tie it to uSteps so Detail buys population)
  *   orbit    mean orbital radius, world units
  *   radius   body radius at full life
  *   period   life cycle in seconds
- *
- * Identity is by INDEX, not by uSpawnSeed: a spike re-rolling the seed would
- * swap every body for a different one in one frame, which is a pop. A spike
- * instead re-aims the whole bank through uMoveDir (the orbits' precession
- * leans toward it) and moves every body's morph target through uFormPhase.
- *
- * 1-Lipschitz: a rotation and a translation per body, an exact radius scale,
- * and a min() over bodies and their bounding balls.
  */
-float dmtSatellites(vec3 p, float count, float orbit, float radius, float period) {
-    float d = 1e9;
-    gDmtSatHue = 0.0;
-    gDmtSatLife = 0.0;
-    gDmtSatBand = 0.0;
+void dmtSatPrepare(float count, float orbit, float radius, float period) {
+    gDmtSatCount = count;
     // Time alone, at the rate the loudness clock (uFlowPhase) used to add at a typical level: no
     // sound turns the orbits or the tumble (owner 2026-11-12, no style spins to the music).
     float clock = uTime * 0.315;
@@ -387,7 +383,8 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
         float seed = hash11(fi * 7.31 + 2.17);
         float seed2 = hash11(fi * 3.79 + 9.41);
         float life = dmtLife(seed, period);
-        // Dead bodies cost one hash and nothing else.
+        gDmtSatLifeOf[i] = life;
+        // Dead bodies are skipped by dmtSatellites() on this life alone.
         if (life < 0.02) continue;
 
         // The orbit: a plane tilted by the seed, precessing slowly, leaning
@@ -395,17 +392,55 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
         // constellation rather than restarting it.
         vec3 axis = normalize(vec3(sin(seed * DMT_TAU) + 0.6 * uMoveDir.x, 0.75 + 0.5 * seed2, cos(seed * DMT_TAU) + 0.6 * uMoveDir.y));
         float ang = clock * (0.35 + 0.65 * seed2) + seed * DMT_TAU;
-        vec3 c = rotAxis(axis, ang) * vec3(orbit * (0.85 + 0.3 * seed), 0.0, 0.0);
-        vec3 q = p - c;
+        gDmtSatCentre[i] = rotAxis(axis, ang) * vec3(orbit * (0.85 + 0.3 * seed), 0.0, 0.0);
+        gDmtSatRadius[i] = radius * (0.7 + 0.5 * seed2) * life;
+        gDmtSatSeed[i] = seed;
+        // The body's own tumble, on a rate that is its own.
+        gDmtSatTumble[i] = rotAxis(vec3(seed2 - 0.5, 0.8, seed - 0.5), clock * (0.8 + 1.4 * seed));
+    }
+}
 
-        float r = radius * (0.7 + 0.5 * seed2) * life;
+/**
+ * A bank of up to DMT_MAX_SATELLITES morphing bodies orbiting the origin,
+ * each on its own tilted, precessing orbit, its own spin, its own point on
+ * the morph ring and its own life. Bodies bud out of nothing, tumble past
+ * each other on unrelated clocks and dissolve - the "many things living next
+ * to each other" every reference insists on, as opposed to one object
+ * turning.
+ *
+ * The bank's size (count: a runtime budget, bodies past it are never
+ * evaluated - tie it to uSteps so Detail buys population), orbit radius, body
+ * radius and life-cycle period come from dmtSatPrepare(), called once in
+ * main().
+ *
+ * Identity is by INDEX, not by uSpawnSeed: a spike re-rolling the seed would
+ * swap every body for a different one in one frame, which is a pop. A spike
+ * instead re-aims the whole bank through uMoveDir (the orbits' precession
+ * leans toward it) and moves every body's morph target through uFormPhase.
+ *
+ * 1-Lipschitz: a rotation and a translation per body, an exact radius scale,
+ * and a min() over bodies and their bounding balls.
+ */
+float dmtSatellites(vec3 p) {
+    float d = 1e9;
+    gDmtSatHue = 0.0;
+    gDmtSatLife = 0.0;
+    gDmtSatBand = 0.0;
+    for (int i = 0; i < DMT_MAX_SATELLITES; i++) {
+        if (float(i) >= gDmtSatCount) break;
+        float life = gDmtSatLifeOf[i];
+        // Dead bodies cost one read and nothing else.
+        if (life < 0.02) continue;
+
+        vec3 q = p - gDmtSatCentre[i];
+        float r = gDmtSatRadius[i];
         float bound = length(q) - r * DMT_SAT_BOUND_K;
         if (bound > 0.0) {
             d = min(d, bound + r * (DMT_SAT_BOUND_K - DMT_SAT_EXTENT_K));
             continue;
         }
-        // The body's own tumble, on a rate that is its own.
-        q = rotAxis(vec3(seed2 - 0.5, 0.8, seed - 0.5), clock * (0.8 + 1.4 * seed)) * q;
+        float seed = gDmtSatSeed[i];
+        q = gDmtSatTumble[i] * q;
         float body = dmtMorphBody(q, r, uFormPhase + seed);
         if (body < d) {
             d = body;
@@ -446,12 +481,12 @@ float dmtSatellites(vec3 p, float count, float orbit, float radius, float period
  * 1-Lipschitz, so it cannot overestimate. The epsilon is the same slope-plus-
  * floor the surface styles use.
  */
-float dmtMarchSatellites(vec3 ro, vec3 rd, float tMax, float steps, float count, float orbit, float radius, float period) {
+float dmtMarchSatellites(vec3 ro, vec3 rd, float tMax, float steps) {
     float t = 0.0;
     for (int i = 0; i < DMT_SAT_MAX_STEPS; i++) {
         if (float(i) >= steps) break;
         vec3 p = ro + rd * t;
-        float d = dmtSatellites(p, count, orbit, radius, period);
+        float d = dmtSatellites(p);
         float eps = 0.0009 * t + 0.0004;
         if (d < eps) return t;
         t += d;
@@ -469,17 +504,17 @@ float dmtMarchSatellites(vec3 ro, vec3 rd, float tMax, float steps, float count,
  * latitude, it is thin while arriving or leaving, and it glows a little then
  * too so a birth reads as light before it reads as mass.
  */
-vec3 dmtSatelliteColor(vec3 p, vec3 rd, float hueBase, float treb, float count, float orbit, float radius, float period) {
-    dmtSatellites(p, count, orbit, radius, period);
+vec3 dmtSatelliteColor(vec3 p, vec3 rd, float hueBase, float treb) {
+    dmtSatellites(p);
     float hue = hueBase + 0.45 * gDmtSatHue;
     float life = gDmtSatLife;
     float band = gDmtSatBand * 0.5;
     float e = max(0.0012 * length(p), 0.0006);
     vec2 k = vec2(1.0, -1.0);
-    vec3 n = normalize(k.xyy * dmtSatellites(p + k.xyy * e, count, orbit, radius, period)
-                     + k.yyx * dmtSatellites(p + k.yyx * e, count, orbit, radius, period)
-                     + k.yxy * dmtSatellites(p + k.yxy * e, count, orbit, radius, period)
-                     + k.xxx * dmtSatellites(p + k.xxx * e, count, orbit, radius, period));
+    vec3 n = normalize(k.xyy * dmtSatellites(p + k.xyy * e)
+                     + k.yyx * dmtSatellites(p + k.yyx * e)
+                     + k.yxy * dmtSatellites(p + k.yxy * e)
+                     + k.xxx * dmtSatellites(p + k.xxx * e));
     vec3 col = dmtShade(n, rd, hue, band, 1.0, (1.0 - life) * 0.5, treb);
     return col + pal(hue + 0.45) * (1.0 - life) * 0.22;
 }

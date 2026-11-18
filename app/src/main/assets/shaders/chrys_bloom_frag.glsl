@@ -329,6 +329,6 @@ void main() {
 
     col *= 0.85 + 0.15 * swell;
     col *= 0.9 + 0.1 * trend;
-    col *= smoothstep(2.0, 0.6, sr) * 0.25 + 0.75;
+    col *= (1.0 - smoothstep(0.6, 2.0, sr)) * 0.25 + 0.75;
     fragColor = vec4(grade(col), 1.0);
 }

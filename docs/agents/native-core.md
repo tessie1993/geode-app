@@ -214,7 +214,7 @@ The renderer runs these in order each frame.
 - `core/audio/ingest/MicInput` is live input: an Oboe input stream on that plan, mono, writing the mic's ring from its callback (`geode_mic_*`); Kotlin only asks the permission and starts and stops it.
 - `AiffHeaderScan` (in `core/audio/ingest/AiffReader.hpp`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
 - `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
-- `core/audio/dsp/TrackBookmark` decides whether a track position is remembered: tracks of 20 minutes or more, cleared within 10 s of either end (`core/api/geode_bookmark_api.cpp`).
+- `core/audio/dsp/TrackBookmark` decides whether a track position is remembered: tracks of 20 minutes or more, cleared within 10 s of either end, at most `kMaxBookmarks` (200, `GEODE_BOOKMARK_MAX`) kept (`core/api/geode_bookmark_api.cpp`).
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.
 - Oboe is back as the output only (`core/audio/output`, off by default).
 - `OutputFifo` is the lock-free FIFO between Media3's sink and the device callback: 16-bit to float, underrun count, volume ramp, the position the sink reads.

@@ -122,16 +122,20 @@ vec3 sourceLayer(vec2 q, float r, float ang) {
             float a = TAU * (float(i) / 12.0);
             float d = abs(mod(ang - a + TAU * 1.5, TAU) - TAU * 0.5);
             float spoke = exp(-d * d * 90.0) * uSpokes[i];
-            float radial = exp(-pow((r - 0.32 - 0.25 * uSpokes[i]) * 6.0, 2.0));
+            float spokeR = (r - 0.32 - 0.25 * uSpokes[i]) * 6.0;
+            float radial = exp(-spokeR * spokeR);
             acc += hsv2rgb(vec3(fract(uBaseHue + uHueSpan * float(i) / 12.0), 0.8, 1.0)) * spoke * radial;
         }
         return acc * (0.4 + 0.6 * uBass);
     }
     if (uSource == 1) {
         float rings = 0.0;
-        rings += exp(-pow((r - 0.18 - 0.10 * uBass) * 22.0, 2.0)) * uBass;
-        rings += exp(-pow((r - 0.42 - 0.08 * uMid) * 26.0, 2.0)) * uMid * 0.8;
-        rings += exp(-pow((r - 0.66 - 0.06 * uTreble) * 30.0, 2.0)) * (uTreble + uStrike * 0.5) * 0.65;
+        float ringD = (r - 0.18 - 0.10 * uBass) * 22.0;
+        rings += exp(-ringD * ringD) * uBass;
+        ringD = (r - 0.42 - 0.08 * uMid) * 26.0;
+        rings += exp(-ringD * ringD) * uMid * 0.8;
+        ringD = (r - 0.66 - 0.06 * uTreble) * 30.0;
+        rings += exp(-ringD * ringD) * (uTreble + uStrike * 0.5) * 0.65;
         return hsv2rgb(vec3(fract(uBaseHue + uHueSpan * r), 0.75, 1.0)) * rings;
     }
     if (uSource == 2) {
@@ -139,7 +143,7 @@ vec3 sourceLayer(vec2 q, float r, float ang) {
         float h = fract(sin(seg * 12.99) * 437.585);
         float level = mix(uBass, mix(uMid, uTreble, step(0.66, h)), step(0.33, h));
         float bar = step(r, 0.15 + 0.55 * level) * step(0.12, r);
-        float edge = smoothstep(0.5, 0.0, abs(fract(mod(ang / TAU + 1.0, 1.0) * 24.0) - 0.5));
+        float edge = 1.0 - smoothstep(0.0, 0.5, abs(fract(mod(ang / TAU + 1.0, 1.0) * 24.0) - 0.5));
         return hsv2rgb(vec3(fract(uBaseHue + uHueSpan * h * 0.4), 0.8, 1.0)) * bar * edge * 0.8;
     }
     float ph = uClock * 0.9;

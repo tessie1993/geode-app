@@ -63,8 +63,8 @@ vec4 ptShade(
     // Bubble is a shell plus a faint fill and an off-centre highlight - the
     // specular pin is what separates it from Ring at a glance.
     if (shape > 5.5) {
-        body += smoothstep(PT_SHAPE_R, 0.0, r) * 0.12;
-        body += smoothstep(PT_SHAPE_R * 0.40, 0.0, length(p - vec2(-0.40, 0.40) * PT_SHAPE_R)) * 0.5;
+        body += (1.0 - smoothstep(0.0, PT_SHAPE_R, r)) * 0.12;
+        body += (1.0 - smoothstep(0.0, PT_SHAPE_R * 0.40, length(p - vec2(-0.40, 0.40) * PT_SHAPE_R))) * 0.5;
     }
 
     float glow = aura * glowAmount;

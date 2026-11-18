@@ -76,8 +76,9 @@ float nebDensity(vec3 p, float oct) {
     if (radial <= 0.0) return 0.0;
     float th = atan(p.z, p.x);
     float band = cos(3.0 * th + 3.2 * log(max(rad, 0.05)) - gT * 0.12);
+    float eyeD = (rad - 0.36) / 0.1;
     float h = (0.2 + 0.1 * band * (1.0 + gBand)) * (1.0 - 0.4 * smoothstep(0.6, 1.5, rad))
-            + 0.16 * exp(-pow((rad - 0.36) / 0.1, 2.0));
+            + 0.16 * exp(-eyeD * eyeD);
     h *= gThick;
     float vert = 1.0 - smoothstep(0.0, max(h, 0.02), abs(p.y));
     float shape = vert * radial * (0.65 + 0.35 * band);

@@ -126,7 +126,8 @@ void main() {
             // before the cell's edge, so the pattern is continuous.
             vec2 cell = fract(wq * 0.5) - 0.5;
             float rr = length(cell);
-            float ring = exp(-pow((rr - 0.08 - 0.34 * (1.0 - beat)) * 22.0, 2.0)) * beat * (1.0 - smoothstep(0.4, 0.5, rr));
+            float ringD = (rr - 0.08 - 0.34 * (1.0 - beat)) * 22.0;
+            float ring = exp(-ringD * ringD) * beat * (1.0 - smoothstep(0.4, 0.5, rr));
             vec2 shiver = 0.012 * vec2(sin(wq.x * 9.0 + t0 * 1.7), sin(wq.y * (TERRA_TAU * 1467.0 / TERRA_PERIOD) - t0 * 1.3));
             vec2 tilt = shiver + 0.12 * ring * cell / max(rr, 1e-3);
             vec3 wn = normalize(vec3(tilt.x, 1.0, tilt.y));

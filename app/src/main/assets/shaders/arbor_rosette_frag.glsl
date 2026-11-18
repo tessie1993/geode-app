@@ -292,10 +292,10 @@ void main() {
         float winHue = hue + 0.04 * mod(id, 8.0);
         // Backlight behind the glass: brightest near each window's heart, as
         // the flat window glowed at its centre.
-        float bl = (0.45 + 0.55 * smoothstep(1.2, 0.2, r)) * back;
+        float bl = (0.45 + 0.55 * (1.0 - smoothstep(0.2, 1.2, r))) * back;
         if (part < 1.5) {
             vec3 g = pal(winHue + (part > 0.5 ? 0.33 : 0.0) + lvl * stepHue);
-            float core = smoothstep(0.0, -0.012 * RS_SCALE, d2);
+            float core = 1.0 - smoothstep(-0.012 * RS_SCALE, 0.0, d2);
             col = g * (0.35 + 0.65 * core) * bl * (0.7 + 0.3 * lit.x) + vec3(lit.z) * 0.25;
             // Lead came: a dark metal edge round every piece.
             float lead = smoothstep(-leadW, -0.35 * leadW, d2);
@@ -328,6 +328,6 @@ void main() {
     }
     col += glow * flow * (0.8 + 0.3 * swell);
 
-    col *= 0.78 + 0.22 * smoothstep(2.2, 0.4, length(uv));
+    col *= 0.78 + 0.22 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

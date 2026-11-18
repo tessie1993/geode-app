@@ -362,7 +362,7 @@ vec3 glass(vec2 w, float stain, float id) {
     vec2 r = w - vec2(0.0, 0.95);
     float rr = length(r);
     float pet = abs(fract(atan(r.y, r.x) / MC_TAU * 8.0) - 0.5);
-    float rose = smoothstep(0.42, 0.38, rr) * (0.6 + 0.4 * smoothstep(0.2, 0.0, pet - rr * 0.3));
+    float rose = (1.0 - smoothstep(0.38, 0.42, rr)) * (0.6 + 0.4 * (1.0 - smoothstep(0.0, 0.2, pet - rr * 0.3)));
     pane = mix(pane, neon(0.55 + stain + rr), rose * 0.7);
     return pane * lead * (0.7 + 0.3 * pick);
 }
@@ -442,7 +442,7 @@ float shafts(vec3 p, float motes) {
     vec2 q = p.xy - naveAxis(p.z);
     float s = p.z + 0.55 * (q.y - 1.3) + 0.35 * (q.x + 0.9);
     float z = mod(s, MC_BAY) - 0.5 * MC_BAY;
-    float beam = exp(-z * z * 9.0) * smoothstep(MC_FLOOR, 1.2, q.y + 0.4) * smoothstep(0.05, -0.35, naveSd(q));
+    float beam = exp(-z * z * 9.0) * smoothstep(MC_FLOOR, 1.2, q.y + 0.4) * (1.0 - smoothstep(-0.35, 0.05, naveSd(q)));
     // Dust: one soft round mote in a few cells of a fine grid.
     vec3 cell = floor(p * 12.0);
     vec3 f = fract(p * 12.0) - 0.5;
@@ -598,7 +598,7 @@ void main() {
         float rr = length(rp);
         float rose = mcRoseGrown(rp);
         float beat = 0.7 + 0.6 * kick + 1.2 * surge;
-        fogCol += neon(0.3 + rr * 0.6 + stain) * rose * smoothstep(0.75, 0.2, rr) * 0.6 * beat * awake * glowGain;
+        fogCol += neon(0.3 + rr * 0.6 + stain) * rose * (1.0 - smoothstep(0.2, 0.75, rr)) * 0.6 * beat * awake * glowGain;
     }
     vec3 col = fogCol;
     if (hit) {

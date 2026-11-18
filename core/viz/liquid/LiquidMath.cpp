@@ -173,7 +173,10 @@ bool BornClock::step(float dt, bool trigger, bool locked) {
         dip_ += dt;
         if (before < half && dip_ >= half) {
             swap = true;
-            rollSeed_ = (static_cast<uint64_t>(rng_()) << 32) | rng_();
+            // Two draws in a fixed order (the operands of | are unsequenced, so compilers differ): high, then low.
+            const uint64_t high = rng_();
+            const uint64_t low = rng_();
+            rollSeed_ = (high << 32) | low;
         }
         gain_ = std::clamp(std::fabs(dip_ - half) / half, 0.0f, 1.0f);
         if (dip_ >= kFade) {

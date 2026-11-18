@@ -26,6 +26,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -476,20 +477,30 @@ internal fun rememberStageActions(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val touchPulse = rememberTouchPulse(visualizerView.stage::submitTouchPoints)
     val gate = { viewModel.gate.value }
-    return VisualActions(
-        showMiniPlayer = onShowMiniPlayer,
-        quickSettings = onQuickSettings,
-        toggleSheet = onToggleSheet,
-        stepStyle = stepStyle,
-        stepPreset = { step -> stepPreset(viewModel, gate(), step) },
-        // With fewer than two looks in the playlist, the styles step instead.
-        stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
-        macros = onMacros,
-        record = onRecord,
-        randomizeAll = { visualsViewModel.randomizeEverything(basicsOnly = !gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
-        touchPulse = touchPulse,
-        playPause = viewModel::togglePlayPause,
-    )
+    // Kept across recompositions (the screen recomposes often); each lambda reads the latest one when invoked.
+    val stepStyleNow by rememberUpdatedState(stepStyle)
+    val showMiniPlayerNow by rememberUpdatedState(onShowMiniPlayer)
+    val quickSettingsNow by rememberUpdatedState(onQuickSettings)
+    val toggleSheetNow by rememberUpdatedState(onToggleSheet)
+    val macrosNow by rememberUpdatedState(onMacros)
+    val recordNow by rememberUpdatedState(onRecord)
+    val touchPulseNow by rememberUpdatedState(touchPulse)
+    return remember(viewModel, visualsViewModel) {
+        VisualActions(
+            showMiniPlayer = { showMiniPlayerNow() },
+            quickSettings = { quickSettingsNow() },
+            toggleSheet = { toggleSheetNow() },
+            stepStyle = { step -> stepStyleNow(step) },
+            stepPreset = { step -> stepPreset(viewModel, gate(), step) },
+            // With fewer than two looks in the playlist, the styles step instead.
+            stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyleNow(step) },
+            macros = { macrosNow() },
+            record = { recordNow() },
+            randomizeAll = { visualsViewModel.randomizeEverything(basicsOnly = !gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
+            touchPulse = { touchPulseNow() },
+            playPause = viewModel::togglePlayPause,
+        )
+    }
 }
 
 /** The actions a sideways swipe, or its ‹ › twins, can step through. */

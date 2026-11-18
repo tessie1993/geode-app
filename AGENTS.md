@@ -113,3 +113,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: Loop extend discards its half-written file on any failure, including the plain `RuntimeException` `MediaMuxer.stop()` throws on a full disk, and no longer turns a cancellation into a failure (`export/LoopExtend.kt`).
 - 2026-11-18: Backup export packs the zip into `cacheDir` and copies it over the destination only once it is whole, so a failed pack no longer truncates the previous backup (`data/backup/BackupRepository.kt`).
 - 2026-11-18: A batch render that throws outside a track (pinning the look, building its state) ends as failed instead of crashing the process (`ui/ExportController.kt`).
+- 2026-11-18: A refused `ExportService` foreground start is logged to `RingLog` (`export/ExportService.kt`).

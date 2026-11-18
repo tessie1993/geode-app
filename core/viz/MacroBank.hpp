@@ -149,6 +149,9 @@ Bank hideKnob(const Bank& bank, int id);
 Bank showKnob(const Bank& bank, int id);
 // A built-in knob's name, hint and links as defaultBank has them; its value stays. Refused for a user's knob.
 Bank resetKnob(const Bank& bank, int id);
+// The default bank, with the ids already handed out still spent: a wave or envelope that named a knob the reset
+// removed must not find a new knob under its id.
+Bank resetAll(const Bank& bank);
 // Adds the link (Linear), or replaces the range of the knob's link on the same target, keeping its curve.
 Bank setLink(const Bank& bank, int id, Target target, float up, float down);
 // A new link at the weights a picked target starts on: a quarter of its range each way, up up and down

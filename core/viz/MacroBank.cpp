@@ -521,6 +521,12 @@ Bank resetKnob(const Bank& bank, int id) {
     return normalized(out);
 }
 
+Bank resetAll(const Bank& bank) {
+    Bank out = defaultBank();
+    out.nextId = std::max(out.nextId, normalized(bank).nextId);
+    return normalized(out);
+}
+
 Bank setLink(const Bank& bank, int id, Target target, float up, float down) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);

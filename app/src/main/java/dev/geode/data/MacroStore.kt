@@ -154,7 +154,7 @@ class MacroStore internal constructor(
     fun resetKnob(id: Int) = edit { MacroNative.macroBankResetKnob(it, id) }
 
     /** The four built-in knobs alone, as built and centred. */
-    fun resetAll() = edit { MacroNative.macroBankDefault() }
+    fun resetAll() = edit { text -> MacroNative.macroBankResetAll(text) }
 
     fun addLink(
         id: Int,

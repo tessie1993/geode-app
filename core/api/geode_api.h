@@ -1064,6 +1064,8 @@ GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id
 GEODE_API const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta);
 GEODE_API const char* geode_macro_bank_reset_knob(const char* bank, int knob_id);
+/* The default bank, keeping the ids the given bank already spent. */
+GEODE_API const char* geode_macro_bank_reset_all(const char* bank);
 GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
 GEODE_API const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target);
 GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);

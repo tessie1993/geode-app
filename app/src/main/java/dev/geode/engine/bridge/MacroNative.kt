@@ -50,6 +50,9 @@ object MacroNative {
         knobId: Int,
     ): String
 
+    /** The default bank, keeping the ids [bank] already spent so no old reference finds a new knob. */
+    external fun macroBankResetAll(bank: String): String
+
     /** The knob [delta] places along the bank, negative earlier. */
     external fun macroBankMoveKnob(
         bank: String,

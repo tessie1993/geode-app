@@ -431,6 +431,9 @@ void theEditorCopiesMovesAndResets() {
           "an unlinkable target or an unknown knob adds nothing");
     check(macrobank::decode(geode_macro_bank_add_link(macrobank::encode(mine).c_str(), made, "ZOOM")) == linked, "geode_macro_bank_add_link");
     check(macrobank::resetKnob(def, 4242) == def, "resetting an unknown knob changes nothing");
+    const Bank all = macrobank::resetAll(mine);
+    check(all.knobs == def.knobs && all.nextId == mine.nextId, "reset all is the default knobs with the spent ids kept");
+    check(macrobank::resetAll(def) == def, "reset all of the default bank is the default bank");
 }
 
 std::vector<std::vector<std::string>> rowsOf(const std::string& text, const std::string& tag) {

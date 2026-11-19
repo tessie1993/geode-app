@@ -12,6 +12,7 @@
 #include "viz/NoteResponse.hpp"
 #include "viz/Params.hpp"
 #include "viz/ShapeGraph.hpp"
+#include "viz/ShaderHold.hpp"
 #include "viz/TouchField.hpp"
 
 namespace geode::viz {
@@ -68,11 +69,16 @@ public:
     // The surface size in pixels, which MilkDrop renders at rather than the render-scaled target.
     virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
     virtual void queueMilkPreset(const std::string& path) { (void) path; }
+    // The inputs a shader style last drew its scene target from (viz/ShaderHold); the renderer's alone.
+    shader_hold::Held& held() { return held_; }
     // The last preset that compiled anywhere in this renderer: what a rebuilt MilkDrop scene falls
     // back to when the preset it was asked for fails, rather than projectM's idle preset.
     virtual void setMilkFallbackPreset(const std::string& path) { (void) path; }
     virtual void reloadMilkPreset() {}
     virtual void setMilkTextureDir(const std::string& dir) { (void) dir; }
+
+private:
+    shader_hold::Held held_;
 };
 
 struct SceneHost {

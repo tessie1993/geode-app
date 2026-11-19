@@ -228,6 +228,7 @@ add_library(geode_core STATIC
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
     viz/TouchField.cpp
+    viz/ShaderHold.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
     viz/CompositePass.cpp

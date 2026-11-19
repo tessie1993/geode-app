@@ -370,3 +370,4 @@ A line records what was done; it is not a rule.
 - 2026-11-18: `studio_edit_test` builds `studio::Look` as {sceneId, renderMs}: the preset-script field it still named left with #1328.
 - 2026-11-19: `OpenedAudio.route` drops the unused `lastSegment` parameter #1328 left (its one caller passes four arguments); the preset fixtures and `look_files_test` name `silk_web`, since `readPreset` now refuses a style id the catalogue does not know and `silk` is none.
 - 2026-11-19: `.gitmodules` gives `third_party/mbedtls` `branch = mbedtls-3.6`, so Dependabot proposes 3.6 LTS updates instead of 4.x, whose tf-psa-crypto split the CMake build does not take (#1251 closed).
+- 2026-11-19: `template_file_test` reads `geode_template_read` into six strings (the preset-script slot left with #1328), the saved palette id at `out[5]`.

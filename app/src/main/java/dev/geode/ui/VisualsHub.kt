@@ -256,7 +256,21 @@ private fun VisualsHubContent(
                 with(density) { panelRange(fullWidthPx, PANEL_MIN.toPx(), PANEL_MAX.toPx()) }
             }
         val panelWidth = (panelFraction * fullWidthPx).coerceIn(range)
-        val heightPx = remember { Animatable(if (side) 0f else anchors.getValue(nav.sheet)) }
+        // Where the user left the sheet by dragging it, as a share of the room and for the detent
+        // it was nearest (-1: none). The sheet stays there; only a programmatic height (a tab
+        // that raises it, ×, Fullscreen) clears it, which a change of the detent shows.
+        var freeFraction by rememberSaveable { mutableFloatStateOf(-1f) }
+        var freeAt by rememberSaveable { mutableIntStateOf(-1) }
+        val freeActive = freeFraction >= 0f && freeAt == nav.sheet.ordinal
+        val restOf: (Map<SheetHeight, Float>) -> Float = { a ->
+            if (freeActive) {
+                (freeFraction * roomPx).coerceIn(a.getValue(SheetHeight.PEEK), a.getValue(SheetHeight.TALL))
+            } else {
+                a.getValue(nav.sheet)
+            }
+        }
+        LaunchedEffect(nav.sheet) { if (freeAt != nav.sheet.ordinal) freeFraction = -1f }
+        val heightPx = remember { Animatable(if (side) 0f else restOf(anchors)) }
         val panelPx = remember { Animatable(if (side && nav.sheetShown) panelWidth else 0f) }
         var settles by remember { mutableIntStateOf(0) }
         // The motion scheme's spring, so the system's "Remove animations" snaps the options instead.
@@ -265,12 +279,13 @@ private fun VisualsHubContent(
         // settle restarted per frame chased the dock on a spring. A settle aims at the anchors of
         // its start and lands on the latest; between settles the sheet follows the dock exactly.
         val latestAnchors by rememberUpdatedState(anchors)
+        val latestRest by rememberUpdatedState(restOf)
         LaunchedEffect(nav.sheet, settles, side) {
-            heightPx.animateTo(if (side) 0f else latestAnchors.getValue(nav.sheet), settleSpec)
-            heightPx.snapTo(if (side) 0f else latestAnchors.getValue(nav.sheet))
+            heightPx.animateTo(if (side) 0f else latestRest(latestAnchors), settleSpec)
+            heightPx.snapTo(if (side) 0f else latestRest(latestAnchors))
         }
         LaunchedEffect(anchors) {
-            if (!side && !heightPx.isRunning) heightPx.snapTo(anchors.getValue(nav.sheet))
+            if (!side && !heightPx.isRunning) heightPx.snapTo(restOf(anchors))
         }
         LaunchedEffect(nav.sheetShown, settles, panelWidth, side) {
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)
@@ -377,8 +392,17 @@ private fun VisualsHubContent(
                     } else {
                         null
                     },
+                restPx = { restOf(anchors) },
+                onFree = { px ->
+                    // The drag ends where it is: no detent pulls it, no animation follows.
+                    val near = settleHeight(px, 0f, anchors)
+                    freeFraction = if (roomPx > 0f) px / roomPx else -1f
+                    freeAt = near.ordinal
+                    nav.settleSheet(near)
+                },
                 onSettle = { height ->
                     view.performStoneHaptic(StoneHapticCue.TAP)
+                    freeFraction = -1f
                     nav.settleSheet(height)
                     settles++
                 },

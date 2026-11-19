@@ -105,6 +105,8 @@ internal fun VisualsOptions(
     visualizerView: StageView,
     blurActive: Boolean,
     onSettle: (SheetHeight) -> Unit,
+    onFree: (heightPx: Float) -> Unit,
+    restPx: () -> Float,
     onPanelSettle: (widthPx: Float?) -> Unit,
     modifier: Modifier = Modifier,
     bottomBar: (@Composable () -> Unit)? = null,
@@ -115,16 +117,17 @@ internal fun VisualsOptions(
     // A drag never takes the sheet below its tabs (owner): hiding is the double tap, × and Fullscreen.
     val minPx = anchors.getValue(SheetHeight.PEEK)
     val currentAnchors by rememberUpdatedState(anchors)
-    val currentSettle by rememberUpdatedState(onSettle)
+    val currentFree by rememberUpdatedState(onFree)
+    val currentRest by rememberUpdatedState(restPx)
     val listDrag =
         remember(heightPx) {
             SheetScrollConnection(
                 heightPx = heightPx,
                 scope = scope,
-                restPx = { currentAnchors.getValue(nav.sheet) },
+                restPx = { currentRest() },
                 minPx = { currentAnchors.getValue(SheetHeight.PEEK) },
                 maxPx = { currentAnchors.getValue(SheetHeight.TALL) },
-                onRelease = { velocityUp -> currentSettle(settleHeight(heightPx.value, velocityUp, currentAnchors)) },
+                onRelease = { currentFree(heightPx.value) },
             )
         }
     // Read by the blur's effect, never in composition: a drag moves the bounds every frame.
@@ -135,7 +138,7 @@ internal fun VisualsOptions(
     Column(
         modifier
             .onGloballyPositioned { bounds.value = it.boundsInWindow() }
-            .floatingGlass(RoundedCornerShape(GeodeRadius.Floating), fillAlpha = opacity),
+            .floatingGlass(RoundedCornerShape(GeodeRadius.Floating), fillAlpha = opacity.coerceAtLeast(SHEET_FILL_MIN)),
     ) {
         Box(
             Modifier
@@ -164,7 +167,7 @@ internal fun VisualsOptions(
                     nav = nav,
                     side = side,
                     onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
-                    onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
+                    onDragStopped = { onFree(heightPx.value) },
                     onSettle = onSettle,
                 )
                 Box(
@@ -238,7 +241,7 @@ private fun OptionsHeader(
     nav: VisualsNavState,
     side: Boolean,
     onDrag: (Float) -> Unit,
-    onDragStopped: (Float) -> Unit,
+    onDragStopped: () -> Unit,
     onSettle: (SheetHeight) -> Unit,
 ) {
     val view = LocalView.current
@@ -256,7 +259,7 @@ private fun OptionsHeader(
                     Modifier
                 } else {
                     Modifier
-                        .draggable(drag, Orientation.Vertical, onDragStopped = { velocity -> onDragStopped(velocity) })
+                        .draggable(drag, Orientation.Vertical, onDragStopped = { onDragStopped() })
                         .semantics {
                             contentDescription = handle
                             customActions =
@@ -281,7 +284,7 @@ private fun OptionsHeader(
         if (!side) {
             Box(
                 Modifier
-                    .padding(top = GeodeSpacing.S)
+                    .padding(top = GeodeSpacing.XS)
                     .size(width = GRIP_LENGTH, height = GRIP_THICKNESS)
                     .background(MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(50))
                     .align(Alignment.CenterHorizontally),
@@ -419,7 +422,7 @@ private fun PanelEdge(
 /**
  * Hands a list's drag to the sheet: a list at its top that is scrolled on down pulls the sheet
  * down with it, a finger going back up raises the sheet to where it rested before the list scrolls
- * again, and the release settles the sheet at a height ([onRelease], upward velocity in px/s).
+ * again, and the release leaves the sheet where it is ([onRelease], its height in px).
  * Only the user's own drag moves it; a fling that runs into the top of the list stops there.
  */
 private class SheetScrollConnection(
@@ -457,7 +460,7 @@ private class SheetScrollConnection(
     override suspend fun onPreFling(available: Velocity): Velocity {
         if (!moved) return Velocity.Zero
         moved = false
-        onRelease(-available.y)
+        onRelease(heightPx.value)
         return available
     }
 
@@ -514,7 +517,13 @@ internal fun panelRange(
 }
 
 // Peek: the grip and the tabs row, the sheet's header alone.
-internal val SHEET_PEEK = 72.dp
+internal val SHEET_PEEK = 60.dp
+
+/**
+ * The least fill the Visuals sheet draws, over the glass floor: its text sits on a busy, bright
+ * visual, so the sheet is nearly opaque whatever the opacity setting.
+ */
+private const val SHEET_FILL_MIN = 0.9f
 
 internal const val PANEL_DEFAULT_FRACTION = 0.4f
 internal val PANEL_MIN = 360.dp

@@ -14,8 +14,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +72,7 @@ internal fun CustomizeBrowser(
     openGroups: Set<String>,
     onToggleGroup: (CustomizeSection) -> Unit,
     onCollapseAll: (CustomizeCategory) -> Unit,
+    onExpandAll: (CustomizeCategory) -> Unit,
     sectionLocked: (CustomizeSection) -> Boolean,
     modifier: Modifier = Modifier,
     header: @Composable (CustomizeCategory) -> Unit = {},
@@ -79,10 +83,36 @@ internal fun CustomizeBrowser(
     val collapseAll = { onCollapseAll(selected) }
     Column(modifier) {
         header(selected)
+        val at = categories.indexOf(selected)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            val previous = categories.getOrNull(at - 1)
+            IconButton(onClick = { previous?.let(onSelect) }, enabled = previous != null) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription =
+                        previous?.let { stringResource(R.string.customize_a11y_previous_named, it.title) }
+                            ?: stringResource(R.string.customize_a11y_previous),
+                )
+            }
             CategoryTabs(categories, selected, onSelect, Modifier.weight(1f).tourTarget(TourSpot.CUSTOMIZE_LIST))
-            IconButton(onClick = collapseAll, enabled = anyOpen) {
-                Icon(Icons.Filled.UnfoldLess, contentDescription = stringResource(R.string.customize_collapse_all_in, selected.title))
+            val next = categories.getOrNull(at + 1)
+            IconButton(onClick = { next?.let(onSelect) }, enabled = next != null) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription =
+                        next?.let { stringResource(R.string.customize_a11y_next_named, it.title) }
+                            ?: stringResource(R.string.customize_a11y_next),
+                )
+            }
+            // One toggle: Collapse all while a group of the tab is open, else Expand all.
+            if (anyOpen || sections.isEmpty()) {
+                IconButton(onClick = collapseAll, enabled = anyOpen) {
+                    Icon(Icons.Filled.UnfoldLess, contentDescription = stringResource(R.string.customize_collapse_all_in, selected.title))
+                }
+            } else {
+                IconButton(onClick = { onExpandAll(selected) }) {
+                    Icon(Icons.Filled.UnfoldMore, contentDescription = stringResource(R.string.customize_expand_all_in, selected.title))
+                }
             }
         }
         // One scroll per tab, so a new tab starts at its top.
@@ -139,7 +169,7 @@ private fun CategoryTabs(
             ) {
                 // The content overload: the text one pads 16 dp a side, and eleven tabs want more of them in view.
                 Box(
-                    Modifier.heightIn(min = GeodeSpacing.TouchTarget).padding(horizontal = GeodeSpacing.M),
+                    Modifier.heightIn(min = GeodeSpacing.TouchTarget).padding(horizontal = GeodeSpacing.S),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(category.title, style = MaterialTheme.typography.titleSmall, maxLines = 1)

@@ -56,6 +56,7 @@ class CustomizeBrowserTest {
                     openGroups = open,
                     onToggleGroup = { s -> open = if (s.path in open) open - s.path else open + s.path },
                     onCollapseAll = { c -> open = open.filterTo(mutableSetOf()) { !it.startsWith("${c.name}/") } },
+                    onExpandAll = { c -> open = open + CustomizeMapTable.sectionsOf(c).map { it.path } },
                     sectionLocked = { false },
                     // Short, so a tab of open groups scrolls on any emulator.
                     modifier = Modifier.fillMaxWidth().height(BROWSER_HEIGHT),
@@ -115,8 +116,26 @@ class CustomizeBrowserTest {
         val collapse = compose.activity.getString(R.string.customize_collapse_all_in, CustomizeCategory.LOOK.title)
         compose.onNodeWithContentDescription(collapse).performClick()
         compose.onNodeWithText("Palette").assertDoesNotExist()
-        compose.onNodeWithContentDescription(collapse).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(collapse).assertDoesNotExist()
         assertEquals(setOf("SHAPE/basics"), open)
+        // With nothing open the same button expands the tab's groups.
+        val expand = compose.activity.getString(R.string.customize_expand_all_in, CustomizeCategory.LOOK.title)
+        compose.onNodeWithContentDescription(expand).performClick()
+        assertEquals(true, open.containsAll(CustomizeMapTable.sectionsOf(CustomizeCategory.LOOK).map { it.path }))
+    }
+
+    @Test
+    fun arrowsStepThroughTheTabsAndStopAtTheEnds() {
+        setBrowser()
+        val first = CustomizeCategory.entries.first()
+        tab = first
+        compose.waitForIdle()
+        val previous = compose.activity.getString(R.string.customize_a11y_previous)
+        compose.onNodeWithContentDescription(previous).assertIsNotEnabled()
+        val second = CustomizeCategory.entries[1]
+        val next = compose.activity.getString(R.string.customize_a11y_next_named, second.title)
+        compose.onNodeWithContentDescription(next).performClick()
+        assertEquals(second, tab)
     }
 
     @Test

@@ -826,10 +826,6 @@
     <string name="palette_hue_strip">Hue</string>
     <string name="palette_hex_label">Hex</string>
     <string name="palette_hex_invalid">Six hex digits, like #FF8800</string>
-    <string name="palette_pick_hint">Drag to the colour you want, then let go</string>
-    <string name="palette_pick_centre">Take the colour in the middle</string>
-    <string name="palette_pick_cancel">Cancel picking</string>
-    <string name="palette_pick_image">The picture to pick a colour from</string>
     <string name="palette_art_nothing_playing">Nothing is playing.</string>
     <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
     <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>

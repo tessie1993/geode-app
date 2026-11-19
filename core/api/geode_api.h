@@ -804,8 +804,8 @@ GEODE_API float       geode_params_palette_base(int palette, float base_override
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
 /* The look's own palette in a geode_viz_set_params frame (viz/ParamsPalette): its hue overrides and your colours'
  * stops. uses_custom_palette: 1 when an override or the first stop is set (a saved palette's id means something only
- * then). palette_stops: how many stops are set from the first, into out[0..4]. clear_custom_palette: both overrides
- * and every stop unset. apply_stops: cleared, then the first `count` (at most five) of `stops`. apply_gradient: no
+ * then). palette_stops: how many stops are set from the first, into out (room for geode_saved_palette_max_stops()). clear_custom_palette: both overrides
+ * and every stop unset. apply_stops: cleared, then the first `count` (at most geode_saved_palette_max_stops()) of `stops`. apply_gradient: no
  * stops, base and span held to 0..1 as the overrides. Same wire in and out; in and out may alias. Pure, any thread. */
 GEODE_API int         geode_params_uses_custom_palette(const float* frame);
 GEODE_API int         geode_params_palette_stops(const float* frame, int* out);

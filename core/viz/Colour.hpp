@@ -14,7 +14,7 @@
 namespace geode::viz::colour {
 
 inline constexpr int kNone = -1;
-inline constexpr int kMaxStops = 5;
+inline constexpr int kMaxStops = 8;
 inline constexpr int kWhite = 0xFFFFFF;
 
 struct Rgb {

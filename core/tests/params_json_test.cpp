@@ -358,7 +358,7 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
     check(viz::readParamsJson(currentText, current, a, b), "current.json reads");
     check(a == "palette-a" && b == "palette-b", "current.json: the palette ids");
     check(current.flowCurl == 12.5f, "current.json: flowCurl");
-    check(current.paletteStops() == std::array<int, 5>{0xFF8800, 0x2233FF, 0x10E0A0, 0xFFFFFF, 0x000000},
+    check(current.paletteStops() == std::array<int, 8>{0xFF8800, 0x2233FF, 0x10E0A0, 0xFFFFFF, 0x000000, 0x00FF00, 0x0000FF, 0xFF00FF},
           "current.json: white and black survive the float wire");
     const auto got = wire(current);
     const auto defaults = wire(kDefaults);

@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -21,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Colorize
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -191,16 +187,14 @@ internal fun PaletteDropdown(
 }
 
 /**
- * Your colours (Customize › Look, Pro): up to five colour stops made the Photoshop way, a square and a
- * hue strip, a hex field and an eyedropper on the live visual or the artwork. Every change plays on the
+ * Your colours (Customize › Look, Pro): up to eight colour stops (native's cap) made the Photoshop way, a
+ * square and a hue strip and a hex field. Every change plays on the
  * visual at once (the stops are scene params, so the wallpaper, dream, Cast, export and presets carry
  * them as they carry any palette); Save names them and lists them beside the built-ins. The editor is
  * native's (core/viz/PalettePanel): the stops, the selected one, the limits and the words; this draws it.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun YourColoursCard(
-    host: AdvancedHost,
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
     palettes: SavedPalettes,
@@ -215,9 +209,6 @@ internal fun YourColoursCard(
         }
     }
     var name by rememberSaveable { mutableStateOf("") }
-    var picking by remember { mutableStateOf<Bitmap?>(null) }
-    val view = LocalView.current
-    val scope = rememberCoroutineScope()
     val rows = remember(state) { nativeRows(CustomizeNative.paletteMakerView(state)) }
     val head = rows.first()
     val stops = rows.drop(1)
@@ -227,7 +218,6 @@ internal fun YourColoursCard(
     }
     val edit = { op: Int, arg: Int -> commit(CustomizeNative.paletteMakerEdit(state, op, arg)) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(panelText("palette_explainer"), style = MaterialTheme.typography.labelSmall)
         PaletteSwatch(swatchColours(head[5]), Modifier.fillMaxWidth())
         StopsRow(
             stops,
@@ -238,21 +228,8 @@ internal fun YourColoursCard(
             onRemove = { edit(CustomizeNative.PALETTE_MAKER_REMOVE, 0) },
         )
         ColourPicker(rgb = stops[head[2].toInt()][2].toInt(HEX), onChange = { edit(CustomizeNative.PALETTE_MAKER_SET, it) })
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = {
-                host.visualizerView.stage
-                    .requestStill { still -> view.post { picking = still } }
-            }) {
-                Icon(Icons.Filled.Colorize, contentDescription = null)
-                Text(panelText("palette_pick_visual"), Modifier.padding(start = 6.dp))
-            }
-            OutlinedButton(onClick = { scope.launch { host.viewModel.artworkForPicking()?.let { picking = it } } }) {
-                Icon(Icons.Filled.Colorize, contentDescription = null)
-                Text(panelText("palette_pick_artwork"), Modifier.padding(start = 6.dp))
-            }
-            TextButton(onClick = { commit(CustomizeNative.paletteMakerFromLook(p.frame())) }) {
-                Text(panelText("palette_from_current"))
-            }
+        TextButton(onClick = { commit(CustomizeNative.paletteMakerFromLook(p.frame())) }) {
+            Text(panelText("palette_from_current"))
         }
         OutlinedTextField(
             value = name,
@@ -277,15 +254,13 @@ internal fun YourColoursCard(
             onChange(p.forgetPalette(palette.id))
         })
     }
-    picking?.let { image ->
-        EyedropperDialog(image, onPick = { rgb ->
-            picking = null
-            edit(CustomizeNative.PALETTE_MAKER_SET, rgb)
-        }, onDismiss = { picking = null })
-    }
 }
 
-/** The stops as native lists them (`stop|<index>|<RRGGBB>|<selected>|<label>`), then remove and add. */
+/**
+ * The stops as native lists them (`stop|<index>|<RRGGBB>|<selected>|<label>`), then remove and add. The row
+ * wraps: up to eight swatches and the two buttons do not fit one line on a phone.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StopsRow(
     stops: List<List<String>>,
@@ -295,7 +270,7 @@ private fun StopsRow(
     onAdd: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
         stops.forEach { f ->
             val on = f[3] == "1"
             Box(
@@ -319,7 +294,6 @@ private fun StopsRow(
                 )
             }
         }
-        Spacer(Modifier.weight(1f))
         IconButton(onClick = onRemove, enabled = removable) {
             Icon(Icons.Filled.Remove, contentDescription = panelText("palette_stop_remove"))
         }

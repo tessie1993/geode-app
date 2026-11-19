@@ -60,12 +60,6 @@ internal class TrackColorController(
         }
     }
 
-    /** The playing track's embedded artwork, up to [ART_PICK_SIZE] a side, for the eyedropper; null when there is none. */
-    suspend fun artworkBitmap(): Bitmap? {
-        val uri = host.currentUri ?: return null
-        return withContext(Dispatchers.IO) { artwork(uri, ART_PICK_SIZE) }
-    }
-
     private fun artworkPixels(uri: Uri): IntArray? {
         val bmp = artwork(uri, ART_SAMPLE_SIZE) ?: return null
         val out = IntArray(bmp.width * bmp.height)
@@ -96,6 +90,5 @@ internal class TrackColorController(
 
     private companion object {
         const val ART_SAMPLE_SIZE = 128
-        const val ART_PICK_SIZE = 1024
     }
 }

@@ -33,11 +33,11 @@ uniform float uPalLutMix;
 /** Which ramp of the atlas, as a texture row centre. */
 uniform float uPalLutRow;
 
-// Your colours (Customize › Look): up to five stops the user picked, packed by ShaderScene into
+// Your colours (Customize › Look): up to eight stops the user picked, packed by ShaderScene into
 // linear 0..1 RGB. uPalStopCount 0 keeps the cosine ramp; one or more replace the first slot's
 // ramp with the stops spaced evenly round a loop, each blending into the next and the last back into
 // the first, so a wrapped t shows no seam (viz/Colour.hpp's ramp() is the same maths for the UI).
-uniform vec3 uPalStops[5];
+uniform vec3 uPalStops[8];
 uniform float uPalStopCount;
 
 vec3 palStops(float t) {

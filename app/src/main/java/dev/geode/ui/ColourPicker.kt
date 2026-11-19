@@ -1,53 +1,31 @@
 package dev.geode.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -59,11 +37,8 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import dev.geode.R
 import dev.geode.engine.bridge.PaletteNative
 import dev.geode.ui.theme.GeodeSpacing
@@ -80,7 +55,7 @@ internal fun ColourPicker(
     onChange: (Int) -> Unit,
 ) {
     var hsv by remember { mutableStateOf(hsvOf(rgb)) }
-    // Another stop, a hex code or the eyedropper changed the colour: start from its own HSV.
+    // Another stop or a hex code changed the colour: start from its own HSV.
     if (PaletteNative.colourFromHsv(hsv[0], hsv[1], hsv[2]) != rgb) hsv = hsvOf(rgb)
     val emit = { h: Float, s: Float, v: Float ->
         hsv = floatArrayOf(h, s.coerceIn(0f, 1f), v.coerceIn(0f, 1f))
@@ -201,124 +176,9 @@ private fun HexField(
         label = { Text(stringResource(R.string.palette_hex_label)) },
         supportingText = { if (parsed < 0) Text(stringResource(R.string.palette_hex_invalid)) },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Done),
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        // Narrower than the sheet, so a finger beside it still scrolls the sheet past the field.
+        modifier = Modifier.width(HEX_FIELD_WIDTH).padding(top = 4.dp),
     )
 }
 
-/**
- * The eyedropper: [image] (a still of the visual, `geode_viz_still_request`, or the track's artwork)
- * over the whole screen, so the colour stays put while the user aims. Dragging shows the colour under
- * the finger in a loupe above it; letting go takes it. The middle's colour is one button away for
- * TalkBack and for anyone who would rather not drag.
- */
-@Composable
-internal fun EyedropperDialog(
-    image: Bitmap,
-    onPick: (Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var box by remember { mutableStateOf(IntSize.Zero) }
-    var finger by remember { mutableStateOf<Offset?>(null) }
-    var colour by remember { mutableIntStateOf(-1) }
-    val picture = remember(image) { image.asImageBitmap() }
-    val sample = { o: Offset -> sampleAt(image, box, o) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            Image(
-                picture,
-                contentDescription = stringResource(R.string.palette_pick_image),
-                contentScale = ContentScale.Fit,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .onSizeChanged { box = it }
-                        .pointerInput(image) {
-                            detectTapGestures { o ->
-                                val c = sample(o)
-                                if (c >= 0) onPick(c)
-                            }
-                        }.pointerInput(image) {
-                            detectDragGestures(
-                                onDragStart = { o ->
-                                    finger = o
-                                    colour = sample(o)
-                                },
-                                onDragEnd = {
-                                    finger = null
-                                    if (colour >= 0) onPick(colour)
-                                },
-                                onDragCancel = { finger = null },
-                            ) { change, _ ->
-                                finger = change.position
-                                colour = sample(change.position)
-                            }
-                        },
-            )
-            finger?.let { at -> Loupe(at, colour) }
-            Row(
-                Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(R.string.palette_pick_hint), color = Color.White, modifier = Modifier.weight(1f))
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.palette_pick_cancel), tint = Color.White)
-                }
-            }
-            FilledTonalButton(
-                onClick = { sampleAt(image, box, Offset(box.width / 2f, box.height / 2f)).takeIf { it >= 0 }?.let(onPick) },
-                modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp),
-            ) { Text(stringResource(R.string.palette_pick_centre)) }
-        }
-    }
-}
-
-private val LOUPE_SIZE = 64.dp
-private val LOUPE_LIFT = 96.dp
-
-@Composable
-private fun Loupe(
-    at: Offset,
-    rgb: Int,
-) {
-    Column(
-        Modifier.offset {
-            IntOffset((at.x - (LOUPE_SIZE / 2).toPx()).roundToInt(), (at.y - LOUPE_LIFT.toPx()).roundToInt())
-        },
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            Modifier
-                .size(LOUPE_SIZE)
-                .border(3.dp, Color.White, CircleShape)
-                .clip(CircleShape)
-                .background(if (rgb >= 0) packedColour(rgb) else Color.Transparent),
-        )
-        Spacer(Modifier.height(4.dp))
-        if (rgb >= 0) Text(PaletteNative.colourHex(rgb), color = Color.White, style = MaterialTheme.typography.labelSmall)
-    }
-}
-
-private const val SAMPLE_RADIUS = 1
-
-/**
- * The colour under [o] in [box], where [image] is drawn fitted and centred (ContentScale.Fit): the mean
- * of the 3×3 pixels there (native), or -1 off the picture.
- */
-private fun sampleAt(
-    image: Bitmap,
-    box: IntSize,
-    o: Offset,
-): Int {
-    if (box.width == 0 || box.height == 0) return -1
-    val scale = minOf(box.width / image.width.toFloat(), box.height / image.height.toFloat())
-    val x = ((o.x - (box.width - image.width * scale) / 2f) / scale).toInt()
-    val y = ((o.y - (box.height - image.height * scale) / 2f) / scale).toInt()
-    if (x !in 0 until image.width || y !in 0 until image.height) return -1
-    val left = (x - SAMPLE_RADIUS).coerceAtLeast(0)
-    val top = (y - SAMPLE_RADIUS).coerceAtLeast(0)
-    val w = (x + SAMPLE_RADIUS).coerceAtMost(image.width - 1) - left + 1
-    val h = (y + SAMPLE_RADIUS).coerceAtMost(image.height - 1) - top + 1
-    val pixels = IntArray(w * h)
-    image.getPixels(pixels, 0, w, left, top, w, h)
-    return PaletteNative.colourAverageArgb(pixels)
-}
+private val HEX_FIELD_WIDTH = 160.dp

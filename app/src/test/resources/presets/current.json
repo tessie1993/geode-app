@@ -176,5 +176,8 @@
   "paletteStop2": 1106080,
   "paletteStop3": 16777215,
   "paletteStop4": 0,
+  "paletteStop5": 65280,
+  "paletteStop6": 255,
+  "paletteStop7": 16711935,
   "customShader": "void main() {}"
 }

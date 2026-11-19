@@ -153,7 +153,7 @@ private fun PanelPiece(
             val macros by store.state.collectAsStateWithLifecycle()
             ProGated(lockKey, label) { MacroEditor(macros, store, viz.sceneId) }
         }
-        "@palette_maker" -> ProGated(lockKey, label) { YourColoursCard(host, p, onChange, rememberSavedPalettes()) }
+        "@palette_maker" -> ProGated(lockKey, label) { YourColoursCard(p, onChange, rememberSavedPalettes()) }
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
             val handMask by vm.handMask.collectAsStateWithLifecycle()

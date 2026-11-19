@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 }
 // The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 200;
+constexpr int kWireFloats = 203;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -87,7 +87,10 @@ void theTableIsTheWire() {
     check(static_cast<int>(ParamSlot::shapes) == 196, "shapes keeps its slot");
     check(static_cast<int>(ParamSlot::shadow) == 197, "shadow follows it");
     check(static_cast<int>(ParamSlot::escapeColor) == 198, "escapeColor keeps its slot");
-    check(static_cast<int>(ParamSlot::life) == kWireFloats - 1, "life is the wire's last float");
+    check(static_cast<int>(ParamSlot::life) == 199, "life keeps its slot");
+    check(static_cast<int>(ParamSlot::paletteStop5) == 200 && static_cast<int>(ParamSlot::paletteStop7) == 202,
+          "your colours' sixth to eighth stops are appended after life");
+    check(static_cast<int>(ParamSlot::paletteStop7) == kWireFloats - 1, "paletteStop7 is the wire's last float");
 }
 
 void everyRowIsWellFormed() {

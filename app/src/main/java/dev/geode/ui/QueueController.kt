@@ -228,7 +228,8 @@ internal class QueueController(
     )
 
     /** The library by uri, built at most once per batch and only when a track in it needs a title. */
-    private fun knownTracks(): Lazy<Map<String, LibraryTrack>> = lazy(LazyThreadSafetyMode.NONE) { host.libraryTracks.associateBy { it.uri } }
+    private fun knownTracks(): Lazy<Map<String, LibraryTrack>> =
+        lazy(LazyThreadSafetyMode.NONE) { host.libraryTracks.associateBy { it.uri } }
 
     /**
      * Builds a queue item without touching the ContentResolver: a known library title is used

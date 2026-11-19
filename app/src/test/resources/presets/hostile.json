@@ -1,6 +1,6 @@
 {
   "name": "Hostile",
-  "sceneId": "silk",
+  "sceneId": "silk_web",
   "attack": 40,
   "decay": -1,
   "speed": 99,

@@ -364,13 +364,13 @@ void shareNames() {
 
 void api() {
     std::vector<float> frame(static_cast<size_t>(SceneParams::kFieldCount));
-    const char* out[7] = {};
+    const char* out[6] = {};
     float envelope[2] = {};
     const std::string starter(files::starter(1));
     check(geode_template_read(starter.c_str(), frame.data(), SceneParams::kFieldCount, out, envelope) == 1, "read a starter");
     const std::string document = orEmpty(out[0]);
     check(orEmpty(out[1]) == "geode.starter.lo-fi-loop" && orEmpty(out[2]) == "Lo-Fi Loop", "id and name");
-    check(orEmpty(out[3]) == "aurora" && out[4] == nullptr && out[5] == nullptr && orEmpty(out[6]).empty(), "the look's strings");
+    check(orEmpty(out[3]) == "aurora" && out[4] == nullptr && orEmpty(out[5]).empty(), "the look's strings");
     check(envelope[0] == 0.4f && envelope[1] == 0.06f, "the envelope");
     check(std::fabs(SceneParams::fromWire(frame.data()).speed - 0.5f) < 1e-6f, "the params frame");
     check(document == files::writeTemplate(files::readTemplate(starter).value), "the document is the written text");

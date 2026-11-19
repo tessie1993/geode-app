@@ -36,7 +36,6 @@ object OpenedAudio {
         action: String?,
         scheme: String?,
         type: String?,
-        lastSegment: String?,
         fromHistory: Boolean,
     ): Route =
         when (ShellNative.openedAudioRoute(action, scheme, type, fromHistory)) {

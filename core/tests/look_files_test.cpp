@@ -193,7 +193,7 @@ void presets(const std::string& folder) {
     const auto golden = files::readPreset(fixture(folder, "current.json"));
     check(golden.has_value(), "the golden preset reads");
     if (golden) {
-        check(golden->name == "Golden" && golden->sceneId == "silk", "its name and style");
+        check(golden->name == "Golden" && golden->sceneId == "silk_web", "its name and style");
         check(golden->attack == 0.25f && golden->decay == 0.5f, "its envelope");
         check(golden->customShader == std::optional<std::string>("void main() {}"), "its shader");
         check(golden->customPaletteId == "palette-a", "its saved palette");
@@ -205,7 +205,7 @@ void presets(const std::string& folder) {
                   again->customPaletteId == golden->customPaletteId &&
                   wire(again->params) == wire(golden->params),
               "it round-trips");
-        check(written.rfind("{\n  \"name\": \"Golden\",\n  \"sceneId\": \"silk\",\n  \"attack\": 0.25,\n  \"decay\": 0.5,\n  \"speed\": 2.03125,", 0) == 0,
+        check(written.rfind("{\n  \"name\": \"Golden\",\n  \"sceneId\": \"silk_web\",\n  \"attack\": 0.25,\n  \"decay\": 0.5,\n  \"speed\": 2.03125,", 0) == 0,
               "the envelope first, then the params object's keys, as org.json's toString(2)");
         check(written.find("\"customPaletteId\": \"palette-a\",\n  \"customPalette2Id\": \"\",\n  \"customShader\": \"void main() {}\"\n}") != std::string::npos,
               "the palette ids, then the shader last");
@@ -223,7 +223,7 @@ void presets(const std::string& folder) {
     check(!files::readPreset(R"({"name":"gone","sceneId":"no_such_style","attack":0.1,"decay":0.2})"),
           "a look on a style this build does not have is not read, so it is dropped rather than opened on another");
 
-    const auto overflow = files::readPreset(R"({"name":"x","sceneId":"silk","attack":1e39,"decay":-1e999})");
+    const auto overflow = files::readPreset(R"({"name":"x","sceneId":"silk_web","attack":1e39,"decay":-1e999})");
     check(overflow && overflow->attack == files::kAttackMin && overflow->decay == files::kDecayMin, "overflowing numbers read as the low end");
     if (overflow) {
         const auto again = files::readPreset(files::writePreset(*overflow));
@@ -231,10 +231,10 @@ void presets(const std::string& folder) {
         check(files::writePreset(*overflow).find("\"customPalette2Id\": \"\"\n}") != std::string::npos, "no shader key");
     }
 
-    check(!files::readPreset(R"({"sceneId":"silk","attack":0.1,"decay":0.2})"), "no name, no preset");
-    check(!files::readPreset(R"({"name":"x","sceneId":"silk","attack":0.1})"), "no decay, no preset");
+    check(!files::readPreset(R"({"sceneId":"silk_web","attack":0.1,"decay":0.2})"), "no name, no preset");
+    check(!files::readPreset(R"({"name":"x","sceneId":"silk_web","attack":0.1})"), "no decay, no preset");
     check(!files::readPreset("[1,2]"), "not an object, no preset");
-    const auto texts = files::readPreset(R"({"name":7,"sceneId":"silk","attack":"0.5","decay":0.2})");
+    const auto texts = files::readPreset(R"({"name":7,"sceneId":"silk_web","attack":"0.5","decay":0.2})");
     check(texts && texts->name == "7" && texts->attack == 0.5f, "a number as the name and a string as a number read as org.json did");
 
     check(files::safeChars("a/b c") == "a_b c", "a folder name keeps no slash");

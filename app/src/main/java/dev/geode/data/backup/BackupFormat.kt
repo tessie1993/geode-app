@@ -163,7 +163,8 @@ object BackupFormat {
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and
      *   performance class at first launch. A backup from a fast phone restored onto a slow one
-     *   would run it hot; the new phone keeps its own pick.
+     *   would run it hot; the new phone keeps its own pick. They live in `geode-device` now, which
+     *   no section holds; listed here so an older backup's copies in `geode-prefs` are skipped.
      * - Whether this phone's output mix refused the wallpaper a capture
      *   ([WallpaperPrefsStore.KEY_MIX_REFUSED]): a fact about this phone, not a choice.
      * - The old six macro knobs, their locks and saved sets ([MacroStore.RETIRED_KEYS]): dropped
@@ -243,7 +244,8 @@ object BackupFormat {
             AppStateCodec.keys + BehaviourCodec.keys + ExportPrefsStore.PREF_KEYS + StudioPrefsStore.PREF_KEYS +
             BootAnimationStore.PREF_KEYS + CustomizeGroupsCodec.keys + MacroStore.PREF_KEYS + PaletteStackStore.PREF_KEYS +
             LfoStore.PREF_KEYS + AutoDirectorCodec.keys + NoteResponseCodec.keys + RecordPrefsStore.PREF_KEYS +
-            WatermarkPrefsCodec.keys + PerformanceStore.PREF_KEYS + LookStore.PREF_KEYS + AutoVisualsPrefsStore.PREF_KEYS +
+            WatermarkPrefsCodec.keys + PerformanceStore.PREF_KEYS.filter { it.file == GeodePrefsFiles.GENERAL } + LookStore.PREF_KEYS +
+            AutoVisualsPrefsStore.PREF_KEYS +
             StyleShelfCodec.keys + GeodePrefsFiles.MILK_PRESET_PREF_KEYS + PlayerPrefsCodec.keys + BookmarkStore.PREF_KEYS +
             AudioFxController.PREF_KEYS + LibraryPrefsStore.PREF_KEYS + MEDIA_ROOTS_PREF_KEYS + BackgroundPrefsStore.PREF_KEYS +
             WallpaperPrefsStore.PREF_KEYS + FavouritesStore.PREF_KEYS + KeepSetStore.PREF_KEYS

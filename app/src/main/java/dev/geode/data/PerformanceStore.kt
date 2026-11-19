@@ -13,8 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Settings › Performance, in the general prefs file so the wallpaper and the dream (which build
- * their own stores, in their own processes' lifetimes) read the same values the app wrote.
+ * Settings › Performance, in the device prefs file ([GeodePrefsFiles.device]), which the wallpaper and
+ * the dream (which build their own stores) read too, so they see the values the app wrote. Auto
+ * Backup leaves that file out: these describe this phone.
  *
  * Nothing stored yet means first run: the device decides the mode once, and that pick is written
  * back so it never changes under the user after an OS update or a RAM reading that wobbles.
@@ -70,14 +71,45 @@ class PerformanceStore(
          */
         val KEYS: Set<String> = setOf(KEY_SCALE, KEY_FPS, KEY_MARCH, KEY_POST_FX, RETIRED_ADAPTIVE, RETIRED_LIQUID_HOT)
 
+        /** The live keys in their own file, and every key where older versions kept it, in `geode-prefs`. */
         val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.GENERAL) {
+            prefKeys(GeodePrefsFiles.DEVICE) {
                 device(PrefType.FLOAT, KEY_SCALE, KEY_MARCH)
                 device(PrefType.INT, KEY_FPS)
                 device(PrefType.BOOLEAN, KEY_POST_FX)
-                retired(PrefType.BOOLEAN, RETIRED_ADAPTIVE, backup = BackupClass.DEVICE)
-                retired(PrefType.INT, RETIRED_LIQUID_HOT, backup = BackupClass.DEVICE)
+            } +
+                prefKeys(GeodePrefsFiles.GENERAL) {
+                    retired(PrefType.FLOAT, KEY_SCALE, KEY_MARCH, backup = BackupClass.DEVICE)
+                    retired(PrefType.INT, KEY_FPS, backup = BackupClass.DEVICE)
+                    retired(PrefType.BOOLEAN, KEY_POST_FX, RETIRED_ADAPTIVE, backup = BackupClass.DEVICE)
+                    retired(PrefType.INT, RETIRED_LIQUID_HOT, backup = BackupClass.DEVICE)
+                }
+
+        /**
+         * Moves the values older versions kept in [general] into [device]: each live key the device
+         * file lacks is copied, then every key of this store leaves [general]. Run again, it finds
+         * nothing to move, so it costs one lookup per key.
+         */
+        fun moveFrom(
+            general: SharedPreferences,
+            device: SharedPreferences,
+        ) {
+            val old = KEYS.filter(general::contains)
+            if (old.isEmpty()) return
+            device.edit(commit = true) {
+                for (key in KEYS - RETIRED) {
+                    if (device.contains(key) || !general.contains(key)) continue
+                    when (val value = general.all[key]) {
+                        is Float -> putFloat(key, value)
+                        is Int -> putInt(key, value)
+                        is Boolean -> putBoolean(key, value)
+                    }
+                }
             }
+            general.edit { old.forEach { remove(it) } }
+        }
+
+        private val RETIRED = setOf(RETIRED_ADAPTIVE, RETIRED_LIQUID_HOT)
     }
 }
 

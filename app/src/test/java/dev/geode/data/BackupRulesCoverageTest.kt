@@ -15,7 +15,8 @@ import javax.xml.parsers.DocumentBuilderFactory
  * Cloud backup must leave out what can blow its ~25 MB quota (imported textures, every project's
  * takes), because past the quota Android silently stops backing up everything, presets and history
  * included. It must keep `projects`, whose small `project.json` files are My videos' list. A direct
- * phone-to-phone transfer has no quota, so it drops only the crash file (#384).
+ * phone-to-phone transfer has no quota, so it drops only the crash file (#384). Every rule set
+ * leaves out the performance prefs file (`geode-device`), which describes this phone.
  */
 class BackupRulesCoverageTest {
     private fun xml(name: String): Element {
@@ -38,6 +39,24 @@ class BackupRulesCoverageTest {
     }
 
     private fun Element.child(tag: String): Element = getElementsByTagName(tag).item(0) as Element
+
+    private fun Element.excludedPrefs(): Set<String> {
+        val nodes = getElementsByTagName("exclude")
+        return (0 until nodes.length)
+            .map { nodes.item(it) as Element }
+            .filter { it.getAttribute("domain") == "sharedpref" }
+            .map { it.getAttribute("path") }
+            .toSet()
+    }
+
+    /** Settings › Performance describes this phone; Auto Backup can only leave out whole files, so it has one of its own. */
+    @Test
+    fun everyRuleSetLeavesOutThePerformancePrefsFile() {
+        val device = setOf(GeodePrefsFiles.DEVICE + ".xml")
+        assertEquals(device, xml("backup_rules.xml").excludedPrefs())
+        assertEquals(device, xml("data_extraction_rules.xml").child("cloud-backup").excludedPrefs())
+        assertEquals(device, xml("data_extraction_rules.xml").child("device-transfer").excludedPrefs())
+    }
 
     private val quotaExcludes =
         setOf(EditorProjectStore.TAKES_DIR, "milk/textures", "milk/generated", "crash-latest.txt")

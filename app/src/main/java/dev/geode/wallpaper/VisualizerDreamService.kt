@@ -63,7 +63,7 @@ class VisualizerDreamService : DreamService() {
     private val sound = SoundSource(this) { syncRunState() }
 
     /** Lazy: a service has no context for its prefs until onCreate. */
-    private val generalPrefs by lazy { geodeContainer.prefsFiles.general }
+    private val devicePrefs by lazy { geodeContainer.prefsFiles.device }
 
     /** Behaviour's dream frame rate, read at attach; [applyPerformance] restates it after the cap. */
     private var dreamFps = SoundNative.SURFACE_DEFAULT_FPS
@@ -154,7 +154,7 @@ class VisualizerDreamService : DreamService() {
         )
         receiverRegistered = true
         systemAnimations.start()
-        generalPrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
+        devicePrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
     }
 
     /**
@@ -163,7 +163,7 @@ class VisualizerDreamService : DreamService() {
      */
     private fun applyPerformance() {
         val stage = visualizerView?.stage ?: return
-        stage.performance = PerformanceStore(generalPrefs, this).settings.value
+        stage.performance = PerformanceStore(devicePrefs, this).settings.value
         stage.capFps = SoundNative.surfaceFpsChoice(dreamFps).toFloat()
     }
 
@@ -192,7 +192,7 @@ class VisualizerDreamService : DreamService() {
     private fun entitled(): Boolean = SoundNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
 
     override fun onDetachedFromWindow() {
-        generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
+        devicePrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
         handler.removeCallbacks(trialEnded)
         sound.stop()
         cover.stop()

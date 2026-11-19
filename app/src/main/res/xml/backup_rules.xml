@@ -28,4 +28,10 @@
     <exclude
         domain="file"
         path="project-takes" />
+    <!-- Settings › Performance (geode-device: PerformanceStore), picked for this
+         phone's RAM and performance class: restored on another phone it would
+         carry this one's tuning. -->
+    <exclude
+        domain="sharedpref"
+        path="geode-device.xml" />
 </full-backup-content>

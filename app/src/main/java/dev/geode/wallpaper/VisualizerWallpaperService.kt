@@ -51,7 +51,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         private val prefsFiles = this@VisualizerWallpaperService.geodeContainer.prefsFiles
         private val prefsStore = WallpaperPrefsStore(prefsFiles.wallpaper)
-        private val generalPrefs = prefsFiles.general
+        private val devicePrefs = prefsFiles.device
 
         /**
          * Settings › Performance, followed live: the app and the wallpaper share this process and
@@ -141,7 +141,7 @@ class VisualizerWallpaperService : WallpaperService() {
             )
             // For the engine's whole life, like the receiver: the setting can flip while hidden.
             systemAnimations.start()
-            generalPrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
+            devicePrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
         }
 
         /**
@@ -165,7 +165,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * to its own choice instead (applyFps). A new store reads the file afresh.
          */
         private fun applyPerformance(engine: Stage) {
-            engine.performance = PerformanceStore(generalPrefs, this@VisualizerWallpaperService).settings.value
+            engine.performance = PerformanceStore(devicePrefs, this@VisualizerWallpaperService).settings.value
         }
 
         /**
@@ -371,7 +371,7 @@ class VisualizerWallpaperService : WallpaperService() {
             handler.removeCallbacks(trialEnded)
             sound.stop()
             systemAnimations.stop()
-            generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
+            devicePrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
             bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }
             // A wallpaper engine is made and destroyed every time the screen sleeps or the launcher
             // switches screens, so each one ends its stage (its thread, context and renderer) here.

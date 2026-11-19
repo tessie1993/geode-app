@@ -30,14 +30,23 @@
         <exclude
             domain="file"
             path="project-takes" />
+        <!-- Settings › Performance (geode-device: PerformanceStore), picked for this
+             phone's RAM and performance class: restored on another phone it would
+             carry this one's tuning. -->
+        <exclude
+            domain="sharedpref"
+            path="geode-device.xml" />
     </cloud-backup>
     <!-- A direct phone-to-phone copy has no cloud quota, so the excludes above
          are not repeated here: the imported textures come across whole.
-         Only the crash file is dropped, because it describes hardware the
-         user just stopped using. -->
+         Only the crash file and the performance prefs are dropped, because
+         they describe hardware the user just stopped using. -->
     <device-transfer>
         <exclude
             domain="file"
             path="crash-latest.txt" />
+        <exclude
+            domain="sharedpref"
+            path="geode-device.xml" />
     </device-transfer>
 </data-extraction-rules>

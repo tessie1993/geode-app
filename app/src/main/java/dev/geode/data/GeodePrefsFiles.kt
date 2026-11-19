@@ -35,6 +35,14 @@ class GeodePrefsFiles(
     /** The Pro purchase cache and the trial (`billing/EntitlementStore`, `billing/StoredTrialRepository`). */
     val pro: SharedPreferences by lazy { open(PRO) }
 
+    /**
+     * Settings › Performance ([PerformanceStore]), picked for this phone: a file of its own because
+     * Auto Backup can only leave out whole files (`res/xml/backup_rules.xml`, `data_extraction_rules.xml`),
+     * so a restore on another phone never carries this one's tuning. Opening it first moves the values
+     * older versions kept in [general] ([PerformanceStore.moveFrom]).
+     */
+    val device: SharedPreferences by lazy { open(DEVICE).also { PerformanceStore.moveFrom(general, it) } }
+
     private fun open(name: String): SharedPreferences = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
 
     companion object {
@@ -49,6 +57,7 @@ class GeodePrefsFiles(
         const val WALLPAPER = "geode-wallpaper"
         const val WIDGET = "geode-widget"
         const val PRO = "geode-pro"
+        const val DEVICE = "geode-device"
 
         /**
          * Record's ask-once save target. `RecordSaveStore` opens it itself (it is in `data/` and

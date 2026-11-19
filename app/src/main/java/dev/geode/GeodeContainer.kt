@@ -105,7 +105,7 @@ class GeodeContainer(
     val customizeGroups = CustomizeGroupsStore(PrefsSettingsRepository(prefsFiles.general, CustomizeGroupsCodec, appScope), appScope)
 
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
-    val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
+    val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.device, context.applicationContext) }
 
     /** The `ContentResolver` source the screens and controllers reach consent requests, grants and picked documents through. */
     val mediaStore: MediaStoreSource by lazy {

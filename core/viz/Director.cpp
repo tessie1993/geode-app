@@ -174,6 +174,11 @@ DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long 
     const bool directed = switchOn && (entitled || durationMs <= kFreeTasteMs);
     return {directed ? 1.0f : 0.0f, seed};
 }
+float liveAmount(bool switchOn, bool entitled, long long positionMs, bool playerPlaying) {
+    if (!switchOn) return 0.0f;
+    if (entitled) return 1.0f;
+    return playerPlaying && positionMs >= 0 && positionMs < kFreeTasteMs ? 1.0f : 0.0f;
+}
 }  // namespace director
 
 void Director::reset() {

@@ -1,44 +1,12 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_cast_jni.cpp (CLAUDE.md), and the cast tee, link and QR calls geode_viz_jni.cpp carries.
+import android.content.res.AssetManager
+
+// The JNI declarations of geode_cast_jni.cpp (CLAUDE.md), and the cast link and QR calls geode_viz_jni.cpp carries.
 object CastNative {
     init {
         GeodeNative.ensureLoaded()
     }
-
-    /**
-     * The cast thread, its EGL context current: opens the tee the stage copies into, [width] x [height] at [fps];
-     * 0 when the driver lacks what it needs (the cast then renders on its own).
-     */
-    external fun castTeeOpen(
-        width: Int,
-        height: Int,
-        fps: Int,
-    ): Long
-
-    /** The cast thread: blits the stage's newest copy into the encoder surface; false while the stage draws nothing. */
-    external fun castTeeDraw(
-        tee: Long,
-        nowNs: Long,
-        width: Int,
-        height: Int,
-    ): Boolean
-
-    /** The cast thread, its context still current: closes the tee. */
-    external fun castTeeClose(tee: Long)
-
-    /** True while a new stream leaves this slot empty for the stage's first copy (`geode_cast_tee_await_stage`). Pure. */
-    external fun castTeeAwaitStage(
-        stageDraws: Boolean,
-        fallbackMade: Boolean,
-        sinceOpenNs: Long,
-    ): Boolean
-
-    /** Ints [castFormat] fills (GEODE_CAST_FORMAT_INTS). */
-    const val CAST_FORMAT_INTS = 6
-
-    /** The Cast stream's format into [out] ([CAST_FORMAT_INTS] ints): width, height, fps, keyframe interval (s), video and audio bit/s. */
-    external fun castFormat(out: IntArray)
 
     // Show on a computer (core/viz/frame/LinkShare, LinkPair): the link's state and the typed path's code; and its
     // QR code (core/util/QrCode). The server, its routes and its pairing are native ([castServerOpen]).
@@ -152,31 +120,57 @@ object CastNative {
         wants: Int,
     )
 
-    // The cast's encoders (core/cast/CastEncoder, Fmp4Writer): H.264, AAC and, for a browser, Opus, written into the
-    // server's stream and to WebRTC on a native thread. One handle per cast stream; 0 = none.
+    // The cast's render thread (core/output/android/CastRenderHost): it opens the encoders (core/cast/CastEncoder, Fmp4Writer:
+    // H.264, AAC and, for a browser, Opus, written into the server's stream and to WebRTC), the EGL context on the encoder's
+    // window, the stage's tee and the fallback renderer, and runs the frames at the stream's rate. One handle per cast
+    // stream; 0 = none.
 
-    /** Opens them for the stream's [server] and [webrtc] handles (both closed after this one) and the player's ring [music]. */
-    external fun castEncoderOpen(
+    /**
+     * Starts the thread for the stream's [server] and [webrtc] handles (both closed after [castRenderFree]) and the
+     * player's ring [music]; [assets] and [cacheDir] make the fallback renderer. 0 when it would not start.
+     */
+    external fun castRenderStart(
         server: Long,
         webrtc: Long,
         music: Long,
+        assets: AssetManager,
+        cacheDir: String,
     ): Long
 
-    /** The video encoder's input surface (an android.view.Surface; the caller releases it), or null. */
-    external fun castEncoderSurface(handle: Long): Any?
-
-    /** One video frame's sound up to the frame clock's cut [untilUs]; [current] is the ring the visuals hear now. */
-    external fun castEncoderPump(
+    /** The look the fallback renderer draws, whole, from any thread; native passes on only the parts that changed. */
+    external fun castRenderSetLook(
         handle: Long,
-        current: Long,
-        untilUs: Long,
+        sceneId: String,
+        params: FloatArray,
+        lfos: String,
+        adsrs: String,
+        tuning: FloatArray?,
+        reactions: String?,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
     )
 
-    /** True once the video or AAC encoder failed: the cast should end. */
-    external fun castEncoderFailed(handle: Long): Boolean
+    /** Asks the thread to end and waits up to [timeoutMs] for it to close the encoders; true once it has. */
+    external fun castRenderStop(
+        handle: Long,
+        timeoutMs: Long,
+    ): Boolean
 
-    /** Stops the encoders and frees them, once nothing draws into the surface. */
-    external fun castEncoderClose(handle: Long)
+    /** True once the thread ended on an error it was not asked to: the cast should end. */
+    external fun castRenderFailed(handle: Long): Boolean
+
+    /** The fallback renderer's Auto director moments since the last call. */
+    external fun castRenderTakeDirectorMoments(handle: Long): Int
+
+    /** Joins the thread, however late it ends, and frees it. */
+    external fun castRenderFree(handle: Long)
+
+    /** What the shell last saw of the stage (the `StageNative.STAGE_*` bits), kept for the process; any thread. */
+    external fun castRenderSetStageFlags(flags: Int)
+
+    /** The phone's output-mix ring while the app hears other apps, 0 for the player's; kept for the process. */
+    external fun castRenderSetDeviceRing(ring: Long)
 
     /** [castWatch]'s verdicts (GEODE_CAST_WATCH_*). */
     const val CAST_WATCH_WAIT = 0
@@ -198,12 +192,6 @@ object CastNative {
 
     /** When to poll [castWatch] again, in ms. */
     external fun castWatchNextMs(announced: Boolean): Long
-
-    /** True when the cast's own renderer, last drawing at [drewNs], should be freed now that the stage leads. */
-    external fun castFallbackRelease(
-        nowNs: Long,
-        drewNs: Long,
-    ): Boolean
 
     /** One of the CAST_TEXT_* texts; "" when there is none. */
     external fun castServerText(

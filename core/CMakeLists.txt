@@ -175,6 +175,8 @@ add_library(geode_core STATIC
     output/RecordSession.cpp
     output/android/MediaCodecSink.cpp
     output/android/EncoderGl.cpp
+    output/android/CastRenderHost.cpp
+    api/geode_cast_render_api.cpp
     output/android/LoopRenderHost.cpp
     api/geode_loop_job_api.cpp
     output/android/VideoExportHost.cpp

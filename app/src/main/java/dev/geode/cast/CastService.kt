@@ -174,7 +174,7 @@ class CastService : Service() {
 
     private fun startStream() {
         mutePhone()
-        val started = runCatching { CastStream(this, playback?.sampleRing ?: 0L) { handler.post { fail() } }.also { it.start() } }
+        val started = runCatching { CastStream(this, playback?.sampleRing ?: 0L).also { it.start() } }
         started.onFailure { RingLog.note(TAG, "stream did not start: $it") }
         val noLan = started.exceptionOrNull() is CastStream.NoLanAddress
         val s = started.getOrNull() ?: return fail(if (noLan) CastFailure.NO_LAN else CastFailure.STREAM)
@@ -219,6 +219,9 @@ class CastService : Service() {
         object : Runnable {
             override fun run() {
                 val s = stream ?: return
+                if (s.renderFailed) return failNoted("the render thread failed", CastFailure.STREAM)
+                // The fallback renderer's Auto moments (native counts them): Auto steps on them while the stage draws nothing.
+                repeat(s.takeDirectorMoments()) { CastMirror.directorMoment() }
                 val here = ready && s.address in CastStream.lanAddresses(this@CastService)
                 val now = SystemClock.elapsedRealtime()
                 when (CastNative.castWatch(ready, now, waitingSinceMs, s.isReady, s.segmentAgeMs, here)) {

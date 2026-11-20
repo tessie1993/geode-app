@@ -188,6 +188,8 @@ Host testing: the stage's lifecycle (surface created, changed, destroyed, paused
 
 ## Port order (each step one PR; per-frame and per-block paths first)
 
+Status on 2026-11-20 (an audit of main; the table below is the 2026-11-12 plan and its line counts are older): steps 1-5, 8, 10, 11 and 13 have landed or are thin shells over native (`AudioTranscoder.kt` drives `core/output/AacTranscode`; `ModulationController.kt` drives `ParamHistory`, `PanelRoll` and `ModState`; `AutoVisualsController.kt` drives the `geode_auto_*` calls; `LoopRender.kt`, `SoundSource.kt`, the wallpaper and dream services and `CastMirror.kt` hold no engine logic). Left: step 6's `LoopExtend.kt` extract-and-mux loop and `VideoExporter.kt`'s audio hand-off (`claude/port-export-mux`), step 7's Cast render thread with `CastFallback.kt` and `EncoderSurface.kt` (`claude/port-cast-render`), and the free-tier tables (waiting on the owner, below).
+
 | # | PR | Kotlin deleted | Host test |
 |---|---|---|---|
 | 1 | Link `mediandk`; native encode sink (ladder try-loop, drain, hold, PTS interleave) with a fake codec seam | Nothing yet (leaf) | new `encode_sink_test.cpp`; `encoder_ladder_test.cpp` |

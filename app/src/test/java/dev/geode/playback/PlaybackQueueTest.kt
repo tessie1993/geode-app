@@ -108,4 +108,23 @@ class PlaybackQueueTest {
         val context = PlaybackQueue.contextFor("a", listOf(QueueTrack("b")), listOf(device("c")), listOf(library("d")))
         assertEquals(listOf(QueueTrack("a")), context)
     }
+
+    @Test
+    fun aPlaylistTakesTitlesFromTheLibraryThenTheDevice() {
+        val tracks = PlaybackQueue.playlistTracks(listOf("a", "b", "c"), listOf(library("a")), listOf(device("a"), device("b")))
+        assertEquals(
+            listOf(
+                QueueTrack("a", "Library title", "Library artist"),
+                QueueTrack("b", "Device title", "Device artist"),
+                QueueTrack("c"),
+            ),
+            tracks,
+        )
+    }
+
+    @Test
+    fun resolvedTitlesPatchOneSpanCoveringEveryCopy() {
+        assertEquals(1..4, QueueOps.patchSpan(listOf("x", "a", "y", "b", "a", "z"), setOf("a", "b")))
+        assertEquals(null, QueueOps.patchSpan(listOf("x", "y"), setOf("a")))
+    }
 }

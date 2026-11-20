@@ -28,4 +28,17 @@ object QueueOps {
         playOrder: List<Int>,
         displayedIndex: Int,
     ): Int = playOrder.getOrElse(displayedIndex) { -1 }
+
+    /**
+     * The one span of queue positions that covers every item whose id is in [patched], or null when
+     * none is: what a batch of resolved titles replaces in a single call instead of one per item.
+     */
+    fun patchSpan(
+        ids: List<String>,
+        patched: Set<String>,
+    ): IntRange? {
+        val first = ids.indexOfFirst { it in patched }
+        if (first < 0) return null
+        return first..ids.indexOfLast { it in patched }
+    }
 }

@@ -113,13 +113,14 @@ internal class QueueController(
         lastBrowseContext = tracks
         val generation = ++openGeneration
         val unresolved = mutableListOf<Uri>()
+        val known = knownTracks()
         val items =
             window.tracks.map { track ->
                 if (track.title.isNotBlank()) {
                     mediaItemFor(track)
                 } else {
                     val uri = track.uri.toUri()
-                    val quick = quickMediaItem(uri)
+                    val quick = quickMediaItem(uri, known)
                     if (quick.unresolved) unresolved += uri
                     quick.item
                 }
@@ -142,7 +143,8 @@ internal class QueueController(
     fun open(uris: List<Uri>) {
         if (uris.isEmpty()) return
         val generation = ++openGeneration
-        val quick = uris.map { quickMediaItem(it) }
+        val known = knownTracks()
+        val quick = uris.map { quickMediaItem(it, known) }
         player.setMediaItems(quick.map { it.item })
         player.prepare()
         player.play()
@@ -225,13 +227,22 @@ internal class QueueController(
         val unresolved: Boolean,
     )
 
+    /** The library by uri, built at most once per batch and only when a track in it needs a title. */
+    private fun knownTracks(): Lazy<Map<String, LibraryTrack>> =
+        lazy(LazyThreadSafetyMode.NONE) { host.libraryTracks.associateBy { it.uri } }
+
     /**
      * Builds a queue item without touching the ContentResolver: a known library title is used
      * as-is, otherwise a placeholder (last path segment, or the uri itself) stands in until
-     * [resolveTitlesAsync] patches in the real DISPLAY_NAME off the main thread.
+     * [resolveTitlesAsync] patches in the real DISPLAY_NAME off the main thread. A batch passes
+     * [library], one map for all its items; a single add scans the list once.
      */
-    private fun quickMediaItem(uri: Uri): QuickItem {
-        val known = host.libraryTracks.firstOrNull { it.uri == uri.toString() }
+    private fun quickMediaItem(
+        uri: Uri,
+        library: Lazy<Map<String, LibraryTrack>>? = null,
+    ): QuickItem {
+        val target = uri.toString()
+        val known = if (library != null) library.value[target] else host.libraryTracks.firstOrNull { it.uri == target }
         return if (known != null) {
             QuickItem(mediaItemFor(uri, known.title, known.artist), unresolved = false)
         } else {
@@ -263,19 +274,26 @@ internal class QueueController(
                 // A newer open()/playFrom() replaced the queue before this batch finished;
                 // applying these titles now would land on the wrong tracks.
                 if (generation != openGeneration) return@withContext
-                resolved.forEach { (uri, meta) ->
-                    // A duplicate uri can appear more than once in the queue; patch every match.
-                    indicesOfMediaItem(uri).forEach { index ->
-                        player.replaceMediaItem(index, mediaItemFor(uri, meta.first, meta.second))
-                    }
-                }
+                applyTitles(resolved.associate { (uri, meta) -> uri.toString() to meta })
             }
         }
     }
 
-    private fun indicesOfMediaItem(uri: Uri): List<Int> {
-        val target = uri.toString()
-        return (0 until player.mediaItemCount).filter { i -> player.getMediaItemAt(i).mediaId == target }
+    /**
+     * Patches resolved titles into every queue item with that id (a duplicate uri can appear more
+     * than once) in one replace: one pass over the queue and one timeline rebuild, not one per track.
+     * The items between keep their own [MediaItem], so the player updates them in place.
+     */
+    private fun applyTitles(titles: Map<String, Pair<String, String>>) {
+        val current = List(player.mediaItemCount) { player.getMediaItemAt(it) }
+        val span = QueueOps.patchSpan(current.map { it.mediaId }, titles.keys) ?: return
+        val items =
+            span.map { i ->
+                val item = current[i]
+                val meta = titles[item.mediaId] ?: return@map item
+                mediaItemFor(item.localConfiguration?.uri ?: item.mediaId.toUri(), meta.first, meta.second)
+            }
+        player.replaceMediaItems(span.first, span.last + 1, items)
     }
 
     fun mediaItemFor(track: QueueTrack): MediaItem {

@@ -436,8 +436,7 @@ class PlayerSession internal constructor(
                 ?.trackUris
                 .orEmpty()
         if (uris.isEmpty()) return
-        val byUri = library.value.tracks.associateBy { it.uri }
-        val tracks = uris.map { u -> byUri[u]?.let(PlaybackQueue::queueTrack) ?: QueueTrack(u) }
+        val tracks = PlaybackQueue.playlistTracks(uris, library.value.tracks, deviceTracks.value)
         playFrom(tracks, uris[startIndex.coerceIn(0, uris.size - 1)])
     }
 

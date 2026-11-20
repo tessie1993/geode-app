@@ -19,6 +19,18 @@ object DirectorNative {
     )
 
     /**
+     * What live surfaces drive with (core/viz/Director, director::liveAmount), 0 or 1: from the switch [on], whether
+     * the entitlement keeps the whole song ([entitled]: Pro or the trial), the song's [positionMs] and whether the
+     * app's own player is [playing]. Free gets the first minute while it plays. Hand the result to [directorSet].
+     */
+    external fun directorLiveAmount(
+        on: Boolean,
+        entitled: Boolean,
+        positionMs: Long,
+        playing: Boolean,
+    ): Float
+
+    /**
      * How far the director reaches past its look (core/viz/DirectorReach): 0 the look alone, 1 it also
      * shuffles Customize categories at a new section or a drop, 2 it also runs slow modulators of its own.
      * Process-wide like [directorSet] and pinned with it by an export; nothing happens while Auto is off.

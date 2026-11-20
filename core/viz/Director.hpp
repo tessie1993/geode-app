@@ -70,11 +70,11 @@ struct DirectorConfig {
 };
 
 namespace director {
-// The free taste (pro/FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS, which times the live taste in the shell): a free
+// The free taste: a free
 // user's director drives the first minute of each song, and an export no longer than that throughout.
 constexpr long long kFreeTasteMs = 60'000;
 // `on` is the user's switch (Visuals › Settings › Auto Director) as set, before any entitlement; `amount`
-// is what live surfaces drive with now (the switch cut to the free taste by the shell's live rule).
+// is what live surfaces drive with now (the switch cut to the free taste by liveAmount).
 void setGlobal(bool on, float amount, uint64_t seed);
 // What live surfaces drive with: the live amount and the play's seed.
 DirectorConfig global();
@@ -85,6 +85,11 @@ bool switchOn();
 // `entitled` (Pro or the trial); otherwise full only when the whole export fits the free taste. The play's
 // `seed`, so it makes the same film. A pure function, so it is host-tested (resolver_test).
 DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long durationMs);
+// What live surfaces drive with, 0 or 1: 0 with the switch off; 1 when `entitled` (Pro or the trial), whatever
+// the source; for a free user 1 only while the app's own player plays (`playerPlaying`) and `positionMs` is
+// inside the taste, else 0. The mic and other apps' audio pause the player, so they have no position to time
+// a taste with and get none. A pure function, so it is host-tested (resolver_test).
+float liveAmount(bool switchOn, bool entitled, long long positionMs, bool playerPlaying);
 
 // What a style moment asks of Auto's pick (viz/DirectorStyle).
 struct StyleIntent {

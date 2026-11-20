@@ -15,7 +15,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `pro`
 
-- Open first: `FreeTier` (edit to tune the free tier), `FeatureGate`, `GetFeatureGateUseCase`, `BillingRepository`, `PaywallNavigator`, `AutoDirectorPolicy`.
+- Open first: `FreeTier` (edit to tune the free tier), `FeatureGate`, `GetFeatureGateUseCase`, `BillingRepository`, `PaywallNavigator`.
 - Pure Kotlin (no `android.*`).
 - Holds the Pro entitlement rules, the free tier, the billing and trial interfaces, the one gate use case, the paywall request, and the auto-director's taste rule.
 

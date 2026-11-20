@@ -7,8 +7,8 @@ import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.DirectorNative
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
+import dev.geode.pro.ProFeature
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,7 +23,7 @@ import kotlin.random.Random
  *
  * The work is native (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
  * over every style, never colour or a reaction route. This store only tells the engine how much to
- * drive (the switch, cut to the free taste by [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
+ * drive (the switch, cut to the free taste by native director::liveAmount) and which play it is: each new track gets a new seed, so a replay is a new film
  * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
  * is process-wide, so the screen, the wallpaper and the dream all follow it. The switch itself goes
  * native too: an export's renderer pins its director from it once at prepare (geode_viz_pin_engine_settings,
@@ -32,7 +32,7 @@ import kotlin.random.Random
  *
  * On by default: Auto is one mode now, the director driving the look with an optional timed style
  * change on top (Auto visuals' timer, `AutoVisualsPrefsStore`), and a fresh install
- * starts with the director part on. A free user gets the first minute of each song ([AutoDirectorPolicy]).
+ * starts with the director part on. A free user gets the first minute of each song (native director::liveAmount).
  *
  * How far it reaches past its look is [reach] (Visuals › Settings, under Auto Director): the levels and what each
  * does are native (core/viz/DirectorReach); this store keeps the choice and hands it over, with Customize's
@@ -160,7 +160,7 @@ class AutoDirectorStore internal constructor(
     private fun push() {
         if (!loaded) return
         val on = repository.value.value.enabled
-        val amount = AutoDirectorPolicy.amount(on, gate, positionMs, playing)
+        val amount = DirectorNative.directorLiveAmount(on, gate.allows(ProFeature.AUTO_DIRECTOR), positionMs, playing)
         val next = Triple(on, amount, seed)
         if (next == pushed) return
         pushed = next

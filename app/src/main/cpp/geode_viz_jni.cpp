@@ -380,6 +380,13 @@ Java_dev_geode_engine_bridge_DirectorNative_directorSet(JNIEnv*, jobject, jboole
     geode_director_set(on == JNI_TRUE ? 1 : 0, amount, static_cast<long long>(seed));
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_DirectorNative_directorLiveAmount(JNIEnv*, jobject, jboolean on, jboolean entitled, jlong positionMs,
+                                                              jboolean playing) {
+    return geode_director_live_amount(on == JNI_TRUE ? 1 : 0, entitled == JNI_TRUE ? 1 : 0, static_cast<long long>(positionMs),
+                                      playing == JNI_TRUE ? 1 : 0);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_directorReachSet(JNIEnv*, jobject, jint level) {
     geode_director_reach_set(level);

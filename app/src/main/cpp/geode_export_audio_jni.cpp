@@ -11,8 +11,6 @@ namespace {
 
 // Layout of the double[] exportLoudnessMeasure fills; ExportAudioNative.exportLoudnessMeasure documents the same order.
 constexpr jsize kReadingDoubles = 9;
-// Sample-table rows copied per call into the long[] aacJobSamples returns.
-constexpr int kRowsPerCopy = 256;
 
 geode_aac_job* aacJobOf(jlong handle) { return reinterpret_cast<geode_aac_job*>(handle); }
 
@@ -75,35 +73,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_ExportAudioNative_aacJobTrac
     jlong copy[GEODE_AAC_TRACK_VALUES];
     std::copy(values, values + GEODE_AAC_TRACK_VALUES, copy);
     env->SetLongArrayRegion(out, 0, GEODE_AAC_TRACK_VALUES, copy);
-}
-
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_ExportAudioNative_aacJobSamples(JNIEnv* env, jobject, jlong job) {
-    int64_t track[GEODE_AAC_TRACK_VALUES] = {};
-    geode_aac_job_track(aacJobOf(job), track);
-    const int64_t rows = track[GEODE_AAC_TRACK_SAMPLES];
-    const int64_t longs = rows * GEODE_AAC_SAMPLE_VALUES;
-    if (longs > INT32_MAX) return nullptr;
-    jlongArray out = env->NewLongArray(static_cast<jsize>(longs));
-    if (!out) return nullptr;
-    int64_t chunk[kRowsPerCopy * GEODE_AAC_SAMPLE_VALUES];
-    jlong copy[kRowsPerCopy * GEODE_AAC_SAMPLE_VALUES];
-    for (int first = 0; first < rows;) {
-        const int n = geode_aac_job_samples(aacJobOf(job), first, kRowsPerCopy, chunk);
-        if (n <= 0) break;
-        std::copy(chunk, chunk + n * GEODE_AAC_SAMPLE_VALUES, copy);
-        env->SetLongArrayRegion(out, first * GEODE_AAC_SAMPLE_VALUES, n * GEODE_AAC_SAMPLE_VALUES, copy);
-        first += n;
-    }
-    return out;
-}
-
-JNIEXPORT jbyteArray JNICALL Java_dev_geode_engine_bridge_ExportAudioNative_aacJobCsd(JNIEnv* env, jobject, jlong job) {
-    int size = 0;
-    const uint8_t* csd = geode_aac_job_csd(aacJobOf(job), &size);
-    if (!csd || size <= 0) return nullptr;
-    jbyteArray out = env->NewByteArray(size);
-    if (out) env->SetByteArrayRegion(out, 0, size, reinterpret_cast<const jbyte*>(csd));
-    return out;
 }
 
 }

@@ -62,6 +62,11 @@ struct Request {
     int outputRateHz = 0;       // 0: aacRateFor the decoded rate
 };
 
+// The finished track's format as a muxer is handed it whole (EncodeSink's Codecs::trackFormat): the keys
+// MediaFormat.createAudioFormat sets (mime, sample-rate, channel-count), the bit rate and, when csdBytes > 0, csd-0.
+std::vector<sink::FormatEntry> formatEntries(int sampleRateHz, int channels, int bitRate, const uint8_t* csd,
+                                             size_t csdBytes);
+
 class Host {
 public:
     virtual ~Host() = default;

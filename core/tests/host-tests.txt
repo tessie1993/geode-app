@@ -533,6 +533,12 @@ loop_render_test | stub | core/tests/loop_render_test.cpp core/output/LoopRender
 video_export_test | stub | core/tests/video_export_test.cpp core/output/VideoExport.cpp core/output/FrameClock.cpp \
     core/output/EncodePlan.cpp core/audio/dsp/PcmTiming.cpp |
 
+# --- Loop extend copy host test
+# The loop extend's copy (core/output/LoopMux) on a fake extractor, scratch file and muxer: every repeat's samples
+# shifted by whole loops with their keyframes, the last repeat cut at the running time, the soundtrack interleaved
+# as the repeats go in, and what a cancel and each failure leave behind.
+loop_mux_test | stub | core/tests/loop_mux_test.cpp core/output/LoopMux.cpp core/output/LoopExtend.cpp     core/output/LoopPlan.cpp |
+
 # --- Params host tests
 # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
 params_test | core | core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp \

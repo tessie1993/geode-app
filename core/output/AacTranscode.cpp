@@ -15,7 +15,36 @@ namespace {
 constexpr int kMaxChannels = 2;
 constexpr int64_t kUsPerMs = 1000;
 
+sink::FormatEntry intEntry(const char* key, int value) {
+    sink::FormatEntry entry;
+    entry.key = key;
+    entry.type = sink::kFormatInt32;
+    entry.whole = value;
+    return entry;
+}
+
 }  // namespace
+
+std::vector<sink::FormatEntry> formatEntries(int sampleRateHz, int channels, int bitRate, const uint8_t* csd,
+                                             size_t csdBytes) {
+    std::vector<sink::FormatEntry> entries;
+    sink::FormatEntry mime;
+    mime.key = "mime";
+    mime.type = sink::kFormatString;
+    mime.text = sink::kMimeAac;
+    entries.push_back(std::move(mime));
+    entries.push_back(intEntry("sample-rate", sampleRateHz));
+    entries.push_back(intEntry("channel-count", channels));
+    entries.push_back(intEntry("bitrate", bitRate));
+    if (csd && csdBytes > 0) {
+        sink::FormatEntry config;
+        config.key = "csd-0";
+        config.type = sink::kFormatBuffer;
+        config.bytes.assign(csd, csd + csdBytes);
+        entries.push_back(std::move(config));
+    }
+    return entries;
+}
 
 Transcode::Transcode(const Request& request, std::unique_ptr<audio::ingest::AiffReader> aiff, Host& host)
     : request_(request), host_(host), aiff_(std::move(aiff)) {

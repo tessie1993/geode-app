@@ -84,89 +84,10 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_loopFittingBitR
     return geode_loop_fitting_bit_rate(totalUs, limitBytes, soundtrackBytes);
 }
 
-// Loop extend's copy decisions (output/LoopExtend): marshalling only.
-static_assert(sizeof(jlong) == sizeof(int64_t) && sizeof(jint) == sizeof(int), "the arrays move as they are");
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_loopRepeatSamples(JNIEnv* env, jobject, jlongArray times,
-                                                                                   jintArray flags, jlong offsetUs,
-                                                                                   jlong limitUs, jlongArray outPts,
-                                                                                   jintArray outFlags) {
-    const jsize count = std::min({env->GetArrayLength(times), env->GetArrayLength(flags), env->GetArrayLength(outPts),
-                                  env->GetArrayLength(outFlags)});
-    std::vector<int64_t> t(static_cast<size_t>(count));
-    std::vector<int> f(static_cast<size_t>(count));
-    env->GetLongArrayRegion(times, 0, count, reinterpret_cast<jlong*>(t.data()));
-    env->GetIntArrayRegion(flags, 0, count, f.data());
-    std::vector<int64_t> pts(static_cast<size_t>(count));
-    std::vector<int> outF(static_cast<size_t>(count));
-    const int n = geode_loop_repeat_samples(t.data(), f.data(), count, offsetUs, limitUs, pts.data(), outF.data());
-    if (n > 0) {
-        env->SetLongArrayRegion(outPts, 0, n, reinterpret_cast<const jlong*>(pts.data()));
-        env->SetIntArrayRegion(outFlags, 0, n, outF.data());
-    }
-    return n;
-}
-
-JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_ExportNative_loopClipStarts(JNIEnv* env, jobject,
-                                                                                      jlongArray durations) {
-    const jsize clips = env->GetArrayLength(durations);
-    std::vector<int64_t> d(static_cast<size_t>(clips));
-    if (clips > 0) env->GetLongArrayRegion(durations, 0, clips, reinterpret_cast<jlong*>(d.data()));
-    std::vector<int64_t> starts(static_cast<size_t>(clips) + 1);
-    geode_loop_clip_starts(d.data(), clips, starts.data());
-    jlongArray result = env->NewLongArray(clips + 1);
-    if (result) env->SetLongArrayRegion(result, 0, clips + 1, reinterpret_cast<const jlong*>(starts.data()));
-    return result;
-}
-
-// The sample times of the whole soundtrack are pinned, not copied: a ten-hour mix is millions of entries and this
-// runs once per repeat.
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_loopAudioDue(JNIEnv* env, jobject, jlongArray clipStarts,
-                                                                              jintArray sampleCounts, jlongArray samplePts,
-                                                                              jintArray cursor, jlong untilUs,
-                                                                              jintArray outClip, jintArray outSample,
-                                                                              jlongArray outPts) {
-    const jsize clips = std::min(env->GetArrayLength(clipStarts), env->GetArrayLength(sampleCounts));
-    const jsize capacity = std::min({env->GetArrayLength(outClip), env->GetArrayLength(outSample), env->GetArrayLength(outPts)});
-    if (env->GetArrayLength(cursor) < 2) return 0;
-    std::vector<int64_t> starts(static_cast<size_t>(clips));
-    std::vector<int> counts(static_cast<size_t>(clips));
-    if (clips > 0) {
-        env->GetLongArrayRegion(clipStarts, 0, clips, reinterpret_cast<jlong*>(starts.data()));
-        env->GetIntArrayRegion(sampleCounts, 0, clips, counts.data());
-    }
-    int c[2] = {};
-    env->GetIntArrayRegion(cursor, 0, 2, reinterpret_cast<jint*>(c));
-    std::vector<int> clipOut(static_cast<size_t>(capacity));
-    std::vector<int> sampleOut(static_cast<size_t>(capacity));
-    std::vector<int64_t> ptsOut(static_cast<size_t>(capacity));
-    auto* pts = static_cast<const int64_t*>(env->GetPrimitiveArrayCritical(samplePts, nullptr));
-    if (!pts) return 0;
-    const int n = geode_loop_audio_due(starts.data(), counts.data(), clips, pts, c, untilUs, clipOut.data(),
-                                       sampleOut.data(), ptsOut.data(), capacity);
-    env->ReleasePrimitiveArrayCritical(samplePts, const_cast<int64_t*>(pts), JNI_ABORT);
-    env->SetIntArrayRegion(cursor, 0, 2, reinterpret_cast<const jint*>(c));
-    if (n > 0) {
-        env->SetIntArrayRegion(outClip, 0, n, clipOut.data());
-        env->SetIntArrayRegion(outSample, 0, n, sampleOut.data());
-        env->SetLongArrayRegion(outPts, 0, n, reinterpret_cast<const jlong*>(ptsOut.data()));
-    }
-    return n;
-}
-
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_ExportNative_loopCopyProgress(JNIEnv*, jobject, jint done,
-                                                                                    jint repeats) {
-    return geode_loop_copy_progress(done, repeats);
-}
-
+// Loop extend's soundtrack progress (output/LoopExtend); its copy is LoopMuxNative's.
 JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_ExportNative_loopTranscodeProgress(JNIEnv*, jobject, jint index,
                                                                                          jfloat clipProgress, jint clips) {
     return geode_loop_transcode_progress(index, clipProgress, clips);
-}
-
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_ExportNative_loopSampleBufferBytes(JNIEnv*, jobject, jint declaredBytes,
-                                                                                       jint width, jint height) {
-    return geode_loop_sample_buffer_bytes(declaredBytes, width, height);
 }
 
 // Encoder requests (output/EncodePlan).

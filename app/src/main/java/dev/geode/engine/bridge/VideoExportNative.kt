@@ -82,23 +82,12 @@ object VideoExportNative {
         corner: Int,
     ): Boolean
 
-    /** The encoded audio: its scratch file and its samples as `[offset, size, ptsUs, flags]` quadruples; false when the file cannot be opened. */
+    /** The encoded audio: the finished [ExportAudioNative] transcode [aacJob] and its scratch file at [path]; false when it cannot be read. */
     external fun videoExportSetAudio(
         job: Long,
+        aacJob: Long,
         path: String,
-        samples: LongArray,
     ): Boolean
-
-    /** One key of the audio's format, typed as MediaFormat.getValueTypeForKey types it. */
-    external fun videoExportAddAudioKey(
-        job: Long,
-        key: String,
-        type: Int,
-        whole: Long,
-        real: Float,
-        text: String?,
-        bytes: ByteArray?,
-    )
 
     /** Renders the file on the calling thread; returns once it is rendered, cancelled or failed. */
     external fun videoExportRun(job: Long)

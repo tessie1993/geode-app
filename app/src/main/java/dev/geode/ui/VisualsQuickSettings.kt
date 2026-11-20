@@ -97,7 +97,7 @@ import kotlin.math.roundToInt
  * so the two can never disagree: the Auto Director is [AutoDirectorStore], the timer, its sources and the
  * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), and the glass rows are
  * [GeneralSettings] through [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user
- * may switch the Auto Director on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
+ * may switch the Auto Director on and gets the first minute of each song (native director::liveAmount).
  *
  * Every control is one row, at least [GeodeSpacing.TouchTarget] tall. From [TWO_COLUMN_WIDTH] the
  * rows split into two columns (the landscape panel, a tablet). Back is the sheet's: the page is on

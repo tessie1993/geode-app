@@ -444,12 +444,12 @@ void testPinnedAgainstGlobals() {
     check(same, "changing the process globals mid-run never reaches a resolver's frames");
 }
 
-// An export's director (#350), the rule the shell's AutoDirectorPolicy.exportAmount had: off with the switch
+// An export's director (#350), the rule: off with the switch
 // off; Pro and the trial throughout; free throughout only when the whole export fits the free taste (60 s),
 // else not at all. Never the live amount, and always the play's seed.
 void testDirectorForExport() {
     namespace director = geode::viz::director;
-    check(director::kFreeTasteMs == 60'000, "the free taste is the shell's FREE_AUTO_DIRECTOR_TASTE_MS");
+    check(director::kFreeTasteMs == 60'000, "the free taste is a minute");
     bool off = true;
     for (bool entitled : {false, true})
         for (long long ms : {0LL, 30'000LL, 60'000LL, 300'000LL}) off = off && director::forExport(false, 9, entitled, ms).amount == 0.0f;
@@ -460,6 +460,20 @@ void testDirectorForExport() {
     check(director::forExport(true, 9, false, 60'001).amount == 0.0f, "free does not direct an export a millisecond past the taste");
     check(director::forExport(true, 9, false, 300'000).amount == 0.0f, "free does not direct a long export");
     check(director::forExport(true, 0xDEADBEEFull, true, 1).seed == 0xDEADBEEFull, "an export keeps the play's seed");
+
+    // The live amount (was the shell's AutoDirectorPolicy.amount): off is off for everyone; entitled directs
+    // the whole song and any source; free gets the first minute only while the player plays.
+    bool liveOff = true;
+    for (bool entitled : {false, true})
+        for (bool playing : {false, true}) liveOff = liveOff && director::liveAmount(false, entitled, 0, playing) == 0.0f;
+    check(liveOff, "the switch off drives no live look, entitled or free, playing or not");
+    check(director::liveAmount(true, true, 600'000, true) == 1.0f, "Pro and the trial direct the whole song");
+    check(director::liveAmount(true, true, 0, false) == 1.0f, "Pro and the trial keep directing the mic and other apps' audio");
+    check(director::liveAmount(true, false, 0, true) == 1.0f, "free directs the start of a song");
+    check(director::liveAmount(true, false, director::kFreeTasteMs - 1, true) == 1.0f, "free directs up to the last millisecond of the taste");
+    check(director::liveAmount(true, false, director::kFreeTasteMs, true) == 0.0f, "free is not directed from the end of the taste");
+    check(director::liveAmount(true, false, 0, false) == 0.0f, "free gets no taste when the player is not the source");
+    check(director::liveAmount(true, false, -1, true) == 0.0f, "free gets no taste from a position before the song");
 }
 
 // A pinned latch (an export, #350) keeps the macro bank, the Note & key switch, the hand mask and the director it

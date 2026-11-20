@@ -46,7 +46,7 @@ enum class ProFeature {
 
     /**
      * The auto-director (core/viz/Director) for the whole song. Free users get the first
-     * [FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS] of each song (see [AutoDirectorPolicy]).
+     * minute of each song (native director::liveAmount).
      */
     AUTO_DIRECTOR,
 

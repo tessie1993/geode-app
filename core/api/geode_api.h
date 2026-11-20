@@ -50,6 +50,11 @@ GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
  * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
  * makes the same film. */
 GEODE_API void        geode_director_set(int on, float amount, long long seed);
+/* What live surfaces drive with (core/viz/Director, director::liveAmount): 0 or 1 from the user's switch (on),
+ * the entitlement (entitled: Pro or the trial, 1/0), the song's position and whether the app's own player is
+ * playing. Free gets the first minute of a song while the player plays; the mic and other apps' audio get none.
+ * Pass the result to geode_director_set. */
+GEODE_API float       geode_director_live_amount(int on, int entitled, long long position_ms, int playing);
 /* The director's reach past its look (core/viz/DirectorReach), process-wide like geode_director_set and pinned
  * with it by an export. level: 0 the look alone, 1 + it shuffles Customize categories at a new section or a
  * drop, 2 + its own slow modulators on sliders; anything else is 0. Nothing happens while the director is off. */

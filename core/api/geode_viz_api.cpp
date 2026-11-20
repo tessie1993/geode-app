@@ -729,6 +729,10 @@ void geode_director_set(int on, float amount, long long seed) {
     director::setGlobal(on != 0, amount, static_cast<uint64_t>(seed));
 }
 
+float geode_director_live_amount(int on, int entitled, long long position_ms, int playing) {
+    return director::liveAmount(on != 0, entitled != 0, position_ms, playing != 0);
+}
+
 void geode_director_reach_set(int level) { director::setReach(level); }
 
 void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); }

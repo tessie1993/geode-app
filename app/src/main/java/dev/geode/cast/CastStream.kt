@@ -133,7 +133,7 @@ internal class CastStream(
         if (handle == 0L) {
             server.stop()
             webrtc.close()
-            throw IllegalStateException("no cast render thread")
+            error("no cast render thread")
         }
         synchronized(renderLock) { render = handle }
         // The TV plays the ring as written, not the muted phone's sink: no reader waits for the speaker.

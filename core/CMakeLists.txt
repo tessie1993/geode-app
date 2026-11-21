@@ -162,6 +162,7 @@ add_library(geode_core STATIC
     output/FrameClock.cpp
     output/ExportFrame.cpp
     output/LoopExtend.cpp
+    output/LoopMux.cpp
     output/LoopPlan.cpp
     output/LoopRender.cpp
     output/AacTranscode.cpp
@@ -180,6 +181,8 @@ add_library(geode_core STATIC
     output/android/LoopRenderHost.cpp
     api/geode_loop_job_api.cpp
     output/android/VideoExportHost.cpp
+    output/android/LoopMuxHost.cpp
+    api/geode_loop_mux_api.cpp
     api/geode_video_export_api.cpp
     api/geode_record_session_api.cpp
     output/Chapters.cpp

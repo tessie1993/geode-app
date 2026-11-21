@@ -316,19 +316,22 @@ class VideoExporter(
         onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
     ): Boolean {
-        // Seam for the native transcoder (#1229, the audio half): the shell's AudioTranscoder still makes the AAC
-        // track, and setAudio hands its scratch file, samples and format to the job. A native transcoder fills
-        // the same request (core/output/VideoExport's Request::audio) and this call and setAudio go.
-        val aac =
-            AudioTranscoder(context).transcode(
-                uri = render.audioUri,
-                maxDurationMs = render.range?.durationMs ?: 0L,
-                startMs = render.range?.startMs ?: 0L,
-                isCancelled = isCancelled,
-            ) { onProgress(VideoExportNative.videoExportLeadIn(it), false) }
         val job = VideoExportNative.videoExportCreate()
+        var aac: AudioTranscoder.Result? = null
         try {
             check(job != 0L) { "export job not created" }
+            // The transcode is native (core/output/AacTranscode); its finished track goes straight to the export job.
+            aac =
+                AudioTranscoder(context).transcode(
+                    uri = render.audioUri,
+                    maxDurationMs = render.range?.durationMs ?: 0L,
+                    startMs = render.range?.startMs ?: 0L,
+                    isCancelled = isCancelled,
+                    handOver = { aacJob, file ->
+                        val taken = VideoExportNative.videoExportSetAudio(job, aacJob, file.absolutePath)
+                        check(taken) { "the audio track cannot be read back" }
+                    },
+                ) { onProgress(VideoExportNative.videoExportLeadIn(it), false) }
             val aspect = render.aspect
             VideoExportNative.videoExportSetOutput(
                 job,
@@ -343,7 +346,6 @@ class VideoExporter(
             setScene(job, render)
             setTrack(job, render)
             setMark(job, render)
-            setAudio(job, aac)
             coroutineScope {
                 val poll =
                     launch {
@@ -366,7 +368,7 @@ class VideoExporter(
             return keptOrThrow(job, aspect, isCancelled)
         } finally {
             VideoExportNative.videoExportDestroy(job)
-            aac.release()
+            aac?.release()
         }
     }
 
@@ -421,37 +423,6 @@ class VideoExporter(
         }
     }
 
-    /** The transcoder's track as it made it: its scratch file, its samples and every key of its format. */
-    private fun setAudio(
-        job: Long,
-        aac: AudioTranscoder.Result,
-    ) {
-        val samples = LongArray(aac.sampleInfos.size * SAMPLE_LONGS)
-        aac.sampleInfos.forEachIndexed { i, s ->
-            samples[i * SAMPLE_LONGS] = s.offset
-            samples[i * SAMPLE_LONGS + 1] = s.size.toLong()
-            samples[i * SAMPLE_LONGS + 2] = s.presentationTimeUs
-            samples[i * SAMPLE_LONGS + 3] = s.flags.toLong()
-        }
-        check(VideoExportNative.videoExportSetAudio(job, aac.file.absolutePath, samples)) { "the audio track cannot be read back" }
-        val f = aac.format
-        for (key in f.keys) {
-            val type = f.getValueTypeForKey(key)
-            val whole =
-                when (type) {
-                    MediaFormat.TYPE_INTEGER -> f.getInteger(key).toLong()
-                    MediaFormat.TYPE_LONG -> f.getLong(key)
-                    else -> 0L
-                }
-            val real = if (type == MediaFormat.TYPE_FLOAT) f.getFloat(key) else 0f
-            val text = if (type == MediaFormat.TYPE_STRING) f.getString(key) else null
-            val bytes = if (type == MediaFormat.TYPE_BYTE_BUFFER) f.getByteBuffer(key)?.duplicate()?.let(::bytesOf) else null
-            VideoExportNative.videoExportAddAudioKey(job, key, type, whole, real, text, bytes)
-        }
-    }
-
-    private fun bytesOf(buffer: java.nio.ByteBuffer): ByteArray = ByteArray(buffer.remaining()).also { buffer.get(it) }
-
     /** What the finished job says: kept, cancelled, or a failure thrown in the shell's words. */
     private fun keptOrThrow(
         job: Long,
@@ -477,8 +448,5 @@ class VideoExporter(
         error(message)
     }
 }
-
-// The long[] videoExportSetAudio takes per sample: offset, size, ptsUs, flags.
-private const val SAMPLE_LONGS = 4
 
 private const val TAG = "VideoExporter"

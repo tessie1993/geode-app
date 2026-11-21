@@ -16,11 +16,11 @@
 #include <utility>
 #include <vector>
 
+#include "api/AacJobTrack.hpp"
 #include "output/VideoExport.hpp"
 #include "output/android/VideoExportHost.hpp"
 
 namespace ve = geode::output::videoexport;
-namespace sink = geode::output::sink;
 
 struct geode_video_export {
     ~geode_video_export() {
@@ -51,9 +51,6 @@ static_assert(static_cast<int>(ve::Failure::Stalled) == GEODE_VIDEO_FAILURE_STAL
 static_assert(static_cast<int>(ve::Failure::EncoderFailed) == GEODE_VIDEO_FAILURE_ENCODER_FAILED);
 static_assert(static_cast<int>(ve::Failure::EmptyBuffer) == GEODE_VIDEO_FAILURE_EMPTY_BUFFER);
 static_assert(static_cast<int>(ve::Failure::Stopped) == GEODE_VIDEO_FAILURE_STOPPED);
-static_assert(sink::kFormatInt32 == GEODE_FORMAT_INT32 && sink::kFormatInt64 == GEODE_FORMAT_INT64 &&
-              sink::kFormatFloat == GEODE_FORMAT_FLOAT && sink::kFormatString == GEODE_FORMAT_STRING &&
-              sink::kFormatBuffer == GEODE_FORMAT_BUFFER);
 
 namespace {
 
@@ -185,42 +182,21 @@ void geode_video_export_set_mark(geode_video_export* h, const uint8_t* rgba, int
     }
 }
 
-int geode_video_export_set_audio(geode_video_export* h, const char* scratch_path, const int64_t* samples, int count) {
-    if (!h || !scratch_path) return 0;
+int geode_video_export_set_audio(geode_video_export* h, const geode_aac_job* job, const char* scratch_path) {
+    if (!h || !job || !scratch_path) return 0;
     try {
+        geode::api::AacTrack track;
+        if (!geode::api::readAacTrack(job, &track)) return 0;
         if (h->setup.audioFd >= 0) ::close(h->setup.audioFd);
         h->setup.audioFd = ::open(scratch_path, O_RDONLY | O_CLOEXEC);
         if (h->setup.audioFd < 0) return 0;
         struct stat info {};
         h->request.audioBytes = ::fstat(h->setup.audioFd, &info) == 0 ? static_cast<int64_t>(info.st_size) : 0;
-        h->request.audio.clear();
-        if (samples && count > 0) {
-            h->request.audio.reserve(static_cast<size_t>(count));
-            for (int i = 0; i < count; ++i) {
-                const int64_t* s = samples + static_cast<ptrdiff_t>(i) * 4;
-                h->request.audio.push_back(
-                    {s[0], static_cast<int32_t>(s[1]), s[2], static_cast<uint32_t>(s[3])});
-            }
-        }
+        h->request.audio = std::move(track.samples);
+        h->request.audioFormat = std::move(track.format);
         return 1;
     } catch (...) {
         return 0;
-    }
-}
-
-void geode_video_export_add_audio_key(geode_video_export* h, const char* key, int type, int64_t whole, float real,
-                                      const char* text, const uint8_t* bytes, int byte_count) {
-    if (!h || !key) return;
-    try {
-        sink::FormatEntry entry;
-        entry.key = key;
-        entry.type = type;
-        entry.whole = whole;
-        entry.real = real;
-        entry.text = text ? text : "";
-        if (bytes && byte_count > 0) entry.bytes.assign(bytes, bytes + byte_count);
-        h->request.audioFormat.push_back(std::move(entry));
-    } catch (...) {
     }
 }
 

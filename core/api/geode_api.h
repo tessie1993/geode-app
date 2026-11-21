@@ -1727,8 +1727,8 @@ GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, 
                                              int64_t soundtrack_bytes);
 GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
 
-/* What a loop extend decides while it copies encoded samples (output/LoopExtend); the shell only reads and
- * writes them. geode_loop_repeat_samples: the leading samples of one repeat, times shifted by offset_us, that
+/* What a loop extend decides while it copies encoded samples (output/LoopExtend); the copy itself is output/LoopMux,
+ * which calls these in C++, so none has a JNI caller. geode_loop_repeat_samples: the leading samples of one repeat, times shifted by offset_us, that
  * land before limit_us; fills out_pts_us and out_flags (muxer flags from the extractor's) and returns how many.
  * geode_loop_clip_starts: where back-to-back clips begin, then the total, in out[clip_count + 1].
  * geode_loop_audio_due: the soundtrack samples due before until_us as (clip, sample) pairs with their time in the

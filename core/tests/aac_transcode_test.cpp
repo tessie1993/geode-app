@@ -440,9 +440,27 @@ void failuresOf() {
     }
 }
 
+// The track's format as a muxer takes it whole: the keys the shell used to copy out of its MediaFormat.
+void formatKeys() {
+    const uint8_t csd[2] = {0x12, 0x10};
+    const std::vector<sink::FormatEntry> e = aac::formatEntries(44'100, 2, aac::kBitRate, csd, 2);
+    check(e.size() == 5, "a format with csd carries five keys");
+    check(e.size() == 5 && e[0].key == "mime" && e[0].type == sink::kFormatString && e[0].text == sink::kMimeAac,
+          "mime first, AAC");
+    check(e.size() == 5 && e[1].key == "sample-rate" && e[1].type == sink::kFormatInt32 && e[1].whole == 44'100,
+          "the rate");
+    check(e.size() == 5 && e[2].key == "channel-count" && e[2].whole == 2, "the channels");
+    check(e.size() == 5 && e[3].key == "bitrate" && e[3].whole == aac::kBitRate, "the bit rate");
+    check(e.size() == 5 && e[4].key == "csd-0" && e[4].type == sink::kFormatBuffer && e[4].bytes.size() == 2 &&
+              e[4].bytes[0] == 0x12,
+          "csd-0 as a buffer");
+    check(aac::formatEntries(48'000, 1, aac::kBitRate, nullptr, 0).size() == 4, "no csd, no csd key");
+}
+
 }  // namespace
 
 int main() {
+    formatKeys();
     aiffWhole();
     aiffRange();
     aiffResampled();

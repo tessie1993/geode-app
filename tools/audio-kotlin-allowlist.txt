@@ -27,11 +27,3 @@ permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:aif
 # ---- debt: viz feed ----
 debt app/src/main/java/dev/geode/viz/NativeViz.kt native-call:vizWriteAudio passes an interleaved FloatArray to a renderer's sound engine
 debt app/src/main/java/dev/geode/engine/bridge/VizNative.kt external:vizWriteAudio JNI declaration taking a FloatArray of samples
-
-# ---- debt: export, loop render and Studio audio ----
-debt app/src/main/java/dev/geode/export/LoopExtend.kt extractor-sample copies the soundtrack's compressed samples through MediaExtractor
-debt app/src/main/java/dev/geode/export/LoopExtend.kt muxer-sample writes AAC samples to the MediaMuxer
-
-# ---- debt: cast ----
-debt app/src/main/java/dev/geode/export/VideoExporter.kt native-call:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)
-debt app/src/main/java/dev/geode/engine/bridge/VideoExportNative.kt external:videoExportAddAudioKey carries the AAC track's format keys to the native video job until the native transcoder fills them (#1229)

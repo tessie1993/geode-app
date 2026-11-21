@@ -31,9 +31,6 @@ object ExportAudioNative {
     const val AAC_TRACK_SAMPLES = 5
     const val AAC_TRACK_LONGS = 6
 
-    /** [aacJobSamples] rows: offset in the file, size, pts (us), flags. */
-    const val AAC_SAMPLE_LONGS = 4
-
     /**
      * The track at [fd] ([offset] and [length] its AssetFileDescriptor's span; [length] < 0: the whole descriptor)
      * encoded to AAC from [startMs] for [maxDurationMs] (0: to the end) at [outputRateHz] (0: the AAC rate for its
@@ -72,12 +69,6 @@ object ExportAudioNative {
         job: Long,
         out: LongArray,
     )
-
-    /** Once done, the sample table, [AAC_SAMPLE_LONGS] per access unit. */
-    external fun aacJobSamples(job: Long): LongArray?
-
-    /** Once done, the track's codec-specific data (csd-0); null when there is none. */
-    external fun aacJobCsd(job: Long): ByteArray?
 
     // An export's platform audio work (core/api/geode_export_audio_api.h): blocking, on the caller's thread.
 

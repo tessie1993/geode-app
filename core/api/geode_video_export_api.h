@@ -2,6 +2,7 @@
 #define GEODE_VIDEO_EXPORT_API_H
 
 #include "api/geode_api.h"
+#include "api/geode_export_audio_api.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,20 +45,10 @@ GEODE_API void geode_video_export_set_underlay(geode_video_export*, const uint32
 GEODE_API void geode_video_export_set_mark(geode_video_export*, const uint8_t* rgba, int tile_w, int tile_h,
                                            int placement, int corner);
 
-/* The audio track, already encoded: the scratch file its samples sit in (opened here, closed by destroy) and
-   `count` samples as {offset, size, pts_us, flags} quadruples, in timestamp order. 0 when the file cannot be
-   opened. This is the seam the native transcoder will fill in place of the shell's. */
-GEODE_API int  geode_video_export_set_audio(geode_video_export*, const char* scratch_path, const int64_t* samples,
-                                            int count);
-/* One key of the audio track's format as the encoder named it, typed as MediaFormat types it: 1 int32 and
-   2 int64 (whole), 3 float (real), 4 string (text), 5 buffer (bytes, byte_count). */
-#define GEODE_FORMAT_INT32  1
-#define GEODE_FORMAT_INT64  2
-#define GEODE_FORMAT_FLOAT  3
-#define GEODE_FORMAT_STRING 4
-#define GEODE_FORMAT_BUFFER 5
-GEODE_API void geode_video_export_add_audio_key(geode_video_export*, const char* key, int type, int64_t whole,
-                                                float real, const char* text, const uint8_t* bytes, int byte_count);
+/* The audio track, already encoded: the finished transcode `job` (geode_export_audio_api.h, state done), whose
+   samples and format are read out here, and the scratch file its samples sit in (opened here, closed by destroy).
+   The job may be destroyed once this returns. 0 when the job is not done or the file cannot be opened. */
+GEODE_API int  geode_video_export_set_audio(geode_video_export*, const geode_aac_job* job, const char* scratch_path);
 
 /* Renders the whole file; returns when it is rendered, cancelled or failed. A job runs once. */
 GEODE_API void  geode_video_export_run(geode_video_export*);

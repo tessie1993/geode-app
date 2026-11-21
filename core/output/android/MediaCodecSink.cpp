@@ -220,6 +220,10 @@ private:
 
 std::unique_ptr<Codecs> mediaCodecs(int fd) { return std::make_unique<MediaCodecs>(fd); }
 
+std::unique_ptr<TrackFormat> trackFormatOf(AMediaFormat* owned) {
+    return owned ? std::make_unique<MediaTrackFormat>(owned) : nullptr;
+}
+
 bool audioTrackInfo(const TrackFormat& format, int* rateHz, int* channels, std::vector<uint8_t>* csd) {
     AMediaFormat* f = const_cast<AMediaFormat*>(static_cast<const MediaTrackFormat&>(format).get());
     int32_t rate = 0;

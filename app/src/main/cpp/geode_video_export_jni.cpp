@@ -6,7 +6,6 @@
 #include <android/asset_manager_jni.h>
 
 #include <cstdint>
-#include <vector>
 
 #include "api/geode_video_export_api.h"
 #include "jni_util.hpp"
@@ -91,27 +90,12 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoE
 }
 
 JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportSetAudio(JNIEnv* env, jobject,
-                                                                                        jlong job, jstring path,
-                                                                                        jlongArray samples) {
+                                                                                        jlong job, jlong aacJob,
+                                                                                        jstring path) {
     Utf8Chars file(env, path);
-    const jsize length = samples ? env->GetArrayLength(samples) : 0;
-    std::vector<int64_t> values(static_cast<size_t>(length));
-    if (length > 0) env->GetLongArrayRegion(samples, 0, length, reinterpret_cast<jlong*>(values.data()));
-    return geode_video_export_set_audio(jobOf(job), file.get(), values.data(), static_cast<int>(length / 4))
+    return geode_video_export_set_audio(jobOf(job), reinterpret_cast<const geode_aac_job*>(aacJob), file.get())
                ? JNI_TRUE
                : JNI_FALSE;
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportAddAudioKey(
-    JNIEnv* env, jobject, jlong job, jstring key, jint type, jlong whole, jfloat real, jstring text,
-    jbyteArray bytes) {
-    Utf8Chars name(env, key);
-    Utf8Chars value(env, text);
-    const jsize length = bytes ? env->GetArrayLength(bytes) : 0;
-    std::vector<uint8_t> data(static_cast<size_t>(length));
-    if (length > 0) env->GetByteArrayRegion(bytes, 0, length, reinterpret_cast<jbyte*>(data.data()));
-    geode_video_export_add_audio_key(jobOf(job), name.get(), type, whole, real, value.get(), data.data(),
-                                     static_cast<int>(length));
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_VideoExportNative_videoExportRun(JNIEnv*, jobject, jlong job) {

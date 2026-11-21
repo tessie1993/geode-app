@@ -218,6 +218,8 @@ style_schedule_test | core | core/tests/style_schedule_test.cpp core/viz/StyleSc
 hidden_hits_test | bare | core/tests/hidden_hits_test.cpp | core/
 # Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
 cast_clock_test | stub | core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp |
+# The look the cast's own renderer draws, handed from the shell to its render thread (core/cast/CastLook): applied once per set, a deep copy, a null text kept null, whole on a new renderer.
+cast_look_test | stub | core/tests/cast_look_test.cpp |
 # The export post-passes' maths: watermark tiling, seam weights (#442).
 export_passes_test | core | core/tests/export_passes_test.cpp |
 # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.

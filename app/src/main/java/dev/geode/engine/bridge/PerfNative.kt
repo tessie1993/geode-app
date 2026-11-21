@@ -1,38 +1,10 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for performance tiers and the frame clock (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for performance tiers (CLAUDE.md).
 object PerfNative {
     init {
         GeodeNative.ensureLoaded()
     }
-
-    // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
-    // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
-
-    /** Size of the frame clock's state (GEODE_FRAME_CLOCK_STATE). */
-    const val FRAME_CLOCK_STATE = 3
-
-    /** Starts [state] at [nowNs], [fps] frames a second; the first frame is due at once. */
-    external fun frameClockStart(
-        state: LongArray,
-        fps: Int,
-        nowNs: Long,
-    )
-
-    /** Nanoseconds until the next frame is due; 0 when it is due now. */
-    external fun frameClockWaitNs(
-        state: LongArray,
-        nowNs: Long,
-    ): Long
-
-    /** Takes the frame to draw now and returns its PTS in ns; missed slots are dropped, never burst. */
-    external fun frameClockTake(
-        state: LongArray,
-        nowNs: Long,
-    ): Long
-
-    /** The audio cut: the end of the last frame taken, in µs of stream time. */
-    external fun frameClockAudioUntilUs(state: LongArray): Long
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 

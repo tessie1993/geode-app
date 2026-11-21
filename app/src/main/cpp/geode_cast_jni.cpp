@@ -1,7 +1,6 @@
-// The cast's HTTP server (core/cast/LiveServer through geode_cast_server_*) and its encoders (geode_cast_encoder_*):
-// marshalling only.
-#include <android/native_window.h>
-#include <android/native_window_jni.h>
+// The cast's HTTP server (core/cast/LiveServer through geode_cast_server_*) and its render thread, which owns the
+// encoders (geode_cast_render_*): marshalling only.
+#include <android/asset_manager_jni.h>
 #include <jni.h>
 
 #include <cstdint>
@@ -38,33 +37,54 @@ Java_dev_geode_engine_bridge_CastNative_castServerAdmit(JNIEnv*, jobject, jlong 
     geode_cast_server_admit(handle, static_cast<uint32_t>(tv), wants);
 }
 
+// The cast's render thread (core/output/android/CastRenderHost): it opens the encoders, the EGL context, the tee and the
+// fallback renderer itself; the shell hands it the stream's handles and the look, and polls it.
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_CastNative_castEncoderOpen(JNIEnv*, jobject, jlong server, jlong webrtc, jlong music) {
+Java_dev_geode_engine_bridge_CastNative_castRenderStart(JNIEnv* env, jobject, jlong server, jlong webrtc, jlong music,
+                                                         jobject assetManager, jstring cacheDir) {
+    geode::jni::Utf8Chars dir(env, cacheDir);
+    AAssetManager* assets = assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr;
     return reinterpret_cast<jlong>(
-        geode_cast_encoder_open(server, webrtc, reinterpret_cast<const geode_pcm_ring*>(music)));
-}
-
-// A Surface of the encoder's input window; it holds its own reference, so the caller releases it when done.
-JNIEXPORT jobject JNICALL
-Java_dev_geode_engine_bridge_CastNative_castEncoderSurface(JNIEnv* env, jobject, jlong handle) {
-    void* window = geode_cast_encoder_window(reinterpret_cast<const geode_cast_encoder*>(handle));
-    return window ? ANativeWindow_toSurface(env, static_cast<ANativeWindow*>(window)) : nullptr;
+        geode_cast_render_start(server, webrtc, reinterpret_cast<const geode_pcm_ring*>(music), assets, dir.get()));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_CastNative_castEncoderPump(JNIEnv*, jobject, jlong handle, jlong current, jlong untilUs) {
-    geode_cast_encoder_pump(reinterpret_cast<geode_cast_encoder*>(handle),
-                            reinterpret_cast<const geode_pcm_ring*>(current), untilUs);
+Java_dev_geode_engine_bridge_CastNative_castRenderSetLook(JNIEnv* env, jobject, jlong handle, jstring sceneId,
+                                                           jfloatArray params, jstring lfos, jstring adsrs,
+                                                           jfloatArray tuning, jstring reactions, jboolean reducedMotion,
+                                                           jstring transitionId, jlong transitionMs) {
+    geode::jni::LookArgs look(env, sceneId, params, lfos, adsrs, tuning, reactions, reducedMotion, transitionId, transitionMs);
+    if (look.ok()) geode_cast_render_set_look(reinterpret_cast<geode_cast_render*>(handle), look.get());
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_CastNative_castEncoderFailed(JNIEnv*, jobject, jlong handle) {
-    return geode_cast_encoder_failed(reinterpret_cast<const geode_cast_encoder*>(handle)) ? JNI_TRUE : JNI_FALSE;
+Java_dev_geode_engine_bridge_CastNative_castRenderStop(JNIEnv*, jobject, jlong handle, jlong timeoutMs) {
+    return geode_cast_render_stop(reinterpret_cast<geode_cast_render*>(handle), timeoutMs) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_CastNative_castRenderFailed(JNIEnv*, jobject, jlong handle) {
+    return geode_cast_render_failed(reinterpret_cast<const geode_cast_render*>(handle)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_CastNative_castRenderTakeDirectorMoments(JNIEnv*, jobject, jlong handle) {
+    return geode_cast_render_take_director_moments(reinterpret_cast<geode_cast_render*>(handle));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_CastNative_castEncoderClose(JNIEnv*, jobject, jlong handle) {
-    geode_cast_encoder_close(reinterpret_cast<geode_cast_encoder*>(handle));
+Java_dev_geode_engine_bridge_CastNative_castRenderFree(JNIEnv*, jobject, jlong handle) {
+    geode_cast_render_free(reinterpret_cast<geode_cast_render*>(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_CastNative_castRenderSetStageFlags(JNIEnv*, jobject, jint flags) {
+    geode_cast_render_set_stage_flags(static_cast<unsigned>(flags));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_CastNative_castRenderSetDeviceRing(JNIEnv*, jobject, jlong ring) {
+    geode_cast_render_set_device_ring(reinterpret_cast<const geode_pcm_ring*>(ring));
 }
 
 JNIEXPORT jint JNICALL
@@ -77,11 +97,6 @@ Java_dev_geode_engine_bridge_CastNative_castWatch(JNIEnv*, jobject, jboolean ann
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_CastNative_castWatchNextMs(JNIEnv*, jobject, jboolean announced) {
     return geode_cast_watch_next_ms(announced ? 1 : 0);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_CastNative_castFallbackRelease(JNIEnv*, jobject, jlong nowNs, jlong drewNs) {
-    return geode_cast_fallback_release(nowNs, drewNs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL

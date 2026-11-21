@@ -371,7 +371,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - While a cast streams the stage keeps drawing on every tab, even before Visuals was laid out, in its whole rect with no bars (`CastMirror.streaming`, `ui/Crystal`'s `VisualizerCanvasHost`, the rule native: `geode_stage_host`).
 - The tee fills the 16:9 stream with no bars or stretch: a portrait stage turned a quarter turn counter-clockwise (its top on the receiver's left), both centre-cropped (`tee::place`).
 - A new stream waits up to 3 s for the stage's first copy (`geode_cast_tee_await_stage`).
-- Only while the stage draws nothing (the app in the background) does a fallback renderer (`CastFallback`, a `NativeViz` in the encoder's context) draw the saved look and the stage's last style (`CastMirror`).
+- Only while the stage draws nothing (the app in the background) does a fallback renderer (a `geode_viz` the native render thread, `CastRender`, makes in the encoder's context) draw the saved look and the stage's last style (`CastMirror`, pushed through `CastStream`).
 - The encoder is paced by the native `core/viz/frame/FixedRateClock`.
 - `LiveLink` is the shell's handle on the native server: it hands the muxer's fragmented MP4 over and reads back the URLs and the stream's health.
 - `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.

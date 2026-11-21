@@ -2,6 +2,7 @@ package dev.geode.cast
 
 import android.os.Handler
 import android.os.Looper
+import dev.geode.engine.bridge.CastNative
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.model.SceneParams
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,10 @@ object CastMirror {
     var look: Look? = null
         private set
 
+    /** Told after [look] changed, on the thread that follows the UI; the running [CastStream] hands the look on. */
+    @Volatile
+    internal var onLook: (() -> Unit)? = null
+
     private val streamingFlow = MutableStateFlow(false)
 
     /**
@@ -48,9 +53,16 @@ object CastMirror {
         streamingFlow.value = on
     }
 
-    /** What the shell last saw of the stage (the `StageNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
+    /**
+     * What the shell last saw of the stage (the `StageNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity.
+     * The cast's render thread reads it natively, so it goes there too.
+     */
     @Volatile
     var stageFlags: Int = 0
+        set(value) {
+            field = value
+            CastNative.castRenderSetStageFlags(value)
+        }
 
     /** Auto's step on a director moment, on the main thread; null while no Activity holds a session. */
     @Volatile
@@ -81,7 +93,10 @@ object CastMirror {
         following?.cancel()
         return scope
             .launch {
-                source.collect { look = it }
+                source.collect {
+                    look = it
+                    onLook?.invoke()
+                }
             }.also { following = it }
     }
 

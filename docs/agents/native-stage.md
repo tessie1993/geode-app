@@ -1,12 +1,12 @@
 # Native stage (`core/stage`): render thread, EGL, vsync
 
-One fact per line. The design of the native host every live surface draws through: the app's view, the live wallpaper, the dream and, later, Cast. The app's view, the wallpaper and the dream draw through it; Cast's fallback still drives its own renderer on the encoder's thread.
+One fact per line. The design of the native host every live surface draws through: the app's view, the live wallpaper, the dream and, later, Cast. The app's view, the wallpaper and the dream draw through it; Cast's fallback renderer runs on Cast's own native render thread (`core/output/android/CastRenderHost`), in the encoder's EGL context.
 
 ## Why
 
 - `core/` has one renderer but no loop, no thread, no EGL context and no vsync source of its own.
 - Before the stage each surface had its own Kotlin driver on a `GLSurfaceView`, repeating the frame protocol: the app's view, the wallpaper, the dream.
-- Cast's `cast-render` thread still drives a renderer by hand in the encoder's EGL context (`cast/CastFallback`).
+- Cast's render thread is native (`CastRender`) and drives a renderer by hand in the encoder's EGL context.
 - The run rule existed three times: in the view and in the wallpaper's and the dream's `syncRunState`.
 - The stage is one native implementation of the loop, the context and the run rule, bound to `geode_viz` by `core/stage/LiveClient`.
 

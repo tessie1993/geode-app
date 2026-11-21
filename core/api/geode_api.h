@@ -2426,6 +2426,30 @@ GEODE_API int             geode_cast_watch(int announced, int64_t now_ms, int64_
                                            int64_t segment_age_ms, int address_here);
 GEODE_API int64_t         geode_cast_watch_next_ms(int announced);
 GEODE_API int             geode_cast_fallback_release(int64_t now_ns, int64_t drew_ns);
+/* The cast's render thread (core/output/android/CastRenderHost; EGL, MediaCodec; Android build only). It opens the
+ * encoders (geode_cast_encoder_*), makes an EGL context current on the encoder's input window and, once a frame
+ * slot (geode_frame_clock_*), blits the stage's copy from the tee (geode_cast_tee_*) or, while the stage draws
+ * nothing, draws a renderer of its own on the look handed to set_look, swaps the frame into the encoder and pumps
+ * its sound; the fallback renderer is made on first need and freed by geode_cast_fallback_release.
+ *   start:    server and webrtc are the stream's handles and music the player's ring (as geode_cast_encoder_open
+ *             takes them); assets and cache_dir make the fallback renderer. NULL when the thread would not start.
+ *   set_look: the whole look, from any thread, before or after start; a renderer made later is given it whole.
+ *   stop:     asks the thread to end and waits up to timeout_ms for it to close the encoders; 1 once it has. The
+ *             server and WebRTC may be freed only after that, however late; free joins and frees.
+ *   failed:   1 once the thread ended on an error it was not asked to (the cast should end).
+ *   take_director_moments: the fallback renderer's Auto moments since the last call.
+ *   set_stage_flags: what the shell last saw of the stage (GEODE_STAGE_*), kept for the process; set_device_ring:
+ *             the phone's output-mix ring while the app hears other apps, NULL for the player's. Any thread. */
+typedef struct geode_cast_render geode_cast_render;
+GEODE_API geode_cast_render* geode_cast_render_start(int64_t server, int64_t webrtc, const geode_pcm_ring* music,
+                                                     AAssetManager* assets, const char* cache_dir);
+GEODE_API void            geode_cast_render_set_look(geode_cast_render*, const geode_viz_look* look);
+GEODE_API int             geode_cast_render_stop(geode_cast_render*, int64_t timeout_ms);
+GEODE_API int             geode_cast_render_failed(const geode_cast_render*);
+GEODE_API int             geode_cast_render_take_director_moments(geode_cast_render*);
+GEODE_API void            geode_cast_render_free(geode_cast_render*);
+GEODE_API void            geode_cast_render_set_stage_flags(unsigned flags);
+GEODE_API void            geode_cast_render_set_device_ring(const geode_pcm_ring* ring);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

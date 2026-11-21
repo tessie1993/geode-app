@@ -1153,49 +1153,6 @@ Java_dev_geode_engine_bridge_CatalogueNative_configSchemaText(JNIEnv* env, jobje
     return geode::jni::utf8String(env, geode_config_schema_text());
 }
 
-// Fixed-rate frame clock (Cast): the state is a caller-owned long[GEODE_FRAME_CLOCK_STATE], copied in and out.
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_PerfNative_frameClockStart(JNIEnv* env, jobject, jlongArray state, jint fps, jlong nowNs) {
-    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return;
-    int64_t s[GEODE_FRAME_CLOCK_STATE] = {};
-    geode_frame_clock_start(s, fps, nowNs);
-    env->SetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<const jlong*>(s));
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_PerfNative_frameClockWaitNs(JNIEnv* env, jobject, jlongArray state, jlong nowNs) {
-    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
-    int64_t s[GEODE_FRAME_CLOCK_STATE];
-    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
-    return geode_frame_clock_wait_ns(s, nowNs);
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_PerfNative_frameClockTake(JNIEnv* env, jobject, jlongArray state, jlong nowNs) {
-    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
-    int64_t s[GEODE_FRAME_CLOCK_STATE];
-    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
-    const int64_t pts = geode_frame_clock_take(s, nowNs);
-    env->SetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<const jlong*>(s));
-    return pts;
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_PerfNative_frameClockAudioUntilUs(JNIEnv* env, jobject, jlongArray state) {
-    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
-    int64_t s[GEODE_FRAME_CLOCK_STATE];
-    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
-    return geode_frame_clock_audio_until_us(s);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_CastNative_castFormat(JNIEnv* env, jobject, jintArray out) {
-    if (!out || env->GetArrayLength(out) < GEODE_CAST_FORMAT_INTS) return;
-    int f[GEODE_CAST_FORMAT_INTS];
-    geode_cast_format(f);
-    env->SetIntArrayRegion(out, 0, GEODE_CAST_FORMAT_INTS, reinterpret_cast<const jint*>(f));
-}
-
 // Export post-passes (core/viz/frame/ExportPasses): marshalling only.
 
 JNIEXPORT jstring JNICALL
@@ -1494,28 +1451,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_RecorderNative_recordSession
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_RecorderNative_recordSessionState(JNIEnv*, jobject, jlong session) {
     return geode_record_session_state(reinterpret_cast<const geode_record_session*>(session));
-}
-
-// Cast's tee (viz/frame/CastTee): the stage's picture to the cast stream.
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_CastNative_castTeeOpen(JNIEnv*, jobject, jint width, jint height,
-                                                                              jint fps) {
-    return reinterpret_cast<jlong>(geode_cast_tee_open(width, height, fps));
-}
-
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_CastNative_castTeeDraw(JNIEnv*, jobject, jlong tee, jlong nowNs,
-                                                                                 jint width, jint height) {
-    return geode_cast_tee_draw(reinterpret_cast<geode_cast_tee*>(tee), nowNs, width, height) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_CastNative_castTeeClose(JNIEnv*, jobject, jlong tee) {
-    geode_cast_tee_close(reinterpret_cast<geode_cast_tee*>(tee));
-}
-
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_CastNative_castTeeAwaitStage(JNIEnv*, jobject, jboolean stageDraws,
-                                                                                       jboolean fallbackMade,
-                                                                                       jlong sinceOpenNs) {
-    return geode_cast_tee_await_stage(stageDraws ? 1 : 0, fallbackMade ? 1 : 0, sinceOpenNs) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_TouchNative_shakeCreate(JNIEnv*, jobject) {

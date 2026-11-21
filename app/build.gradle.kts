@@ -279,6 +279,8 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+    // Composable-level slices in a Perfetto trace of the debug APK (enabled on demand, off by default).
+    debugImplementation(libs.compose.runtime.tracing)
     implementation(libs.compose.material3.adaptive)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

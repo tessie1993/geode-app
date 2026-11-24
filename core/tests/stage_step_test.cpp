@@ -1,4 +1,4 @@
-// Host-side checks for what the stage's "next / previous style" steps (core/viz/StageStep,
+// Host-side checks for what the stage's "next / previous style" steps (core/viz/styles/pick/StageStep,
 // geode_stage_step_*). No GL, no device.
 //
 // What is pinned (owner, 2026-11-12: "Step presets and types as well (they are separate different tabs)"):
@@ -9,7 +9,7 @@
 #include <cstdio>
 
 #include "api/geode_api.h"
-#include "viz/StageStep.hpp"
+#include "viz/styles/pick/StageStep.hpp"
 
 namespace step = geode::viz::stage_step;
 

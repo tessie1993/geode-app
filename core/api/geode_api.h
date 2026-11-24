@@ -135,7 +135,7 @@ GEODE_API const char* geode_layer_shown(const char* active_style);
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
-/* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
+/* Customize › Advanced › Shader code (core/viz/styles/shader/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
 GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
@@ -720,7 +720,7 @@ GEODE_API const char* const* geode_backup_plan_restore(const char* const* reques
 /* beatrealms-backup-YYYYMMDD.zip; valid until the next call on the same thread. */
 GEODE_API const char* geode_backup_file_name(int year, int month, int day);
 
-/* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
+/* Scene and style catalogue (core/viz/styles/catalogue/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro
  * rule are not here.
@@ -753,7 +753,7 @@ GEODE_API int         geode_catalogue_has_override(const char* style_id, const c
 GEODE_API float       geode_catalogue_override(const char* style_id, const char* param_key);
 GEODE_API float       geode_catalogue_value(const char* name);
 
-/* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
+/* The catalogue's presets section (core/viz/styles/catalogue/CataloguePresets, #648): the bundled looks, each a named set of
  * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
  * '|'-separated line table (see CataloguePresets.hpp for the rows). Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_catalogue_presets_text(void);
@@ -1135,7 +1135,7 @@ GEODE_API int geode_customize_query_blank(const char* query);
 GEODE_API const char* geode_panel_format(const char* id, const char* const* args, int count);
 /* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
 GEODE_API const char* geode_panel_text(const char* id);
-/* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */
+/* A style's display name, and a Styles page family's (core/viz/styles/catalogue/StyleNames). Valid until this thread's next call. */
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);
 /* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
@@ -1591,7 +1591,7 @@ GEODE_API void            geode_auto_left_as(const char* style, const float* fra
 GEODE_API const char*     geode_auto_draw(const char* locked_styles, const char* current_style, const char* preset_styles,
                                           int preset_on_screen,
                                           int sources, long long now_ms, int* out2);
-/* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
+/* Visuals › Styles (core/viz/styles/pick/StylePick). random: Random's draw among count styles (family[i] the family index of
  * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
  * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for
  * none. With family_only in a family of one style it never leaves the family: GEODE_STYLES_ROLL_INSIDE when that
@@ -1648,7 +1648,7 @@ GEODE_API int             geode_stage_display_eligible(unsigned flags);
 GEODE_API int             geode_stage_pick_display(const int* ids, const unsigned* flags, int count, int preferred_id);
 GEODE_API int             geode_stage_presents(unsigned flags);
 
-/* What the stage's "next / previous style" steps (core/viz/StageStep; owner 2026-11-12: it walks what the open
+/* What the stage's "next / previous style" steps (core/viz/styles/pick/StageStep; owner 2026-11-12: it walks what the open
  * Visuals tab lists). page is the open page (GEODE_STAGE_STEP_PAGE_*), flags the GEODE_STAGE_STEP_* facts,
  * look_count the saved looks the user may apply; the answer is GEODE_STAGE_STEP_STYLES or _LOOKS. index: the item
  * step (+1 next, -1 previous) places from here among count items, wrapping, skipping here and every open[i] == 0

@@ -1,7 +1,7 @@
 #pragma once
 #include <GLES3/gl3.h>
 
-#include "viz/ShaderSource.hpp"
+#include "viz/styles/shader/ShaderSource.hpp"
 
 namespace geode::viz::blue_noise {
 

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Lfo.hpp"
 
 // The modulation-target table (#642): what the shell needs to know about every LfoTarget, ModSource,

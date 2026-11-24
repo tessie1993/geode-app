@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"

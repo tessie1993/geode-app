@@ -16,7 +16,7 @@
 #include "viz/BandTrim.hpp"
 #include "viz/BuildReport.hpp"
 #include "viz/CameraRig.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/EndlessZoom.hpp"

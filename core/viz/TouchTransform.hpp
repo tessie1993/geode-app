@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Params.hpp"
 
 namespace geode::viz::touch {

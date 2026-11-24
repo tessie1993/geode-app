@@ -1,0 +1,57 @@
+#include "viz/styles/catalogue/SceneRegistry.hpp"
+
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/styles/scenes/AcidScene.hpp"
+#include "viz/styles/scenes/CurlFlowScene.hpp"
+#include "viz/styles/scenes/CymaticsScene.hpp"
+#include "viz/styles/scenes/FluidScene.hpp"
+#include "viz/styles/scenes/LifeScene.hpp"
+#include "viz/styles/scenes/MycoScene.hpp"
+#include "viz/styles/scenes/ShaderScene.hpp"
+#include "viz/styles/scenes/SilkScene.hpp"
+#include "viz/styles/catalogue/StyleCatalog.hpp"
+
+namespace geode::viz {
+
+// Which ids exist, which are fragment styles and how they turn is the catalogue's (viz/styles/catalogue/Catalogue);
+// the registry only builds the scene an id names.
+
+bool SceneRegistry::isShaderStyle(const std::string& id) { return catalogue::isShaderStyle(id); }
+
+float SceneRegistry::spinRate(const std::string& id) { return catalogue::spinRate(id); }
+
+bool SceneRegistry::knows(const std::string& id) const { return catalogue::knows(id); }
+
+std::vector<std::string> SceneRegistry::availableIds() const { return catalogue::allIds(); }
+
+std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::string& quadVert) const {
+    if (catalogue::isShaderStyle(id)) {
+        std::string error;
+        const auto fragment = loader_.assets.load(id + "_frag.glsl", &error);
+        if (!fragment) {
+            host_.onShaderError(error);
+            return nullptr;
+        }
+        auto scene = std::make_unique<ShaderScene>(id, quadVert, *fragment, loader_.cache, host_);
+        if (id == catalogue::kMorphWorld) {
+            // Morph World's baked CC0 shapes and maps (core/viz/styles/world/WorldAssets); without them the
+            // style still draws, the mesh primitive as a sphere and no surface detail.
+            const auto shapes = loader_.assets.readAsset("shaders/world_shapes.bin");
+            const auto maps = loader_.assets.readAsset("shaders/world_textures.bin");
+            if (shapes && maps) scene->setWorldAssets(*shapes, *maps);
+        }
+        return scene;
+    }
+    if (const auto* style = styles::cymatics(id)) return std::make_unique<CymaticsScene>(*style, loader_, host_);
+    if (const auto* style = styles::silk(id)) return std::make_unique<SilkScene>(*style, loader_, profile_, host_);
+    if (const auto* style = styles::life(id)) return std::make_unique<LifeScene>(*style, loader_, host_);
+    if (const auto* style = styles::acid(id)) return std::make_unique<AcidScene>(*style, loader_, host_);
+    if (const auto* style = styles::myco(id)) return std::make_unique<MycoScene>(*style, loader_, host_);
+    if (const auto* style = styles::fluid(id)) return std::make_unique<FluidScene>(*style, loader_, host_);
+    switch (catalogue::kindOf(id)) {
+        case catalogue::Kind::CurlFlow: return std::make_unique<CurlFlowScene>(loader_, host_);
+        default: return nullptr;
+    }
+}
+
+}  // namespace geode::viz

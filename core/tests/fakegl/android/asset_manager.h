@@ -1,5 +1,5 @@
 /* Host-test stand-in for <android/asset_manager.h>: the APK's asset store, the OS boundary that
- * core/viz/ShaderSource.cpp reads shaders through. Declarations only; core/tests/edge_glow_pass_test.cpp
+ * core/viz/styles/shader/ShaderSource.cpp reads shaders through. Declarations only; core/tests/edge_glow_pass_test.cpp
  * defines AAssetManager, AAsset and these functions over the repo's real app/src/main/assets folder.
  * Same declarations as tools/hostlink's stub. */
 #pragma once

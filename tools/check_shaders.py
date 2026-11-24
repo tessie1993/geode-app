@@ -1,10 +1,10 @@
 """Compile-checks every fragment and vertex shader with the NDK's glslc.
 
-Resolves the `//#include lib_x` lines the way core/viz/ShaderSource.cpp does,
-against the same allow-list (core/viz/ShaderIncludes.inc: an unknown or
+Resolves the `//#include lib_x` lines the way core/viz/styles/shader/ShaderSource.cpp does,
+against the same allow-list (core/viz/styles/shader/ShaderIncludes.inc: an unknown or
 missing include fails here as it fails on the phone), then compiles for an
 OpenGL target. The Silk simulation bodies (silk_step, silk_show) are not whole
-shaders; they are compiled inside the preamble core/viz/compute/SimGlsl.cpp
+shaders; they are compiled inside the preamble core/viz/styles/compute/SimGlsl.cpp
 wraps them in. Before compiling it lints every shader and lib for the time
 rule (see speed_twice). glslc will not take `#version 300 es`
 for SPIR-V, so the check bumps it to 310 es: it catches syntax, type and
@@ -20,7 +20,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHADERS = ROOT / "app/src/main/assets/shaders"
-INCLUDES_INC = ROOT / "core/viz/ShaderIncludes.inc"
+INCLUDES_INC = ROOT / "core/viz/styles/shader/ShaderIncludes.inc"
 # Shaders the engine compiles with defines prepended, one entry per variant it
 # builds. FluidLook prepends LOOK (one per fluid style's material) and the
 # SHADING / BLOOM / SUNRAYS keywords; each look's code sits behind its own #if,
@@ -83,7 +83,7 @@ def speed_twice(text):
     """Line numbers of statements that put an accumulated clock and uSpeed together.
 
     The time rule: uTime is ShaderScene's speed-INTEGRATED clock
-    (shaderTime_ += speed * dt, core/viz/scenes/ShaderScene.cpp), so a shader
+    (shaderTime_ += speed * dt, core/viz/styles/scenes/ShaderScene.cpp), so a shader
     never multiplies it by uSpeed again. `uTime * uSpeed` squares Speed and,
     because it is elapsed time times the live slider, any Speed change (the
     slider, an LFO, a macro, a reaction route) jumps the picture by
@@ -140,7 +140,7 @@ ALLOWED = allow_list()
 
 
 def resolve(text, path):
-    # Mirrors core/viz/ShaderSource.cpp: an include repeated outside its own
+    # Mirrors core/viz/styles/shader/ShaderSource.cpp: an include repeated outside its own
     # chain is pasted again, not skipped, so a double include fails here the
     # way it fails on the device (redefinition) instead of passing silently.
     def expand(m):

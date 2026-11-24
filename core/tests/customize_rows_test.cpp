@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/CustomizeRows.hpp"
 #include "viz/PanelText.hpp"
-#include "viz/StyleNames.hpp"
+#include "viz/styles/catalogue/StyleNames.hpp"
 
 using namespace geode::viz;
 

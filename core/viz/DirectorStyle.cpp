@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 
 namespace geode::viz::director {
 

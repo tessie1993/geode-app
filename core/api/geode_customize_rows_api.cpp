@@ -1,5 +1,5 @@
 // C ABI over what Customize draws: the control rows (viz/CustomizeRows), the panel's words (viz/PanelText), the
-// style names (viz/StyleNames) and the palette pages (viz/PalettePanel). See geode_api.h. Pure, any thread.
+// style names (viz/styles/catalogue/StyleNames) and the palette pages (viz/PalettePanel). See geode_api.h. Pure, any thread.
 #include <algorithm>
 #include <string>
 #include <utility>
@@ -10,7 +10,7 @@
 #include "viz/PalettePanel.hpp"
 #include "viz/PanelText.hpp"
 #include "viz/Params.hpp"
-#include "viz/StyleNames.hpp"
+#include "viz/styles/catalogue/StyleNames.hpp"
 
 namespace customize = geode::viz::customize;
 namespace palettepanel = geode::viz::palettepanel;

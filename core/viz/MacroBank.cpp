@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <mutex>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/TableNumber.hpp"
 #include "viz/VisualSafety.hpp"

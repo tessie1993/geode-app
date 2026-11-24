@@ -23,12 +23,12 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
-#include "viz/fluid/FluidQuality.hpp"
-#include "viz/scenes/CymaticsMath.hpp"
+#include "viz/styles/fluid/FluidQuality.hpp"
+#include "viz/styles/scenes/CymaticsMath.hpp"
 
 using namespace geode::viz;
 

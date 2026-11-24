@@ -4,7 +4,7 @@
 #include <string>
 
 #include "viz/Program.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/styles/shader/ShaderSource.hpp"
 #include "viz/liquid/FeedbackMotion.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 

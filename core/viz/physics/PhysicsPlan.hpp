@@ -8,11 +8,11 @@ namespace geode::viz::physics {
 // The physics layers' pure maths (GLOSSARY "Physics layers"; the GL side is viz/physics/PhysicsLayers). Any style
 // can carry two layers over its finished picture, composited back to front:
 //
-//   back   a low-res fluid (viz/fluid FluidSim). The picture is its ink: each step the dye moves toward the
+//   back   a low-res fluid (viz/styles/fluid FluidSim). The picture is its ink: each step the dye moves toward the
 //          picture's colour where the picture is lit, and the picture's contours stir its velocity, so the
 //          style's own shapes swirl their colours out into the dark around them.
 //   middle the style, as it drew.
-//   front  particles (viz/fluid Particles) that ride the fluid's velocity, or a curl drift when the fluid is
+//   front  particles (viz/styles/fluid Particles) that ride the fluid's velocity, or a curl drift when the fluid is
 //          off, each coloured from the picture under it.
 //
 // The fluid's place is a param of its own: 0 behind the style (it shows through the style's darks), 1 over it

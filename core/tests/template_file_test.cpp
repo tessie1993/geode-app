@@ -9,7 +9,7 @@
 
 #include "api/geode_api.h"
 #include "util/Json.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/LookFiles.hpp"
 #include "viz/Params.hpp"
 #include "viz/TemplateFile.hpp"

@@ -5,7 +5,7 @@
 
 #include "viz/Framebuffer.hpp"
 #include "viz/Program.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/styles/shader/ShaderSource.hpp"
 
 namespace geode::viz {
 

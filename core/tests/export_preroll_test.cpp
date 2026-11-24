@@ -3,7 +3,7 @@
 // Built with the runner's own compiler in CI:
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_preroll_test.cpp core/sound/*.cpp
 //     core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp
-//     core/viz/StyleSchedule.cpp -o export_preroll_test
+//     core/viz/styles/pick/StyleSchedule.cpp -o export_preroll_test
 //
 // Each case runs the export's start the way the shell and the renderer run it, with no GL: the pre-roll's
 // TrackFeed (ExportFrame's pre-roll decode) into a sound engine made at the first write (Renderer::writeAudio,
@@ -28,7 +28,7 @@
 #include "output/PreRoll.hpp"
 #include "sound/DriveGain.hpp"
 #include "sound/SoundEngine.hpp"
-#include "viz/StyleSchedule.hpp"
+#include "viz/styles/pick/StyleSchedule.hpp"
 
 using geode::audio::ingest::TrackFeed;
 using geode::output::FrameClock;

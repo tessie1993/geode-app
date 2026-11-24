@@ -1,5 +1,5 @@
 #include "api/geode_api.h"
-#include "viz/StageStep.hpp"
+#include "viz/styles/pick/StageStep.hpp"
 
 namespace stage_step = geode::viz::stage_step;
 

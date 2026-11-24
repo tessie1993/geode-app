@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 

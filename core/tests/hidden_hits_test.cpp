@@ -49,25 +49,25 @@ void check(bool ok, const std::string& what) {
 
 // Where a hit may be read, under core/viz, and why the user is the one who moves it.
 const std::map<std::string, const char*> kAllowed = {
-    {"LiveSignal.hpp", "defines live::hit and live::Edge"},
+    {"styles/scenes/LiveSignal.hpp", "defines live::hit and live::Edge"},
     {"Reactions.cpp", "the reaction matrix itself: the user's routes and the style DNA under the hand mask"},
     {"Lfo.cpp", "an LFO the user set on the Transient source (the transient envelope)"},
     {"Adsr.cpp", "an envelope the user set, triggered on the onset"},
     {"NoteResponse.cpp", "Note & key reactions, the user's switch (Settings > Behaviour) and drum amount"},
     {"MotionField.cpp", "the Motion dials the user sets; at 0 nothing hears the sound (resolver_test)"},
     {"CameraRig.cpp", "the camera's music moves (Shake), the user's dials"},
-    {"fluid/FluidEmitters.cpp", "Customize > Hit splats and Radius on hit, the user's (0 is off)"},
-    {"fluid/FluidEmitters.hpp", "Customize > Hit splats: its hit edge"},
-    {"scenes/FluidScene.cpp", "uBeat for the user's own injection shader (Customize's editor)"},
+    {"styles/fluid/FluidEmitters.cpp", "Customize > Hit splats and Radius on hit, the user's (0 is off)"},
+    {"styles/fluid/FluidEmitters.hpp", "Customize > Hit splats: its hit edge"},
+    {"styles/scenes/FluidScene.cpp", "uBeat for the user's own injection shader (Customize's editor)"},
 };
 
 // Scenes that still read the drums on their own. May only shrink.
 const std::map<std::string, const char*> kGaps = {
-    {"scenes/AcidScene.cpp", "the kick random re-aims the centre, kick16 swaps the source and nudges the hue"},
-    {"scenes/SilkScene.cpp", "kick4 re-seeds the strokes, kick8 jumps the damping, kick16 steps the folds, an onset ends the hush"},
-    {"scenes/LifeScene.cpp", "the onset envelope in the solver's rate, kick8 turns the drift, kick16 steps the rule, snare and hat feed it"},
-    {"fluid/FluidMath.cpp", "drives(): kick, hat, snare and onset envelopes blended into heat, stir and streak"},
-    {"world/MorphDriver.cpp", "the kick envelope as the morph's kick input"},
+    {"styles/scenes/AcidScene.cpp", "the kick random re-aims the centre, kick16 swaps the source and nudges the hue"},
+    {"styles/scenes/SilkScene.cpp", "kick4 re-seeds the strokes, kick8 jumps the damping, kick16 steps the folds, an onset ends the hush"},
+    {"styles/scenes/LifeScene.cpp", "the onset envelope in the solver's rate, kick8 turns the drift, kick16 steps the rule, snare and hat feed it"},
+    {"styles/fluid/FluidMath.cpp", "drives(): kick, hat, snare and onset envelopes blended into heat, stir and streak"},
+    {"styles/world/MorphDriver.cpp", "the kick envelope as the morph's kick input"},
 };
 
 std::string read(const fs::path& p) {

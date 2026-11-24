@@ -26,7 +26,7 @@ four were not, as the code stood on 2026-11-11:
 3. **The first-run safety notice** used to promise that nothing could flash more than three
    times a second, while the engine limits parameters and no longer measures the finished frame
    (#947). Closed (#994): `safety_prompt` now says what is limited.
-4. **The style kind labelled "Acid"** (`core/viz/Catalogue`). Play's examples of Families
+4. **The style kind labelled "Acid"** (`core/viz/styles/catalogue/Catalogue`). Play's examples of Families
    violations include glamorising controlled substances.
 
 To revisit: close 1, rewrite 2, decide 4, then tick 9-12 in Target audience and content

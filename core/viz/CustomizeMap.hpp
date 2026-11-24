@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Params.hpp"
 
 // The Customize panel's map: eleven categories grouped by what their controls do, each split into a

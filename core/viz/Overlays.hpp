@@ -5,8 +5,8 @@
 
 #include "api/geode_api.h"
 #include "viz/Params.hpp"
-#include "viz/fluid/FlowField.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/styles/fluid/FlowField.hpp"
+#include "viz/styles/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
 

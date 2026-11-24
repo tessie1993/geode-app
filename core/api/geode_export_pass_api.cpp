@@ -9,7 +9,7 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/ShaderSource.hpp"
+#include "viz/styles/shader/ShaderSource.hpp"
 #include "viz/frame/ExportPassMath.hpp"
 #include "viz/frame/ExportPasses.hpp"
 

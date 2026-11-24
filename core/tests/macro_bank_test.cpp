@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/MacroBank.hpp"

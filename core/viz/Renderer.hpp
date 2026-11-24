@@ -44,12 +44,12 @@
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/ProgramStager.hpp"
 #include "viz/Reactions.hpp"
-#include "viz/Scene.hpp"
+#include "viz/styles/scenes/Scene.hpp"
 #include "viz/ScenePrep.hpp"
-#include "viz/SceneRegistry.hpp"
+#include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
-#include "viz/StyleSchedule.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/styles/pick/StyleSchedule.hpp"
+#include "viz/styles/shader/ShaderSource.hpp"
 #include "viz/ShapeGraph.hpp"
 #include "viz/TouchField.hpp"
 #include "viz/TouchSmear.hpp"
@@ -62,7 +62,7 @@
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/physics/PhysicsLayers.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/styles/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
 
@@ -325,7 +325,7 @@ private:
     void applyUnderlayUpload();
     static double monotonicSeconds();
     void fail(const std::string& message);
-    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
+    // Re-applies the process-wide shader overrides (viz/styles/shader/ShaderOverrides) to resident scenes when they change.
     void syncShaderOverrides();
 
     ShaderSource assets_;

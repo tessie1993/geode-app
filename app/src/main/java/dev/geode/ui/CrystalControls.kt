@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
@@ -258,6 +259,9 @@ fun CrystalSegmented(
                 },
                 shape = SegmentedButtonDefaults.itemShape(i, options.size),
                 modifier = Modifier.weight(1f),
+                // Material's 12 dp a side left a fifth of a phone's width too narrow for a word:
+                // "Follow device" broke as "Follo w d…". The labels are centred, so the look is the same.
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.XS),
                 icon = {},
                 colors =
                     SegmentedButtonDefaults.colors(

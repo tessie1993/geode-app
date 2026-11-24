@@ -55,6 +55,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -395,7 +396,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
-        val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
+        val destinationBody: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
             // The tab fades toward Player as a back gesture travels (rememberBackToPlayer); the banner
             // stays lit, since it belongs to playback, not to the tab.
             if (!inPip) PlaybackNoticeBanner(viewModel)
@@ -481,6 +482,12 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 }
             }
         }
+        // The screen moves between the two shells as one piece (movable content). The holder's key
+        // alone did not carry a screen across a turn of the phone: the rail shell's provider is
+        // composed, and reads the holder's saved map, before the bar shell's has left and written
+        // to it, so Settings came back on its list and every screen lost its scroll.
+        val latestDestinationBody by rememberUpdatedState(destinationBody)
+        val destinationContent = remember { movableContentOf<Boolean> { twoPane -> latestDestinationBody(twoPane) } }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // Two panes only where both get a usable width and the Player pane can show more than

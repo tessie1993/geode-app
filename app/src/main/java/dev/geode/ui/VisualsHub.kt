@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -337,6 +340,16 @@ private fun VisualsHubContent(
             styleStepLabels = styleStepLabels,
             remote = if (television) StageRemote(stageFocus, optionsFocus, optionsShown = nav.sheetShown && !pip, side = side) else null,
         )
+        // The status bar's icons are always light (MainActivity), and a bright style (Ink Wash) left
+        // them white on white. A soft shade as tall as the bar keeps the clock readable; it takes no
+        // touch and has no height in a PiP window, where there is no bar.
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(statusTop)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = STATUS_SHADE_ALPHA), Color.Transparent))),
+        )
         // Here, beside the stage, so its requester is attached by the time the effect runs.
         LaunchedEffect(television, nav.sheetShown, pip) {
             if (television && !nav.sheetShown && !pip) stageFocus.requestFocus()
@@ -514,3 +527,6 @@ internal fun tapRestoresOptions(
     chromeAwake: Boolean,
     sheetShown: Boolean,
 ): Boolean = chromeAwake && !sheetShown
+
+/** How dark the shade behind the status bar is at the very top of the visual; it fades to nothing at the bar's lower edge. */
+private const val STATUS_SHADE_ALPHA = 0.4f

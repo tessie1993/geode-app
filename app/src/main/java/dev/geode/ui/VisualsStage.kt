@@ -212,8 +212,8 @@ internal fun BoxScope.StageIcons(
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), rowOn, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
-            // With the options hidden this is the visible way back to them, so it says so.
-            stringResource(if (sheetShown) R.string.visuals_gesture_toggle_sheet else R.string.visuals_show_options),
+            // It names what a press does now, in the same words both ways: "Hide options", "Show options".
+            stringResource(if (sheetShown) R.string.visuals_hide_options else R.string.visuals_show_options),
             rowOn,
             onClick = {
                 nudge(GestureTip.DOUBLE_TAP_SHEET)

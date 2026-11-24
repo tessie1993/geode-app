@@ -6,11 +6,11 @@
 
 #include "viz/Framebuffer.hpp"
 #include "viz/Program.hpp"
-#include "viz/styles/fluid/FluidBuffers.hpp"
-#include "viz/styles/fluid/FluidParticles.hpp"
-#include "viz/styles/fluid/FluidSim.hpp"
+#include "viz/styles/renderers/shared/FluidBuffers.hpp"
+#include "viz/styles/renderers/fluid/FluidParticles.hpp"
+#include "viz/styles/renderers/fluid/FluidSim.hpp"
 #include "viz/physics/PhysicsPlan.hpp"
-#include "viz/styles/scenes/ProgramLoader.hpp"
+#include "viz/styles/renderers/shared/ProgramLoader.hpp"
 
 namespace geode::viz::physics {
 

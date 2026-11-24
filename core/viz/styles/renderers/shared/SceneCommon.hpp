@@ -1,0 +1,95 @@
+#pragma once
+#include <GLES3/gl3.h>
+
+#include <algorithm>
+#include <cmath>
+
+#include "api/geode_api.h"
+#include "viz/Circular.hpp"
+#include "viz/MotionField.hpp"
+#include "viz/PcmHandoff.hpp"
+#include "viz/Program.hpp"
+#include "viz/TouchField.hpp"
+
+namespace geode::viz {
+
+// Wave three: every scene family drives its own continuous motion off a
+// GeodeSoundFrame/dt pair (see ShaderScene::update, which owns one
+// MotionField for the raw uEnergyRel/uBassRel/... uniform contract in
+// lib_scene_motion.glsl). Included here, alongside the other pieces every
+// scene shares, so the CPU-side families (viz/styles/renderers/fluid/FluidScene.cpp,
+// CymaticsScene.cpp, ...) can hold their own instance too
+// once they are converted off their beat-splat/ripple-drop state.
+
+// Hue range and palette-cycle limits shared by the fluid scenes.
+namespace hue {
+constexpr float kMinHueRange = 0.1f;
+constexpr float kMaxHueRange = 1.5f;
+constexpr float kMaxPaletteCycle = 2.0f;
+
+inline float range(float hueRange) { return std::clamp(hueRange, kMinHueRange, kMaxHueRange); }
+inline float wrap01(float h) { return circular::wrap01(h); }
+inline float base(float paletteBase) { return wrap01(paletteBase); }
+inline float paletteCycleSpeed(float speed) { return std::clamp(speed, 0.0f, kMaxPaletteCycle); }
+inline float span(float hueRange, float paletteRange) { return range(hueRange) * std::clamp(paletteRange, 0.0f, 1.0f); }
+
+inline void hsv(float h, float s, float v, float* out) {
+    const float hh = wrap01(h);
+    const float sextant = hh * 6.0f;
+    const int i = static_cast<int>(sextant) % 6;
+    const float fr = sextant - static_cast<float>(static_cast<int>(sextant));
+    const float p = v * (1.0f - s);
+    const float q = v * (1.0f - fr * s);
+    const float t = v * (1.0f - (1.0f - fr) * s);
+    switch (i) {
+        case 0: out[0] = v; out[1] = t; out[2] = p; break;
+        case 1: out[0] = q; out[1] = v; out[2] = p; break;
+        case 2: out[0] = p; out[1] = v; out[2] = t; break;
+        case 3: out[0] = p; out[1] = q; out[2] = v; break;
+        case 4: out[0] = t; out[1] = p; out[2] = v; break;
+        default: out[0] = v; out[1] = p; out[2] = q; break;
+    }
+}
+inline void rgb(float h, float saturation, float* out) { hsv(h, std::clamp(saturation, 0.0f, 1.0f), 1.0f, out); }
+}  // namespace hue
+
+// How particles look: glow from bloom, size from the viewport height.
+namespace particle_look {
+constexpr float kStretchSeconds = 0.0025f;
+inline float glow(float bloom) { return 0.85f + std::clamp(bloom, 0.0f, 1.0f) * 1.2f; }
+inline float dpiScale(int viewportHeightPx) { return std::clamp(static_cast<float>(std::max(viewportHeightPx, 1)) / 1080.0f, 0.75f, 2.5f); }
+}  // namespace particle_look
+
+// Touch upload for a linked program: the count, and the points only when fingers are down.
+inline void uploadSceneTouch(UniformCache& locs, const TouchField* field, bool enabled = true) {
+    const int count = (enabled && field) ? field->count() : 0;
+    glUniform1i(locs.loc("uTouchCount"), count);
+    if (count <= 0 || !field) return;
+    glUniform4fv(locs.loc("uTouchPoints"), locs.arrayCount("uTouchPoints", TouchField::kMaxPoints), field->points().data());
+}
+
+// The same for fingers already mapped into the program's space (a simulation presented in 3D maps each
+// finger onto its field, core/viz/styles/renderers/life/FieldPresent): `count` points at TouchField's stride.
+inline void uploadSceneTouch(UniformCache& locs, const std::array<float, TouchField::kMaxPoints * TouchField::kPointStride>& points,
+                             int count, bool enabled = true) {
+    const int n = enabled ? std::clamp(count, 0, TouchField::kMaxPoints) : 0;
+    glUniform1i(locs.loc("uTouchCount"), n);
+    if (n <= 0) return;
+    glUniform4fv(locs.loc("uTouchPoints"), locs.arrayCount("uTouchPoints", TouchField::kMaxPoints), points.data());
+}
+
+// The envelope slew every simulation scene shares: fast rise, slow fall, per second.
+inline float slewEnvelope(float current, float target, float dt, float risePerSec, float fallPerSec) {
+    const float limit = target > current ? risePerSec : fallPerSec;
+    return current + std::clamp(target - current, -limit * dt, limit * dt);
+}
+
+constexpr float kSceneTimeWrapSeconds = 628.31853f;
+constexpr float kTwoPi = 6.2831853f;
+
+inline float safeAudioDrive(float raw) { return std::isfinite(raw) ? std::clamp(raw, 0.0f, 4.0f) : 0.0f; }
+
+// Blends fresh features toward this scene's audio-drive clamp, as every Kotlin scene did inline.
+inline float clampedBand(float value) { return std::clamp(value, 0.0f, 1.5f); }
+
+}  // namespace geode::viz

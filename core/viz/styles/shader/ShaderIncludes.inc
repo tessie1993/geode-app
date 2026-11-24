@@ -24,7 +24,7 @@
 "lib_feedback",
 // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.
 "lib_relief",
-// A simulation presented in 3D on the camera rig (core/viz/styles/present/FieldPresent); its march comes after the present's colours.
+// A simulation presented in 3D on the camera rig (core/viz/styles/renderers/life/FieldPresent); its march comes after the present's colours.
 "lib_field3d",
 "lib_field3d_march",
 // Grow and layers (Spawn, Fractal, Front layer, Back layer) as the family libraries draw them; lib_scene_uniforms includes it.
@@ -84,7 +84,7 @@
 "lib_nebula_field",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
-// Morph World's space: the World Genome's operator chain and its three render modes (core/viz/styles/world).
+// Morph World's space: the World Genome's operator chain and its three render modes (core/viz/styles/renderers/shader).
 "lib_world",
 // Every style's shape as normalized inputs (shellMap, shellKnob) and the grow hooks on its own field
 // (SHELL_FIELD3, SHELL_FIELD2); after lib_scene_uniforms.

@@ -255,41 +255,41 @@ add_library(geode_core STATIC
     viz/styles/catalogue/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
-    viz/styles/scenes/ShaderScene.cpp
+    viz/styles/renderers/shader/ShaderScene.cpp
     viz/styles/shader/SoundUniforms.cpp
     viz/BlueNoise.cpp
     viz/Overlays.cpp
-    viz/styles/compute/SimField.cpp
-    viz/styles/compute/SimGlsl.cpp
-    viz/styles/compute/SimPass.cpp
-    viz/styles/fluid/FluidBuffers.cpp
-    viz/styles/fluid/FluidMath.cpp
-    viz/styles/fluid/FluidChoreography.cpp
-    viz/styles/fluid/FluidEmitters.cpp
-    viz/styles/fluid/FluidSim.cpp
-    viz/styles/fluid/FluidParticles.cpp
-    viz/styles/fluid/FluidLook.cpp
-    viz/styles/fluid/FlowField.cpp
-    viz/styles/pool/PoolMath.cpp
+    viz/styles/renderers/silk/SimField.cpp
+    viz/styles/renderers/silk/SimGlsl.cpp
+    viz/styles/renderers/silk/SimPass.cpp
+    viz/styles/renderers/shared/FluidBuffers.cpp
+    viz/styles/renderers/fluid/FluidMath.cpp
+    viz/styles/renderers/fluid/FluidChoreography.cpp
+    viz/styles/renderers/fluid/FluidEmitters.cpp
+    viz/styles/renderers/fluid/FluidSim.cpp
+    viz/styles/renderers/fluid/FluidParticles.cpp
+    viz/styles/renderers/fluid/FluidLook.cpp
+    viz/styles/renderers/fluid/FlowField.cpp
+    viz/styles/renderers/shader/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
     viz/physics/PhysicsLayers.cpp
     viz/physics/PhysicsPlan.cpp
-    viz/styles/world/WorldGenome.cpp
-    viz/styles/world/MorphDriver.cpp
-    viz/styles/world/WorldAssets.cpp
+    viz/styles/renderers/shader/WorldGenome.cpp
+    viz/styles/renderers/shader/MorphDriver.cpp
+    viz/styles/renderers/shader/WorldAssets.cpp
     viz/styles/catalogue/StyleCatalog.cpp
-    viz/styles/scenes/CymaticsMath.cpp
-    viz/styles/scenes/CymaticsScene.cpp
-    viz/styles/scenes/SilkScene.cpp
-    viz/styles/scenes/LifeScene.cpp
-    viz/styles/present/FieldGeometry.cpp
-    viz/styles/present/FieldPresent.cpp
-    viz/styles/scenes/MycoScene.cpp
-    viz/styles/scenes/AcidScene.cpp
-    viz/styles/scenes/FluidSceneBase.cpp
-    viz/styles/scenes/FluidScene.cpp
-    viz/styles/scenes/CurlFlowScene.cpp
+    viz/styles/renderers/cymatics/CymaticsMath.cpp
+    viz/styles/renderers/cymatics/CymaticsScene.cpp
+    viz/styles/renderers/silk/SilkScene.cpp
+    viz/styles/renderers/life/LifeScene.cpp
+    viz/styles/renderers/life/FieldGeometry.cpp
+    viz/styles/renderers/life/FieldPresent.cpp
+    viz/styles/renderers/mycelium/MycoScene.cpp
+    viz/styles/renderers/acid/AcidScene.cpp
+    viz/styles/renderers/fluid/FluidSceneBase.cpp
+    viz/styles/renderers/fluid/FluidScene.cpp
+    viz/styles/renderers/fluid/CurlFlowScene.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -6,8 +6,8 @@
 
 #include "viz/Params.hpp"
 #include "viz/TouchField.hpp"
-#include "viz/styles/fluid/FluidQuality.hpp"
-#include "viz/styles/scenes/CymaticsMath.hpp"
+#include "viz/styles/renderers/fluid/FluidQuality.hpp"
+#include "viz/styles/renderers/cymatics/CymaticsMath.hpp"
 #include "viz/styles/catalogue/StyleCatalog.hpp"
 
 namespace geode::viz::catalogue {
@@ -155,7 +155,7 @@ static_assert(noneNull(kKindNames), "kKindNames: one name per Kind");
 static_assert(noneNull(kScopeNames), "kScopeNames: one name per Scope");
 static_assert(noneNull(kLookNames), "kLookNames: one name per Look");
 
-// A simulation presented in 3D (core/viz/styles/present/FieldPresent): its present is drawn by a ShaderScene on the
+// A simulation presented in 3D (core/viz/styles/renderers/life/FieldPresent): its present is drawn by a ShaderScene on the
 // shared block, so it reads the shader look, the bands and Turbulence as a shader style does, and marches.
 bool presentsIn3d(Kind k) { return k == Kind::Life; }
 

@@ -5,9 +5,9 @@
 
 #include "viz/GlProfile.hpp"
 #include "viz/ProgramBinaryCache.hpp"
-#include "viz/styles/scenes/Scene.hpp"
+#include "viz/styles/renderers/shared/Scene.hpp"
 #include "viz/styles/shader/ShaderSource.hpp"
-#include "viz/styles/scenes/ProgramLoader.hpp"
+#include "viz/styles/renderers/shared/ProgramLoader.hpp"
 
 namespace geode::viz {
 

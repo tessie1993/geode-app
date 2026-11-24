@@ -1,9 +1,9 @@
-// A simulation presented in 3D (core/viz/styles/present): where its field sits, where a finger lands on it,
+// A simulation presented in 3D (core/viz/styles/renderers/life): where its field sits, where a finger lands on it,
 // and what the composite leaves to a scene that draws the rig itself.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Field present host test"):
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/field_present_test.cpp
-//     core/viz/styles/present/FieldGeometry.cpp -o field_present_test && ./field_present_test
+//     core/viz/styles/renderers/life/FieldGeometry.cpp -o field_present_test && ./field_present_test
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -12,7 +12,7 @@
 
 #include "viz/CameraRig.hpp"
 #include "viz/CompositeGrade.hpp"
-#include "viz/styles/present/FieldGeometry.hpp"
+#include "viz/styles/renderers/life/FieldGeometry.hpp"
 
 using namespace geode::viz;
 using namespace geode::viz::present;

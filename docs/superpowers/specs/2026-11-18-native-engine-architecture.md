@@ -57,7 +57,7 @@ As found at `10f984d`. Main has changed some of it since: the frame step comes f
 
 - The analysis thread calls `step()` every pass and discards the result (`AnalysisThread.cpp:140-145`).
 - `ReactSignals::step` (about 170 rows) runs in the resolver and again in every scene (`core/viz/styles/shader/SoundUniforms.cpp:34`).
-- `MotionField` is stepped twice with the same seed (`core/signal/Resolver.cpp:150`, `core/viz/styles/scenes/ShaderScene.cpp:90`).
+- `MotionField` is stepped twice with the same seed (`core/signal/Resolver.cpp:150`, `core/viz/styles/renderers/shader/ShaderScene.cpp:90`).
 - About 100 string-keyed uniform lookups per shader scene draw (`core/viz/Program.cpp:10`, `ShaderScene.cpp:445`).
 - Up to about 30 whole `SceneParams` copies a frame (`core/viz/Lfo.cpp:173-180`, `Resolver.cpp:138-152`).
 - The sound texture is uploaded for every shader scene draw, read or not (`SoundUniforms.cpp:40-58`).

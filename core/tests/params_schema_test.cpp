@@ -27,8 +27,8 @@
 #include "viz/Lfo.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
-#include "viz/styles/fluid/FluidQuality.hpp"
-#include "viz/styles/scenes/CymaticsMath.hpp"
+#include "viz/styles/renderers/fluid/FluidQuality.hpp"
+#include "viz/styles/renderers/cymatics/CymaticsMath.hpp"
 
 using namespace geode::viz;
 

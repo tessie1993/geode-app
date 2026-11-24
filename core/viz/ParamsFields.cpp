@@ -7,8 +7,8 @@
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/Params.hpp"
 #include "viz/TableNumber.hpp"
-#include "viz/styles/fluid/FluidQuality.hpp"
-#include "viz/styles/scenes/CymaticsMath.hpp"
+#include "viz/styles/renderers/fluid/FluidQuality.hpp"
+#include "viz/styles/renderers/cymatics/CymaticsMath.hpp"
 
 namespace geode::viz {
 

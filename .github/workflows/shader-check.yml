@@ -15,7 +15,7 @@ on:
       - app/src/main/assets/shaders/**
       - core/viz/styles/shader/ShaderIncludes.inc
       - core/viz/styles/shader/ShaderSource*
-      - core/viz/styles/compute/SimGlsl*
+      - core/viz/styles/renderers/silk/SimGlsl*
       - tools/check_shaders.py
       - tools/glslcheck/**
       - .github/workflows/shader-check.yml

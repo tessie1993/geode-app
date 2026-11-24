@@ -1,4 +1,4 @@
-// Morph World's genome and morph driver (core/viz/styles/world), on the host.
+// Morph World's genome and morph driver (core/viz/styles/renderers/shader), on the host.
 //
 //   world_genome_test [lib_world.glsl [world_shapes.bin world_textures.bin]]
 //                                 run the checks; with lib_world, also check that its WG_* names
@@ -21,9 +21,9 @@
 #include <vector>
 
 #include "viz/CameraRig.hpp"
-#include "viz/styles/world/MorphDriver.hpp"
-#include "viz/styles/world/WorldAssets.hpp"
-#include "viz/styles/world/WorldGenome.hpp"
+#include "viz/styles/renderers/shader/MorphDriver.hpp"
+#include "viz/styles/renderers/shader/WorldAssets.hpp"
+#include "viz/styles/renderers/shader/WorldGenome.hpp"
 
 using namespace geode::viz;
 using namespace geode::viz::world;

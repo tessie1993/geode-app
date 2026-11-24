@@ -4,8 +4,8 @@
 #include <array>
 
 #include "util/Log.hpp"
-#include "viz/styles/fluid/FluidChoreography.hpp"
-#include "viz/styles/fluid/FluidMath.hpp"
+#include "viz/styles/renderers/fluid/FluidChoreography.hpp"
+#include "viz/styles/renderers/fluid/FluidMath.hpp"
 
 namespace geode::viz::physics {
 

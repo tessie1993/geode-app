@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/styles/fluid/FluidQuality.hpp"
+#include "viz/styles/renderers/fluid/FluidQuality.hpp"
 
 namespace geode::viz::physics {
 

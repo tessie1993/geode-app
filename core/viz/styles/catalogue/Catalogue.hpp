@@ -80,9 +80,9 @@ struct Family {
     const char* opener() const { return ids[0]; }
 };
 
-// Morph World: the one style whose ShaderScene runs a World Genome driver (core/viz/styles/world).
+// Morph World: the one style whose ShaderScene runs a World Genome driver (core/viz/styles/renderers/shader).
 constexpr const char* kMorphWorld = "morph_world";
-// Pool: a swimming pool seen from above; its ShaderScene runs the surface driver (core/viz/styles/pool).
+// Pool: a swimming pool seen from above; its ShaderScene runs the surface driver (core/viz/styles/renderers/shader).
 constexpr const char* kPool = "pool";
 
 // The user's Detail control; ShaderScene turns it into the march step budget.

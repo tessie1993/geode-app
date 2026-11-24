@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <array>
 
-#include "viz/styles/scenes/Scene.hpp"
+#include "viz/styles/renderers/shared/Scene.hpp"
 
 namespace geode::viz::grade {
 
@@ -19,7 +19,7 @@ constexpr float kTau = 6.2831855f;
 
 // What the composite applies to a scene's finished picture. A shader style applies all of it itself, and so
 // does any scene that draws the camera rig itself (Scene::drawsCamera): a simulation presented in 3D
-// (core/viz/styles/present/FieldPresent) bends its own shape by the Kaleidoscope, Twist, Tile, Warp and Ripple and
+// (core/viz/styles/renderers/life/FieldPresent) bends its own shape by the Kaleidoscope, Twist, Tile, Warp and Ripple and
 // grades its own colour through the shared block, so the composite must not do either a second time.
 inline Gate gateFor(SceneFamily family, bool drawsCamera = false) {
     if (drawsCamera) return Gate{false, false, false};

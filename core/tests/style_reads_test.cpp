@@ -12,7 +12,7 @@
 // counts as read when a function reachable from main() names it, comments and #ifdef'd-out code
 // stripped, macros followed: the nearest a host test gets to the driver's active-uniform list.
 // A dedicated renderer (Silk .. Cymatics) counts a field as read when its scene sources
-// name it or the composite applies it to that renderer's picture; one presented in 3D (core/viz/styles/present:
+// name it or the composite applies it to that renderer's picture; one presented in 3D (core/viz/styles/renderers/life:
 // Life) draws through a style-like shader on the shared block, and is held to that shader as a style is.
 #include <algorithm>
 #include <cctype>
@@ -220,7 +220,7 @@ void theReaderFollowsCallsNotDeclarations() {
     check(read.count("uWarp") == 0 && read.count("uTwist") == 1, "#ifndef on a name the source defines drops its branch");
 }
 
-// The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/styles/present/FieldPresent
+// The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/styles/renderers/life/FieldPresent
 // draws it as a ShaderScene); "" for one that draws flat.
 std::string presentShader(catalogue::Kind kind) { return kind == catalogue::Kind::Life ? "life_show_frag.glsl" : ""; }
 
@@ -507,7 +507,7 @@ bool worldCarries(const std::string& styleId, const std::string& field) {
 }
 
 // Pool spends Morph (the eye's tilt), Warp (the depth) and Turbulence (the chop) on its surface through
-// core/viz/styles/pool (ShaderScene feeds pool::Controls), which reaches the shader as uPoolWaves and uPoolView.
+// core/viz/styles/renderers/shader (ShaderScene feeds pool::Controls), which reaches the shader as uPoolWaves and uPoolView.
 bool poolCarries(const std::string& styleId, const std::string& field) {
     static const std::set<std::string> kPool = {"morph", "warp", "turbulence"};
     return styleId == catalogue::kPool && kPool.count(field) != 0;
@@ -531,21 +531,21 @@ bool readsField(const std::string& styleId, const std::string& field, const std:
 // The scene sources each dedicated renderer reads its SceneParams in, under core/.
 std::vector<std::string> kindSources(catalogue::Kind kind) {
     using K = catalogue::Kind;
-    const std::vector<std::string> fluid = {"viz/styles/scenes/FluidSceneBase.cpp", "viz/styles/fluid/FluidMath.cpp",     "viz/styles/fluid/FluidEmitters.cpp",
-                                            "viz/styles/fluid/FluidChoreography.cpp", "viz/styles/fluid/FluidLook.cpp", "viz/styles/fluid/FluidParticles.cpp",
-                                            "viz/styles/fluid/FluidSim.cpp"};
+    const std::vector<std::string> fluid = {"viz/styles/renderers/fluid/FluidSceneBase.cpp", "viz/styles/renderers/fluid/FluidMath.cpp",     "viz/styles/renderers/fluid/FluidEmitters.cpp",
+                                            "viz/styles/renderers/fluid/FluidChoreography.cpp", "viz/styles/renderers/fluid/FluidLook.cpp", "viz/styles/renderers/fluid/FluidParticles.cpp",
+                                            "viz/styles/renderers/fluid/FluidSim.cpp"};
     auto with = [&](std::vector<std::string> own) {
         own.insert(own.end(), fluid.begin(), fluid.end());
         return own;
     };
     switch (kind) {
-        case K::Silk: return {"viz/styles/scenes/SilkScene.cpp"};
-        case K::Life: return {"viz/styles/scenes/LifeScene.cpp"};
-        case K::Mycelium: return {"viz/styles/scenes/MycoScene.cpp"};
-        case K::Acid: return {"viz/styles/scenes/AcidScene.cpp"};
-        case K::Cymatics: return {"viz/styles/scenes/CymaticsScene.cpp", "viz/styles/scenes/CymaticsMath.cpp"};
-        case K::Fluid: return with({"viz/styles/scenes/FluidScene.cpp"});
-        case K::CurlFlow: return with({"viz/styles/scenes/CurlFlowScene.cpp"});
+        case K::Silk: return {"viz/styles/renderers/silk/SilkScene.cpp"};
+        case K::Life: return {"viz/styles/renderers/life/LifeScene.cpp"};
+        case K::Mycelium: return {"viz/styles/renderers/mycelium/MycoScene.cpp"};
+        case K::Acid: return {"viz/styles/renderers/acid/AcidScene.cpp"};
+        case K::Cymatics: return {"viz/styles/renderers/cymatics/CymaticsScene.cpp", "viz/styles/renderers/cymatics/CymaticsMath.cpp"};
+        case K::Fluid: return with({"viz/styles/renderers/fluid/FluidScene.cpp"});
+        case K::CurlFlow: return with({"viz/styles/renderers/fluid/CurlFlowScene.cpp"});
         case K::Shader: break;
     }
     return {};

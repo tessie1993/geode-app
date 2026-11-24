@@ -25,7 +25,7 @@
 
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/TouchField.hpp"
-#include "viz/styles/fluid/FluidQuality.hpp"
+#include "viz/styles/renderers/fluid/FluidQuality.hpp"
 #include "viz/styles/catalogue/StyleCatalog.hpp"
 
 using namespace geode::viz;
@@ -255,7 +255,7 @@ void paramScopesMatchTheOldParamScope() {
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
     check(catalogue::reaches(Scope::SceneClock, "silk_web") && catalogue::reaches(Scope::SceneClock, "fluid_ink"), "every style takes the scene clock");
-    // Life's present is a ShaderScene on the shared block (core/viz/styles/present): the bands, the look, Turbulence.
+    // Life's present is a ShaderScene on the shared block (core/viz/styles/renderers/life): the bands, the look, Turbulence.
     check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
               catalogue::reaches(Scope::TrebleBand, "life_orbium"),
           "life hears every band");

@@ -1,14 +1,14 @@
 #include "viz/styles/catalogue/SceneRegistry.hpp"
 
 #include "viz/styles/catalogue/Catalogue.hpp"
-#include "viz/styles/scenes/AcidScene.hpp"
-#include "viz/styles/scenes/CurlFlowScene.hpp"
-#include "viz/styles/scenes/CymaticsScene.hpp"
-#include "viz/styles/scenes/FluidScene.hpp"
-#include "viz/styles/scenes/LifeScene.hpp"
-#include "viz/styles/scenes/MycoScene.hpp"
-#include "viz/styles/scenes/ShaderScene.hpp"
-#include "viz/styles/scenes/SilkScene.hpp"
+#include "viz/styles/renderers/acid/AcidScene.hpp"
+#include "viz/styles/renderers/fluid/CurlFlowScene.hpp"
+#include "viz/styles/renderers/cymatics/CymaticsScene.hpp"
+#include "viz/styles/renderers/fluid/FluidScene.hpp"
+#include "viz/styles/renderers/life/LifeScene.hpp"
+#include "viz/styles/renderers/mycelium/MycoScene.hpp"
+#include "viz/styles/renderers/shader/ShaderScene.hpp"
+#include "viz/styles/renderers/silk/SilkScene.hpp"
 #include "viz/styles/catalogue/StyleCatalog.hpp"
 
 namespace geode::viz {
@@ -34,7 +34,7 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
         }
         auto scene = std::make_unique<ShaderScene>(id, quadVert, *fragment, loader_.cache, host_);
         if (id == catalogue::kMorphWorld) {
-            // Morph World's baked CC0 shapes and maps (core/viz/styles/world/WorldAssets); without them the
+            // Morph World's baked CC0 shapes and maps (core/viz/styles/renderers/shader/WorldAssets); without them the
             // style still draws, the mesh primitive as a sphere and no surface detail.
             const auto shapes = loader_.assets.readAsset("shaders/world_shapes.bin");
             const auto maps = loader_.assets.readAsset("shaders/world_textures.bin");

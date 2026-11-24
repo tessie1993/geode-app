@@ -44,7 +44,7 @@
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/ProgramStager.hpp"
 #include "viz/Reactions.hpp"
-#include "viz/styles/scenes/Scene.hpp"
+#include "viz/styles/renderers/shared/Scene.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
@@ -62,7 +62,7 @@
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/physics/PhysicsLayers.hpp"
-#include "viz/styles/scenes/ProgramLoader.hpp"
+#include "viz/styles/renderers/shared/ProgramLoader.hpp"
 
 namespace geode::viz {
 

@@ -1,10 +1,10 @@
 [versions]
-agp = "9.5.1"
+agp = "9.5.2"
 kotlin = "2.4.21"
 ksp = "2.3.14"
 hilt = "2.60.1"
 media3 = "1.11.1"
-composeBom = "2026.09.00"
+composeBom = "2026.11.01"
 activityCompose = "1.13.0"
 lifecycle = "2.11.0"
 coroutines = "1.11.0"
@@ -24,7 +24,7 @@ androidxTestServices = "1.6.0"
 espresso = "3.7.0"
 # Robolectric runs Android code in local JVM tests. 4.17 is the latest stable on Maven Central
 # (4.18 is beta); it supports up to API 36, so tests pin sdk=36 in robolectric.properties.
-robolectric = "4.18"
+robolectric = "4.18.1"
 ktlint = "14.2.0"
 detekt = "1.23.8"
 # Play Billing Library. 9.1.0 (2026-06-18) is the latest stable; PBL 9 needs compileSdk 35+.

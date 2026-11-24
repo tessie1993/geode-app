@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - app/src/main/assets/shaders/**
+      - core/viz/styles/glsl/**
       - core/viz/styles/shader/ShaderIncludes.inc
       - core/viz/styles/shader/ShaderSource*
       - core/viz/styles/renderers/silk/SimGlsl*

@@ -19,7 +19,20 @@ import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SHADERS = ROOT / "app/src/main/assets/shaders"
+GLSL = ROOT / "core/viz/styles/glsl"
+
+
+class _Shaders:
+    """The APK's flat shaders/ folder, which app/build.gradle.kts merges from every GLSL / <group> / shaders."""
+
+    def glob(self, pattern):
+        return [p for d in sorted(GLSL.glob("*/shaders")) for p in d.glob(pattern)]
+
+    def __truediv__(self, name):
+        return next((d / name for d in sorted(GLSL.glob("*/shaders")) if (d / name).exists()), GLSL / "missing" / name)
+
+
+SHADERS = _Shaders()
 INCLUDES_INC = ROOT / "core/viz/styles/shader/ShaderIncludes.inc"
 # Shaders the engine compiles with defines prepended, one entry per variant it
 # builds. FluidLook prepends LOOK (one per fluid style's material) and the

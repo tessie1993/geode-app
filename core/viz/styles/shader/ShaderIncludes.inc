@@ -4,7 +4,7 @@
 // kIncludes array; tools/check_shaders.py and tools/glslcheck/check.mjs
 // read it as text. Keep it to `"name",` entries and `//`
 // line comments: the readers take every double-quoted name outside a comment.
-// A new lib_*.glsl in app/src/main/assets/shaders must be added here, or it
+// A new lib_*.glsl in core/viz/styles/glsl/<group>/shaders must be added here, or it
 // fails on the phone and in both checks as an unknown include.
 
 "lib_palette",

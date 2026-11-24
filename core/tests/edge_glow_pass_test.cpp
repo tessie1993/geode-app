@@ -5,7 +5,7 @@
 // The seam is the pass's public interface (create, setOptions, wants, prepare, draw, release, level). The
 // real ShaderSource and program::build run; only the system boundaries are faked: GL
 // (core/tests/fakegl/GLES3/gl3.h, modelled below as names, bindings, blend state and one probe pixel per
-// framebuffer) and the APK's asset store (served from the repo's real app/src/main/assets, so the pass
+// framebuffer) and the APK's asset store (served from the repo's real core/viz/styles/glsl, so the pass
 // builds from the shader that ships). Link seams stand in for two of our own classes that program::build
 // names but never reaches here: ProgramStager::current() returns null (its contract outside a staged scene
 // build) and the pass is built without a ProgramBinaryCache, so their other members abort if ever called.
@@ -27,6 +27,7 @@
 
 #include "viz/ProgramStager.hpp"
 #include "viz/frame/EdgeGlowPass.hpp"
+#include "tests/ShaderAssets.hpp"
 
 namespace frame = geode::viz::frame;
 namespace eg = geode::viz::frame::edge_glow;
@@ -41,7 +42,7 @@ struct AAsset {
 
 extern "C" AAsset* AAssetManager_open(AAssetManager* manager, const char* filename, int /*mode*/) {
     if (manager == nullptr || filename == nullptr) return nullptr;
-    std::ifstream in(manager->root + filename, std::ios::binary);
+    std::ifstream in(geode::test::shaderAssetPath(manager->root, filename), std::ios::binary);
     if (!in) return nullptr;
     std::ostringstream bytes;
     bytes << in.rdbuf();
@@ -246,7 +247,7 @@ bool samePixel(const fake::Pixel& p, const fake::Pixel& q) {
     return near(p.r, q.r) && near(p.g, q.g) && near(p.b, q.b) && near(p.a, q.a);
 }
 
-AAssetManager repoAssets{"app/src/main/assets/"};
+AAssetManager repoAssets{"core/viz/styles/glsl/"};
 AAssetManager noAssets{"/nonexistent-geode-assets/"};
 
 constexpr GLuint kTargetFbo = 7;

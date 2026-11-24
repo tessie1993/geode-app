@@ -51,7 +51,15 @@ import { launch } from './cdp.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
-const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
+// The APK's flat shaders/ folder is merged from every core/viz/styles/glsl/<group>/shaders (app/build.gradle.kts).
+const GLSL = path.join(ROOT, 'core', 'viz', 'styles', 'glsl');
+function shaderFile(name) {
+  for (const group of fs.readdirSync(GLSL).sort()) {
+    const file = path.join(GLSL, group, 'shaders', name);
+    if (fs.existsSync(file)) return file;
+  }
+  return path.join(GLSL, 'missing', name);
+}
 const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'styles', 'shader', 'ShaderIncludes.inc');
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'styles', 'fluid', 'FluidLook.hpp');
@@ -87,7 +95,7 @@ function resolveIncludes(source, registry, chain = []) {
     }
     if (!registry.includes(m[1])) throw new Error(`unknown shader include '${m[1]}'`);
     if (chain.includes(m[1])) throw new Error(`circular shader include '${m[1]}'`);
-    const file = path.join(SHADERS, `${m[1]}.glsl`);
+    const file = shaderFile(`${m[1]}.glsl`);
     if (!fs.existsSync(file)) throw new Error(`missing shader include '${m[1]}'`);
     out.push(resolveIncludes(fs.readFileSync(file, 'utf8'), registry, [...chain, m[1]]));
   }
@@ -243,7 +251,7 @@ function packAtlas(slabs) {
   return { w: W, h: H, d: D, bytes: atlas };
 }
 function worldAssets() {
-  const raw = (f) => fs.readFileSync(path.join(SHADERS, f));
+  const raw = (f) => fs.readFileSync(shaderFile(f));
   const read = (f) => raw(f).toString('base64');
   const atlas = packAtlas(raw('world_shapes.bin'));
   return {
@@ -321,16 +329,16 @@ const ease = (v, t, tau, dt) => v + (t - v) * (1 - Math.exp(-dt / tau));
 function liquidJobs(args, registry) {
   const W = args.size, H = args.height ?? args.size;
   const aspect = W / H;
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = fs.readFileSync(shaderFile('quad_vert.glsl'), 'utf8');
   const styleFile = (id) => {
-    const f = path.join(SHADERS, `${id}_frag.glsl`);
+    const f = shaderFile(`${id}_frag.glsl`);
     if (!fs.existsSync(f)) throw new Error(`no such fragment style: ${id}`);
     return resolveIncludes(fs.readFileSync(f, 'utf8'), registry);
   };
   const styleFrag = styleFile(args.liquid);
   const bornId = args.born === 2 ? (args.bornStyle ?? 'kifs') : args.liquid;
   const bornFrag = styleFile(bornId);
-  const liquidFrag = resolveIncludes(fs.readFileSync(path.join(SHADERS, 'liquid_frag.glsl'), 'utf8'), registry);
+  const liquidFrag = resolveIncludes(fs.readFileSync(shaderFile('liquid_frag.glsl'), 'utf8'), registry);
   const styleU = parseUniforms(styleFrag);
   const bornU = parseUniforms(bornFrag);
   const liquidU = parseUniforms(liquidFrag);
@@ -397,11 +405,11 @@ function liquidJobs(args, registry) {
 // aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.
 function diveJob(args, registry) {
   const W = args.size, H = args.height ?? args.size;
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
-  const file = path.join(SHADERS, `${args.dive}_frag.glsl`);
+  const quadVert = fs.readFileSync(shaderFile('quad_vert.glsl'), 'utf8');
+  const file = shaderFile(`${args.dive}_frag.glsl`);
   if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${args.dive}`);
   const styleFrag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
-  const diveFrag = fs.readFileSync(path.join(SHADERS, 'dive_frag.glsl'), 'utf8');
+  const diveFrag = fs.readFileSync(shaderFile('dive_frag.glsl'), 'utf8');
   const styleU = parseUniforms(styleFrag);
   const diveU = parseUniforms(diveFrag);
   const n = args.frames === 240 ? 8 : args.frames;
@@ -447,7 +455,7 @@ function withKeywords(src, defines) {
 
 // The lib_sound names, parsed out of the library: SND_X -> (uniform, flat slot).
 function soundSlots() {
-  const src = fs.readFileSync(path.join(SHADERS, 'lib_sound.glsl'), 'utf8');
+  const src = fs.readFileSync(shaderFile('lib_sound.glsl'), 'utf8');
   const lanes = { x: 0, y: 1, z: 2, w: 3 };
   const out = {};
   for (const m of src.matchAll(/^#define\s+(SND_\w+)\s+(uSound\w*)(?:\[(\d+)\])?\.([xyzw])\s*$/gm)) {
@@ -565,7 +573,7 @@ async function runStills(args, registry) {
   const side = probeGridSide();
   const at = (t) => song[Math.min(song.length - 1, Math.max(0, Math.round(t * 60) - 1))];
   const textures = { ...SHADER_TEXTURES, uSoundTex: 'soundLive' };
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = fs.readFileSync(shaderFile('quad_vert.glsl'), 'utf8');
   let ids = args.shaders.length ? args.shaders : shaderIds();
   if (args.shard) {
     const [k, n] = args.shard.split('/').map(Number);
@@ -578,7 +586,7 @@ async function runStills(args, registry) {
   try {
     const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
     for (const id of ids) {
-      const file = path.join(SHADERS, `${id}_frag.glsl`);
+      const file = shaderFile(`${id}_frag.glsl`);
       if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${id}`);
       const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
       const uniforms = parseUniforms(frag);
@@ -754,10 +762,10 @@ async function main() {
     return;
   }
   const jobs = [];
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = fs.readFileSync(shaderFile('quad_vert.glsl'), 'utf8');
   const targets = args.all ? ids : args.shaders;
   for (const id of targets) {
-    const file = path.join(SHADERS, `${id}_frag.glsl`);
+    const file = shaderFile(`${id}_frag.glsl`);
     if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${id}`);
     const frag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
     const values = { ...SHADER_VALUES };
@@ -777,8 +785,8 @@ async function main() {
     jobs.push({ name: id, vert: quadVert, frag, uniforms, assets, later });
   }
   if (args.fluidDisplay) {
-    const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');
-    const src = fs.readFileSync(path.join(SHADERS, 'fluid_display_frag.glsl'), 'utf8');
+    const vert = fs.readFileSync(shaderFile('fluid_base_vert.glsl'), 'utf8');
+    const src = fs.readFileSync(shaderFile('fluid_display_frag.glsl'), 'utf8');
     const looks = fluidLookCount();
     for (let look = 0; look < looks; look++) {
       for (let flags = 0; flags < 8; flags++) {

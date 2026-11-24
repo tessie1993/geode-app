@@ -20,6 +20,7 @@
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/Tuning.hpp"
+#include "tests/ShaderAssets.hpp"
 #include "tests/SoundFields.hpp"
 
 using geode::sound::SoundEngine;
@@ -744,7 +745,7 @@ void testShaderLibraryNamesEveryScalarInItsSlot() {
         const auto at = &(f.*kFields[k].member) - reinterpret_cast<float*>(&f);
         CHECK(at == k, "%s is float %d, listed as %d", kFields[k].name, static_cast<int>(at), k);
     }
-    std::ifstream in("app/src/main/assets/shaders/lib_sound.glsl");
+    std::ifstream in(geode::test::shaderAssetPath("core/viz/styles/glsl/", "shaders/lib_sound.glsl"));
     CHECK(in.good(), "lib_sound.glsl not found: run from the repository root");
     const std::string uniform = "uniform vec4 uSound[";
     std::string line;

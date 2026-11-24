@@ -336,7 +336,7 @@ cast_audio_test | stub-mt | core/tests/cast_audio_test.cpp core/api/geode_frame_
 # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
 world_genome_test | stub | core/tests/world_genome_test.cpp core/viz/styles/renderers/shader/WorldGenome.cpp \
     core/viz/styles/renderers/shader/MorphDriver.cpp core/viz/styles/renderers/shader/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp \
-    core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp | app/src/main/assets/shaders/lib_world.glsl app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
+    core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp | core/viz/styles/glsl/morph_world/shaders/lib_world.glsl core/viz/styles/glsl/morph_world/shaders/world_shapes.bin core/viz/styles/glsl/morph_world/shaders/world_textures.bin
 # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
 hls_segments_test | stub | core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp |
 # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the placement (a portrait stage turned, every stage centre-cropped).
@@ -394,7 +394,7 @@ catalogue_test | core | core/tests/catalogue_test.cpp core/viz/styles/catalogue/
 # and every Customize control a style shows moves it (known gaps: core/tests/style_param_gaps.txt, only shrinks).
 style_reads_test | fakegl | core/tests/style_reads_test.cpp core/viz/styles/shader/ShaderSource.cpp core/viz/styles/catalogue/Catalogue.cpp \
     core/viz/styles/catalogue/StyleCatalog.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp \
-    core/viz/ParamsFields.cpp | app/src/main/assets/ --gaps core/tests/style_param_gaps.txt --core core/
+    core/viz/ParamsFields.cpp | core/viz/styles/glsl/ --gaps core/tests/style_param_gaps.txt --core core/
 # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
 visual_gate | core | core/tests/visual_gate.cpp | -
 # The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.

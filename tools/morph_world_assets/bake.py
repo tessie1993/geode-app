@@ -5,7 +5,7 @@ Run (after fetch.py; autoexec stays off, the downloaded .blend files are data, n
     blender -b --factory-startup --disable-autoexec -noaudio \
         --python tools/morph_world_assets/bake.py -- <cache-dir> <out-dir>
 
-Writes into <out-dir> (the app's is app/src/main/assets/shaders):
+Writes into <out-dir> (the app's is core/viz/styles/glsl/morph_world/shaders):
 
   world_textures.bin  MATERIALS x 128 x 128 bytes, R8, row-major, layer after layer. Each layer is a
                       material's base colour baked flat onto a unit plane (Cycles, its base colour

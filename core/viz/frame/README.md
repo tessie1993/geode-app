@@ -24,7 +24,7 @@ Export post-passes: `ExportPasses` (watermark and loop seam; #442) with their pu
 
 **Keep as they are:** `ScenePrep`, `ProgramStager`, `ProgramBinaryCache`, `GlCaps`/`GlProber`, `VisualSafety` (as the last step before drawing), the catalogue text table.
 
-**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block and a generated sound block (not built yet: no `core/signal/params` or `core/sound/schema` directory exists), pasted by the prelude every style includes; include-once in `core/viz/styles/shader/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_camera`) stay, on top of the prelude.
+**Shader contract** (shaders stay in `core/viz/styles/glsl`): a generated params uniform block and a generated sound block (not built yet: no `core/signal/params` or `core/sound/schema` directory exists), pasted by the prelude every style includes; include-once in `core/viz/styles/shader/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_camera`) stay, on top of the prelude.
 
 **The idea:** one frame preparation and one frame graph that executes and composites for every surface (a headless renderer would otherwise be a third copy), layers in a stack, and append-only, layout-guarded uniforms.
 

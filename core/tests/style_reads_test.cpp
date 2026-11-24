@@ -5,7 +5,7 @@
 // gaps in core/tests/style_param_gaps.txt, which may only shrink.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Style reads host tests").
 //
-//   style_reads_test [app/src/main/assets/] [--gaps core/tests/style_param_gaps.txt] [--core core/]
+//   style_reads_test [core/viz/styles/glsl/] [--gaps core/tests/style_param_gaps.txt] [--core core/]
 //   style_reads_test --gaps /dev/null --matrix    every style's unread fields, in the gaps file's format
 //
 // The real ShaderSource resolves the //#include lines over the repo's assets folder. A uniform
@@ -28,6 +28,7 @@
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/styles/shader/ShaderSource.hpp"
+#include "tests/ShaderAssets.hpp"
 
 using namespace geode::viz;
 
@@ -40,7 +41,7 @@ struct AAsset {
 
 extern "C" AAsset* AAssetManager_open(AAssetManager* manager, const char* filename, int /*mode*/) {
     if (manager == nullptr || filename == nullptr) return nullptr;
-    std::ifstream in(manager->root + filename, std::ios::binary);
+    std::ifstream in(geode::test::shaderAssetPath(manager->root, filename), std::ios::binary);
     if (!in) return nullptr;
     std::ostringstream bytes;
     bytes << in.rdbuf();
@@ -674,7 +675,7 @@ void everyShownControlReachesItsStyle(const std::string& assetsRoot, const std::
 
 int main(int argc, char** argv) {
     bool matrix = false;
-    std::string root = "app/src/main/assets/";
+    std::string root = "core/viz/styles/glsl/";
     std::string gaps = "core/tests/style_param_gaps.txt";
     std::string core = "core/";
     for (int i = 1; i < argc; ++i) {

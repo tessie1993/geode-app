@@ -1,11 +1,11 @@
 ---
 name: geode-shaders
-description: Use when writing or fixing a Geode GLSL style or pass in app/src/main/assets/shaders - the lib_* includes, uniforms, knobs, families, fluid looks - and to compile-check or render one without a device.
+description: Use when writing or fixing a Geode GLSL style or pass in core/viz/styles/glsl/<group>/shaders - the lib_* includes, uniforms, knobs, families, fluid looks - and to compile-check or render one without a device.
 ---
 
 # Geode shaders
 
-Shaders are GLSL ES 3.00 (`#version 300 es`) in `app/src/main/assets/shaders/`. They are not Shadertoy shaders: the general `shader-art-coding` skill is fine for technique (SDFs, noise, raymarching), but its entry point, uniforms and includes are not ours. Follow this file for those.
+Shaders are GLSL ES 3.00 (`#version 300 es`) in `core/viz/styles/glsl/<group>/shaders/`. They are not Shadertoy shaders: the general `shader-art-coding` skill is fine for technique (SDFs, noise, raymarching), but its entry point, uniforms and includes are not ours. Follow this file for those.
 
 ## House rules
 

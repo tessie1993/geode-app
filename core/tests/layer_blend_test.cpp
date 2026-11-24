@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "tests/ShaderAssets.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/VisualSafety.hpp"
 
@@ -51,7 +52,7 @@ void defaultsAndFallback() {
 }
 
 void compositorDrawsEveryBlend() {
-    std::ifstream in("app/src/main/assets/shaders/composite_frag.glsl");
+    std::ifstream in(geode::test::shaderAssetPath("core/viz/styles/glsl/", "shaders/composite_frag.glsl"));
     check(in.good(), "composite_frag.glsl not found: run from the repository root");
     std::stringstream all;
     all << in.rdbuf();

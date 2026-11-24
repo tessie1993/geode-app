@@ -18,7 +18,7 @@ namespace geode::viz::liquid::motion {
 // and perFrame() turns it into one frame's values for the frame's dt, so the same travel per second results
 // at any frame rate.
 //
-// app/src/main/assets/shaders/lib_feedback.glsl is uvFor() and fold() in GLSL, term for term: change
+// core/viz/styles/glsl/lib/shaders/lib_feedback.glsl is uvFor() and fold() in GLSL, term for term: change
 // both together.
 
 inline constexpr float kFrameHz = 60.0f;

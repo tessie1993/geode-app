@@ -82,7 +82,7 @@ The native core lives outside the modules and is built by the root
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
 | `third_party/` | Git submodules: taglib, cgltf, meshoptimizer, basis_universal, kissfft, libdatachannel, mbedtls |
 
-Shaders ship as assets under `app/src/main/assets/shaders/` and are loaded by
+Shaders ship as assets under `core/viz/styles/glsl/<group>/shaders/` (merged into the APK's `assets/shaders/`) and are loaded by
 the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
 `playback`, `export`, `editor` and `data`, never the reverse.
 

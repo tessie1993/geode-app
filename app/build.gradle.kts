@@ -149,6 +149,19 @@ android {
         }
     }
 
+    // The GLSL lives with the styles: core/viz/styles/glsl/<group>/shaders/, one folder per family or
+    // renderer. Each group is an assets source dir, so the APK's assets/shaders/ is the same flat folder.
+    sourceSets {
+        getByName("main") {
+            rootProject
+                .file("core/viz/styles/glsl")
+                .listFiles { f -> f.isDirectory }
+                .orEmpty()
+                .sortedBy { it.name }
+                .forEach { assets.srcDir(it) }
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = false

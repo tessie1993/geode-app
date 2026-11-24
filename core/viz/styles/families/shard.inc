@@ -1,0 +1,13 @@
+// Broken glass in the dark: splinters, panes and spires with thin-film faces and edges that split the light.
+GEODE_FAMILY_BEGIN(shard, "shard_", "lib_shard", Glass)
+GEODE_STYLE(shard, "shard_splinter", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_burst", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_panes", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_spires", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_wall", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_stair", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_needles", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_tunnel", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_rods", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(shard, "shard_ring", March | Form | Formula | Shadow | Escape)
+GEODE_FAMILY_END(shard)

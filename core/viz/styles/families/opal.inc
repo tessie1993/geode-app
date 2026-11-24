@@ -1,0 +1,13 @@
+// Iridescent glass and liquid: clear shells seen through each other, thin-film colour at the rims.
+GEODE_FAMILY_BEGIN(opal, "opal_", "lib_opal", Glass)
+GEODE_STYLE(opal, "opal_bubbles", March)
+GEODE_STYLE(opal, "opal_nautilus", March)
+GEODE_STYLE(opal, "opal_melt", March)
+GEODE_STYLE(opal, "opal_domes", March)
+GEODE_STYLE(opal, "opal_pearls", March)
+GEODE_STYLE(opal, "opal_lava", March)
+GEODE_STYLE(opal, "opal_ribbon", March)
+GEODE_STYLE(opal, "opal_cells", March)
+GEODE_STYLE(opal, "opal_rings", March)
+GEODE_STYLE(opal, "opal_drop", March)
+GEODE_FAMILY_END(opal)

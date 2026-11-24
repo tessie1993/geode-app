@@ -1,0 +1,13 @@
+// Fractal-flame wisps: thin luminous veils and filaments gathered along the ray, on black.
+GEODE_FAMILY_BEGIN(flame, "flame_", "lib_flame", Psychedelic)
+GEODE_STYLE(flame, "flame_veil", March)
+GEODE_STYLE(flame, "flame_spiral", March)
+GEODE_STYLE(flame, "flame_orb", March)
+GEODE_STYLE(flame, "flame_star", March)
+GEODE_STYLE(flame, "flame_lotus", March)
+GEODE_STYLE(flame, "flame_helix", March)
+GEODE_STYLE(flame, "flame_knot", March)
+GEODE_STYLE(flame, "flame_web", March)
+GEODE_STYLE(flame, "flame_aurora", March)
+GEODE_STYLE(flame, "flame_nova", March)
+GEODE_FAMILY_END(flame)

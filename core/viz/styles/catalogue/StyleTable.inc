@@ -22,8 +22,8 @@
 //
 // Escape hatch: the trailing `...` of a row is ignored by Catalogue.cpp. A family with parameters of
 // its own writes them there and reads them by including this file with a GEODE_STYLE of its own, so
-// family-specific fields stay in that family's rows and nothing shared has to know them. To move a
-// family next to its shaders, cut its BEGIN..END block into its own file and #include it from here.
+// family-specific fields stay in that family's rows and nothing shared has to know them. Each family's
+// BEGIN..END block is its own file in core/viz/styles/families, #included below in family order.
 //
 // The dedicated renderers' styles (silk, life, mycelium, acid, fluid, cymatics) are not
 // rows: their tables live in core/viz/styles/catalogue/StyleCatalog.
@@ -93,293 +93,40 @@ GEODE_LOOSE("morph_world", FlyThrough, March)
 GEODE_LOOSE("pool", Flowing, None)
 
 // Each family lists its own styles, so it carries its own count; the opener is first.
-// Fractal trees: branching folded distance fields, flown through or orbited.
-GEODE_FAMILY_BEGIN(arbor, "arbor_", "lib_arbor", Fractals)
-GEODE_STYLE(arbor, "arbor_grove", March | Form)
-GEODE_STYLE(arbor, "arbor_willow", March | Form)
-GEODE_STYLE(arbor, "arbor_coral", March | Form)
-GEODE_STYLE(arbor, "arbor_frost", March | Form)
-GEODE_STYLE(arbor, "arbor_bolt", March | Form)
-GEODE_STYLE(arbor, "arbor_roots", March | Form)
-GEODE_STYLE(arbor, "arbor_bonsai", March | Form)
-GEODE_STYLE(arbor, "arbor_canopy", March | Form)
-GEODE_STYLE(arbor, "arbor_rosette", March | Form)
-GEODE_STYLE(arbor, "arbor_spire", March | Form)
-GEODE_STYLE(arbor, "arbor_synapse", March | Form)
-GEODE_STYLE(arbor, "arbor_sakura", March | Form)
-GEODE_FAMILY_END(arbor)
+#include "viz/styles/families/arbor.inc"
 
-// Ray-marched power-N Mandelbulbs and their Julia relatives.
-GEODE_FAMILY_BEGIN(bulb, "bulb_", "lib_bulb", Fractals)
-GEODE_STYLE(bulb, "bulb_classic", March | Form | Shadow | Escape)
-GEODE_STYLE(bulb, "bulb_julia", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_slice", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_lotus", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_ink", March | Form | Shadow | Escape)
-GEODE_STYLE(bulb, "bulb_glow", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_cavern", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_shell", March | Form | Shadow | Escape)
-GEODE_STYLE(bulb, "bulb_prism", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_contour", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_chrome", March | Form | Escape)
-GEODE_STYLE(bulb, "bulb_hybrid", March | Form | Escape)
-GEODE_FAMILY_END(bulb)
+#include "viz/styles/families/bulb.inc"
 
-// Polar petal fields and mandalas that bloom out of a glowing core.
-GEODE_FAMILY_BEGIN(chrysanthemum, "chrys_", "lib_chrys", Psychedelic)
-GEODE_STYLE(chrysanthemum, "chrys_bloom", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_phyllo", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_dahlia", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_lotus", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_meadow", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_corolla", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_glass", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_ink", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_neon", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_fall", March | Form)
-GEODE_STYLE(chrysanthemum, "chrys_kaleido", March | Form | Spin(-0.8f))
-GEODE_STYLE(chrysanthemum, "chrys_tunnel", March | Form | Spin(0.6f))
-GEODE_FAMILY_END(chrysanthemum)
+#include "viz/styles/families/chrysanthemum.inc"
 
-// Nested domain warps, often folded into a kaleidoscope.
-GEODE_FAMILY_BEGIN(lucid, "lucid_", "lib_lucid", Psychedelic)
-GEODE_STYLE(lucid, "lucid_weave", March | Form)
-GEODE_STYLE(lucid, "lucid_mandala", March | Form | Spin(0.6f))
-GEODE_STYLE(lucid, "lucid_spiral", March | Form | Spin(1.1f))
-GEODE_STYLE(lucid, "lucid_tunnel", March | Form | Spin(0.5f))
-GEODE_STYLE(lucid, "lucid_disc", March | Form | Spin(0.35f))
-GEODE_STYLE(lucid, "lucid_hive", March | Form)
-GEODE_STYLE(lucid, "lucid_ink", March | Form)
-GEODE_STYLE(lucid, "lucid_mirror", March | Form | Spin(-0.7f))
-GEODE_STYLE(lucid, "lucid_bulge", March | Form)
-GEODE_STYLE(lucid, "lucid_petal", March | Form)
-GEODE_STYLE(lucid, "lucid_lattice", March | Form)
-GEODE_STYLE(lucid, "lucid_vortex", March | Form | Spin(-1.3f))
-GEODE_FAMILY_END(lucid)
+#include "viz/styles/families/lucid.inc"
 
-// Fly-through dives along five camera paths.
-GEODE_FAMILY_BEGIN(dive, "dive_", "lib_dive", FlyThrough)
-GEODE_STYLE(dive, "dive_lattice", March | Form)
-GEODE_STYLE(dive, "dive_jewel", March | Form)
-GEODE_STYLE(dive, "dive_mushroom", March | Form)
-GEODE_STYLE(dive, "dive_gyro", March | Form)
-GEODE_STYLE(dive, "dive_mandala", March | Form)
-GEODE_STYLE(dive, "dive_serpent", March | Form)
-GEODE_STYLE(dive, "dive_helix", March | Form)
-GEODE_STYLE(dive, "dive_accordion", March | Form)
-GEODE_STYLE(dive, "dive_orbit", March | Form)
-GEODE_STYLE(dive, "dive_neon", March | Form)
-GEODE_STYLE(dive, "dive_cycle", March | Form)
-GEODE_STYLE(dive, "dive_show", March | Form)
-GEODE_FAMILY_END(dive)
+#include "viz/styles/families/dive.inc"
 
-// Ray-traced glass: refraction, dispersion, thin films and caustic light.
-GEODE_FAMILY_BEGIN(glass, "glass_", "lib_glass", Glass)
-GEODE_STYLE(glass, "glass_orb", March | Form)
-GEODE_STYLE(glass, "glass_pool", March | Form)
-GEODE_STYLE(glass, "glass_prism", March)
-GEODE_STYLE(glass, "glass_lens", March | Form)
-GEODE_STYLE(glass, "glass_drops", March | Form)
-GEODE_STYLE(glass, "glass_bubbles", March | Form)
-GEODE_STYLE(glass, "glass_marble", March | Form)
-GEODE_STYLE(glass, "glass_caustic", March | Form)
-GEODE_STYLE(glass, "glass_cubes", March | Form)
-GEODE_STYLE(glass, "glass_gem", March)
-GEODE_STYLE(glass, "glass_ice", March | Form)
-GEODE_STYLE(glass, "glass_knot", March | Form)
-GEODE_FAMILY_END(glass)
+#include "viz/styles/families/glass.inc"
 
-// Galaxies and gas clouds.
-GEODE_FAMILY_BEGIN(nebula, "nebula_", "lib_nebula", Space)
-GEODE_STYLE(nebula, "nebula_dust", March | Form)
-GEODE_STYLE(nebula, "nebula_spiral", March | Form)
-GEODE_STYLE(nebula, "nebula_ring", March | Form)
-GEODE_STYLE(nebula, "nebula_veil", March | Form)
-GEODE_STYLE(nebula, "nebula_pulsar", March | Form)
-GEODE_STYLE(nebula, "nebula_cluster", March | Form)
-GEODE_STYLE(nebula, "nebula_nova", March | Form)
-GEODE_STYLE(nebula, "nebula_horizon", March | Form)
-GEODE_STYLE(nebula, "nebula_pillars", March | Form)
-GEODE_STYLE(nebula, "nebula_flight", March | Form)
-GEODE_STYLE(nebula, "nebula_storm", March | Form)
-GEODE_STYLE(nebula, "nebula_web", March | Form)
-GEODE_FAMILY_END(nebula)
+#include "viz/styles/families/nebula.inc"
 
-// Ray-marched heightfield landscapes.
-GEODE_FAMILY_BEGIN(terrain, "terra_", "lib_terra", FlyThrough)
-GEODE_STYLE(terrain, "terra_ridge", March | Form)
-GEODE_STYLE(terrain, "terra_dunes", March | Form)
-GEODE_STYLE(terrain, "terra_canyon", March | Form)
-GEODE_STYLE(terrain, "terra_glacier", March | Form)
-GEODE_STYLE(terrain, "terra_isles", March | Form)
-GEODE_STYLE(terrain, "terra_mesa", March | Form)
-GEODE_STYLE(terrain, "terra_volcano", March | Form)
-GEODE_STYLE(terrain, "terra_terraces", March | Form)
-GEODE_STYLE(terrain, "terra_moon", March | Form)
-GEODE_STYLE(terrain, "terra_night", March | Form)
-GEODE_STYLE(terrain, "terra_topo", March | Form)
-GEODE_STYLE(terrain, "terra_wire", March | Form)
-GEODE_FAMILY_END(terrain)
+#include "viz/styles/families/terrain.inc"
 
-// Truchet tilings whose paths rewire on the beat.
-GEODE_FAMILY_BEGIN(truchet, "truchet_", "lib_truchet", Patterns)
-GEODE_STYLE(truchet, "truchet_arcs", March | Form)
-GEODE_STYLE(truchet, "truchet_hex", March | Form)
-GEODE_STYLE(truchet, "truchet_weave", March | Form)
-GEODE_STYLE(truchet, "truchet_maze", March | Form)
-GEODE_STYLE(truchet, "truchet_tri", March | Form)
-GEODE_STYLE(truchet, "truchet_quad", March | Form)
-GEODE_STYLE(truchet, "truchet_tubes", March | Form)
-GEODE_STYLE(truchet, "truchet_neon", March | Form)
-GEODE_STYLE(truchet, "truchet_flow", March | Form)
-GEODE_STYLE(truchet, "truchet_knot", March | Form)
-GEODE_STYLE(truchet, "truchet_tunnel", March | Form)
-GEODE_STYLE(truchet, "truchet_relief", March | Form)
-GEODE_FAMILY_END(truchet)
+#include "viz/styles/families/truchet.inc"
 
-// Falls and orbits through a 3D Apollonian sphere packing (after PR #7), one material each.
-GEODE_FAMILY_BEGIN(foam, "foam_", "lib_foam", Fractals)
-GEODE_STYLE(foam, "foam_fall", March | Form)
-GEODE_STYLE(foam, "foam_neon", March | Form)
-GEODE_STYLE(foam, "foam_soap", March | Form)
-GEODE_STYLE(foam, "foam_chrome", March | Form)
-GEODE_STYLE(foam, "foam_ember", March | Form)
-GEODE_STYLE(foam, "foam_ice", March | Form)
-GEODE_STYLE(foam, "foam_orb", March | Form)
-GEODE_STYLE(foam, "foam_kaleido", March | Form)
-GEODE_STYLE(foam, "foam_ink", March | Form)
-GEODE_STYLE(foam, "foam_coral", March | Form)
-GEODE_STYLE(foam, "foam_ghost", March | Form)
-GEODE_STYLE(foam, "foam_show", March | Form)
-GEODE_FAMILY_END(foam)
+#include "viz/styles/families/foam.inc"
 
-// Fractal-flame wisps: thin luminous veils and filaments gathered along the ray, on black.
-GEODE_FAMILY_BEGIN(flame, "flame_", "lib_flame", Psychedelic)
-GEODE_STYLE(flame, "flame_veil", March)
-GEODE_STYLE(flame, "flame_spiral", March)
-GEODE_STYLE(flame, "flame_orb", March)
-GEODE_STYLE(flame, "flame_star", March)
-GEODE_STYLE(flame, "flame_lotus", March)
-GEODE_STYLE(flame, "flame_helix", March)
-GEODE_STYLE(flame, "flame_knot", March)
-GEODE_STYLE(flame, "flame_web", March)
-GEODE_STYLE(flame, "flame_aurora", March)
-GEODE_STYLE(flame, "flame_nova", March)
-GEODE_FAMILY_END(flame)
+#include "viz/styles/families/flame.inc"
 
-// Iridescent glass and liquid: clear shells seen through each other, thin-film colour at the rims.
-GEODE_FAMILY_BEGIN(opal, "opal_", "lib_opal", Glass)
-GEODE_STYLE(opal, "opal_bubbles", March)
-GEODE_STYLE(opal, "opal_nautilus", March)
-GEODE_STYLE(opal, "opal_melt", March)
-GEODE_STYLE(opal, "opal_domes", March)
-GEODE_STYLE(opal, "opal_pearls", March)
-GEODE_STYLE(opal, "opal_lava", March)
-GEODE_STYLE(opal, "opal_ribbon", March)
-GEODE_STYLE(opal, "opal_cells", March)
-GEODE_STYLE(opal, "opal_rings", March)
-GEODE_STYLE(opal, "opal_drop", March)
-GEODE_FAMILY_END(opal)
+#include "viz/styles/families/opal.inc"
 
-// Organic tunnels: sinew, bone and carved cave walls whose relief glows under blacklight.
-GEODE_FAMILY_BEGIN(hollow, "hollow_", "lib_hollow", FlyThrough)
-GEODE_STYLE(hollow, "hollow_sinew", March)
-GEODE_STYLE(hollow, "hollow_cave", March)
-GEODE_STYLE(hollow, "hollow_ribs", March)
-GEODE_STYLE(hollow, "hollow_coral", March)
-GEODE_STYLE(hollow, "hollow_roots", March)
-GEODE_STYLE(hollow, "hollow_hive", March)
-GEODE_STYLE(hollow, "hollow_throat", March)
-GEODE_STYLE(hollow, "hollow_neuron", March)
-GEODE_STYLE(hollow, "hollow_bone", March)
-GEODE_STYLE(hollow, "hollow_shell", March)
-GEODE_FAMILY_END(hollow)
+#include "viz/styles/families/hollow.inc"
 
-// Kaleidoscope portals in liquid chrome: space folded by mirrors into stars, rosettes, arches and fans,
-// thin ribbons of light along every fold, dark between. Not prism_rain, the loose style older than them.
-GEODE_FAMILY_BEGIN(prism, "prism_", "lib_prism", Glass)
-GEODE_STYLE(prism, "prism_portal", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_rosette", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_arcade", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_fan", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_crown", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_jewel", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_nest", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_braid", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_facet", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(prism, "prism_mercury", March | Form | Formula | Shadow | Escape)
-GEODE_FAMILY_END(prism)
+#include "viz/styles/families/prism.inc"
 
-// Carved and embossed ornament under blacklight, flown along or turned about, every raised edge glowing
-// like fluorescent paint.
-GEODE_FAMILY_BEGIN(fluor, "fluor_", "lib_fluor", FlyThrough)
-GEODE_STYLE(fluor, "fluor_whorl", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_lattice", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_coffer", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_column", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_orb", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_coil", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_weave", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_scales", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_filigree", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fluor, "fluor_honeycomb", March | Form | Formula | Shadow | Escape)
-GEODE_FAMILY_END(fluor)
+#include "viz/styles/families/fluor.inc"
 
-// Woven light: threads, braids, nets and translucent skins strung across the dark, glowing along their fibres.
-GEODE_FAMILY_BEGIN(loom, "loom_", "lib_loom", FlyThrough)
-GEODE_STYLE(loom, "loom_braid", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_net", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_cloth", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_cocoon", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_spokes", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_rope", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_curtain", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_basket", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_sail", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(loom, "loom_spool", March | Form | Formula | Shadow | Escape)
-GEODE_FAMILY_END(loom)
+#include "viz/styles/families/loom.inc"
 
-// Broken glass in the dark: splinters, panes and spires with thin-film faces and edges that split the light.
-GEODE_FAMILY_BEGIN(shard, "shard_", "lib_shard", Glass)
-GEODE_STYLE(shard, "shard_splinter", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_burst", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_panes", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_spires", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_wall", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_stair", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_needles", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_tunnel", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_rods", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(shard, "shard_ring", March | Form | Formula | Shadow | Escape)
-GEODE_FAMILY_END(shard)
+#include "viz/styles/families/shard.inc"
 
-// Translucent petals and blossoms lit from within: thin sheets that let the light through and gather it
-// at their rims.
-GEODE_FAMILY_BEGIN(petal, "petal_", "lib_petal", Flowing)
-GEODE_STYLE(petal, "petal_rose", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_gates", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_bells", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_drift", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_buds", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_garland", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_scales", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_fern", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_seed", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(petal, "petal_stair", March | Form | Formula | Shadow | Escape)
-GEODE_FAMILY_END(petal)
+#include "viz/styles/families/petal.inc"
 
-// Fractals made by folding space, each drawn by its own march: glowing threads, cone-traced crusts, 4D
-// sections, alternating hybrids and sign-probed surfaces. Its library is lib_fold; each style also includes
-// one of five lib_fold_march_* (glow, cone, slice, pair, probe).
-GEODE_FAMILY_BEGIN(fold, "fold_", "lib_fold", Fractals)
-GEODE_STYLE(fold, "fold_lace", March | Form | Formula | Escape)
-GEODE_STYLE(fold, "fold_nerve", March | Form | Formula | Escape)
-GEODE_STYLE(fold, "fold_spire", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fold, "fold_vault", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fold, "fold_onion", March | Form | Formula | Escape)
-GEODE_STYLE(fold, "fold_strata", March | Form | Formula | Escape)
-GEODE_STYLE(fold, "fold_twin", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fold, "fold_scaffold", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fold, "fold_thorn", March | Form | Formula | Shadow | Escape)
-GEODE_STYLE(fold, "fold_quartz", March | Form | Formula | Shadow | Escape)
-GEODE_FAMILY_END(fold)
+#include "viz/styles/families/fold.inc"

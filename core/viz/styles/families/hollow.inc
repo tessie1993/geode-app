@@ -1,0 +1,13 @@
+// Organic tunnels: sinew, bone and carved cave walls whose relief glows under blacklight.
+GEODE_FAMILY_BEGIN(hollow, "hollow_", "lib_hollow", FlyThrough)
+GEODE_STYLE(hollow, "hollow_sinew", March)
+GEODE_STYLE(hollow, "hollow_cave", March)
+GEODE_STYLE(hollow, "hollow_ribs", March)
+GEODE_STYLE(hollow, "hollow_coral", March)
+GEODE_STYLE(hollow, "hollow_roots", March)
+GEODE_STYLE(hollow, "hollow_hive", March)
+GEODE_STYLE(hollow, "hollow_throat", March)
+GEODE_STYLE(hollow, "hollow_neuron", March)
+GEODE_STYLE(hollow, "hollow_bone", March)
+GEODE_STYLE(hollow, "hollow_shell", March)
+GEODE_FAMILY_END(hollow)

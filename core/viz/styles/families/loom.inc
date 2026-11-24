@@ -1,0 +1,13 @@
+// Woven light: threads, braids, nets and translucent skins strung across the dark, glowing along their fibres.
+GEODE_FAMILY_BEGIN(loom, "loom_", "lib_loom", FlyThrough)
+GEODE_STYLE(loom, "loom_braid", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_net", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_cloth", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_cocoon", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_spokes", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_rope", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_curtain", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_basket", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_sail", March | Form | Formula | Shadow | Escape)
+GEODE_STYLE(loom, "loom_spool", March | Form | Formula | Shadow | Escape)
+GEODE_FAMILY_END(loom)

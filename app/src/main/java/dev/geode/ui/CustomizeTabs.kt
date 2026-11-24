@@ -498,8 +498,8 @@ internal fun ParamChips(
  * overlap). The row grows by 16 dp; nothing is drawn differently.
  *
  * The value's text is native's (`ParamsNative.paramText`: a % for amounts, × for multipliers, s/ms, Hz, °) and reads
- * "Default" at the default. A unit suffix in the key ("Particle life (s)") is dropped from the
- * shown name, since the value now carries it.
+ * "Default" at the default, which the row leaves out and only TalkBack hears. A unit suffix in the
+ * key ("Particle life (s)") is dropped from the shown name, since the value now carries it.
  *
  * A Pro control the user may not keep is try-then-pay: dimmed, but the slider still moves and the
  * picture follows while it is held; on release it springs back and the paywall offers to keep it.
@@ -566,7 +566,11 @@ internal fun LabeledSlider(
             KeptMark(label)
             KnobMark(knobSlot)
             Spacer(Modifier.weight(1f))
-            Text(shown, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // At its default the row shows no value: a page of sliders read "Default" down its whole
+            // side. A value appears once the slider is off it. TalkBack still hears native's text.
+            if (default == null || offDefault != null) {
+                Text(shown, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (!locked) RowMenu(name, label, reset)
         }
         Slider(

@@ -189,9 +189,12 @@ private fun GroupList(
     sectionContent: @Composable (CustomizeSection) -> Unit,
     modifier: Modifier,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        state = rememberLazyListState(),
-        modifier = modifier,
+        state = listState,
+        // The list ends at the docked mini player: a row cut there read as the player covering it
+        // (its seek line ran through the last slider). The cut end now dissolves, as Settings' pages do.
+        modifier = modifier.edgeFade(listState, horizontal = false),
         contentPadding = PaddingValues(start = GeodeSpacing.S, end = GeodeSpacing.S, bottom = GeodeSpacing.XL),
     ) {
         items(sections, key = { it.path }) { section ->

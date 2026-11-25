@@ -291,7 +291,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.glance.appwidget)
     constraints {
-        implementation(libs.work.runtime.ktx) {
+        implementation(libs.work.runtime) {
             because(
                 "Glance asks for WorkManager 2.7.1 and with it Room 2.2.5, whose R8 rule keeps a database class " +
                     "without its constructor: R8 full mode removed it and the minified app died creating WorkDatabase.",

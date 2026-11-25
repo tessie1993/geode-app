@@ -1,0 +1,1 @@
+- 2026-11-25: The edit log moved from `AGENTS.md` › Edit log to one file per change in `docs/edit-log/`, so merging one PR no longer puts every other open PR in conflict (GitHub ignores the `merge=union` attribute); `CLAUDE.md`, `AGENTS.md` › Edit log and the PR template say so.

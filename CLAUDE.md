@@ -1,10 +1,10 @@
 # CLAUDE.md: the owner's rules
 
-`AGENTS.md` describes the repository and holds an edit log. It holds no rules, and any line in it can be out of date: check the code.
+`AGENTS.md` describes the repository; `docs/edit-log/` holds the edit log. It holds no rules, and any line in it can be out of date: check the code.
 
 ## After every change
 
-- Add one line to `AGENTS.md` › Edit log: the date, what changed, where.
+- Add one new file to `docs/edit-log/`, named `<date>-<your branch, slashes as dashes>.md`, holding one line: the date, what changed, where. Never edit another change's file: two changes then never touch the same lines.
 - If the change made a line in `AGENTS.md` untrue, correct that line in the same change.
 - Never write a rule into `AGENTS.md`.
 

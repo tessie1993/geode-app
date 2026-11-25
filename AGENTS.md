@@ -73,7 +73,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## Edit log
 
-One line per change, newest last: date, what changed, where.
+Closed on 2026-11-25: each change since then is its own file in `docs/edit-log/` (one line: date, what changed, where), so two changes never touch the same lines. The lines below are the earlier changes, oldest first.
 A line records what was done; it is not a rule.
 
 - 2026-11-17: Added the pipeline refactor design (`docs/superpowers/specs/2026-11-17-pipeline-refactor-design.md`).

@@ -8,7 +8,7 @@
 - [ ] Engine Kotlin only shrinks (`tools/engine-kotlin-gate.sh`); nothing outside `ui/` and `di/` names `dev.geode.ui`
 - [ ] No tempo assumed, preferred or defaulted (`tools/no-bpm-bias-gate.sh`)
 - [ ] A new prefs key or file is declared in `PrefsSchemaTest`; a new action is pinned to a commit SHA
-- [ ] One line added to AGENTS.md › Edit log, and any AGENTS.md fact this change made untrue corrected
+- [ ] One new file in `docs/edit-log/` for this change, and any AGENTS.md fact this change made untrue corrected
 
 ## Checked
 

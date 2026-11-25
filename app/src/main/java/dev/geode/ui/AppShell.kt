@@ -413,7 +413,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                             viewModel,
                                             onOpenSearch = appState::openSearch,
                                             onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
-                                            onOpenLibrary = {},
+                                            onOpenLibrary = null,
                                             showTimeLeft = general.showTimeLeft,
                                             showAbLoop = general.showAbLoop,
                                         )

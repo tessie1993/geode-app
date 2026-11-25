@@ -96,7 +96,8 @@ fun PlayerScreen(
     viewModel: PlayerViewModel,
     onOpenSearch: () -> Unit,
     onExpand: () -> Unit,
-    onOpenLibrary: () -> Unit,
+    // Null where the library is already on screen beside the Player: the button would go nowhere.
+    onOpenLibrary: (() -> Unit)?,
     showTimeLeft: Boolean = false,
     showAbLoop: Boolean = true,
 ) {
@@ -387,7 +388,7 @@ private fun PlayerHero(
     favourites: Set<String>,
     canResume: Boolean,
     onExpand: () -> Unit,
-    onOpenLibrary: () -> Unit,
+    onOpenLibrary: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val uri = state.trackUri
@@ -550,7 +551,7 @@ private fun PlayerHero(
                 Button(onClick = viewModel::resumeLastPlayed, enabled = canResume) {
                     Text(stringResource(R.string.action_resume_last_played))
                 }
-                FilledTonalButton(onClick = onOpenLibrary) { Text(stringResource(R.string.action_open_library)) }
+                onOpenLibrary?.let { FilledTonalButton(onClick = it) { Text(stringResource(R.string.action_open_library)) } }
             }
         }
     }

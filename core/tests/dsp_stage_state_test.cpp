@@ -1,19 +1,17 @@
-// The playback DSP's stages start clean when turned back on: a limiter, crossfeed or equalizer switched off (or
+// The playback DSP's stages start clean when turned back on: a crossfeed or equalizer switched off (or
 // an equalizer band set flat) forgets its delay line and filter state, so turning it on again never plays old
 // audio or a tick from it. Built and run by CI (.github/workflows/native-host-tests.yml); no device.
 //
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_stage_state_test.cpp
-//     core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_stage_state_test
+//     core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp -o dsp_stage_state_test
 #include <cstdio>
 #include <vector>
 
 #include "audio/dsp/Crossfeed.hpp"
 #include "audio/dsp/Equalizer.hpp"
-#include "audio/dsp/Limiter.hpp"
 
 using geode::audio::Crossfeed;
 using geode::audio::Equalizer;
-using geode::audio::Limiter;
 
 namespace {
 
@@ -58,16 +56,6 @@ void offThenOnStartsClean(Run run, const char* what) {
     check(silent(quiet), what);
 }
 
-void limiter() {
-    Limiter l(kRate, 2);
-    offThenOnStartsClean(
-        [&](std::vector<float>& b, bool on) {
-            l.setEnabled(on);
-            l.process(b.data(), kFrames);
-        },
-        "a limiter turned back on plays nothing from before it was off");
-}
-
 void crossfeed() {
     Crossfeed c(kRate);
     offThenOnStartsClean(
@@ -110,7 +98,6 @@ void equalizer() {
 }  // namespace
 
 int main() {
-    limiter();
     crossfeed();
     equalizer();
     if (failures) {

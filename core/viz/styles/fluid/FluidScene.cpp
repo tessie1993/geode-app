@@ -62,7 +62,7 @@ void FluidScene::draw(float timeSeconds) {
     const GeodeSoundFrame f = scaledFeatures();
 
     saveGlState();
-    autoQualityTick();
+    applyQualityTier();
 
     const float energy = std::clamp(f.rms, 0.0f, 1.0f);
     const float pcmKick = std::clamp(pcmStrike_, 0.0f, 1.0f);

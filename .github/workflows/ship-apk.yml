@@ -3,9 +3,13 @@ name: Ship BeatRealms 3D APK
 # Builds the debug APK and publishes it as a GitHub Release, so it can be downloaded
 # and sideloaded without a GitHub login and without a workflow artifact's expiry.
 #
-# A push to main ships once the native host tests and the unit tests pass:
-# every green merge gets its own pre-release (see the concurrency comment).
-# A manual run ships the ref it is given and runs neither: the tests are the caller's.
+# Nothing ships from a red commit. The pull-request checks run first on the commit to ship:
+# Build and lint (build-lint.yml), Native host tests (native-host-tests.yml) and the
+# Architecture gates (arch-map.yml). The APK is built and published only when all three are green.
+# A push to main ships every green merge as its own pre-release (see the concurrency comment).
+# A manual run ships the ref it is given, after the same checks on that commit.
+# The APK is built twice (once by the checks, once here): the version name carries the release
+# number, which is reserved only once the checks are green.
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
@@ -46,26 +50,62 @@ permissions:
 # each with its own number (reserved by tag push, so concurrent runs never share one).
 # Nothing is cancelled, so no release is left half-published.
 concurrency:
-  group: geode-ship-${{ github.sha }}
+  # A manual run is keyed on its ref as well: two runs from main for different refs must not share a group.
+  group: geode-ship-${{ github.sha }}-${{ inputs.ref || '' }}
   cancel-in-progress: false
 
 env:
   APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
 
 jobs:
-  # A push to main publishes only if the native host tests pass; a manual run skips them.
+  # A branch can move while the checks run, so the checks and the build both take this SHA.
+  commit:
+    name: Commit to ship
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - name: Resolve the ref to a commit
+        id: sha
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref || github.sha }}
+        run: |
+          set -euo pipefail
+          SHA=$(gh api "repos/$GITHUB_REPOSITORY/commits/$REF" --jq .sha)
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Cannot resolve '$REF' to a commit"; exit 1; }
+          echo "Shipping $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+  build-lint:
+    name: Build and lint
+    needs: commit
+    uses: ./.github/workflows/build-lint.yml
+    with:
+      ref: ${{ needs.commit.outputs.sha }}
+
   host-tests:
     name: Native host tests
-    if: github.event_name == 'push'
+    needs: commit
     uses: ./.github/workflows/native-host-tests.yml
+    with:
+      ref: ${{ needs.commit.outputs.sha }}
+
+  arch-gates:
+    name: Architecture gates
+    needs: commit
+    uses: ./.github/workflows/arch-map.yml
+    with:
+      ref: ${{ needs.commit.outputs.sha }}
 
   ship-apk:
     name: Build and publish APK
-    needs: host-tests
-    if: ${{ !failure() && !cancelled() }}
+    needs: [commit, build-lint, host-tests, arch-gates]
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # The release tag and the release itself; the host tests above only read.
+    # The release tag and the release itself; the checks above only read.
     permissions:
       contents: write
 
@@ -73,31 +113,31 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # A dispatch defaults to main so the APK that ships is main's, even
-          # when the run is started from another branch.
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ needs.commit.outputs.sha }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
+          # The write token stays out of .git/config, where the Gradle and native build could read it.
+          # Only the steps that push a tag get it (tools/ci-git-auth.sh), for that step alone.
+          persist-credentials: false
 
-      # The setup action comes from this workflow's own commit, not from the ref being shipped,
-      # which may be older than the action.
+      # The setup action and tools/ci-git-auth.sh come from this workflow's own commit, not from the
+      # ref being shipped, which may be older than either.
       - name: Check out this workflow's actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            tools/ci-git-auth.sh
           sparse-checkout-cone-mode: false
           path: .ci
           persist-credentials: false
 
+      # Build and lint above saved this run's ccache, so the native build here is mostly hits.
       - name: Set up the Android build
         uses: ./.ci/.github/actions/android-build-setup
         with:
+          gradle-cache-read-only: true
           ccache: true
-
-      # Before the number is reserved, so a red test burns no release. On a push to main only.
-      - name: Run unit tests
-        if: github.event_name == 'push'
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
 
       # Each pre-release gets its own number N (versionName <base>.N, tag apk-v<base>.N):
       # releases so far + 1, reserved by pushing the tag first so concurrent runs never
@@ -109,34 +149,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .ci/tools/ci-git-auth.sh
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
+          # The base becomes a tag, a file name and shell text in later steps.
+          [[ "$BASE" =~ ^[0-9A-Za-z.]+$ ]] || { echo "::error::geode.versionBase '$BASE' is not [0-9A-Za-z.]+"; exit 1; }
           N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)" reserve)
           echo "Release number $N (version $BASE.$N)"
           { echo "n=$N"; echo "base=$BASE"; } >> "$GITHUB_OUTPUT"
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+        env:
+          N: ${{ steps.number.outputs.n }}
+        run: ./gradlew :app:assembleDebug -PreleaseNumber="$N" --stacktrace --no-daemon
 
       - name: ccache statistics
         if: always()
         run: ccache -s || true
 
-      # A push builds a commit on main; a manual run may build any ref, and its trimmed cache would
-      # become the one pull requests restore.
-      - name: Keep only the ccache entries this build used
-        if: github.event_name == 'push'
-        run: ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
-
-      - name: Save the ccache
-        if: github.event_name == 'push'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ccache
-          key: ccache-debug-${{ github.run_id }}
-
       - name: Package APK and checksum
         id: package
         shell: bash
+        env:
+          EXPECTED: ${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}
         run: |
           set -euo pipefail
           # Read the version from the APK itself, and refuse to publish one whose
@@ -145,7 +179,6 @@ jobs:
           BADGING=$("$AAPT2" dump badging "$APK_SOURCE")
           VERSION_NAME=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")
           VERSION_CODE=$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")
-          EXPECTED="${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}"
           if [ "$VERSION_NAME" != "$EXPECTED" ]; then
             echo "::error::APK versionName is '$VERSION_NAME', expected '$EXPECTED'"
             exit 1
@@ -233,12 +266,16 @@ jobs:
 
       - name: Summarize
         shell: bash
+        env:
+          FILE_NAME: ${{ steps.package.outputs.file_name }}
+          URL: ${{ steps.release.outputs.url }}
+          BUILT_SHA: ${{ steps.package.outputs.built_sha }}
         run: |
           {
-            echo "### Shipped \`${{ steps.package.outputs.file_name }}\`"
+            echo "### Shipped \`$FILE_NAME\`"
             echo
-            echo "- Release: ${{ steps.release.outputs.url }}"
-            echo "- Commit: \`${{ steps.package.outputs.built_sha }}\`"
+            echo "- Release: $URL"
+            echo "- Commit: \`$BUILT_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # A run that failed or was cancelled before publishing hands its number
@@ -258,7 +295,8 @@ jobs:
           elif [ "$DRAFT" = true ]; then
             gh release delete "$TAG" --yes --cleanup-tag || true
           else
-            git push origin --delete "refs/tags/$TAG" || true
+            source .ci/tools/ci-git-auth.sh
+            git push origin --delete "refs/tags/$TAG" || echo "::warning::Could not delete the reserved tag $TAG; delete it by hand so its number is reused."
           fi
 
       - name: Upload reports when the build fails

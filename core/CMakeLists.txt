@@ -91,7 +91,6 @@ add_library(geode_core STATIC
     stage/LiveClient.cpp
     stage/StageCore.cpp
     stage/StageLifecycle.cpp
-    stage/StagePacing.cpp
     api/geode_auto_api.cpp
     api/geode_param_history_api.cpp
     api/geode_stage_step_api.cpp
@@ -144,7 +143,6 @@ add_library(geode_core STATIC
     audio/dsp/GainStage.cpp
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
-    audio/dsp/Limiter.cpp
     audio/dsp/PlaybackControls.cpp
     api/geode_playback_api.cpp
     audio/dsp/TrackBookmark.cpp

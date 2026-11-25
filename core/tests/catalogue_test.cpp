@@ -411,8 +411,8 @@ void textRoundTrips() {
     // took over Spin drift's field on the turning styles' own scope; 84 once the palette cleanup retired Colour map,
     // Palette 2 and Palette blend; 88 with Grow's four (Spawn, Fractal, Front layer, Back layer) on the family scope;
     // 89 with Formula on its own; 90 with Shapes on its own; 92 with Soft shadows and Escape colour, each on its own;
-    // 90 once the two controls of the removed preset-script style went.
-    check(kinds == catalogue::kKindCount && families == 19 && keys == 90 && overrides == 8, "row counts");
+    // 90 once the two controls of the removed preset-script style went; 89 once the auto quality switch retired with the frame governor.
+    check(kinds == catalogue::kKindCount && families == 19 && keys == 89 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

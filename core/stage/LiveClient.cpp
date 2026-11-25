@@ -56,7 +56,7 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
         } done{*this};
         events = viz_->frame(ring, pacedFps, capFps);
     }
-    if (events == 0 || (events & kFrameClearOnly) != 0) return events;
+    if (events == 0) return events;
     if ((events & kFrameLiquidChanged) != 0) liquid_.store(viz_->liquidMode());
     if ((events & kFrameErrorChanged) != 0) {
         std::string text = viz_->error();
@@ -88,6 +88,10 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
         }
     }
     return events;
+}
+
+void LiveClient::restartClock() {
+    if (viz_) viz_->restartClock();
 }
 
 // The stage asks for this as it leaves drawing (Lifecycle::noteDrawing): no frame comes until it draws again.

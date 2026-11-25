@@ -140,8 +140,18 @@ class CastService : Service() {
             ACTION_MIC -> Unit
             else -> forTv = true
         }
-        // fail() ends the cast session too, so the TV is not left waiting on a stream.
-        if (!startedInForeground(TAG, ::startInForeground) { fail(CastFailure.BACKGROUND_START) }) return START_NOT_STICKY
+        if (action == ACTION_MIC) {
+            // A mic change only re-types a service already in the foreground, and may arrive from the background,
+            // where Android can refuse it. The cast ends only if the refusal also took it out of the foreground.
+            val refused = runCatching { startInForeground() }.onFailure { RingLog.note(TAG, "mic re-type refused: $it") }.isFailure
+            if (refused && foregroundServiceType == ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE) {
+                fail(CastFailure.BACKGROUND_START)
+                return START_NOT_STICKY
+            }
+        } else if (!startedInForeground(TAG, ::startInForeground) { fail(CastFailure.BACKGROUND_START) }) {
+            // fail() ends the cast session too, so the TV is not left waiting on a stream.
+            return START_NOT_STICKY
+        }
         running = true
         when {
             action == ACTION_MIC -> Unit
@@ -355,8 +365,8 @@ class CastService : Service() {
                     )
                 }.onFailure { RingLog.note(TAG, "no microphone type: $it") }
                     .isSuccess
-        if (!withMic) startForeground(NOTIFICATION_ID, notification, playbackType)
         micHeldFlow.value = withMic
+        if (!withMic) startForeground(NOTIFICATION_ID, notification, playbackType)
     }
 
     companion object {

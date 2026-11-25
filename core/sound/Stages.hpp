@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sound/OutputPolicy.hpp"
+
 // The small per-frame stages the sound engine is built from. Every one takes the frame's dt, so the same
 // audio gives the same values whether frames come at 30, 60 or 120 per second.
 namespace geode::sound {
@@ -45,14 +47,14 @@ public:
     // a ratio of noise to noise that leaps about.
     void step(float inst, float dt, bool warm, bool silent, float floor = 0.0f) {
         if (silent || inst < floor) inst = 0.0f;
-        const float r = perFrame(inst > att_ ? kAttRise : kAttFall, dt);
+        const float r = perFrame(inst > att_ ? policy::kBandLevel.attack : policy::kBandLevel.release, dt);
         att_ = r * att_ + (1.0f - r) * inst;
         if (!silent) {
             if (!primed_) {
                 mean_ = inst;
                 primed_ = true;
             } else {
-                const float s = perFrame(warm ? kMeanWarm : kMeanSteady, dt);
+                const float s = perFrame(warm ? policy::kBandLevel.meanWarm : policy::kBandLevel.meanSteady, dt);
                 mean_ = s * mean_ + (1.0f - s) * inst;
             }
         }
@@ -75,10 +77,7 @@ public:
     void reset() { *this = RelativeLevel(); }
 
 private:
-    static constexpr float kAttRise = 0.2f;      // ~21 ms
-    static constexpr float kAttFall = 0.5f;      // ~48 ms
-    static constexpr float kMeanWarm = 0.9f;     // ~0.32 s, while the engine settles
-    static constexpr float kMeanSteady = 0.992f; // ~4.15 s
+    // The poles (attack ~21 ms, release ~48 ms, mean ~0.32 s warm and ~4.15 s steady) are policy::kBandLevel.
     static constexpr float kFloor = 1e-9f;
     float att_ = 0.0f;
     float mean_ = 0.0f;

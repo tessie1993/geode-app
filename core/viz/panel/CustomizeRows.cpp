@@ -84,7 +84,6 @@ const std::vector<Control>& table() {
         {"Bass pump", W::Check, "fluidBassPump", nullptr, kOwn, R::Always, false},
         {"Treble sparkle", W::Check, "fluidSparkle", nullptr, kOwn, R::Always, false},
         {"Fluid quality", W::Pick, "fluidQuality", nullptr, kOwn, R::Always, false},
-        {"Lower the quality when the phone struggles", W::Check, "fluidAutoQuality", nullptr, kOwn, R::Always, false},
         // Motion
         {"Speed", W::Slider, "speed", nullptr, kOwn, R::Always, false},
         {"Zoom", W::Slider, "zoom", nullptr, kOwn, R::Always, false},
@@ -184,7 +183,7 @@ const std::vector<Control>& table() {
         {"Nodal glow", W::Slider, "cymaticsGlow", "Line glow", kOwn, R::Always, false},
         {"Iridescence", W::Slider, "cymaticsIridescence", "Rainbow sheen", kOwn, R::Always, false},
         {"Caustic sheen", W::Slider, "cymaticsCaustic", "Light ripples", kOwn, R::Always, false},
-        // Panel pieces. A piece's label is a PanelText id: the words Pro and the screen reader name it by.
+        // Panel pieces. A piece's label is a PanelText id: the shell's words Pro and the screen reader name it by.
         {"@macros", W::Piece, "", "", kOwn, R::Always, false},
         {"@macro_editor", W::Piece, "", "macro_editor_title", kOwn, R::Always, false},
         {"@palette_maker", W::Piece, "", "customize_your_colours", kOwn, R::Unsearched, false},
@@ -289,28 +288,29 @@ void pieceRow(std::string& out, std::string_view id, std::string_view lockKey, s
     out += "PIECE|" + std::string(id) + "|" + std::string(lockKey) + "|" + cell(label) + "|" + cell(text) + "\n";
 }
 
-void piece(std::string& out, const Control& c, const RowContext& ctx) {
+void piece(std::string& out, const Control& c, const RowContext&) {
     const std::string_view id = c.key;
     if (id == "Reaction DNA") {
-        if (!matches(ctx.query, c.key) && !matches(ctx.query, panel::text(c.label))) return;
-        pieceRow(out, "@personality", c.key, panel::text(c.label), panel::text("customize_new_personality"));
+        // Found by its key or by its words. The words are the shell's, so the shell does the matching: under a
+        // search it keeps this row when the query matches the lock key or the label it resolved.
+        pieceRow(out, "@personality", c.key, panel::ref(c.label), panel::ref("customize_new_personality"));
     } else if (id == "@rise_fall") {
         // How fast the picture follows a sound up and lets it go.
-        out += std::string("SHELL|Rise|ATTACK|") + panel::text("customize_rise") + "|0.05|1|-1\n";
-        out += std::string("SHELL|Fall|DECAY|") + panel::text("customize_fall") + "|0.02|0.6|-1\n";
+        out += std::string("SHELL|Rise|ATTACK|") + panel::ref("customize_rise") + "|0.05|1|-1\n";
+        out += std::string("SHELL|Fall|DECAY|") + panel::ref("customize_fall") + "|0.02|0.6|-1\n";
     } else if (id == "@transition_length") {
-        out += std::string("SHELL|Transition length|TRANSITION|") + panel::text(c.label) + "|" + num(kTransitionMsMin / 1000.0f) + "|" +
+        out += std::string("SHELL|Transition length|TRANSITION|") + panel::ref(c.label) + "|" + num(kTransitionMsMin / 1000.0f) + "|" +
                num(kTransitionMsMax / 1000.0f) + "|" + std::to_string(c.unit) + "\n";
     } else if (id == "@waves") {
-        pieceRow(out, id, id, panel::text(c.label), panel::text("customize_randomize_waves"));
+        pieceRow(out, id, id, panel::ref(c.label), panel::ref("customize_randomize_waves"));
     } else {
-        pieceRow(out, id, id, panel::text(c.label), "");
+        pieceRow(out, id, id, panel::ref(c.label), "");
     }
 }
 
 void palette(std::string& out, const Control& c, const RowContext& ctx) {
     if (ctx.query.find_first_not_of(" \t") == std::string::npos) {
-        const char* take = panel::text("customize_palette_from_artwork");
+        const std::string take = panel::ref("customize_palette_from_artwork");
         pieceRow(out, "@art_palette", c.key, take, take);
     }
     if (!matches(ctx.query, c.key)) return;
@@ -327,7 +327,7 @@ void geometry(std::string& out, const Control& c, const SceneParams& p, const Ro
         const auto& shapes = SceneParams::choices(static_cast<ParamSlot>(slot));
         const int at = static_cast<int>(std::lround(*held));
         if (at >= 0 && at < static_cast<int>(shapes.size())) {
-            out += std::string("HINT|") + c.key + "|" + cell(panel::format("customize_shape_held", {std::string(shapes[static_cast<size_t>(at)])})) + "\n";
+            out += std::string("HINT|") + c.key + "|" + cell(panel::ref("customize_shape_held", {std::string(shapes[static_cast<size_t>(at)])})) + "\n";
             return;
         }
     }

@@ -76,7 +76,7 @@ The native core lives outside the modules and is built by the root
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
 | `core/sound` | The sound engine: FFT bands (its own radix-2 `Fft`) and a per-sample filter bank, drums, onsets, melody, stereo field, analysed on a thread of its own per PCM ring (inline for an export), published as hops a renderer reads into a `GeodeSoundFrame` |
 | `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the style catalogue (`Catalogue`), the auto-director (`Director`), the reaction matrix (`Reactions`), the per-frame motion (`MotionField`), the camera (`CameraRig`), transitions, safety clamps, every scene family |
-| `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter; the export resampler (`PcmResampler`) and the BS.1770 meter (`Loudness`) |
+| `core/audio/dsp` | Biquad equalizer, gain, crossfeed; the export resampler (`PcmResampler`) and the BS.1770 meter (`Loudness`) |
 | `core/library` | TagLib tag reading and writing over a file descriptor; the library's pure rules (tracks, playlists, search, history) |
 | `core/stage`, `core/output`, `core/player`, `core/shell`, `core/backup`, `core/cast`, `core/studio` | The surface threads, export and Record planning, the queue and transport (not wired to the app yet), shell rules, backup rules, Cast, project documents |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |

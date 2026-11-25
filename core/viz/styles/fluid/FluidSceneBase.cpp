@@ -46,31 +46,12 @@ GeodeSoundFrame FluidSceneBase::idleAudioFeatures(float bass, float mid, float t
 
 void FluidSceneBase::applyQualityTier() {
     const bool userChanged = params_.fluidQuality != lastUserQuality_;
-    if (userChanged) {
-        lastUserQuality_ = params_.fluidQuality;
-        autoDowngrade_.reset();
-        monitor_.reset();
-    }
-    const int idx = fluid::quality::effectiveIndex(params_.fluidQuality, params_.fluidAutoQuality ? autoDowngrade_.steps : 0);
+    if (userChanged) lastUserQuality_ = params_.fluidQuality;
+    // The tier is the user's: nothing lowers it for frame time.
+    const int idx = std::clamp(params_.fluidQuality, 0, fluid::quality::kTierCount - 1);
     if (idx == appliedTier_ && tierApplied()) return;
     appliedTier_ = idx;
     onApplyQualityTier(idx, userChanged);
-}
-
-void FluidSceneBase::autoQualityTick() {
-    if (!fluid::quality::ownsAutoQuality(params_.fluidAutoQuality, host_.adaptive && host_.adaptive())) {
-        // Adapt to frame time owns the one ratchet: the tier stays the user's. Off, or the param off, nothing here.
-        autoDowngrade_.reset();
-        monitor_.reset();
-    } else if (host_.settling && host_.settling()) {
-        // A switch's slow frames are not this scene's.
-        monitor_.reset();
-    } else {
-        monitor_.setPacedFps(host_.pacedFps ? host_.pacedFps() : 0.0f);
-        const int severity = monitor_.onFrame(lastDt_);
-        if (autoDowngrade_.onFrame(severity, monitor_.keepingUp(), lastDt_)) monitor_.reset();
-    }
-    applyQualityTier();
 }
 
 void FluidSceneBase::configureChoreography() {

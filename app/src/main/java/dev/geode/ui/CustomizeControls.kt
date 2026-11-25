@@ -24,8 +24,8 @@ import dev.geode.ui.theme.UiSound
 
 /**
  * Draws a Customize section's controls as core/viz/CustomizeRows hands them over: one row per control that
- * draws on this look and style, with its widget, words, value, range, default, unit and steps. Which widget,
- * which words and whether a control shows at all are native; this draws each row and hands a move to the one
+ * draws on this look and style, with its widget, words, value, range, default, unit and steps. Which widget
+ * and whether a control shows at all are native, a panel piece's words are the shell's by the id native names; this draws each row and hands a move to the one
  * write path ([VisualsViewModel.editSceneParams]). Every widget still asks [LocalProLock] whether this user
  * may keep a change, so a Pro control can be tried.
  */
@@ -89,7 +89,7 @@ private fun ControlRow(
             ProGated(f[1], value = f.getOrNull(CHOICES + f[4].toInt())) {
                 DropdownRow(f[3], f.drop(CHOICES), f[4].toInt()) { edit(it.toFloat()) }
             }
-        "HINT" -> ControlHint(f[2])
+        "HINT" -> ControlHint(cellText(f[2]))
         "NOTE" ->
             Text(
                 f[2],
@@ -98,7 +98,7 @@ private fun ControlRow(
                 color = MaterialTheme.colorScheme.error,
             )
         "SHELL" -> ShellSlider(f, host, vizState)
-        "PIECE" -> PanelPiece(f[1], f[2], f[3], f[4], host, vizState)
+        "PIECE" -> PanelPiece(f[1], f[2], cellText(f[3]), cellText(f[4]), host, vizState)
         else -> Unit
     }
 }
@@ -114,11 +114,14 @@ private fun ShellSlider(
     val range = f[4].toFloat()..f[5].toFloat()
     val unit = f[6].toInt()
     val vm = host.viewModel
+    val display = cellText(f[3])
     when (f[2]) {
-        "ATTACK" -> LabeledSlider(f[1], viz.attack, range, f[3], ParamScope.UNIVERSAL, unit = unit) { vm.setReactivity(it, viz.decay) }
-        "DECAY" -> LabeledSlider(f[1], viz.decay, range, f[3], ParamScope.UNIVERSAL, unit = unit) { vm.setReactivity(viz.attack, it) }
+        "ATTACK" -> LabeledSlider(f[1], viz.attack, range, display, ParamScope.UNIVERSAL, unit = unit) { vm.setReactivity(it, viz.decay) }
+        "DECAY" -> LabeledSlider(f[1], viz.decay, range, display, ParamScope.UNIVERSAL, unit = unit) { vm.setReactivity(viz.attack, it) }
         "TRANSITION" ->
-            LabeledSlider(f[1], viz.transitionDurationSec, range, f[3], ParamScope.UNIVERSAL, unit = unit) { vm.setTransitionDuration(it) }
+            LabeledSlider(f[1], viz.transitionDurationSec, range, display, ParamScope.UNIVERSAL, unit = unit) {
+                vm.setTransitionDuration(it)
+            }
         else -> Unit
     }
 }
@@ -196,8 +199,12 @@ private fun PanelPiece(
         "@palette_stack" -> PaletteStackCard(p, onChange)
         "@palette_list" -> ProGated(lockKey) { PaletteDropdown(lockKey, p, onChange, rememberSavedPalettes()) }
         "@personality" -> {
-            ControlLabelRow(label, lockKey)
-            ProGated(lockKey, label) { TapButton(text) { vm.rerollReactions() } }
+            // Native lists this piece under any search: its words are the shell's, so the match is made here.
+            val query = LocalParamQuery.current
+            if (CustomizeNative.customizeMatches(query, lockKey) || CustomizeNative.customizeMatches(query, label)) {
+                ControlLabelRow(label, lockKey)
+                ProGated(lockKey, label) { TapButton(text) { vm.rerollReactions() } }
+            }
         }
         else -> Unit
     }

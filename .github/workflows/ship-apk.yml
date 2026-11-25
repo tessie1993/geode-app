@@ -3,9 +3,11 @@ name: Ship BeatRealms 3D APK
 # Builds the debug APK and publishes it as a GitHub Release, so it can be downloaded
 # and sideloaded without a GitHub login and without a workflow artifact's expiry.
 #
-# A push to main ships once the native host tests and the unit tests pass:
-# every green merge gets its own pre-release (see the concurrency comment).
-# A manual run ships the ref it is given and runs neither: the tests are the caller's.
+# Nothing ships from a red commit. The pull-request checks run first on the commit to ship:
+# Build and lint (build-lint.yml), Native host tests (native-host-tests.yml) and the
+# Architecture gates (arch-map.yml). The APK is built and published only when all three are green.
+# A push to main ships every green merge as its own pre-release (see the concurrency comment).
+# A manual run ships the ref it is given, after the same checks on that commit.
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
@@ -53,19 +55,54 @@ env:
   APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
 
 jobs:
-  # A push to main publishes only if the native host tests pass; a manual run skips them.
+  # A branch can move while the checks run, so the checks and the build both take this SHA.
+  commit:
+    name: Commit to ship
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - name: Resolve the ref to a commit
+        id: sha
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref || github.sha }}
+        run: |
+          set -euo pipefail
+          SHA=$(gh api "repos/$GITHUB_REPOSITORY/commits/$REF" --jq .sha)
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Cannot resolve '$REF' to a commit"; exit 1; }
+          echo "Shipping $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+  build-lint:
+    name: Build and lint
+    needs: commit
+    uses: ./.github/workflows/build-lint.yml
+    with:
+      ref: ${{ needs.commit.outputs.sha }}
+
   host-tests:
     name: Native host tests
-    if: github.event_name == 'push'
+    needs: commit
     uses: ./.github/workflows/native-host-tests.yml
+    with:
+      ref: ${{ needs.commit.outputs.sha }}
+
+  arch-gates:
+    name: Architecture gates
+    needs: commit
+    uses: ./.github/workflows/arch-map.yml
+    with:
+      ref: ${{ needs.commit.outputs.sha }}
 
   ship-apk:
     name: Build and publish APK
-    needs: host-tests
-    if: ${{ !failure() && !cancelled() }}
+    needs: [commit, build-lint, host-tests, arch-gates]
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # The release tag and the release itself; the host tests above only read.
+    # The release tag and the release itself; the checks above only read.
     permissions:
       contents: write
 
@@ -73,9 +110,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # A dispatch defaults to main so the APK that ships is main's, even
-          # when the run is started from another branch.
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ needs.commit.outputs.sha }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
@@ -89,15 +124,12 @@ jobs:
           path: .ci
           persist-credentials: false
 
+      # Build and lint above wrote this run's Gradle cache and ccache, so this build reads them.
       - name: Set up the Android build
         uses: ./.ci/.github/actions/android-build-setup
         with:
+          gradle-cache-read-only: true
           ccache: true
-
-      # Before the number is reserved, so a red test burns no release. On a push to main only.
-      - name: Run unit tests
-        if: github.event_name == 'push'
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
 
       # Each pre-release gets its own number N (versionName <base>.N, tag apk-v<base>.N):
       # releases so far + 1, reserved by pushing the tag first so concurrent runs never
@@ -120,19 +152,6 @@ jobs:
       - name: ccache statistics
         if: always()
         run: ccache -s || true
-
-      # A push builds a commit on main; a manual run may build any ref, and its trimmed cache would
-      # become the one pull requests restore.
-      - name: Keep only the ccache entries this build used
-        if: github.event_name == 'push'
-        run: ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
-
-      - name: Save the ccache
-        if: github.event_name == 'push'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/ccache
-          key: ccache-debug-${{ github.run_id }}
 
       - name: Package APK and checksum
         id: package

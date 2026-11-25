@@ -150,7 +150,7 @@ void main() {
         float slack = growSlack(abs(ro.y + gDepth), 1.0, 0.2);
         float t0 = (ro.y - (TR_TOP + slack)) / -rd.y;
         float t1 = min((ro.y + gDepth + 0.02 + slack) / -rd.y, TR_FAR * reach);
-        float tm = max(t0, 0.0);
+        float tm = t0;
         for (int i = 0; i < TR_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
             if (tm > t1) break;

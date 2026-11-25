@@ -36,7 +36,7 @@ vec2 orbDie(vec3 p, float kind) {
     float h = l - 1.5;
     vec3 a = abs(p);
     // The face the direction falls on, and the place on it, about a unit from middle to edge.
-    vec2 uv = a.x >= a.y && a.x >= a.z ? p.yz / max(a.x, 1.0e-6) : (a.y >= a.z ? p.zx / a.y : p.xy / a.z);
+    vec2 uv = a.x >= a.y && a.x >= a.z ? p.yz / (a.x > 0.0 ? a.x : 1.0) : (a.y >= a.z ? p.zx / a.y : p.xy / a.z);
     float face = a.x >= a.y && a.x >= a.z ? 0.0 : (a.y >= a.z ? 1.0 : 2.0);
     // On the ball a unit of uv is about 1.2 units of surface near a face's middle.
     vec2 orn = kind < 1.5 ? fluorOrnament(uv * 1.2, h, 3.0, vec2(1.0), 0.0, 1.2, mix(0.05, 0.16, gFluorForm))

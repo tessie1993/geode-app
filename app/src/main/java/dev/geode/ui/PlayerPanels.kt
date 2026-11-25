@@ -87,7 +87,8 @@ fun TrackSeekBar(
     playheadHeight: Dp? = null,
 ) {
     var dragFraction by remember { mutableFloatStateOf(-1f) }
-    val played =
+    // Read where it is drawn: a tick or a drag redraws the bar instead of recomposing it.
+    val playedNow = {
         if (dragFraction >= 0f) {
             dragFraction
         } else if (durationMs > 0) {
@@ -95,18 +96,22 @@ fun TrackSeekBar(
         } else {
             0f
         }
+    }
     val primary = MaterialTheme.colorScheme.primary
     val idle = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     val loopTint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
     val playhead = MaterialTheme.colorScheme.onSurface
-    val positionLabel = formatClock(if (dragFraction >= 0f) (dragFraction * durationMs).toLong() else positionMs())
+    // The spoken position changes once a second, so the bar recomposes then and not per tick or drag event.
+    val positionLabel by remember(positionMs, durationMs) {
+        derivedStateOf { formatClock(if (dragFraction >= 0f) (dragFraction * durationMs).toLong() else positionMs()) }
+    }
     val durationLabel = formatClock(durationMs)
     val seekDescription = stringResource(R.string.seek_description, positionLabel, durationLabel)
     Canvas(
         modifier
             .semantics {
                 contentDescription = seekDescription
-                progressBarRangeInfo = ProgressBarRangeInfo(played, 0f..1f)
+                progressBarRangeInfo = ProgressBarRangeInfo(playedNow(), 0f..1f)
                 setProgress { target ->
                     onSeek(target.coerceIn(0f, 1f))
                     true
@@ -133,6 +138,7 @@ fun TrackSeekBar(
     ) {
         // The canvas is the 48 dp touch target; the drawing keeps to a band around the track, so
         // the Player's thumb is a dot on the line and not a bar the height of the target.
+        val played = playedNow()
         val h = trackHeight.toPx()
         val thumb = SEEK_THUMB_RADIUS.toPx()
         val mid = size.height / 2f

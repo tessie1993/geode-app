@@ -654,8 +654,8 @@ private fun AppShellCompact(
         // instead of being covered by it (owner: no overlap), and never jumps. Never less than the
         // bar's own place, so the first frame, before the dock is measured, is not padded short.
         // A provider, not a value: dockDrawn changes every frame of the mini player's expand and
-        // shrink, so it is read in the layout phase (dockBottomPadding, DockInsets) and only Player,
-        // which sizes its content by it, reads it in composition.
+        // shrink, so it is read in the layout phase only (dockBottomPadding, DockInsets, and Player
+        // through LocalDockReserve).
         val bottom: () -> Dp = { maxOf(dockDrawn, navInset + barHeight + DOCK_GAP) + DOCK_GAP }
         val latestBottom by rememberUpdatedState(bottom)
         val dockInsets = remember { DockInsets { latestBottom() } }
@@ -685,7 +685,7 @@ private fun AppShellCompact(
                 ),
         ) {
             CompositionLocalProvider(
-                LocalDockReserve provides if (padsItself) bottom() else 0.dp,
+                LocalDockReserve provides { if (padsItself) latestBottom() else 0.dp },
                 LocalDockedMiniPlayer provides if (onVisuals && showsPlayer && !pip) dockedPlayer else null,
             ) { content() }
         }
@@ -903,7 +903,7 @@ private fun paletteAccent(
 }
 
 /** Bottom padding whose size is read when the layout runs, so a value that changes every frame never recomposes. */
-private fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =
+internal fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =
     layout { measurable, constraints ->
         val pad = bottom().roundToPx()
         val placeable = measurable.measure(constraints.offset(vertical = -pad))
@@ -952,9 +952,10 @@ private val DOCK_GAP = 8.dp
 
 /**
  * The bottom of a screen the floating dock covers, for a screen that scrolls under the glass and
- * pads its own content (Player); 0 for a screen the shell already pads above the dock.
+ * pads its own content (Player); 0 for a screen the shell already pads above the dock. A provider
+ * read in layout ([dockBottomPadding]): it changes every frame of the dock's expand and shrink.
  */
-val LocalDockReserve = compositionLocalOf { 0.dp }
+val LocalDockReserve = compositionLocalOf<() -> Dp> { { 0.dp } }
 
 /**
  * The mini player docked to the Visuals options, provided by the phone shell while something is

@@ -388,3 +388,4 @@ A line records what was done; it is not a rule.
 - 2026-11-24: Customize's group list fades its cut ends (`edgeFade` in `ui/CustomizeBrowser.kt` › `GroupList`), so the row at the docked mini player dissolves instead of being cut under the player's seek line.
 - 2026-11-24: A Customize slider row shows its value only while the slider is off its default (`LabeledSlider`, `ui/CustomizeTabs.kt`); at the default the word "Default" is left out of the row and stays in the TalkBack state.
 - 2026-11-24: Visuals draws a soft shade behind the status bar, as tall as the bar (`ui/VisualsHub.kt`, `STATUS_SHADE_ALPHA`), so the always-light status icons stay readable over a bright style.
+- 2026-11-25: Customize's count reads "15 settings changed" instead of "15 changes" (`customize_summary_changed`, `res/values/strings.xml`).

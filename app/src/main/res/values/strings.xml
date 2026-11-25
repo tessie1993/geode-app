@@ -925,8 +925,8 @@
     <string name="customize_a11y_more_options">More options</string>
     <string name="customize_summary_as_styled">As styled</string>
     <plurals name="customize_summary_changed">
-        <item quantity="one">%1$d change</item>
-        <item quantity="other">%1$d changes</item>
+        <item quantity="one">%1$d setting changed</item>
+        <item quantity="other">%1$d settings changed</item>
     </plurals>
     <string name="envelope_moves">Moves</string>
     <string name="envelope_moves_for">What envelope %1$d moves</string>

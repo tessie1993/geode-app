@@ -37,7 +37,9 @@ protected:
     virtual void onApplyQualityTier(int index, bool userChanged) = 0;
     void applyQualityTier();
     void configureChoreography();
-    void applyChoreographyTo(fluid::Particles& particles);
+    // `aspect` is the sim's width / height. Live Attract Fields take the catch points the choreography leaves free
+    // (kMaxCatch less its own count; none free, none taken), so the particles are drawn to them too.
+    void applyChoreographyTo(fluid::Particles& particles, float aspect);
     void saveFramebufferAndViewport();
     void saveGlState();
     void restoreFramebufferAndViewport();

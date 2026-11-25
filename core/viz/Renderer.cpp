@@ -41,7 +41,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
                           [this] { return paletteRamp_.active() ? paletteRampTex_.get() : GLuint{0}; },
-                          [this] { return &shapeGraph_.packed(); }}),
+                          [this] { return &shapeGraph_.packed(); },
+                          [this] { return &fields_; }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
@@ -398,6 +399,7 @@ void Renderer::onSurfaceCreated() {
     divePass_.release();
     frontPass_.release();
     thingPass_.release();
+    fieldPass_.release();
     physicsLayers_.release();
     overlays_.release();
     paletteLutTex_.reset();
@@ -448,6 +450,7 @@ void Renderer::onSurfaceCreated() {
     // Fronts are an extra: without the pass the picture shows without them.
     if (!frontPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "fronts off: %s", error.c_str());
     if (!thingPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "things off: %s", error.c_str());
+    if (!fieldPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "fields off: %s", error.c_str());
 
     // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -631,6 +634,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
         divePass_.releaseTarget();
         frontPass_.releaseTarget();
         thingPass_.releaseTarget();
+        fieldPass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
         physicsLayers_.releaseTargets();

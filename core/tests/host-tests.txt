@@ -234,6 +234,8 @@ edge_glow_test | core | core/tests/edge_glow_test.cpp |
 fronts_test | core | core/tests/fronts_test.cpp |
 # Things (core/viz/things): spawn, expire, bad input, slot reuse, the same place at 30/60/90/144 fps, edge crossing, one Collide event per contact, the bounce, chain depth and its per-step cap, bounded gravity, morph, melt, packing, no pass when idle.
 things_test | core | core/tests/things_test.cpp |
+# Fields (core/viz/fields): spawn, expire, bad input, slot reuse, force direction for Attract, Repel and Swirl, no force past the radius, a clamped finite force at the centre, aspect, the envelope, a Thing pulled to the same place at 30/60/90/144 fps, no pass when idle.
+fields_test | core | core/tests/fields_test.cpp |
 # The live wallpaper's on-screen window from the launcher's raw offsets, and its fps pick (#605).
 wallpaper_window_test | core | core/tests/wallpaper_window_test.cpp |
 # The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its

@@ -648,9 +648,10 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
     // A front spawned since the last frame is drawn even while the picture is held (the count is read before the
     // decrement, so the request outlives it by a frame).
-    if (fronts_.spawns() != frontsSeen_ || things_.revision() != thingsSeen_) {
+    if (fronts_.spawns() != frontsSeen_ || things_.revision() != thingsSeen_ || fields_.revision() != fieldsSeen_) {
         frontsSeen_ = fronts_.spawns();
         thingsSeen_ = things_.revision();
+        fieldsSeen_ = fields_.revision();
         redrawFrames_ = std::max(redrawFrames_, 2);
     }
     if (redrawFrames_ > 0) redrawFrames_--;
@@ -686,6 +687,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
         if (!fronts_.live()) frontPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
         if (!things_.live()) thingPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
+        if (!fields_.live()) fieldPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
         return;
     }
     drawSceneTarget(*scene, p, dt);
@@ -693,6 +695,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     sceneShown_ = fboA_.tex();
     drawFronts(p, dt, wallDt);
     drawThings(p, dt, wallDt);
+    drawFields(dt, wallDt);
     // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
     trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
@@ -991,13 +994,28 @@ void Renderer::drawThings(const SceneParams& p, float dt, float wallDt) {
         thingPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
         return;
     }
-    things_.step(dt);
+    things_.step(dt, &fields_);
     if (!things_.live()) return;
     const things::Packed packed = things_.pack();
     std::array<float, 3 * things::kMaxThings> tint{};
     paletteTints(p, packed.palettePos.data(), packed.count, tint.data());
     if (thingPass_.run(sceneShown_, renderWidth_, renderHeight_, aspect, packed, tint, quadVao_.get())) {
         sceneShown_ = thingPass_.target().tex();
+    }
+}
+
+void Renderer::drawFields(float dt, float wallDt) {
+    if (!fields_.live()) {
+        fieldPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
+        return;
+    }
+    // The Things have felt this frame's Fields already (drawThings); now they age.
+    const fields::Packed packed = fields_.pack();
+    fields_.step(dt);
+    if (packed.count <= 0) return;
+    const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
+    if (fieldPass_.run(sceneShown_, renderWidth_, renderHeight_, aspect, packed, quadVao_.get())) {
+        sceneShown_ = fieldPass_.target().tex();
     }
 }
 

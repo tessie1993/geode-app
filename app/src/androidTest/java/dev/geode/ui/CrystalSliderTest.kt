@@ -1,20 +1,24 @@
 package dev.geode.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,15 +86,32 @@ class CrystalSliderTest {
         compose.onAllNodesWithText("Dim: 50%", useUnmergedTree = true).assertCountEquals(0)
     }
 
+    /**
+     * With no label or value description the app adds nothing of its own: TalkBack hears what a
+     * plain Material Slider at the same value says, whatever that is in this Material version.
+     */
     @Test
     fun unlabelledSliderKeepsMaterialsDefaults() {
         compose.setContent {
             MaterialTheme {
-                CrystalSlider(value = 0.5f, onValueChange = {})
+                Column {
+                    CrystalSlider(value = 0.5f, onValueChange = {}, modifier = Modifier.testTag(CRYSTAL))
+                    Slider(value = 0.5f, onValueChange = {}, modifier = Modifier.testTag(MATERIAL))
+                }
             }
         }
-        val node = compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).fetchSemanticsNode()
-        assertNull(node.config.getOrNull(SemanticsProperties.StateDescription))
-        assertEquals(0, node.config[SemanticsProperties.ProgressBarRangeInfo].steps)
+        val slider = SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)
+        val crystal = compose.onNode(slider and hasTestTag(CRYSTAL)).fetchSemanticsNode()
+        val material = compose.onNode(slider and hasTestTag(MATERIAL)).fetchSemanticsNode()
+        assertEquals(
+            material.config.getOrNull(SemanticsProperties.StateDescription),
+            crystal.config.getOrNull(SemanticsProperties.StateDescription),
+        )
+        assertEquals(0, crystal.config[SemanticsProperties.ProgressBarRangeInfo].steps)
+    }
+
+    private companion object {
+        const val CRYSTAL = "crystal"
+        const val MATERIAL = "material"
     }
 }

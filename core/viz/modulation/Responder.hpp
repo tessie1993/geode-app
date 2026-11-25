@@ -216,7 +216,8 @@ public:
     // False for a kind the bank cannot hand out.
     bool registerKind(KindId kind, ResponseKindHandler* handler);
 
-    // The rows and responses to play. What was playing carries on for the responses that keep their place.
+    // The rows and responses to play. What was playing carries on for a response only when the one at its index is
+    // the same response (row, kind, target, drive); any other starts from rest, with its own seeded generator.
     void configure(const Config& config);
     const Config& config() const { return config_; }
 
@@ -229,12 +230,16 @@ public:
     // style's routes are in `routes`, and again whenever they, the config or the preview change.
     void compile(std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
 
-    // Restarts: every envelope at rest, every counter and cooldown cleared, the generators reseeded.
+    // Restarts: every envelope at rest, every counter and cooldown cleared, the generators reseeded. The resolver
+    // calls it when the song starts over (a new play: track change, seek, an export's start), so the same song
+    // from that point gives the same fires.
     void reset();
 
     // One frame. `moments` is the bit per Moment that came (MomentWatch), `signals` the frame's sources; the
-    // levels of the compiled routes go to `engine`.
-    void step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals, std::uint32_t moments, ReactionEngine& engine);
+    // levels of the compiled routes go to `engine`. `previewDt` is the wall step the preview plays on (the frame's dt
+    // stops in silence, and a preview tapped then must still play); negative means `dt`.
+    void step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals, std::uint32_t moments, ReactionEngine& engine,
+              float previewDt = -1.0f);
 
     const Status& status() const { return status_; }
 
@@ -251,6 +256,7 @@ private:
         bool gate = false;
         bool running = false;
         int slot = -1;
+        float releaseSeconds = 0.0f;  // the last fade out it played in seconds, for a release a lost tempo cuts short
     };
 
     // The preview is the last of the runtimes.
@@ -263,6 +269,7 @@ private:
     Response previewed_;
     bool previewPending_ = false;
     bool previewSet_ = false;
+    bool previewFired_ = false;
     std::array<Runtime, kMaxResponses + 1> runtime_{};
     std::array<ResponseKindHandler*, kKindCount> handlers_{};
     Status status_;

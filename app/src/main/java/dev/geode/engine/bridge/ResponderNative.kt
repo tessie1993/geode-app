@@ -12,7 +12,7 @@ object ResponderNative {
     // edits, lists and plays them.
 
     /** The saved text of a new style: every row off. */
-    external fun responderDefaultText(): String
+    external fun responderDefaultText(): String?
 
     /** A row's saved name (KICK … KEY_CHANGE), or null for a row there is none of. */
     external fun responderRowName(row: Int): String?
@@ -26,7 +26,7 @@ object ResponderNative {
         styleId: String,
         seed: Int,
         mask: Int,
-    ): FloatArray
+    ): FloatArray?
 
     /** One row's responses, [RESP_LIST_VALUES] each: the user's in order, then the style's own routes on its events. */
     external fun responderValues(
@@ -35,9 +35,9 @@ object ResponderNative {
         seed: Int,
         mask: Int,
         row: Int,
-    ): FloatArray
+    ): FloatArray?
 
-    /** One edit ([RESP_EDIT_ROW_ON] and the rest): the new reactions text, routes and all. */
+    /** One edit ([RESP_EDIT_ROW_ON] and the rest): the new reactions text, routes and all; null when native could not read or make it. */
     external fun responderEdit(
         reactions: String?,
         op: Int,
@@ -45,7 +45,7 @@ object ResponderNative {
         index: Int,
         field: Int,
         value: Float,
-    ): String
+    ): String?
 
     /** Plays a response once now on a renderer, as its event would (the picker's preview): its [RESP_FIELDS] fields. Any thread. */
     external fun responderPreview(
@@ -54,7 +54,7 @@ object ResponderNative {
     )
 
     /** A renderer's rows' event lights, then its cost budget ([RESP_STATUS_COST] and the rest), as the last frame left them. */
-    external fun responderStatus(handle: Long): FloatArray
+    external fun responderStatus(handle: Long): FloatArray?
 
     // Mirrors of GEODE_RESP_*.
     const val RESP_ROWS: Int = 15

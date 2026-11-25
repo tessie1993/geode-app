@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -733,6 +734,166 @@ void theNativeInterfaceEditsTheText() {
     check(after.hand.user && after.hand.count == 1 && read(routed).rowOn[1], "editing a row keeps the user's routes");
 }
 
+// ── What the review asked for ────────────────────────────────────────────────────────────────────────────
+
+void clearKeepsWhetherTheRowsGate() {
+    const std::string legacy = "reactions/2\ntrue|KICK|COLOR_SHIFT|JUMP|0.35|LINEAR|0.08|0.35";
+    std::string t = edit(legacy.c_str(), GEODE_RESP_EDIT_ROW_ON, 0, 0, 0, 1.0f);
+    t = edit(t.c_str(), GEODE_RESP_EDIT_ADD, 0, 0, 0, static_cast<float>(static_cast<int>(LfoTarget::Zoom)));
+    check(!read(t).gate && read(t).count == 1, "a list saved before the gate does not gate");
+    t = edit(t.c_str(), GEODE_RESP_EDIT_CLEAR, 0, 0, 0, 0.0f);
+    const resp::Config c = read(t);
+    check(!c.gate && c.count == 0 && !c.rowOn[0], "clear empties the rows and responses and keeps the gate as it was");
+    const std::string fresh = edit(nullptr, GEODE_RESP_EDIT_CLEAR, 0, 0, 0, 0.0f);
+    check(read(fresh).gate, "and a new style's stays gated");
+}
+
+void aRuntimeStaysOnlyWithTheSameResponse() {
+    resp::Response a;
+    a.row = kKick;
+    a.kind = resp::kThing;
+    a.everyNth = 2;
+    a.drive = resp::DriveMode::Once;
+    resp::Response b = a;
+    b.drive = resp::DriveMode::Long;
+    resp::Config both = resp::newStyleConfig();
+    resp::setRowOn(both, kKick, true);
+    resp::addResponse(both, a);
+    resp::addResponse(both, b);
+    Rig rig;
+    rig.bank.registerKind(resp::kThing, &rig.counter);
+    rig.load(both);
+    runPlain(rig, 0.5f, 0.5f);  // the 1st hit: both play, and each has counted one
+    check(rig.counter.plays.size() == 2, "both play the first hit");
+    resp::Config onlyB = resp::newStyleConfig();
+    resp::setRowOn(onlyB, kKick, true);
+    resp::addResponse(onlyB, b);
+    rig.load(onlyB);
+    runPlain(rig, 0.5f, 0.5f);
+    check(rig.counter.plays.size() == 3, "a removal does not hand the first response's count to the one that moved up");
+    resp::Config louder = onlyB;
+    louder.responses[0].amount = 1.0f;
+    rig.load(louder);
+    runPlain(rig, 0.5f, 0.5f);
+    check(rig.counter.plays.size() == 3, "an edit of the same response keeps its count (the 2nd hit is passed over)");
+}
+
+void theSeededSequenceRestartsWithThePlay() {
+    Rig rig;
+    rig.bank.registerKind(resp::kThing, &rig.counter);
+    rig.load(thingOn(kKick, 1, 0.5f, 0.0f));
+    runPlain(rig, 30.0f, 0.5f);
+    const std::vector<std::int64_t> first = rig.counter.frames;
+    rig.bank.reset();  // the song starts over: nothing else is reset
+    rig.counter.frames.clear();
+    rig.frame = 0;
+    runPlain(rig, 30.0f, 0.5f);
+    check(!first.empty() && rig.counter.frames == first, "the same song from a restart gives the same fires");
+}
+
+void anOlderReaderTakesAutoWithResponsesForNoRoutes() {
+    float routes[ReactionEngine::kRoutes * ReactionEngine::kConfigFloats] = {};
+    check(reactiontext::decode("reactions/2\nroutes|auto\ngate|true\nrow|KICK|true", routes) == 0,
+          "a build that knows no responses reads Auto with responses as a list of no routes (documented, not migrated)");
+}
+
+void aPreviewGivesItsRouteBack() {
+    Rig rig;
+    rig.load(resp::newStyleConfig());
+    rig.bank.preview(param(kKick, LfoTarget::Zoom, 1.0f, 0.05f, 0.05f, 0.1f));
+    rig.engine.routes = rig.hand;
+    rig.bank.compile(rig.engine.routes);
+    for (int i = 0; i < 40; ++i) rig.step(silent());
+    check(!rig.engine.routes[kLast].enabled, "a preview that has played out frees its route");
+}
+
+void aPreviewPlaysOnTheWallClock() {
+    Rig rig;
+    rig.load(resp::newStyleConfig());
+    rig.bank.preview(param(kKick, LfoTarget::Zoom, 1.0f, 0.1f, 0.1f, 0.1f));
+    rig.engine.routes = rig.hand;
+    rig.bank.compile(rig.engine.routes);
+    for (int i = 0; i < 5; ++i) {
+        const GeodeSoundFrame f = silent();
+        rig.engine.stepSignals(f, 0.0f);  // the frame clock has stopped (silence)
+        rig.bank.step(f, 0.0f, rig.engine.signals(), rig.watch.step(rig.engine.signals()), rig.engine, kDt);
+        rig.engine.tickRoutes();
+    }
+    check(rig.out() > 0.5f, "a preview tapped in silence plays on the wall step");
+}
+
+// How many frames a kick of this strength keeps the output up.
+int framesUp(float strength, float fadeIn, float hold, float fadeOut, std::vector<float>* trace = nullptr) {
+    Rig rig;
+    rig.load(oneOn(kKick, param(kKick, LfoTarget::Zoom, 1.0f, fadeIn, hold, fadeOut)));
+    int up = 0;
+    run(rig, 3.0f, 10.0f, [&](int) {
+        if (rig.out() > 0.01f) ++up;
+        if (trace) trace->push_back(rig.out());
+    }, strength);
+    return up;
+}
+
+void theEnvelopeKeepsItsTimes() {
+    const int hard = framesUp(1.0f, 0.05f, 0.0f, 0.5f);
+    const int soft = framesUp(0.2f, 0.05f, 0.0f, 0.5f);
+    check(std::abs(hard - soft) <= 3, "the fade out lasts as long at any strength");
+    std::vector<float> trace;
+    framesUp(1.0f, 0.0f, 0.0f, 0.3f, &trace);
+    check(trace[0] < 1.0f && trace[1] < trace[0], "with no fade in and no hold a hit lets go at once");
+}
+
+void aLostTempoLetsTheEnvelopeGo() {
+    resp::Response r = param(kKick, LfoTarget::Zoom, 1.0f, 0.2f, 4.0f, 1.0f);
+    r.unit = resp::TimeUnit::Beats;
+    Rig rig;
+    rig.load(oneOn(kKick, r));
+    for (int i = 0; i < 15; ++i) {
+        GeodeSoundFrame f = silent();
+        if (i == 0) f.kick = 1.0f;
+        f.bpm = 100.0f;
+        rig.step(f);
+    }
+    check(rig.out() > 0.95f, "holding");
+    rig.step(silent());  // no tempo any more
+    const float one = rig.out();
+    check(one > 0.5f && one < 1.0f, "the tempo going lets it fall, not cut");
+    for (int i = 0; i < 100; ++i) rig.step(silent());
+    check(rig.out() == 0.0f, "and it ends");
+}
+
+void aWhileResponseIsNotPulledBackByAPassedOverHit() {
+    resp::Response r;
+    r.row = kKick;
+    r.kind = resp::kThing;
+    r.drive = resp::DriveMode::While;
+    r.everyNth = 2;
+    Rig rig;
+    rig.bank.registerKind(resp::kThing, &rig.counter);
+    rig.load(oneOn(kKick, r));
+    for (int i = 0; i < 60; ++i) {
+        GeodeSoundFrame f = silent();
+        if (i == 0 || i == 30) f.kick = 1.0f;
+        f.kickEnv = (i < 10 || (i >= 30 && i < 40)) ? 1.0f : 0.0f;
+        rig.step(f);
+    }
+    check(rig.counter.plays.size() == 1 && rig.counter.released == 1, "a hit the Nth passed over does not reopen a released response");
+}
+
+void aKeyNeedsClarity() {
+    ReactSignals s;
+    int came = 0;
+    MomentWatch w;
+    for (int i = 0; i < 400; ++i) {
+        GeodeSoundFrame f = silent();
+        f.keyHue = i < 100 ? 0.0f : 1.0f / 12.0f;
+        f.keyClarity = i < 100 ? 0.8f : 0.1f;
+        s.step(f, kDt);
+        if ((w.step(s) & (1u << static_cast<int>(Moment::KeyChange))) != 0u) ++came;
+    }
+    check(came == 0, "an unclear key does not change");
+}
+
 }  // namespace
 
 int main() {
@@ -754,6 +915,16 @@ int main() {
     savedTextReadsBack();
     oldTextStillLoads();
     theNativeInterfaceEditsTheText();
+    clearKeepsWhetherTheRowsGate();
+    aRuntimeStaysOnlyWithTheSameResponse();
+    theSeededSequenceRestartsWithThePlay();
+    anOlderReaderTakesAutoWithResponsesForNoRoutes();
+    aPreviewGivesItsRouteBack();
+    aPreviewPlaysOnTheWallClock();
+    theEnvelopeKeepsItsTimes();
+    aLostTempoLetsTheEnvelopeGo();
+    aWhileResponseIsNotPulledBackByAPassedOverHit();
+    aKeyNeedsClarity();
     if (failures != 0) {
         std::printf("responder_test: %d failed\n", failures);
         return 1;

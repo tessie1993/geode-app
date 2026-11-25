@@ -172,6 +172,8 @@ public:
     static constexpr float kKeyChangeSeconds = 1.5f;
     // Half a step of the circle of fifths: how far KeyHue must sit from the settled key to count as another.
     static constexpr float kKeyStep = 1.0f / 24.0f;
+    // How clear the key must read to be believed, so a flicker between neighbours cannot fire it (as kTrustedBeat).
+    static constexpr float kKeyTrusted = 0.3f;
 
 private:
     void stepDerived(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling);

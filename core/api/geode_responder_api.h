@@ -66,6 +66,10 @@ extern "C" {
 #define GEODE_RESP_STATUS_ROUTES (GEODE_RESP_ROWS + 5)  /* routes of the matrix that play */
 #define GEODE_RESP_STATUS_VALUES (GEODE_RESP_ROWS + 6)
 
+/* Downgrading: a build from before the Event Responder reads a list that carries `routes|auto` (Auto routes with
+   responses) as a list of zero routes of the user's, so the style's own routes stop playing there. There is no
+   migration; the line is what keeps this build from reading such a list as the user's. */
+
 /* The saved text of a new style: every row off, the rows holding back the style's own routes. */
 GEODE_API int geode_resp_default_text(char* out, int capacity);
 /* A row's saved name (KICK, SNARE, … KEY_CHANGE), static; NULL for a row there is none of. */

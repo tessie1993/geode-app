@@ -91,9 +91,13 @@ int geode_resp_edit(const char* reactions, int op, int row, int index, int field
         case GEODE_RESP_EDIT_SET:
             resp::setField(config, row, index, field, value);
             break;
-        case GEODE_RESP_EDIT_CLEAR:
-            config = resp::newStyleConfig();
+        case GEODE_RESP_EDIT_CLEAR: {
+            // Every row off and every response gone; whether the rows hold back the style's routes stays as it was.
+            const bool gate = config.gate;
+            config = resp::Config{};
+            config.gate = gate;
             break;
+        }
         default:
             break;
     }

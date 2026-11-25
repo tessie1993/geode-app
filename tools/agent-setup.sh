@@ -67,8 +67,8 @@ fetch_skills() { # <owner/repo> <sha>
     rm -rf "$tmp"
 }
 mkdir -p .claude/skills .git/info
-fetch_skills android/skills bf68e2d66a992a1e6aeb7e9263293cc23fcbf475
-fetch_skills chrisbanes/skills 8df9735a751cfabe5ddae457f28b0a8ea3d4092b
+fetch_skills android/skills 7f7b21730a605d112ca9f79b6e40105ce7b670ee
+fetch_skills chrisbanes/skills f1132f9b04edd4eb985703f8fd757aa3acbda0ed
 
 # CI's ktlint without Gradle: the pinned ktlint CLI jar tools/ktlint-changed.sh runs, kept in
 # ~/.cache/geode-tools so every worktree shares it.

@@ -48,7 +48,7 @@ class FeatureGateTest {
     }
 
     @Test
-    fun `the free styles are the shader family and include the fallback`() {
+    fun `the free styles include the fallback and no dedicated renderer`() {
         assertTrue(FreeTier.FALLBACK_STYLE_ID in FreeTier.freeStyleIds)
         assertTrue(free.allowsStyle(FreeTier.FALLBACK_STYLE_ID))
         assertFalse("silk is a Pro renderer", free.allowsStyle(StyleCatalogue.DEFAULT_ID))
@@ -67,12 +67,10 @@ class FeatureGateTest {
     }
 
     @Test
-    fun `exports above 1080p or 30 fps are blocked for free, resolution first`() {
-        assertNull(free.blockingExportFeature(shortSide = 1080, fps = 30))
-        assertNull(free.blockingExportFeature(shortSide = 720, fps = 24))
-        assertEquals(ProFeature.EXPORT_60FPS, free.blockingExportFeature(shortSide = 1080, fps = 60))
-        assertEquals(ProFeature.EXPORT_4K, free.blockingExportFeature(shortSide = 2160, fps = 30))
-        assertEquals(ProFeature.EXPORT_4K, free.blockingExportFeature(shortSide = 2160, fps = 60))
+    fun `free users export nothing, and the trial exports at any size`() {
+        assertEquals(ProFeature.EXPORT, free.blockingExportFeature(shortSide = 720, fps = 24))
+        assertEquals(ProFeature.EXPORT, free.blockingExportFeature(shortSide = 2160, fps = 60))
+        assertNull(trial.blockingExportFeature(shortSide = 1080, fps = 30))
         assertNull(pro.blockingExportFeature(shortSide = 2160, fps = 60))
         assertNull(trial.blockingExportFeature(shortSide = 2160, fps = 60))
     }
@@ -120,11 +118,20 @@ class FeatureGateTest {
     }
 
     @Test
-    fun `the neon set gives away one opener and keeps four for Pro`() {
+    fun `ten styles are free, the neon opener among them, and the other loose shaders are Pro`() {
+        assertEquals(10, FreeTier.freeStyleIds.size)
         assertTrue(FreeTier.NEON_OPENER in FreeTier.freeStyleIds)
-        assertEquals(4, FreeTier.neonProIds.size)
-        FreeTier.neonProIds.forEach { assertFalse(it, it in FreeTier.freeStyleIds) }
-        assertFalse(FreeTier.NEON_OPENER in FreeTier.neonProIds)
+        listOf("julia", "glow_vortex", "black_hole", "fluid", "cymatics").forEach { assertFalse(it, free.allowsStyle(it)) }
+    }
+
+    @Test
+    fun `a share keeps one more style, and only while the bonus is unused`() {
+        assertTrue(free.shareBonusAvailable)
+        assertFalse(pro.shareBonusAvailable)
+        val shared = FeatureGate(Entitlement.Free, bonusStyleId = "glow_vortex")
+        assertTrue(shared.allowsStyle("glow_vortex"))
+        assertFalse(shared.allowsStyle("black_hole"))
+        assertFalse(shared.shareBonusAvailable)
     }
 
     @Test

@@ -14,7 +14,7 @@ Watch it
 • Customize in up to eleven groups, from quick knobs to camera, motion, the endless dive, effects and a liquid mode you can push around with your fingers. With Pro you can build your own knobs.
 • More than 700 bundled looks, and you can save, organise and share your own.
 
-Make a video
+Make a video (Pro)
 • Render the visual over a song to an MP4 file on your phone.
 • 720p, 1080p or 4K; 24 to 60 frames per second; H.264 or HEVC.
 • Widescreen, vertical, square and other shapes.
@@ -28,8 +28,8 @@ Beyond the app (Pro)
 • Show the visual on a connected display: HDMI, USB-C or a wireless display.
 
 Free and Pro
-Without Pro, with no ads: the music player, more than 60 styles (including the first of each of the nineteen style families), the basic controls in Customize (quick knobs included), and video export up to 1080p at 30 frames per second, one minute long, with a watermark across the picture. Auto mode directs the first minute of each song.
-Pro is a single in-app purchase, not a subscription: everything marked Pro above, every style and every control, 4K and 60 frames per second, full-length video without the watermark, and Auto mode for the whole song. You can try Pro for one hour before buying; videos rendered or recorded during the trial keep the one-minute limit and the watermark.
+Without Pro, with no ads: the music player, 10 visual styles (share the app to keep one more of your choice), and the basic controls in Customize (quick knobs included). Auto mode directs the first minute of each song. Making videos needs Pro.
+Pro is a single in-app purchase, not a subscription: everything marked Pro above, all 333 styles and every control, video export in 4K and 60 frames per second, full length and without the watermark, and Auto mode for the whole song. You can try Pro for one hour before buying; videos rendered or recorded during the trial are one minute long and carry the watermark.
 
 Privacy
 No account, no ads, no analytics. Your music, your listening history, your settings and the videos you make stay on your phone (settings and history also in your Android backup, if you use it). The internet is used only for Cast to TV and for showing the visual on a computer: finding the TV and streaming to the TV or the browser over your own Wi-Fi. The Google Cast component sends Google anonymous usage logs; the privacy policy explains this.

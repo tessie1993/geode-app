@@ -73,11 +73,8 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
 void StageCore::step(int64_t nowMs) {
     lifecycle_.tick(nowMs);
     runActions();
-    // Acknowledged once the lifecycle has acted on it: a window that went has no EGL surface left on it here.
-    if (seenSeq_ > appliedSeq_) {
-        appliedSeq_ = seenSeq_;
-        port_.windowApplied(appliedSeq_);
-    }
+    // Already acknowledged inside runActions when the surface moved; this is for a hand-over that moved none.
+    acknowledge();
     if (serviceDue_) {
         serviceDue_ = false;
         if (client_) client_->service(lifecycle_.canDraw());
@@ -124,6 +121,14 @@ void StageCore::followGovernor() {
     restateRate();
 }
 
+// A window that went has no EGL surface left on it; a new one is held by its surface. Nothing after that touches the
+// window the shell handed over, so the shell need not wait for the client's calls, the vsync or a frame.
+void StageCore::acknowledge() {
+    if (seenSeq_ <= appliedSeq_) return;
+    appliedSeq_ = seenSeq_;
+    port_.windowApplied(appliedSeq_);
+}
+
 void StageCore::runActions() {
     for (int i = 0; i < kMaxActions; ++i) {
         const Action action = lifecycle_.next();
@@ -132,6 +137,7 @@ void StageCore::runActions() {
             return;
         }
         lifecycle_.done(action, execute(action));
+        if ((action.act == Act::CreateSurface && window_) || (action.act == Act::DestroySurface && !window_)) acknowledge();
     }
     unsettled_ = true;
 }

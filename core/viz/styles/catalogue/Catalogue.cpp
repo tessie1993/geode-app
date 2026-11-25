@@ -8,6 +8,7 @@
 #include "viz/input/TouchField.hpp"
 #include "viz/styles/fluid/FluidQuality.hpp"
 #include "viz/styles/cymatics/CymaticsMath.hpp"
+#include "viz/styles/catalogue/StyleBandReads.inc"
 #include "viz/styles/catalogue/StyleCatalog.hpp"
 
 namespace geode::viz::catalogue {
@@ -167,6 +168,28 @@ bool readsMid(Kind k) {
     return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow || presentsIn3d(k);
 }
 bool readsTreble(Kind) { return true; }
+
+// The styles inside a kind that read no bass or no treble envelope (StyleBandReads.inc).
+bool listedIn(const std::vector<std::string>& ids, const std::string& id) {
+    return std::find(ids.begin(), ids.end(), id) != ids.end();
+}
+bool styleReadsBass(const std::string& id) {
+    static const std::vector<std::string> kNone = {
+#define X(id) id,
+        GEODE_NO_BASS_STYLES(X)
+#undef X
+    };
+    return readsBass(kindOf(id)) && !listedIn(kNone, id);
+}
+bool styleReadsMid(const std::string& id) { return readsMid(kindOf(id)); }
+bool styleReadsTreble(const std::string& id) {
+    static const std::vector<std::string> kNone = {
+#define X(id) id,
+        GEODE_NO_TREBLE_STYLES(X)
+#undef X
+    };
+    return readsTreble(kindOf(id)) && !listedIn(kNone, id);
+}
 
 // Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula, Shapes, Shadow and Escape
 // are per style, so no kind has them.
@@ -480,6 +503,10 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::Shapes) return drawsShapes(styleId);
     if (scope == Scope::Shadow) return castsShadows(styleId);
     if (scope == Scope::Escape) return colorsByEscape(styleId);
+    if (scope == Scope::BassBand) return styleReadsBass(styleId);
+    if (scope == Scope::MidBand) return styleReadsMid(styleId);
+    if (scope == Scope::TrebleBand) return styleReadsTreble(styleId);
+    if (scope == Scope::BandGains) return styleReadsBass(styleId) || styleReadsMid(styleId) || styleReadsTreble(styleId);
     return reachesKind(scope, kindOf(styleId));
 }
 

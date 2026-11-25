@@ -3,18 +3,26 @@ package dev.geode.pro
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Why the paywall is open, which decides what it leads with. */
 sealed interface PaywallTrigger {
-    /** A locked feature was tapped; the paywall highlights it. */
+    /**
+     * A locked feature was tapped; the paywall highlights it. For a locked style, [styleId] is the
+     * style that asked, which a share can keep ([ShareBonusRepository]).
+     */
     data class Feature(
         val feature: ProFeature,
+        val styleId: String? = null,
     ) : PaywallTrigger
 
-    /** First-run setup just finished. Shown once, easy to skip. */
-    data object Onboarding : PaywallTrigger
+    /** A free user has had a taste of the app ([PaywallPrompts]); shown once, at a break in the music. */
+    data object TasteMilestone : PaywallTrigger
+
+    /** A free user came back after a while away ([PaywallPrompts]). */
+    data object Returned : PaywallTrigger
 
     /** Settings' "Go Pro" row. */
     data object Settings : PaywallTrigger
@@ -38,11 +46,29 @@ class PaywallNavigator
         private val _request = MutableStateFlow<PaywallTrigger?>(null)
         val request: StateFlow<PaywallTrigger?> = _request.asStateFlow()
 
-        fun open(trigger: PaywallTrigger) {
-            _request.value = trigger
+        /**
+         * Shows [trigger] unless a paywall that outranks it is up: what the user tapped (a locked feature,
+         * Settings' row) beats the trial's end, which beats the taste milestone, which beats a return. An
+         * automatic paywall never replaces the one the user asked for.
+         */
+        fun open(trigger: PaywallTrigger): Boolean {
+            var shown = false
+            _request.update { current ->
+                shown = current == null || rank(trigger) >= rank(current)
+                if (shown) trigger else current
+            }
+            return shown
         }
 
         fun dismiss() {
             _request.value = null
         }
+
+        private fun rank(trigger: PaywallTrigger): Int =
+            when (trigger) {
+                is PaywallTrigger.Feature, PaywallTrigger.Settings -> 3
+                PaywallTrigger.TrialEnded -> 2
+                PaywallTrigger.TasteMilestone -> 1
+                PaywallTrigger.Returned -> 0
+            }
     }

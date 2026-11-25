@@ -3,48 +3,23 @@ package dev.geode.ui
 import dev.geode.model.SceneParams
 import dev.geode.model.TestParams
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
- * Customize's screens name scene params as text (`SceneParams.get`/`with`), so a misspelt name would only throw when its
- * control first draws. This reads the names their controls pass from the sources and holds each to the params
- * schema fixture (`geode.paramsSchema`), so the typo fails here instead.
+ * Customize's screens name scene params as text (`SceneParams.get`/`with`). Their controls are declared natively
+ * now (core/tests/customize_rows_test holds those names), so the Kotlin screens pass none to scan; what is left
+ * here is the keyed edit itself.
  */
 class ParamNamesTest {
     init {
         TestParams.install()
     }
 
-    // Customize's controls and the palette stack name their params natively (core/tests/customize_rows_test holds them).
-    private val screens = listOf("CustomizeAdvanced", "CustomizeTabs")
-
-    // The name argument of LabeledSlider(key, p, "name"), ChoiceChips(key, "name", p)
-    // and ControlRange.of("name").
-    private val call =
-        Regex(
-            """(?:Labeled(?:Int)?Slider\(\w+, \w+, |ChoiceChips\([\w.]+, |ControlRange\.of\()"(\w+)"""",
-        )
-
-    private fun names(): List<String> {
-        val root = listOf(File("src/main/java/dev/geode/ui"), File("app/src/main/java/dev/geode/ui")).first { it.isDirectory }
-        return screens.flatMap { screen -> call.findAll(File(root, "$screen.kt").readText()).map { it.groupValues[1] }.toList() }
-    }
-
-    @Test
-    fun everyNameTheScreensPassIsALiveSchemaRow() {
-        val names = names()
-        assertTrue("found no names; did the controls' call shapes change?", names.isNotEmpty())
-        val missing = names.filterNot { TestParams.live(it) }
-        assertEquals("names with no live params schema row", emptyList<String>(), missing)
-    }
-
     @Test
     fun aKeyedEditIsTheFieldsCopy() {
         val p = SceneParams.DEFAULT.withPaletteId("kept")
-        assertEquals("kept", p.with("noteDrums", 1.5f).customPaletteId)
-        assertEquals(1.5f, p.with("noteDrums", 1.5f)["noteDrums"], 0f)
-        assertEquals(SceneParams.DEFAULT["noteDrums"], p["noteDrums"], 0f)
+        assertEquals("kept", p.with("speed", 1.5f).customPaletteId)
+        assertEquals(1.5f, p.with("speed", 1.5f)["speed"], 0f)
+        assertEquals(SceneParams.DEFAULT["speed"], p["speed"], 0f)
     }
 }

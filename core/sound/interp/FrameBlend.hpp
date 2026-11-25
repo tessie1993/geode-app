@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "sound/Emotion.hpp"
+#include "sound/OutputPolicy.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/hop/AnalysisThread.hpp"
@@ -92,6 +93,17 @@ constexpr bool fieldKindsCoverFrame() {
     return at == sizeof(GeodeSoundFrame) && at == GEODE_SOUND_FRAME_FLOATS * sizeof(float);
 }
 static_assert(fieldKindsCoverFrame(), "kFieldKinds lists GeodeSoundFrame's fields in order, each once");
+
+// policy::kOutputs (sound/OutputPolicy) is the other half of each field's row: how it is ranged, smoothed and
+// decayed. The two tables list the same fields, in the same order.
+constexpr bool outputPolicyMatchesKinds() {
+    if (policy::kOutputRows != kFieldSpans) return false;
+    for (int i = 0; i < kFieldSpans; ++i) {
+        if (policy::kOutputs[i].offset != kFieldKinds[i].offset || policy::kOutputs[i].count != kFieldKinds[i].count) return false;
+    }
+    return true;
+}
+static_assert(outputPolicyMatchesKinds(), "kOutputs and kFieldKinds list GeodeSoundFrame's fields alike, in order");
 
 constexpr int countKind(FieldKind kind) {
     int n = 0;

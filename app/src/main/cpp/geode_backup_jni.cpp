@@ -22,13 +22,14 @@ struct Texts {
 
 Texts textsOf(JNIEnv* env, jobjectArray array) {
     Texts out;
-    const jsize n = array ? env->GetArrayLength(array) : 0;
+    const jsize n = array && !env->ExceptionCheck() ? env->GetArrayLength(array) : 0;
     out.owned.reserve(static_cast<size_t>(n));
     for (jsize i = 0; i < n; ++i) {
         auto* item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
         Utf8Chars chars(env, item);
         out.owned.emplace_back(chars.get() ? chars.get() : "");
         env->DeleteLocalRef(item);
+        if (env->ExceptionCheck()) break;  // out of memory: the caller's Java frame throws, nothing more is read
     }
     for (const auto& s : out.owned) out.pointers.push_back(s.c_str());
     return out;
@@ -36,6 +37,7 @@ Texts textsOf(JNIEnv* env, jobjectArray array) {
 
 // The answer as a Java String[]; null when out of memory.
 jobjectArray answerOf(JNIEnv* env, const char* const* items, int count) {
+    if (env->ExceptionCheck()) return nullptr;
     jclass string = env->FindClass("java/lang/String");
     jobjectArray out = string ? env->NewObjectArray(count, string, nullptr) : nullptr;
     for (int i = 0; out && i < count; ++i) {

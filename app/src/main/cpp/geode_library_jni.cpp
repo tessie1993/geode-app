@@ -26,7 +26,7 @@ struct Texts {
 // With `keepNull` a null entry stays NULL, for cells where "none" and "" differ.
 Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
     Texts out;
-    const jsize n = array ? env->GetArrayLength(array) : 0;
+    const jsize n = array && !env->ExceptionCheck() ? env->GetArrayLength(array) : 0;
     out.owned.reserve(static_cast<size_t>(n));
     std::vector<bool> absent;
     for (jsize i = 0; i < n; ++i) {
@@ -35,6 +35,7 @@ Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
         out.owned.emplace_back(textOf(chars));
         absent.push_back(keepNull && item == nullptr);
         env->DeleteLocalRef(item);
+        if (env->ExceptionCheck()) break;  // out of memory: the caller's Java frame throws, nothing more is read
     }
     for (size_t i = 0; i < out.owned.size(); ++i) out.pointers.push_back(absent[i] ? nullptr : out.owned[i].c_str());
     return out;
@@ -43,7 +44,7 @@ Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
 // An int[] as the C ABI's int, `count` values; a null or short array reads as zeros.
 std::vector<int> intsOf(JNIEnv* env, jintArray values, int count) {
     std::vector<int> out(static_cast<size_t>(count), 0);
-    if (!values) return out;
+    if (!values || env->ExceptionCheck()) return out;
     const jsize n = std::min(static_cast<jsize>(count), env->GetArrayLength(values));
     if (n > 0) env->GetIntArrayRegion(values, 0, n, reinterpret_cast<jint*>(out.data()));
     return out;
@@ -52,7 +53,7 @@ std::vector<int> intsOf(JNIEnv* env, jintArray values, int count) {
 // A long[] as the C ABI's long long, `count` values; a null or short array reads as zeros.
 std::vector<long long> longsOf(JNIEnv* env, jlongArray values, int count) {
     std::vector<long long> out(static_cast<size_t>(count), 0);
-    if (!values) return out;
+    if (!values || env->ExceptionCheck()) return out;
     const jsize n = std::min(static_cast<jsize>(count), env->GetArrayLength(values));
     std::vector<jlong> raw(static_cast<size_t>(n));
     if (n > 0) env->GetLongArrayRegion(values, 0, n, raw.data());
@@ -127,6 +128,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_smartReso
                                       added.data(), count, textOf(held), favs.pointers.data(), favs.count(), nowMs,
                                       rows.data(), count);
     const jsize kept = static_cast<jsize>(std::min(n, count));
+    if (env->ExceptionCheck()) return nullptr;  // a read above ran out of memory
     jintArray out = env->NewIntArray(kept);
     if (out && kept > 0) env->SetIntArrayRegion(out, 0, kept, reinterpret_cast<const jint*>(rows.data()));
     return out;
@@ -250,6 +252,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackWalk
     const bool mimesFit = mimeCells.count() == count;
     const int n = geode_track_walk_actions(nameCells.pointers.data(), mimesFit ? mimeCells.pointers.data() : noMimes.data(),
                                            dirs.data(), count, parentDepth, actions.data());
+    if (env->ExceptionCheck()) return nullptr;  // a read above ran out of memory
     jintArray out = env->NewIntArray(n);
     if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(actions.data()));
     return out;
@@ -261,6 +264,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackTitl
     const int count = cells.count() / 2;
     std::vector<int> flags(static_cast<size_t>(count), 0);
     const int n = geode_track_title_refresh(cells.pointers.data(), count, flags.data());
+    if (env->ExceptionCheck()) return nullptr;  // a read above ran out of memory
     jintArray out = env->NewIntArray(n);
     if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(flags.data()));
     return out;

@@ -54,8 +54,9 @@ inline const StringCalls* stringCalls(JNIEnv* env) {
 // disk, and NewStringUTF aborts under CheckJNI on plain UTF-8 or on a driver log's stray bytes.
 class Utf8Chars {
 public:
+    // With an exception already pending no JNI call but a few is legal, so nothing is read and get() is null.
     Utf8Chars(JNIEnv* env, jstring str) {
-        if (!str) return;
+        if (!str || env->ExceptionCheck()) return;
         const detail::StringCalls* calls = detail::stringCalls(env);
         auto* bytes = calls ? static_cast<jbyteArray>(env->CallObjectMethod(str, calls->getBytes, calls->charset)) : nullptr;
         // With an exception pending (out of memory) only the deletes below are legal: the text stays invalid and
@@ -79,7 +80,7 @@ private:
 
 // A Java String from standard UTF-8; malformed bytes become U+FFFD. Null when out of memory.
 inline jstring utf8String(JNIEnv* env, const char* text) {
-    if (!text) return nullptr;
+    if (!text || env->ExceptionCheck()) return nullptr;
     const auto n = static_cast<jsize>(std::strlen(text));
     jbyteArray bytes = env->NewByteArray(n);
     if (!bytes) return nullptr;
@@ -93,6 +94,7 @@ inline jstring utf8String(JNIEnv* env, const char* text) {
 // A Java String[] from a list that crosses the C ABI as standard UTF-8 entries, each followed by '\n'. Null when
 // out of memory.
 inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
+    if (env->ExceptionCheck()) return nullptr;
     std::vector<std::string> entries;
     for (const char* at = text ? text : ""; *at;) {
         const char* end = std::strchr(at, '\n');
@@ -104,7 +106,10 @@ inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
     jobjectArray out = calls ? env->NewObjectArray(static_cast<jsize>(entries.size()), calls->type, nullptr) : nullptr;
     for (size_t i = 0; out && i < entries.size(); ++i) {
         jstring entry = utf8String(env, entries[i].c_str());
-        if (!entry) return nullptr;
+        if (!entry) {
+            env->DeleteLocalRef(out);
+            return nullptr;
+        }
         env->SetObjectArrayElement(out, static_cast<jsize>(i), entry);
         env->DeleteLocalRef(entry);
     }
@@ -115,8 +120,9 @@ inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
 class FloatElements {
 public:
     FloatElements(JNIEnv* env, jfloatArray array)
-        : env_(env), array_(array), data_(array ? env->GetFloatArrayElements(array, nullptr) : nullptr),
-          length_(array ? env->GetArrayLength(array) : 0) {}
+        : env_(env), array_(array),
+          data_(array && !env->ExceptionCheck() ? env->GetFloatArrayElements(array, nullptr) : nullptr),
+          length_(data_ ? env->GetArrayLength(array) : 0) {}
     ~FloatElements() { if (data_) env_->ReleaseFloatArrayElements(array_, data_, JNI_ABORT); }
     FloatElements(const FloatElements&) = delete;
     FloatElements& operator=(const FloatElements&) = delete;

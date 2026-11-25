@@ -17,6 +17,7 @@ namespace {
 using TagsHandle = std::unique_ptr<geode_tags, decltype(&geode_tags_destroy)>;
 
 jbyteArray utf8Bytes(JNIEnv* env, const char* text) {
+    if (env->ExceptionCheck()) return nullptr;
     const std::string_view view(text);
     jbyteArray out = env->NewByteArray(static_cast<jsize>(view.size()));
     if (out && !view.empty()) {
@@ -97,6 +98,7 @@ Java_dev_geode_engine_bridge_TagsNative_tagsRead(JNIEnv* env, jobject, jint fd, 
     }
     for (int i = 0; i < GEODE_TAG_TEXT_COUNT; ++i) {
         jbyteArray bytes = utf8Bytes(env, geode_tags_text(tags.get(), static_cast<GeodeTagText>(i)));
+        if (!bytes) return -1;  // out of memory, with the exception pending for the caller's Java frame
         env->SetObjectArrayElement(texts, i, bytes);
         env->DeleteLocalRef(bytes);
     }

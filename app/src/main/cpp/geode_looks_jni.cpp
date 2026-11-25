@@ -17,6 +17,7 @@ using geode::jni::utf8String;
 const char* textOf(const Utf8Chars& chars) { return chars.get() ? chars.get() : ""; }
 
 jintArray intsOf(JNIEnv* env, const int* values, int count) {
+    if (env->ExceptionCheck()) return nullptr;
     const jsize n = count > 0 ? static_cast<jsize>(count) : 0;
     jintArray out = env->NewIntArray(n);
     if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(values));
@@ -26,12 +27,13 @@ jintArray intsOf(JNIEnv* env, const int* values, int count) {
 // The Java strings of `array` as UTF-8, null entries as "".
 std::vector<std::string> stringsOf(JNIEnv* env, jobjectArray array) {
     std::vector<std::string> out;
-    const jsize n = array ? env->GetArrayLength(array) : 0;
+    const jsize n = array && !env->ExceptionCheck() ? env->GetArrayLength(array) : 0;
     for (jsize i = 0; i < n; ++i) {
         auto* item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
         Utf8Chars chars(env, item);
         out.emplace_back(textOf(chars));
         env->DeleteLocalRef(item);
+        if (env->ExceptionCheck()) break;  // out of memory: the caller's Java frame throws, nothing more is read
     }
     return out;
 }
@@ -192,6 +194,7 @@ JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LooksNative_savedPaletteS
 JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_LooksNative_savedPaletteCreate(JNIEnv* env, jobject, jstring name, jfloat base,
                                                                                     jfloat span, jintArray stops) {
     Utf8Chars label(env, name);
+    if (env->ExceptionCheck()) return nullptr;
     const jsize n = stops ? env->GetArrayLength(stops) : 0;
     std::vector<jint> rgb(static_cast<size_t>(n));
     if (n > 0) env->GetIntArrayRegion(stops, 0, n, rgb.data());
@@ -219,6 +222,7 @@ JNIEXPORT jfloatArray JNICALL Java_dev_geode_engine_bridge_LooksNative_savedPale
     Utf8Chars chars(env, text);
     float hues[2] = {0.0f, 1.0f};
     geode_saved_palette_hues(textOf(chars), hues);
+    if (env->ExceptionCheck()) return nullptr;
     jfloatArray out = env->NewFloatArray(2);
     if (out) env->SetFloatArrayRegion(out, 0, 2, hues);
     return out;

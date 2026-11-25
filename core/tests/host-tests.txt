@@ -173,6 +173,9 @@ shell_opened_audio_test | stub | core/tests/shell_opened_audio_test.cpp core/she
     core/util/Json.cpp |
 shell_prefs_test | stub | core/tests/shell_prefs_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
     core/util/Json.cpp |
+# The opened-audio C ABI fails closed when memory runs out (core/tests/throwing_new.hpp refuses every allocation).
+shell_api_oom_test | stub | core/tests/shell_api_oom_test.cpp core/shell/*.cpp core/api/geode_shell_api.cpp \
+    core/util/Json.cpp |
 # The backup's rules ported from Kotlin (core/backup): sections and keys, the path-escape check, the size and
 # count caps, version migration, the manifest, and the export, unpack and restore plans. The app calls them through
 # core/api/geode_backup_api.cpp (backup_api_test).
@@ -554,6 +557,11 @@ look_files_test | stub | core/tests/look_files_test.cpp core/viz/ParamsPalette.c
     core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | app/src/test/resources/presets
 # The template file: read, defaults, carried keys, write, refusals, and its C ABI (core/viz/TemplateFile).
 template_file_test | stub | core/tests/template_file_test.cpp core/viz/TemplateFile.cpp core/api/geode_looks_api.cpp \
+    core/viz/LookFiles.cpp core/viz/ParamsPalette.cpp core/viz/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp \
+    core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp |
+# The link, preset and template C ABI answers "unreadable" when memory runs out (core/tests/throwing_new.hpp).
+looks_api_oom_test | stub | core/tests/looks_api_oom_test.cpp core/viz/TemplateFile.cpp core/api/geode_looks_api.cpp \
     core/viz/LookFiles.cpp core/viz/ParamsPalette.cpp core/viz/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp \
     core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp |

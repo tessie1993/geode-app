@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "util/Log.hpp"
-#include "viz/Framebuffer.hpp"
+#include "viz/gl/Framebuffer.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 
 namespace geode::viz::liquid {

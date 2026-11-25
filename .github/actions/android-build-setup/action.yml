@@ -12,7 +12,9 @@ inputs:
   ccache:
     description: >-
       true: route the native build (two ABIs, the third_party libraries) through ccache and restore its
-      cache. The caller saves it after the build, under ccache-debug-<run id>.
+      cache. After the build, a caller that saves the cache first runs
+      ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
+      and saves it under ccache-debug-<run id>.
     default: "false"
 
 runs:
@@ -46,6 +48,9 @@ runs:
           "cmake;3.22.1"
 
     # CMake reads the launcher from the environment.
+    # The step above unpacks the NDK afresh on every runner, so its clang has a new mtime each run
+    # and ccache's default compiler check (mtime) missed every compile; the content check does not.
+    # No size limit during the build: the caller keeps only this build's entries before it saves.
     - name: Set up ccache for the native build
       if: inputs.ccache == 'true'
       shell: bash
@@ -55,8 +60,9 @@ runs:
           echo "CMAKE_C_COMPILER_LAUNCHER=ccache"
           echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache"
           echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
-          echo "CCACHE_MAXSIZE=600M"
+          echo "CCACHE_MAXSIZE=0"
           echo "CCACHE_NOHASHDIR=true"
+          echo "CCACHE_COMPILERCHECK=content"
         } >> "$GITHUB_ENV"
 
     # The newest cache this branch or main saved: build-lint.yml and ship-apk.yml build the same
@@ -68,3 +74,13 @@ runs:
         path: ${{ runner.temp }}/ccache
         key: ccache-debug-${{ github.run_id }}
         restore-keys: ccache-debug-
+
+    # The statistics restored with the cache are every earlier build's; from here they are this one's.
+    # A hit refreshes an entry's mtime, so after the build the caller evicts what this build did not
+    # use since CCACHE_RESTORED_AT.
+    - name: Start this build's ccache statistics
+      if: inputs.ccache == 'true'
+      shell: bash
+      run: |
+        ccache -z
+        echo "CCACHE_RESTORED_AT=$(date +%s)" >> "$GITHUB_ENV"

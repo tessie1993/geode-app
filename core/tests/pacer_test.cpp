@@ -661,7 +661,19 @@ void soundIsReadWhereTheFrameIsShown() {
     check(listenAtNs(now, now + 900'000'000) == now + 100'000'000, "a lead is held to the dt clamp");
 }
 
+// Red against: a swap stamped on its own presentation time when the interval is known (Android's compositor holds a
+// buffer until a refresh it expects to present later than the stamp, so that frame can slip one).
+void aSwapIsStampedBetweenItsVsyncAndTheOneBefore() {
+    check(latchStampNs(1'020'000'000, 8'000'000) == 1'016'000'000, "a stamp is half an interval before its presentation");
+    check(latchStampNs(1'020'000'000, 8'333'333) > 1'020'000'000 - 8'333'333 && latchStampNs(1'020'000'000, 8'333'333) < 1'020'000'000,
+          "an odd interval still lands strictly between the two");
+    check(latchStampNs(1'020'000'000, 0) == 1'020'000'000 && latchStampNs(1'020'000'000, -5) == 1'020'000'000,
+          "no interval: the presentation time itself, as before");
+    check(latchStampNs(0, 8'000'000) == 0, "no presentation time, no stamp");
+}
+
 int main() {
+    aSwapIsStampedBetweenItsVsyncAndTheOneBefore();
     aLateFrameDrawsOnTheFirstVsyncTheStageIsFreeNotTheNextDivideSlot();
     aStaleVsyncStampStepsByTheClockAtTheDraw();
     soundIsReadWhereTheFrameIsShown();

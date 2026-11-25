@@ -29,7 +29,7 @@ constexpr int kSources = 3;
 const char* name(Source source);
 std::optional<Source> sourceNamed(std::string_view name);
 
-// BlendMode's count (viz/VisualSafety); geode_viz_api.cpp holds the two equal, so this file needs no GL header.
+// BlendMode's count (viz/modulation/VisualSafety); geode_viz_api.cpp holds the two equal, so this file needs no GL header.
 constexpr int kBlends = 8;
 constexpr int kDefaultBlend = 1;  // Screen
 constexpr float kDefaultMix = 0.5f;

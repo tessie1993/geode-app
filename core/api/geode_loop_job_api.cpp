@@ -14,7 +14,7 @@
 
 #include "output/LoopRender.hpp"
 #include "output/android/LoopRenderHost.hpp"
-#include "viz/LookSnapshot.hpp"
+#include "viz/looks/LookSnapshot.hpp"
 
 namespace lr = geode::output::looprender;
 

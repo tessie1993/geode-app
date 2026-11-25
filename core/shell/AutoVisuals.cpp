@@ -3,7 +3,7 @@
 #include <map>
 
 #include "util/Json.hpp"
-#include "viz/AutoPlan.hpp"
+#include "viz/director/AutoPlan.hpp"
 
 namespace geode::shell {
 

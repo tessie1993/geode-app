@@ -315,6 +315,26 @@ void stallsNotCounted() {
     check(s.g.steps() == 0, "the governor does not step down for isolated stalls");
 }
 
+// Red against: frames faster than some fixed rate left out of the window (it was 180 fps). On a faster panel only the
+// late frames were then sampled, so the surface never read as keeping up and a few late frames became a deficit.
+void fastPanelsAreMeasured() {
+    namespace quality = geode::viz::fluid::quality;
+    const float paced = 2.0f * kTop;
+    const float period = 1.0f / paced;
+
+    quality::FrameMonitor onTime;
+    onTime.setPacedFps(paced);
+    int relief = 0;
+    for (int i = 0; i < 4000; ++i) relief = std::max(relief, onTime.onFrame(period));
+    check(relief == 0 && onTime.keepingUp(), "on-time frames on a fast panel read as keeping up");
+
+    quality::FrameMonitor fewLate;
+    fewLate.setPacedFps(paced);
+    relief = 0;
+    for (int i = 0; i < 4000; ++i) relief = std::max(relief, fewLate.onFrame(i % 10 == 9 ? 2.0f * period : period));
+    check(relief == 0, "one frame in ten a vsync late is not a deficit there, as it is not at the top rung");
+}
+
 // A step's own resize hitch and the frames around it are not counted: the next step waits the hold as well as
 // the sustain.
 void scaleChangeHolds() {
@@ -352,6 +372,7 @@ int main() {
     followDevice();
     readBack();
     stallsNotCounted();
+    fastPanelsAreMeasured();
     scaleChangeHolds();
     oneRatchet();
     if (failures) {

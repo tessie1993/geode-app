@@ -1,4 +1,4 @@
-// Host-side checks for who deletes a GL name (core/viz/GlHandle.hpp). A type that owns a GL object (it
+// Host-side checks for who deletes a GL name (core/viz/gl/GlHandle.hpp). A type that owns a GL object (it
 // generates the name and its release or destructor deletes it) must never be copied: two copies would delete
 // the same name twice, or one would delete it while the other still draws with it. A type that is handed
 // from one owner to another (ComputeProgram into ComputePass, a FullscreenTriangle) moves the name and
@@ -19,17 +19,17 @@
 #include <type_traits>
 #include <utility>
 
-#include "viz/Compute.hpp"
-#include "viz/Framebuffer.hpp"
-#include "viz/GlHandle.hpp"
-#include "viz/GlProber.hpp"
-#include "viz/ProgramStager.hpp"
-#include "viz/Program.hpp"
-#include "viz/Quad.hpp"
-#include "viz/Scene.hpp"
-#include "viz/Texture.hpp"
-#include "viz/Transition.hpp"
-#include "viz/compute/SimPass.hpp"
+#include "viz/gl/Compute.hpp"
+#include "viz/gl/Framebuffer.hpp"
+#include "viz/gl/GlHandle.hpp"
+#include "viz/gl/GlProber.hpp"
+#include "viz/gl/ProgramStager.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/Quad.hpp"
+#include "viz/styles/shared/Scene.hpp"
+#include "viz/gl/Texture.hpp"
+#include "viz/passes/Transition.hpp"
+#include "viz/styles/silk/SimPass.hpp"
 #include "viz/frame/ExportPasses.hpp"
 #include "viz/frame/Pass.hpp"
 #include "viz/liquid/LiquidPass.hpp"

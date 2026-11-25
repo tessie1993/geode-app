@@ -1,4 +1,4 @@
-// Host-side checks for a renderer's reaction resolve (core/viz/ReactionResolve, #750). Built and run by CI
+// Host-side checks for a renderer's reaction resolve (core/viz/modulation/ReactionResolve, #750). Built and run by CI
 // ("Native host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL, no device.
 //
 // What is pinned: what the native renderer plays equals the old Kotlin path (StyleReactionsCache): the
@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <string_view>
 
-#include "viz/ReactionResolve.hpp"
+#include "viz/modulation/ReactionResolve.hpp"
 
 using namespace geode::viz;
 

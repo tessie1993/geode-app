@@ -84,7 +84,7 @@ private:
     void vsyncRun(bool on) override;
     void vsyncCap(float capFps) override;
     void frameDone() override;
-    void presentAt(int64_t presentNs) override;
+    void presentAt(int64_t stampNs) override;
     void windowApplied(int64_t sequence) override;
 
     std::shared_ptr<Inbox> inbox_;

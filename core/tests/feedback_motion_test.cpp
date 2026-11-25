@@ -322,7 +322,7 @@ void mirrorFoldReflectsTheEdges() {
 }
 
 // The renderer's glue (Renderer::drawTrails): a shader style's Trails, heard from a sound frame. Endless
-// zoom left this pass for its own stage (viz/DivePass), so nothing here dives and no band pushes.
+// zoom left this pass for its own stage (viz/passes/DivePass), so nothing here dives and no band pushes.
 void trailsKeepTheirOwnMotion() {
     TrailAsk trails;
     trails.trailZoom = 0.1f;

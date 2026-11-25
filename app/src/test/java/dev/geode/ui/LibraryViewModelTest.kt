@@ -181,6 +181,32 @@ class LibraryViewModelTest {
             assertFalse("a search with no hits is not an empty library", vm.uiState.value.showEmptyLibrary)
         }
 
+    @Test
+    fun loadingLastsUntilTheListsHaveTheLibrary() =
+        runTest(main) {
+            val compute = StandardTestDispatcher(testScheduler, name = "compute")
+            val loaded = MutableStateFlow(false)
+            val device = MutableStateFlow(emptyList<DeviceTrack>())
+            val vm = viewModel(compute, mutableListOf(), deviceTracks = device, loaded = loaded)
+            assertTrue("before the first answer the library is loading", vm.uiState.value.loading)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+            advanceUntilIdle()
+            assertTrue("MediaStore has not answered", vm.uiState.value.loading)
+
+            device.value = tracks
+            loaded.value = true
+            advanceUntilIdle()
+            val ready = vm.uiState.value
+            assertFalse(ready.loading)
+            assertEquals(tracks.size, ready.tracks.size)
+
+            vm.setQuery("no such song anywhere")
+            advanceUntilIdle()
+            val searched = vm.uiState.value
+            assertEquals("no such song anywhere", searched.query)
+            assertFalse("a search with no hits is answered, not loading", searched.loading)
+        }
+
     private companion object {
         const val LIBRARY_SIZE = 15_000
         const val BEYONCE_AT = 4_321

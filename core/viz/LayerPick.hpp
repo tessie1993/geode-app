@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/AutoDraw.hpp"
+#include "viz/director/AutoDraw.hpp"
 #include "viz/LayerState.hpp"
 
 // Which style Customize › Layers draws over the one on screen, and what its page offers, decided here so the

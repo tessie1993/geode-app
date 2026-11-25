@@ -307,7 +307,7 @@ class PlaybackService : MediaLibraryService() {
                 java.util.concurrent.Callable {
                     val items =
                         fromCaller(controller, mediaItems).flatMap { item ->
-                            VoiceSearch.of(item)?.let { searched(it) } ?: listOf(resolve(item))
+                            VoiceSearch.of(item)?.let { searched(it) } ?: listOf(resolve(controller, item))
                         }
                     playableOrRefuse(items)
                 },
@@ -337,7 +337,7 @@ class PlaybackService : MediaLibraryService() {
                             MediaSession.MediaItemsWithStartPosition(queued.first, queued.second, startPositionMs)
                         else ->
                             MediaSession.MediaItemsWithStartPosition(
-                                playableOrRefuse(items.map { resolve(it) }),
+                                playableOrRefuse(items.map { resolve(controller, it) }),
                                 startIndex,
                                 startPositionMs,
                             )
@@ -380,7 +380,10 @@ class PlaybackService : MediaLibraryService() {
             return items
         }
 
-        private fun resolve(item: MediaItem): MediaItem = if (item.localConfiguration != null) item else tree.playable(item.mediaId) ?: item
+        private fun resolve(
+            controller: MediaSession.ControllerInfo,
+            item: MediaItem,
+        ): MediaItem = requestedItem(item, controller.uid == android.os.Process.myUid(), tree::playable)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -575,6 +578,22 @@ internal data class CallerFacts(
     /** The package that installed it; null when sideloaded or unknown. */
     val installer: String?,
 )
+
+/**
+ * A queued item as the player gets it. Media3 hands a controller's own uri across processes, and the player
+ * opens it with this app's access, so only this app's own controller ([fromThisApp]) keeps the uri it sent; any
+ * other caller gets the row its media id names in the browse tree ([rowOf]), or an item with no uri, which
+ * [PlaybackService]'s queue callbacks refuse.
+ */
+internal fun requestedItem(
+    item: MediaItem,
+    fromThisApp: Boolean,
+    rowOf: (String) -> MediaItem?,
+): MediaItem =
+    when {
+        fromThisApp && item.localConfiguration != null -> item
+        else -> rowOf(item.mediaId) ?: MediaItem.Builder().setMediaId(item.mediaId).build()
+    }
 
 /**
  * Who may browse the library, and who may only press play.

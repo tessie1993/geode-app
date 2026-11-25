@@ -1,4 +1,4 @@
-// Host-side checks for the saved text of the user's reaction routes (core/viz/ReactionText):
+// Host-side checks for the saved text of the user's reaction routes (core/viz/modulation/ReactionText):
 // text an earlier build saved reads back the same, version line, dropped lines, defaults, clamps, the 12-route cap. Built and run by CI
 // (.github/workflows/native-host-tests.yml, "Reaction text host tests"); no GL.
 #include <cstdio>
@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "viz/Lfo.hpp"
-#include "viz/ReactionText.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ReactionText.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 using namespace geode::viz;
 

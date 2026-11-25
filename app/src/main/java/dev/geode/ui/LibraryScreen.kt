@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,6 +59,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -316,6 +318,7 @@ private fun LibraryContent(
         PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
             tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { pickedTab = i }, text = { Text(t) }) }
         }
+        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         // Measured below the tabs, where the lists live: the pane's own width decides the split.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = landscapeOrExpanded && maxWidth >= LIBRARY_SPLIT_WIDTH
@@ -330,7 +333,7 @@ private fun LibraryContent(
                 // Grouping walks the whole library, so the ViewModel does it off the main thread
                 // (LibraryBrowse.browse); the tabs only draw the groups.
                 when (tab) {
-                    0 -> TrackList(shown, playerViewModel, libraryViewModel, columns)
+                    0 -> TrackList(shown, playerViewModel, libraryViewModel, columns, loading = state.loading)
                     1 -> GroupList(state.browse.albums, playerViewModel, libraryViewModel, columns)
                     2 -> GroupList(state.browse.artists, playerViewModel, libraryViewModel, columns)
                     3 -> FoldersTab(state.browse.folders, playerViewModel, wide)
@@ -448,6 +451,7 @@ private fun TrackList(
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
     columns: Int = 1,
+    loading: Boolean = false,
 ) {
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
     // Collected once for the list: per row it was a ViewModel lookup and a collector per item.
@@ -458,7 +462,7 @@ private fun TrackList(
         items(tracks, key = { it.uri }, contentType = { "track" }) { t ->
             TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], t.uri in favourites, queue = queue)
         }
-        if (tracks.isEmpty()) {
+        if (tracks.isEmpty() && !loading) {
             item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
                 Text(stringResource(R.string.library_no_music), Modifier.padding(16.dp))
             }
@@ -716,14 +720,14 @@ private fun GroupDetail(
             }
             Text(
                 name.ifEmpty { stringResource(R.string.library_group_unnamed) },
-                Modifier.padding(end = 12.dp),
+                Modifier.padding(end = 12.dp).semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { viewModel.playAll(queue) },
                 contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
@@ -1017,7 +1021,7 @@ private fun PlaylistsTab(
             }
         }
     Column {
-        Row(
+        FlowRow(
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1451,7 +1455,7 @@ private fun LibraryFoldersCard(libraryViewModel: LibraryViewModel) {
                         }
                     }
                 }
-                Row(
+                FlowRow(
                     Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

@@ -1,4 +1,4 @@
-// Host-side checks for which transition a style change plays and for how long (core/viz/TransitionChoice).
+// Host-side checks for which transition a style change plays and for how long (core/viz/director/TransitionChoice).
 // No GL, no device.
 //
 // What is pinned:
@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/TransitionChoice.hpp"
+#include "viz/director/TransitionChoice.hpp"
 
 namespace tc = geode::viz::transition_choice;
 

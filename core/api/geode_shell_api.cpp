@@ -245,7 +245,7 @@ int geode_opened_media_id(const unsigned char* random16, char* out, int capacity
 int geode_opened_audio_is_opened(const char* media_id) try {
     return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0;
 } catch (...) {
-    return 0;
+    return 1;  // fails closed: an opened file's uri is kept out of history and the saved session
 }
 
 int geode_tour_reached(int spot, unsigned shown, int place, int playing) {

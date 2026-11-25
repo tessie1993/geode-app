@@ -128,6 +128,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_smartReso
                                       added.data(), count, textOf(held), favs.pointers.data(), favs.count(), nowMs,
                                       rows.data(), count);
     const jsize kept = static_cast<jsize>(std::min(n, count));
+    if (env->ExceptionCheck()) return nullptr;  // a read above ran out of memory
     jintArray out = env->NewIntArray(kept);
     if (out && kept > 0) env->SetIntArrayRegion(out, 0, kept, reinterpret_cast<const jint*>(rows.data()));
     return out;
@@ -251,6 +252,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackWalk
     const bool mimesFit = mimeCells.count() == count;
     const int n = geode_track_walk_actions(nameCells.pointers.data(), mimesFit ? mimeCells.pointers.data() : noMimes.data(),
                                            dirs.data(), count, parentDepth, actions.data());
+    if (env->ExceptionCheck()) return nullptr;  // a read above ran out of memory
     jintArray out = env->NewIntArray(n);
     if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(actions.data()));
     return out;
@@ -262,6 +264,7 @@ JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_LibraryNative_trackTitl
     const int count = cells.count() / 2;
     std::vector<int> flags(static_cast<size_t>(count), 0);
     const int n = geode_track_title_refresh(cells.pointers.data(), count, flags.data());
+    if (env->ExceptionCheck()) return nullptr;  // a read above ran out of memory
     jintArray out = env->NewIntArray(n);
     if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(flags.data()));
     return out;

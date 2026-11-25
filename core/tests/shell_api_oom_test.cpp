@@ -40,7 +40,7 @@ void openedAudioFailsClosed() {
     check(route == GEODE_OPENED_NOT_OURS, "a route read without memory leaves the intent to other handlers");
     check(refuses == 1, "a grant checked without memory is refused");
     check(named == -1, "a name read without memory is no name");
-    check(opened == 0, "an id read without memory is not an opened file");
+    check(opened == 1, "an id read without memory counts as an opened file, so its uri is not kept");
 }
 
 }  // namespace

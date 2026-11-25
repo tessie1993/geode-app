@@ -569,7 +569,7 @@ private fun titleFor(trigger: PaywallTrigger?): Int =
 
 /**
  * One row of the comparison: a label, and what each tier gets (null: a lock or a check), with the
- * numbers a cell's text takes ([freeArgs], [proArgs]). Every [ProFeature] has a row, so the paywall
+ * number a cell's text takes ([freeCount], [proCount]). Every [ProFeature] has a row, so the paywall
  * lists everything Pro opens; `PaywallRowsTest` holds it to that.
  */
 internal class CompareRow(
@@ -577,8 +577,8 @@ internal class CompareRow(
     val free: Int?,
     val pro: Int?,
     val features: Set<ProFeature>,
-    val freeArgs: () -> Array<Any> = { emptyArray() },
-    val proArgs: () -> Array<Any> = { emptyArray() },
+    val freeCount: (() -> Int)? = null,
+    val proCount: (() -> Int)? = null,
 )
 
 internal val COMPARE_ROWS =
@@ -588,8 +588,8 @@ internal val COMPARE_ROWS =
             R.string.pro_row_styles_free,
             R.string.pro_row_styles_pro,
             setOf(ProFeature.PREMIUM_STYLES),
-            freeArgs = { arrayOf(FreeTier.freeStyleIds.size) },
-            proArgs = { arrayOf(FreeTier.styleCount) },
+            freeCount = { FreeTier.freeStyleIds.size },
+            proCount = { FreeTier.styleCount },
         ),
         CompareRow(R.string.pro_row_export, null, null, setOf(ProFeature.EXPORT, ProFeature.NO_WATERMARK)),
         CompareRow(R.string.pro_row_resolution, null, R.string.pro_row_resolution_pro, setOf(ProFeature.EXPORT_4K)),
@@ -653,6 +653,18 @@ private fun ComparisonTable(highlighted: ProFeature?) {
     }
 }
 
+/** A cell's text, with its number when it has one; null for a lock or a check. */
+@Composable
+private fun cellText(
+    text: Int?,
+    count: (() -> Int)?,
+): String? =
+    when {
+        text == null -> null
+        count == null -> stringResource(text)
+        else -> stringResource(text, count())
+    }
+
 @Composable
 private fun headerStyle() = MaterialTheme.typography.labelMedium
 
@@ -662,8 +674,8 @@ private fun CompareRowView(
     highlighted: Boolean,
 ) {
     val label = stringResource(row.label)
-    val free = row.free?.let { stringResource(it, *row.freeArgs()) } ?: stringResource(R.string.pro_not_included)
-    val pro = row.pro?.let { stringResource(it, *row.proArgs()) } ?: stringResource(R.string.pro_included)
+    val free = cellText(row.free, row.freeCount) ?: stringResource(R.string.pro_not_included)
+    val pro = cellText(row.pro, row.proCount) ?: stringResource(R.string.pro_included)
     val spoken = stringResource(R.string.pro_row_spoken, label, free, pro)
     Row(
         Modifier

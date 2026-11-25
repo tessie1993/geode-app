@@ -40,10 +40,10 @@ import dev.geode.cast.CastController
 import dev.geode.model.PresetLink
 import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
+import dev.geode.pro.PaywallIntent
 import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallPrompts
 import dev.geode.pro.PaywallTrigger
-import dev.geode.pro.ProFeature
 import dev.geode.ui.theme.isTelevision
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -237,12 +237,11 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var paywallNavigator: PaywallNavigator
 
-    /** [openPaywallIntent]: the screensaver's notice asking for the paywall of a feature it lacks. */
+    /** [PaywallIntent]: the screensaver's notice asking for the paywall of a feature it lacks. */
     private fun openRequestedPaywall(intent: Intent?) {
-        if (intent?.action != ACTION_OPEN_PAYWALL) return
-        val feature = intent.getStringExtra(EXTRA_PRO_FEATURE)?.let { name -> ProFeature.entries.firstOrNull { it.name == name } }
-        if (feature != null) paywallNavigator.open(PaywallTrigger.Feature(feature))
-        intent.action = null
+        val feature = PaywallIntent.featureOf(intent) ?: return
+        paywallNavigator.open(PaywallTrigger.Feature(feature))
+        intent?.action = null
     }
 
     /**
@@ -420,20 +419,5 @@ class MainActivity : ComponentActivity() {
             playFromSearch(intent)
             openRequestedPaywall(intent)
         }
-    }
-
-    companion object {
-        private const val ACTION_OPEN_PAYWALL = "dev.geode.action.OPEN_PAYWALL"
-        private const val EXTRA_PRO_FEATURE = "dev.geode.extra.PRO_FEATURE"
-
-        /** Opens the app on the paywall for [feature]; for surfaces outside the activity (the screensaver). */
-        fun openPaywallIntent(
-            context: Context,
-            feature: ProFeature,
-        ): Intent =
-            Intent(context, MainActivity::class.java)
-                .setAction(ACTION_OPEN_PAYWALL)
-                .putExtra(EXTRA_PRO_FEATURE, feature.name)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

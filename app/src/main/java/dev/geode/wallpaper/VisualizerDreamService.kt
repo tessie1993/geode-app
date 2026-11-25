@@ -24,9 +24,9 @@ import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.engine.bridge.StageNative
 import dev.geode.geodeContainer
+import dev.geode.pro.PaywallIntent
 import dev.geode.pro.ProFeature
 import dev.geode.stage.StageView
-import dev.geode.ui.MainActivity
 import dev.geode.util.bestEffort
 
 /**
@@ -210,7 +210,7 @@ class VisualizerDreamService : DreamService() {
                 val padding = (LOCKED_NOTICE_PADDING_DP * resources.displayMetrics.density).toInt()
                 setPadding(padding, 0, padding, 0)
                 setOnClickListener {
-                    startActivity(MainActivity.openPaywallIntent(this@VisualizerDreamService, ProFeature.SCREENSAVER))
+                    PaywallIntent.forFeature(this@VisualizerDreamService, ProFeature.SCREENSAVER)?.let(::startActivity)
                     wakeUp()
                 }
             }

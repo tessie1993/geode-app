@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -13,7 +14,9 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.core.content.ContextCompat
+import dev.geode.R
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.LookStore
@@ -21,6 +24,7 @@ import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.SoundNative
 import dev.geode.engine.bridge.StageNative
 import dev.geode.geodeContainer
+import dev.geode.pro.PaywallIntent
 import dev.geode.pro.ProFeature
 import dev.geode.stage.StageView
 import dev.geode.util.bestEffort
@@ -103,9 +107,10 @@ class VisualizerDreamService : DreamService() {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        // Pro feature: without it the dream ends at once and the system falls back to its own.
+        // Pro feature: without it the dream says so for a moment, then ends and the system falls back
+        // to its own. A tap on the notice opens the app on the paywall.
         if (!entitled()) {
-            finish()
+            showLockedNotice()
             return
         }
         isInteractive = false
@@ -191,7 +196,32 @@ class VisualizerDreamService : DreamService() {
 
     private fun entitled(): Boolean = SoundNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
 
+    /** What a free user's screensaver shows instead of the visual: why it is still, and the way to Pro. */
+    private fun showLockedNotice() {
+        isInteractive = true
+        isFullscreen = true
+        val notice =
+            TextView(this).apply {
+                text = getString(R.string.pro_chip_screensaver)
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.BLACK)
+                textSize = LOCKED_NOTICE_TEXT_SP
+                gravity = Gravity.CENTER
+                val padding = (LOCKED_NOTICE_PADDING_DP * resources.displayMetrics.density).toInt()
+                setPadding(padding, 0, padding, 0)
+                setOnClickListener {
+                    PaywallIntent.forFeature(this@VisualizerDreamService, ProFeature.SCREENSAVER)?.let(::startActivity)
+                    wakeUp()
+                }
+            }
+        setContentView(notice)
+        handler.postDelayed(endLockedNotice, LOCKED_NOTICE_MS)
+    }
+
+    private val endLockedNotice = Runnable { finish() }
+
     override fun onDetachedFromWindow() {
+        handler.removeCallbacks(endLockedNotice)
         generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
         handler.removeCallbacks(trialEnded)
         sound.stop()
@@ -270,6 +300,11 @@ class VisualizerDreamService : DreamService() {
     }
 
     private companion object {
+        /** How long a free user's screensaver shows [showLockedNotice] before it ends. */
+        const val LOCKED_NOTICE_MS = 10_000L
+        const val LOCKED_NOTICE_TEXT_SP = 20f
+        const val LOCKED_NOTICE_PADDING_DP = 48
+
         const val TAG = "VisualizerDream"
     }
 }

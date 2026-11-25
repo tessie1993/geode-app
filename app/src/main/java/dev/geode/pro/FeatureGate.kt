@@ -22,6 +22,8 @@ sealed interface Entitlement {
  */
 data class FeatureGate(
     val entitlement: Entitlement,
+    /** The Pro style a share earned ([ShareBonusRepository]), kept free like [FreeTier.freeStyleIds]. */
+    val bonusStyleId: String? = null,
 ) {
     val isPro: Boolean get() = entitlement == Entitlement.Pro
 
@@ -32,13 +34,27 @@ data class FeatureGate(
             Entitlement.Free -> feature in FreeTier.freeFeatures
         }
 
-    fun allowsStyle(sceneId: String): Boolean = sceneId in FreeTier.freeStyleIds || allows(ProFeature.PREMIUM_STYLES)
+    fun allowsStyle(sceneId: String): Boolean =
+        sceneId in FreeTier.freeStyleIds || sceneId == bonusStyleId || allows(ProFeature.PREMIUM_STYLES)
+
+    /** Whether a share can still earn a style: not Pro, and no style earned yet. */
+    val shareBonusAvailable: Boolean get() = bonusStyleId == null && !isPro
 
     /**
-     * The feature that blocks an export of this size and rate, or null when it may run.
-     * Resolution is reported before frame rate: it is the bigger of the two upgrades.
+     * The feature that blocks an export of this size and rate, or null when it may run. Exporting at
+     * all comes first (free users render nothing); then resolution before frame rate, the bigger of
+     * the two upgrades.
      */
     fun blockingExportFeature(
+        shortSide: Int,
+        fps: Int,
+    ): ProFeature? = if (!allows(ProFeature.EXPORT)) ProFeature.EXPORT else blockingSizeFeature(shortSide, fps)
+
+    /**
+     * The size or rate upgrade that blocks a video of this size and rate, or null: resolution before
+     * frame rate. Record asks this alone, since recording is its own Pro feature (`STUDIO`).
+     */
+    fun blockingSizeFeature(
         shortSide: Int,
         fps: Int,
     ): ProFeature? =

@@ -14,15 +14,17 @@ class GetFeatureGateUseCase
     constructor(
         private val billing: BillingRepository,
         private val trial: TrialRepository,
+        private val shareBonus: ShareBonusRepository,
     ) {
         operator fun invoke(): Flow<FeatureGate> =
-            combine(billing.isProStream(), trial.getTrialStream()) { pro, trialState ->
+            combine(billing.isProStream(), trial.getTrialStream(), shareBonus.getStyleStream()) { pro, trialState, bonus ->
                 FeatureGate(
                     when {
                         pro -> Entitlement.Pro
                         trialState is TrialState.Active -> Entitlement.Trial(trialState.endsAtMs)
                         else -> Entitlement.Free
                     },
+                    bonusStyleId = bonus,
                 )
             }.distinctUntilChanged()
     }

@@ -90,6 +90,7 @@ public:
 
 private:
     void runActions();
+    void acknowledge();
     Outcome execute(const Action& action);
     void draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs);
     void restateRate();

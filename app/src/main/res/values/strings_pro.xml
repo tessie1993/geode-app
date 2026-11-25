@@ -12,7 +12,7 @@
 
     <!-- Headlines, by what opened the paywall. -->
     <string name="pro_title_default">Music comes to life</string>
-    <string name="pro_title_onboarding">Make your music come to life</string>
+    <string name="pro_title_milestone">Loving the visuals? Make them all yours</string>
     <string name="pro_title_trial_ended">Your Pro hour is up</string>
     <string name="pro_title_export_4k">Export in stunning 4K</string>
     <string name="pro_title_export_60fps">Silky 60 fps exports</string>
@@ -33,30 +33,28 @@
     <string name="pro_compare_free">Free</string>
     <string name="pro_compare_pro">Pro</string>
     <string name="pro_row_styles">Visual styles</string>
-    <string name="pro_row_styles_free">Shader styles</string>
-    <string name="pro_row_styles_pro">All styles</string>
+    <string name="pro_row_styles_free">%1$d, +1 for a share</string>
+    <string name="pro_row_styles_pro">All %1$d</string>
     <string name="pro_row_resolution">Export resolution</string>
-    <string name="pro_row_resolution_free">Up to 1080p</string>
     <string name="pro_row_resolution_pro">Up to 4K</string>
     <string name="pro_row_fps">Frame rate</string>
-    <string name="pro_row_fps_free">30 fps</string>
     <string name="pro_row_fps_pro">60 fps</string>
-    <string name="pro_row_watermark">Watermark</string>
-    <string name="pro_row_watermark_free">On every video</string>
     <string name="pro_row_length">Export length</string>
-    <string name="pro_row_length_free">1 minute</string>
     <string name="pro_row_length_pro">Full track</string>
-    <string name="pro_row_watermark_pro">None</string>
-    <string name="pro_row_studio">Record videos</string>
+    <string name="pro_row_studio">Record live videos</string>
     <string name="pro_row_wallpaper">Live wallpaper and screensaver</string>
-    <string name="pro_row_cast">Cast to TV</string>
-    <string name="pro_row_customization">Advanced look controls</string>
+    <string name="pro_row_cast">Cast to TV, second screen, show on a computer</string>
+    <string name="pro_row_customization">Customize</string>
     <string name="pro_row_auto_director">Auto-director</string>
     <string name="pro_row_auto_director_free">First minute</string>
     <string name="pro_row_auto_director_pro">Whole song</string>
     <string name="pro_included">Included</string>
     <string name="pro_not_included">Not included</string>
     <!-- Spoken for each comparison row: "Export resolution. Free: Up to 1080p. Pro: Up to 4K." -->
+    <string name="pro_row_export">Video export</string>
+    <string name="pro_row_loop_batch">Loop renders, whole-playlist renders</string>
+    <string name="pro_row_customization_free">Quick knobs and basics</string>
+    <string name="pro_row_customization_pro">Every control, your own knobs, randomize everything</string>
     <string name="pro_row_spoken">%1$s. Free: %2$s. Pro: %3$s.</string>
 
     <!-- Purchase. -->
@@ -64,6 +62,12 @@
     <string name="pro_price_loading">Getting the price…</string>
     <string name="pro_price_note">One-time purchase, billed by Google Play. No subscription.</string>
     <string name="pro_restore">Restore purchase</string>
+    <string name="pro_chip_auto_mode">Auto mode goes on through the whole song with Pro</string>
+    <string name="pro_chip_screensaver">The screensaver moves with Pro. Open BeatRealms 3D to unlock it</string>
+    <string name="pro_share_keep_style">Share BeatRealms 3D and keep this style free</string>
+    <string name="pro_share_chooser">Share BeatRealms 3D</string>
+    <string name="pro_share_text">Music visuals that move to your own songs: BeatRealms 3D %1$s</string>
+    <string name="pro_title_export">Turn your music into videos</string>
     <string name="pro_retry">Try again</string>
     <string name="pro_trial_start">Try everything free for 1 hour</string>
     <string name="pro_trial_note">Starts now and runs for an hour, once. Trial exports stay at 1 minute with the watermark.</string>
@@ -100,4 +104,7 @@
     <string name="pro_debug_owned" translatable="false">Owns Pro</string>
     <string name="pro_debug_next" translatable="false">Next purchase</string>
     <string name="pro_debug_complete_pending" translatable="false">Complete pending payment</string>
+    <string name="pro_debug_code_label" translatable="false">Tester code</string>
+    <string name="pro_debug_code_unlock" translatable="false">Unlock</string>
+    <string name="pro_debug_code_wrong" translatable="false">That is not the tester code</string>
 </resources>

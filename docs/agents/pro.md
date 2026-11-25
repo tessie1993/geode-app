@@ -8,9 +8,10 @@ One fact per line. Add a gate as a new bullet.
 - Every gate asks a `FeatureGate` from `GetFeatureGateUseCase`.
 - Pro beats the 1-hour trial beats free.
 - What free keeps is `pro/FreeTier.kt` alone.
-- Free gets the loose shader styles, the first style of each style family and the neon opener, Neon Chrome Sea.
+- Free gets ten styles (`FreeTier.freeStyleIds`): Neon Chrome Sea and the openers of the first nine shader families. Every dedicated renderer is Pro.
 - Neon Chrome Sea is also every install's first style (`FreeTier.FIRST_STYLE_ID`).
-- The others in each family are Pro (`FreeTier.familyProIds`); the catalogue names each family's opener.
+- Sharing the app keeps one more style, the locked one the paywall offers, once per install (`ShareBonusRepository`, `FeatureGate.bonusStyleId`); opening the share sheet earns it.
+- Exporting a video is Pro (`ProFeature.EXPORT`, first in `FeatureGate.blockingExportFeature`); the trial exports one minute with the watermark.
 - Note & key reactions are free (Settings › Sound reaction, on by default); their Customize › Advanced card is Pro like every card.
 
 ## Gates
@@ -28,11 +29,17 @@ One fact per line. Add a gate as a new bullet.
 - Show on a computer is Pro like Cast; it stops at Pro's end.
 - The two-circle Randomize everything is Pro; without Pro the lock `#PRO` holds all but the Basics, for the Customize dice and the gesture alike.
 - Quick knobs › Edit knobs (`MacroEditor`) is Pro.
-- The live auto-director is gated by `AutoDirectorPolicy`: Pro and trial get the whole song, free the first minute of each.
+- The live auto-director is gated natively (`director::liveAmount`, fed by `AutoDirectorStore`): Pro and trial get the whole song, free the first minute of each; when it ends, Visuals shows a chip that opens the paywall (`AutoDirectorStore.freeTasteEnded`).
+- A free user's screensaver shows a notice for ten seconds instead of the visual; a tap opens the app on the paywall (`MainActivity.openPaywallIntent`).
 - An export's director is native (`director::forExport`), from the switch, the entitlement and the length the export forwards: Pro and trial throughout, free only when the export fits the minute.
 
 ## Paywall and debug billing
 
+- Automatic paywalls are `PaywallPrompts`, free users only: once after `FreeTier.TASTE_VISUALS_MS` of Visuals, at the next pause or track change; and on a return after `FreeTier.RETURN_AWAY_MS` away, not in the first session nor from a screen the app opened (`MainActivity.startActivityForResult`).
+- `PaywallNavigator.open` ranks triggers: a tap or Settings beats the trial's end, which beats the milestone, which beats a return.
+- The tour makes no Pro offer.
+- Every `ProFeature` has a row in the paywall's comparison (`COMPARE_ROWS`, `PaywallRowsTest`).
+
 - `PaywallNavigator.request` is state; `PaywallHost` (a `Dialog`, drawn from `AppRoot`) shows it.
 - Debug builds bill against `FakeBillingRepository` (`billing/BillingBuild`: `BuildConfig.USE_FAKE_BILLING` and a debuggable build).
-- Debug builds show a debug panel on the paywall.
+- Debug and sideload builds show a tester-code field on the paywall (`TesterCode`, only its SHA-256 in the repo); until the code is entered every purchase fails as billing unavailable, after it Pro is granted and the debug panel opens.

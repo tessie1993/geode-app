@@ -6,6 +6,7 @@
 #include <limits>
 
 #ifdef __ANDROID__
+#include <pthread.h>
 #include <sys/resource.h>
 #include <unistd.h>
 #endif
@@ -100,12 +101,14 @@ void AnalysisThread::notify() {
 
 void AnalysisThread::setWorkReporter(WorkReporter reporter) { gWorkReporter.store(reporter, std::memory_order_relaxed); }
 
-// ADPF: a pass that wrote audio to the engine had that audio's own length to finish in.
+// ADPF: the target is one hop's length (fixed per format, so the session is told it once); the pass's time is scaled to
+// the hops it covered.
 void AnalysisThread::reportWork(std::chrono::steady_clock::time_point started) {
     const WorkReporter reporter = gWorkReporter.load(std::memory_order_relaxed);
     if (!reporter || workFrames_ <= 0 || workRateHz_ <= 0) return;
-    const int64_t audioNs = workFrames_ * 1000000000 / workRateHz_;
-    reporter(audioNs, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started).count());
+    const int64_t hopNs = static_cast<int64_t>(settings_.hopSamples()) * 1000000000 / workRateHz_;
+    const int64_t passNs = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started).count();
+    reporter(hopNs, passNs * settings_.hopSamples() / workFrames_);
 }
 
 // A write the listen limit holds back changes nothing until the limit moves, which only time does: while this thread
@@ -117,6 +120,9 @@ void AnalysisThread::ringWritten() {
 }
 
 void AnalysisThread::run() {
+#ifdef __ANDROID__
+    pthread_setname_np(pthread_self(), "GeodeAnalysis");
+#endif
 #ifdef __ANDROID__
     // Best effort: a refusal leaves the inherited priority. The work done per pass is unchanged.
     setpriority(PRIO_PROCESS, static_cast<id_t>(gettid()), kAnalysisNice);

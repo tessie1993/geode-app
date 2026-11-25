@@ -181,7 +181,7 @@ void triggersHoldAndSilenceIsQuiet() {
 }
 
 void sourcesReadTheirFieldsInRange() {
-    static_assert(kReactSourceCount == 155, "155 sources: append only, they are saved by name and ordinal");
+    static_assert(kReactSourceCount == 159, "159 sources: append only, they are saved by name and ordinal");
     ReactSignals s;
     GeodeSoundFrame f = silence();
     f.bass = 1.0f;
@@ -192,6 +192,10 @@ void sourcesReadTheirFieldsInRange() {
     f.fadeGain = 0.25f;
     f.transientEnv = 0.6f;
     f.transientSharpness = 0.8f;
+    f.loudnessM = 0.3f;
+    f.loudnessS = 0.45f;
+    f.busy = 0.65f;
+    f.drive = 0.35f;
     f.bassTime = 0.0f;
     s.step(f, 0.1f);
     f.bassTime = 0.1f;  // one second of clock per second
@@ -202,6 +206,10 @@ void sourcesReadTheirFieldsInRange() {
     check(std::fabs(s.value(ReactSource::FadeGain) - 0.25f) < 1e-5f, "the player's fade gain reads as it is");
     check(std::fabs(s.value(ReactSource::TransientEnv) - 0.6f) < 1e-5f && std::fabs(s.value(ReactSource::TransientSharpness) - 0.8f) < 1e-5f,
           "the transient's envelope and sharpness read as they are");
+    check(std::fabs(s.value(ReactSource::LoudnessMomentary) - 0.3f) < 1e-5f && std::fabs(s.value(ReactSource::LoudnessShortTerm) - 0.45f) < 1e-5f,
+          "the absolute loudness reads as it is, momentary and short-term");
+    check(std::fabs(s.value(ReactSource::Busy) - 0.65f) < 1e-5f && std::fabs(s.value(ReactSource::Drive) - 0.35f) < 1e-5f,
+          "how busy the music is and its drive read as they are");
     check(std::fabs(s.value(ReactSource::Eq1k5) - 0.5f) < 1e-5f, "an EQ band reads its own band, halved");
     check(s.value(ReactSource::Eq22k) == 1.0f && s.value(ReactSource::Eq25) == 0.0f, "the last EQ band is the 22 kHz one");
     check(std::fabs(s.value(ReactSource::BassTime) - 0.5f) < 1e-4f, "a clock reads its rate");

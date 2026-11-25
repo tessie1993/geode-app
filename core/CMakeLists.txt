@@ -219,7 +219,6 @@ add_library(geode_core STATIC
     viz/director/DirectorTuning.cpp
     viz/LayerPick.cpp
     viz/LayerState.cpp
-    viz/modulation/NoteResponse.cpp
     viz/passes/UiBlurPass.cpp
     viz/passes/DivePass.cpp
     viz/passes/Underlay.cpp
@@ -229,7 +228,6 @@ add_library(geode_core STATIC
     viz/frame/CastTee.cpp
     api/geode_cast_tee_api.cpp
     viz/modulation/Adsr.cpp
-    viz/modulation/MotionField.cpp
     viz/styles/shared/ShapeGraph.cpp
     viz/modulation/ReactionDna.cpp
     viz/modulation/Reactions.cpp

@@ -50,8 +50,7 @@ float shape(Curve curve, float t);
 // What a link moves: a scene param, by its wire slot. Every live param a knob can offset is one: a float the look
 // glides (Float or Circular, Fade) that a Customize control sets. Left out: Int fields (a picker, a count, a seed,
 // a colour stop: an offset would jump between unrelated choices or rebuild a simulation), Bool switches, Hold
-// floats (the palette's unset sentinels, the glide time), retired slots, fields no control sets, and the Note & key
-// strengths, which NoteResponse reads before the bank runs, so a knob on them would move nothing. A param a
+// floats (the palette's unset sentinels, the glide time), retired slots, and fields no control sets. A param a
 // modulation target writes is named as that target (MORPH); every other by its schema name (cymaticsRing).
 struct Target {
     int slot = -1;

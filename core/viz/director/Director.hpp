@@ -17,7 +17,7 @@ namespace geode::viz {
 //
 //   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
 //              set of scene params and a scale on the camera rig's music moves; the camera's spring
-//              softness and the motion field's breath. The user's macro bank (viz/modulation/MacroBank) is never
+//              softness. The user's macro bank (viz/modulation/MacroBank) is never
 //              touched: it adds on top of whatever the director left. Spin (motionDrift) is never the
 //              director's either (#1181): whether a turning style spins is the user's choice
 //
@@ -122,7 +122,6 @@ public:
         float energy = 0.5f;
         Axes axes{};
         float camSmooth = 0.5f;
-        float motionBreath = 0.5f;
         CameraRig::Moves moves{};
     };
 
@@ -170,8 +169,7 @@ public:
     float glideSeconds() const { return glideSeconds_; }
     // Whether the last commit should change the style: a new section, a drop, or a long stretch with
     // neither (music with no clear sections still gets a new style now and then), and
-    // only while the director drives (Auto on). It steps with Auto off too, for its feeling (Note & key
-    // reactions read it), and those commits must not step the user's chosen style.
+    // only while the director drives (Auto on). It steps with Auto off too, for its feeling, and those commits must not step the user's chosen style.
     bool styleMoment() const {
         return config_.amount > 0.0f && (reason_ == Reason::Section || reason_ == Reason::Drop || reason_ == Reason::Long);
     }

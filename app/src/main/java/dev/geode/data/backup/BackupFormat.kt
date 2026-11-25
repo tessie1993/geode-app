@@ -19,7 +19,6 @@ import dev.geode.data.LibrarySettingsCodec
 import dev.geode.data.LookStore
 import dev.geode.data.MEDIA_ROOTS_PREF_KEYS
 import dev.geode.data.MacroStore
-import dev.geode.data.NoteResponseCodec
 import dev.geode.data.PaletteStackStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefsCodec
@@ -84,7 +83,7 @@ object BackupFormat {
         GeneralSettingsCodec.keys + SoundInputSettingsCodec.keys + VisualsSettingsCodec.keys + LibrarySettingsCodec.keys +
             AppStateCodec.keys + BehaviourCodec.keys + ExportPrefsStore.PREF_KEYS + StudioPrefsStore.PREF_KEYS +
             BootAnimationStore.PREF_KEYS + CustomizeGroupsCodec.keys + MacroStore.PREF_KEYS + PaletteStackStore.PREF_KEYS +
-            LfoStore.PREF_KEYS + AutoDirectorCodec.keys + NoteResponseCodec.keys + RecordPrefsStore.PREF_KEYS +
+            LfoStore.PREF_KEYS + AutoDirectorCodec.keys + RecordPrefsStore.PREF_KEYS +
             WatermarkPrefsCodec.keys + PerformanceStore.PREF_KEYS + LookStore.PREF_KEYS + AutoVisualsPrefsStore.PREF_KEYS +
             StyleShelfCodec.keys + PlayerPrefsCodec.keys + BookmarkStore.PREF_KEYS +
             AudioFxController.PREF_KEYS + LibraryPrefsStore.PREF_KEYS + MEDIA_ROOTS_PREF_KEYS + BackgroundPrefsStore.PREF_KEYS +

@@ -704,21 +704,6 @@
     <!-- Settings: Behavior tab. -->
     <string name="behavior_group_touch">Touch</string>
     <string name="behavior_group_display">Connected display</string>
-    <string name="notes_switch">Note &amp; key reactions</string>
-    <string name="notes_body">Each style hears the melody, the chords and the mood, not just the drums, through six knobs of its own, and spends them its own way. Colours stay the style\'s and yours. Drums count for as much as the track is made of them.</string>
-    <!-- Customize › Advanced › Note & key (Pro): six per-style strengths, 1 = as designed. -->
-    <string name="note_key_intro">How strongly each part of the music answers on this style. 1× is as designed, 0 turns that part off.</string>
-    <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Sound reaction to hear these.</string>
-    <string name="note_key_pitch">Pitch height</string>
-    <string name="note_key_pitch_hint">How much high and low notes move the style\'s tone knob.</string>
-    <string name="note_key_intervals">Leaps and steps</string>
-    <string name="note_key_intervals_hint">How much melodic leaps and steps move the style\'s space knob.</string>
-    <string name="note_key_tension">Tension</string>
-    <string name="note_key_tension_hint">How much clashing harmony and a build move the style\'s build knob.</string>
-    <string name="note_key_chords">Chord changes</string>
-    <string name="note_key_chords_hint">How much a new chord moves the style\'s space knob.</string>
-    <string name="note_key_drums">Drums</string>
-    <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with your fingers</string>
     <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless the gesture map says otherwise), they also drag the picture: whatever is on screen bends after them and settles a moment after they stop. It needs Performance\'s extra effects. In Liquid mode the fingers move the liquid instead. Never in a render.</string>

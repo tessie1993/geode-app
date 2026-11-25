@@ -387,7 +387,7 @@ void resetPutsBackOnlyItsCategory() {
     changed.grain = 0.4f;           // Effects
     changed.posterize = 0.5f;       // Effects, filed under COLOR
     changed.flowEnabled = true;     // Liquid, never rolled
-    changed.noteColor = 1.7f;       // Music's Notes & key, never rolled
+    changed.reactAmount = 1.7f;     // Music's Reaction strength, never rolled
     const SceneParams defaults;
 
     const SceneParams motion = customize::reset(changed, Category::Motion);
@@ -400,7 +400,7 @@ void resetPutsBackOnlyItsCategory() {
 
     check(customize::reset(changed, Category::Camera).camFly == defaults.camFly, "Camera reset puts Fly speed back");
     check(customize::reset(changed, Category::Liquid).flowEnabled == defaults.flowEnabled, "Liquid reset turns Liquid mode back");
-    check(customize::reset(changed, Category::Music).noteColor == defaults.noteColor, "Music reset puts Notes & key back");
+    check(customize::reset(changed, Category::Music).reactAmount == defaults.reactAmount, "Music reset puts Reaction strength back");
 }
 
 void changedCountCountsLiveFieldsOffTheDefault() {

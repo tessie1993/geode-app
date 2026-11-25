@@ -38,7 +38,6 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return marchScale_.load(std::memory_order_relaxed); },
-                          [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
                           [this] { return paletteRamp_.active() ? paletteRampTex_.get() : GLuint{0}; },

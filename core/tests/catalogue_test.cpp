@@ -258,7 +258,15 @@ void paramScopesMatchTheOldParamScope() {
     // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
     check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
               catalogue::reaches(Scope::TrebleBand, "life_orbium"),
-          "life hears every band");
+          "life reaches every band: a link, a route or a roll may still write a gain there");
+    // A control is SHOWN only where the style reads the band (StyleBandReads.inc); reaches() is never narrowed by it.
+    check(catalogue::shows(Scope::BassBand, "life_orbium") && catalogue::shows(Scope::MidBand, "life_orbium") &&
+              !catalogue::shows(Scope::TrebleBand, "life_orbium") && catalogue::shows(Scope::BandGains, "life_orbium"),
+          "life shows the bass and mid gains, not the treble");
+    check(catalogue::reaches(Scope::BassBand, "tunnel") && !catalogue::shows(Scope::BassBand, "tunnel") &&
+              catalogue::shows(Scope::TrebleBand, "tunnel") && catalogue::shows(Scope::MidBand, "tunnel") &&
+              catalogue::shows(Scope::BassBand, "silk_web"),
+          "a shader style that reads no bass hides Bass gain and keeps the others");
     check(catalogue::reaches(Scope::ShaderLook, "life_orbium") && catalogue::reaches(Scope::Turbulence, "life_orbium") &&
               catalogue::reaches(Scope::MarchDetail, "life_worms") && catalogue::fliesCamera("life_worms"),
           "life reads the shader look, Turbulence and Detail and flies the rig");

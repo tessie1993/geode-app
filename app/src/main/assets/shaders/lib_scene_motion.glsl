@@ -1,91 +1,51 @@
-// The continuous audio-motion layer every style shares.
+// The motion uniforms every style may still name. All are CONSTANT but the two flow clocks.
 //
-// WHY THIS EXISTS
+// The CPU-side motion field that used to compute them (relative band levels, brightness, a hue driver, a bar
+// wave, an orbit, a drift angle, a breath and the flow clocks) is gone, and so is the Note & key layer behind
+// the uKnob array: the music no longer moves a picture through them. ShaderScene::uploadMotion holds each
+// uniform below at a fixed value, except uFlowPhase and uFlowTime, which advance at one fixed base rate
+// (never for loudness), so a style that still reads one draws a steady, finite number, never garbage. A style moves on the sound only through what it reads from lib_sound
+// (SND_*, sndShaped(SND_LOW) and its siblings, the SND_*_PRESENCE trends) and through the reaction routes
+// the user can see and edit.
 //
-// lib_sound (through lib_scene_uniforms) hands a style the sound engine's
-// frame: relative band levels (SND_BASS, SND_MID_ATT, ...), shaped 0..1 bands
-// (SND_LOW, SND_MIDDLE, SND_HIGH, SND_LEVEL), drum envelopes and clocks. The
-// fast ones are honest, and they are the wrong thing to drive a picture with
-// directly. A band envelope can move 0 -> 1 between two
-// frames, so anything multiplied by one moves the same way: that is the
-// flashing and the snapping. A fragment shader cannot fix it, because a
-// fragment shader has no frame-to-frame state and so cannot smooth anything.
-//
-// So the smoothing lives on the CPU, in viz/MotionField.cpp, and arrives here
-// as uniforms. Everything below is already slew-limited or already
-// integrated. Reach for these first; reach for the raw envelopes only when a
-// style genuinely wants the instantaneous value itself.
-//
-// A style includes this AFTER lib_scene_uniforms (it reads uTime) and before
-// lib_palette. A style that includes it and reads nothing from it costs
-// nothing: the linker drops the unread uniforms and the uploads become no-ops.
-//
-// WAVE THREE: A CONTINUOUS MOTION SYSTEM, NOT A REACTION LAYER
-//
-// Nothing below is a trigger, and nothing below is keyed off a drum, an
-// instrument, a transient, an onset or a beat/downbeat flag. Movement is
-// continuous: relative band levels against a running average with
-// attack/release (uEnergyRel/uBassRel/uMidRel/uTrebRel), spectral brightness
-// and harmonicity (uMotionBright/uHarmony), a chroma-derived key hue
-// (uKeyHue/uKeyStrength), tempo phase as smooth phase-locked oscillators
-// gated by confidence (uBarOsc), and slow re-targeting from novelty
-// and section boundaries that eases over seconds (uOrbit/uDrift/uBreath). See
-// core/viz/MotionField.hpp for the derivation of every uniform below.
+// Do not add a read of anything below: delete the ones a style has. A style that includes this file and
+// reads nothing from it costs nothing: the linker drops the unread uniforms and the uploads become no-ops.
+// Includes this AFTER lib_scene_uniforms (it reads uTime) and before lib_palette.
 
-// The slow sound signals come from lib_sound too: sndShaped(SND_LOW) and its
-// siblings for a band that cannot jump far in one frame, the SND_*_PRESENCE
-// trends for a band over seconds, and SND_INTENSITY, SND_LEVEL or
-// SND_ENERGY_TREND for how loud this PASSAGE is.
+// ---- relative levels, timbre and key (constants) ---------------------------
 
-// ---- wave three: relative levels, timbre and key --------------------------
-
-/** rms / 20s running average, attack 0.25s / release 1.0s; 0..2, 1 = typical loudness for this track. */
+/** Held at 1: the typical loudness the relative level used to be measured against. */
 uniform float uEnergyRel;
-/** bass / 20s running average, attack 0.15s / release 0.6s; 0..2. */
-uniform float uBassRel;
-/** mid / 20s running average, attack 0.15s / release 0.6s; 0..2. */
-uniform float uMidRel;
-/** treble / 20s running average, attack 0.15s / release 0.6s; 0..2. */
-uniform float uTrebRel;
-/** Spectral centroid, smoothed over 0.5s; 0 dark, 1 bright. */
+/** Held at 0. */
 uniform float uMotionBright;
-/** Harmonicity, smoothed over 1.0s; 0 noisy/percussive, 1 tonal. */
+/** Held at 0.5. */
 uniform float uHarmony;
-/** The chroma argmax's hue, 0..1, circularly eased over 3.0s. */
+/** Held at 0: no hue driver. */
 uniform float uKeyHue;
-/** How confident the key detector is right now, smoothed over 1.0s, 0..1; gates uKeyHue's effect. */
+/** Held at 0: the hue driver is worth nothing, so uKeyHue's effect is gated off. */
 uniform float uKeyStrength;
 
-// ---- wave three: tempo phase, gated by confidence --------------------------
+// ---- bar wave, orbit, drift, breath (constants) ----------------------------
 
-/** 0.5 + 0.5*sin(2*pi*barPhase) scaled by rhythmLock (slewed 1s); 0.5 when unlocked. */
+/** Held at 0.5, the wave's middle. */
 uniform float uBarOsc;
-/** A slow wander point, -1..1; re-targeted (not stepped) on a novelty rise or a section boundary and eased over 3.0s. */
+/** Held at (0, 0). */
 uniform vec2 uOrbit;
-/**
- * An accumulated rotation, radians, at one fixed rate: no sound sets its speed or its sign
- * (owner 2026-11-12, no style spins to the music).
- * It wraps at 200 pi (MotionField::kDriftWrap), so the wrap is seamless only for a
- * fixed multiplier that is a multiple of 0.01 (0.35 * uDrift, never uDrift * uIntensity).
- */
+/** Held at 0: nothing turns a style on its own. */
 uniform float uDrift;
-/** A slow, low-amplitude scale wobble around 1.0, 0.9..1.1, riding uBassRel and uBarOsc. */
+/** Held at 1: no scale wobble. */
 uniform float uBreath;
 
 /**
- * A monotonically advancing travel phase in seconds. Loudness sets the RATE
- * (via uEnergyRel on the CPU), never the sign, so anything scrolled or
- * advected by this can slow down and speed up but can never run backwards or
- * stall into a stutter.
+ * A steady travel phase in seconds, advancing at one fixed base rate (0.08 a second) whether the music plays
+ * or not; no loudness term. It never runs backwards or stalls.
  */
 uniform float uFlowPhase;
 
 /**
- * uFlowPhase at Speed's rate: ShaderScene integrates the same flow rate times
- * Speed (core/viz/SpeedClock.hpp), so it equals uFlowPhase at Speed 1. Read
- * this, never uFlowPhase times Speed: an accumulated phase times the live dial
- * jumps by phase * delta-speed whenever Speed moves (tools/check_shaders.py
- * fails the build on it).
+ * uFlowPhase at Speed's rate: the same base rate times Speed, integrated (core/viz/modulation/SpeedClock.hpp),
+ * so it equals uFlowPhase at Speed 1. Read this, never uFlowPhase times Speed: an accumulated phase times the
+ * live dial jumps by phase * delta-speed whenever Speed moves (tools/check_shaders.py fails the build on it).
  */
 uniform float uFlowTime;
 
@@ -96,11 +56,11 @@ uniform float uFlowTime;
  */
 uniform vec3 uSoundTimeSped;
 
-// ---- legacy: constant since wave three; removed in R08 --------------------
+// ---- legacy: constant; delete the readers, then these --------------------
 //
 // The spike-triggered reaction this uniform group used to carry. Nothing
 // writes these any more; ShaderScene uploads the neutral constant every
-// frame so a style that has not yet been migrated (R02-R07) still compiles
+// frame so a style that still reads them compiles
 // and draws exactly the picture it did with a silent, un-spiking input.
 
 /**

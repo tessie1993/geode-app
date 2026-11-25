@@ -74,17 +74,6 @@ object DirectorNative {
         value: Float,
     ): String
 
-    /**
-     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
-     * knobs each style spends its own way; no scene param, no colour. Process-wide like
-     * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
-     * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
-     * so the live note response differs every time; an export pins its settings with none,
-     * so exporting the same play twice draws the same picture, though not the one
-     * the screen drew.
-     */
-    external fun noteResponseSet(enabled: Boolean)
-
     /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
     external fun shaderOverrideSet(
         styleId: String,

@@ -8,7 +8,6 @@
 #include "viz/passes/Births.hpp"
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/colour/Colour.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/passes/TwistShape.hpp"
 #include "viz/styles/shared/SceneCommon.hpp"
 #include "viz/styles/shader/WorldAssets.hpp"
@@ -26,7 +25,7 @@ constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
 constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
 // The fewest steps Settings › Performance may scale a march down to; below this most SDFs miss surfaces.
 constexpr float kMarchMinScaledSteps = 24.0f;
-// The length of lib_scene_uniforms' uKnob array: six knobs, k0 PULSE to k5 SPACE.
+// The length of lib_scene_uniforms' uKnob array.
 constexpr int kKnobCount = 6;
 
 float paletteRowCoordinate(int index) {
@@ -65,7 +64,7 @@ void ShaderScene::setWorldAssets(const std::string& shapes, const std::string& m
 }
 
 void ShaderScene::init() {
-    motionField_.setVariant(styleVariantSeed(id_));
+    flow_.reset();
     program_ = 0;
     uniforms_ = UniformCache(0);
     worldParts_ = 0;
@@ -87,8 +86,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, static_cast<double>(kTimeWrapSeconds));
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(sound, dt, p.speed);
+    flow_.step(p.speed, dt);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
     if (pool_) {
@@ -120,9 +118,6 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
         in.turbulence = p.turbulence;
         in.detail = p.marchDetail;
         in.intensity = p.intensity;
-        if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) {
-            std::copy(notes->knobs.begin(), notes->knobs.end(), in.knobs.begin());
-        }
         world_->step(in, dt);
         worldDt_ = dt;
     }
@@ -243,47 +238,36 @@ void ShaderScene::uploadParams() {
     set1f(Uniform::uSolarize, flag(p.solarize));
     set1f(Uniform::uContrast, p.contrast);
     set1f(Uniform::uGamma, p.gamma);
-    // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
-    // music by Note & key reactions (viz/modulation/NoteResponse) when that is on, else
-    // held at the midpoint each style was tuned around (NoteUniforms' default),
-    // so with the switch off every style draws exactly as it did. Only as many
-    // elements as survived linking are written (uploading past the live length
-    // is an INVALID_OPERATION), and a style that reads none gets -1 and a no-op.
-    static const NoteUniforms kResting{};
-    const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr;
-    if (!notes) notes = &kResting;
-    static_assert(NoteUniforms::kKnobs == kKnobCount, "uKnob is six knobs");
-    uniforms_.setFloats(Uniform::uKnob, 1, uniforms_.arrayCount(Uniform::uKnob, kKnobCount), notes->knobs.data());
+    // The style knobs (lib_scene_uniforms' uKnob): nothing drives them any more, so every knob sits at the
+    // midpoint each style was tuned around. Only as many elements as survived linking are written (uploading
+    // past the live length is an INVALID_OPERATION), and a style that reads none gets -1 and a no-op.
+    static constexpr std::array<float, kKnobCount> kKnobsAtRest{0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+    uniforms_.setFloats(Uniform::uKnob, 1, uniforms_.arrayCount(Uniform::uKnob, kKnobCount), kKnobsAtRest.data());
 }
 
 // Every style is handed these; the ones that read none of them link them away
 // (location -1). Each still costs a cached lookup; the UniformCache setters then skip the driver
 // call, as they do for a value the program already holds.
 void ShaderScene::uploadMotion() {
-    // Wave three: the continuous replacement for the spike-latched state.
-    // Nothing here is a trigger; every value is a running average, a
-    // phase-locked oscillator gated by confidence, or a slow re-target that
-    // eases over seconds. See viz/modulation/MotionField.hpp for the derivation.
-    const MotionField::State& m = motionField_.state();
-    set1f(Uniform::uEnergyRel, m.energyRel);
-    set1f(Uniform::uBassRel, m.bassRel);
-    set1f(Uniform::uMidRel, m.midRel);
-    set1f(Uniform::uTrebRel, m.trebRel);
-    set1f(Uniform::uMotionBright, m.bright);
-    set1f(Uniform::uHarmony, m.harmony);
-    set1f(Uniform::uKeyHue, m.hue);  // the uniform keeps its old name: it carries the style's hue driver, not the key
-    set1f(Uniform::uKeyStrength, m.hueStrength);
-    set1f(Uniform::uBarOsc, m.barOsc);
-    uniforms_.set2f(Uniform::uOrbit, m.orbitX, m.orbitY);
-    set1f(Uniform::uDrift, m.drift);
-    set1f(Uniform::uBreath, m.breath);
-    set1f(Uniform::uFlowPhase, m.flowPhase);
-    set1f(Uniform::uFlowTime, m.flowTime);
+    // The audio-motion uniforms (lib_scene_motion) are held at constants: nothing computes them from the music
+    // any more, and a style that still names one reads a steady value, never garbage. Average loudness, mid
+    // brightness and tonality, no hue driver, the bar wave at its middle, no orbit, drift or breath. Only the
+    // two flow clocks move: a fixed base rate, with Speed on uFlowTime, never a loudness term.
+    set1f(Uniform::uEnergyRel, 1.0f);
+    set1f(Uniform::uMotionBright, 0.0f);
+    set1f(Uniform::uHarmony, 0.5f);
+    set1f(Uniform::uKeyHue, 0.0f);
+    set1f(Uniform::uKeyStrength, 0.0f);
+    set1f(Uniform::uBarOsc, 0.5f);
+    uniforms_.set2f(Uniform::uOrbit, 0.0f, 0.0f);
+    set1f(Uniform::uDrift, 0.0f);
+    set1f(Uniform::uBreath, 1.0f);
+    set1f(Uniform::uFlowPhase, static_cast<float>(flow_.phase));
+    set1f(Uniform::uFlowTime, static_cast<float>(flow_.time));
     uniforms_.set3f(Uniform::uSoundTimeSped, static_cast<float>(soundTimeSped_[0].value), static_cast<float>(soundTimeSped_[1].value),
                          static_cast<float>(soundTimeSped_[2].value));
 
-    // Legacy since wave three, held at their neutral constant until R08
-    // deletes the readers: a spawn born once and never re-rolled, a direction
+    // Legacy, held at their neutral constant until the readers are deleted: a spawn born once and never re-rolled, a direction
     // that never turns.
     set1f(Uniform::uSpawnSeed, 0.0f);
     set1f(Uniform::uSpawnAge, 1000.0f);
@@ -387,7 +371,6 @@ pool::Controls ShaderScene::poolControls() const {
     c.turbulence = p.turbulence;
     c.intensity = p.intensity;
     c.speed = p.speed;
-    if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) std::copy(notes->knobs.begin(), notes->knobs.end(), c.knobs.begin());
     return c;
 }
 

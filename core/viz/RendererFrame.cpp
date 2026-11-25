@@ -16,7 +16,7 @@
 #include "viz/passes/CompositeGrade.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
-#include "viz/modulation/MotionField.hpp"
+#include "viz/passes/TwistShape.hpp"
 #include "viz/panel/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
 #include "viz/gl/SceneTarget.hpp"
@@ -205,8 +205,6 @@ Scene* Renderer::resolveActiveScene() {
         sceneJustSwitched_ = true;
         // A new style gets about a second of draws even in silence: its build and first load span frames.
         redrawSeconds_ = kRedrawSeconds;
-        // The resolver's motion field takes the new style's variant at its next step.
-        styleSwitchPending_ = true;
     }
     return activeScene_;
 }
@@ -248,8 +246,6 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     signal::StyleContext style;
     style.id = activeScene_ ? &activeScene_->id() : nullptr;
     style.spin = sceneSpin_.load(std::memory_order_relaxed);
-    style.switched = styleSwitchPending_;
-    styleSwitchPending_ = false;
     // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
     // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
     const sound::Emotion::State* heard = nullptr;
@@ -264,8 +260,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
         heard = &soundEmotion_;
     }
     // The chain itself, param fade to safety clamp (viz/resolver/Resolver).
-    // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
-    // the motion field and the director hear the bass the user turned up.
+    // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions
+    // and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
         resolver_.step(requested, trimmedSound(requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) {

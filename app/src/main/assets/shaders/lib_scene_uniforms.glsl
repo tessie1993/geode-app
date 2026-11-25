@@ -119,14 +119,9 @@ uniform vec4 uBirths[6];
 // beside this one. A style that never reads them links the array away, so it
 // costs the others nothing.
 //
-// With Settings › Behaviour › Note & key reactions on, core/viz/NoteResponse
-// drives them by meaning, each from several fields of the sound frame and
-// smoothed at a musical rate: k0 PULSE the drums, weighted by how percussive
-// the track is; k1 TEXTURE timbre (brightness, density, noise); k2 FLOW
-// sustained energy; k3 TONE the melody's height; k4 BUILD tension and the
-// feeling's energy; k5 SPACE interval motion and stereo width. Off, every knob
-// is exactly 0.5 (the midpoint each style was tuned around). Either way a
-// style must read a knob as a continuous value and never as a trigger.
+// Nothing drives them any more (the Note & key layer that did is gone): every knob is exactly
+// 0.5, the midpoint each style was tuned around, and ShaderScene uploads that constant. A style
+// that reads one still draws its tuned look; do not add a read of a knob.
 uniform float uKnob[6];
 
 // ---- where the fingers are ------------------------------------------------

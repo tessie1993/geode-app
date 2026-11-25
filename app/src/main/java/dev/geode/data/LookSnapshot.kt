@@ -16,7 +16,7 @@ import dev.geode.model.SceneParams
  * Being a value is what pins an export: a render takes one look when it starts, and later edits never reach
  * it. The waves, the envelopes and the routes are their saved texts, read by native alone.
  *
- * Not here, being process-wide native state: the macro bank, Note & key, the director and the hand mask
+ * Not here, being process-wide native state: the macro bank, the director and the hand mask
  * (`EngineSettings`, pinned natively by an export), the layer (#602) and custom shader code (#498).
  */
 data class LookSnapshot(

@@ -6,20 +6,13 @@
 
 #include "api/geode_api.h"
 #include "util/Circular.hpp"
-#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/SpeedClock.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/input/TouchField.hpp"
 
 namespace geode::viz {
-
-// Wave three: every scene family drives its own continuous motion off a
-// GeodeSoundFrame/dt pair (see ShaderScene::update, which owns one
-// MotionField for the raw uEnergyRel/uBassRel/... uniform contract in
-// lib_scene_motion.glsl). Included here, alongside the other pieces every
-// scene shares, so the CPU-side families (viz/styles/fluid/FluidScene.cpp,
-// CymaticsScene.cpp, ...) can hold their own instance too
-// once they are converted off their beat-splat/ripple-drop state.
 
 // Hue range and palette-cycle limits shared by the fluid scenes.
 namespace hue {

@@ -196,13 +196,15 @@ const SHADER_VALUES = {
   uPalLutMix: 0, uPalLutRow: 0.5,
   // Your colours (lib_palette): none picked, so the cosine ramp draws.
   uPalStops: new Array(15).fill(0), uPalStopCount: 0,
-  uMoveDir: [0.8, 0.6], uSpawnSeed: 0.37, uSpawnAge: 4.0, uFormPhase: 0.62, uFlowPhase: 12.5,
-  uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
-  uKeyHue: 0.3, uKeyStrength: 0.5, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
-  uBreath: 0.5,
-  // The Speed-integrated clocks (core/viz/modulation/SpeedClock.hpp) at Speed 1, where they equal the unscaled
-  // ones: uFlowTime is uFlowPhase, uSoundTimeSped the BASS_TIME MID_TIME TREBLE_TIME scalars below.
-  uFlowTime: 12.5, uSoundTimeSped: [37, 35, 33],
+  // The audio-motion uniforms (lib_scene_motion) at what ShaderScene::uploadMotion holds them at (the flow clocks run at 0.08 a second, below),
+  // and the legacy four at theirs: nothing computes any of them from the music any more.
+  uMoveDir: [1, 0], uSpawnSeed: 0, uSpawnAge: 1000, uFormPhase: 0, uFlowPhase: 1,
+  uEnergyRel: 1, uMotionBright: 0, uHarmony: 0.5,
+  uKeyHue: 0, uKeyStrength: 0, uBarOsc: 0.5, uOrbit: [0, 0], uDrift: 0,
+  uBreath: 1, uFlowTime: 1,
+  // The Speed-integrated sound clocks (core/viz/modulation/SpeedClock.hpp) at Speed 1, where they equal the
+  // unscaled ones: the BASS_TIME MID_TIME TREBLE_TIME scalars below.
+  uSoundTimeSped: [37, 35, 33],
   // SoundUniforms::upload: the frame, the Audio drive slider at its default, held events, counts.
   uSound: SOUND_SCALARS, uSoundDrive: 1, uSoundEvents: [0.2, 0, 0, 0], uSoundCounts: [41, 3],
   // CameraRig at rest: eye on the path at the base height, looking down +z, base focal.
@@ -548,14 +550,11 @@ function goldenSong() {
 // One frame's uniform values: the table, with everything the song moves taken from the song.
 function songValues(row) {
   const t = TIME_OFFSET + row.t;
-  const beat = row.snd('beatPhase'), bar = row.snd('barPhase');
   return {
     ...SHADER_VALUES,
+    uFlowPhase: 0.08 * t, uFlowTime: 0.08 * t,
     uTime: t, uSound: row.sound, uSoundEvents: row.events, uSoundCounts: row.counts,
     uSoundTimeSped: [row.snd('bassTime'), row.snd('midTime'), row.snd('trebleTime')],
-    uFlowPhase: 0.5 * t, uFlowTime: 0.5 * t,
-    uBarOsc: 0.5 + 0.5 * Math.cos(6.2831853 * bar),
-    uKeyHue: row.snd('keyHue'), uHarmony: row.snd('keyClarity'),
     uCamPos: [0, 0, t], uCamTravel: t,
   };
 }
@@ -769,7 +768,7 @@ async function main() {
     const dt = 1, fly = 0.8;
     const later = args.all
       ? plan(parseUniforms(frag), {
-          ...values, uTime: values.uTime + dt, uFlowPhase: values.uFlowPhase + 0.5 * dt, uFlowTime: values.uFlowTime + 0.5 * dt,
+          ...values, uTime: values.uTime + dt, uFlowPhase: values.uFlowPhase + 0.08 * dt, uFlowTime: values.uFlowTime + 0.08 * dt,
           uSoundTimeSped: values.uSoundTimeSped.map((v) => v + dt), uSound: soundLater(values.uSound, dt),
           uCamPos: [values.uCamPos[0], values.uCamPos[1], values.uCamPos[2] + fly], uCamTravel: values.uCamTravel + fly,
         }, SHADER_TEXTURES, args.size, args.height ?? args.size).filter((u) => !u.texture)

@@ -1,8 +1,5 @@
 #include "viz/resolver/EngineSettings.hpp"
 
-#include <random>
-
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/modulation/Reactions.hpp"
 
 namespace geode::signal {
@@ -15,7 +12,6 @@ EngineSettings globalSettings() {
     s.reach = viz::director::reach();
     s.kept = viz::director::kept();
     s.palettes = viz::palette::global();
-    s.notesOn = viz::note_response::globalEnabled();
     s.handMask = viz::hand::global();
     return s;
 }
@@ -23,7 +19,6 @@ EngineSettings globalSettings() {
 EngineSettings exportSettings(bool entitled, long long durationMs) {
     EngineSettings s = globalSettings();
     s.director = viz::director::forExport(viz::director::switchOn(), s.director.seed, entitled, durationMs);
-    s.noteEntropy = 0;
     return s;
 }
 
@@ -60,13 +55,6 @@ EngineSettings SettingsLatch::latch(bool reducedMotion) {
         s = *pinned;
     } else {
         s = globalSettings();
-        if (!noteSeeded_ || s.director.seed != notePlaySeed_) {
-            std::random_device device;
-            noteEntropy_ = (static_cast<std::uint64_t>(device()) << 32) ^ device();
-            notePlaySeed_ = s.director.seed;
-            noteSeeded_ = true;
-        }
-        s.noteEntropy = noteEntropy_;
     }
     s.reducedMotion = reducedMotion;
     return s;

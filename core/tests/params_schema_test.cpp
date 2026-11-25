@@ -585,7 +585,7 @@ void everyLiveRowHasOneMeta() {
             ++shared;
             check(o.scope == m.scope, field + ": the fields of " + m.label + " share its scope");
         }
-        // A panel piece ("@notes_key") is drawn as a block and rolls nothing; a slider or a picker is rolled
+        // A panel piece ("@moments") is drawn as a block and rolls nothing; a slider or a picker is rolled
         // as one RolledKey, which carries three fields at most.
         check(m.label[0] == '@' || shared <= static_cast<int>(randomizer::kMaxRollFields),
               std::string(m.label) + ": no more fields per control than a roll's RolledKey holds");

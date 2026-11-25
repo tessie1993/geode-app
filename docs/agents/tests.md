@@ -110,7 +110,6 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `mod_document_test.cpp` also keeps the catalogue's `moment` and `music` rows equal to `core/tests/mod_catalog_music.txt`, read by the JVM through `geode.modCatalog`.
 - `mod_controls_test.cpp`: `core/viz/ModControls`: which wave and envelope controls Customize shows for each source, timing, moment and Macro target, and nothing for a slot out of range.
 - `musical_test.cpp`: the sound engine's musical layer.
-- `note_response_test.cpp`: Note & key reactions.
 - `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.
 - `output_test.cpp`: export planning (`core/output`: `FrameClock`, `LoopPlan`, `EncodePlan`, `Chapters`) and its C ABI.
 - `output_test.cpp` also pins the frame grid and audio cut drift-free over 3 h at every offered rate, loops, the encode budget and chapters.
@@ -152,7 +151,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `resampler_test.cpp`: export DSP, the resampler.
 - `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.
 - `resolver_test.cpp` also covers the bank's offset, an export's pinned bank, and the director leaving the bank alone.
-- `resolver_test.cpp` also pins the owner's rule: with Auto and Note & key on every colour param is the user's and, with no route and the Motion dials at 0, no param hears the sound.
+- `resolver_test.cpp` also pins the owner's rule: with Auto on every colour param is the user's and, with no route and the Motion dials at 0, no param hears the sound.
 - `scene_residency_test.cpp`: `core/viz/SceneResidency`, which built scenes stay on the GPU.
 - `shader_overrides_test.cpp`: the process-wide shader overrides (`core/viz/ShaderOverrides`).
 - `shape_graph_test.cpp`: the shape graph (`core/viz/ShapeGraph`, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, translation only, the colour's blend factor, 1-Lipschitz, nothing past `kReach`.
@@ -188,7 +187,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `transition_programs_test.cpp`: the base composite program and its LRU of spliced GL Transitions variants.
 - `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).
-- `viz_math_test.cpp` also pins the bar counts, the melody line, the feeling sources, the settled Jump, the tension's rise and MotionField's bar wave.
+- `viz_math_test.cpp` also pins the bar counts, the melody line, the feeling sources, the settled Jump, and the tension's rise.
 - `viz_math_test.cpp` checks every style's DNA has its bar, tune, harmony-and-form and feel-and-timbre routes, no loudness drive, and variety within each Styles family.
 - `viz_math_test.cpp` also pins the song part's states, a section's return and progress, the chords' motion and the feeling's energy, key character and kind, and that some style's DNA hears each of the newer musical sources.
 - `wallpaper_window_test.cpp`: the wallpaper's on-screen window and fps pick.

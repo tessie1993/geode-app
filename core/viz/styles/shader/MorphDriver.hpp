@@ -12,7 +12,7 @@
 // WHERE. A target is random(seed, constraints): the per-play seed (the auto-director's, so a replay
 // is new and an export with the play's seed is the same film) drawn forward once per retarget, and
 // the music's energy, mood and density picking which seed world it grows from; the Morph control
-// (sampled at the retarget, never live: MotionField and the reaction DNA move Morph on every beat)
+// (sampled at the retarget, never live: the reaction DNA moves Morph on every beat)
 // says how far it mutates.
 //
 // WHEN. Only at musical moments. A drop always turns the world. A new section turns it with a

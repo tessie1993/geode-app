@@ -107,7 +107,7 @@ enum class SettingsGroupKey(
     SOUND_REACTION(
         R.string.settings_group_sound_reaction,
         R.string.settings_group_sound_reaction_summary,
-        listOf(SettingsRowKey.LIVE_INPUT, SettingsRowKey.OTHER_APPS_AUDIO, SettingsRowKey.NOTE_RESPONSE),
+        listOf(SettingsRowKey.LIVE_INPUT, SettingsRowKey.OTHER_APPS_AUDIO),
         listOf(SettingsSectionKey.ANALYSIS),
     ),
     SAFETY(
@@ -455,7 +455,6 @@ private fun SettingsRowContent(
         SettingsRowKey.PRESET_MORPH -> PresetMorphRow(settings)
         SettingsRowKey.LIVE_INPUT -> LiveInputRow(deps.viewModel)
         SettingsRowKey.OTHER_APPS_AUDIO -> OtherAppsAudioRow(deps.viewModel)
-        SettingsRowKey.NOTE_RESPONSE -> NoteResponseGroup()
         SettingsRowKey.SOUND_TUNING -> SoundAnalysisSection(settings)
         SettingsRowKey.FLASH_LIMITS -> FlashLimitsRow()
         SettingsRowKey.REDUCED_MOTION -> ReducedMotionRow()

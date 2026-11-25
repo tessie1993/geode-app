@@ -14,7 +14,7 @@
 //
 // This decides when and where; the shaders (lib_grow's births, composite_frag's for the kinds without a
 // field) only draw what it hands them. The clock is the scene's own, already Speed-integrated (ShaderScene's
-// shaderTime_, the renderer's lifeClock_), and nothing else goes in: no sound, no tempo, no beat. Births are
+// shaderTime_, the renderer's Speed phase, viz/params/RatePhases), and nothing else goes in: no sound, no tempo, no beat. Births are
 // an engine rhythm of their own, not a reaction, so the reaction matrix still owns everything the music
 // moves. Life itself is a param, so a route or a knob the user sets can still drive it.
 //

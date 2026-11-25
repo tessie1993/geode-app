@@ -50,6 +50,9 @@ sound_sources_test | stub | core/tests/sound_sources_test.cpp core/viz/modulatio
 # The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
 params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
+# The rate params' phases (core/viz/params/RatePhases): a change of Speed never jumps the phase, a ramp's phase is its integral at 30/60/120 fps.
+rate_phases_test | stub | core/tests/rate_phases_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/panel/ParamRandomizer.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp |

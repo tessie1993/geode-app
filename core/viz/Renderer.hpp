@@ -38,6 +38,7 @@
 #include "viz/modulation/Lfo.hpp"
 #include "viz/passes/Overlays.hpp"
 #include "viz/params/Params.hpp"
+#include "viz/params/RatePhases.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/gl/ProgramStager.hpp"
@@ -562,9 +563,10 @@ private:
     std::atomic<int> liquidModeTaken_{-1};
 
     SceneParams lastFinalParams_;
-    float postRotationAngle_ = 0.0f;
-    // Life's births in the composite run on this clock: Speed-integrated like a scene's uTime, wrapping with it.
-    double lifeClock_ = 0.0;  // double: a float clock stalls at a slow Speed late in a session
+    // The rate params' phases (viz/params/RatePhases), stepped once a frame on the drawn params: the post pass's
+    // rotation angle reads Rotation's, and Life's births (a clock Speed-integrated like a scene's uTime, wrapping
+    // with it) read Speed's.
+    RatePhases ratePhases_;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

@@ -32,7 +32,9 @@
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).
 //   flags    kMod: an LfoTarget writes the field (it has a mod row below), so the modulation pickers and the macro bank offer
 //            it (ModTargets). kInput: an input preference, not part of a look, so a look that replaces the
-//            live params keeps it (SceneParams::keepInputs). 0: none.
+//            live params keeps it (SceneParams::keepInputs). kRate: the field is a rate per second, so the engine
+//            integrates it into a phase (viz/params/RatePhases) and a consumer that needs a position reads that
+//            phase, never `clock * value`. 0: none.
 //   rollLo, rollHi
 //            the range the Randomize roll draws a number from (ParamRandomizer); 0, 0 where the roll
 //            draws none: a switch, a pick over the whole schema range, or a field no roll writes.
@@ -76,19 +78,19 @@
 #endif
 
 GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
-GEODE_PARAM_META(speed, "Speed", SceneClock, kMod, 0.2f, 2.5f)
+GEODE_PARAM_META(speed, "Speed", SceneClock, kMod | kRate, 0.2f, 2.5f)
 GEODE_PARAM_MOD(speed, 1.0f, 0)
 // A pinch scales Zoom and a twist turns Rotation, held to the catalogue's touch ranges.
 GEODE_PARAM(Float, zoom, 1.0f, catalogue::kTouchZoom.min, catalogue::kTouchZoom.max, Fade)
 GEODE_PARAM_META(zoom, "Zoom", Universal, kMod, 0.6f, 2.0f)
 GEODE_PARAM_MOD(zoom, 1.0f, 0)
 GEODE_PARAM(Float, rotation, 0.0f, catalogue::kTouchRotation.min, catalogue::kTouchRotation.max, Fade)
-GEODE_PARAM_META(rotation, "Rotation", Universal, kMod, -1.5f, 1.5f)
+GEODE_PARAM_META(rotation, "Rotation", Universal, kMod | kRate, -1.5f, 1.5f)
 GEODE_PARAM_MOD(rotation, 1.5f, 0)
 GEODE_PARAM(Bool, endlessZoom, false, 0, 1, Hold)
 GEODE_PARAM_META(endlessZoom, "Endless zoom", EndlessZoom, 0, 0, 0)
 GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, -1.2f, 1.2f, Fade)
-GEODE_PARAM_META(endlessZoomSpeed, "Dive speed", EndlessZoom, kMod, 0.1f, 0.8f)
+GEODE_PARAM_META(endlessZoomSpeed, "Dive speed", EndlessZoom, kMod | kRate, 0.1f, 0.8f)
 GEODE_PARAM_MOD(endlessZoomSpeed, 0.5f, 0)
 GEODE_PARAM(Float, sway, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(sway, "Sway", Universal, kMod, 0.1f, 0.8f)
@@ -281,11 +283,11 @@ GEODE_PARAM_META(fluidBeatSplats, "Hit splats", Emitters, 0, 1, 6)
 GEODE_PARAM(Int, fluidStirrers, 2, 0, 4, Hold)
 GEODE_PARAM_META(fluidStirrers, "Stirrers", Emitters, 0, 0, 3)
 GEODE_PARAM(Float, fluidStirrerSpeed, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(fluidStirrerSpeed, "Stirrer speed", Emitters, 0, 0.3f, 1.6f)
+GEODE_PARAM_META(fluidStirrerSpeed, "Stirrer speed", Emitters, kRate, 0.3f, 1.6f)
 GEODE_PARAM(Bool, fluidBassPump, false, 0, 1, Hold)
 GEODE_PARAM_META(fluidBassPump, "Bass pump", Emitters, 0, 0, 0)
 GEODE_PARAM(Float, fluidPaletteCycleSpeed, 0.5f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(fluidPaletteCycleSpeed, "Palette cycle", FluidSim, 0, 0.0f, 1.2f)
+GEODE_PARAM_META(fluidPaletteCycleSpeed, "Palette cycle", FluidSim, kRate, 0.0f, 1.2f)
 GEODE_PARAM(Bool, fluidSparkle, true, 0, 1, Hold)
 GEODE_PARAM_META(fluidSparkle, "Treble sparkle", Emitters, 0, 0, 0)
 // Orbit, Lissajous, Rose, Bloom, Drift (fluid::Choreography::kPathCount).
@@ -416,7 +418,7 @@ GEODE_PARAM_META(motionHue, "Key colour", Universal, 0, 0.1f, 0.8f)
 // routes and LFOs write; the rig springs toward them, so a route never snaps the view.
 // Travel speed along the path, negative backward: the slider stops at -2..2, the LFO and the routes reach 2.5.
 GEODE_PARAM(Float, camFly, 0.5f, -2.5f, 2.5f, Fade)
-GEODE_PARAM_META(camFly, "Fly speed", Universal, kMod, 0.2f, 1.4f)
+GEODE_PARAM_META(camFly, "Fly speed", Universal, kMod | kRate, 0.2f, 1.4f)
 GEODE_PARAM_MOD(camFly, 1.0f, 0)
 // 0 glide, 1 spiral, 2 orbit, 3 hover, 4 drive, 5 fall, 6 rise, 7 weave, 8 corkscrew, 9 swoop, 10 strafe,
 // 11 pendulum (CameraRig clamps to the same).

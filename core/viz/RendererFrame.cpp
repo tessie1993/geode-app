@@ -296,8 +296,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     uploadPaletteRamp(p);
     stepShapeGraph(p, dt, wallDt);
     lastFinalParams_ = p;
-    postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
-    lifeClock_ = std::fmod(lifeClock_ + p.speed * dt, static_cast<double>(kTimeWrapSeconds));
+    ratePhases_.step(p, dt);
     return p;
 }
 
@@ -530,9 +529,9 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = static_cast<float>(timeSeconds_);
     const SceneParams& fx = lastFinalParams_;
-    in.postRotationAngle = postRotationAngle_;
+    in.postRotationAngle = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
     in.twistSeed = styleVariantSeed(activeScene_->id());
-    in.postBirths = births::compute(static_cast<float>(lifeClock_), fx.life);
+    in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, static_cast<double>(kTimeWrapSeconds))), fx.life);
     in.quadVao = quadVao_.get();
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();

@@ -87,6 +87,8 @@ enum class Scope;
 inline constexpr unsigned kMod = 1u << 0;
 // kInput, an input preference, not part of a look: a look that replaces the live params keeps it (SceneParams::keepInputs).
 inline constexpr unsigned kInput = 1u << 1;
+// kRate, the field is a rate per second: the engine keeps its running phase (viz/params/RatePhases) beside its value.
+inline constexpr unsigned kRate = 1u << 2;
 
 // A mod row's flags (ParamTable.inc GEODE_PARAM_MOD): kModLight, the field changes the picture's light or colour.
 inline constexpr unsigned kModLight = 1u << 0;

@@ -26,7 +26,6 @@ inline Gate gateFor(SceneFamily family, bool drawsCamera = false) {
     return Gate{family != SceneFamily::Shader, family == SceneFamily::Fluid, family == SceneFamily::Fluid};
 }
 
-float integrateRotation(float angle, float rotation, float dt);
 inline float brightness(float brightness, float intensity) { return brightness * intensity; }
 inline float paletteSpan(float hueRange, float paletteRange) { return std::max(hueRange, 0.0f) * std::clamp(paletteRange, 0.0f, 1.0f); }
 inline float paletteTintAmount(float tint) { return std::clamp(tint, 0.0f, 1.0f); }

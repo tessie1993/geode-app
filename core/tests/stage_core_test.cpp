@@ -273,10 +273,15 @@ void handOvers() {
 void vsyncTimes() {
     Rig r;
     r.show();
-    // t = the vsync's frame time, b = ns from it to the expected presentation.
-    r.send(command(kStageFrameDue, 0, 4'000'000, 60.0f, 60.0f, 1'000'000'000));
+    // t = the vsync's frame time, b = ns from it to the expected presentation, a = the interval between vsyncs.
+    r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'000'000'000));
     check(r.client->vsyncTimes.size() == 1 && r.client->vsyncTimes[0] == 1'000'000'000, "a frame is told the vsync it is for");
-    check(r.port.presented.size() == 1 && r.port.presented[0] == 1'004'000'000, "and presents at the vsync's expected time");
+    check(r.client->presentTimes.back() == 1'020'000'000, "and the vsync it is shown at");
+    check(r.port.presented.size() == 1 && r.port.presented[0] == 1'016'000'000,
+          "the swap is stamped half an interval before that vsync, between it and the one before");
+    r.send(command(kStageFrameDue, 0, 20'000'000, 60.0f, 60.0f, 1'008'000'000));
+    check(r.client->presentTimes.back() == 1'028'000'000 && r.port.presented.back() == 0,
+          "with no interval measured the swap is not stamped: a stamp on the vsync itself is a coin toss");
     r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f, 1'016'000'000));
     check(r.client->vsyncTimes.back() == 1'016'000'000 && r.port.presented.back() == 0, "a vsync with no expected time presents as it can");
     r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));

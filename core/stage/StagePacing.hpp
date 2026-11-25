@@ -30,6 +30,9 @@ public:
     // The rate this surface draws at: what the last vsync paced it to, or its cap until a vsync says.
     float fps() const { return pacedMilliHz_ < 0 ? cap_ : static_cast<float>(pacedMilliHz_) / 1000.0f; }
 
+    // The interval between this surface's vsyncs, 0 until the pacer has measured it.
+    int64_t vsyncPeriodNs() const { return viz::frame::Pacer::settledPeriodNs(state_); }
+
     bool running() const { return running_; }
     // A callback is posted and not yet delivered.
     bool posted() const { return posted_; }

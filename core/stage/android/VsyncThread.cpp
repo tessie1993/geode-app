@@ -6,6 +6,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <mutex>
 #include <thread>
@@ -172,6 +173,8 @@ void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, v
         // The vsync's own time, for the frame's step, and how far ahead of it the preferred timeline presents.
         c.t = frameTimeNanos;
         c.b = presentAfterNs(callbackData, frameTimeNanos);
+        // The interval between vsyncs: the swap is stamped half of it before the presentation (frame::latchStampNs).
+        c.a = static_cast<int32_t>(std::min<int64_t>(sink->pacing.vsyncPeriodNs(), INT32_MAX));
         // Busy before the push, so a stage that finishes at once clears it after, never before.
         sink->stageBusy.store(true, std::memory_order_release);
         if (sink->stage->queue.push(c, Merge::LastWins) == Pushed::Full) sink->stageBusy.store(false, std::memory_order_release);

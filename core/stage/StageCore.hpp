@@ -51,8 +51,8 @@ public:
     virtual void vsyncCap(float capFps) = 0;
     // Every hand-over up to this sequence number is applied: its sender may stop waiting.
     virtual void windowApplied(int64_t sequence) = 0;
-    // The next swap's presentation time, CLOCK_MONOTONIC ns (0: none, the swap presents when it can). Set just before
-    // each swap, so it never outlives the frame it was given for.
+    // The next swap's stamp, CLOCK_MONOTONIC ns: the display shows it at the first vsync after this time (0: none, the
+    // swap presents when it can). Set just before each swap, so it never outlives the frame it was given for.
     virtual void presentAt(int64_t presentNs) { static_cast<void>(presentNs); }
     // The frame the vsync asked for is finished (drawn, or dropped unseen): the pacer may ask for the next at its
     // first vsync from now. Called once per kStageFrameDue taken, after the swap.
@@ -91,7 +91,7 @@ public:
 private:
     void runActions();
     Outcome execute(const Action& action);
-    void draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs);
+    void draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs);
     void restateRate();
     // The cap the pacer and the window are given: the surface's own under the governor's (StagePacing::capUnder).
     float pacedCap() const;
@@ -109,6 +109,7 @@ private:
     float dueFps_ = 0.0f;
     int64_t dueFrameNs_ = 0;
     int64_t duePresentNs_ = 0;
+    int64_t dueStampNs_ = 0;
     bool serviceDue_ = false;
     int64_t seenSeq_ = 0;
     int64_t appliedSeq_ = 0;

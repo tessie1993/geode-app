@@ -32,6 +32,7 @@ billing = "9.1.0"
 # Oboe (github.com/google/oboe), the playback output's native stream. A Prefab AAR on Google Maven;
 # 1.11.0 (2026-09-15) is the latest, and 16 KB page aligned (every release from 1.9.3 on is).
 oboe = "1.11.0"
+benchmark = "1.5.0"
 
 [libraries]
 oboe = { module = "com.google.oboe:oboe", version.ref = "oboe" }
@@ -77,6 +78,7 @@ androidx-test-services = { module = "androidx.test.services:test-services", vers
 # clearPackageData and land in connected_android_test_additional_output (the thumbs render).
 androidx-test-services-storage = { module = "androidx.test.services:storage", version.ref = "androidxTestServices" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 
 ktlint-gradle = { module = "org.jlleitschuh.gradle.ktlint:org.jlleitschuh.gradle.ktlint.gradle.plugin", version.ref = "ktlint" }
 detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
@@ -90,6 +92,8 @@ hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", ve
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

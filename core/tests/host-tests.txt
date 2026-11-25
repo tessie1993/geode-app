@@ -66,7 +66,7 @@ touch_gesture_test | stub | core/tests/touch_gesture_test.cpp core/api/geode_ges
 touch_smear_test | stub | core/tests/touch_smear_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
     core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
 # The touch field: a point that is not a number is dropped, not counted as a finger.
-touch_field_test | mt | core/tests/touch_field_test.cpp core/viz/TouchField.cpp |
+touch_field_test | mt | core/tests/touch_field_test.cpp core/viz/input/TouchField.cpp |
 # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
 fluid_math_test | stub | core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp |
 # Liquid mode's pure maths: its plan, inject weight, the random dive, gestures, born clock, drop flare.
@@ -580,7 +580,7 @@ randomize_all_test | stub | core/tests/randomize_all_test.cpp core/viz/Randomize
     core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 
 # --- Easter egg host tests
-# The hidden Visuals gestures: shake to screenshot's detector (core/viz/Shake) and tap along's beat matcher (core/viz/TapAlong).
+# The hidden Visuals gestures: shake to screenshot's detector (core/viz/input/Shake) and tap along's beat matcher (core/viz/input/TapAlong).
 easter_eggs_test | stub | core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp |
 
 # --- Artwork palette

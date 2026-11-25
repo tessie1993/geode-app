@@ -5,7 +5,7 @@
 #include <cstdio>
 
 #include "viz/Params.hpp"
-#include "viz/TouchField.hpp"
+#include "viz/input/TouchField.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 #include "viz/scenes/StyleCatalog.hpp"

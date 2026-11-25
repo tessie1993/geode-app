@@ -20,8 +20,8 @@
 #include "viz/PanelRoll.hpp"
 #include "viz/Params.hpp"
 #include "viz/ParamsPalette.hpp"
-#include "viz/TouchGesture.hpp"
-#include "viz/TouchTransform.hpp"
+#include "viz/input/TouchGesture.hpp"
+#include "viz/input/TouchTransform.hpp"
 #include "viz/WaveRandomizer.hpp"
 
 using geode::viz::SceneParams;

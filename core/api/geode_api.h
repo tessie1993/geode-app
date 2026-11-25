@@ -36,7 +36,7 @@ GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
-/* Settings › Gestures & controls › Touch › Smear (core/viz/TouchSmear): on, the fingers touch play holds bend the
+/* Settings › Gestures & controls › Touch › Smear (core/viz/input/TouchSmear): on, the fingers touch play holds bend the
  * picture through the flow field, at strength 0.2..2 (clamped; a broken value is 1). Live renderers only. Any thread. */
 GEODE_API void        geode_viz_set_touch_smear(geode_viz*, int on, float strength);
 /* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
@@ -155,7 +155,7 @@ GEODE_API void        geode_hand_set(unsigned mask, int has_user);
 /* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
    shell hides a chip the style ignores. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
-/* The phone's tilt for the camera's "Tilt phone to look" (viz/GyroLook): one game rotation vector reading
+/* The phone's tilt for the camera's "Tilt phone to look" (viz/input/GyroLook): one game rotation vector reading
    (quaternion x, y, z, w) on a screen at display_rotation (Surface.ROTATION_*, 0..3), latched for the next
    geode_viz_frame. The first reading after an off (or on a new handle) starts a session, whose first frame
    recentres and takes it as the baseline; the tilt from it is the -1..1 look per axis the camera reads only
@@ -309,11 +309,11 @@ GEODE_API int             geode_cast_tee_await_stage(int stage_draws, int fallba
 GEODE_API void        geode_viz_still_request(geode_viz*);
 GEODE_API int         geode_viz_still_size(geode_viz*, int* width, int* height);
 GEODE_API int         geode_viz_still_read(geode_viz*, void* out, size_t capacity);
-/* Tap along (core/viz/TapAlong): a tap's touch-down at uptime_ns (CLOCK_MONOTONIC, MotionEvent's clock) against
+/* Tap along (core/viz/input/TapAlong): a tap's touch-down at uptime_ns (CLOCK_MONOTONIC, MotionEvent's clock) against
  * the beat this renderer's sound engine heard on its last frame. 1 on the tap that completes kTaps on the beat in
  * a row. Read only: the beat tracking never hears the taps. Any thread. */
 GEODE_API int         geode_viz_tap_along(geode_viz*, int64_t uptime_ns);
-/* Shake to screenshot's detector (core/viz/Shake): one per listener. geode_shake_sample takes one
+/* Shake to screenshot's detector (core/viz/input/Shake): one per listener. geode_shake_sample takes one
  * TYPE_ACCELEROMETER event (its timestamp in ns, x, y, z in m/s²) and is 1 on the sample that completes a
  * shake. geode_shake_reset forgets the motion (the sensor was off). One thread per handle. */
 typedef struct geode_shake geode_shake;
@@ -1010,7 +1010,7 @@ GEODE_API int         geode_colour_recent_read(const char* recent, int* out, int
  *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
  * index = the row's place in its group (for lfo and adsr the field's place in the slot's wire, viz/Config.hpp). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
-/* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
+/* The two-finger transform on the visual (core/viz/input/TouchTransform): a pinch's scale factor times Zoom, a twist in
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
@@ -1031,7 +1031,7 @@ GEODE_API int         geode_params_get_int(const float* frame, const char* name)
 GEODE_API int         geode_params_get_flag(const float* frame, const char* name);
 GEODE_API int         geode_params_set(const float* in, const char* name, float value, float* out);
 
-/* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
+/* The fingers on the visual (core/viz/input/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
  * rewritten in place as y-up NDC (geode_viz_set_touch's frame). _pair: two fingers at start, last and now, each
  * (ax, ay, bx, by) px, into out[6]: pan x, pan y and zoom since start, twist in radians since start, and the step
  * since last as a scale factor and degrees (for geode_touch_zoom / _rotation). _pulse: touch play's stir, step's
@@ -1039,7 +1039,7 @@ GEODE_API int         geode_params_set(const float* in, const char* name, float 
 GEODE_API void        geode_touch_to_ndc(float* xy, int points, float width, float height);
 GEODE_API void        geode_touch_pair(const float* start, const float* last, const float* now, float* out);
 GEODE_API int         geode_touch_pulse(int step, float* xy);
-/* The gestures on the visual and their actions (core/viz/GestureMap); gestures and actions are the shell's
+/* The gestures on the visual and their actions (core/viz/input/GestureMap); gestures and actions are the shell's
  * CanvasGesture and GestureAction ordinals. _default_action: the owner's map, -1 for no such gesture. _choices: the
  * actions Settings offers gesture (the current one kept, first, when unsuited), up to capacity into out; returns
  * how many (at most GEODE_GESTURE_MAX_CHOICES), 0 for no such gesture. _for_key: an Android key code's gesture on
@@ -1051,7 +1051,7 @@ GEODE_API int         geode_touch_pulse(int step, float* xy);
 GEODE_API int         geode_gesture_default_action(int gesture);
 GEODE_API int         geode_gesture_choices(int gesture, int current, int* out, int capacity);
 GEODE_API int         geode_gesture_for_key(int key_code, int options_shown, int* step_out);
-/* The gesture reader on the visual (core/viz/GestureRead), one per stage, reused for every gesture; no call
+/* The gesture reader on the visual (core/viz/input/GestureRead), one per stage, reused for every gesture; no call
  * allocates but _create. The shell keeps the pointer loop and feeds it in px of the stage and its uptime ms.
  * _configure: the platform's touch slop, double-tap slop (px), density (px per dp), long-press timeout, double-tap
  * min time and timeout (ms); _area: the window size, the system's gesture strips (px from each window edge), the

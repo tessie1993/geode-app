@@ -12,7 +12,7 @@
 #include "viz/NoteResponse.hpp"
 #include "viz/Params.hpp"
 #include "viz/ShapeGraph.hpp"
-#include "viz/TouchField.hpp"
+#include "viz/input/TouchField.hpp"
 
 namespace geode::viz {
 

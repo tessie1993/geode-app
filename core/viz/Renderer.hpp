@@ -51,8 +51,8 @@
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ShapeGraph.hpp"
-#include "viz/TouchField.hpp"
-#include "viz/TouchSmear.hpp"
+#include "viz/input/TouchField.hpp"
+#include "viz/input/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/frame/FrameGovernor.hpp"
 #include "viz/frame/LiveFps.hpp"
@@ -140,7 +140,7 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
-    // Settings › Gestures & controls › Touch › Smear (viz/TouchSmear): any thread; the GL thread reads it per frame.
+    // Settings › Gestures & controls › Touch › Smear (viz/input/TouchSmear): any thread; the GL thread reads it per frame.
     void setTouchSmear(bool on, float strength) {
         smearOn_.store(on, std::memory_order_relaxed);
         smearStrength_.store(touch::smearStrength(strength), std::memory_order_relaxed);

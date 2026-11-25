@@ -2,8 +2,8 @@
 #include <cmath>
 #include <cstdint>
 
-#include "viz/GestureMap.hpp"
-#include "viz/TouchGesture.hpp"
+#include "viz/input/GestureMap.hpp"
+#include "viz/input/TouchGesture.hpp"
 
 namespace geode::viz::touch {
 

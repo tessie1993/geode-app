@@ -1,4 +1,4 @@
-#include "viz/TouchField.hpp"
+#include "viz/input/TouchField.hpp"
 
 #include <algorithm>
 #include <cmath>

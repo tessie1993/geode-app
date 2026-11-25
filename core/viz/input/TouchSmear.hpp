@@ -3,7 +3,7 @@
 #include <array>
 #include <cmath>
 
-#include "viz/TouchField.hpp"
+#include "viz/input/TouchField.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz::touch {

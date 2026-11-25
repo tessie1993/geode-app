@@ -1,5 +1,5 @@
-// Host-side checks for the two hidden Visuals gestures: shake to screenshot's detector (core/viz/Shake, through
-// its C ABI) and tap along's matcher (core/viz/TapAlong). Built and run by CI
+// Host-side checks for the two hidden Visuals gestures: shake to screenshot's detector (core/viz/input/Shake, through
+// its C ABI) and tap along's matcher (core/viz/input/TapAlong). Built and run by CI
 // (.github/workflows/native-host-tests.yml, "Easter egg host tests") with the system compiler; no GL, no device.
 #include <cmath>
 #include <cstdint>
@@ -8,8 +8,8 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/Shake.hpp"
-#include "viz/TapAlong.hpp"
+#include "viz/input/Shake.hpp"
+#include "viz/input/TapAlong.hpp"
 
 using geode::viz::TapAlong;
 

@@ -572,8 +572,8 @@ customize_test | core | core/tests/customize_test.cpp core/viz/panel/CustomizeMa
 
 # --- Customize rows host tests
 # What Customize draws (core/viz/panel/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
-# range and when it hides, the panel's words, the style names, Your colours' editor, the stack card and the palette list.
-customize_rows_test | stub | core/tests/customize_rows_test.cpp $ROWS_SRC |
+# range and when it hides, the ids of the panel's words (core/tests/panel_words.txt), the style names, Your colours' editor, the stack card and the palette list.
+customize_rows_test | stub | core/tests/customize_rows_test.cpp $ROWS_SRC | core/tests/panel_words.txt
 palette_panel_test | stub | core/tests/palette_panel_test.cpp $ROWS_SRC |
 
 # --- Randomize everything host tests

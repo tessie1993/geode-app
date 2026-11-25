@@ -15,7 +15,7 @@
 namespace geode::viz::customize {
 
 // Bumped whenever a row type or field changes meaning.
-constexpr int kRowsVersion = 1;
+constexpr int kRowsVersion = 2;
 
 // What a control draws as.
 enum class Widget {
@@ -72,12 +72,15 @@ struct RowContext {
 //   CHECK|<key>|<field>|<label>|<0 or 1>
 //   CHIPS|<key>|<field>|<label>|<selected>|<choice>|<choice>...
 //   PICK|<key>|<field>|<label>|<selected>|<choice>|<choice>...
-//   HINT|<key>|<text>                       a tip where a control would be (shown with Show tips)
+//   HINT|<key>|<word>                       a tip where a control would be (shown with Show tips)
 //   NOTE|<key>|<text>                       a warning under the row above it
-//   SHELL|<key>|<source>|<label>|<min>|<max>|<unit or -1>   a slider over a value the shell holds:
+//   SHELL|<key>|<source>|<word>|<min>|<max>|<unit or -1>    a slider over a value the shell holds:
 //                                           source ATTACK, DECAY or TRANSITION
 //   PIECE|<id>|<lock key>|<label>|<text>    a piece the shell draws by id; label names it to Pro and the
-//                                           screen reader, text is its button's words
+//                                           screen reader, text is its button's words. Each is a <word>,
+//                                           but for the palette pieces, whose label is the control's key
+// A <word> is viz/panel/PanelText's `ref`: "id:<id>" and what fills it, for the shell to resolve to its own
+// string; "" for none. @personality is in the rows under any search: the shell matches a search to its words.
 // Numbers in util/TableNumber's form.
 std::string rows(std::string_view keys, const SceneParams& p, const RowContext& context);
 

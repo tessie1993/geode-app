@@ -26,6 +26,9 @@ public:
     // Called just before each frame, after frameTime: when the display is expected to show it (CLOCK_MONOTONIC ns),
     // 0 when no time was given. The sound is read where the viewer sees the frame.
     virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
+    // The next frame steps by 0: the time since the last one did not pass on screen (the vsync starts again, or a
+    // frame no vsync asked for follows). Called on the stage thread, context current or not.
+    virtual void restartClock() {}
     // Shed the spare scenes before the surface pauses, context current.
     virtual void trimSpares() = 0;
     // The context is gone with every GL name in it: forget them, delete none. No context is current.

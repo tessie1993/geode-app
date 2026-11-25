@@ -66,9 +66,11 @@ void frameClock() {
     check(frameStepSeconds(60, -1.0, 0.0) == static_cast<float>(1.0 / 60), "export frame 0 steps 1/fps");
     check(frameStepSeconds(24, -1.0, 0.0) == static_cast<float>(1.0 / 24), "a 24 fps export's first frame is 1/24 s");
     check(frameStepSeconds(60, 0.016, 0.033) == static_cast<float>(1.0 / 60), "ms-truncated times no longer leak in");
-    check(frameStepSeconds(0, -1.0, 5.0) == static_cast<float>(1.0 / 60), "live's first frame is 1/60 s");
+    check(frameStepSeconds(0, -1.0, 5.0) == 0.0f, "live's first frame steps by 0: no interval has passed");
     check(frameStepSeconds(0, 1.0, 1.02) > 0.0199f && frameStepSeconds(0, 1.0, 1.02) < 0.0201f, "live measures");
-    check(frameStepSeconds(0, 1.0, 3.0) == 0.1f && frameStepSeconds(0, 1.0, 1.0) == 0.001f, "live is clamped");
+    check(frameStepSeconds(0, 1.0, 3.0) == 2.0f, "a long frame is a long step: nothing clamps it");
+    check(frameStepSeconds(0, 1.0, 1.0) == 0.0f, "two frames on the same clock step by 0");
+    check(frameStepSeconds(0, 2.0, 1.0) == 0.0f, "a clock that ran back never steps the engine backwards");
 }
 
 // The export's frame grid and audio cut over a three-hour render, at every rate Studio offers (24, 25, 30, 50,

@@ -55,7 +55,7 @@
 #include "viz/input/TouchSmear.hpp"
 #include "viz/passes/TrailPass.hpp"
 #include "viz/frame/LiveFps.hpp"
-#include "viz/frame/Pacer.hpp"
+#include "viz/frame/PresentTime.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/passes/UiBlurPass.hpp"
@@ -219,9 +219,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
-    // The first frame on a new surface (geode_viz_frame, frame::kEventClearOnly): black, and nothing
-    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
-    void clearToBlack(GLuint targetFbo);
+    // The next live frame steps by 0: the time since the last one did not pass on screen (a start or a resume after
+    // a pause, a frame no vsync asked for). GL thread.
+    void restartClock() { lastTimeS_ = -1.0; }
     void releaseScenes();
     // The surface is about to stop drawing (the host's pause, an in-app hide, a hidden wallpaper): the spares,
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal

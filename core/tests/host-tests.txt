@@ -268,8 +268,8 @@ stage_step_test | stub | core/tests/stage_step_test.cpp core/api/geode_stage_ste
 style_pick_test | stub | core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp |
 # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for its own time, read once per renderer.
 transition_choice_test | core | core/tests/transition_choice_test.cpp |
-# The times a frame is read and shown at: the dt clamp, the cap a surface runs at, where the sound is read, the swap's stamp.
-pacer_test | core | core/tests/pacer_test.cpp |
+# The times a frame is read and shown at: the cap a surface runs at, where the sound is read, the swap's stamp.
+present_time_test | core | core/tests/present_time_test.cpp |
 # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it.
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.

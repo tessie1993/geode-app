@@ -53,7 +53,7 @@
 #include "viz/modulation/VisualSafety.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
-#include "viz/frame/Pacer.hpp"
+#include "viz/frame/PresentTime.hpp"
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/glsl/ShaderOverrides.hpp"
@@ -215,7 +215,6 @@ static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
-static_assert(frame::kEventClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
@@ -549,7 +548,6 @@ public:
     void applyQuality(const frame::UserQuality& q) override {
         v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx);
     }
-    void clearToBlack() override { v_.renderer.clearToBlack(0); }
     int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
     void gyroReset() override {
         const GyroLook::Look look = v_.gyro.reset();
@@ -609,6 +607,10 @@ int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float paced
         // Nothing to tell the shell this frame; the next one starts over.
         return 0;
     }
+}
+
+void geode::api::vizRestartClock(geode_viz* v) {
+    if (v) v->renderer.restartClock();
 }
 
 // geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is

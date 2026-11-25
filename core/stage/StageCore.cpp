@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "stage/VsyncRule.hpp"
+#include "viz/frame/PresentTime.hpp"
 
 namespace geode::stage {
 
@@ -144,9 +145,17 @@ Outcome StageCore::execute(const Action& action) {
         case Act::ClientSurfaceChanged:
             if (client_) client_->surfaceChanged(action.width, action.height);
             return Outcome::Done;
-        case Act::StartVsync: port_.vsyncRun(true); return Outcome::Done;
+        case Act::StartVsync:
+            // A start does not inherit the gap it was stopped across.
+            if (client_) client_->restartClock();
+            port_.vsyncRun(true);
+            return Outcome::Done;
         case Act::StopVsync: port_.vsyncRun(false); return Outcome::Done;
-        case Act::DrawOnce: draw(paced_.load(std::memory_order_relaxed), cap_, 0, 0, 0); return Outcome::Done;
+        case Act::DrawOnce:
+            // No vsync asked for it: the time since the last frame is not a step.
+            if (client_) client_->restartClock();
+            draw(paced_.load(std::memory_order_relaxed), cap_, 0, 0, 0);
+            return Outcome::Done;
         case Act::ClientTrimSpares:
             if (client_) client_->trimSpares();
             return Outcome::Done;

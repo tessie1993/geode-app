@@ -28,7 +28,6 @@ void check(bool ok, const char* what) {
     }
 }
 
-static_assert(kEventClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
@@ -58,7 +57,6 @@ struct Recorder : LiveStages {
         log.push_back("quality");
         quality = q;
     }
-    void clearToBlack() override { log.push_back("clear"); }
     int takeLiquidMode() override {
         log.push_back("liquid");
         return liquid;
@@ -97,7 +95,7 @@ struct Recorder : LiveStages {
     }
 };
 
-// A frame on a surface already past its clear, with the log reset first.
+// One frame, with the log reset first.
 uint32_t frame(LiveFrame& f, Recorder& r, float paced = 60.0f, float cap = 60.0f) {
     r.log.clear();
     return f.run(r, paced, cap);
@@ -113,31 +111,28 @@ void stageOrder() {
     frame(f, r);
     r.liquid = 1;
     frame(f, r, 90.0f, 120.0f);
-    // The quality went on the clear frame; this one has nothing new for it.
+    // The quality went on the first frame; this one has nothing new for it.
     const std::vector<std::string> want = {"paced", "liquid", "gyroReset", "gyro", "scene", "ring",
                                            "render", "error", "director", "still"};
     check(r.log == want, "the stages run in their one order");
     check(r.paced == 90.0f && r.cap == 120.0f, "the paced rate and the cap reach the renderer apart");
 }
 
-void clearOnlyRunsNothingElse() {
+// Red against: a new surface's first frame that draws nothing (the old clear-only rule, which the stage thread
+// no longer needs: no main thread waits on a frame).
+void aNewSurfaceDrawsItsFirstFrameLikeAnyOther() {
     LiveFrame f;
     Recorder r;
     f.requestScene("a");
     f.gyroPush(GyroReading{});
     f.surfaceCreated();
     r.liquid = 1;
-    r.moments = r.still = true;
-    r.error = "boom";
     const uint32_t events = frame(f, r);
-    check(events == kEventClearOnly, "a new surface's first frame says clear-only and nothing else");
-    check(r.log == std::vector<std::string>{"paced", "clear"}, "and runs nothing but the clear");
-    const uint32_t next = frame(f, r);
-    check((next & kEventClearOnly) == 0, "only the first frame is a clear");
-    check(r.count("render") == 1 && r.count("scene") == 1 && r.count("gyro") == 1, "the next frame draws");
-    check(frame(f, r) != kEventClearOnly && r.count("clear") == 0, "and so does every frame after");
+    check(r.count("render") == 1 && r.count("scene") == 1 && r.count("gyro") == 1, "a new surface's first frame draws");
+    check((events & kEventLiquidChanged) != 0 && (events & kEventErrorChanged) != 0, "and tells what it found");
     f.surfaceCreated();
-    check(frame(f, r) == kEventClearOnly, "every new surface clears its first frame");
+    frame(f, r);
+    check(r.count("render") == 1, "every new surface does");
 }
 
 void qualityOncePerChange() {
@@ -158,7 +153,7 @@ void qualityOncePerChange() {
     check(r.count("quality") == 1 && r.quality.renderScale == 1.0f, "a change is");
     f.surfaceCreated();
     frame(f, r);
-    check(r.count("quality") == 1 && r.count("clear") == 1, "a new surface applies it again, on its clear frame");
+    check(r.count("quality") == 1, "a new surface applies it again, on its first frame");
 }
 
 void sceneRetriedUntilAccepted() {
@@ -221,7 +216,6 @@ void eventBits() {
     LiveFrame f;
     Recorder r;
     f.surfaceCreated();
-    frame(f, r);
     check(frame(f, r) == kEventErrorChanged, "a handle's first drawing frame reports its error text, even a clean one");
     check(frame(f, r) == 0, "a quiet frame says nothing");
     r.liquid = 1;
@@ -243,7 +237,7 @@ void eventBits() {
     r.repeated = true;
     check(frame(f, r) == kEventNothingNew, "a frame that repeated the one on screen says nothing is new");
     r.repeated = false;
-    const uint32_t all[] = {kEventClearOnly, kEventLiquidChanged, kEventErrorChanged, kEventDirectorMoment,
+    const uint32_t all[] = {kEventLiquidChanged, kEventErrorChanged, kEventDirectorMoment,
                             kEventStillReady, kEventNothingNew};
     uint32_t seen = 0;
     bool apart = true;
@@ -258,7 +252,7 @@ void eventBits() {
 
 int main() {
     stageOrder();
-    clearOnlyRunsNothingElse();
+    aNewSurfaceDrawsItsFirstFrameLikeAnyOther();
     qualityOncePerChange();
     sceneRetriedUntilAccepted();
     gyroResetsOncePerSession();

@@ -116,7 +116,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `output_test.cpp` also pins the frame grid and audio cut drift-free over 3 h at every offered rate, loops, the encode budget and chapters.
 - `render_plan_test.cpp`: a render's range and free-tier cap (`core/output/ExportRange`) and a batch's track order and progress (`RenderBatch`), with their C ABI.
 - `loudness_scan_test.cpp`: a finished render's loudness scan on a fake decoder (`core/output/LoudnessScan`) and the advice sentence (`LoudnessAdvice` `readingOf`).
-- `pacer_test.cpp`: `core/viz/frame/Pacer`, the times a frame is read and shown at: the dt clamp, the cap a surface runs at, where the sound is read, the swap's stamp.
+- `present_time_test.cpp`: `core/viz/frame/PresentTime`, the times a frame is read and shown at: the cap a surface runs at, where the sound is read, the swap's stamp.
 - `palette_panel_test.cpp`: Your colours' stop editor and its limits, the stack card's rows and the palette list's pick (`core/viz/PalettePanel`).
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
 - `params_json_test.cpp`: the params object (`core/viz/ParamsJson`, `util/Json`'s org.json rules): org.json's number and string text, its opt* coercions, round trips, retired and unknown keys, sanitize, and `app/src/test/resources/presets/*.json` read in place.

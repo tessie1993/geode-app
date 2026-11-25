@@ -120,6 +120,7 @@ struct Client final : StageClient {
     Port& port;
     int created = 0, changed = 0, frames = 0, trims = 0, losses = 0, releases = 0, services = 0;
     int width = 0, height = 0;
+    int restarts = 0;
     float paced = -1.0f, cap = -1.0f;
     uint32_t nextEvents = 0;
     std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
@@ -149,6 +150,7 @@ struct Client final : StageClient {
         cap = capFps;
         return nextEvents;
     }
+    void restartClock() override { restarts++; }
     void trimSpares() override { trims++; }
     void contextLost() override {
         losses++;
@@ -239,6 +241,23 @@ void windowAndFrames() {
     check(!r.port.vsync && r.client->trims == 1, "hidden: the vsync stops and the spares go");
     r.send(command(kStageRedraw));
     check(r.client->frames == 4 && near(r.client->paced, 45.0f) && r.client->cap == 90.0f, "a redraw while stopped draws one frame at the last rate, with the cap");
+}
+
+// Red against: a resume that steps the picture by the whole pause (no restart when the vsync starts again), a frame
+// no vsync asked for stepping by the time since the last, and a restart on every drawn frame (the step would always
+// be 0).
+void theClockRestartsWhereNoTimePassedOnScreen() {
+    Rig r;
+    r.show();
+    check(r.client->restarts == 1, "the vsync starting restarts the clock once");
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.client->restarts == 1, "drawn frames do not");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    r.send(command(kStageRedraw));
+    check(r.client->restarts == 2, "a frame no vsync asked for restarts it");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
+    check(r.client->restarts == 3, "and so does the vsync starting again after the stop");
 }
 
 void trimReachesAStageThatDrawsNothing() {
@@ -456,6 +475,7 @@ void endsOutOfTurn() {
 
 int main() {
     windowAndFrames();
+    theClockRestartsWhereNoTimePassedOnScreen();
     trimReachesAStageThatDrawsNothing();
     handOvers();
     vsyncTimes();

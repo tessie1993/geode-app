@@ -31,7 +31,7 @@ static_assert(stage::kStateVsync == GEODE_STAGE_STATE_VSYNC && stage::kStatePaus
 static_assert(stage::kStateRefused == GEODE_STAGE_STATE_REFUSED && stage::kStateSurfaceBad == GEODE_STAGE_STATE_SURFACE_BAD);
 static_assert(stage::kStateReleased == GEODE_STAGE_STATE_RELEASED && stage::kStateModeShift == GEODE_STAGE_STATE_MODE_SHIFT);
 static_assert(static_cast<int>(stage::Kind::View) == GEODE_STAGE_KIND_VIEW && static_cast<int>(stage::Kind::Surface) == GEODE_STAGE_KIND_SURFACE);
-static_assert(stage::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY && stage::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(stage::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(stage::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(stage::kFrameDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT && stage::kFrameStillReady == GEODE_FRAME_STILL_READY);
 
@@ -74,6 +74,7 @@ public:
     }
     void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void framePresent(int64_t presentNs) override { presentNs_ = presentNs; }
+    void restartClock() override { geode::api::vizRestartClock(v_); }
     void trimSpares() override { geode_viz_trim_spares(v_); }
     // The feed's cursor and its hold on the ring's analysis go; the next frame's geode_viz_feed_ring makes both
     // again. Other surfaces hearing the ring keep their own hold, so its thread stops only with the last.

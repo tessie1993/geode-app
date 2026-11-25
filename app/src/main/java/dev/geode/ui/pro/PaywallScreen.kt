@@ -808,8 +808,10 @@ private fun shareApp(context: Context): Boolean {
         Intent(Intent.ACTION_SEND)
             .setType("text/plain")
             .putExtra(Intent.EXTRA_TEXT, context.getString(R.string.pro_share_text, PLAY_STORE_URL))
+            .putExtra(Intent.EXTRA_TITLE, context.getString(R.string.pro_share_chooser))
     return try {
-        context.startActivity(Intent.createChooser(send, context.getString(R.string.pro_share_chooser)))
+        // The Sharesheet's own title, as the Android docs show it; ours is the preview's title (EXTRA_TITLE).
+        context.startActivity(Intent.createChooser(send, null))
         true
     } catch (_: ActivityNotFoundException) {
         false

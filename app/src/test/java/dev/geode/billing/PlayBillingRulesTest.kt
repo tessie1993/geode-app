@@ -23,10 +23,19 @@ class PlayBillingRulesTest {
 
     @Test
     fun `a purchase flow that ends with nothing to grant does not stay in progress`() {
-        assertEquals("an OK result with no purchases", failed, PurchaseStatus.InProgress.afterUpdate())
+        val open = PurchaseStatus.InProgress.afterUpdate()
+        assertEquals("an OK result with no purchases waits for the query", PurchaseStatus.InProgress, open)
+        assertEquals("and fails when Play lists no Pro", failed, open.settled(isPro = false))
+        assertEquals("or completes when it does (a code redeemed in the sheet)", PurchaseStatus.Purchased, open.settled(isPro = true))
         assertEquals("a purchase that failed verification", failed, PurchaseStatus.InProgress.afterUpdate(anyPro = true))
         assertEquals("the same outside a flow", failed, PurchaseStatus.Idle.afterUpdate(anyPro = true))
-        assertEquals("another product outside a flow", PurchaseStatus.Idle, PurchaseStatus.Idle.afterUpdate())
+    }
+
+    @Test
+    fun `settling leaves what the query already decided`() {
+        assertEquals("already owned, payment pending", PurchaseStatus.Pending, PurchaseStatus.Pending.settled(isPro = false))
+        assertEquals(PurchaseStatus.Purchased, PurchaseStatus.Purchased.settled(isPro = true))
+        assertEquals(PurchaseStatus.Idle, PurchaseStatus.Idle.settled(isPro = true))
     }
 
     @Test

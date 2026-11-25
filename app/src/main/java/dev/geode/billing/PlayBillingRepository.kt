@@ -161,7 +161,12 @@ class PlayBillingRepository(
         purchases: MutableList<Purchase>?,
     ) {
         when (result.responseCode) {
-            BillingResponseCode.OK -> scope.launch { handle(purchases.orEmpty(), fullList = false) }
+            BillingResponseCode.OK ->
+                scope.launch {
+                    handle(purchases.orEmpty(), fullList = false)
+                    // The flow ended without naming a Pro purchase to grant or wait for: ask Play.
+                    if (status.value == PurchaseStatus.InProgress) settleAlreadyOwned()
+                }
             BillingResponseCode.USER_CANCELED -> status.value = PurchaseStatus.Cancelled
             BillingResponseCode.ITEM_ALREADY_OWNED -> scope.launch { settleAlreadyOwned() }
             else -> status.value = PurchaseStatus.Failed(billingErrorFor(result.responseCode))
@@ -170,7 +175,7 @@ class PlayBillingRepository(
 
     private suspend fun settleAlreadyOwned() {
         queryOwned()
-        status.value = if (isPro.value) PurchaseStatus.Purchased else PurchaseStatus.Failed(BillingError.UNKNOWN)
+        status.value = status.value.settled(isPro.value)
     }
 
     /** Returns the Pro purchases Play reports, or null when the query itself failed. */
@@ -265,7 +270,12 @@ class PlayBillingRepository(
         connectLock.withLock {
             if (client.isReady) return@withLock BillingResponseCode.OK
             suspendCancellableCoroutine { cont ->
-                client.startConnection(setupListener { if (cont.isActive) cont.resume(it) })
+                client.startConnection(
+                    setupListener {
+                        if (it == BillingResponseCode.SERVICE_DISCONNECTED) RingLog.note(TAG, "billing service disconnected")
+                        if (cont.isActive) cont.resume(it)
+                    },
+                )
             }
         }
 
@@ -276,8 +286,9 @@ class PlayBillingRepository(
 
 /**
  * Reports how a connection attempt ended through [onResult], a `BillingResponseCode`. A service
- * that drops before setup finished answers SERVICE_DISCONNECTED: setup may never report after it,
- * and a caller left waiting would hold up every later refresh, restore and purchase.
+ * that drops before setup finished answers SERVICE_DISCONNECTED, as a failed attempt the user can
+ * retry: a caller left waiting on a setup that never reports holds up every later refresh, restore
+ * and purchase.
  */
 internal fun setupListener(onResult: (Int) -> Unit): BillingClientStateListener =
     object : BillingClientStateListener {
@@ -289,8 +300,8 @@ internal fun setupListener(onResult: (Int) -> Unit): BillingClientStateListener 
 /**
  * Where a purchase attempt stands after Play reported purchases: [completed] a paid, verified Pro,
  * [pending] one awaiting payment, [anyPro] any Pro purchase at all. [fullList] is a purchase query,
- * which says nothing about a sheet that is still up; anything else is the purchase flow's own
- * result and ends the attempt, so one that brought no Pro to grant or wait for has failed.
+ * which says nothing about a sheet that is still up. A flow result naming no Pro at all leaves the
+ * attempt open for [settled], after Play was asked what the user owns.
  */
 internal fun PurchaseStatus.after(
     completed: Boolean,
@@ -302,8 +313,20 @@ internal fun PurchaseStatus.after(
         completed -> if (this == PurchaseStatus.InProgress || this == PurchaseStatus.Pending) PurchaseStatus.Purchased else this
         pending -> PurchaseStatus.Pending
         fullList -> if (this == PurchaseStatus.Pending) PurchaseStatus.Idle else this
-        anyPro || this == PurchaseStatus.InProgress -> PurchaseStatus.Failed(BillingError.UNKNOWN)
+        anyPro -> PurchaseStatus.Failed(BillingError.UNKNOWN)
         else -> this
+    }
+
+/**
+ * Ends an attempt that a purchase query left open (already owned, or a flow result with no
+ * purchase): Pro if the user has it, failed otherwise. A status the query settled itself, such as
+ * a pending payment, stands.
+ */
+internal fun PurchaseStatus.settled(isPro: Boolean): PurchaseStatus =
+    when {
+        this != PurchaseStatus.InProgress -> this
+        isPro -> PurchaseStatus.Purchased
+        else -> PurchaseStatus.Failed(BillingError.UNKNOWN)
     }
 
 /** The paywall's wording for a failed `BillingResponseCode`. */

@@ -39,7 +39,7 @@ public:
     // sound: the renderer's sound frame with this scene's band trims applied (gainAdjusted).
     virtual void update(const GeodeSoundFrame& sound, float dt) = 0;
     // Clock control (viz/clock): this frame's signed move of the scene clock (a jump when a stutter loops) and its
-    // scale; set before update(). A scene never told steps its clocks by update()'s dt.
+    // scale; set before every update().
     virtual void setClockStep(float step, float rate) { (void) step; (void) rate; }
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;

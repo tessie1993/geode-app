@@ -36,7 +36,6 @@ public:
     void setClockStep(float step, float rate) override {
         clockStep_ = step;
         clockRate_ = rate;
-        clocked_ = true;
     }
     void draw(float timeSeconds) override;
     void release() override;
@@ -101,10 +100,10 @@ private:
 
     SceneParams params_;
     float rotationAngle_ = 0.0f;
-    // Clock control's step and scale for this frame (Scene::setClockStep); unset, update()'s dt and a scale of 1.
+    // Clock control's step and scale for this frame (Scene::setClockStep; the renderer sets both before every update).
+    // uSoundTimeSped follows the scale held at 0 or above: the band clocks stop with a freeze and a reverse, never run back.
     float clockStep_ = 0.0f;
     float clockRate_ = 1.0f;
-    bool clocked_ = false;
     double shaderTime_ = 0.0;  // double: a float clock stalls at a slow Speed late in a session
     // The sound engine's bass, mid and treble clocks at Speed's rate (uSoundTimeSped,
     // viz/modulation/SpeedClock.hpp), beside uTime: integrated,

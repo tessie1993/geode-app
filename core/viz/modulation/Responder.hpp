@@ -257,6 +257,8 @@ private:
     // The preview is the last of the runtimes.
     static constexpr int kPreview = kMaxResponses;
 
+    // Lets a While response that is still held let go (its handler's release), when it is dropped or the bank restarts.
+    void releaseHeld(int index);
     void advance(int index, const Response& r, bool live, bool candidate, bool previewing, float strength, float level, float bpm,
                  float dt, ReactionEngine& engine);
 

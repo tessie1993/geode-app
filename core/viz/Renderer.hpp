@@ -284,6 +284,7 @@ private:
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
     const GeodeSoundFrame& trimmedSound(const SceneParams& p);
+    const GeodeSoundFrame& sceneSound(const SceneParams& p);
     void uploadPaletteRamp(const SceneParams& p);
     void stepShapeGraph(const SceneParams& p, float dt, float wallDt);
     bool holds(const Scene& scene, const Scene* held) const;
@@ -301,10 +302,11 @@ private:
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
-    void stepOverlays(Scene& scene, const SceneParams& p, float dt);
+    // dt: the scene clock's step; inputDt: the picture's own (touch, smear, the liquid's gestures).
+    void stepOverlays(Scene& scene, const SceneParams& p, float dt, float inputDt);
     void stepCamera(const SceneParams& p, float dt);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
-    void stepLiquid(Scene& scene, const SceneParams& p, float dt);
+    void stepLiquid(Scene& scene, const SceneParams& p, float dt, float inputDt);
     // The smear: the fingers' kicks into the flow field and this frame's bend (smearWarp_), Liquid off only.
     void stepSmear(float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
@@ -316,7 +318,7 @@ private:
     GLuint drawTrails(const SceneParams& p, float dt, float wallDt);
     // Endless zoom (EndlessZoom.hpp, viz/passes/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
-    GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
+    GLuint drawDive(const Scene& scene, const SceneParams& p, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
@@ -603,6 +605,10 @@ private:
     sceneclock::SceneClock sceneClock_;
     sceneclock::ClockKind clockKind_{sceneClock_};
     float sceneStep_ = 0.0f;
+    // While a freeze holds the last frame, the sound the scenes hear (sceneSound).
+    bool soundHeld_ = false;
+    GeodeSoundFrame heldSound_{};
+    GeodeSoundFrame heldTrimmed_{};
     // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
     // they were drawn at. redrawFrames_ lets a request the params do not carry through.
     bool frameStill_ = false;

@@ -190,7 +190,9 @@ void followMapsALevelToAScaleInMinusOneToOne() {
     c.step(0.02f);
     check(c.rate() == -1.0f, "the scale is held to -1");
     c.step(0.02f);
-    check(c.rate() == 1.0f, "a frame with no follow is a clock at rest");
+    check(c.rate() > -1.0f && c.rate() < 1.0f, "a Follow that lets go eases back, it does not snap");
+    for (int i = 0; i < 20; ++i) c.step(0.02f);
+    check(c.rate() == 1.0f && !c.active(), "and the clock is at rest after the short ease");
     c.follow(0.0f, 0.0f);
     c.step(0.02f);
     check(c.rate() == 1.0f, "a level of 0 claims nothing");
@@ -312,6 +314,27 @@ void aWhileFreezeLastsAsLongAsItsEvent() {
     check(rig.clock.rate() == 1.0f, "and eases back once the event ends");
 }
 
+void aWhileFreezeDroppedFromTheBankLetsGo() {
+    Rig rig;
+    resp::Response r = clockResponse(ClockKind::kFreeze);
+    r.drive = resp::DriveMode::While;
+    r.params[ClockKind::kHoldFrame] = 1.0f;
+    rig.load(r);
+    rig.step(true, 1.0f);
+    for (int i = 0; i < 30; ++i) rig.step(false, 1.0f);
+    check(rig.clock.rate() == 0.0f && rig.clock.holds(), "a while freeze stands while its event holds");
+    rig.bank.configure(resp::newStyleConfig());
+    rig.run(30);
+    check(rig.clock.rate() == 1.0f && !rig.clock.holds(), "removing the response lets the clock run again");
+    Rig again;
+    again.load(r);
+    again.step(true, 1.0f);
+    for (int i = 0; i < 30; ++i) again.step(false, 1.0f);
+    again.bank.reset();
+    again.run(30);
+    check(again.clock.rate() == 1.0f, "so does a restart of the bank");
+}
+
 void aFollowResponseMapsTheLevelToTheScale() {
     Rig rig;
     resp::Response r = clockResponse(ClockKind::kReverse);
@@ -409,6 +432,7 @@ int main() {
     twoRunsGiveTheSameSceneTimes();
     aFiredFreezeResponseDrivesTheClock();
     aWhileFreezeLastsAsLongAsItsEvent();
+    aWhileFreezeDroppedFromTheBankLetsGo();
     aFollowResponseMapsTheLevelToTheScale();
     aBeatLengthStutterIdlesWithoutATempo();
     aSecondsStutterLoopsTheKindParams();

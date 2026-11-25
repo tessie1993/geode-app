@@ -7,11 +7,17 @@ namespace geode::viz::sceneclock {
 
 // Clock control: the one scale the scene's clocks run at, which responses can drive to 0 or below.
 //
-// The renderer steps it once a frame with the picture's own step (the frame's step times the music's rate) and
-// advances the scene clocks by what it returns: uTime, uSoundTimeSped, uFlowTime, the rate phases and the dive's
-// phase. It scales nothing else: not the audio, the responder, the waves' timing, an export's frame times or the
-// frame step itself. The same steps and the same calls give the same values, so a live frame and an exported one
-// agree.
+// The renderer steps it once a frame with the picture's own step (the frame's step times the music's rate).
+//
+//   Moves by the signed step (can run back): the picture's clock (uTime and the composite's time), a shader style's
+//   own clock, the rate phases (rotation and the other rates) and the dive's phase. uSoundTimeSped follows the scale
+//   held at 0 or above: it stops with a freeze or a reverse and never runs back.
+//   Moves by the scale, never backwards (rate(), sim()): what the scenes and passes simulate, the camera rig's
+//   easing, the liquid's own dive and flow, the shape graph's drift.
+//   Never scaled: the audio and its analysis, the responder, the waves' and envelopes' timing, the director, the
+//   touch field, the smear and the liquid's gestures, an export's frame times and the frame step itself.
+//
+// The same steps and the same calls give the same values, so a live frame and an exported one agree.
 //
 //   Freeze   the scale eases to 0 over its fade in, holds, and eases back over its fade out. With `holdFrame`,
 //            while it stands at 0 the renderer may re-present the last composed frame instead of drawing.
@@ -25,6 +31,8 @@ class SceneClock {
 public:
     static constexpr float kMaxScale = 4.0f;
     static constexpr float kMaxLoopSeconds = 4.0f;
+    // How long a Follow that stops claiming takes to hand the clock back.
+    static constexpr float kFollowEaseSeconds = 0.15f;
     static constexpr int kMaxRepeats = 16;
     // Room for kMaxLoopSeconds at 240 fps; a longer ask reaches back as far as the ring goes.
     static constexpr int kRing = 1024;
@@ -43,7 +51,16 @@ public:
         } else {
             const float was = scale_;
             const bool driven = followed_ && followSeq_ > fireSeq_;
-            if (!followed_) following_ = false;
+            if (!followed_ && following_) {
+                // A Follow that lets go hands the clock back with a short ease, not a snap.
+                following_ = false;
+                if (phase_ == Phase::Idle && scale_ != 1.0f) {
+                    outFrom_ = scale_;
+                    out_ = kFollowEaseSeconds;
+                    t_ = 0.0f;
+                    phase_ = Phase::Out;
+                }
+            }
             if (driven) {
                 scale_ = followScale_;
                 holdFrame_ = followHold_;

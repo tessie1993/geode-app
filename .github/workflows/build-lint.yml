@@ -2,7 +2,7 @@ name: Build and lint
 
 # The pull-request gate: the debug APK (Kotlin and the native core through CMake).
 # Then the manifest promise checks and the release build's banned-SDK scan.
-# Then the JVM unit tests of every module.
+# Then the JVM unit tests of every module, and a compile of the device tests (app/src/androidTest).
 # Then the linters: detekt, Android lint, ktlint.
 # The native host tests (native-host-tests.yml) and the gates (arch-map.yml) run beside it.
 # Only the emulator tests stay manual (android.yml): the emulator takes minutes to boot.
@@ -114,6 +114,12 @@ jobs:
       - name: Run unit tests
         if: success() || failure()
         run: ./gradlew :app:testDebugUnitTest --continue --stacktrace --no-daemon
+
+      # The emulator run (android.yml) is manual, so without this a device test that no longer
+      # compiles shows only when someone starts it. Compiles; runs nothing.
+      - name: Compile device tests
+        if: success() || failure()
+        run: ./gradlew :app:compileDebugAndroidTestSources --stacktrace --no-daemon
 
       - name: detekt
         if: success() || failure()

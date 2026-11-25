@@ -106,7 +106,10 @@ inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
     jobjectArray out = calls ? env->NewObjectArray(static_cast<jsize>(entries.size()), calls->type, nullptr) : nullptr;
     for (size_t i = 0; out && i < entries.size(); ++i) {
         jstring entry = utf8String(env, entries[i].c_str());
-        if (!entry) return nullptr;
+        if (!entry) {
+            env->DeleteLocalRef(out);
+            return nullptr;
+        }
         env->SetObjectArrayElement(out, static_cast<jsize>(i), entry);
         env->DeleteLocalRef(entry);
     }
@@ -117,7 +120,8 @@ inline jobjectArray utf8Lines(JNIEnv* env, const char* text) {
 class FloatElements {
 public:
     FloatElements(JNIEnv* env, jfloatArray array)
-        : env_(env), array_(array), data_(array ? env->GetFloatArrayElements(array, nullptr) : nullptr),
+        : env_(env), array_(array),
+          data_(array && !env->ExceptionCheck() ? env->GetFloatArrayElements(array, nullptr) : nullptr),
           length_(data_ ? env->GetArrayLength(array) : 0) {}
     ~FloatElements() { if (data_) env_->ReleaseFloatArrayElements(array_, data_, JNI_ABORT); }
     FloatElements(const FloatElements&) = delete;

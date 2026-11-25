@@ -26,7 +26,7 @@ jintArray intsOf(JNIEnv* env, const int* values, int count) {
 // The Java strings of `array` as UTF-8, null entries as "".
 std::vector<std::string> stringsOf(JNIEnv* env, jobjectArray array) {
     std::vector<std::string> out;
-    const jsize n = array ? env->GetArrayLength(array) : 0;
+    const jsize n = array && !env->ExceptionCheck() ? env->GetArrayLength(array) : 0;
     for (jsize i = 0; i < n; ++i) {
         auto* item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
         Utf8Chars chars(env, item);

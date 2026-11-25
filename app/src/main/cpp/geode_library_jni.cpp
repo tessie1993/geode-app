@@ -26,7 +26,7 @@ struct Texts {
 // With `keepNull` a null entry stays NULL, for cells where "none" and "" differ.
 Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
     Texts out;
-    const jsize n = array ? env->GetArrayLength(array) : 0;
+    const jsize n = array && !env->ExceptionCheck() ? env->GetArrayLength(array) : 0;
     out.owned.reserve(static_cast<size_t>(n));
     std::vector<bool> absent;
     for (jsize i = 0; i < n; ++i) {
@@ -44,7 +44,7 @@ Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
 // An int[] as the C ABI's int, `count` values; a null or short array reads as zeros.
 std::vector<int> intsOf(JNIEnv* env, jintArray values, int count) {
     std::vector<int> out(static_cast<size_t>(count), 0);
-    if (!values) return out;
+    if (!values || env->ExceptionCheck()) return out;
     const jsize n = std::min(static_cast<jsize>(count), env->GetArrayLength(values));
     if (n > 0) env->GetIntArrayRegion(values, 0, n, reinterpret_cast<jint*>(out.data()));
     return out;
@@ -53,7 +53,7 @@ std::vector<int> intsOf(JNIEnv* env, jintArray values, int count) {
 // A long[] as the C ABI's long long, `count` values; a null or short array reads as zeros.
 std::vector<long long> longsOf(JNIEnv* env, jlongArray values, int count) {
     std::vector<long long> out(static_cast<size_t>(count), 0);
-    if (!values) return out;
+    if (!values || env->ExceptionCheck()) return out;
     const jsize n = std::min(static_cast<jsize>(count), env->GetArrayLength(values));
     std::vector<jlong> raw(static_cast<size_t>(n));
     if (n > 0) env->GetLongArrayRegion(values, 0, n, raw.data());

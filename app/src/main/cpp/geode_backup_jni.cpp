@@ -22,7 +22,7 @@ struct Texts {
 
 Texts textsOf(JNIEnv* env, jobjectArray array) {
     Texts out;
-    const jsize n = array ? env->GetArrayLength(array) : 0;
+    const jsize n = array && !env->ExceptionCheck() ? env->GetArrayLength(array) : 0;
     out.owned.reserve(static_cast<size_t>(n));
     for (jsize i = 0; i < n; ++i) {
         auto* item = static_cast<jstring>(env->GetObjectArrayElement(array, i));

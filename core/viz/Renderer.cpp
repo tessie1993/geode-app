@@ -462,6 +462,7 @@ void Renderer::onSurfaceCreated() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
     resolver_.reset();
+    ratePhases_.reset();
     camera_.reset();
 }
 

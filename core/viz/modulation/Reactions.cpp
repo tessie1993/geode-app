@@ -6,6 +6,7 @@
 #include <cstddef>
 
 #include "sound/DriveGain.hpp"
+#include "viz/modulation/Slew.hpp"
 
 namespace geode::viz {
 
@@ -595,6 +596,8 @@ void ReactionEngine::reset() {
     signals_.reset();
     acc_.fill(0.0f);
     out_.fill(0.0f);
+    primed_.fill(false);
+    cableKey_.fill(-1);
     high_.fill(false);
     circ_.fill(0.0f);
     circSource_.fill(0);
@@ -637,6 +640,7 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
         if (!r.enabled || r.target == LfoTarget::None) {
             out_[k] = 0.0f;
             circSource_[k] = 0;
+            primed_[k] = false;
             continue;
         }
         const float src = signals_.value(r.source);
@@ -684,6 +688,11 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
                 break;
             }
         }
+        const int cableKey = (static_cast<int>(r.target) * kReactSourceCount + static_cast<int>(r.source)) * kReactModeCount + static_cast<int>(r.mode);
+        if (cableKey != cableKey_[k]) primed_[k] = false;
+        cableKey_[k] = cableKey;
+        const bool first = !primed_[k];
+        primed_[k] = true;
         float attack = std::max(r.attackSeconds, 0.0f);
         float release = std::max(r.releaseSeconds, 0.0f);
         if (isLuminanceTarget(r.target)) {
@@ -713,8 +722,15 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
             continue;
         }
         circSource_[k] = 0;
+        // The route's smoothing: attack and release are its time constants in seconds (0 = none), one slew step
+        // (viz/modulation/Slew.hpp). The first frame it resolves it snaps to its target instead of gliding in from
+        // an unrelated value; a luminance route keeps its floors and glides from rest.
         const float tau = std::fabs(target) > std::fabs(out_[k]) ? attack : release;
-        out_[k] += (target - out_[k]) * (tau <= 1e-4f ? 1.0f : onePoleK(dt, tau));
+        if (first && !isLuminanceTarget(r.target)) {
+            out_[k] = target;
+        } else {
+            out_[k] = slew::step(out_[k], target, dt, tau);
+        }
     }
 }
 

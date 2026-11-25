@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/modulation/Slew.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -206,7 +207,7 @@ float LfoEngine::followBipolar(int i, float value, float dt) {
     const float target = std::clamp(std::isfinite(value) ? value : 0.0f, -1.0f, 1.0f);
     const float tau = target > followed_[i] ? kFollowRiseSeconds : kFollowFallSeconds;
     // exp(-dt / tau), not dt / tau: the same rise and fall in seconds at every frame rate, an export's included.
-    followed_[i] += (target - followed_[i]) * (1.0f - std::exp(-std::max(dt, 0.0f) / tau));
+    followed_[i] = slew::step(followed_[i], target, dt, tau);
     return followed_[i];
 }
 

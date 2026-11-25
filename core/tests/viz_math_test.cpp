@@ -162,6 +162,68 @@ void luminanceRoutesAreSlewLimited() {
     check(e.output(0) < 0.25f, "a brightness route cannot reach full depth in one frame");
 }
 
+// A route's first resolved frame lands on its target, whatever its smoothing; after that it glides by its time constant.
+void aRouteSnapsOnItsFirstFrame() {
+    ReactionEngine e;
+    e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 0.5f, ModCurve::Linear, 1.0f, 1.0f};
+    GeodeSoundFrame f = silence();
+    f.kickEnv = 0.8f;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "the first frame snaps to amount * source, not a glide in from 0");
+    f.kickEnv = 0.2f;
+    e.tick(f, 1.0f / 60.0f);
+    check(e.output(0) < 0.4f && e.output(0) > 0.35f, "the second frame glides by the route's time constant");
+    e.routes[0].enabled = false;
+    e.tick(f, 1.0f / 60.0f);
+    e.routes[0].enabled = true;
+    f.kickEnv = 0.8f;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "a route switched back on snaps again");
+}
+
+// A route re-pointed in place (a new target, source or mode) is a new cable: it snaps to its target again.
+void aRepointedRouteSnapsAgain() {
+    ReactionEngine e;
+    e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 0.5f, ModCurve::Linear, 1.0f, 1.0f};
+    GeodeSoundFrame f = silence();
+    f.kickEnv = 0.8f;
+    e.tick(f, 1.0f / 60.0f);
+    f.kickEnv = 0.2f;
+    e.tick(f, 1.0f / 60.0f);
+    check(e.output(0) > 0.3f, "the unchanged route is still gliding");
+    e.routes[0].target = LfoTarget::Warp;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.1f) < 1e-4f, "a new target snaps to amount * source");
+    f.kickEnv = 0.8f;
+    e.tick(f, 1.0f / 60.0f);
+    check(e.output(0) < 0.4f && e.output(0) > 0.1f, "and glides again after");
+    e.routes[0].source = ReactSource::SnareEnv;
+    f.snareEnv = 0.6f;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.3f) < 1e-4f, "a new source snaps");
+    e.routes[0].mode = ReactMode::Toggle;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0)) < 1e-4f || std::fabs(e.output(0) - 0.5f) < 1e-4f, "a new mode snaps to its own value");
+}
+
+// The same sound through the same route at 30, 60, 90 and 144 fps reads the same at equal times (the steps sit on frame boundaries).
+void aRouteSmoothsTheSameAtAnyFrameRate() {
+    float at[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int n = 0;
+    for (int fps : {30, 60, 90, 144}) {
+        ReactionEngine e;
+        e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.25f, 0.5f};
+        GeodeSoundFrame f = silence();
+        for (int i = 0; i < 2 * fps; ++i) {
+            f.kickEnv = i < fps / 2 ? 0.2f : (i < fps ? 0.9f : 0.3f);
+            e.tick(f, 1.0f / static_cast<float>(fps));
+        }
+        at[n++] = e.output(0);
+    }
+    check(std::fabs(at[0] - at[1]) < 1e-3f && std::fabs(at[0] - at[2]) < 1e-3f && std::fabs(at[0] - at[3]) < 1e-3f,
+          "a smoothed route agrees at 30, 60, 90 and 144 fps");
+}
+
 void triggersHoldAndSilenceIsQuiet() {
     ReactSignals s;
     GeodeSoundFrame f = silence();
@@ -2671,6 +2733,9 @@ int main() {
     phaseRouteStaysMonotonic();
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
+    aRouteSnapsOnItsFirstFrame();
+    aRepointedRouteSnapsAgain();
+    aRouteSmoothsTheSameAtAnyFrameRate();
     triggersHoldAndSilenceIsQuiet();
     sourcesReadTheirFieldsInRange();
     barCountsFollowTheMusicsBars();

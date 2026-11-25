@@ -32,7 +32,9 @@
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).
 //   flags    kMod: an LfoTarget writes the field (it has a mod row below), so the modulation pickers and the macro bank offer
 //            it (ModTargets). kInput: an input preference, not part of a look, so a look that replaces the
-//            live params keeps it (SceneParams::keepInputs). 0: none.
+//            live params keeps it (SceneParams::keepInputs). kRate: the field is a rate per second, so the engine
+//            integrates it into a phase (viz/params/RatePhases) and a consumer that needs a position reads that
+//            phase, never `clock * value`. 0: none.
 //   rollLo, rollHi
 //            the range the Randomize roll draws a number from (ParamRandomizer); 0, 0 where the roll
 //            draws none: a switch, a pick over the whole schema range, or a field no roll writes.
@@ -76,14 +78,14 @@
 #endif
 
 GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
-GEODE_PARAM_META(speed, "Speed", SceneClock, kMod, 0.2f, 2.5f)
+GEODE_PARAM_META(speed, "Speed", SceneClock, kMod | kRate, 0.2f, 2.5f)
 GEODE_PARAM_MOD(speed, 1.0f, 0)
 // A pinch scales Zoom and a twist turns Rotation, held to the catalogue's touch ranges.
 GEODE_PARAM(Float, zoom, 1.0f, catalogue::kTouchZoom.min, catalogue::kTouchZoom.max, Fade)
 GEODE_PARAM_META(zoom, "Zoom", Universal, kMod, 0.6f, 2.0f)
 GEODE_PARAM_MOD(zoom, 1.0f, 0)
 GEODE_PARAM(Float, rotation, 0.0f, catalogue::kTouchRotation.min, catalogue::kTouchRotation.max, Fade)
-GEODE_PARAM_META(rotation, "Rotation", Universal, kMod, -1.5f, 1.5f)
+GEODE_PARAM_META(rotation, "Rotation", Universal, kMod | kRate, -1.5f, 1.5f)
 GEODE_PARAM_MOD(rotation, 1.5f, 0)
 GEODE_PARAM(Bool, endlessZoom, false, 0, 1, Hold)
 GEODE_PARAM_META(endlessZoom, "Endless zoom", EndlessZoom, 0, 0, 0)

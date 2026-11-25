@@ -204,4 +204,4 @@ version, it is published at the same address as before, and the date above chang
 
 ## Contact
 
-Questions about this policy: [CONTACT_EMAIL](mailto:CONTACT_EMAIL)
+Questions about this policy: [beatrealms3d@gmail.com](mailto:beatrealms3d@gmail.com)

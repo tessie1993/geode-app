@@ -255,10 +255,14 @@ void paramScopesMatchTheOldParamScope() {
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
     check(catalogue::reaches(Scope::SceneClock, "silk_web") && catalogue::reaches(Scope::SceneClock, "fluid_ink"), "every style takes the scene clock");
-    // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
+    // Life's present is a ShaderScene on the shared block (core/viz/present): the bass and mid bands, the look,
+    // Turbulence. It reads no treble envelope, so Treble gain is hidden there (StyleBandReads.inc).
     check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
-              catalogue::reaches(Scope::TrebleBand, "life_orbium"),
-          "life hears every band");
+              !catalogue::reaches(Scope::TrebleBand, "life_orbium") && catalogue::reaches(Scope::BandGains, "life_orbium"),
+          "life hears the bass and mid bands, not the treble");
+    check(catalogue::reaches(Scope::BassBand, "silk_web") && !catalogue::reaches(Scope::BassBand, "tunnel") &&
+              catalogue::reaches(Scope::TrebleBand, "tunnel") && catalogue::reaches(Scope::MidBand, "tunnel"),
+          "a shader style that reads no bass hides Bass gain and keeps the others");
     check(catalogue::reaches(Scope::ShaderLook, "life_orbium") && catalogue::reaches(Scope::Turbulence, "life_orbium") &&
               catalogue::reaches(Scope::MarchDetail, "life_worms") && catalogue::fliesCamera("life_worms"),
           "life reads the shader look, Turbulence and Detail and flies the rig");

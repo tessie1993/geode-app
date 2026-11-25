@@ -121,8 +121,8 @@ jobs:
         if: always()
         run: ccache -s || true
 
-      # A push builds main's tip; a manual run may build an older ref, whose entries would become
-      # the newest cache every pull request restores.
+      # A push builds a commit on main; a manual run may build any ref, and its trimmed cache would
+      # become the one pull requests restore.
       - name: Keep only the ccache entries this build used
         if: github.event_name == 'push'
         run: ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"

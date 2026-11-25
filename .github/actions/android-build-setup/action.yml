@@ -12,9 +12,9 @@ inputs:
   ccache:
     description: >-
       true: route the native build (two ABIs, the third_party libraries) through ccache and restore its
-      cache. After the build the caller runs
+      cache. After the build, a caller that saves the cache first runs
       ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
-      and saves the cache under ccache-debug-<run id>.
+      and saves it under ccache-debug-<run id>.
     default: "false"
 
 runs:

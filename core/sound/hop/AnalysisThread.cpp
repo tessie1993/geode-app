@@ -214,7 +214,7 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
         if (!engine_ || (!heldBack && engine_->silent()) || quietSeconds_ > cap) flowing_ = false;
     }
     if (more) return Next::kNow;
-    if (!flowing_) return Next::kWait;
+    if (!flowing_) return waitUnlessDeferred();
     if (heldBack) {
         limitWait_ = kLimitTick;
         if (engine_) {
@@ -225,7 +225,14 @@ AnalysisThread::Next AnalysisThread::pass(float dtSeconds) {
         }
         return Next::kWaitLimit;
     }
-    return silenceWhenStarved_ ? Next::kWaitTimed : Next::kWait;
+    return silenceWhenStarved_ ? Next::kWaitTimed : waitUnlessDeferred();
+}
+
+// The untimed wait, except once after a pass that left controls queued: a failed try_lock (spurious, or a sender
+// that has not unlocked yet) has no notify() behind it that this thread could count on, so a short timed wait
+// brings the pass that applies them. pump() ignores the wait, so the inline path retries on the caller's next pump.
+AnalysisThread::Next AnalysisThread::waitUnlessDeferred() const {
+    return controlsDeferred_ ? Next::kWaitTimed : Next::kWait;
 }
 
 bool AnalysisThread::send(const Control& control) {
@@ -277,10 +284,14 @@ void AnalysisThread::setPlayerSource(bool on) { player_.store(on, std::memory_or
 
 void AnalysisThread::applyControls() {
     // Never waits: a sender holding the lock leaves the queue as it is (nothing dropped, count untouched), and its
-    // notify() after unlocking brings the next pass, which applies it. A control is late by one hop, never lost.
+    // notify() after unlocking brings the next pass, which applies it. try_lock may also fail spuriously with no
+    // sender, and then no notify() follows: controlsDeferred_ makes this pass end in a short timed wait instead of
+    // an untimed one (pass()), so a control is late by one hop or one tick, never lost. Inline, pump() retries on
+    // the caller's next pump.
     int count = 0;
     {
         std::unique_lock<std::mutex> lock(controlLock_, std::try_to_lock);
+        controlsDeferred_ = !lock.owns_lock();
         if (lock.owns_lock()) {
             count = controlCount_;
             std::copy_n(controls_.begin(), count, applying_.begin());

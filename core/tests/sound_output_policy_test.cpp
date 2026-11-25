@@ -31,6 +31,19 @@ const Row* find(const char* name) {
     return nullptr;
 }
 
+// A row by name; a name that is gone fails a check and reads a blank row, so the rest still runs.
+const Row& row(const char* name) {
+    static const Row kMissing{"", 0, 0, {}};
+    const Row* r = find(name);
+    if (r == nullptr) {
+        std::printf("  missing: %s
+", name);
+        check(false, "every row the test reads exists");
+        return kMissing;
+    }
+    return *r;
+}
+
 }  // namespace
 
 int main() {
@@ -59,22 +72,25 @@ int main() {
     }
 
     // The scalars are one float each; the arrays close the table.
-    for (int i = 0; i < kOutputRows - 6; ++i) check(kOutputs[i].count == 1, "a scalar is one float");
-    check(find("waveform") != nullptr && find("waveform")->params.norm == Norm::Drawn, "the waveform is drawn");
-    check(find("fadeGain") != nullptr && find("fadeGain")->params.norm == Norm::Told, "fadeGain is told");
+    int scalars = 0;
+    while (scalars < kOutputRows && kOutputs[scalars].count == 1) ++scalars;
+    for (int i = scalars; i < kOutputRows; ++i) check(kOutputs[i].count > 1, "once an array comes, only arrays follow");
+    check(scalars > 0 && scalars < kOutputRows, "the table has scalars, then arrays");
+    check(row("waveform").params.norm == Norm::Drawn, "the waveform is drawn");
+    check(row("fadeGain").params.norm == Norm::Told, "fadeGain is told");
 
     // The rows carry the constants the stages read.
-    check(find("bass")->params.norm == Norm::RelativeToMean && find("eq")->params.norm == Norm::RelativeToMean,
+    check(row("bass").params.norm == Norm::RelativeToMean && row("eq").params.norm == Norm::RelativeToMean,
           "bands and the EQ are relative to their running mean");
-    check(find("bassAtt")->params.attack == 0.2f && find("bassAtt")->params.release == 0.5f, "the band envelope's poles");
-    check(find("bassAtt")->params.meanWarm == 0.9f && find("bassAtt")->params.meanSteady == 0.992f, "and its mean's");
-    check(find("kickEnv")->params.attack == 0.005f, "a drum envelope rises in 5 ms");
-    check(find("onsetEnv")->params.decay == 0.2f && find("transientEnv")->params.decay == 0.2f, "onset envelopes fall in 0.2 s");
-    check(find("drive")->params.attack == 0.5f && find("drive")->params.release == 1.5f, "drive: 0.5 s up, 1.5 s down");
-    check(find("kickToggle")->params.attack == 0.06f && find("noteRandom")->params.release == 0.06f, "toggles ease over 60 ms");
-    check(find("runDensity")->params.decay == 1.0f && find("busy")->params.decay == 2.0f, "the rate counters' time constants");
-    check(find("low")->params.attack == 0.03f && find("high")->params.release == 0.15f, "the shaped bands' default attack and release");
-    check(find("kick")->params.smoothing == Smoothing::Internal, "a trigger's smoothing is its detector's own");
+    check(row("bassAtt").params.attack == 0.2f && row("bassAtt").params.release == 0.5f, "the band envelope's poles");
+    check(row("bassAtt").params.meanWarm == 0.9f && row("bassAtt").params.meanSteady == 0.992f, "and its mean's");
+    check(row("kickEnv").params.attack == 0.005f, "a drum envelope rises in 5 ms");
+    check(row("onsetEnv").params.decay == 0.2f && row("transientEnv").params.decay == 0.2f, "onset envelopes fall in 0.2 s");
+    check(row("drive").params.attack == 0.5f && row("drive").params.release == 1.5f, "drive: 0.5 s up, 1.5 s down");
+    check(row("kickToggle").params.attack == 0.06f && row("noteRandom").params.release == 0.06f, "toggles ease over 60 ms");
+    check(row("runDensity").params.decay == 1.0f && row("busy").params.decay == 2.0f, "the rate counters' time constants");
+    check(row("low").params.attack == 0.03f && row("high").params.release == 0.15f, "the shaped bands' default attack and release");
+    check(row("kick").params.smoothing == Smoothing::Internal, "a trigger's smoothing is its detector's own");
 
     if (failures == 0) std::printf("sound_output_policy_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

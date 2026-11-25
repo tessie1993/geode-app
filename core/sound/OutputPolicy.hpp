@@ -40,10 +40,10 @@ struct Params {
     float meanSteady = 0.0f;  // and once it has (~4.15 s)
 };
 
-// Bands, flux, hfc and the Band EQ: energy over its own running mean, with a fast envelope over the same mean.
+// The band levels and their attack-side twins, flux, fluxLow / fluxMid / fluxHigh, hfc and eq: energy over its own running mean, with a fast envelope over the same mean.
 inline constexpr Params kBandLevel{Norm::RelativeToMean, Smoothing::Pole, 0.2f, 0.5f, 0.0f, 0.9f, 0.992f};
 // low / middle / high: the relative bands through the user's attack, release, threshold, gain and offset.
-inline constexpr Params kShaped{Norm::Fixed, Smoothing::Tuned, 0.03f, 0.15f, 0.0f, 0.0f, 0.0f};
+inline constexpr Params kShaped{Norm::RelativeToMean, Smoothing::Tuned, 0.03f, 0.15f, 0.0f, 0.0f, 0.0f};
 // kick / snare / hat envelopes: 5 ms up, then the user's drum decay.
 inline constexpr Params kDrumEnvelope{Norm::Fixed, Smoothing::Envelope, 0.005f, 0.0f, 0.0f, 0.0f, 0.0f};
 // onsetEnv and transientEnv: 5 ms up, 0.2 s down.

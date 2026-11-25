@@ -12,12 +12,16 @@ namespace geode::viz::panel {
 // Whether id is one of the panel's words.
 bool has(std::string_view id);
 
-// A row cell that names a word for the shell to resolve: "id:<id>", then each argument (what fills "%1$s",
-// "%2$s", ...) after a unit separator (0x1F). "" for an empty id. An argument's own unit separators are
-// spaces, so a cell splits one way.
+// How many placeholders ("%1$s", "%2$s", ...) the word has; -1 for an id the panel does not have.
+int argCount(std::string_view id);
+
+// A row cell that names a word for the shell to resolve: "id:<id>", then one argument per placeholder after
+// a unit separator (0x1F): a missing argument is blank and an extra one dropped. "" for an empty id. An
+// argument's own unit separators are spaces, so a cell splits one way.
 std::string ref(std::string_view id, std::initializer_list<std::string> args = {});
 
-// Every id in table order, one a line: what the tests walk (core/tests/panel_words.txt is this text).
+// Every id in table order with its placeholder count, "<id> <count>" a line: what the tests walk
+// (core/tests/panel_words.txt is this text).
 std::string ids();
 
 }  // namespace geode::viz::panel

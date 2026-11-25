@@ -66,17 +66,20 @@ internal object PanelWords {
 @Composable
 internal fun panelText(id: String): String = PanelWords.byId[id]?.let { stringResource(it) }.orEmpty()
 
-/** A panel sentence with its placeholders filled by [args]. */
+/** A panel sentence with its placeholders filled by [args]; one that does not fill reads unfilled rather than throwing mid-frame. */
 @Composable
 internal fun panelFormat(
     id: String,
     vararg args: String,
-): String = PanelWords.byId[id]?.let { stringResource(it, *args) }.orEmpty()
+): String {
+    val pattern = panelText(id)
+    return runCatching { String.format(pattern, *args) }.getOrDefault(pattern)
+}
 
 /** A native row's cell as text: a word core names by id (core/viz/panel/PanelText `ref`) resolved here, anything else as it is. */
 @Composable
 internal fun cellText(cell: String): String {
     if (!cell.startsWith(PanelWords.WORD)) return cell
     val parts = cell.substring(PanelWords.WORD.length).split(PanelWords.UNIT)
-    return panelFormat(parts[0], *parts.drop(1).toTypedArray())
+    return if (parts.size == 1) panelText(parts[0]) else panelFormat(parts[0], *parts.drop(1).toTypedArray())
 }

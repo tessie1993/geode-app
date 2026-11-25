@@ -200,9 +200,20 @@ void wordsAndNames() {
     check(panel::ref("palette_stack_remove", {std::string("a") + kUnit + "b"}) == std::string("id:palette_stack_remove") + kUnit + "a b",
           "an argument cannot split the cell");
     check(panel::has("palette_save") && !panel::has("no_such_id") && !panel::has(""), "the ids the panel has");
+    check(panel::argCount("palette_stop") == 3 && panel::argCount("palette_save") == 0 && panel::argCount("no_such_id") == -1,
+          "each word's placeholder count");
+    check(panel::ref("palette_stop", {"2"}) == std::string("id:palette_stop") + kUnit + "2" + kUnit + kUnit,
+          "a missing argument is blank, so the shell's format never runs short");
+    check(panel::ref("palette_stack_up", {"Fire", "extra"}) == std::string("id:palette_stack_up") + kUnit + "Fire",
+          "an extra argument is dropped");
+    check(panel::ref("palette_save", {"extra"}) == "id:palette_save", "a word with no placeholders takes no argument");
     std::istringstream ids(panel::ids());
     std::set<std::string> seen;
-    for (std::string id; std::getline(ids, id);) {
+    for (std::string line; std::getline(ids, line);) {
+        const size_t space = line.find(' ');
+        check(space != std::string::npos, "a line is an id and a count: " + line);
+        const std::string id = line.substr(0, space);
+        check(line.substr(space + 1) == std::to_string(panel::argCount(id)), "a line carries the word's count: " + line);
         check(seen.insert(id).second, "a word listed once: " + id);
         check(!id.empty() && id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") == std::string::npos,
               "an id a string resource can be named: " + id);

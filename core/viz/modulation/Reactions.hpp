@@ -145,6 +145,9 @@ struct ReactRoute {
     // True for a route an Event Responder response compiled (viz/modulation/Responder): it reads the level the
     // responder gives it (ReactionEngine::setExternal) instead of `source`. Never saved: the responses are.
     bool external = false;
+    // True for a route the style's own DNA dealt (mergeHand), as against one the user added. Never saved. Only a
+    // style route can be switched off on its own by the Event Responder; the user's are never held back.
+    bool styleDefault = false;
 };
 
 // Every source value for one frame, computed once and shared by all routes.
@@ -172,6 +175,8 @@ public:
     static constexpr float kKeyChangeSeconds = 1.5f;
     // Half a step of the circle of fifths: how far KeyHue must sit from the settled key to count as another.
     static constexpr float kKeyStep = 1.0f / 24.0f;
+    // How clear the key must read to be believed, so a flicker between neighbours cannot fire it (as kTrustedBeat).
+    static constexpr float kKeyTrusted = 0.3f;
 
 private:
     void stepDerived(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling);

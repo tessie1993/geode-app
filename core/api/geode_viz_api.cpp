@@ -560,13 +560,13 @@ responder::Config responderConfigOf(const char* reactions) {
 }
 
 // The style's routes of the matrix that sit on `row`, as listed responses (GEODE_RESP_ORIGIN_STYLE), appended to `out`.
-int appendStyleDefaults(const RouteArray& playing, int count, int row, std::vector<float>& out) {
+int appendStyleDefaults(const responder::Config& config, const RouteArray& playing, int count, int row, std::vector<float>& out) {
     int added = 0;
     for (int i = 0; i < count; ++i) {
         const ReactRoute& r = playing[static_cast<size_t>(i)];
-        if (responder::rowOfSource(r.source) != row) continue;
+        if (!r.styleDefault || responder::rowOfSource(r.source) != row) continue;
         responder::Response d;
-        d.enabled = r.enabled;
+        d.enabled = r.enabled && !responder::isMuted(config, static_cast<int>(r.source), static_cast<int>(r.target));
         d.row = row;
         d.target = r.target;
         d.amount = r.amount;
@@ -580,6 +580,8 @@ int appendStyleDefaults(const RouteArray& playing, int count, int row, std::vect
         responder::fieldValues(d, out.data() + at);
         out[at + static_cast<size_t>(responder::kFieldCount)] = static_cast<float>(static_cast<int>(responder::Origin::StyleDefault));
         out[at + static_cast<size_t>(responder::kFieldCount) + 1] = static_cast<float>(i);
+        out[at + static_cast<size_t>(responder::kFieldCount) + 2] = static_cast<float>(static_cast<int>(r.source));
+        out[at + static_cast<size_t>(responder::kFieldCount) + 3] = static_cast<float>(static_cast<int>(r.target));
         ++added;
     }
     return added;
@@ -781,8 +783,10 @@ int geode_resp_rows(const char* reactions, const char* style_id, int seed, unsig
         std::vector<float> styled;
         o[0] = config.rowOn[static_cast<size_t>(row)] ? 1.0f : 0.0f;
         o[1] = static_cast<float>(responder::rowCount(config, row));
-        o[2] = static_cast<float>(appendStyleDefaults(playing, count, row, styled));
-        o[3] = config.gate ? 1.0f : 0.0f;
+        o[2] = static_cast<float>(appendStyleDefaults(config, playing, count, row, styled));
+        int muted = 0;
+        for (size_t at = 0; at < styled.size(); at += static_cast<size_t>(responder::kListValues)) muted += styled[at] > 0.5f ? 0 : 1;
+        o[3] = static_cast<float>(muted);
     }
     return copyFloats(values, out, capacity);
 } catch (...) {
@@ -805,8 +809,10 @@ int geode_resp_values(const char* reactions, const char* style_id, int seed, uns
         responder::fieldValues(r, values.data() + at);
         values[at + static_cast<size_t>(responder::kFieldCount)] = static_cast<float>(static_cast<int>(responder::Origin::User));
         values[at + static_cast<size_t>(responder::kFieldCount) + 1] = -1.0f;
+        values[at + static_cast<size_t>(responder::kFieldCount) + 2] = -1.0f;
+        values[at + static_cast<size_t>(responder::kFieldCount) + 3] = -1.0f;
     }
-    appendStyleDefaults(playing, count, row, values);
+    appendStyleDefaults(config, playing, count, row, values);
     return copyFloats(values, out, capacity);
 } catch (...) {
     return 0;

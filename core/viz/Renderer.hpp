@@ -444,6 +444,8 @@ private:
     sound::Emotion::State soundEmotion_{};
     bool soundHeard_ = false;
     uint64_t emotionSeed_ = 0;
+    uint64_t responderSeed_ = 0;
+    bool responderSeeded_ = false;
     bool emotionSeeded_ = false;
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};

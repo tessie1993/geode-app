@@ -690,11 +690,19 @@ HandRoutes commit(const HandRoutes& user, std::uint32_t mask, Moment m, const Ro
 
 }  // namespace
 
+namespace {
+// A route the style's DNA dealt, marked as the style's.
+void pushStyle(RouteArray& out, int& n, ReactRoute r) {
+    r.styleDefault = true;
+    if (n < ReactionEngine::kRoutes) out[static_cast<size_t>(n++)] = r;
+}
+}  // namespace
+
 int mergeHand(const HandRoutes& user, const StyleDna& dna, RouteArray& out) {
     out = RouteArray{};
     int n = 0;
     if (!user.user) {
-        for (int i = 0; i < dna.count; ++i) push(out, n, dna.routes[static_cast<size_t>(i)]);
+        for (int i = 0; i < dna.count; ++i) pushStyle(out, n, dna.routes[static_cast<size_t>(i)]);
         return n;
     }
     const ReactSourceMask mine = hand::sources(user.mask);
@@ -704,7 +712,7 @@ int mergeHand(const HandRoutes& user, const StyleDna& dna, RouteArray& out) {
     }
     for (int i = 0; i < dna.count; ++i) {
         const ReactRoute& r = dna.routes[static_cast<size_t>(i)];
-        if (!mine[static_cast<size_t>(r.source)]) push(out, n, r);
+        if (!mine[static_cast<size_t>(r.source)]) pushStyle(out, n, r);
     }
     return n;
 }

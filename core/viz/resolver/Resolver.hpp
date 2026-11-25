@@ -95,6 +95,9 @@ public:
     bool registerResponseKind(viz::responder::KindId kind, viz::responder::ResponseKindHandler* handler) {
         return responder_.registerKind(kind, handler);
     }
+    // The song starts over (a new play: track change, seek, an export's start): the responses' counters, cooldowns,
+    // envelopes and seeded chance start again, so the same song from here gives the same fires.
+    void restartPlay() { responder_.reset(); }
     // A preset morph: the params glide over `seconds`, for three times that long. <= 0 is ignored.
     void beginMorph(float seconds);
     // A new surface: the stages' state starts over (their configuration and the fade are kept).

@@ -357,6 +357,7 @@ internal class CaptureController(
                 // ring back as a stop does; mirrored as merely inactive, the player stays shut out of its ring.
                 if (_externalAudio.value.active && !capturing) {
                     stopExternalAudio()
+                    _externalAudio.update { it.copy(hasSessionAccess = access) }
                     return@launch
                 }
                 val quiet = capturing && playbackCapture.quiet

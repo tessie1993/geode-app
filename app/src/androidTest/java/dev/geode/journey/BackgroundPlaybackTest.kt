@@ -10,6 +10,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import dev.geode.ui.MainActivity
 import org.junit.After
@@ -65,6 +66,10 @@ class BackgroundPlaybackTest {
         awaitMain("PlaybackService's foreground media notification") { foregroundMediaNotification() }
 
         scenario.close()
+        // Before any new browser binds: binding would re-create a stopped service and could post
+        // the notification again, hiding a teardown that dropped it.
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+        assertThat(onMain { foregroundMediaNotification() }).isTrue()
 
         val b = connectBrowser().also { browser = it }
         val atClose = onMain { b.currentPosition }

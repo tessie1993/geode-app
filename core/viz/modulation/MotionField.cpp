@@ -1,0 +1,228 @@
+#include "viz/modulation/MotionField.hpp"
+
+#include <algorithm>
+#include <cmath>
+
+#include "sound/DriveGain.hpp"
+#include "util/Circular.hpp"
+#include "viz/modulation/VisualSafety.hpp"
+
+namespace geode::viz {
+
+MotionField::MotionField() { reset(); }
+
+void MotionField::reset() {
+    rhythmLock_ = 0.0f;
+    barOnBeat_ = 0.0f;
+    huePhase_ = 0.0f;
+    orbitTargetX_ = 0.0f;
+    orbitTargetY_ = 0.0f;
+    orbitCurX_ = 0.0f;
+    orbitCurY_ = 0.0f;
+    orbitRetargetLockout_ = 0.0f;
+    driftAngle_ = 0.0;
+    flowPhaseD_ = 0.0;
+    flowTimeD_ = 0.0;
+    driftRate_ = 0.0f;
+    state_ = State{};
+    seedState_ = 0x51ed270bu;
+}
+
+// exp(-dt/tau) rather than a fixed per-frame fraction: the same wall-clock
+// rise on a 30fps device and a 120fps one.
+float MotionField::slew(float current, float target, float dt, float riseSeconds, float fallSeconds) {
+    const float tau = target > current ? riseSeconds : fallSeconds;
+    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) / std::max(tau, 1e-4f));
+    return current + (target - current) * k;
+}
+
+float MotionField::oneOle(float current, float target, float dt, float tauSeconds) {
+    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) / std::max(tauSeconds, 1e-4f));
+    return current + (target - current) * k;
+}
+
+float MotionField::wrappedDelta01(float from, float to) { return circular::arcDelta(from, to); }
+
+// A 32-bit LCG: cheap enough for a per-frame path, deterministic per instance.
+float MotionField::nextRandom() {
+    seedState_ = seedState_ * 1664525u + 1013904223u;
+    return static_cast<float>((seedState_ >> 8) & 0xFFFFFFu) / static_cast<float>(0x1000000u);
+}
+
+void MotionField::setVariant(std::uint32_t seed) {
+    // Spread neighbouring ids apart, then take a few independent picks from the bits.
+    seed ^= seed >> 16;
+    seed *= 0x7feb352du;
+    seed ^= seed >> 15;
+    hueSource_ = static_cast<int>(seed % 4u);
+    oscClock_ = static_cast<int>((seed >> 4) % 3u);
+    retargetOnKick16_ = ((seed >> 8) & 1u) != 0u;
+}
+
+void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
+    dt = std::clamp(dt, 0.0f, 0.1f);
+
+    // ---- relative levels: the engine's own (a band over its ~4 s mean, ~1 typical), smoothed --
+    // The fast att envelopes, so the slew below sets the feel rather than the raw FFT jitter.
+    const float energyRatio = std::clamp(std::isfinite(f.volAtt) ? f.volAtt : 1.0f, 0.0f, 2.0f);
+    const float bassRatio = std::clamp(std::isfinite(f.bassAtt) ? f.bassAtt : 1.0f, 0.0f, 2.0f);
+    const float midRatio = std::clamp(std::isfinite(f.midAtt) ? f.midAtt : 1.0f, 0.0f, 2.0f);
+    const float trebRatio = std::clamp(std::isfinite(f.trebleAtt) ? f.trebleAtt : 1.0f, 0.0f, 2.0f);
+    // How much of its reach the music gets (absolute, core/sound/DriveGain): the ratios above are relative to
+    // the song itself, so they shape the pulse and every song averages 1.0. The drive says whether this song
+    // is a pad or a kick, and scales the magnitude: energy (speed, orbit, flow, size, density, trails) and
+    // the mid clock (drift) scale outright, the bass and treble ratios as their swing around 1.
+    const float gain = sound::driveGain(f);
+    state_.energyRel = slew(state_.energyRel, energyRatio * gain, dt, kEnergyAttackSeconds, kEnergyReleaseSeconds);
+    state_.bassRel = slew(state_.bassRel, 1.0f + gain * (bassRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
+    state_.midRel = slew(state_.midRel, midRatio * gain, dt, kBandAttackSeconds, kBandReleaseSeconds);
+    state_.trebRel = slew(state_.trebRel, 1.0f + gain * (trebRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
+    state_.energySwing = slew(state_.energySwing, gain * (energyRatio - 1.0f), dt, kEnergyAttackSeconds, kEnergyReleaseSeconds);
+    state_.midSwing = slew(state_.midSwing, gain * (midRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
+
+    // ---- timbre: brightness and tonality (the engine's flatness, inverted) ----
+    state_.bright = oneOle(state_.bright, std::clamp(f.centroid, 0.0f, 1.0f), dt, kBrightSeconds);
+    state_.harmony = oneOle(state_.harmony, std::clamp(1.0f - f.flatness, 0.0f, 1.0f), dt, kHarmonySeconds);
+
+    // ---- hue: no fixed driver. Each style follows one of the melody's pitch class (sure only
+    // while there is a pitch), the timbre, the per-note random or the per-kick random; all of
+    // them eased around the colour wheel over seconds, so a jump becomes a glide. ----
+    float hueTarget = huePhase_;
+    float hueStrength = 0.0f;
+    switch (hueSource_) {
+        case 0:
+            if (f.pitchConfidence > 0.0f) hueTarget = std::clamp(f.pitchClass, 0.0f, 1.0f);
+            hueStrength = std::clamp(f.pitchConfidence, 0.0f, 1.0f);
+            break;
+        case 1:
+            hueTarget = std::clamp(f.centroid, 0.0f, 1.0f);
+            hueStrength = std::clamp(f.presence, 0.0f, 1.0f);
+            break;
+        case 2:
+            hueTarget = std::clamp(f.noteRandom, 0.0f, 1.0f);
+            hueStrength = std::clamp(f.presence, 0.0f, 1.0f) * 0.8f;
+            break;
+        default:
+            hueTarget = std::clamp(f.kickRandom, 0.0f, 1.0f);
+            hueStrength = std::clamp(f.presence, 0.0f, 1.0f) * 0.6f;
+            break;
+    }
+    huePhase_ = circular::mixHue(huePhase_, hueTarget, 1.0f - std::exp(-dt / kHueSeconds));
+    state_.hue = huePhase_;
+    state_.hueStrength = oneOle(state_.hueStrength, hueStrength, dt, kHueStrengthSeconds);
+
+    // ---- the bar wave: on the music's own bar (Rhythm's barPhase) while the tracker is sure of the beat, and
+    // on a clock the music drives (per style: the hit count, the bass clock or the loudness clock) while it is
+    // not, so no tempo is ever assumed. The two are blended as sines by how sure the beat is, eased over a
+    // second, so a beat found or lost never jumps the wave. It only moves while music plays (rhythmLock_). ----
+    rhythmLock_ = oneOle(rhythmLock_, std::clamp(f.presence, 0.0f, 1.0f), dt, kRhythmLockSeconds);
+    const float clock = oscClock_ == 0 ? f.hitTime : (oscClock_ == 1 ? 0.5f * f.bassTime : 0.5f * f.curvedTime);
+    const float barClock = std::isfinite(clock) ? 0.25f * clock : 0.0f;
+    const float clockPhase = barClock - std::floor(barClock);
+    const float conf = std::isfinite(f.beatConf) ? f.beatConf : 0.0f;
+    const float sure = std::clamp((conf - kBarBeatUnsure) / (kBarBeatSure - kBarBeatUnsure), 0.0f, 1.0f);
+    barOnBeat_ = oneOle(barOnBeat_, sure, dt, kBarOnBeatSeconds);
+    const float heardPhase = std::isfinite(f.barPhase) ? std::clamp(f.barPhase, 0.0f, 1.0f) : 0.0f;
+    const float barSin = (1.0f - barOnBeat_) * std::sin(kTwoPi * clockPhase) + barOnBeat_ * std::sin(kTwoPi * heardPhase);
+    state_.barOsc = 0.5f + 0.5f * barSin * rhythmLock_;
+
+    // ---- orbit: a slow wander point, re-targeted by big moments (and, for some styles, every
+    // sixteenth kick), never by single hits ----
+    orbitRetargetLockout_ = std::max(orbitRetargetLockout_ - dt, 0.0f);
+    const bool bigMoment = f.hardCut > 0.0f;
+    const bool retarget = bigMoment || (retargetOnKick16_ && f.kick16 > 0.0f);
+    if (retarget && orbitRetargetLockout_ <= 0.0f) {
+        const float theta = nextRandom() * kTwoPi;
+        orbitTargetX_ = std::cos(theta);
+        orbitTargetY_ = std::sin(theta);
+        orbitRetargetLockout_ = kOrbitRetargetRefractorySeconds;
+    }
+    orbitCurX_ = oneOle(orbitCurX_, orbitTargetX_, dt, kOrbitEaseSeconds);
+    orbitCurY_ = oneOle(orbitCurY_, orbitTargetY_, dt, kOrbitEaseSeconds);
+    const float orbitScale = kOrbitRadius * state_.energyRel;
+    state_.orbitX = std::clamp(orbitCurX_ * orbitScale, -1.0f, 1.0f);
+    state_.orbitY = std::clamp(orbitCurY_ * orbitScale, -1.0f, 1.0f);
+
+    // ---- drift: a rotation at one fixed rate --------------------------------
+    // No sound sets its speed or its direction (owner 2026-11-12, no style spins to the
+    // music): the mids used to speed it up and a hard cut to re-aim its sign. The rate is
+    // what apply() adds to rotation (a rate the scenes integrate), never the angle below:
+    // the angle grows without bound and wraps, so as a rate it would climb to the clamp
+    // and then reverse in one frame (#359).
+    const float driftRate = kDriftRadPerSec;
+    driftRate_ = driftRate;
+    // The angle is uDrift, which a few styles turn by (times a fixed 0.07 to 0.5).
+    // Wrapped at kDriftWrap, where every such multiple lands on a whole turn, so
+    // the wrap never pops a style; wrapping keeps float precision over a long session.
+    driftAngle_ = std::fmod(driftAngle_ + static_cast<double>(driftRate) * dt, kDriftWrap);
+    if (driftAngle_ < 0.0) driftAngle_ += kDriftWrap;
+    state_.drift = static_cast<float>(driftAngle_);
+
+    // ---- breath: a slow, low-amplitude scale wobble --------------------------
+    const float breathTarget = 1.0f + kBreathBassWeight * (state_.bassRel - 1.0f) + kBreathBarWeight * (state_.barOsc - 0.5f);
+    state_.breath = std::clamp(oneOle(state_.breath, breathTarget, dt, kBreathSeconds), kBreathLo, kBreathHi);
+
+    // ---- flow phase: monotonic, rate set by loudness, never the sign --------
+    const float flowRate = kFlowBaseHz + kFlowEnergyHz * state_.energyRel;
+    // Both integrate in double (a float clock stalls at a slow rate late in a session); the state's floats
+    // are the uniforms, cast once.
+    flowPhaseD_ = std::fmod(flowPhaseD_ + dt * flowRate, static_cast<double>(kTimeWrapSeconds));
+    // The same rate times Speed: bit-for-bit flowPhase at Speed 1 (SpeedClock::advance).
+    flowTimeD_ = speedclock::advance(flowTimeD_, speed, flowRate, dt, kTimeWrapSeconds);
+    state_.flowPhase = static_cast<float>(flowPhaseD_);
+    state_.flowTime = static_cast<float>(flowTimeD_);
+}
+
+// Reshapes every family's parameters from the continuous state step() just
+// computed. Nothing here is a trigger, and nothing here writes brightness,
+// intensity or contrast: those stay exactly what
+// the caller passed in and go through the safety clamp unchanged.
+SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float spin) const {
+    const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
+    // Rotation, sway and turbulence are rates safety::apply scales for reduced
+    // motion after this, so their terms take the dials unscaled: scaling them
+    // here too slowed them to 0.4 x 0.4 of full. Every other term below is a
+    // shape safety leaves alone, so it is scaled here, once.
+    const float amountDial = std::clamp(p.motionAmount, 0.0f, 1.0f);
+    const float motionAmount = amountDial * g;
+    const float motionBreath = std::clamp(p.motionBreath, 0.0f, 1.0f) * g;
+    const float motionDrift = std::clamp(p.motionDrift, 0.0f, 1.0f);
+    const float motionHue = std::clamp(p.motionHue, 0.0f, 1.0f) * g;
+    const auto& s = state_;
+    SceneParams o = p;
+
+    // A breath of 1 leaves zoom untouched; the dial fades toward that, not to
+    // zero motion, so turning motionBreath down settles the picture rather
+    // than freezing it.
+    const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
+    o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
+    if (spin != 0.0f) {
+        // The bar wave no longer rocks the sway on top: no sound turns a style (owner 2026-11-12).
+        o.rotation = std::clamp(p.rotation + driftRate_ * kDriftSpinGain * motionDrift * spin, -3.0f, 3.0f);
+    }
+    o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
+    o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
+    // Under the Motion dial like every other term here: at 0 the music leaves Speed alone.
+    o.speed = std::clamp(p.speed * (1.0f + amountDial * (0.5f * s.energyRel - 0.3f)), 0.05f, 4.0f);
+    // The style's hue driver, gated by how far it is trusted (a pitch's confidence, or the music playing), offset
+    // slightly further by how bright the passage reads.
+    const float hueOffset = s.hueStrength * wrappedDelta01(0.5f, s.hue);
+    o.colorShift = p.colorShift + motionHue * (hueOffset + 0.1f * (s.bright - 0.5f));
+
+    o.turbulence = std::clamp(p.turbulence + amountDial * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
+    o.particleSize = std::clamp(p.particleSize * (1.0f + motionAmount * 0.2f * s.energySwing), 0.3f, 2.5f);
+    o.density = std::clamp(p.density * (1.0f + motionAmount * 0.15f * s.energySwing), 0.1f, 1.0f);
+    o.trailLength = std::clamp(p.trailLength + motionAmount * 0.15f * s.energySwing, 0.05f, 0.98f);
+
+    o.fluidCurl = std::clamp(p.fluidCurl + motionAmount * 10.0f * (s.bassRel - 1.0f), 0.0f, 50.0f);
+    o.fluidStirrerSpeed = std::clamp(p.fluidStirrerSpeed * (1.0f + motionAmount * 0.4f * s.midSwing), 0.0f, 2.0f);
+    o.fluidSplatForce = std::clamp(p.fluidSplatForce * (1.0f + motionAmount * 0.3f * (s.bassRel - 1.0f)), 0.0f, 3.0f);
+
+    o.cymaticsFlow = std::clamp(p.cymaticsFlow + motionAmount * 0.25f * (s.bassRel - 1.0f), 0.0f, 1.0f);
+    o.cymaticsSwirl = std::clamp(p.cymaticsSwirl + motionAmount * 0.2f * (1.0f - s.harmony), -1.0f, 1.0f);
+    o.cymaticsRing = std::clamp(p.cymaticsRing + motionAmount * 0.15f * (s.bassRel - 1.0f), 0.0f, 1.0f);
+
+    return o;
+}
+
+}  // namespace geode::viz

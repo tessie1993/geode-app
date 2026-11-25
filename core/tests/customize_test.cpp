@@ -1,4 +1,4 @@
-// Host-side checks for the Customize panel's map (core/viz/CustomizeMap). Built and run by CI
+// Host-side checks for the Customize panel's map (core/viz/panel/CustomizeMap). Built and run by CI
 // (.github/workflows/android.yml, "Customize map host tests") with the system compiler; no GL.
 //
 //   customize_test core/tests/customize.txt           checks, including text() against the fixture
@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "viz/CustomizeMap.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 
 using namespace geode::viz;
 using customize::Category;

@@ -3,8 +3,8 @@
 #include <utility>
 
 #include "api/geode_api.h"
-#include "viz/Catalogue.hpp"
-#include "viz/CataloguePresets.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/styles/catalogue/CataloguePresets.hpp"
 
 namespace {
 

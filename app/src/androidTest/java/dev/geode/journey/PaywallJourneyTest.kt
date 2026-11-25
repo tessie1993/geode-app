@@ -3,8 +3,10 @@ package dev.geode.journey
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import dev.geode.BuildConfig
 import dev.geode.ui.MainActivity
@@ -37,7 +39,7 @@ class PaywallJourneyTest {
     }
 
     /**
-     * Silk styles are Pro: only the shader styles are in FreeTier. A tap loads a style; a Pro one
+     * Silk styles are Pro: ten styles are free (FreeTier). A tap loads a style; a Pro one
      * plays on the visual while the paywall offers it. Silk is picked in the Styles family dropdown.
      */
     private fun tapLockedStyle() {
@@ -62,16 +64,22 @@ class PaywallJourneyTest {
         compose.awaitNoNode(stylesTitle)
     }
 
+    /**
+     * The fake store sells nothing until the tester code is entered, and the code is not in the repo:
+     * CI passes it as the `testerCode` instrumentation argument (a secret). Without it this skips.
+     */
     @Test
     fun buyingProUnlocksTheStyle() {
+        val code = InstrumentationRegistry.getArguments().getString("testerCode")
+        assumeTrue("needs -e testerCode", !code.isNullOrBlank())
         openVisualsStyles()
         tapLockedStyle()
         compose.awaitNode(stylesTitle)
         compose.awaitNode(hasText("Debug billing (fake)"))
 
-        // "Unlock Pro · <price>": the fake answers the price query after ~900 ms, and until
-        // then the button reads "Getting the price…".
-        compose.tap(hasText("Unlock Pro", substring = true))
+        // The code grants Pro at once, as a purchase would.
+        compose.onNode(hasText("Tester code")).performTextInput(code!!)
+        compose.tap("Unlock")
         compose.tap("Start creating")
         compose.awaitNoNode(stylesTitle)
 

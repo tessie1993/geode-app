@@ -1,4 +1,4 @@
-// Host-side checks for the user's modulation document (core/viz/ModDocument, core/viz/ModCatalog and the
+// Host-side checks for the user's modulation document (core/viz/modulation/ModDocument, core/viz/modulation/ModCatalog and the
 // handle-free half of api/geode_modulation_api.h): text installs have saved still reads, every forgiving
 // read lands on a default or inside a range, each edit clamps, and the pickers list what the engine runs.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Modulation document host tests"); no GL.
@@ -11,10 +11,10 @@
 #include <vector>
 
 #include "api/geode_modulation_api.h"
-#include "viz/ModCatalog.hpp"
-#include "viz/ModDocument.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/ReactionText.hpp"
+#include "viz/modulation/ModCatalog.hpp"
+#include "viz/modulation/ModDocument.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/ReactionText.hpp"
 
 using namespace geode::viz;
 

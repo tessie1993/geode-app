@@ -1,5 +1,5 @@
-// Host-side checks for "Random on waves": the two random wave shapes of core/viz/Lfo (Random steps, Random
-// glide) and the roll of a whole set of waves (core/viz/WaveRandomizer). No GL.
+// Host-side checks for "Random on waves": the two random wave shapes of core/viz/modulation/Lfo (Random steps, Random
+// glide) and the roll of a whole set of waves (core/viz/modulation/WaveRandomizer). No GL.
 //
 // The shapes: a new value each cycle, held in between, the same at 30, 60 and 120 fps, different per
 // slot, set by the engine's seed, one step per cycle when the music clock jitters over a boundary, no
@@ -14,11 +14,11 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/VisualSafety.hpp"
-#include "viz/WaveRandomizer.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/VisualSafety.hpp"
+#include "viz/modulation/WaveRandomizer.hpp"
 
 using namespace geode::viz;
 
@@ -383,6 +383,29 @@ void aWaveOnThePalettesStaysUnderTheFlashRate() {
     }
 }
 
+// A wave that follows the sound falls back at the same speed in seconds whatever the frame rate: a tenth of a second
+// after the bass stops, a 30, a 60 and a 120 fps surface (and an export at any of them) read the same value.
+void aFollowedWaveFallsAlikeAtEveryFrameRate() {
+    const auto fallen = [](int fps) {
+        LfoEngine engine;
+        engine.configs[0] = wave(LfoWave::Sine, 1.0f);
+        engine.configs[0].source = ModSource::Bass;
+        const float dt = 1.0f / static_cast<float>(fps);
+        GeodeSoundFrame loud{};
+        loud.bassAtt = 2.0f;
+        for (int k = 0; k < 2 * fps; ++k) engine.tick(dt, loud);
+        const GeodeSoundFrame quiet{};
+        float out = 0.0f;
+        for (int k = 0; k < fps / 10; ++k) out = engine.tick(dt, quiet)[0];
+        return out;
+    };
+    const float at30 = fallen(30);
+    const float at60 = fallen(60);
+    const float at120 = fallen(120);
+    check(std::fabs(at30 - at120) < 1e-3f && std::fabs(at60 - at120) < 1e-3f, "a followed wave falls alike at 30, 60 and 120 fps");
+    check(std::fabs(at60) < 0.9f, "and it is part-way down a tenth of a second on, not still up or already down");
+}
+
 // A NaN in the sound frame is one bad frame, not a slot stuck on NaN: a followed field and a beat-timed wave whose
 // clock read NaN both come back once the frame is finite again.
 void aNonFiniteFrameDoesNotLatch() {
@@ -437,6 +460,7 @@ int main() {
     aWaveOnAKnobStaysUnderTheFlashRate();
     aWaveOnThePalettesStaysUnderTheFlashRate();
     aNonFiniteFrameDoesNotLatch();
+    aFollowedWaveFallsAlikeAtEveryFrameRate();
     if (failures == 0) std::printf("lfo_random_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

@@ -1,4 +1,4 @@
-// Host-side checks for a Customize slider's maths (core/viz/SliderMap) and its C ABI (geode_slider_*). Built and
+// Host-side checks for a Customize slider's maths (core/viz/panel/SliderMap) and its C ABI (geode_slider_*). Built and
 // run by CI ("Native host tests") with the system compiler; no device.
 //
 // What is pinned: when Reset is offered, a whole-number slider's ticks and snap (rounded, so a position a hair
@@ -9,7 +9,7 @@
 #include <limits>
 
 #include "api/geode_api.h"
-#include "viz/SliderMap.hpp"
+#include "viz/panel/SliderMap.hpp"
 
 namespace slider = geode::viz::slider;
 

@@ -11,6 +11,12 @@ package dev.geode.pro
  * free tier can be tuned without touching a single gate.
  */
 enum class ProFeature {
+    /**
+     * Rendering a video at all (Studio › Render, the export sheet, loop and batch renders). Pro and the
+     * trial; the trial's renders keep the free limits ([FreeTier.TRIAL_EXPORTS_LIMITED]).
+     */
+    EXPORT,
+
     /** Exports with a short side above 1080 px — the 4K "Master" preset and its relatives. */
     EXPORT_4K,
 

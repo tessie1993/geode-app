@@ -29,6 +29,10 @@ enum class FakePurchaseOutcome {
  *
  * It writes the same [EntitlementStore] the real one does, so in a debug build "owning" Pro here
  * also reaches the wallpaper and screensaver through [ProSnapshot].
+ *
+ * With [requiresTesterCode] (the app's wiring) nothing is free here: until a tester enters
+ * [TesterCode] every purchase fails as billing unavailable, as Play answers an app id it does not
+ * know, and the debug controls stay hidden. Tests build it without, so purchases simply succeed.
  */
 class FakeBillingRepository(
     private val store: EntitlementStore = InMemoryEntitlementStore(),
@@ -36,8 +40,16 @@ class FakeBillingRepository(
     /** Simulated Play latency. 0 in tests (virtual time makes any value instant anyway). */
     private val latencyMs: Long = 0L,
     private val product: ProductLoad = ProductLoad.Ready(SAMPLE_PRODUCT),
+    requiresTesterCode: Boolean = false,
+    /** Whether a typed code is the tester code; tests pass their own so the real one stays out of the repo. */
+    private val isTesterCode: (String) -> Boolean = TesterCode::matches,
 ) : BillingRepository {
     private val isPro = MutableStateFlow(store.load().owned)
+
+    private val unlocked = MutableStateFlow(!requiresTesterCode || isPro.value)
+
+    /** Whether the tester code was entered (or never needed): the debug controls and purchases work. */
+    val testerUnlocked: StateFlow<Boolean> = unlocked.asStateFlow()
     private val productState = MutableStateFlow<ProductLoad>(ProductLoad.Loading)
     private val status = MutableStateFlow<PurchaseStatus>(PurchaseStatus.Idle)
 
@@ -79,6 +91,10 @@ class FakeBillingRepository(
             status.value = PurchaseStatus.Idle
             throw e
         }
+        if (!unlocked.value) {
+            status.value = PurchaseStatus.Failed(BillingError.BILLING_UNAVAILABLE)
+            return
+        }
         status.value =
             when (nextOutcome.value) {
                 FakePurchaseOutcome.SUCCEED -> {
@@ -105,6 +121,14 @@ class FakeBillingRepository(
         pending.value = false
         setOwned(true)
         status.value = PurchaseStatus.Purchased
+    }
+
+    /** The tester code: right, and Pro is granted and the debug controls open. False when it is wrong. */
+    fun unlockWithCode(code: String): Boolean {
+        if (!isTesterCode(code)) return false
+        unlocked.value = true
+        setOwned(true)
+        return true
     }
 
     /** Grants or revokes Pro outright: the debug toggle, and a refund in tests. */

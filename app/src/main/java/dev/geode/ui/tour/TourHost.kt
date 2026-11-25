@@ -32,8 +32,8 @@ internal val LocalTourNudge = staticCompositionLocalOf<(GestureTip) -> Unit> { {
  * Draws the tour over the app and tells [viewModel] what the app looks like: the marked controls
  * on screen, the screen ([place]) and whether music plays. Every decision is the view model's.
  *
- * [onNavigate] opens the screen a step or a replay asks for; [onOfferPro] is the one-time offer
- * after the first look at Visuals. Both are handed back to the view model once acted on.
+ * [onNavigate] opens the screen a step or a replay asks for, handed back to the view model once
+ * acted on. The tour makes no Pro offer: that waits for a taste of the app (`pro/PaywallPrompts`).
  */
 @Composable
 internal fun TourHost(
@@ -43,7 +43,6 @@ internal fun TourHost(
     playing: Boolean,
     cover: TourCover,
     onNavigate: (TourNav) -> Unit,
-    onOfferPro: () -> Unit,
 ) {
     val placeNow by rememberUpdatedState(place)
     val playingNow by rememberUpdatedState(playing)
@@ -63,12 +62,6 @@ internal fun TourHost(
         LaunchedEffect(nav) {
             onNavigate(nav)
             viewModel.onNavigated()
-        }
-    }
-    if (state.offerPro && !blocked) {
-        LaunchedEffect(Unit) {
-            onOfferPro()
-            viewModel.onProOffered()
         }
     }
     val step = state.step

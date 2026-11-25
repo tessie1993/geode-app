@@ -18,10 +18,13 @@ import dev.geode.model.DeviceTrack
  * the name escaped ([folderId]) so it holds no `|`; a playable id is `<parentId>|<uri>` so the parent
  * list can be rebuilt when one of its rows is tapped.
  */
-class LibraryTree(
+class LibraryTree internal constructor(
     private val context: Context,
+    private val scan: (Context) -> List<Row>,
 ) {
-    private data class Row(
+    constructor(context: Context) : this(context, { buildTracks(it) })
+
+    internal data class Row(
         val uri: String,
         val title: String,
         val artist: String,
@@ -54,15 +57,20 @@ class LibraryTree(
     fun children(parentId: String): List<MediaItem> =
         when (parentId) {
             ROOT -> topLevel()
-            TRACKS -> tracks().map { playable(parentId, it) }
             ALBUMS -> groups(ALBUMS, tracks().map { it.album }, MediaMetadata.MEDIA_TYPE_ALBUM)
             ARTISTS -> groups(ARTISTS, tracks().map { it.artist }, MediaMetadata.MEDIA_TYPE_ARTIST)
             PLAYLISTS ->
                 MusicPlaylistStore(context).list().map { folder(folderId(PLAYLISTS, it.name), it.name, MediaMetadata.MEDIA_TYPE_PLAYLIST) }
-            FAVOURITES -> rowsFor(FavouritesStore(context.geodeContainer.prefsFiles.favourites).all()).map { playable(parentId, it) }
-            RECENT ->
-                HistoryStore(context).recentlyPlayed(RECENT_LIMIT).map { playable(parentId, Row(it.uri, it.title, it.artist, "")) }
-            else -> groupChildren(parentId)
+            else -> rowsIn(parentId).map { playable(parentId, it) }
+        }
+
+    /** The playable rows of [parentId]: empty for a folder of folders or an id the tree never hands out. */
+    private fun rowsIn(parentId: String): List<Row> =
+        when (parentId) {
+            TRACKS -> tracks()
+            FAVOURITES -> rowsFor(FavouritesStore(context.geodeContainer.prefsFiles.favourites).all())
+            RECENT -> HistoryStore(context).recentlyPlayed(RECENT_LIMIT).map { Row(it.uri, it.title, it.artist, "") }
+            else -> if ('/' in parentId) groupRows(parentId) else emptyList()
         }
 
     /** The playable rows of the folder a tapped id came from, and where the tapped one sits. */
@@ -133,11 +141,16 @@ class LibraryTree(
         return sameArtist || (album.isNotBlank() && album.equals(other.album, ignoreCase = true))
     }
 
+    /**
+     * The row [mediaId] names in the folder it came from; null for a uri that folder does not list. Only that
+     * one item is built. A search result is a library track, so it is looked up there rather than searched again.
+     */
     fun playable(mediaId: String): MediaItem? {
+        val parent = mediaId.substringBefore(SEPARATOR, "")
         val uri = mediaId.substringAfter(SEPARATOR, "")
-        if (uri.isEmpty()) return null
-        val row = rowsFor(listOf(uri)).firstOrNull() ?: Row(uri, uri.substringAfterLast('/'), "", "")
-        return playable(mediaId.substringBefore(SEPARATOR), row)
+        if (parent.isEmpty() || uri.isEmpty()) return null
+        val rows = if (parent.startsWith("$SEARCH/")) tracks() else rowsIn(parent)
+        return rows.firstOrNull { it.uri == uri }?.let { playable(parent, it) }
     }
 
     private fun topLevel(): List<MediaItem> =
@@ -166,24 +179,21 @@ class LibraryTree(
     private fun searchRows(query: String): List<Row> =
         if (query.isBlank()) emptyList() else nativeSearch(arrayOf(query, null, null, null, null), SEARCH_LIMIT)
 
-    private fun groupChildren(parentId: String): List<MediaItem> {
-        val kind = parentId.substringBefore('/')
+    private fun groupRows(parentId: String): List<Row> {
         val name = parentId.substringAfter('/', "")
-        val rows =
-            when (kind) {
-                SEARCH -> searchRows(name)
-                ALBUMS -> tracks().filter { it.album == folderName(name) }
-                ARTISTS -> tracks().filter { it.artist == folderName(name) }
-                PLAYLISTS ->
-                    MusicPlaylistStore(context)
-                        .list()
-                        .firstOrNull { it.name == folderName(name) }
-                        ?.trackUris
-                        ?.let(::rowsFor)
-                        .orEmpty()
-                else -> emptyList()
-            }
-        return rows.map { playable(parentId, it) }
+        return when (parentId.substringBefore('/')) {
+            SEARCH -> searchRows(name)
+            ALBUMS -> tracks().filter { it.album == folderName(name) }
+            ARTISTS -> tracks().filter { it.artist == folderName(name) }
+            PLAYLISTS ->
+                MusicPlaylistStore(context)
+                    .list()
+                    .firstOrNull { it.name == folderName(name) }
+                    ?.trackUris
+                    ?.let(::rowsFor)
+                    .orEmpty()
+            else -> emptyList()
+        }
     }
 
     private fun groups(
@@ -195,31 +205,12 @@ class LibraryTree(
     /** Memoised merge of device tracks and imported documents; Media3 calls its callbacks on its own executor. */
     private fun tracks(): List<Row> =
         cachedTracks ?: synchronized(this) {
-            cachedTracks ?: buildTracks().also { cachedTracks = it }
+            cachedTracks ?: scan(context).also { cachedTracks = it }
         }
-
-    /** Device tracks first, then imported documents the MediaStore does not index; app-side title edits win. */
-    private fun buildTracks(): List<Row> {
-        val overrides = TrackLibrary(context).list().associateBy { it.uri }
-        val device = DeviceTrackQuery.query(context).map { it.row(overrides) }
-        val seen = device.mapTo(HashSet()) { it.uri }
-        val imported = overrides.values.filter { it.uri !in seen }.map { Row(it.uri, it.title, it.artist, it.album) }
-        return device + imported
-    }
 
     private fun rowsFor(uris: List<String>): List<Row> {
         val byUri = tracks().associateBy { it.uri }
         return uris.mapNotNull { uri -> byUri[uri] }
-    }
-
-    private fun DeviceTrack.row(overrides: Map<String, dev.geode.model.LibraryTrack>): Row {
-        val stored = overrides[uri]
-        return Row(
-            uri,
-            stored?.title?.ifBlank { null } ?: title,
-            stored?.artist?.ifBlank { null } ?: artist,
-            stored?.album?.ifBlank { null } ?: album,
-        )
     }
 
     private fun playable(
@@ -291,5 +282,24 @@ class LibraryTree(
         private const val RECENT_LIMIT = 50
         private const val SIMILAR_LIMIT = 50
         private val TOP_LEVEL = setOf(TRACKS, ALBUMS, ARTISTS, PLAYLISTS, FAVOURITES, RECENT)
+
+        /** Device tracks first, then imported documents the MediaStore does not index; app-side title edits win. */
+        private fun buildTracks(context: Context): List<Row> {
+            val overrides = TrackLibrary(context).list().associateBy { it.uri }
+            val device = DeviceTrackQuery.query(context).map { it.row(overrides) }
+            val seen = device.mapTo(HashSet()) { it.uri }
+            val imported = overrides.values.filter { it.uri !in seen }.map { Row(it.uri, it.title, it.artist, it.album) }
+            return device + imported
+        }
+
+        private fun DeviceTrack.row(overrides: Map<String, dev.geode.model.LibraryTrack>): Row {
+            val stored = overrides[uri]
+            return Row(
+                uri,
+                stored?.title?.ifBlank { null } ?: title,
+                stored?.artist?.ifBlank { null } ?: artist,
+                stored?.album?.ifBlank { null } ?: album,
+            )
+        }
     }
 }

@@ -1,4 +1,4 @@
-// The look files' C ABI (core/viz/LookFiles): file names, saved palettes, presets and the template library, as text
+// The look files' C ABI (core/viz/looks/LookFiles): file names, saved palettes, presets and the template library, as text
 // in and text out. Marshals only.
 #include <optional>
 #include <string>
@@ -6,9 +6,9 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
-#include "viz/LookFiles.hpp"
-#include "viz/TemplateFile.hpp"
+#include "viz/colour/Colour.hpp"
+#include "viz/looks/LookFiles.hpp"
+#include "viz/looks/TemplateFile.hpp"
 
 using geode::viz::SceneParams;
 namespace files = geode::viz::files;

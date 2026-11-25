@@ -114,9 +114,26 @@ void indexAt() {
 
 }  // namespace
 
+// One line of many stamps is copied once per stamp, so the copies stop at kMaxLyricsTextBytes rather than
+// asking for stamps x text bytes.
+void stampsPerLine() {
+    using geode::library::kMaxLyricsTextBytes;
+    const std::string text(4096, 'x');
+    const size_t fit = kMaxLyricsTextBytes / text.size();
+    std::string lrc;
+    for (size_t i = 0; i < fit + 10; ++i) lrc += "[00:00]";
+    lrc += text + "\n[00:01]Next\n";
+    const auto parsed = parseLyrics(lrc);
+    size_t bytes = 0;
+    for (const auto& line : parsed.lines) bytes += line.text.size();
+    check(parsed.synced && parsed.lines.size() == fit, "the copies of one line stop at the text budget");
+    check(bytes <= kMaxLyricsTextBytes, "the timed text stays within the budget");
+}
+
 int main() {
     timedLines();
     stamps();
+    stampsPerLine();
     plainLines();
     nothing();
     wire();

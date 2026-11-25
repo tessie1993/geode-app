@@ -73,7 +73,7 @@ std::optional<bool> flagOf(std::string_view s) {
     return std::nullopt;
 }
 
-// The shortest %g that reads back to exactly v (viz/TableNumber's rule, kept here so this file stays free of
+// The shortest %g that reads back to exactly v (util/TableNumber's rule, kept here so this file stays free of
 // the viz headers its host test does not build).
 std::string number(float v) {
     char buf[32];

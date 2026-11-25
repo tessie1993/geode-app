@@ -1,7 +1,7 @@
 #include <new>
 
 #include "api/geode_api.h"
-#include "viz/Shake.hpp"
+#include "viz/input/Shake.hpp"
 
 struct geode_shake {
     geode::viz::ShakeDetector detector;

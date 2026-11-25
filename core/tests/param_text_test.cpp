@@ -1,4 +1,4 @@
-// Host-side checks for the text a Customize control shows for its value (core/viz/ParamText) and its C ABI
+// Host-side checks for the text a Customize control shows for its value (core/viz/panel/ParamText) and its C ABI
 // (geode_param_text). Built and run by CI ("Native host tests") with the system compiler; no device.
 //
 // What is pinned: every text the Kotlin formatter this replaced produced (its test's cases, one for one), the
@@ -9,7 +9,7 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/ParamText.hpp"
+#include "viz/panel/ParamText.hpp"
 
 using geode::viz::paramText;
 using geode::viz::ParamUnit;

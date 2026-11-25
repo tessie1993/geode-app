@@ -285,6 +285,10 @@ object PlaybackEngine {
         releaseIfUnused()
     }
 
+    /** Whether a live session holds a queue. Builds nothing; main thread, as the player is. */
+    @Synchronized
+    fun hasQueue(): Boolean = (session?.player?.mediaItemCount ?: 0) > 0
+
     private fun releaseIfUnused() {
         if (uiHolds > 0 || serviceHolds > 0) return
         session?.release()

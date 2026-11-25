@@ -13,6 +13,8 @@ enum class ReadCap(
     val bytes: Long,
 ) {
     PRESET(4L * MIB),
+
+    // core/library/Lyrics.hpp sizes kMaxLyricsTextBytes to this.
     LYRICS(1L * MIB),
     PLAYLIST(8L * MIB),
     CUBE(32L * MIB),

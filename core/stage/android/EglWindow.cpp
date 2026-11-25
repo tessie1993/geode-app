@@ -155,8 +155,8 @@ void EglWindow::releaseCurrent() {
 
 EGLint EglWindow::swap() {
     if (surface_ == EGL_NO_SURFACE) return EGL_BAD_SURFACE;
-    if (presentNs_ > 0 && presentationTime_) presentationTime_(display_, surface_, presentNs_);
-    presentNs_ = 0;
+    if (stampNs_ > 0 && presentationTime_) presentationTime_(display_, surface_, stampNs_);
+    stampNs_ = 0;
     if (eglSwapBuffers(display_, surface_)) return EGL_SUCCESS;
     const EGLint error = eglGetError();
     GEODE_LOGW(kTag, "eglSwapBuffers: 0x%x", static_cast<unsigned>(error));

@@ -9,11 +9,13 @@ import dev.geode.pro.BillingRepository
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallPrompts
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.pro.ProductLoad
 import dev.geode.pro.PurchaseStatus
 import dev.geode.pro.RestoreResult
+import dev.geode.pro.ShareBonusRepository
 import dev.geode.pro.TrialRepository
 import dev.geode.pro.TrialState
 import kotlinx.coroutines.flow.Flow
@@ -37,11 +39,15 @@ sealed interface RestoreUiState {
     ) : RestoreUiState
 }
 
-/** The fake billing controls, present only when the build bills against [FakeBillingRepository]. */
+/**
+ * The fake billing controls, present only when the build bills against [FakeBillingRepository].
+ * Until [unlocked] (the tester code was entered) only the code field shows.
+ */
 data class DebugBillingUiState(
     val owned: Boolean,
     val nextOutcome: FakePurchaseOutcome,
     val hasPending: Boolean,
+    val unlocked: Boolean = true,
 )
 
 data class PaywallUiState(
@@ -65,6 +71,10 @@ data class PaywallUiState(
         get() = product is ProductLoad.Ready && !gate.isPro && !isBusy && purchase != PurchaseStatus.Pending
 
     val canStartTrial: Boolean get() = trial == TrialState.Available && !gate.isPro && !isBusy
+
+    /** The locked style a share would keep, while the once-per-install bonus is unused; else null. */
+    val shareBonusStyleId: String?
+        get() = (trigger as? PaywallTrigger.Feature)?.styleId?.takeIf { gate.shareBonusAvailable && !gate.allowsStyle(it) }
 }
 
 /**
@@ -81,6 +91,8 @@ class PaywallViewModel
         private val trial: TrialRepository,
         getFeatureGate: GetFeatureGateUseCase,
         private val navigator: PaywallNavigator,
+        private val shareBonus: ShareBonusRepository,
+        private val prompts: PaywallPrompts,
     ) : ViewModel() {
         private val restore = MutableStateFlow<RestoreUiState>(RestoreUiState.Idle)
         private val fake = billing as? FakeBillingRepository
@@ -90,7 +102,9 @@ class PaywallViewModel
 
         private val debug: Flow<DebugBillingUiState?> =
             fake?.let { f ->
-                combine(f.isProStream(), f.nextOutcome, f.hasPending) { owned, next, pending -> DebugBillingUiState(owned, next, pending) }
+                combine(f.isProStream(), f.nextOutcome, f.hasPending, f.testerUnlocked) { owned, next, pending, unlocked ->
+                    DebugBillingUiState(owned, next, pending, unlocked)
+                }
             } ?: flowOf(null)
 
         private val billingState =
@@ -124,12 +138,23 @@ class PaywallViewModel
             }
         }
 
-        /** The app came to the foreground: pick up purchases completed elsewhere. */
+        /** The app came to the foreground: pick up purchases completed elsewhere, and maybe a return's paywall. */
         fun onForeground() {
             viewModelScope.launch { billing.refresh() }
+            prompts.onForeground(gate.value)
         }
 
-        fun open(trigger: PaywallTrigger) = navigator.open(trigger)
+        fun onBackground() = prompts.onBackground()
+
+        /** Visuals on screen, music playing, app in front, for [ms]: counts toward the taste milestone. */
+        fun onVisualsTime(ms: Long) = prompts.onVisualsTime(ms, gate.value)
+
+        /** The song ended or changed, or the music paused: where the taste milestone may open. */
+        fun onMusicBreak() = prompts.onBreak(gate.value)
+
+        fun open(trigger: PaywallTrigger) {
+            navigator.open(trigger)
+        }
 
         fun purchase() {
             if (!uiState.value.canPurchase) return
@@ -157,11 +182,23 @@ class PaywallViewModel
             }
         }
 
+        /**
+         * The share sheet opened for the app: the style this paywall offers is kept for free, once per
+         * install, and the paywall closes on it (the session chooses it as the gate lets it through).
+         */
+        fun keepStyleForShare() {
+            val styleId = uiState.value.shareBonusStyleId ?: return
+            if (shareBonus.grant(styleId)) dismiss()
+        }
+
         fun dismiss() {
             billing.clearPurchaseStatus()
             restore.value = RestoreUiState.Idle
             navigator.dismiss()
         }
+
+        /** The tester code typed on the paywall of a debug or sideload build; false when it is wrong. */
+        fun enterTesterCode(code: String): Boolean = fake?.unlockWithCode(code) ?: false
 
         fun setDebugOwned(owned: Boolean) {
             fake?.setOwned(owned)

@@ -1,8 +1,8 @@
 #include <new>
 
 #include "api/geode_api.h"
-#include "viz/GestureMap.hpp"
-#include "viz/GestureRead.hpp"
+#include "viz/input/GestureMap.hpp"
+#include "viz/input/GestureRead.hpp"
 
 namespace touch = geode::viz::touch;
 

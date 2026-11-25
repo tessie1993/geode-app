@@ -1,4 +1,4 @@
-// Host-side checks for TransitionPrograms (core/viz/Transition.hpp): the base composite program and its
+// Host-side checks for TransitionPrograms (core/viz/passes/Transition.hpp): the base composite program and its
 // LRU of spliced GL Transitions variants. Built and run by CI ("Native host tests") with the system
 // compiler, from any directory.
 //
@@ -17,8 +17,8 @@
 #include <string>
 #include <vector>
 
-#include "viz/ProgramStager.hpp"
-#include "viz/Transition.hpp"
+#include "viz/gl/ProgramStager.hpp"
+#include "viz/passes/Transition.hpp"
 
 using namespace geode::viz;
 

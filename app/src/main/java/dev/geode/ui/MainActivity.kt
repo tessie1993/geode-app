@@ -40,10 +40,15 @@ import dev.geode.cast.CastController
 import dev.geode.model.PresetLink
 import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
+import dev.geode.pro.PaywallIntent
+import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallPrompts
+import dev.geode.pro.PaywallTrigger
 import dev.geode.ui.theme.isTelevision
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Picture-in-picture state shared across the Activity/Compose boundary.
@@ -98,6 +103,32 @@ internal const val PIP_MAX_ASPECT = 2.39f
 internal object SharedLinkInbox {
     var offer by mutableStateOf<SharedLinkOffer?>(null)
 }
+
+/** What an incoming link leads to. Only [Confirm] can ever import, and only through the user. */
+internal sealed interface SharedLinkRoute {
+    data class Confirm(
+        val offer: SharedLinkOffer,
+    ) : SharedLinkRoute
+
+    data object UnreadablePreset : SharedLinkRoute
+
+    data object UnreadableTemplate : SharedLinkRoute
+
+    data object NotOurs : SharedLinkRoute
+}
+
+/** [offer] as read for the confirm dialog; a preset link is read before a template link, as [VisualsViewModel.offerFor] does. */
+internal fun sharedLinkRoute(
+    offer: SharedLinkOffer?,
+    isPresetLink: Boolean,
+    isTemplateLink: Boolean,
+): SharedLinkRoute =
+    when {
+        offer != null -> SharedLinkRoute.Confirm(offer)
+        isPresetLink -> SharedLinkRoute.UnreadablePreset
+        isTemplateLink -> SharedLinkRoute.UnreadableTemplate
+        else -> SharedLinkRoute.NotOurs
+    }
 
 /** "Import shared preset?" / "Replace template?" for the link waiting in [SharedLinkInbox]. */
 @Composable
@@ -200,6 +231,33 @@ class MainActivity : ComponentActivity() {
 
     private val playerViewModel: PlayerViewModel by viewModels()
 
+    @Inject
+    lateinit var paywallPrompts: PaywallPrompts
+
+    @Inject
+    lateinit var paywallNavigator: PaywallNavigator
+
+    /** [PaywallIntent]: the screensaver's notice asking for the paywall of a feature it lacks. */
+    private fun openRequestedPaywall(intent: Intent?) {
+        val feature = PaywallIntent.featureOf(intent) ?: return
+        paywallNavigator.open(PaywallTrigger.Feature(feature))
+        intent?.action = null
+    }
+
+    /**
+     * Every screen the app opens itself (a file picker, the share sheet, a system settings page) starts
+     * here, so the way back from it is not taken for the user returning to the app ([PaywallPrompts]).
+     */
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun startActivityForResult(
+        intent: Intent,
+        requestCode: Int,
+        options: Bundle?,
+    ) {
+        paywallPrompts.onOutboundLaunch()
+        super.startActivityForResult(intent, requestCode, options)
+    }
+
     private fun playFromSearch(intent: Intent?) {
         if (intent?.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
         playerViewModel.playFromSearch(intent.getStringExtra(SearchManager.QUERY).orEmpty())
@@ -208,23 +266,27 @@ class MainActivity : ComponentActivity() {
 
     /**
      * A `geode://preset` or `geode://template` link. Anything can send one, so a readable link
-     * is parked in [SharedLinkInbox] for the user to confirm; an unreadable one goes straight
-     * to the import path, which writes nothing and says why. The intent's data is consumed only
-     * when it was one of ours, so anything else is left for the platform.
+     * is parked in [SharedLinkInbox] for the user to confirm and an unreadable one is only
+     * reported: nothing is imported without the confirm button. The intent's data is consumed
+     * only when it was one of ours, so anything else is left for the platform.
      */
     private fun receiveSharedLink(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
-        val offer = visualsViewModel.offerFor(data)
-        if (offer != null) {
-            SharedLinkInbox.offer = offer
-            intent.data = null
-            return
+        val route =
+            sharedLinkRoute(
+                visualsViewModel.offerFor(data),
+                PresetLink.isPresetLink(data),
+                visualsViewModel.isTemplateLink(data),
+            )
+        when (route) {
+            is SharedLinkRoute.Confirm -> SharedLinkInbox.offer = route.offer
+            SharedLinkRoute.UnreadablePreset ->
+                Toast.makeText(this, R.string.preset_link_unreadable, Toast.LENGTH_LONG).show()
+            SharedLinkRoute.UnreadableTemplate ->
+                Toast.makeText(this, R.string.template_link_unreadable, Toast.LENGTH_LONG).show()
+            SharedLinkRoute.NotOurs -> return
         }
-        if (PresetLink.isPresetLink(data) || visualsViewModel.isTemplateLink(data)) {
-            importSharedPreset(this, visualsViewModel, data)
-            importSharedTemplate(this, visualsViewModel, data)
-            intent.data = null
-        }
+        intent.data = null
     }
 
     override fun onPictureInPictureModeChanged(
@@ -294,6 +356,11 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Not called while the visualizer is in a PiP window, which is still on screen. */
+    override fun onResume() {
+        super.onResume()
+        paywallPrompts.onResumed()
+    }
+
     override fun onStop() {
         super.onStop()
         if (!isChangingConfigurations) playerViewModel.onAppBackground()
@@ -305,6 +372,7 @@ class MainActivity : ComponentActivity() {
         receiveSharedLink(intent)
         receiveAudioFile(this, intent, playerViewModel)
         playFromSearch(intent)
+        openRequestedPaywall(intent)
     }
 
     /**
@@ -349,6 +417,7 @@ class MainActivity : ComponentActivity() {
             receiveSharedLink(intent)
             receiveAudioFile(this, intent, playerViewModel)
             playFromSearch(intent)
+            openRequestedPaywall(intent)
         }
     }
 }

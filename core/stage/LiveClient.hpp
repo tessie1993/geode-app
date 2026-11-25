@@ -86,14 +86,17 @@ public:
     void framePresent(int64_t presentNs) override;
     float governedCapFps() override { return viz_ ? viz_->governedCapFps() : 0.0f; }
     void trimSpares() override;
-    void contextLost() override {}
+    void contextLost() override;
     void service(bool ready) override;
     void release(bool glCurrent) override;
 
     // Any thread from here on.
 
-    // The ring frames hear, or none. Returns once no frame reads the ring it replaced.
+    // The ring frames hear, or none. Never waits for a frame: one in flight keeps the ring it began with and the
+    // next frame hears this one.
     void setSound(const void* ring);
+    // True once no frame reads, or will read, this ring: only then may its owner free it.
+    bool soundReleased(const void* ring);
     // Each queues work for the stage thread; the caller then asks the stage for a service turn. False once the
     // stage released its renderer: nothing was queued, and for a recording no tee will ever open or close.
     bool warm(std::string id);
@@ -127,8 +130,11 @@ private:
     util::WorkHint workHint_;       // the stage thread's: what each frame's CPU work took against its paced length
     std::shared_mutex vizLock_;
 
-    std::mutex soundLock_;  // held across a frame's read of ring_
-    const void* ring_ = nullptr;
+    std::mutex soundLock_;  // held only to swap rings, never across a draw
+    const void* ring_ = nullptr;     // the ring the next, or the frame in flight, hears
+    const void* pending_ = nullptr;  // set while a frame is in flight; becomes ring_ as it ends
+    bool pendingSet_ = false;
+    bool inFrame_ = false;
 
     std::mutex jobsLock_;
     std::vector<Job> jobs_;

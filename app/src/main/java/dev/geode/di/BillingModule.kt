@@ -13,17 +13,23 @@ import dev.geode.billing.FakeBillingRepository
 import dev.geode.billing.ForegroundActivityTracker
 import dev.geode.billing.PlayBillingRepository
 import dev.geode.billing.PrefsEntitlementStore
+import dev.geode.billing.PrefsPromptStore
+import dev.geode.billing.PrefsShareBonusRepository
 import dev.geode.billing.PrefsTrialStore
 import dev.geode.billing.PurchaseVerifier
 import dev.geode.billing.StoredTrialRepository
 import dev.geode.billing.WallClock
 import dev.geode.pro.BillingRepository
+import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallPrompts
+import dev.geode.pro.ShareBonusRepository
 import dev.geode.pro.TrialRepository
 import javax.inject.Singleton
 
 /**
- * Billing wiring. Release builds talk to Play; debug builds get [FakeBillingRepository], whose
- * outcomes the paywall's debug panel switches. [BillingBuild.usesFake] decides (the
+ * Billing wiring. Release builds talk to Play; debug and sideload builds get [FakeBillingRepository],
+ * locked until a tester enters the tester code on the paywall, after which its debug panel switches
+ * the outcomes. [BillingBuild.usesFake] decides (the
  * `USE_FAKE_BILLING` flag, and never in the `release` build type), and `-Pmuzviz.fakeBilling=false` turns
  * the real client on in a debug build.
  */
@@ -41,7 +47,8 @@ object BillingModule {
 
     @Provides
     @Singleton
-    fun provideFakeBilling(store: EntitlementStore): FakeBillingRepository = FakeBillingRepository(store, WallClock.SYSTEM, FAKE_LATENCY_MS)
+    fun provideFakeBilling(store: EntitlementStore): FakeBillingRepository =
+        FakeBillingRepository(store, WallClock.SYSTEM, FAKE_LATENCY_MS, requiresTesterCode = true)
 
     @Provides
     @Singleton
@@ -56,6 +63,19 @@ object BillingModule {
         } else {
             PlayBillingRepository(context, activities, store, PurchaseVerifier.forThisBuild(), WallClock.SYSTEM)
         }
+
+    @Provides
+    @Singleton
+    fun providePaywallPrompts(
+        @ApplicationContext context: Context,
+        navigator: PaywallNavigator,
+    ): PaywallPrompts = PaywallPrompts(PrefsPromptStore(PrefsEntitlementStore.open(context)), navigator, System::currentTimeMillis)
+
+    @Provides
+    @Singleton
+    fun provideShareBonusRepository(
+        @ApplicationContext context: Context,
+    ): ShareBonusRepository = PrefsShareBonusRepository(PrefsEntitlementStore.open(context))
 
     @Provides
     @Singleton

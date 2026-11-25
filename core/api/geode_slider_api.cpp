@@ -1,6 +1,6 @@
-// C ABI over the Customize slider maths (viz/SliderMap). See geode_api.h.
+// C ABI over the Customize slider maths (viz/panel/SliderMap). See geode_api.h.
 #include "api/geode_api.h"
-#include "viz/SliderMap.hpp"
+#include "viz/panel/SliderMap.hpp"
 
 namespace slider = geode::viz::slider;
 

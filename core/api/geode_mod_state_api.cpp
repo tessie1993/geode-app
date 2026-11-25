@@ -1,4 +1,4 @@
-// C ABI over the modulation the app holds while it runs (viz/ModState). See geode_modulation_api.h. The reaction
+// C ABI over the modulation the app holds while it runs (viz/modulation/ModState). See geode_modulation_api.h. The reaction
 // edit sits beside the style traits it deals from (geode_viz_api.cpp), the wave roll beside the other rolls
 // (geode_params_api.cpp).
 #include <mutex>
@@ -7,7 +7,7 @@
 
 #include "api/geode_modulation_api.h"
 #include "api/geode_text_out.hpp"
-#include "viz/ModState.hpp"
+#include "viz/modulation/ModState.hpp"
 
 namespace modstate = geode::viz::modstate;
 

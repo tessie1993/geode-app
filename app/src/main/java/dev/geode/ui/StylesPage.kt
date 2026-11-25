@@ -23,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -100,7 +101,9 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val shelfStore = remember { context.geodeContainer.styleShelf }
     val shelf by shelfStore.shelf.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
+    // The page shows only the style on screen; a param move (pinch, macro) does not recompose it.
+    val sceneId by remember { derivedStateOf { vizState.value.sceneId } }
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     val paywall: PaywallViewModel = geodeViewModel()
     val paywallState by paywall.uiState.collectAsStateWithLifecycle()
@@ -114,12 +117,12 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     var picked by remember {
         mutableStateOf(
             StylesFamilyMemory.picked
-                ?: families.entries.firstOrNull { viz.sceneId in it.value }?.key
+                ?: families.entries.firstOrNull { sceneId in it.value }?.key
                 ?: YOURS,
         )
     }
     val mine = shelf.yours(order, null)
-    val onScreenFamily = familyOf.getOrElse(order.indexOf(viz.sceneId)) { -1 }
+    val onScreenFamily = familyOf.getOrElse(order.indexOf(sceneId)) { -1 }
     val familyOptions = remember(onScreenFamily) { SoundNative.stylesLead(familyNames.size, onScreenFamily).map(familyNames::get) }
     val members = families[picked].orEmpty()
     val ids = if (picked == YOURS) mine else members
@@ -159,7 +162,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     }
     val view = LocalView.current
     val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
-    val onScreenAt = order.indexOf(viz.sceneId)
+    val onScreenAt = order.indexOf(sceneId)
     val shuffleStyle: () -> Unit = {
         val next = SoundNative.stylesRandom(familyOf, open, onScreenAt, false, 0, -1)
         if (next >= 0) {
@@ -179,7 +182,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val list = rememberLazyListState()
     // A new pick opens on the style on screen when it is in the list, else at the top. Only a new pick scrolls:
     // a tap leaves the list where it is.
-    LaunchedEffect(picked) { list.scrollToItem(maxOf(0, ids.indexOf(viz.sceneId))) }
+    LaunchedEffect(picked) { list.scrollToItem(maxOf(0, ids.indexOf(sceneId))) }
     val yoursLabel = stringResource(R.string.styles_yours)
     val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else CustomizeNative.styleFamilyLabel(it) }
     Column(Modifier.fillMaxSize()) {
@@ -217,7 +220,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
                 Text(stringResource(R.string.styles_random_family), Modifier.padding(start = GeodeSpacing.XS), color = accentTextColor())
             }
         }
-        NowPlaying(labels[viz.sceneId] ?: sceneDisplayLabel(viz.sceneId))
+        NowPlaying(labels[sceneId] ?: sceneDisplayLabel(sceneId))
         LazyColumn(
             state = list,
             contentPadding = PaddingValues(bottom = GeodeSpacing.S),
@@ -229,7 +232,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
             items(ids, key = { it }, contentType = { "style" }) { id ->
                 StyleRow(
                     entry = StyleEntry(id, labels[id] ?: sceneDisplayLabel(id)),
-                    chosen = id == viz.sceneId,
+                    chosen = id == sceneId,
                     locked = !gate.allowsStyle(id),
                     favourite = shelf.isFavourite(id),
                     recent = id in shelf.recents,

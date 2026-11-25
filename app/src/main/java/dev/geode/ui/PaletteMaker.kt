@@ -202,7 +202,7 @@ internal fun YourColoursCard(
     var state by remember { mutableStateOf(CustomizeNative.paletteMakerStart(p.frame())) }
     // When the look changes under the editor (another style, preset or undo), it starts over from the look's colours
     // instead of committing its stale stops. The editor's own commits leave the look with the editor's stops.
-    val lookStops = CustomizeNative.paletteMakerStops(CustomizeNative.paletteMakerStart(p.frame())).toList()
+    val lookStops = remember(p) { CustomizeNative.paletteMakerStops(CustomizeNative.paletteMakerStart(p.frame())).toList() }
     LaunchedEffect(lookStops) {
         if (CustomizeNative.paletteMakerStops(state).toList() != lookStops) {
             state = CustomizeNative.paletteMakerStart(p.frame())

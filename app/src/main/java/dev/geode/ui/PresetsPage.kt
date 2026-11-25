@@ -132,16 +132,19 @@ internal fun PresetsTab(
             }
         }
     val byName = remember(viz.presets) { viz.presets.associateBy { it.name } }
+    // Two native calls per preset: once per list or style, not on every param move.
+    val builtIn = remember(viz.presets) { viz.presets.map { BuiltInPresets.isBuiltIn(it.name) } }
+    val forStyle = remember(viz.presets, viz.sceneId) { viz.presets.map { LooksNative.presetMatchesScene(it.sceneId, viz.sceneId) } }
     val entries =
         remember(viz.presets, viz.sceneId, viz.params, presetFolders) {
-            viz.presets.map { p ->
+            viz.presets.mapIndexed { i, p ->
                 val looks = p.sceneId == viz.sceneId && p.params == viz.params
                 PresetEntry(
                     name = p.name,
                     sceneId = p.sceneId,
-                    builtIn = BuiltInPresets.isBuiltIn(p.name),
+                    builtIn = builtIn[i],
                     folder = presetFolders.folderOf(p.name),
-                    forThisStyle = LooksNative.presetMatchesScene(p.sceneId, viz.sceneId),
+                    forThisStyle = forStyle[i],
                     onStage = looks,
                 )
             }

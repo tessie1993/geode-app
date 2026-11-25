@@ -531,7 +531,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
     in.twistSeed = styleVariantSeed(activeScene_->id());
-    in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, static_cast<double>(kTimeWrapSeconds))), fx.life);
+    const double birthsWrap = static_cast<double>(kTimeWrapSeconds);
+    in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, birthsWrap)), fx.life);
     in.quadVao = quadVao_.get();
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();

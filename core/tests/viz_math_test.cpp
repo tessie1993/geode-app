@@ -181,6 +181,31 @@ void aRouteSnapsOnItsFirstFrame() {
     check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "a route switched back on snaps again");
 }
 
+// A route re-pointed in place (a new target, source or mode) is a new cable: it snaps to its target again.
+void aRepointedRouteSnapsAgain() {
+    ReactionEngine e;
+    e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 0.5f, ModCurve::Linear, 1.0f, 1.0f};
+    GeodeSoundFrame f = silence();
+    f.kickEnv = 0.8f;
+    e.tick(f, 1.0f / 60.0f);
+    f.kickEnv = 0.2f;
+    e.tick(f, 1.0f / 60.0f);
+    check(e.output(0) > 0.3f, "the unchanged route is still gliding");
+    e.routes[0].target = LfoTarget::Warp;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.1f) < 1e-4f, "a new target snaps to amount * source");
+    f.kickEnv = 0.8f;
+    e.tick(f, 1.0f / 60.0f);
+    check(e.output(0) < 0.4f && e.output(0) > 0.1f, "and glides again after");
+    e.routes[0].source = ReactSource::SnareEnv;
+    f.snareEnv = 0.6f;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.3f) < 1e-4f, "a new source snaps");
+    e.routes[0].mode = ReactMode::Toggle;
+    e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0)) < 1e-4f || std::fabs(e.output(0) - 0.5f) < 1e-4f, "a new mode snaps to its own value");
+}
+
 // The same sound through the same route at 30, 60, 90 and 144 fps reads the same at equal times (the steps sit on frame boundaries).
 void aRouteSmoothsTheSameAtAnyFrameRate() {
     float at[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -2687,6 +2712,7 @@ int main() {
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
     aRouteSnapsOnItsFirstFrame();
+    aRepointedRouteSnapsAgain();
     aRouteSmoothsTheSameAtAnyFrameRate();
     triggersHoldAndSilenceIsQuiet();
     sourcesReadTheirFieldsInRange();

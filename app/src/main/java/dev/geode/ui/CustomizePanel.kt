@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -260,7 +261,12 @@ private fun CustomizeHeader(
             Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, category.title))
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {
-            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.customize_a11y_undo))
+            // Lit while there is something to undo: the safety net is the one tool here to find at a glance.
+            Icon(
+                Icons.AutoMirrored.Filled.Undo,
+                contentDescription = stringResource(R.string.customize_a11y_undo),
+                tint = if (history.canUndo) accentTextColor() else LocalContentColor.current,
+            )
         }
         Box {
             IconButton(onClick = { menuOpen = true }) {

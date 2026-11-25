@@ -29,7 +29,8 @@ class LibraryTreePlayableTest {
 
     @Test
     fun aSearchResultResolvesAmongTheLibrarysTracks() {
-        assertEquals(LISTED, tree.playable("$SEARCH|$LISTED")?.localConfiguration?.uri?.toString())
+        val found = tree.playable("$SEARCH|$LISTED")
+        assertEquals(LISTED, found?.localConfiguration?.uri?.toString())
         for (uri in UNLISTED) assertNull(uri, tree.playable("$SEARCH|$uri"))
     }
 

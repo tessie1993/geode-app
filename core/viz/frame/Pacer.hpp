@@ -60,9 +60,9 @@ inline int64_t listenAtNs(int64_t nowNs, int64_t presentNs) {
 
 // The stamp (EGL_ANDROID_presentation_time) of a frame meant for the presentation at `presentNs`, where presentations
 // are `intervalNs` apart: the midpoint between it and the one before. The extension leaves the use of the time to
-// the window system; Android's compositor (SurfaceFlinger::transactionReadyTimelineCheck, Android 13 to 16) holds a
-// buffer until a refresh it expects to present later than the stamp, so a stamp on `presentNs` itself can fall
-// either side. No interval: `presentNs` itself. No presentation time: 0, no stamp.
+// the window system; Android's compositor (read in its source for Android 13 to 16) holds a buffer until a refresh
+// it expects to present later than the stamp, so a stamp on `presentNs` itself can fall either side. No interval:
+// `presentNs` itself. No presentation time: 0, no stamp.
 inline int64_t latchStampNs(int64_t presentNs, int64_t intervalNs) {
     if (presentNs <= 0) return 0;
     return intervalNs > 0 ? presentNs - intervalNs / 2 : presentNs;

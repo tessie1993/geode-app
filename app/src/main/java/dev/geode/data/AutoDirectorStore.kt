@@ -11,8 +11,10 @@ import dev.geode.pro.FeatureGate
 import dev.geode.pro.ProFeature
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -73,6 +75,15 @@ class AutoDirectorStore internal constructor(
     private var gate = FeatureGate.FREE
     private var positionMs = 0L
     private var playing = false
+
+    private val tasteEnded = MutableStateFlow(false)
+
+    /**
+     * True while a free user's director has stopped for this song: it was switched on, the music plays
+     * and the free first minute is over. Visuals shows the Pro chip on each rise (a new song starts the
+     * minute again and drops it).
+     */
+    val freeTasteEnded: StateFlow<Boolean> = tasteEnded.asStateFlow()
     private var loaded = false
     private var pushed: Triple<Boolean, Float, Long>? = null
     private var pushedReach: Int? = null
@@ -161,6 +172,7 @@ class AutoDirectorStore internal constructor(
         if (!loaded) return
         val on = repository.value.value.enabled
         val amount = DirectorNative.directorLiveAmount(on, gate.allows(ProFeature.AUTO_DIRECTOR), positionMs, playing)
+        tasteEnded.value = on && playing && amount <= 0f && !gate.allows(ProFeature.AUTO_DIRECTOR)
         val next = Triple(on, amount, seed)
         if (next == pushed) return
         pushed = next

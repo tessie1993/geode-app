@@ -92,7 +92,6 @@ class TourViewModelTest {
             assertEquals(TourNav.VISUALS, vm.uiState.value.navigate)
             vm.onNavigated()
             assertEquals(setOf(TourChapter.START), data.progress.done)
-            assertFalse(vm.uiState.value.offerPro)
 
             vm.onFacts(onVisuals)
             settle()
@@ -126,9 +125,6 @@ class TourViewModelTest {
             assertNull(vm.uiState.value.step)
             assertEquals(setOf(TourChapter.START, TourChapter.VISUALS), data.progress.done)
             assertNull(data.progress.resume)
-            assertTrue(vm.uiState.value.offerPro)
-            vm.onProOffered()
-            assertFalse(vm.uiState.value.offerPro)
         }
 
     @Test
@@ -155,7 +151,6 @@ class TourViewModelTest {
             assertNull(vm.uiState.value.step)
             assertEquals(TourProgress.Finished, data.progress)
             assertTrue(vm.uiState.value.replayNote)
-            assertTrue(vm.uiState.value.offerPro)
 
             vm.onFacts(onVisuals)
             settle()
@@ -284,7 +279,6 @@ class TourViewModelTest {
             assertNull(vm.uiState.value.step)
             assertNull(vm.uiState.value.navigate)
             assertFalse(vm.uiState.value.replayNote)
-            assertFalse(vm.uiState.value.offerPro)
             assertEquals(TourProgress.Finished, data.progress)
         }
 

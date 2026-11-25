@@ -40,10 +40,15 @@ import dev.geode.cast.CastController
 import dev.geode.model.PresetLink
 import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
+import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallPrompts
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.ui.theme.isTelevision
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Picture-in-picture state shared across the Activity/Compose boundary.
@@ -226,6 +231,34 @@ class MainActivity : ComponentActivity() {
 
     private val playerViewModel: PlayerViewModel by viewModels()
 
+    @Inject
+    lateinit var paywallPrompts: PaywallPrompts
+
+    @Inject
+    lateinit var paywallNavigator: PaywallNavigator
+
+    /** [openPaywallIntent]: the screensaver's notice asking for the paywall of a feature it lacks. */
+    private fun openRequestedPaywall(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_PAYWALL) return
+        val feature = intent.getStringExtra(EXTRA_PRO_FEATURE)?.let { name -> ProFeature.entries.firstOrNull { it.name == name } }
+        if (feature != null) paywallNavigator.open(PaywallTrigger.Feature(feature))
+        intent.action = null
+    }
+
+    /**
+     * Every screen the app opens itself (a file picker, the share sheet, a system settings page) starts
+     * here, so the way back from it is not taken for the user returning to the app ([PaywallPrompts]).
+     */
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun startActivityForResult(
+        intent: Intent,
+        requestCode: Int,
+        options: Bundle?,
+    ) {
+        paywallPrompts.onOutboundLaunch()
+        super.startActivityForResult(intent, requestCode, options)
+    }
+
     private fun playFromSearch(intent: Intent?) {
         if (intent?.action != MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
         playerViewModel.playFromSearch(intent.getStringExtra(SearchManager.QUERY).orEmpty())
@@ -324,6 +357,11 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Not called while the visualizer is in a PiP window, which is still on screen. */
+    override fun onResume() {
+        super.onResume()
+        paywallPrompts.onResumed()
+    }
+
     override fun onStop() {
         super.onStop()
         if (!isChangingConfigurations) playerViewModel.onAppBackground()
@@ -335,6 +373,7 @@ class MainActivity : ComponentActivity() {
         receiveSharedLink(intent)
         receiveAudioFile(this, intent, playerViewModel)
         playFromSearch(intent)
+        openRequestedPaywall(intent)
     }
 
     /**
@@ -379,6 +418,22 @@ class MainActivity : ComponentActivity() {
             receiveSharedLink(intent)
             receiveAudioFile(this, intent, playerViewModel)
             playFromSearch(intent)
+            openRequestedPaywall(intent)
         }
+    }
+
+    companion object {
+        private const val ACTION_OPEN_PAYWALL = "dev.geode.action.OPEN_PAYWALL"
+        private const val EXTRA_PRO_FEATURE = "dev.geode.extra.PRO_FEATURE"
+
+        /** Opens the app on the paywall for [feature]; for surfaces outside the activity (the screensaver). */
+        fun openPaywallIntent(
+            context: Context,
+            feature: ProFeature,
+        ): Intent =
+            Intent(context, MainActivity::class.java)
+                .setAction(ACTION_OPEN_PAYWALL)
+                .putExtra(EXTRA_PRO_FEATURE, feature.name)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

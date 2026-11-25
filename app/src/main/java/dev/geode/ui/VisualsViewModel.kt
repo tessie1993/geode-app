@@ -273,7 +273,7 @@ class VisualsViewModel
 
         /**
          * Reads a shared link without importing it, for the confirm dialog. Null when [data]
-         * is no link of ours or cannot be read; the import paths then report it as before.
+         * is no link of ours or cannot be read; `MainActivity` then only reports it.
          */
         fun offerFor(data: String): SharedLinkOffer? {
             if (PresetLink.isPresetLink(data)) {

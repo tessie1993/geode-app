@@ -16,14 +16,15 @@ struct ParsedLyrics {
     bool synced = false;
 };
 
-// The most lyric text one parse hands out: the most the shell reads from one lyrics file (ReadCap.LYRICS). A line
-// with several stamps is copied once per stamp, so without it a short file of many stamps on one long line would
-// ask for gigabytes.
+// The most timed text one parse copies out. A line with several stamps is copied once per stamp, so a short file of
+// many stamps on one long line would otherwise ask for gigabytes. Sized as ReadCap.LYRICS, the largest lyrics file
+// the shell picks: real lyrics repeat a chorus a few times and stay far below it.
 inline constexpr size_t kMaxLyricsTextBytes = size_t{1} << 20;
 
 // An .lrc (or plain lyrics) as lines. Timed lines come back sorted by time, a line with several stamps once per
-// stamp until the timed text reaches kMaxLyricsTextBytes; with no stamp anywhere the plain lines come back in order
-// and `synced` is false. Blank text, or text with nothing to show, gives no lines.
+// stamp, read in file order until the timed text would pass kMaxLyricsTextBytes, the rest dropped; with no stamp
+// anywhere the plain lines come back in order and `synced` is false. Blank text, or text with nothing to show, gives
+// no lines.
 ParsedLyrics parseLyrics(std::string_view text);
 
 // The line being sung at `positionMs`: the last of `count` ascending `timesMs` at or before it, or -1 before the

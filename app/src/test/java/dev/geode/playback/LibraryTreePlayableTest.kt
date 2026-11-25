@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * A controller's media id resolves only to a track the library lists: the uri inside the id is
+ * A controller's media id resolves only to a row the folder it names lists: the uri inside the id is
  * never opened on its own, so a browsing app cannot make the player fetch or read a uri of its choosing.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -24,18 +24,20 @@ class LibraryTreePlayableTest {
         val item = tree.playable("${LibraryTree.TRACKS}|$LISTED")
         assertEquals(LISTED, item?.localConfiguration?.uri?.toString())
         assertEquals("Title", item?.mediaMetadata?.title?.toString())
+        assertEquals("$ALBUM|$LISTED", tree.item("$ALBUM|$LISTED")?.mediaId)
     }
 
     @Test
     fun aUriTheLibraryDoesNotListResolvesToNothing() {
         for (uri in UNLISTED) {
             assertNull(uri, tree.playable("${LibraryTree.TRACKS}|$uri"))
-            assertNull(uri, tree.item("${LibraryTree.FAVOURITES}|$uri"))
+            assertNull(uri, tree.item("$ALBUM|$uri"))
         }
     }
 
     private companion object {
         const val LISTED = "content://media/external/audio/media/1"
+        val ALBUM = LibraryTree.folderId(LibraryTree.ALBUMS, "Album")
         val UNLISTED =
             listOf(
                 "https://example.invalid/a.mp3",

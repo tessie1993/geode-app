@@ -117,7 +117,10 @@ ParsedLyrics parseLyrics(std::string_view text) {
         }
         if (line.empty()) continue;
         for (const long long at : stamps) {
-            if (line.size() > kMaxLyricsTextBytes - timedBytes) break;
+            if (line.size() > kMaxLyricsTextBytes - timedBytes) {
+                timedBytes = kMaxLyricsTextBytes;  // full: no later line fits either
+                break;
+            }
             timedBytes += line.size();
             timed.push_back({at, std::string(line)});
         }

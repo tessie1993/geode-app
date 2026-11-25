@@ -136,11 +136,11 @@ class LibraryTree internal constructor(
         return sameArtist || (album.isNotBlank() && album.equals(other.album, ignoreCase = true))
     }
 
+    /** The row [mediaId] names in the folder it came from; null for a uri that folder does not list. */
     fun playable(mediaId: String): MediaItem? {
-        val uri = mediaId.substringAfter(SEPARATOR, "")
-        if (uri.isEmpty()) return null
-        val row = rowsFor(listOf(uri)).firstOrNull() ?: return null
-        return playable(mediaId.substringBefore(SEPARATOR), row)
+        val parent = mediaId.substringBefore(SEPARATOR, "")
+        if (parent.isEmpty()) return null
+        return children(parent).firstOrNull { it.mediaId == mediaId }
     }
 
     private fun topLevel(): List<MediaItem> =

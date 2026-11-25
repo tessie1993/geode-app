@@ -116,13 +116,18 @@ jobs:
           ref: ${{ needs.commit.outputs.sha }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
+          # The write token stays out of .git/config, where the Gradle and native build could read it.
+          # Only the steps that push a tag get it (tools/ci-git-auth.sh), for that step alone.
+          persist-credentials: false
 
-      # The setup action comes from this workflow's own commit, not from the ref being shipped,
-      # which may be older than the action.
+      # The setup action and tools/ci-git-auth.sh come from this workflow's own commit, not from the
+      # ref being shipped, which may be older than either.
       - name: Check out this workflow's actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            tools/ci-git-auth.sh
           sparse-checkout-cone-mode: false
           path: .ci
           persist-credentials: false
@@ -144,13 +149,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .ci/tools/ci-git-auth.sh
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
+          # The base becomes a tag, a file name and shell text in later steps.
+          [[ "$BASE" =~ ^[0-9A-Za-z.]+$ ]] || { echo "::error::geode.versionBase '$BASE' is not [0-9A-Za-z.]+"; exit 1; }
           N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)" reserve)
           echo "Release number $N (version $BASE.$N)"
           { echo "n=$N"; echo "base=$BASE"; } >> "$GITHUB_OUTPUT"
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+        env:
+          N: ${{ steps.number.outputs.n }}
+        run: ./gradlew :app:assembleDebug -PreleaseNumber="$N" --stacktrace --no-daemon
 
       - name: ccache statistics
         if: always()
@@ -159,6 +169,8 @@ jobs:
       - name: Package APK and checksum
         id: package
         shell: bash
+        env:
+          EXPECTED: ${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}
         run: |
           set -euo pipefail
           # Read the version from the APK itself, and refuse to publish one whose
@@ -167,7 +179,6 @@ jobs:
           BADGING=$("$AAPT2" dump badging "$APK_SOURCE")
           VERSION_NAME=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")
           VERSION_CODE=$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")
-          EXPECTED="${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}"
           if [ "$VERSION_NAME" != "$EXPECTED" ]; then
             echo "::error::APK versionName is '$VERSION_NAME', expected '$EXPECTED'"
             exit 1
@@ -255,12 +266,16 @@ jobs:
 
       - name: Summarize
         shell: bash
+        env:
+          FILE_NAME: ${{ steps.package.outputs.file_name }}
+          URL: ${{ steps.release.outputs.url }}
+          BUILT_SHA: ${{ steps.package.outputs.built_sha }}
         run: |
           {
-            echo "### Shipped \`${{ steps.package.outputs.file_name }}\`"
+            echo "### Shipped \`$FILE_NAME\`"
             echo
-            echo "- Release: ${{ steps.release.outputs.url }}"
-            echo "- Commit: \`${{ steps.package.outputs.built_sha }}\`"
+            echo "- Release: $URL"
+            echo "- Commit: \`$BUILT_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # A run that failed or was cancelled before publishing hands its number
@@ -280,7 +295,8 @@ jobs:
           elif [ "$DRAFT" = true ]; then
             gh release delete "$TAG" --yes --cleanup-tag || true
           else
-            git push origin --delete "refs/tags/$TAG" || true
+            source .ci/tools/ci-git-auth.sh
+            git push origin --delete "refs/tags/$TAG" || echo "::warning::Could not delete the reserved tag $TAG; delete it by hand so its number is reused."
           fi
 
       - name: Upload reports when the build fails

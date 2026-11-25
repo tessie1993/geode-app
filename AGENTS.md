@@ -50,7 +50,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - Application: `GeodeApp`.
 - Activities: `ui.MainActivity`, `ui.wallpaper.WallpaperOptionsActivity`, `tile.TileLongPressActivity`.
 - Services: `playback.PlaybackService`, `audio.PlaybackCaptureService`, `audio.GeodeNotificationListener`, `export.ExportService`, `cast.CastService`, `tile.PlaybackTileService`, `wallpaper.VisualizerWallpaperService`, `wallpaper.VisualizerDreamService`.
-- Receivers and providers: `widget.NowPlayingWidgetReceiver`, Media3's `MediaTransferReceiver`, a `FileProvider`.
+- Receivers and providers: `widget.NowPlayingWidgetReceiver`, `playback.ResumeButtonReceiver` (media buttons), Media3's `MediaTransferReceiver`, a `FileProvider`.
 - `ui/MainActivity.kt` is the only `@AndroidEntryPoint`; the ViewModels are `@HiltViewModel`.
 
 ## CI (`.github/workflows/`)
@@ -381,3 +381,4 @@ A line records what was done; it is not a rule.
 - 2026-11-20: The live Auto Director amount is native: `director::liveAmount` (`core/viz/Director`, `geode_director_live_amount`, `DirectorNative.directorLiveAmount`) replaces Kotlin `AutoDirectorPolicy` and `FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS`; `AutoDirectorStore.push` calls it; truth table in `core/tests/resolver_test.cpp`.
 - 2026-11-20: `docs/agents/kotlin-logic-map.md` › Port order opens with a status line: which steps landed or are thin shells, and the two slices left (export mux, Cast render thread).
 - 2026-11-21: Compose runtime tracing in the debug APK (`libs.compose.runtime.tracing`, `debugImplementation`), so a Perfetto trace names the composables that recompose; the sideload build is `<profileable android:shell="true"/>` (`app/src/sideload/AndroidManifest.xml`), so it can be profiled from the shell.
+- 2026-11-25: The playback service is promised to the foreground only when it will get there: `playback/ResumeButtonReceiver` (the manifest's media-button receiver, Media3's `shouldStartForegroundService`) declines a play key with no live queue and no saved one; `PlaybackService.ensureRunning` tries `startService` first (`startPromisingOnlyWhenRefused`); the widget's `WidgetTransportAction` binds its controller from the application context; `PlaybackTileService` drops a queued tap when the connection fails. Tests: `ResumeButtonReceiverTest`, `ServiceStartTest`.

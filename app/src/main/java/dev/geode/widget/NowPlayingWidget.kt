@@ -549,13 +549,16 @@ class WidgetTransportAction : ActionCallback {
         parameters: ActionParameters,
     ) {
         val command = parameters[COMMAND] ?: return
-        val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val future = MediaController.Builder(context, token).buildAsync()
+        // Glance hands over its broadcast receiver's context, which may not bind a service, and a
+        // MediaController connects by binding: the application's context can.
+        val app = context.applicationContext
+        val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
+        val future = MediaController.Builder(app, token).buildAsync()
         future.addListener(
             {
                 val controller = runCatching { future.get() }.getOrNull() ?: return@addListener
                 when {
-                    command == PLAY_PAUSE && controller.currentMediaItem == null -> openApp(context)
+                    command == PLAY_PAUSE && controller.currentMediaItem == null -> openApp(app)
                     command == PLAY_PAUSE -> Util.handlePlayPauseButtonAction(controller)
                     command == NEXT -> controller.seekToNext()
                     command == PREVIOUS -> controller.seekToPrevious()
@@ -564,7 +567,7 @@ class WidgetTransportAction : ActionCallback {
                 // the service is in the foreground, or a cold start would lose the tap.
                 Handler(Looper.getMainLooper()).postDelayed(controller::release, RELEASE_DELAY_MS)
             },
-            ContextCompat.getMainExecutor(context),
+            ContextCompat.getMainExecutor(app),
         )
     }
 

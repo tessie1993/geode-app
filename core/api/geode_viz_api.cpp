@@ -18,6 +18,7 @@
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
 #include "api/geode_modulation_api.h"
+#include "api/geode_responder_api.h"
 #include "api/geode_text_out.hpp"
 #include "api/geode_record_handles.hpp"
 #include "api/geode_viz_internal.hpp"
@@ -42,6 +43,8 @@
 #include "viz/modulation/ModTargets.hpp"
 #include "viz/modulation/ReactionDna.hpp"
 #include "viz/modulation/ReactionResolve.hpp"
+#include "viz/modulation/ReactionText.hpp"
+#include "viz/modulation/Responder.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
@@ -519,6 +522,48 @@ ModDocument reactionsOf(const char* reactions, unsigned mask) {
     return doc;
 }
 
+// The Event Responder's rows and responses in a saved reactions text. No text (or one saved before they existed) has
+// none; the page's edits start a new style's from geode_resp_default_text.
+responder::Config responderConfigOf(const char* reactions) {
+    responder::Config config;
+    if (reactions) reactiontext::decodeResponses(reactions, config);
+    return config;
+}
+
+// The style's routes of the matrix that sit on `row`, as listed responses (GEODE_RESP_ORIGIN_STYLE), appended to `out`.
+int appendStyleDefaults(const responder::Config& config, const RouteArray& playing, int count, int row, std::vector<float>& out) {
+    int added = 0;
+    for (int i = 0; i < count; ++i) {
+        const ReactRoute& r = playing[static_cast<size_t>(i)];
+        if (!r.styleDefault || responder::rowOfSource(r.source) != row) continue;
+        responder::Response d;
+        d.enabled = r.enabled && !responder::isMuted(config, static_cast<int>(r.source), static_cast<int>(r.target));
+        d.row = row;
+        d.target = r.target;
+        d.amount = r.amount;
+        d.strength = r.curve;
+        d.fadeIn = r.attackSeconds;
+        d.hold = 0.0f;
+        d.fadeOut = r.releaseSeconds;
+        d.drive = r.mode == ReactMode::Follow ? responder::DriveMode::Follow : responder::DriveMode::Once;
+        const size_t at = out.size();
+        out.resize(at + static_cast<size_t>(responder::kListValues));
+        responder::fieldValues(d, out.data() + at);
+        out[at + static_cast<size_t>(responder::kFieldCount)] = static_cast<float>(static_cast<int>(responder::Origin::StyleDefault));
+        out[at + static_cast<size_t>(responder::kFieldCount) + 1] = static_cast<float>(i);
+        out[at + static_cast<size_t>(responder::kFieldCount) + 2] = static_cast<float>(static_cast<int>(r.source));
+        out[at + static_cast<size_t>(responder::kFieldCount) + 3] = static_cast<float>(static_cast<int>(r.target));
+        ++added;
+    }
+    return added;
+}
+
+int copyFloats(const std::vector<float>& values, float* out, int capacity) {
+    const int n = out ? std::min(static_cast<int>(values.size()), std::max(capacity, 0)) : 0;
+    for (int i = 0; i < n; ++i) out[i] = values[static_cast<size_t>(i)];
+    return n;
+}
+
 // Before a render: what plays, worked out again only when the scene, seed, routes or mask changed.
 void syncReactions(geode_viz* v) {
     RouteArray routes{};
@@ -581,7 +626,7 @@ private:
     int64_t vsyncNs_;
 };
 
-static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
+static_assert(kPageMoments == GEODE_MUSIC_MOMENTS);
 static_assert(kMusicActionCount == GEODE_MUSIC_ACTIONS);
 static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNCLAIMED);
 
@@ -645,8 +690,12 @@ void geode_viz_set_reactions(geode_viz* v, const char* reactions) {
     if (!v) return;
     // The mask is filled in before each render (syncReactions).
     const ModDocument doc = reactionsOf(reactions, 0u);
-    std::lock_guard<std::mutex> lock(v->reactLock);
-    v->userHand = doc.hand;
+    {
+        std::lock_guard<std::mutex> lock(v->reactLock);
+        v->userHand = doc.hand;
+    }
+    // The Event Responder's rows and responses ride in the same text; the renderer latches them for its next frame.
+    v->renderer.setResponses(responderConfigOf(reactions));
 }
 
 void geode_hand_set(unsigned mask, int has_user) { hand::setGlobal(static_cast<std::uint32_t>(mask), has_user != 0); }
@@ -685,6 +734,84 @@ int geode_mod_music_state(const char* style_id, int seed, const char* reactions,
 unsigned geode_mod_recipe_state(int recipe, const char* style_id, int seed, const char* reactions, unsigned mask) {
     if (!style_id) return 0u;
     return reactionsOf(reactions, mask).recipeState(dnaOf(style_id, seed), style_id, recipe);
+}
+
+int geode_resp_rows(const char* reactions, const char* style_id, int seed, unsigned mask, float* out, int capacity) try {
+    if (!style_id) return 0;
+    const ModDocument doc = reactionsOf(reactions, mask);
+    const responder::Config config = reactions ? responderConfigOf(reactions) : responder::newStyleConfig();
+    RouteArray playing{};
+    const int count = mergeHand(doc.hand, dnaOf(style_id, seed), playing);
+    std::vector<float> values(static_cast<size_t>(responder::kRows * GEODE_RESP_ROW_VALUES));
+    for (int row = 0; row < responder::kRows; ++row) {
+        float* o = values.data() + row * GEODE_RESP_ROW_VALUES;
+        std::vector<float> styled;
+        o[0] = config.rowOn[static_cast<size_t>(row)] ? 1.0f : 0.0f;
+        o[1] = static_cast<float>(responder::rowCount(config, row));
+        o[2] = static_cast<float>(appendStyleDefaults(config, playing, count, row, styled));
+        int muted = 0;
+        for (size_t at = 0; at < styled.size(); at += static_cast<size_t>(responder::kListValues)) muted += styled[at] > 0.5f ? 0 : 1;
+        o[3] = static_cast<float>(muted);
+    }
+    return copyFloats(values, out, capacity);
+} catch (...) {
+    return 0;
+}
+
+int geode_resp_values(const char* reactions, const char* style_id, int seed, unsigned mask, int row, float* out,
+                      int capacity) try {
+    if (!style_id || row < 0 || row >= responder::kRows) return 0;
+    const ModDocument doc = reactionsOf(reactions, mask);
+    const responder::Config config = reactions ? responderConfigOf(reactions) : responder::newStyleConfig();
+    RouteArray playing{};
+    const int count = mergeHand(doc.hand, dnaOf(style_id, seed), playing);
+    std::vector<float> values;
+    for (int i = 0; i < config.count; ++i) {
+        const responder::Response& r = config.responses[static_cast<size_t>(i)];
+        if (r.row != row) continue;
+        const size_t at = values.size();
+        values.resize(at + static_cast<size_t>(responder::kListValues));
+        responder::fieldValues(r, values.data() + at);
+        values[at + static_cast<size_t>(responder::kFieldCount)] = static_cast<float>(static_cast<int>(responder::Origin::User));
+        values[at + static_cast<size_t>(responder::kFieldCount) + 1] = -1.0f;
+        values[at + static_cast<size_t>(responder::kFieldCount) + 2] = -1.0f;
+        values[at + static_cast<size_t>(responder::kFieldCount) + 3] = -1.0f;
+    }
+    appendStyleDefaults(config, playing, count, row, values);
+    return copyFloats(values, out, capacity);
+} catch (...) {
+    return 0;
+}
+
+void geode_viz_response_preview(geode_viz* v, const float* values, int count) try {
+    if (!v || !values || count < responder::kFieldCount) return;
+    // The fields go through the edit's own checks, so a card's values land as the page's edits would.
+    responder::Config card;
+    responder::addResponse(card, responder::Response{});
+    constexpr int kRowField = static_cast<int>(responder::Field::Row);
+    responder::setField(card, 0, 0, kRowField, values[kRowField]);
+    const int row = card.responses[0].row;
+    for (int field = 0; field < responder::kFieldCount; ++field) {
+        if (field != kRowField) responder::setField(card, row, 0, field, values[field]);
+    }
+    v->renderer.previewResponse(card.responses[0]);
+} catch (...) {
+}
+
+int geode_viz_responder_status(geode_viz* v, float* out, int capacity) try {
+    if (!v || !out) return 0;
+    const responder::Status s = v->renderer.responderStatus();
+    std::vector<float> values(static_cast<size_t>(GEODE_RESP_STATUS_VALUES));
+    for (int row = 0; row < responder::kRows; ++row) values[static_cast<size_t>(row)] = s.lit[static_cast<size_t>(row)];
+    values[GEODE_RESP_STATUS_COST] = static_cast<float>(s.cost);
+    values[GEODE_RESP_STATUS_BUDGET] = static_cast<float>(s.budget);
+    values[GEODE_RESP_STATUS_LEVEL] = static_cast<float>(s.level);
+    values[GEODE_RESP_STATUS_ACTIVE] = static_cast<float>(s.active);
+    values[GEODE_RESP_STATUS_DROPPED] = static_cast<float>(s.dropped);
+    values[GEODE_RESP_STATUS_ROUTES] = static_cast<float>(s.enabledRoutes);
+    return copyFloats(values, out, capacity);
+} catch (...) {
+    return 0;
 }
 
 unsigned geode_music_actions_for(const char* style_id) { return style_id ? modtargets::musicActionsFor(style_id) : 0u; }

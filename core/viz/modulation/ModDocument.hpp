@@ -74,15 +74,19 @@ struct ModDocument {
     waves::Set lfos{};
     Envelopes adsrs{};
     HandRoutes hand{};
+    // The Event Responder's rows and responses as their saved lines (viz/modulation/ReactionText), kept beside the
+    // routes in the same text and normalised on read; "" when there are none.
+    std::string responses;
 
     void readLfos(std::string_view text);
     void readAdsrs(std::string_view text);
-    // Text that is no reaction list leaves Auto, whatever the mask.
+    // Text that is no reaction list leaves Auto, whatever the mask. A list that marks itself as holding no routes of
+    // the user's (reactiontext::kAutoLine, written beside responses) reads as Auto too, with its responses.
     void readReactions(std::string_view text, std::uint32_t mask);
 
     std::string lfosText() const;
     std::string adsrsText() const;
-    // "" while Auto.
+    // "" while Auto and without responses.
     std::string reactionsText() const;
     // The hand mask to save beside reactionsText(); 0 while Auto.
     std::uint32_t handMask() const { return hand.user ? hand.mask : 0u; }

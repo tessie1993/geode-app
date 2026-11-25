@@ -4,6 +4,7 @@
 
 #include "viz/panel/CustomizeMap.hpp"
 #include "viz/modulation/ModDocument.hpp"
+#include "viz/modulation/ReactionText.hpp"
 
 namespace geode::viz::modstate {
 
@@ -11,7 +12,8 @@ void ModState::load(std::string lfos, std::string adsrs, std::optional<std::stri
     lfos_ = std::move(lfos);
     adsrs_ = std::move(adsrs);
     reactions_ = std::move(reactions);
-    mask_ = reactions_ ? mask : 0u;
+    user_ = reactions_ && !reactiontext::autoMarked(*reactions_);
+    mask_ = user_ ? mask : 0u;
 }
 
 void ModState::setLfo(int slot, int field, float value) {
@@ -37,10 +39,12 @@ void ModState::editReactions(const StyleDna& dna, const std::string& styleId, in
     std::string routes = doc.reactionsText();
     if (routes.empty()) {
         reactions_.reset();
+        user_ = false;
         mask_ = 0u;
         return;
     }
     mask_ = doc.handMask();
+    user_ = doc.hand.user;
     reactions_ = std::move(routes);
 }
 

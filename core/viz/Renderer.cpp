@@ -326,6 +326,23 @@ void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kR
     reactionRoutesDirty_ = true;
 }
 
+void Renderer::setResponses(const responder::Config& config) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    responses_ = config;
+    responsesDirty_ = true;
+}
+
+void Renderer::previewResponse(const responder::Response& response) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    previewRequest_ = response;
+    previewDirty_ = true;
+}
+
+responder::Status Renderer::responderStatus() const {
+    std::lock_guard<std::mutex> lock(responderLock_);
+    return responderStatus_;
+}
+
 void Renderer::fail(const std::string& message) {
     if (holdingErrors_) {
         heldErrors_.push_back(message);

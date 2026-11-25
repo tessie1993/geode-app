@@ -45,12 +45,15 @@ public:
     const std::string& adsrs() const { return adsrs_; }
     const std::optional<std::string>& reactions() const { return reactions_; }
     const std::string& keep() const { return keep_; }
-    Hand hand() const { return {reactions_ ? mask_ : 0u, reactions_.has_value()}; }
+    // `user` is whether the saved text holds routes of the user's: a text that holds only Event Responder rows and
+    // responses (it marks itself, reactiontext::kAutoLine) leaves the style's own routes playing.
+    Hand hand() const { return {user_ ? mask_ : 0u, user_}; }
 
 private:
     std::string lfos_;
     std::string adsrs_;
     std::optional<std::string> reactions_;
+    bool user_ = false;
     std::uint32_t mask_ = 0;
     std::string keep_;
 };

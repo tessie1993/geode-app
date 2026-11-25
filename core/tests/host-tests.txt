@@ -90,7 +90,7 @@ shape_graph_test | stub | core/tests/shape_graph_test.cpp core/viz/styles/shared
 feedback_motion_test | stub | core/tests/feedback_motion_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
-resolver_test | stub | core/tests/resolver_test.cpp core/viz/resolver/Resolver.cpp core/viz/resolver/EngineSettings.cpp \
+resolver_test | stub | core/tests/resolver_test.cpp core/viz/resolver/Resolver.cpp core/viz/modulation/Responder.cpp core/viz/resolver/EngineSettings.cpp \
     core/sound/*.cpp core/viz/director/Director.cpp core/viz/director/DirectorTuning.cpp core/viz/director/DirectorReach.cpp \
     core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/Lfo.cpp \
     core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/ModTargets.cpp \
@@ -98,7 +98,7 @@ resolver_test | stub | core/tests/resolver_test.cpp core/viz/resolver/Resolver.c
     core/viz/params/ParamsFields.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp |
 # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
 # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
-director_reach_test | stub | core/tests/director_reach_test.cpp core/viz/resolver/Resolver.cpp \
+director_reach_test | stub | core/tests/director_reach_test.cpp core/viz/resolver/Resolver.cpp core/viz/modulation/Responder.cpp \
     core/viz/resolver/EngineSettings.cpp core/sound/*.cpp core/viz/director/Director.cpp core/viz/director/DirectorTuning.cpp \
     core/viz/director/DirectorReach.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp \
@@ -439,6 +439,15 @@ mod_controls_test | stub | core/tests/mod_controls_test.cpp core/viz/panel/ModCo
     core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp \
     core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/VisualSafety.cpp |
+# The Event Responder (core/viz/modulation/Responder, ReactionText's response lines, api/geode_responder_api): every row
+# starts off, a parameter response fades in, holds and fades out through the matrix, every Nth, chance and cooldown,
+# a seeded chance that replays, Beat and Bar only with a beat heard, beat-unit envelopes idle at tempo 0, the five new
+# moments, the typed hook for later kinds, the compile into the matrix's free slots, the cost budget, saved text.
+responder_test | stub | core/tests/responder_test.cpp core/viz/modulation/Responder.cpp core/viz/modulation/Adsr.cpp \
+    core/api/geode_responder_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp \
+    core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 # The modulation the app holds (core/viz/modulation/ModState, geode_mod_state_*): an event is the document's own edit,
 # no route of the user's is Auto with no mask, the keep set is normalised and toggled, and the hand mask and
 # keep set reach their process-wide setters.

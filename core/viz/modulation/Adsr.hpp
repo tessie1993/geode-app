@@ -31,6 +31,38 @@ struct AdsrConfig {
     int moment = -1;
 };
 
+// Where an envelope is: at rest, rising to its peak, falling to the sustain, holding it, or letting go.
+enum class AdsrStage { Idle, Attack, Decay, Sustain, Release };
+
+// The numbers one envelope's stages run on (AdsrConfig's, without the targets and the trigger choice).
+struct AdsrShape {
+    float attack = 0.0f;
+    float decay = 0.0f;
+    float sustain = 0.0f;
+    float release = 0.0f;
+    bool sustainTrack = false;
+    bool retrigger = false;
+    float gateThreshold = 0.0f;
+};
+
+// One envelope's stage machine, apart from what triggers it: the waves' envelopes (AdsrEngine) and the Event
+// Responder's responses (viz/modulation/Responder) run the same stages. `hit` is the trigger's strength (0: none),
+// `energy` the level a tracking sustain follows, and the gate says whether the envelope may hold (gateHolds) or
+// restart its sustain from a release (gateOpen).
+struct AdsrVoice {
+    AdsrStage stage = AdsrStage::Idle;
+    float level = 0.0f;
+    float peak = 1.0f;
+
+    void reset() {
+        stage = AdsrStage::Idle;
+        level = 0.0f;
+        peak = 1.0f;
+    }
+    // One frame; returns the level, 0..1.
+    float step(const AdsrShape& c, float dt, float hit, float energy, bool gateOpen, bool gateHolds);
+};
+
 class AdsrEngine {
 public:
     static constexpr int kCount = 2;
@@ -52,13 +84,8 @@ public:
     static constexpr float kMinGateThreshold = config::spec(config::Slot::adsr_gateThreshold).min;
 
 private:
-    // Where an envelope is: at rest, rising to its peak, falling to the sustain, holding it, or letting go.
-    enum class Stage { Idle, Attack, Decay, Sustain, Release };
-
-    std::array<float, kCount> level_{};
-    std::array<Stage, kCount> stage_{};
+    std::array<AdsrVoice, kCount> voice_{};
     std::array<float, kCount> out_{};
-    std::array<float, kCount> peak_{1.0f, 1.0f};
 };
 
 }  // namespace geode::viz

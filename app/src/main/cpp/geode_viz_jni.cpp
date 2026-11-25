@@ -12,6 +12,7 @@
 
 #include "api/geode_api.h"
 #include "api/geode_modulation_api.h"
+#include "api/geode_responder_api.h"
 #include "jni_util.hpp"
 
 namespace {
@@ -476,6 +477,22 @@ Java_dev_geode_engine_bridge_VizNative_vizSetReactions(JNIEnv* env, jobject, jlo
     Utf8Chars text(env, reactions);
     if (reactions && !text.get()) return;  // could not read the text: keep the last one
     geode_viz_set_reactions(vizOf(handle), text.get());
+}
+
+// The Event Responder's two calls that need a renderer (the rest are geode_responder_jni.cpp's).
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderPreview(JNIEnv* env, jobject, jlong handle, jfloatArray values) {
+    FloatElements data(env, values);
+    if (data.get()) geode_viz_response_preview(vizOf(handle), data.get(), data.length());
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderStatus(JNIEnv* env, jobject, jlong handle) {
+    float out[GEODE_RESP_STATUS_VALUES] = {};
+    const int n = geode_viz_responder_status(vizOf(handle), out, GEODE_RESP_STATUS_VALUES);
+    jfloatArray result = env->NewFloatArray(n);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n, out);
+    return result;
 }
 
 JNIEXPORT void JNICALL

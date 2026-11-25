@@ -11,6 +11,14 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Engine: the Event Responder bank.** Song event rows now own ordered lists of
+  responses (strength curve, fade in / hold / fade out, once, while, follow or
+  long, every Nth hit, chance and cooldown), played deterministically through
+  the reaction matrix, which now holds 256 routes. Five events are added after
+  the ten Customize › Music already has: Beat, Bar, Onset, Loudness peak and Key
+  change. Beat and Bar come only when a beat is heard, and envelopes set in
+  beats stay idle while no tempo is. Every row starts off on a new style; saved
+  routes and presets read as before. The page that draws it comes later.
 - **Frames follow the display, and nothing lowers your quality for you.**
   The visual draws once on every refresh the display delivers and only skips
   one while the last frame is still being drawn. Your frame-rate setting is

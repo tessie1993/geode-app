@@ -142,6 +142,12 @@ struct ReactRoute {
     ModCurve curve = ModCurve::Linear;
     float attackSeconds = 0.05f;
     float releaseSeconds = 0.3f;
+    // True for a route an Event Responder response compiled (viz/modulation/Responder): it reads the level the
+    // responder gives it (ReactionEngine::setExternal) instead of `source`. Never saved: the responses are.
+    bool external = false;
+    // True for a route the style's own DNA dealt (mergeHand), as against one the user added. Never saved. Only a
+    // style route can be switched off on its own by the Event Responder; the user's are never held back.
+    bool styleDefault = false;
 };
 
 // Every source value for one frame, computed once and shared by all routes.
@@ -162,6 +168,15 @@ public:
     // Hard cuts seen so far, same wrap: lets a shader hold a variation per big moment.
     float cutCount() const { return cutCount_; }
     static constexpr float kCountWrap = 4096.0f;
+    // A key change: 1 when the key the music is in (KeyHue) has held a new one for kKeyHoldSeconds, then fading
+    // over kKeyChangeSeconds. Not a source of the matrix (the sources are append only); the Key change moment reads it.
+    float keyChange() const { return keyChange_; }
+    static constexpr float kKeyHoldSeconds = 1.0f;
+    static constexpr float kKeyChangeSeconds = 1.5f;
+    // Half a step of the circle of fifths: how far KeyHue must sit from the settled key to count as another.
+    static constexpr float kKeyStep = 1.0f / 24.0f;
+    // How clear the key must read to be believed, so a flicker between neighbours cannot fire it (as kTrustedBeat).
+    static constexpr float kKeyTrusted = 0.3f;
 
 private:
     void stepDerived(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling);
@@ -197,6 +212,12 @@ private:
     bool chordPrimed_ = false;
     float onsetCount_ = 0.0f;
     float cutCount_ = 0.0f;
+    // The key the music has settled in (KeyHue), the candidate it may be moving to and for how long that has held.
+    float settledKey_ = 0.0f;
+    float candidateKey_ = 0.0f;
+    float candidateSeconds_ = 0.0f;
+    bool keyKnown_ = false;
+    float keyChange_ = 0.0f;
 };
 
 // ── Customize › Music's moments and the hand mask ───────────────────────────────────────────────────
@@ -213,8 +234,16 @@ private:
 // (Modulate › Reactions) takes over.
 
 // Wire ordinals, in the page's order; the shell labels them in that order. Append only.
-enum class Moment { Kick, Snare, Hat, Bass, Drop, BuildUp, ChordChange, NewSection, Note, Loudness };
-constexpr int kMomentCount = static_cast<int>(Moment::Loudness) + 1;
+//
+// The first ten are Customize › Music's rows (kPageMoments, GEODE_MUSIC_MOMENTS): they claim sources and take the
+// hand mask's bits. The five after them are the Event Responder's (viz/modulation/Responder): events with no sources
+// of their own to claim, so no saved route or mask changes owner. Beat and Bar come only when a beat is heard.
+enum class Moment {
+    Kick, Snare, Hat, Bass, Drop, BuildUp, ChordChange, NewSection, Note, Loudness,
+    Beat, Bar, Onset, LoudnessPeak, KeyChange,
+};
+constexpr int kPageMoments = static_cast<int>(Moment::Loudness) + 1;
+constexpr int kMomentCount = static_cast<int>(Moment::KeyChange) + 1;
 
 using ReactSourceMask = std::bitset<kReactSourceCount>;
 
@@ -222,11 +251,11 @@ using ReactSourceMask = std::bitset<kReactSourceCount>;
 // whole list (the route editor's edit, and a list saved before the mask existed).
 namespace hand {
 constexpr std::uint32_t kUnclaimed = 1u << 30;
-constexpr std::uint32_t kAll = ((1u << kMomentCount) - 1u) | kUnclaimed;
+constexpr std::uint32_t kAll = ((1u << kPageMoments) - 1u) | kUnclaimed;
 constexpr std::uint32_t bit(Moment m) { return 1u << static_cast<int>(m); }
 // Every source the mask hands to the user.
 ReactSourceMask sources(std::uint32_t mask);
-// The moment `s` belongs to, or -1 when no moment claims it.
+// The moment `s` belongs to, or -1 when no moment claims it. Only the page's moments claim sources.
 int momentOf(ReactSource s);
 // Process-wide like the macro bank and the director, so every renderer's director (screen, export, wallpaper,
 // dream) keeps off the same moments. 0 (nothing the hand's) until the shell pushes the saved mask.
@@ -236,7 +265,8 @@ int momentOf(ReactSource s);
 void setGlobal(std::uint32_t mask, bool hasUser);
 std::uint32_t global();
 // The source a moment is heard on as a trigger: the first event in its set (the kick's hit, a drop, a new section),
-// else its first source (bass, build-up, loudness have no event).
+// else its first source (bass, build-up, loudness have no event). The Responder's: Beat, Downbeat, Onset, Surge, and
+// KeyHue for a key change (whose pulse is ReactSignals::keyChange, which MomentWatch reads in its place).
 ReactSource trigger(Moment m);
 }  // namespace hand
 
@@ -258,15 +288,22 @@ private:
 
 class ReactionEngine {
 public:
-    // Room for the style's DNA (its groove, its transient, its bar-count and its melody routes) with slots to spare
-    // for the user and the recipes (StyleDna::kMaxRoutes).
-    static constexpr int kRoutes = 16;
+    // Room for the style's DNA (its groove, its transient, its bar-count and its melody routes), the user's routes
+    // and the recipes, and the routes the Event Responder compiles its parameter responses into. The DNA still
+    // deals at most StyleDna::kMaxRoutes.
+    static constexpr int kRoutes = 256;
     static constexpr int kConfigFloats = 8; // enabled, source, target, mode, amount, curve, attack, release
 
     std::array<ReactRoute, kRoutes> routes{};
 
     void reset();
     void tick(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
+    // tick() in its two halves, for a caller that gives the external routes their levels in between: the signals
+    // first, then the routes. Call both, in this order, once a frame.
+    void stepSignals(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
+    void tickRoutes();
+    // The level an external route reads this frame (0..1); cleared by reset().
+    void setExternal(int route, float level);
     // Adds every enabled route's output to its target's field in `p`, in place, scaled by its reactAmount and the drive.
     void apply(SceneParams& p) const;
 
@@ -284,6 +321,8 @@ private:
     ReactSignals signals_;
     std::array<float, kRoutes> acc_{};
     std::array<float, kRoutes> out_{};
+    std::array<float, kRoutes> external_{};
+    float dt_ = 0.0f;
     // Whether the route has resolved a frame since it was enabled (or since reset): the first one snaps out_ to its target.
     std::array<bool, kRoutes> primed_{};
     // The (target, source, mode) the route resolved last: a route re-pointed in place is a new cable and snaps again.

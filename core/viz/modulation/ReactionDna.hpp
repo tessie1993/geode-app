@@ -59,9 +59,11 @@ struct StyleTraits {
 };
 
 struct StyleDna {
-    // The DNA leaves the last slots free, so the user and the Events tab's
-    // recipes can add routes without removing any.
-    static constexpr int kMaxRoutes = ReactionEngine::kRoutes - 3;
+    // The DNA leaves the last of its sixteen slots free, so the user and the Events tab's recipes can add routes
+    // without removing any. Sixteen is what the DNA was dealt for; the matrix itself has room for more
+    // (ReactionEngine::kRoutes), and a style's DNA must not grow with it.
+    static constexpr int kDnaRoutes = 16;
+    static constexpr int kMaxRoutes = kDnaRoutes - 3;
     // The groove's layers (the pulse … the transient) fill at most this many;
     // the musical layers (bars, tune, harmony and form, feel and timbre) come
     // after, within kMaxRoutes. The groove gave up one slot for them: a full

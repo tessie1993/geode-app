@@ -7,6 +7,7 @@
 #include "viz/modulation/ModCatalog.hpp"
 #include "viz/modulation/ModDocument.hpp"
 #include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/ReactionText.hpp"
 
 // The handle-free half of the modulation ABI: the calls that need no style traits. The ones that deal a
 // style's own routes sit beside the renderer (geode_viz_api.cpp), the wave roll beside the other rolls
@@ -84,7 +85,10 @@ int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask) try
     if (!reactions) return 0;
     ModDocument doc;
     doc.readReactions(view(reactions), GEODE_HAND_ALL);
-    if (!doc.hand.user) return -1;
+    // A list that marks itself as holding no routes of the user's (it holds Event Responder rows) is Auto, with no mask.
+    if (!doc.hand.user) {
+        return geode::viz::reactiontext::isList(view(reactions)) && geode::viz::reactiontext::autoMarked(view(reactions)) ? 0 : -1;
+    }
     return has_mask ? static_cast<int>(static_cast<unsigned>(saved_mask) & GEODE_HAND_ALL) : static_cast<int>(GEODE_HAND_ALL);
 } catch (...) {
     return 0;

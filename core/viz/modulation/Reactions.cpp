@@ -419,6 +419,11 @@ void ReactSignals::reset() {
     chordPrimed_ = false;
     onsetCount_ = 0.0f;
     cutCount_ = 0.0f;
+    settledKey_ = 0.0f;
+    candidateKey_ = 0.0f;
+    candidateSeconds_ = 0.0f;
+    keyKnown_ = false;
+    keyChange_ = 0.0f;
 }
 
 void ReactSignals::step(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling) {
@@ -590,12 +595,44 @@ void ReactSignals::stepDerived(const GeodeSoundFrame& f, float dt, const sound::
         chordPrimed_ = true;
     }
     values_[static_cast<size_t>(ReactSource::ChordMotion)] = std::clamp(chordSpeed_ / kChordMotionFull, 0.0f, 1.0f);
+
+    // A key change: KeyHue settled somewhere new and held it for a moment. The first key heard is no change, and a
+    // silent frame (no key clarity) moves nothing.
+    keyChange_ *= std::exp(-dt / kKeyChangeSeconds);
+    if (clean(f.keyClarity) >= kKeyTrusted) {
+        const float key = clean(f.keyHue);
+        if (!keyKnown_) {
+            settledKey_ = key;
+            candidateKey_ = key;
+            keyKnown_ = true;
+        } else {
+            float away = key - settledKey_;
+            away -= std::round(away);
+            if (std::fabs(away) < kKeyStep) {
+                candidateSeconds_ = 0.0f;
+            } else {
+                float apart = key - candidateKey_;
+                apart -= std::round(apart);
+                if (std::fabs(apart) >= kKeyStep) {
+                    candidateKey_ = key;
+                    candidateSeconds_ = 0.0f;
+                }
+                candidateSeconds_ += dt;
+                if (candidateSeconds_ >= kKeyHoldSeconds) {
+                    settledKey_ = key;
+                    candidateSeconds_ = 0.0f;
+                    keyChange_ = 1.0f;
+                }
+            }
+        }
+    }
 }
 
 void ReactionEngine::reset() {
     signals_.reset();
     acc_.fill(0.0f);
     out_.fill(0.0f);
+    external_.fill(0.0f);
     primed_.fill(false);
     cableKey_.fill(-1);
     high_.fill(false);
@@ -630,10 +667,24 @@ float ReactionEngine::fold(float accumulator) {
     return u < 2.0f ? u - 1.0f : 3.0f - u;
 }
 
+void ReactionEngine::setExternal(int route, float level) {
+    if (route < 0 || route >= kRoutes) return;
+    external_[static_cast<size_t>(route)] = std::isfinite(level) ? std::clamp(level, 0.0f, 1.0f) : 0.0f;
+}
+
 void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling) {
-    dt = sanitizeDt(dt);
+    stepSignals(f, dt, feeling);
+    tickRoutes();
+}
+
+void ReactionEngine::stepSignals(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling) {
+    dt_ = sanitizeDt(dt);
     gain_ = sound::driveGain(f);
-    signals_.step(f, dt, feeling);
+    signals_.step(f, dt_, feeling);
+}
+
+void ReactionEngine::tickRoutes() {
+    const float dt = dt_;
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
         const size_t k = static_cast<size_t>(i);
@@ -643,7 +694,7 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
             primed_[k] = false;
             continue;
         }
-        const float src = signals_.value(r.source);
+        const float src = r.external ? external_[k] : signals_.value(r.source);
         float target = 0.0f;
         switch (r.mode) {
             case ReactMode::Follow:
@@ -739,8 +790,9 @@ void ReactionEngine::apply(SceneParams& p) const {
     if (scale <= 0.0f) return;
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
+        if (!r.enabled || r.target == LfoTarget::None) continue;
         ModChain chain{};
-        if (!r.enabled || r.target == LfoTarget::None || chainOf(r.target, chain)) continue;
+        if (chainOf(r.target, chain)) continue;
         applyLfoTargetInPlace(p, r.target, out_[static_cast<size_t>(i)] * scale);
     }
 }
@@ -756,7 +808,7 @@ struct MomentSources {
     std::array<ReactSource, 12> sources;
     int count;
 };
-constexpr std::array<MomentSources, kMomentCount> kMomentSources{{
+constexpr std::array<MomentSources, kPageMoments> kMomentSources{{
     {{S::KickEnv, S::Kick, S::Kick2, S::Kick4, S::Kick8, S::Kick16, S::KickToggle, S::KickRandom}, 8},
     {{S::SnareEnv, S::Snare, S::Snare2, S::Snare4, S::SnareToggle}, 5},
     {{S::HatEnv, S::Hat}, 2},
@@ -777,7 +829,7 @@ constexpr std::array<MomentSources, kMomentCount> kMomentSources{{
 constexpr std::array<int, kReactSourceCount> kOwners = [] {
     std::array<int, kReactSourceCount> owners{};
     for (int& o : owners) o = -1;
-    for (int m = 0; m < kMomentCount; ++m) {
+    for (int m = 0; m < kPageMoments; ++m) {
         const MomentSources& ms = kMomentSources[static_cast<size_t>(m)];
         for (int i = 0; i < ms.count; ++i) owners[static_cast<size_t>(ms.sources[static_cast<size_t>(i)])] = m;
     }
@@ -809,7 +861,15 @@ std::uint32_t global() { return gMask.load(std::memory_order_relaxed); }
 
 ReactSource trigger(Moment m) {
     const int i = static_cast<int>(m);
-    if (i < 0 || i >= kMomentCount) return ReactSource::Bass;
+    switch (m) {
+        case Moment::Beat: return ReactSource::Beat;
+        case Moment::Bar: return ReactSource::Downbeat;
+        case Moment::Onset: return ReactSource::Onset;
+        case Moment::LoudnessPeak: return ReactSource::Surge;
+        case Moment::KeyChange: return ReactSource::KeyHue;
+        default: break;
+    }
+    if (i < 0 || i >= kPageMoments) return ReactSource::Bass;
     const MomentSources& ms = kMomentSources[static_cast<size_t>(i)];
     for (int k = 0; k < ms.count; ++k) {
         if (reactSourceInfo(ms.sources[static_cast<size_t>(k)]).event) return ms.sources[static_cast<size_t>(k)];
@@ -833,7 +893,10 @@ std::uint32_t MomentWatch::step(const std::array<float, kMomentCount>& triggers)
 
 std::uint32_t MomentWatch::step(const ReactSignals& signals) {
     std::array<float, kMomentCount> triggers{};
-    for (int m = 0; m < kMomentCount; ++m) triggers[static_cast<size_t>(m)] = signals.value(hand::trigger(static_cast<Moment>(m)));
+    for (int m = 0; m < kMomentCount; ++m) {
+        triggers[static_cast<size_t>(m)] =
+            m == static_cast<int>(Moment::KeyChange) ? signals.keyChange() : signals.value(hand::trigger(static_cast<Moment>(m)));
+    }
     return step(triggers);
 }
 

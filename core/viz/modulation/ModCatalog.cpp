@@ -91,7 +91,7 @@ constexpr std::array<RecipeWords, kEventRecipeCount> kRecipes{{
 }};
 
 // Customize › Music's rows, one per Moment in wire order. The shell draws its own localised label.
-constexpr std::array<Words, kMomentCount> kMoments{{
+constexpr std::array<Words, kPageMoments> kMoments{{
     {"KICK", "Kick"},
     {"SNARE", "Snare"},
     {"HAT", "Hi-hat"},
@@ -212,7 +212,7 @@ std::string build() {
         const RecipeWords& r = kRecipes[static_cast<size_t>(i)];
         out += row("recipe", i, r.name, r.title) + "|" + r.sentence + "\n";
     }
-    for (int i = 0; i < kMomentCount; ++i) {
+    for (int i = 0; i < kPageMoments; ++i) {
         const Words& w = kMoments[static_cast<size_t>(i)];
         out += row("moment", i, w.name, w.label) + "\n";
     }

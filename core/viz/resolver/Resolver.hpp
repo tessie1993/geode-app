@@ -85,6 +85,10 @@ public:
         recompile();
     }
     const viz::responder::Bank& responder() const { return responder_; }
+    // Hands a response kind (Things, Fronts, Fields, Clock control) to the bank that plays it.
+    bool registerResponseKind(viz::responder::KindId kind, viz::responder::ResponseKindHandler* handler) {
+        return responder_.registerKind(kind, handler);
+    }
     // A preset morph: the params glide over `seconds`, for three times that long. <= 0 is ignored.
     void beginMorph(float seconds);
     // A new surface: the stages' state starts over (their configuration and the fade are kept).

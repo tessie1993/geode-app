@@ -443,6 +443,11 @@ responder_test | stub | core/tests/responder_test.cpp core/viz/modulation/Respon
     core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
     core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
+# Clock control (core/viz/clock/SceneClock, ClockResponse): a freeze eases the scene clock to 0 and back at 30, 60, 90 and
+# 144 fps, a stutter loops the last L seconds R times then resumes where real time is, a beat-length stutter idles at
+# tempo 0, a reverse goes negative and eases home, the last fired wins, reset, export determinism, and a Response of
+# kind Clock played by the bank drives the clock.
+scene_clock_test | stub | core/tests/scene_clock_test.cpp core/viz/modulation/Responder.cpp core/viz/modulation/Adsr.cpp     core/api/geode_responder_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp     core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp     core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp     core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 # The modulation the app holds (core/viz/modulation/ModState, geode_mod_state_*): an event is the document's own edit,
 # no route of the user's is Auto with no mask, the keep set is normalised and toggled, and the hand mask and
 # keep set reach their process-wide setters.

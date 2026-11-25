@@ -83,10 +83,13 @@ void ShaderScene::resize(int width, int height) {
 void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     sound_.step(sound, dt);
     const SceneParams& p = params_;
-    shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, static_cast<double>(kTimeWrapSeconds));
+    const float clockStep = clocked_ ? clockStep_ : dt;
+    const float clockRate = clocked_ ? clockRate_ : 1.0f;
+    shaderTime_ = std::fmod(shaderTime_ + p.speed * clockStep, static_cast<double>(kTimeWrapSeconds));
+    if (shaderTime_ < 0.0) shaderTime_ += static_cast<double>(kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
-    for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
+    for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed * clockRate, kTimeWrapSeconds);
     if (pool_) {
         std::array<float, pool::kMaxFingers * 2> fingers{};
         int down = 0;

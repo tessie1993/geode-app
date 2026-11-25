@@ -18,8 +18,8 @@ namespace geode::viz {
 // changes how fast the phase runs and never where it is. The plain value stays in the params for whoever wants the rate.
 //
 // Pure, single-threaded, one step a frame on the dt the picture's clock runs on, so a live frame and an exported
-// one given the same inputs give the same bits. dt is used as given (no clamp here): a non-positive or non-finite dt,
-// or a non-finite rate, adds nothing. Phases are doubles and are not wrapped (a float clock past 4096 s stalls at a
+// one given the same inputs give the same bits. dt is used as given (no clamp here): a zero or non-finite dt,
+// or a non-finite rate, adds nothing; a negative dt (Clock control's reverse) runs the phase back. Phases are doubles and are not wrapped (a float clock past 4096 s stalls at a
 // slow rate, a double does not); the consumer wraps what it reads for its own period (wrapped()).
 class RatePhases {
 public:
@@ -38,7 +38,7 @@ public:
     void reset() { phase_.fill(0.0); }
 
     void step(const SceneParams& effective, float dt) {
-        if (!(dt > 0.0f) || !std::isfinite(dt)) return;
+        if (dt == 0.0f || !std::isfinite(dt)) return;
         for (ParamSlot slot : slots()) {
             const float rate = effective.getSlot(static_cast<int>(slot));
             if (std::isfinite(rate)) phase_[static_cast<size_t>(slot)] += static_cast<double>(rate) * static_cast<double>(dt);

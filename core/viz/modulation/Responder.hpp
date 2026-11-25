@@ -180,6 +180,7 @@ public:
         float holdSeconds = 0.0f;
         float fadeOutSeconds = 0.0f;
         std::uint32_t seed = 1;           // a seeded draw for the kind's own randomness
+        float beatSeconds = 0.0f;         // a beat in seconds while a tempo is heard, else 0 (never a stand-in tempo)
     };
     virtual ~ResponseKindHandler() = default;
     // A response of this kind plays (drive Once, Long, or While as its event begins).

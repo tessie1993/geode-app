@@ -66,10 +66,12 @@ struct Times {
     bool ok = false;
 };
 
+float beatSeconds(float bpm) { return bpm > 0.0f ? 60.0f / bpm : 0.0f; }
+
 Times timesOf(const Response& r, float bpm) {
     if (r.unit == TimeUnit::Seconds) return {r.fadeIn, r.hold, r.fadeOut, true};
     if (!(bpm > 0.0f)) return {};
-    const float beat = 60.0f / bpm;
+    const float beat = beatSeconds(bpm);
     return {r.fadeIn * beat, r.hold * beat, r.fadeOut * beat, true};
 }
 
@@ -405,7 +407,7 @@ void Bank::advance(int index, const Response& r, bool live, bool candidate, bool
             s.running = false;
             s.gate = false;
         } else {
-            if (fire) handler->fire(ResponseKindHandler::Play{index, &r, shaped, t.in, t.hold, t.out, s.rng});
+            if (fire) handler->fire(ResponseKindHandler::Play{index, &r, shaped, t.in, t.hold, t.out, s.rng, beatSeconds(bpm)});
             if (follows) {
                 handler->follow(index, r, std::clamp(shape(level, r.strength), 0.0f, 1.0f));
                 s.running = true;

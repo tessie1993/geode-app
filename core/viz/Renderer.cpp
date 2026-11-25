@@ -51,6 +51,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
       pcmSideScratch_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
+    resolver_.registerResponseKind(responder::kClock, &clockKind_);
 }
 
 Renderer::~Renderer() = default;
@@ -482,6 +483,7 @@ void Renderer::onSurfaceCreated() {
     quadVao_.reset(gl_gen::vertexArray());
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
+    sceneClock_.reset();
     resolver_.reset();
     camera_.reset();
 }

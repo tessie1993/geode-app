@@ -25,6 +25,7 @@
 #include "sound/interp/Waveform.hpp"
 #include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
+#include "viz/clock/ClockResponse.hpp"
 #include "viz/passes/CompositePass.hpp"
 #include "viz/director/Director.hpp"
 #include "viz/passes/DivePass.hpp"
@@ -597,6 +598,11 @@ private:
     double timeSeconds_ = 0.0;  // double, wrapped as one; cast to float where a scene or uniform takes it
     // The music's rate on the picture's clock this frame (sound::motionRate): 0 in silence.
     float musicRate_ = 0.0f;
+    // Clock control (viz/clock): the one scale the scene's clocks run at, which responses of kind Clock drive; its
+    // signed move this frame (stepped in beginFrame, so a response fired in a frame takes hold on the next).
+    sceneclock::SceneClock sceneClock_;
+    sceneclock::ClockKind clockKind_{sceneClock_};
+    float sceneStep_ = 0.0f;
     // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
     // they were drawn at. redrawFrames_ lets a request the params do not carry through.
     bool frameStill_ = false;
@@ -619,6 +625,8 @@ private:
     float stillYaw_ = 0.0f;
     float stillPitch_ = 0.0f;
     std::remove_cvref_t<decltype(std::declval<const TouchField&>().points())> stillTouch_{};
+    // Hands the scene this frame's clock step and scale, then steps it.
+    void updateScene(Scene& scene, const GeodeSoundFrame& sound, float dt);
     bool stillRepeats(const Scene& scene, const SceneParams& p, float wallDt, bool trails, GLuint targetFbo);
     void noteStillDrawn();
     // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's

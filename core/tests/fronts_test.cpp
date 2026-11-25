@@ -135,6 +135,49 @@ void idleAsksForNoPass() {
     check(!f.live() && f.pack().count == 0, "and stops asking when it ends");
 }
 
+// The sign every Reveal rests on: a pixel the front has passed is at a negative distance and shows the other
+// picture; one it has not reached is at a positive distance and shows what was ahead (fronts_frag.glsl).
+void revealSignIsBehindTheFront() {
+    Spawn s = sweep();
+    const float aspect = 1.0f;
+    const float travelled = 0.5f;
+    const float behind = lineDistance(s, travelled, 0.2f, 0.5f, aspect);
+    const float ahead = lineDistance(s, travelled, 0.8f, 0.5f, aspect);
+    check(behind < 0.0f && ahead > 0.0f, "a pixel behind the front is at a negative distance, one ahead at a positive");
+    const float w = 0.05f;
+    check(revealPassed(behind, w) > 0.99f, "a Reveal shows the other picture where the front has passed");
+    check(revealPassed(ahead, w) < 0.01f, "and what was ahead where it has not reached");
+    check(near(revealPassed(0.0f, w), 0.5f), "half way on the line itself");
+}
+
+void sweepCrossesAFrameOfAnyAspect() {
+    const float aspects[] = {0.46f, 1.0f, 1.78f};
+    for (const float a : aspects) {
+        const Spawn left = Spawn::fromEdge(Edge::Left, Kind::Line, a);
+        check(near(left.speed * left.life_s, a), "a sweep from the left crosses a frame as wide as it is");
+        const Spawn bottom = Spawn::fromEdge(Edge::Bottom, Kind::Line, a);
+        check(near(bottom.speed * bottom.life_s, 1.0f), "a sweep from the bottom crosses a frame's height");
+    }
+    const Spawn square = Spawn::fromEdge(Edge::Left, Kind::Line);
+    check(near(square.speed, 0.5f), "an unset aspect reads as square");
+}
+
+void refusesUnknownKindsEffectsAndCapsLife() {
+    FrontField f;
+    Spawn s = sweep();
+    s.kind = static_cast<Kind>(7);
+    check(f.spawnFront(s) == -1, "an unknown kind is refused");
+    s = sweep();
+    s.effect = static_cast<Effect>(-1);
+    check(f.spawnFront(s) == -1, "an unknown effect is refused");
+    check(f.spawns() == 0, "a refused spawn is not counted");
+    s = sweep(1.0e6f);
+    const int slot = f.spawnFront(s);
+    f.step(kMaxLifeSeconds + 1.0f);
+    check(slot == 0 && !f.alive(slot), "a long life is cut to the longest");
+    check(f.spawns() == 1, "a spawn is counted");
+}
+
 }  // namespace
 
 int main() {
@@ -145,6 +188,9 @@ int main() {
     packsTheLiveFronts();
     envelopeFadesInAndOut();
     idleAsksForNoPass();
+    revealSignIsBehindTheFront();
+    sweepCrossesAFrameOfAnyAspect();
+    refusesUnknownKindsEffectsAndCapsLife();
     if (failures == 0) std::printf("fronts_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

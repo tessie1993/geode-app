@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "viz/fx/Envelope.hpp"
+
 // Things: up to 32 short-lived shapes (dots, rings, shards, blobs) that spawn, live and disappear on the
 // picture. This is the state and the maths; ThingPass (viz/passes) draws it. Pure and header-only, so it runs
 // on the host (core/tests/things_test.cpp).
@@ -37,7 +39,9 @@ inline constexpr int kEventCapacity = 16;
 inline constexpr int kMaxChainPerStep = 8;
 inline constexpr float kMaxSpeed = 4.0f;   // uv per second
 inline constexpr float kMaxAccel = 2.0f;   // uv per second squared, the most gravity gives in one moment
-inline constexpr float kSoftening = 0.05f; // frame heights; keeps the pull finite up close
+using fx::kSoftening;  // frame heights; keeps the pull finite up close (shared with Fields)
+// The longest a Thing may live; a longer ask is cut to it.
+inline constexpr float kMaxLifeSeconds = 60.0f;
 inline constexpr float kMinSize = 0.004f;
 inline constexpr float kMaxSize = 0.5f;
 // Motion runs in fixed substeps of this many seconds, so a place does not depend on the frame rate.
@@ -122,15 +126,7 @@ struct View {
 };
 
 // How much of its strength a Thing has at `age`, fading in over `attack` and out over `release` before `end`.
-inline float envelope(double age, double end, float attack, float release) {
-    if (!(age >= 0.0) || age >= end) return 0.0f;
-    float in = 1.0f;
-    float out = 1.0f;
-    if (attack > 0.0f) in = static_cast<float>(std::min(1.0, age / static_cast<double>(attack)));
-    if (release > 0.0f) out = static_cast<float>(std::min(1.0, (end - age) / static_cast<double>(release)));
-    const float k = std::min(in, out);
-    return k * k * (3.0f - 2.0f * k);
-}
+using fx::envelope;
 
 class ThingPool {
 public:
@@ -140,9 +136,10 @@ public:
     }
 
     // Starts a Thing and returns its slot, or -1 when the request is unusable (a non-finite number, no life,
-    // no size, an unknown shape). Every slot taken: the oldest is reused.
+    // no size, an unknown shape). Every slot taken: the oldest is reused. A life over kMaxLifeSeconds is cut to it.
     int spawn(const Spawn& in) {
         if (!usable(in)) return -1;
+        ++revision_;
         return place(in);
     }
 
@@ -170,11 +167,13 @@ public:
         if (seconds == 0.0f) s.from = to;
         s.morphStart = s.age;
         s.morphDur = static_cast<double>(seconds);
+        ++revision_;
         return true;
     }
 
     // Softens the Thing's edges and drips it downward as it fades; it ends `seconds` from now (never later
-    // than it would have). False when the slot is free or the time is not above zero.
+    // than it would have). Its fade-out shortens with it, so a melt shorter than the release does not make the
+    // picture jump. False when the slot is free or the time is not above zero.
     bool melt(int slot, float seconds) {
         if (!alive(slot) || !std::isfinite(seconds) || !(seconds > 0.0f)) return false;
         Slot& s = slots_[static_cast<size_t>(slot)];
@@ -182,7 +181,15 @@ public:
             s.melting = true;
             s.meltStart = s.age;
         }
-        s.end = std::min(s.end, s.age + static_cast<double>(seconds));
+        const double left = s.end - s.age;
+        const double within = static_cast<double>(seconds);
+        if (within < left) {
+            // A release not yet begun fits inside the melt; one under way keeps the strength it has.
+            const double release = static_cast<double>(s.sp.release_s);
+            s.sp.release_s = static_cast<float>(left >= release ? std::min(release, within) : release * within / left);
+            s.end = s.age + within;
+        }
+        ++revision_;
         return true;
     }
 
@@ -191,7 +198,7 @@ public:
     void step(float dt) {
         if (!std::isfinite(dt) || dt <= 0.0f) return;
         const double d = static_cast<double>(dt);
-        if (live()) {
+        if (count() > 0) {
             carry_ += std::min(d, kMaxCatchUp);
             while (carry_ >= kSubstep - 1e-6) {
                 substep(static_cast<float>(kSubstep));
@@ -210,6 +217,10 @@ public:
         events_ = {};
         eventCount_ = 0;
         carry_ = 0.0;
+        owed_ = {};
+        owedCount_ = 0;
+        owedCursor_ = 0;
+        ++revision_;
     }
 
     int count() const {
@@ -217,8 +228,11 @@ public:
         for (const Slot& s : slots_) n += s.alive ? 1 : 0;
         return n;
     }
-    // False: nothing to draw, and the frame skips the pass.
-    bool live() const { return count() > 0; }
+    // False: nothing to draw and no child still owed, and the frame skips the pass.
+    bool live() const { return count() > 0 || owedCount_ > 0; }
+    // Counts the calls that changed what pack() would return (a spawn, a morph, a melt, a clear), so a frame
+    // that is held while the clock is stopped can see it owes a redraw.
+    unsigned revision() const { return revision_; }
     bool alive(int slot) const { return slot >= 0 && slot < kMaxThings && slots_[static_cast<size_t>(slot)].alive; }
 
     // Seconds since the Thing in `slot` was spawned; 0 for a free slot.
@@ -357,8 +371,9 @@ private:
         q.vy = std::clamp(in.vy, -kMaxSpeed, kMaxSpeed);
         q.size = std::clamp(in.size, kMinSize, kMaxSize);
         q.spin = std::clamp(in.spin, -50.0f, 50.0f);
-        q.attack_s = std::clamp(in.attack_s, 0.0f, in.life_s);
-        q.release_s = std::clamp(in.release_s, 0.0f, in.life_s);
+        q.life_s = std::min(in.life_s, kMaxLifeSeconds);
+        q.attack_s = std::clamp(in.attack_s, 0.0f, q.life_s);
+        q.release_s = std::clamp(in.release_s, 0.0f, q.life_s);
         q.palettePos = in.palettePos - std::floor(in.palettePos);
         q.behaviour = in.behaviour & 15u;
         q.orbit = std::clamp(in.orbit, -20.0f, 20.0f);
@@ -452,8 +467,9 @@ private:
             t.x += t.vx * h;
             t.y += t.vy * h;
             if ((t.sp.behaviour & Bounce) != 0u) {
-                const float mx = t.size / aspect_;
-                const float my = t.size;
+                // Never past the middle, or a big Thing on a narrow frame would flip every substep.
+                const float mx = std::min(t.size / aspect_, 0.5f - 1e-3f);
+                const float my = std::min(t.size, 0.5f - 1e-3f);
                 if (t.x < mx) { t.x = 2.0f * mx - t.x; t.vx = std::fabs(t.vx); }
                 if (t.x > 1.0f - mx) { t.x = 2.0f * (1.0f - mx) - t.x; t.vx = -std::fabs(t.vx); }
                 if (t.y < my) { t.y = 2.0f * my - t.y; t.vy = std::fabs(t.vy); }
@@ -465,13 +481,19 @@ private:
 
     // Two live Things whose circles overlap: one event per contact (the pair is "touching" until it has parted),
     // and an elastic bounce when both carry Bounce.
+    // A Thing with no strength (not faded in yet, or at its end) is not there to touch.
     void collide() {
+        std::array<bool, kMaxThings> solid{};
+        for (int i = 0; i < kMaxThings; ++i) {
+            const Slot& s = slots_[static_cast<size_t>(i)];
+            solid[static_cast<size_t>(i)] = s.alive && envelope(s.age, s.end, s.sp.attack_s, s.sp.release_s) > 0.0f;
+        }
         for (int i = 0; i < kMaxThings; ++i) {
             Slot& a = slots_[static_cast<size_t>(i)];
-            if (!a.alive) continue;
+            if (!solid[static_cast<size_t>(i)]) continue;
             for (int j = i + 1; j < kMaxThings; ++j) {
                 Slot& b = slots_[static_cast<size_t>(j)];
-                if (!b.alive) continue;
+                if (!solid[static_cast<size_t>(j)]) continue;
                 float dx = (b.x - a.x) * aspect_;
                 float dy = b.y - a.y;
                 const float reach = a.size + b.size;
@@ -518,41 +540,66 @@ private:
         }
     }
 
-    // Ages every Thing; the ones past their end go, and the ones with a chain depth leave children.
+    // Ages every Thing; the ones past their end go, and the ones with a chain depth owe children.
     void ageAll(double d) {
-        std::array<Slot, kMaxThings> parents;
-        int np = 0;
         for (int i = 0; i < kMaxThings; ++i) {
             Slot& s = slots_[static_cast<size_t>(i)];
             if (!s.alive) continue;
             s.age += d;
             if (s.age < s.end) continue;
-            if (s.sp.chain > 0 && s.sp.chainCount > 0) parents[static_cast<size_t>(np++)] = s;
+            if (s.sp.chain > 0 && s.sp.chainCount > 0 && owedCount_ < kMaxThings) {
+                owed_[static_cast<size_t>(owedCount_++)] = Owed{s, s.sp.chainCount};
+            }
             s.alive = false;
             forgetContacts(i);
         }
-        int budget = kMaxChainPerStep;
-        for (int p = 0; p < np; ++p) children(parents[static_cast<size_t>(p)], budget);
+        deliverChildren();
     }
 
-    void children(const Slot& par, int& budget) {
-        const int k = par.sp.chainCount;
-        const float speed = std::max(std::hypot(par.vx, par.vy) * 0.8f, 0.2f);
-        const float phase = static_cast<float>(par.seed % 64u) * 0.1f;
-        for (int c = 0; c < k; ++c) {
-            if (budget <= 0) return;
+    // At most kMaxChainPerStep children a step, one parent at a time in turn, so parents that die together share
+    // the budget (none goes without while another gets it all). What is not delivered is owed to the next steps,
+    // so the children that come do not depend on how the time was cut into frames.
+    void deliverChildren() {
+        int budget = kMaxChainPerStep;
+        while (budget > 0 && owedCount_ > 0) {
+            if (owedCursor_ >= owedCount_) owedCursor_ = 0;
+            Owed& o = owed_[static_cast<size_t>(owedCursor_)];
+            child(o.parent, o.parent.sp.chainCount - o.left);
             --budget;
-            Spawn ch = par.sp;
-            ch.chain = par.sp.chain - 1;
-            ch.size = std::max(par.size * 0.5f, kMinSize);
-            ch.life_s = std::max(par.sp.life_s * 0.6f, 0.2f);
-            ch.behaviour = par.sp.behaviour | Drift;
-            ring(ch, par.x, par.y, c, k, speed, phase);
-            place(ch);
+            if (--o.left > 0) {
+                ++owedCursor_;
+                continue;
+            }
+            for (int k = owedCursor_; k + 1 < owedCount_; ++k) owed_[static_cast<size_t>(k)] = owed_[static_cast<size_t>(k + 1)];
+            --owedCount_;
         }
     }
 
+    // Child `c` of the parent's chainCount, on a ring round the place it died.
+    void child(const Slot& par, int c) {
+        const int k = par.sp.chainCount;
+        const float speed = std::max(std::hypot(par.vx, par.vy) * 0.8f, 0.2f);
+        const float phase = static_cast<float>(par.seed % 64u) * 0.1f;
+        Spawn ch = par.sp;
+        ch.chain = par.sp.chain - 1;
+        ch.size = std::max(par.size * 0.5f, kMinSize);
+        ch.life_s = std::max(par.sp.life_s * 0.6f, 0.2f);
+        ch.behaviour = par.sp.behaviour | Drift;
+        ring(ch, par.x, par.y, c, k, speed, phase);
+        place(ch);
+    }
+
+    // A parent that has died and the children it still owes (deliverChildren).
+    struct Owed {
+        Slot parent;
+        int left = 0;
+    };
+
     std::array<Slot, kMaxThings> slots_{};
+    std::array<Owed, kMaxThings> owed_{};
+    int owedCount_ = 0;
+    int owedCursor_ = 0;
+    unsigned revision_ = 0;
     // touch_[a][b] for a < b: the pair is in contact.
     std::array<std::bitset<kMaxThings>, kMaxThings> touch_{};
     std::array<ThingEvent, kEventCapacity> events_{};

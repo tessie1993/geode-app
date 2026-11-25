@@ -24,8 +24,8 @@ uniform vec3 uTint[8];
 // The band: 1 on the front's line, 0 at one half width either side. d is the signed distance past the front.
 float band(float d, float w) { return 1.0 - smoothstep(0.0, w, abs(d)); }
 
-// How far this pixel is past the front (negative: the front has not reached it yet, positive: it has passed
-// it), the unit direction of travel there, and the wedge's sector mask.
+// How far this pixel is past the front (negative: the front has already passed it, positive: it has not
+// reached it yet), the unit direction of travel there, and the wedge's sector mask.
 void measure(vec2 uv, int i, out float d, out vec2 n, out float sector) {
     vec4 a = uFront[3 * i];
     vec4 b = uFront[3 * i + 1];
@@ -80,7 +80,7 @@ void main() {
             col = mix(col, vec3(1.0) - col, clamp(k, 0.0, 1.0));
         } else if (b.y > 3.5) {
             // Where the front has passed, the other layer shows; with none, the picture shows from dark.
-            float passed = smoothstep(-b.w, b.w, d) * s;
+            float passed = (1.0 - smoothstep(-b.w, b.w, d)) * s;
             vec3 other = uHasOther > 0.5 ? texture(uOther, vUv).rgb : col;
             vec3 ahead = uHasOther > 0.5 ? col : vec3(0.0);
             vec3 shown = mix(ahead, other, passed);

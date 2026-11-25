@@ -27,10 +27,12 @@ public:
     // The context is gone: drops the program and target without a GL call.
     void forget();
     void releaseTarget() { target_.release(); }
+    // Once a frame with no Thing alive, on the wall step: frees the target once `idleSeconds` pass unused.
+    void releaseIdle(float wallDt, float idleSeconds);
 
     // Draws `sceneTex` with the Things laid over it into the pass's own target, and returns false when it
-    // cannot. `colours` is one RGB per Thing (the renderer's palette at each palettePos). On true, the caller
-    // trades its scene target for target() (Framebuffer::swap), so everything after reads the result.
+    // cannot. `colours` is one RGB per Thing (the renderer's palette at each palettePos). On true, target().tex()
+    // is the picture with the Things on it, for everything after to read; `sceneTex` itself is left as it was.
     bool run(GLuint sceneTex, int width, int height, float aspect, const things::Packed& packed,
              const std::array<float, 3 * things::kMaxThings>& colours, GLuint quadVao);
     Framebuffer& target() { return target_; }
@@ -38,6 +40,8 @@ public:
 private:
     OwnedProgram uniforms_;
     Framebuffer target_{"things"};
+    // Wall seconds since the pass last drew (releaseIdle).
+    float idleSeconds_ = 0.0f;
 };
 
 }  // namespace geode::viz

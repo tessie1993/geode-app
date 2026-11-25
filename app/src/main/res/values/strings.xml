@@ -1112,7 +1112,7 @@
     <!-- Customize: menus, dialogs and the editors' own words (CustomizePanel, CustomizeTabs, CustomizeAdvanced). -->
     <string name="customize_keep_when_randomizing">Keep when randomizing</string>
     <string name="song_events_header">Song events</string>
-    <string name="song_events_hint">What the picture does on each sound. Every event starts off; adding a response switches its row on. Dimmed chips are the style's own reactions, each with its own switch.</string>
+    <string name="song_events_hint">What the picture does on each sound. Every event starts off; adding a response switches its row on. Dimmed chips are the style\'s own reactions, each with its own switch.</string>
     <string name="song_events_add">+ Add response</string>
     <string name="song_events_add_title">Add a response to %1$s</string>
     <string name="song_events_add_hint">Any sound can take any response. Preview plays one on the picture.</string>

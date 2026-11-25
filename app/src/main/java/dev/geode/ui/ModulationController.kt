@@ -241,7 +241,9 @@ internal class ModulationController(
         index: Int = 0,
         field: Int = 0,
         value: Float = 0f,
-    ) = takeReactions(ResponderNative.responderEdit(_reactions.value, op, row, index, field, value))
+    ) {
+        ResponderNative.responderEdit(_reactions.value, op, row, index, field, value)?.let(::takeReactions)
+    }
 
     /** One edit of the Song events catalogue ([ResponderNative.RESP_CATALOG_ADD] and the rest), as [editResponder]. */
     fun editResponderCatalog(

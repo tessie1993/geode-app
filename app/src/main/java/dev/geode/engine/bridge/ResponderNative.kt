@@ -134,16 +134,15 @@ object ResponderNative {
 }
 
 /**
- * How a style's own reaction on a Song event row is switched off and on (its chip's own switch). A row that is off
- * never mutes the style's reactions, and there is no master switch: each chip has its own.
- *
- * TODO(feat/event-responder #1414): the native call that lists a row's style routes and sets or clears a chip's off
- * switch, kept in the reactions text, is not on this base. Until it lands the switch is the route's own enabled field,
- * through the route edit the reactions editor already uses; swap the implementation for that call and keep this seam.
+ * How a style's own reaction on a Song event row is muted and unmuted (its chip's own switch). A row that is off never
+ * mutes the style's reactions, and there is no master switch: each chip has its own. A route is named by what it
+ * listens to ([source], a `ReactSource` ordinal) and what it moves ([target], an `LfoTarget` ordinal), which a listed
+ * style response carries; native keeps the mute in the reactions text (`GEODE_RESP_EDIT_STYLE_MUTE`).
  */
 fun interface StyleChipSwitch {
-    fun set(
-        routeIndex: Int,
-        on: Boolean,
+    fun mute(
+        source: Int,
+        target: Int,
+        muted: Boolean,
     )
 }

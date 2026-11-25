@@ -249,9 +249,20 @@ void theEditsAddATileAndApplyAPreset() {
     t = edit(t.c_str(), 99, 0, 0, 0.0f);
     check(t == before, "an edit that names nothing hands back what came in");
 
-    t = edit(t.c_str(), GEODE_RESP_CATALOG_RESET_ROW, 0, 0, 0.0f);
+    // A style chip muted on the row (and one on another row) before the reset.
+    const int kick = static_cast<int>(hand::trigger(Moment::Kick));
+    const int snare = static_cast<int>(hand::trigger(Moment::Snare));
+    const int zoom = static_cast<int>(LfoTarget::Zoom);
+    std::vector<char> muted(8192);
+    geode_resp_edit(t.c_str(), GEODE_RESP_EDIT_STYLE_MUTE, kick, zoom, 0, 1.0f, muted.data(), static_cast<int>(muted.size()));
+    std::string withMutes = muted.data();
+    geode_resp_edit(withMutes.c_str(), GEODE_RESP_EDIT_STYLE_MUTE, snare, zoom, 0, 1.0f, muted.data(), static_cast<int>(muted.size()));
+    withMutes = muted.data();
+    check(read(withMutes).muteCount == 2, "two style chips are muted");
+    t = edit(withMutes.c_str(), GEODE_RESP_CATALOG_RESET_ROW, 0, 0, 0.0f);
     config = read(t);
     check(config.count == 0 && !config.rowOn[0], "a row reset removes its responses and puts it off");
+    check(config.muteCount == 1 && config.mutes[0].source == snare, "a row reset unmutes its own style chips and no other row's");
 
     // The same through the text a page reads.
     std::vector<char> out(32768);

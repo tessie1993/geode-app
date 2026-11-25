@@ -20,7 +20,7 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
-import dev.geode.engine.bridge.ModulationNative
+import dev.geode.engine.bridge.ResponderNative
 import dev.geode.engine.bridge.StyleChipSwitch
 import dev.geode.model.PresetLink
 import dev.geode.model.SceneParams
@@ -210,10 +210,10 @@ class VisualsViewModel
 
         fun restoreReactions(text: String?) = session.modulation.restoreReactions(text)
 
-        /** A style's own reaction's chip switch (see [StyleChipSwitch]): the route's own enabled field for now. */
+        /** A style's own reaction's chip switch (see [StyleChipSwitch]). */
         val styleChipSwitch =
-            StyleChipSwitch { route, on ->
-                editReactions(ModulationNative.MOD_EDIT_ROUTE_SET, route, ModulationNative.MOD_ROUTE_ENABLED, if (on) 1f else 0f)
+            StyleChipSwitch { source, target, muted ->
+                editResponder(ResponderNative.RESP_EDIT_STYLE_MUTE, source, target, value = if (muted) 1f else 0f)
             }
 
         // The stage that is drawing, for the Song events page's preview and event lights; set while the visualizer is on screen.

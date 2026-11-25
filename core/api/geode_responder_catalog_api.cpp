@@ -79,6 +79,11 @@ int geode_resp_catalog_edit(const char* reactions, int op, int row, int index, f
         while (resp::removeResponse(config, row, 0)) {
         }
         resp::setRowOn(config, row, false);
+        // The style's own reactions on the row come back too: its chips' mutes are cleared.
+        for (int i = config.muteCount - 1; i >= 0; --i) {
+            const resp::Mute mute = config.mutes[static_cast<size_t>(i)];
+            if (resp::rowOfSource(static_cast<geode::viz::ReactSource>(mute.source)) == row) resp::setMuted(config, mute.source, mute.target, false);
+        }
     }
     doc.responses = geode::viz::reactiontext::encodeResponses(config);
     return textOut(doc.reactionsText(), out, capacity);

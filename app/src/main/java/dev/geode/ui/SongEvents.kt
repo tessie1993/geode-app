@@ -74,7 +74,11 @@ internal fun SongEventsPage(
     val sceneId = LocalSceneId.current
     val seed = p.int("reactSeed")
     val look = remember(p) { p.frame() }
-    val rows = remember(reactions, sceneId, seed, handMask) { ResponderNative.responderRows(reactions, sceneId, seed, handMask) }
+    val rows =
+        remember(reactions, sceneId, seed, handMask) {
+            ResponderNative.responderRows(reactions, sceneId, seed, handMask)
+                ?: FloatArray(0)
+        }
     var open by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableIntStateOf(-1) }
     var undo by remember { mutableStateOf<RowUndo?>(null) }
@@ -152,7 +156,8 @@ private data class RowUndo(
 /** One response a row lists: the user's (its place among the user's) or a style's own (its route). */
 private class Listed(
     val userIndex: Int,
-    val route: Int,
+    val source: Int,
+    val target: Int,
     val fields: FloatArray,
     val title: String,
 ) {
@@ -167,14 +172,16 @@ private fun listedOf(
     handMask: Int,
     row: Int,
 ): List<Listed> {
-    val all = ResponderNative.responderValues(reactions, sceneId, seed, handMask, row)
+    val all = ResponderNative.responderValues(reactions, sceneId, seed, handMask, row) ?: return emptyList()
     var user = 0
     return List(all.size / ResponderNative.RESP_LIST_VALUES) { i ->
         val at = i * ResponderNative.RESP_LIST_VALUES
         val fields = all.copyOfRange(at, at + ResponderNative.RESP_FIELDS)
         val styled = all[at + ResponderNative.RESP_FIELDS].toInt() == ResponderNative.RESP_ORIGIN_STYLE
-        val route = all[at + ResponderNative.RESP_FIELDS + 1].toInt()
-        Listed(if (styled) -1 else user++, if (styled) route else -1, fields, ResponderNative.responderTitle(fields))
+        // After the origin and the route's index: the style route's source and target ordinals, which mute it.
+        val source = all[at + ResponderNative.RESP_FIELDS + 2].toInt()
+        val target = all[at + ResponderNative.RESP_FIELDS + 3].toInt()
+        Listed(if (styled) -1 else user++, source, target, fields, ResponderNative.responderTitle(fields))
     }
 }
 
@@ -186,7 +193,7 @@ private fun tileFields(
     seed: Int,
 ): FloatArray {
     val text = ResponderNative.responderCatalogEdit(null, ResponderNative.RESP_CATALOG_ADD, row, 0, tile.toFloat())
-    return ResponderNative.responderValues(text, sceneId, seed, 0, row).copyOf(ResponderNative.RESP_FIELDS)
+    return (ResponderNative.responderValues(text, sceneId, seed, 0, row) ?: FloatArray(0)).copyOf(ResponderNative.RESP_FIELDS)
 }
 
 @Composable
@@ -291,7 +298,7 @@ private fun StyleChip(
             }
             Switch(
                 checked = chip.enabled,
-                onCheckedChange = { switch.set(chip.route, it) },
+                onCheckedChange = { switch.mute(chip.source, chip.target, !it) },
                 modifier = Modifier.scale(SWITCH_SCALE).semantics { contentDescription = name },
             )
         }

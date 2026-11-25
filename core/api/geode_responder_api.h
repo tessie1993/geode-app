@@ -96,7 +96,7 @@ GEODE_API int geode_resp_catalog_text(char* out, int capacity);
 /* geode_resp_catalog_edit's `op`. */
 #define GEODE_RESP_CATALOG_ADD 0    /* row, value = the tile's ordinal (an `entry` line); the row comes on */
 #define GEODE_RESP_CATALOG_PRESET 1 /* row, index = the nth user response of the row, value = the preset's ordinal */
-#define GEODE_RESP_CATALOG_RESET_ROW 2 /* row: its user responses removed and the row off again (the page offers Undo with the text it had) */
+#define GEODE_RESP_CATALOG_RESET_ROW 2 /* row: its user responses removed and the row off again and its style chips unmuted (the page offers Undo with the text it had) */
 /* One of those edits, as geode_resp_edit: the new reactions text, routes and all (NULL reactions: a new style's). */
 GEODE_API int geode_resp_catalog_edit(const char* reactions, int op, int row, int index, float value, char* out, int capacity);
 

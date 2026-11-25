@@ -1,4 +1,4 @@
-# core/signal
+# core/viz/resolver
 
 The layer between sound and pictures: what the user set, what moves it, and the one place both meet.
 

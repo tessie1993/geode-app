@@ -21,7 +21,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## Native core (`core/`)
 
-- Directories: `api`, `audio`, `backup`, `cast`, `library`, `output`, `player`, `scene`, `shell`, `signal`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
+- Directories: `api`, `audio`, `backup`, `cast`, `library`, `output`, `player`, `scene`, `shell`, `sound`, `stage`, `studio`, `util`, `viz`, `tests`.
 - `core/api/geode_api.h` is the C interface the JNI files call.
 - `core/sound`: the audio analysis, built as its own library `geode_sound` over `geode_pcm` (the PCM ring); it includes only itself and the ring (`tools/sound-module-gate.sh`).
 - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads.
@@ -30,7 +30,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/backup`: the backup's rules (sections, paths, caps, migration, manifest, plans). The app calls them through `core/api/geode_backup_api.cpp`, `geode_backup_jni.cpp` and `BackupNative`; the shell does the zip and file I/O.
 - `core/shell`: the shell's own rules ported from Kotlin. The app calls them through `core/api/geode_shell_api.h`, `geode_shell_jni.cpp` and `ShellNative`: the export frame rates (`ExportFps`), the notification buttons and start screen (`Behaviour`), the Styles page's shelf (`StyleShelf`), the Presets list (`PresetList`), opened audio (`OpenedAudio`), the saved Auto visuals (`AutoVisuals`). Not called by the app yet: the tour.
 - `core/shell`: the shell's own rules ported from Kotlin. The app calls them through `core/api/geode_shell_api.h`, `geode_shell_jni.cpp` and `ShellNative`: the export frame rates (`ExportFps`), the notification buttons and start screen (`Behaviour`), the Styles page's shelf (`StyleShelf`), the Presets list (`PresetList`), opened audio (`OpenedAudio`), the saved Auto visuals (`AutoVisuals`), the onboarding tour's rules (`Tour`; `model/Tour.kt` keeps the data types and asks native, JVM tests install `TestTourRules`).
-- `core/signal`: the scene parameter resolver (`Resolver`).
+- `core/viz/resolver`: the scene parameter resolver (`Resolver`).
 - `core/viz`: the renderer, scenes, parameters, reactions, macros, safety.
 - `core/output`: export and Record planning and timing.
 - `core/stage`: the surface threads (`core/stage/android/StageThread.cpp`, `VsyncThread.cpp`).
@@ -396,3 +396,4 @@ A line records what was done; it is not a rule.
 - 2026-11-25: Sorted the style code under `core/viz/styles/`: `catalogue/` (which styles exist, names, presets, pick, schedule), `shared/` (`Scene`, `SceneCommon`, `LiveSignal`, `ShapeGraph`, `FlowField`, `FluidParticles`) and one folder per renderer (`fluid`, `silk`, `life`, `mycelium`, `acid`, `cymatics`, `shader`); `core/viz/scenes`, `fluid`, `compute`, `present`, `pool` and `world` are gone. Includes, `core/CMakeLists.txt`, `core/tests/host-tests.txt`, tool and workflow paths follow. No behaviour change.
 - 2026-11-25: `app/src/main/assets/third_party_notices.txt` names the fluid code's new folders (`core/viz/styles/fluid/`, `core/viz/gl/`, `core/viz/styles/shared/`).
 - 2026-11-25: `tools/glslcheck/check.mjs` (the joined paths to `ShaderIncludes.inc` and `FluidLook.hpp`) and `core/tests/hidden_hits_test.cpp` (its allowed and gap lists, relative to `core/viz`) name the moved files at their new paths; the lists hold the same files.
+- 2026-11-25: The root `THIRD_PARTY_NOTICES` matches the shipped copy again; `core/viz/resolver/README.md` and one `tools/glslcheck/check.mjs` comment name the new folders.

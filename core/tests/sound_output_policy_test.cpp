@@ -36,8 +36,7 @@ const Row& row(const char* name) {
     static const Row kMissing{"", 0, 0, {}};
     const Row* r = find(name);
     if (r == nullptr) {
-        std::printf("  missing: %s
-", name);
+        std::printf("  missing: %s\n", name);
         check(false, "every row the test reads exists");
         return kMissing;
     }

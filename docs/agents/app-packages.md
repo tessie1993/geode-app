@@ -259,7 +259,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - So far on it: Playback's (`PlayerPrefsRepository`).
 - So far on it: Settings › Preferences' watermark (`WatermarkPrefsRepository`, `WatermarkPrefsCodec`; general prefs, portable).
 - On it too: the container's `behaviour`, `general`, `soundInput`, `visuals`, `library` and `appState`.
-- The four process-wide stores (`macros`, `autoDirector`, `noteResponse`, `styleShelf`) are the container's too, each over a repository, none built by a `get(context)`.
+- The three process-wide stores (`macros`, `autoDirector`, `styleShelf`) are the container's too, each over a repository, none built by a `get(context)`.
 
 ## `model`
 

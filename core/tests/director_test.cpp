@@ -268,7 +268,7 @@ bool colourParam(const std::string& name) {
 // (motionDrift, #1181), is the style's and the user's.
 bool lookParam(const std::string& name) {
     // The two dials, and the song's arc on Detail and the params it names (Director::apply, applyArc).
-    return name == "camSmooth" || name == "motionBreath" || name == "marchDetail" || name == "fractal" || name == "formula";
+    return name == "camSmooth" || name == "marchDetail" || name == "fractal" || name == "formula";
 }
 
 // The owner's rule, "no colour narrowing": the looks used to draw every style's palette from nine hue
@@ -364,7 +364,7 @@ void testHeldBetweenDecisions() {
         const Director::Axes x = d.axes();
         const CameraRig::Moves m = d.moves();
         for (int j = 0; j < Director::kAxes; ++j) maxAxis = std::max(maxAxis, std::fabs(x[j] - heldAxes[j]));
-        still = still && std::fabs(now.camSmooth - held.camSmooth) < 1e-3f && std::fabs(now.motionBreath - held.motionBreath) < 1e-3f &&
+        still = still && std::fabs(now.camSmooth - held.camSmooth) < 1e-3f &&
                 std::fabs(m.shake - heldMoves.shake) < 1e-3f && std::fabs(m.orbit - heldMoves.orbit) < 1e-3f;
     }
     check(d.commits() == 1, "no decision in those twenty seconds");
@@ -450,19 +450,12 @@ void testDeterministicAndOff() {
     run(a, kSad, 17.0f, t1);
     run(b, kSad, 17.0f, t2);
     check(std::memcmp(&a.look(), &b.look(), sizeof(Director::Look)) == 0, "same seed and sound, same look");
-    // The look turns the user's motion dials by a factor, never puts its own in their place: at full
-    // weight a slider still moves the picture, and a dial at 0 stays off.
+    // The axes never switch on a motion the user switched off: Camera shake at 0 stays off, and Spin is never theirs.
     SceneParams p;
-    SceneParams soft = p;
-    soft.motionBreath = 0.5f * p.motionBreath;
     SceneParams none = p;
-    none.motionBreath = none.motionDrift = 0.0f;
-    const SceneParams q = a.apply(p);
-    const SceneParams qSoft = a.apply(soft);
-    const SceneParams qNone = a.apply(none);
-    check(q.motionBreath != p.motionBreath, "the look moves its motion dials");
-    check(qSoft.motionBreath < q.motionBreath, "the user's step on a dial comes through the look");
-    check(qNone.motionBreath == 0.0f && qNone.motionDrift == 0.0f, "a motion dial at 0 stays off under the look");
+    none.motionAmount = none.motionDrift = 0.0f;
+    const SceneParams qNone = a.applyAxes(a.apply(none));
+    check(qNone.motionAmount == 0.0f && qNone.motionDrift == 0.0f, "a motion dial at 0 stays off under the look and the axes");
     Director off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;
@@ -618,13 +611,13 @@ void testDialsStayInRange() {
     float t = 0.0f;
     run(d, kSad, 15.0f, t);
     SceneParams low;
-    low.camSmooth = low.motionBreath = low.motionDrift = 0.0f;
+    low.camSmooth = low.motionDrift = 0.0f;
     SceneParams high;
-    high.camSmooth = high.motionBreath = high.motionDrift = 1.0f;
+    high.camSmooth = high.motionDrift = 1.0f;
     for (const SceneParams& user : {low, high}) {
         const SceneParams o = d.apply(user);
         const auto in = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
-        check(in(o.camSmooth, 0.0f, 1.0f) && in(o.motionBreath, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
+        check(in(o.camSmooth, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
               "the look never pushes a dial past its range");
     }
 }
@@ -920,7 +913,6 @@ void testGrowth() {
     Director::Look heading;
     heading.energy = 0.0f;
     heading.camSmooth = 0.0f;
-    heading.motionBreath = 0.0f;
     heading.moves = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     heading.axes.fill(0.6f);
     check(sameLook(Director::grow(look, heading, 0, 0.35f, 7, 2), look), "no return: the look itself");

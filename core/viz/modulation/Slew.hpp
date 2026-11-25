@@ -7,7 +7,7 @@ namespace geode::viz::slew {
 //
 //   alpha = 1 - exp(-dt / tau);   y += alpha * (target - y)
 //
-// The same input sampled at 30, 60 or 120 frames a second gives the same y at equal times (a held target's gap
+// The same input sampled at 30, 60 or 144 frames a second gives the same y at equal times (a held target's gap
 // shrinks by exp(-dt / tau) a frame, and the frames' factors multiply to exp(-t / tau)), where a fixed factor a frame
 // runs twice as fast at twice the rate. dt is used as given; there is no clamp here.
 //

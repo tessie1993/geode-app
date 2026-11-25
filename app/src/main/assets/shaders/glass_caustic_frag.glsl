@@ -271,7 +271,7 @@ void main() {
             tHit = hit;
             vec3 p = ro + rd * hit;
             vec3 n = glassWobble(normalize(p - ball.xyz), p, glassChaos());
-            float cosI = max(dot(n, -rd), 0.0);
+            float cosI = clamp(dot(n, -rd), 0.0, 1.0);
             float fr = glassFresnel(cosI, ior);
             vec3 tint = mix(vec3(1.0), water * 2.0, 0.3);
             vec3 through = glassSphereTrace(p, n, rd, ball.xyz, ball.w, ior, glassSpread(0.02 + 0.03 * ear.sharp), tint, 0.4, glassBounces(), lkSea);

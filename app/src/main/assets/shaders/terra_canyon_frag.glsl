@@ -138,7 +138,7 @@ void main() {
         if (water > 0.0) {
             float flow = sin(wz * (TERRA_TAU * 244.0 / TERRA_PERIOD) - t0 * 2.0 + 4.0 * terraNoise(vec2(p.x * 2.0, wz)));
             vec3 rn = normalize(vec3(0.03 * flow, 1.0, 0.05 * flow));
-            float fres = 0.08 + 0.9 * pow(1.0 - max(dot(rn, -rd), 0.0), 4.0);
+            float fres = 0.08 + 0.9 * pow(1.0 - clamp(dot(rn, -rd), 0.0, 1.0), 4.0);
             vec3 refl = terraSky(reflect(rd, rn), sun, zenith, horizon, sunCol);
             vec3 river = mix(vec3(0.03, 0.10, 0.12), refl, fres);
             // The kick's shimmer: a band running away from the eye down the river.

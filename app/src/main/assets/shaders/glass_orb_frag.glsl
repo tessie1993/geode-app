@@ -326,7 +326,7 @@ void main() {
         float ring = ear.kick * 0.14 * (1.0 + 1.6 * knob(0));
         n = normalize(n + ring * sin(lc * vec3(7.0, 9.0, 8.0) + t * vec3(5.0, 4.0, 6.0)));
         n = glassGrain(n, p, frost);
-        float cosI = max(dot(n, -rd), 0.0);
+        float cosI = clamp(dot(n, -rd), 0.0, 1.0);
         float fr = glassFresnel(cosI, ior);
         float rough = lk.rough + frost * 0.25;
 

@@ -318,7 +318,7 @@ void main() {
 
         float dif = max(dot(n, -rd), 0.0);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 32.0);
-        float fres = pow(1.0 - dif, 3.0);
+        float fres = pow(max(1.0 - dif, 0.0), 3.0);
         vec3 tint = pal(gBand + hueBase);
 
         bool onColumn = gHd < gRad + 0.03 && yl > gFloor + 0.01;

@@ -132,7 +132,7 @@ vec4 hexCell(vec2 p, float s) {
 /** Scene distance; m receives (hexDist, heightAboveTop, cellHeight, cellId). */
 float mapCore(vec3 p, out vec4 m) {
     float r = length(p.xy);
-    float ang = atan(p.y, p.x);
+    float ang = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float circ = sAround * HH_CELL * 1.7320508;
     vec2 q = vec2(ang / HH_TAU * circ, p.z);
     vec4 hc = hexCell(q, HH_CELL);
@@ -209,7 +209,7 @@ vec3 calcNormal(vec3 p) {
 
 vec3 mandala(vec2 p) {
     float r = length(p);
-    float a = atan(p.y, p.x);
+    float a = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float seg = HH_TAU / sWedges;
     float fa = abs(mod(a + uTime * 0.08, seg) - 0.5 * seg);
     float lr = log(max(r, 1e-4));
@@ -315,7 +315,7 @@ void main() {
         vec3 p = ro + rd * t;
         vec3 n = calcNormal(p);
         float cosV = max(dot(n, -rd), 0.0);
-        float fres = 0.04 + 0.96 * pow(1.0 - cosV, 5.0);
+        float fres = 0.04 + 0.96 * pow(max(1.0 - cosV, 0.0), 5.0);
         // Chrome with a thin-film sheen: reflect the neon bore (the portal
         // colour and the coils' hues), tinted by interference.
         vec3 refl = reflect(rd, n);

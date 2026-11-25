@@ -437,7 +437,7 @@ void main() {
             // Spire: dark body, filigree courses and ribs, a star at the tip.
             vec3 tint = mix(pal(hue + 0.94), pal(hue + 0.86), gSHue);
             float course = wire(fract(gSQ.y * 0.9) - 0.5, 0.06, px * 0.9);
-            float ang = atan(gSQ.z, gSQ.x);
+            float ang = (abs(gSQ.z) + abs(gSQ.x) > 0.0 ? atan(gSQ.z, gSQ.x) : 0.0);
             float rib = wire(fract(ang * (12.0 / TF_TAU)) - 0.5, 0.07, px * 3.0);
             float filigree = max(course, rib) * filigreeK;
             col = tint * (0.05 + 0.5 * light) * ao

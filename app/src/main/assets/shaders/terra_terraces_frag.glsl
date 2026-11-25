@@ -131,7 +131,7 @@ void main() {
             vec2 shiver = 0.012 * vec2(sin(wq.x * 9.0 + t0 * 1.7), sin(wq.y * (TERRA_TAU * 1467.0 / TERRA_PERIOD) - t0 * 1.3));
             vec2 tilt = shiver + 0.12 * ring * cell / max(rr, 1e-3);
             vec3 wn = normalize(vec3(tilt.x, 1.0, tilt.y));
-            float fres = 0.06 + 0.94 * pow(1.0 - max(dot(wn, -rd), 0.0), 5.0);
+            float fres = 0.06 + 0.94 * pow(1.0 - clamp(dot(wn, -rd), 0.0, 1.0), 5.0);
             vec3 mirror = terraSky(reflect(rd, wn), sun, zenith, horizon, sunCol);
             vec3 water = mix(vec3(0.12, 0.16, 0.10), mirror, 0.45 + 0.55 * fres);
             float planted = step(0.45, terraHash(vec2(lvl, floor(wq.x * 0.25) + 7.0 * floor(wq.y * 0.25))));

@@ -115,7 +115,7 @@ vec2 triFold(vec2 p, float side, out float seam) {
     vec4 hx = lucidHex(p.yx / spacing);
     vec2 l = hx.yx * spacing;
     float seg = LUCID_TAU / 3.0;
-    float a = atan(l.y, l.x);
+    float a = (abs(l.y) + abs(l.x) > 0.0 ? atan(l.y, l.x) : 0.0);
     // A turn by 120 degrees, then the mirror at 60: 0..60 stays, 60..120 reflects.
     a = 0.5 * seg - abs(mod(a, seg) - 0.5 * seg);
     l = vec2(cos(a), sin(a)) * length(l);

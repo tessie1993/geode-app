@@ -209,7 +209,7 @@ float fluidMotes(vec2 p, float density, float size) {
     // reads as drifting particles rather than as a lit grid.
     float phase = uFlowPhase * (0.4 + seed) + seed * 6.2831853;
     local += 0.3 * vec2(cos(phase), sin(phase * 1.13));
-    float mote = smoothstep(size, size * 0.15, length(local));
+    float mote = (1.0 - smoothstep(size * 0.15, size, length(local)));
     // Only some cells carry one, and the brightest ride the treble.
     float alive = step(0.62, seed);
     return mote * alive * (0.35 + 0.65 * seed) * (0.5 + 0.9 * SND_TREBLE_PRESENCE) * spawnGrow(0.9);

@@ -571,7 +571,7 @@ vec3 nebAbsorption(float t) {
 float nebSpiralWave(vec2 p, float arms, float pitch, float phase) {
     float m = max(floor(arms + 0.5), 1.0);
     float r = max(length(p), 1e-4);
-    float th = atan(p.y, p.x);
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float w = cos(m * (th - log(r) / tan(pitch)) - phase);
     return w * smoothstep(0.02, 0.1, r);
 }

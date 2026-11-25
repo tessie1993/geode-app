@@ -213,7 +213,7 @@ vec3 touchSpark(vec2 q, float aspect) {
 vec2 warp(vec2 q) {
     q -= uCentre;
     float r = length(q);
-    float ang = atan(q.y, q.x);
+    float ang = (abs(q.y) + abs(q.x) > 0.0 ? atan(q.y, q.x) : 0.0);
     if (uStyle == 2) {
         // six-fold polar wedge fold
         float seg = TAU / 6.0;
@@ -288,7 +288,7 @@ void main() {
     float aspect = uRes.x / uRes.y;
     vec2 q = (vUv - 0.5) * vec2(aspect, 1.0);
     float r = length(q);
-    float ang = atan(q.y, q.x);
+    float ang = (abs(q.y) + abs(q.x) > 0.0 ? atan(q.y, q.x) : 0.0);
 
     vec3 src = (sourceLayer(q, r, ang) + eventLayer(q)) * uDrive;
     // Outside uDrive on purpose: a finger is not audio, and it has to answer

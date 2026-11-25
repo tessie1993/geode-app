@@ -125,7 +125,7 @@ void main() {
     }
 
     // Frame-rate-independent inertia: uDrag is the per-1/60s blend factor.
-    float k = 1.0 - pow(1.0 - uDrag, uDt * 60.0);
+    float k = uDt > 0.0 ? 1.0 - pow(1.0 - uDrag, uDt * 60.0) : 0.0;
     // Midpoint: a trial velocity from the start, the field read half a step on.
     vec2 trial = v + (flowAt(p) - v) * k;
     vec2 flow = flowAt(p + 0.5 * uDt * trial);

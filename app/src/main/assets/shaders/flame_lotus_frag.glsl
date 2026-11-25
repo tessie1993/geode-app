@@ -24,7 +24,7 @@ out vec4 fragColor;
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float l = max(length(p), 1.0e-3);
     vec3 dir = p / l;
-    float th = atan(p.z, p.x);
+    float th = (abs(p.z) + abs(p.x) > 0.0 ? atan(p.z, p.x) : 0.0);
     float ll = log(l);
     float waist = 1.0 - dir.y * dir.y;
     float open = mix(0.12, 1.0, gFlameForm);

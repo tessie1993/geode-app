@@ -49,7 +49,7 @@ void main() {
         col = diveShade(n, rd, hitT, used, base, 48.0);
         // Metal: the haze, reflected.
         vec3 refl = reflect(rd, n);
-        float fres = 0.25 + 0.75 * pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+        float fres = 0.25 + 0.75 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
         col += diveColor(0.3 + 0.5 * refl.y + gDiveHitId) * 0.35 * fres * exp(-0.055 * hitT);
     }
 

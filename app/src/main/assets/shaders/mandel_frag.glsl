@@ -115,6 +115,8 @@ float gTerrF;
 /** The escape iterations this frame may spend: MB_ITERS whenever the march has 64 steps or more (every Detail at full quality), fewer on a scaled-down march. */
 int gIters;
 
+// 32-bit integer maths: fragment int and uint default to mediump in GLSL ES 3.00 (4.5.4), which may be 16 bits.
+precision highp int;
 /**
  * A hashed point in the unit disc for event number `n` (PCG integer hash, so
  * it is exact on every device). Used to pick where the next glide goes.

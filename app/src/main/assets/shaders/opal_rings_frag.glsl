@@ -22,7 +22,7 @@ out vec4 fragColor;
 
 float ring(vec3 p, float big, float small, out float skin) {
     vec2 t = vec2(length(p.xy) - big, p.z);
-    skin = 6.0 * atan(p.y, p.x) / OPAL_TAU + atan(t.y, t.x) / OPAL_TAU;
+    skin = 6.0 * (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) / OPAL_TAU + (abs(t.y) + abs(t.x) > 0.0 ? atan(t.y, t.x) : 0.0) / OPAL_TAU;
     return length(t) - small;
 }
 

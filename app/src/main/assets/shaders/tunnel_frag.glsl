@@ -151,7 +151,7 @@ float bandAt(float ang, float z) {
 float mapField(vec3 p) {
     vec2 q = p.xy - boreCentre(p.z);
     float r = length(q);
-    float ang = atan(q.y, q.x) / TN_TAU + 0.5;
+    float ang = (abs(q.y) + abs(q.x) > 0.0 ? atan(q.y, q.x) : 0.0) / TN_TAU + 0.5;
     gAng = ang;
 
     // The kick ripple: 1 at the hit, so the front starts at the eye and runs

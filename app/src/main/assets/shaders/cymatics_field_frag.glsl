@@ -141,7 +141,7 @@ vec2 styleCoordinates(vec2 p, vec2 uv) {
         // negative-x axis lands where both halves agree - the radial seam the
         // raw angle painted there is gone, and the fold is the shell's look.
         float r = length(p);
-        float a = abs(atan(p.y, p.x));
+        float a = abs((abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0));
         p = vec2(a * 0.92 + r * 0.62, r * 2.0 - 1.9 + 0.12 * sin(a * 5.0 + uTime * 0.2));
     } else if (uStyle == 6) { // Caustic sheet: refraction through a second layer.
         p += 0.16 * sin(p.yx * 1.65 + vec2(0.0, 1.7) + uTime * 0.26);
@@ -241,7 +241,7 @@ float field(vec2 p) {
     float h = 0.0;
     if (uGeometry < 0.5) {
         float r = length(p);
-        float a = atan(p.y, p.x);
+        float a = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
         for (int i = 0; i < 8; i++) {
             if (i >= uModeCount) break;
             vec4 M = uModes[i];

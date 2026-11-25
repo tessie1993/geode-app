@@ -24,7 +24,7 @@ out vec4 fragColor;
 vec2 opalMap(vec3 p) {
     p.xz = opalRot(uTime * OPAL_RATE(70)) * p.xz;
     float r = max(length(p.xy), 1.0e-3);
-    float th = atan(p.y, p.x) / OPAL_TAU;
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) / OPAL_TAU;
     float b = mix(1.15, 0.5, gOpalForm);
     float turn = log(r) / b - th;
     float k = floor(turn + 0.5);

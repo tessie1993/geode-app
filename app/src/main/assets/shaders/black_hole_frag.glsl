@@ -317,7 +317,7 @@ void main() {
         // Inside the shadow: a photon-ring lattice, a mandala of the light
         // still circling the hole, fading toward the centre.
         float b = sqrt(h2) / 2.6;
-        float a = atan(uv.y, uv.x);
+        float a = (abs(uv.y) + abs(uv.x) > 0.0 ? atan(uv.y, uv.x) : 0.0);
         float seg = 6.2831853 / 12.0;
         float fa = abs(mod(a + uTime * 0.04, seg) - 0.5 * seg);
         float rings = exp(-abs(fract(log(max(b, 1e-3)) * 5.0 - uTime * 0.1) - 0.5) * 22.0);

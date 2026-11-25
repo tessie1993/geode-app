@@ -22,7 +22,7 @@ out vec4 fragColor;
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);
-    float th = atan(p.y, p.x) * 8.0 / HOLLOW_TAU;
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) * 8.0 / HOLLOW_TAU;
     vec2 g = vec2(th, p.z * 1.0);
     float row = floor(g.y);
     g.x += 0.5 * mod(row, 2.0);

@@ -23,7 +23,7 @@ out vec4 fragColor;
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);
-    float th = atan(p.y, p.x);
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float cord = sin(6.0 * th + 0.7853982 * p.z + 1.5 * sin(0.3926991 * p.z));
     float wall = 1.55 + 0.3 * sin(0.7853982 * p.z + th) - r - (0.1 + 0.2 * gHollowForm) * cord;
     // One tendon to every two units of the way, each turned from the last, passing beside the axis.

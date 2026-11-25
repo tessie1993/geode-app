@@ -150,7 +150,7 @@ vec2 blob(vec3 p, vec2 cell) {
     // Own slow clock: one full rise-and-sink takes 18-40 s, cosine eased.
     float period = mix(18.0, 40.0, h0);
     float u = fract(gT / period + h1 * 1.7);
-    float yc = (gFloor - 0.35) + (gCeil - gFloor + 0.1) * pow(0.5 - 0.5 * cos(LV_TAU * u), gLinger);
+    float yc = (gFloor - 0.35) + (gCeil - gFloor + 0.1) * pow(max(0.5 - 0.5 * cos(LV_TAU * u), 0.0), gLinger);
 
     // Life envelope: dissolves to nothing and regrows in its own home.
     float lifePeriod = mix(45.0, 90.0, h2);

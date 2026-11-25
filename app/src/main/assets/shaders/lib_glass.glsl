@@ -726,7 +726,7 @@ vec3 glassDusk(vec3 d, GlassLook l) {
     // An aurora curtain hanging over the far hills: folded ribbons that drift on the music's clock.
     float az = atan(d.x, d.z);
     float fold = az * 4.0 + 1.4 * sin(az * 2.3 + l.flow * 1.3) + 0.6 * sin(az * 7.0 - l.flow * 2.1) * l.warp;
-    float curtain = pow(1.0 - abs(sin(fold)), 5.0) * smoothstep(0.05, 0.25, d.y) * (1.0 - smoothstep(0.55, 0.9, d.y));
+    float curtain = pow(max(1.0 - abs(sin(fold)), 0.0), 5.0) * smoothstep(0.05, 0.25, d.y) * (1.0 - smoothstep(0.55, 0.9, d.y));
     curtain *= 0.6 + 0.4 * sin(d.y * 30.0 + az * 3.0 + l.flow * 4.0);
     col += mix(pal(l.hue + 0.35), pal(l.hue + 0.6), smoothstep(0.2, 0.7, d.y)) * curtain * 1.4 * glassKeep(0.05, s);
     float sun = glassDisc(d, key, 0.04, s);

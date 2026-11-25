@@ -88,7 +88,7 @@ vec3 gEye;
 
 vec2 kaleido(vec2 p, float n) {
     float w = NT_TAU / n;
-    float a = mod(atan(p.y, p.x), w);
+    float a = mod((abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0), w);
     a = abs(a - 0.5 * w);
     return length(p) * vec2(cos(a), sin(a));
 }
@@ -206,7 +206,7 @@ float marchHall(vec3 ro, vec3 rd, float tMax, float budget, out float used) {
 }
 
 float neon(float d, float w) {
-    return smoothstep(w, 0.0, abs(d)) + 0.25 * smoothstep(w * 6.0, 0.0, abs(d));
+    return (1.0 - smoothstep(0.0, w, abs(d))) + 0.25 * (1.0 - smoothstep(0.0, w * 6.0, abs(d)));
 }
 
 float gWidth;
@@ -371,7 +371,7 @@ void main() {
         float t2 = marchHall(p2, d2, NT_FAR, budget2, used2);
         vec3 through = shadeHall(p2, d2, t2, used2, budget2, pxScale);
         vec3 refl = hallEnv(p1, reflect(rd, n1), pxScale);
-        float fres = pow(1.0 - max(dot(n1, -rd), 0.0), 3.0);
+        float fres = pow(1.0 - clamp(dot(n1, -rd), 0.0, 1.0), 3.0);
         vec3 orb = mix(through, refl, fres) * 1.15 + pal(0.75 + gHue) * 0.05;
         // Anti-aliased rim: the ray's miss distance from the sphere, in pixels.
         float miss = sqrt(max(dot(oc, oc) - ob * ob, 0.0));

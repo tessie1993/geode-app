@@ -102,6 +102,8 @@ float gFlutter;
 float gBuild;
 vec3 gEye;
 
+// 32-bit integer maths: fragment int and uint default to mediump in GLSL ES 3.00 (4.5.4), which may be 16 bits.
+precision highp int;
 /** PCG integer hash: exact on every device, unlike a sin() hash. */
 uint ckHash(uint h) {
     h = h * 747796405u + 2891336453u;

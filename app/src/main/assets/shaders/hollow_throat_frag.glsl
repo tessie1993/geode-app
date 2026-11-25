@@ -22,7 +22,7 @@ out vec4 fragColor;
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);
-    float th = atan(p.y, p.x);
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float squeeze = 0.5 + 0.5 * sin(0.7853982 * p.z - uTime * HOLLOW_RATE(260));
     squeeze *= squeeze;
     float bore = 1.65 - (0.35 + 0.65 * gHollowForm) * squeeze;

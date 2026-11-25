@@ -202,7 +202,7 @@ vec4 chrysLeaf(vec2 q, float len, float width, float cup, float tip) {
  */
 vec4 chrysPetal(vec2 p, float count, float r0, float len, float width, float curl, float cup, float tip) {
     float r = length(p);
-    float a = atan(p.y, p.x) - curl * (r - r0);
+    float a = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) - curl * (r - r0);
     float sector = CHRYS_TAU / count;
     float id = floor(a / sector + 0.5);
     float across = (a - id * sector) * r;
@@ -291,7 +291,7 @@ float chrysCore(float r, float size) {
 vec4 chrysFloret(vec2 p, float spacing) {
     float r = length(p);
     float u = (r / spacing) * (r / spacing);
-    float th = atan(p.y, p.x);
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     // Fibonacci index n with F_n just below 2.37 sqrt(u); F_n by Binet.
     float n = floor(log(max(2.37 * sqrt(u) * 2.2360680, 2.0)) / log(CHRYS_PHI));
     n = max(n, 3.0);

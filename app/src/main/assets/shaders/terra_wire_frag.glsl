@@ -111,11 +111,12 @@ void main() {
         if (hitT < 0.0 && t <= span.y) hitT = t;
     }
 
+    // The footprint is taken out here: a derivative inside the branch is undefined (GLSL ES 3.00, 8.9).
+    vec2 fw = max(fwidth((ro + rd * max(hitT, 0.0)).xz), vec2(1e-4));
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = terraNormal(p.xz, 0.003 * hitT + 0.01);
         vec2 wq = terraWrap(p.xz);
-        vec2 fw = max(fwidth(p.xz), vec2(1e-4));
         vec2 d = abs(fract(wq - 0.5) - 0.5) / (fw * gTerraWidth);
         // Core and halo of each line, in pixels; fade to an even glow once a
         // cell is under a few pixels.

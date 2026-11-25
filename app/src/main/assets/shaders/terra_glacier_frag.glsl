@@ -120,7 +120,7 @@ void main() {
         float cr = crack(w);
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
-        float fres = pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
         float spec = pow(max(dot(reflect(rd, n), sun), 0.0), 40.0);
         vec3 deep = mix(vec3(0.05, 0.30, 0.55), terraPal(0.6) * 0.6, 0.25) * (1.0 + 0.5 * bass);
         vec3 ice = mix(vec3(0.82, 0.90, 0.98), vec3(0.45, 0.70, 0.90), (1.0 - smoothstep(0.5, 0.9, n.y)));

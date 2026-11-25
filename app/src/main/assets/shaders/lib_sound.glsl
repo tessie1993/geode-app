@@ -159,15 +159,15 @@ uniform vec2 uSoundCounts;
 #define SND_CUT_COUNT          uSoundCounts.y
 
 /** The log spectrum at x (0 = 20 Hz, 1 = 20 kHz), 0..1, times the drive. */
-float sndSpectrum(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 4.0)).r * uSoundDrive; }
+float sndSpectrum(float x) { return textureLod(uSoundTex, vec2(clamp(x, 0.0, 1.0), 0.5 / 4.0), 0.0).r * uSoundDrive; }
 /** The stabilised waveform at x, -1..1 (not driven: a line's shape, not a level). */
-float sndWave(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 1.5 / 4.0)).r; }
+float sndWave(float x) { return textureLod(uSoundTex, vec2(clamp(x, 0.0, 1.0), 1.5 / 4.0), 0.0).r; }
 /** The waveform at x as a 0..1 line height: centred on 0.5 and scaled by the drive, as the old waveform tap was. */
 float sndWave01(float x) { return clamp(sndWave(x) * uSoundDrive * 0.5 + 0.5, 0.0, 1.0); }
 /** The 16-band EQ at x (relative, ~1 typical), times the drive. */
-float sndEq(float x) { return texture(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 4.0)).r * uSoundDrive; }
+float sndEq(float x) { return textureLod(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 4.0), 0.0).r * uSoundDrive; }
 /** The medium chroma for pitch class pc (C = 0 … B = 11), 0..1: how much of that note sounds now. */
-float sndChroma(float pc) { return texture(uSoundTex, vec2((mod(floor(pc + 0.5), 12.0) + 0.5) / 12.0, 3.5 / 4.0)).r; }
+float sndChroma(float pc) { return textureLod(uSoundTex, vec2((mod(floor(pc + 0.5), 12.0) + 0.5) / 12.0, 3.5 / 4.0), 0.0).r; }
 /**
  * A relative level (SND_BASS, SND_MID_ATT, ...: ~1 typical, 2 a strong hit) as a shader level: halved,
  * times the drive, so typical reads 0.5 and a hit 1, capped at 1.5 like the old band uniforms.

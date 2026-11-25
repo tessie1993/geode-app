@@ -133,7 +133,7 @@ void main() {
         vec3 p = ro + rd * hitT;
         vec3 n = terraNormal(p.xz, 0.004 * hitT + 0.01);
         float top = max(n.y, 0.0);
-        float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+        float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
         vec3 ground = vec3(0.10, 0.11, 0.11);
         col = ground * skyLight * (0.4 + 2.2 * top * top) * 6.0;
         col += ground * vec3(0.25, 0.3, 0.45) * max(dot(n, normalize(vec3(0.6, 0.5, -0.3))), 0.0);

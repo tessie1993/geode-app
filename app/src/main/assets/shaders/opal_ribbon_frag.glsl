@@ -24,7 +24,7 @@ vec2 opalMap(vec3 p) {
     float off = dot(p.xy, p.xy);
     p.xy = opalRot(0.3926991 * p.z) * p.xy;
     p.xy *= p.x < 0.0 ? -1.0 : 1.0;
-    float a = atan(p.y, p.x);
+    float a = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     vec2 q = vec2(p.x - 1.3, p.y);
     q = opalRot(0.3926991 * p.z) * q;
     float wide = mix(0.65, 0.0, gOpalForm);

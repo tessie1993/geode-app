@@ -179,7 +179,7 @@ vec3 roseGlass(vec2 p, float wid, float aa) {
     // pitch ripple travelling outward as the envelope decays.
     float front = 1.0 - gPitch;
     float rx = (paneT - front) * 4.0;
-    float ripple = exp(-rx * rx) * sqrt(chrysBump(gPitch));
+    float ripple = exp(-rx * rx) * sqrt(max(chrysBump(gPitch), 0.0));
     float h = gHue + 0.38 * chrysHash(pane * vec2(1.7, 3.1) + wid * vec2(0.61, 0.37)) + gRipple * ripple;
     vec3 glass = glassCol(h);
     float seed = chrysHash(pane + 11.0 + wid);

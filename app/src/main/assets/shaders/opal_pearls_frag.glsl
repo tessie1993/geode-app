@@ -23,7 +23,7 @@ out vec4 fragColor;
 vec2 opalMap(vec3 p) {
     p.xy = opalRot(0.3926991 * p.z) * p.xy;
     float seg = OPAL_TAU / 5.0;
-    float a = mod(atan(p.y, p.x) + 0.5 * seg, seg) - 0.5 * seg;
+    float a = mod((abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) + 0.5 * seg, seg) - 0.5 * seg;
     float r = length(p.xy);
     vec2 q = vec2(r * cos(a) - 1.05, r * sin(a));
     float gap = 0.5;

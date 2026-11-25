@@ -189,7 +189,7 @@ float ribbon(float x, float grad, float width) {
     float halfW = width * 0.5;
     float rimPx = abs(f - halfW) * spacingPx;
     float rim = exp(-rimPx * rimPx * 0.6) + 0.25 / (1.0 + rimPx * 0.5);
-    float fill = smoothstep(halfW + 0.5 / spacingPx, halfW - 0.5 / spacingPx, f) * (0.18 + 0.25 * f / max(halfW, 1e-3));
+    float fill = (1.0 - smoothstep(halfW - 0.5 / spacingPx, halfW + 0.5 / spacingPx, f)) * (0.18 + 0.25 * f / max(halfW, 1e-3));
     return (rim + fill) * smoothstep(4.0, 14.0, spacingPx * width);
 }
 

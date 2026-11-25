@@ -99,7 +99,7 @@ vec2 rot(vec2 p, float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)) * p; }
 
 // Signed distance to an n-point star drawn as a modulated circle.
 float star(vec2 l, float n, float r0, float amp) {
-    return length(l) - (r0 + amp * cos(n * atan(l.y, l.x)));
+    return length(l) - (r0 + amp * cos(n * (abs(l.y) + abs(l.x) > 0.0 ? atan(l.y, l.x) : 0.0)));
 }
 
 struct Ornament {
@@ -137,7 +137,7 @@ Ornament ornament(vec2 p, float glow, float period, float aa) {
         dStar = min(abs(length(l) - 0.26) - 0.01, abs(length(l) - 0.17) - 0.01);
         dInner = length(l) - 0.07;
     }
-    float wreathA = floor(atan(l.y, l.x) / MD_TAU * 16.0 + 0.5) * MD_TAU / 16.0;
+    float wreathA = floor((abs(l.y) + abs(l.x) > 0.0 ? atan(l.y, l.x) : 0.0) / MD_TAU * 16.0 + 0.5) * MD_TAU / 16.0;
     float dWreath = length(l - 0.31 * vec2(cos(wreathA), sin(wreathA))) - 0.03;
     float dCorner = star(corner, 4.0, 0.12, 0.07);
     float dCornerDot = length(corner) - 0.035;
@@ -150,21 +150,21 @@ Ornament ornament(vec2 p, float glow, float period, float aa) {
     vec3 outer = mix(mix(violet, blue, step(0.33, seed)), magenta, step(0.66, seed)) * 0.7;
     float e = max(0.01, aa);
     vec3 fill = base;
-    fill = mix(fill, outer, smoothstep(e, -e, dRing + 0.012));    // inside the ring
-    fill = mix(fill, magenta * 0.9, smoothstep(e, -e, dStar));     // the star
-    fill = mix(fill, blue, smoothstep(e, -e, dInner));             // its heart
-    fill = mix(fill, violet * 0.75, smoothstep(e, -e, dCorner));   // corner stars
+    fill = mix(fill, outer, (1.0 - smoothstep(-e, e, dRing + 0.012)));    // inside the ring
+    fill = mix(fill, magenta * 0.9, (1.0 - smoothstep(-e, e, dStar)));     // the star
+    fill = mix(fill, blue, (1.0 - smoothstep(-e, e, dInner)));             // its heart
+    fill = mix(fill, violet * 0.75, (1.0 - smoothstep(-e, e, dCorner)));   // corner stars
 
     // Lines: cyan frames and rings, green stars, red corner stars, white hearts and dots.
     float w = max(0.02, aa * 1.2);
     float fade = 0.02 / w;
-    float lFrame = smoothstep(w, 0.0, abs(dFrame));
-    float lRing = smoothstep(w, 0.0, abs(dRing));
-    float lStar = smoothstep(w, 0.0, abs(dStar));
-    float lInner = smoothstep(w, 0.0, abs(dInner));
-    float lWreath = smoothstep(w, 0.0, dWreath);
-    float lCorner = smoothstep(w, 0.0, abs(dCorner));
-    float lDot = smoothstep(w, 0.0, dCornerDot);
+    float lFrame = (1.0 - smoothstep(0.0, w, abs(dFrame)));
+    float lRing = (1.0 - smoothstep(0.0, w, abs(dRing)));
+    float lStar = (1.0 - smoothstep(0.0, w, abs(dStar)));
+    float lInner = (1.0 - smoothstep(0.0, w, abs(dInner)));
+    float lWreath = (1.0 - smoothstep(0.0, w, dWreath));
+    float lCorner = (1.0 - smoothstep(0.0, w, abs(dCorner)));
+    float lDot = (1.0 - smoothstep(0.0, w, dCornerDot));
     vec3 line = pal(0.42) * 0.45 * lFrame + mix(pal(0.5), pal(0.6), 0.5) * 0.9 * lRing + pal(0.64) * lStar +
                 pal(0.02) * 0.8 * lCorner + vec3(0.9, 0.8, 1.0) * lInner + pal(0.62) * 1.1 * lWreath +
                 vec3(0.9, 0.95, 1.0) * lDot;
@@ -197,7 +197,7 @@ float mdField(vec3 p) {
     float dF = p.y - MD_FLOOR;
     // Side domes: fold the angle about y into one wedge, centred on +x.
     float sector = MD_TAU / MD_DOMES;
-    float a = atan(p.z, p.x);
+    float a = (abs(p.z) + abs(p.x) > 0.0 ? atan(p.z, p.x) : 0.0);
     float k = floor(a / sector + 0.5);
     vec2 q = rot(p.xz, -k * sector);
     vec3 dp = vec3(q.x - MD_DOME_D, p.y - MD_FLOOR, q.y);

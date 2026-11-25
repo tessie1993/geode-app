@@ -197,7 +197,7 @@ void main() {
         // The lakes: flat water, the sheet's sky in it at grazing angles, a glint.
         vec3 water = mix(vec3(0.42, 0.62, 0.78), terraPal(hue + 0.6) * 0.7, 0.2);
         vec3 rr = reflect(rd, vec3(0.0, 1.0, 0.0));
-        float fres = 0.08 + 0.6 * pow(1.0 - max(-rd.y, 0.0), 5.0);
+        float fres = 0.08 + 0.6 * pow(1.0 - clamp(-rd.y, 0.0, 1.0), 5.0);
         water = mix(water * 0.9, terraSky(rr, sun, zenith, paper, sunCol * 0.5), fres);
         water += sunCol * 0.6 * pow(max(dot(rr, sun), 0.0), 80.0);
         col = mix(ground3, water, wet);

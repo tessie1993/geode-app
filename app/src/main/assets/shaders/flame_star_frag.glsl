@@ -25,7 +25,7 @@ out vec4 fragColor;
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float r = max(length(p.xy), 1.0e-3);
     float seg = FLAME_TAU / 8.0;
-    float a = abs(mod(atan(p.y, p.x) + 0.0981748 * p.z, seg) - 0.5 * seg);
+    float a = abs(mod((abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) + 0.0981748 * p.z, seg) - 0.5 * seg);
     float tip = mix(0.15, 1.05, gFlameForm);
     float edge = log(r * cos(a - tip) / cos(tip));
     f = vec2(2.4 * edge - 0.125 * p.z + 0.4 * sin(0.7854 * p.z), 0.5 * p.z + 0.7 * edge + uTime * FLAME_RATE(40));

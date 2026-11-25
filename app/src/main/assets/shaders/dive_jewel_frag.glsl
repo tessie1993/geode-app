@@ -51,7 +51,7 @@ void main() {
         vec3 n = diveNormal(p, diveEps(hitT));
         float id = gDiveHitId;
         vec3 refl = reflect(rd, n);
-        float fres = pow(1.0 - max(dot(n, -rd), 0.0), 4.0);
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0);
         vec3 base = diveMaterial(gDiveHitMat, id, hitT) * 0.7;
         col = diveShade(n, rd, hitT, used, base, 64.0);
         // Fire: the colour inside the stone turns with the reflected direction.

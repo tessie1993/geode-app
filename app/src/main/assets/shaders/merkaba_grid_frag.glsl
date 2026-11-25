@@ -200,7 +200,7 @@ vec3 normalAt(vec3 p, float eps) {
 /** One line of a wire frame, `dist` and `width` in the same world units, `px` the pixel footprint. */
 float wire(float dist, float width, float px) {
     float w = width + px;
-    return smoothstep(w, w * 0.25, abs(dist)) * min(1.0, width / w * 1.5);
+    return (1.0 - smoothstep(w * 0.25, w, abs(dist))) * min(1.0, width / w * 1.5);
 }
 
 /**

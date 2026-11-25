@@ -271,7 +271,7 @@ void main() {
         // distance so far lines stay a pixel or so; flux thickens them.
         float dc = abs(fract(h0 * sContour + 0.5) - 0.5) / sContour;
         float w = (0.012 + 0.0022 * hitT) * (0.7 + 0.8 * flux) * (1.0 + kTexture);
-        float line = smoothstep(w, w * 0.3, dc) * fade;
+        float line = (1.0 - smoothstep(w * 0.3, w, dc)) * fade;
         float ch = landHue + h0 * 0.06 + 0.1 * u;
         vec3 lineCol = mix(pal(ch), pal(ch + 0.5), snare) + 0.25 * snare;
         col += lineCol * line * (0.35 + 0.9 * bandAt(u) * valley + 0.15 * swell) * (1.0 + kBuild);
@@ -297,7 +297,7 @@ void main() {
         col = mix(horizonCol, zenithCol, smoothstep(-0.02, 0.5, up));
         // Sun or moon: a2 is the squared angle to its centre.
         float a2 = 2.0 * (1.0 - dot(rd, sunDir));
-        float disc = smoothstep(sunR * sunR, sunR * sunR * 0.75, a2);
+        float disc = (1.0 - smoothstep(sunR * sunR * 0.75, sunR * sunR, a2));
         col += sunCol * disc + sunCol * (0.12 + 0.1 * day) * exp(-a2 * 60.0);
         // Stars at night; air makes them twinkle.
         vec3 sc = rd * 150.0;

@@ -809,7 +809,7 @@ vec3 diveMaterial(float mat, float id, float depth) {
  * camera, so the dive is lit where it looks and nothing needs a shadow ray.
  */
 vec3 diveShade(vec3 n, vec3 rd, float hitT, float used, vec3 base, float shine) {
-    float lamp = max(dot(n, -rd), 0.0);
+    float lamp = clamp(dot(n, -rd), 0.0, 1.0);
     float fall = 1.0 / (1.0 + 0.02 * hitT * hitT);
     float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), shine);
     float rim = pow(1.0 - lamp, 3.0);

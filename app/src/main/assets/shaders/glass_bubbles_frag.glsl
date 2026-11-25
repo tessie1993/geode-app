@@ -241,7 +241,7 @@ vec3 shadeBubble(vec3 ro, vec3 rd, vec2 hs, vec3 c, float r, float id, GlassEar 
         float nm = baseNm * drain * (1.0 + marble * swirl);
         nm *= 1.0 - smoothstep(0.7, 0.96, local.y);
         vec3 film = glassFilm(nm, cosI, 1.33);
-        float fr = mix(0.16, 1.0, pow(1.0 - cosI, 3.0));
+        float fr = mix(0.16, 1.0, pow(clamp(1.0 - cosI, 0.0, 1.0), 3.0));
         vec3 rr = reflect(rd, n);
         vec3 refl = pal(gHue + 0.3 + 0.2 * n.y) * 0.1 + neonMirror(p, rr, ear.frost * 0.08) * 1.4;
         // The fractal world only on the near wall: the far one is mostly the arches.

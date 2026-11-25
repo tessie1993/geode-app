@@ -2,7 +2,7 @@
 // The watermark tile, laid over the frame with premultiplied blending by WatermarkPass: repeated (GL_REPEAT)
 // for the tiled pattern, or shown once (uClip) for a corner mark or the end card, which also dims the picture
 // (uDim) and fades in (uAlpha). Tiled (uClip and uDim 0, uAlpha 1) it is the Kotlin overlay's maths, verbatim.
-precision mediump float;
+precision highp float;
 in vec2 vTexCoord;
 uniform sampler2D uTexture;
 uniform float uClip;

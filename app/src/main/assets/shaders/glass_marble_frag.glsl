@@ -280,7 +280,7 @@ void main() {
     }
 
     vec3 col = sky;
-    if (hitT > 0.0) {
+    if (hitT > 0.0 && hit.r > 0.0) {
         vec3 c = hit.c;
         float R = hit.r;
         float h = hit.h;

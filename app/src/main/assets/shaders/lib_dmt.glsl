@@ -220,7 +220,7 @@ const float DMT_CHRYS_SPIN = 0.011;
 vec3 dmtChrysanthemum(vec3 rdLocal, float hue, float energy) {
     vec3 d = normalize(rdLocal);
     float elev = acos(clamp(d.z, -1.0, 1.0));
-    float az = atan(d.y, d.x) + uTime * DMT_CHRYS_SPIN * DMT_TAU;
+    float az = (abs(d.y) + abs(d.x) > 0.0 ? atan(d.y, d.x) : 0.0) + uTime * DMT_CHRYS_SPIN * DMT_TAU;
     float seg = DMT_TAU / DMT_CHRYS_SYM;
     az = abs(mod(az, seg) - seg * 0.5);
     // Breathes with the passage: the petals open on a swell.

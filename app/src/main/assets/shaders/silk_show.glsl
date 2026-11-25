@@ -63,7 +63,7 @@ vec2 foldUv(vec2 uv) {
     if (uFold <= 0) return uv;
     float aspect = uRes.x / uRes.y;
     vec2 q = (uv - 0.5) * vec2(aspect, 1.0);
-    float a = atan(q.y, q.x) + uFoldPhase;
+    float a = (abs(q.y) + abs(q.x) > 0.0 ? atan(q.y, q.x) : 0.0) + uFoldPhase;
     float r = length(q);
     float seg = TAU / float(uFold);
     a = abs(mod(a, seg) - seg * 0.5);

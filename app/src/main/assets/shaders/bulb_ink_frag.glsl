@@ -100,7 +100,7 @@ void main() {
             used = float(i);
             BulbHit h = bulbField(ro + rd * t);
             float d = h.d;
-            nearPx = min(nearPx, d / t);
+            nearPx = min(nearPx, d / (t > 0.0 ? t : 1.0e-4));
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;

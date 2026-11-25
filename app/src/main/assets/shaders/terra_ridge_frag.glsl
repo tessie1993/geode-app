@@ -106,7 +106,7 @@ void main() {
         float h = p.y / hMax;
         float dif = max(dot(n, sun), 0.0);
         float sky = 0.5 + 0.5 * n.y;
-        float rim = pow(1.0 - max(dot(n, -rd), 0.0), 4.0) * max(dot(rd, sun), 0.0);
+        float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0) * max(dot(rd, sun), 0.0);
         vec3 rock = mix(vec3(0.16, 0.13, 0.15), terraPal(hue + 0.55 + 0.25 * h) * 0.25, 0.35);
         float snow = smoothstep(0.55, 0.8, h + snowUp + 0.25 * (n.y - 0.7)) * smoothstep(0.55, 0.8, n.y);
         vec3 base = mix(rock, vec3(0.85, 0.82, 0.9), snow);

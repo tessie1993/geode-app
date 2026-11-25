@@ -51,6 +51,18 @@ const char* geode_customize_rows(const char* style_id, const char* keys, const c
     return nullptr;
 }
 
+const char* geode_customize_section_rows(const char* style_id, const char* sections, const char* query, int transition,
+                                         int liquid_mode, const float* params) try {
+    customize::RowContext context;
+    context.styleId = style_id ? style_id : "";
+    context.query = query ? query : "";
+    context.transition = transition != 0;
+    context.liquidMode = liquid_mode;
+    return handOut(customize::sectionRows(sections ? sections : "", look(params), context));
+} catch (...) {
+    return nullptr;
+}
+
 int geode_customize_matches(const char* query, const char* text) try {
     return customize::matches(query ? query : "", text ? text : "") ? 1 : 0;
 } catch (...) {

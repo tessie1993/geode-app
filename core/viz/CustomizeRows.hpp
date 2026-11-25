@@ -81,6 +81,11 @@ struct RowContext {
 // Numbers in viz/TableNumber's form.
 std::string rows(std::string_view keys, const SceneParams& p, const RowContext& context);
 
+// The rows of several sections in one read, for the panel's one call per change: sections as rows() takes them,
+// parted by an empty line. One header, then each section's rows after a SECTION|<index> line, index from 0, a line
+// for every section even when none of its rows draw.
+std::string sectionRows(std::string_view sections, const SceneParams& p, const RowContext& context);
+
 // Whether text matches the panel's search: blank matches, else a case-blind part of it.
 bool matches(std::string_view query, std::string_view text);
 

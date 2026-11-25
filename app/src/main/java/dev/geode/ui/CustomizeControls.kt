@@ -8,8 +8,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -31,31 +35,64 @@ import dev.geode.ui.theme.UiSound
  */
 @Composable
 internal fun CustomizeControls(
-    keys: List<String>,
+    section: CustomizeSection,
     host: AdvancedHost,
 ) {
-    // One collector for the whole section, not one per control: a slider drag wakes one section.
+    // Not read here: a row reads it when a move arrives, so a viz change alone recomposes no section.
     val vizState = host.viewModel.vizState.collectAsStateWithLifecycle()
-    val viz = vizState.value
+    LocalSectionRows.current.value[section.path]
+        .orEmpty()
+        .forEach { ControlRow(it, host, vizState) }
+}
+
+/** The rows of every section the panel draws, by section path, from [rememberSectionRows]. */
+internal val LocalSectionRows = staticCompositionLocalOf<State<Map<String, List<ControlFields>>>> { mutableStateOf(emptyMap()) }
+
+/**
+ * The rows of [sections] in one native read (core/viz/CustomizeRows `sectionRows`) per change of the look, the
+ * transition, the style, the search or Liquid, instead of one read per section. The look is read inside the derived
+ * state, so a slider drag reads native once and recomposes only the sections whose rows it hands back changed.
+ */
+@Composable
+internal fun rememberSectionRows(
+    sections: List<CustomizeSection>,
+    host: AdvancedHost,
+): State<Map<String, List<ControlFields>>> {
+    val vizState = host.viewModel.vizState.collectAsStateWithLifecycle()
     val liquidMode by host.visualsViewModel.liquidMode.collectAsStateWithLifecycle()
     val sceneId = LocalSceneId.current
     val query = LocalParamQuery.current
-    val transition = viz.transitionId != null
-    val rows =
-        remember(keys, sceneId, query, viz.params, transition, liquidMode) {
-            CustomizeNative
-                .customizeRows(sceneId, keys.joinToString("\n"), query, transition, liquidMode, viz.params.frame())
-                .lines()
-                .drop(1)
-                .filter { it.isNotEmpty() }
-                .map { ControlFields(it.split('|')) }
+    val keys = remember(sections) { sections.joinToString("\n\n") { it.controls.joinToString("\n") } }
+    val look = remember { derivedStateOf(structuralEqualityPolicy()) { vizState.value.params to (vizState.value.transitionId != null) } }
+    return remember(sections, keys, sceneId, query, liquidMode) {
+        derivedStateOf(structuralEqualityPolicy()) {
+            val (params, transition) = look.value
+            sectionRowsOf(sections, CustomizeNative.customizeSectionRows(sceneId, keys, query, transition, liquidMode, params.frame()))
         }
-    rows.forEach { ControlRow(it, host, vizState) }
+    }
+}
+
+/** Native's SECTION|<index> lines name which of [sections] the rows under them belong to. */
+private fun sectionRowsOf(
+    sections: List<CustomizeSection>,
+    text: String,
+): Map<String, List<ControlFields>> {
+    val out = HashMap<String, MutableList<ControlFields>>()
+    var current: MutableList<ControlFields>? = null
+    text.lineSequence().drop(1).filter { it.isNotEmpty() }.forEach { line ->
+        val f = line.split('|')
+        if (f[0] == "SECTION") {
+            current = sections.getOrNull(f[1].toInt())?.let { out.getOrPut(it.path) { mutableListOf() } }
+        } else {
+            current?.add(ControlFields(f))
+        }
+    }
+    return out
 }
 
 /** One native row's fields; structural equality, so a row whose fields did not change skips recomposition. */
 @Immutable
-private data class ControlFields(
+internal data class ControlFields(
     val list: List<String>,
 )
 

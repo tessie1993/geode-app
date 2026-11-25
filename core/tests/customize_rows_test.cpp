@@ -83,7 +83,7 @@ void everyPlacedControlHasOneWidget() {
 }
 
 void slidersCarryTheirRangeDefaultUnitAndSteps() {
-    const SceneParams p;
+    SceneParams p;
     const auto rows = rowsOf("Kaleidoscope\nGlide time\nFundamental (Hz)\nBloom\nSpawn points", p, on(""));
     check(rows.size() == 6 && rows[0][0] == "rows" && rows[0][1] == std::to_string(customize::kRowsVersion), "header and five rows");
     const auto* k = rowFor(rows, "SLIDER", "Kaleidoscope");
@@ -129,7 +129,7 @@ void switchesHideWhatTheyGate() {
 }
 
 void theStyleDecidesWhatShows() {
-    const SceneParams p;
+    SceneParams p;
     check(rowFor(rowsOf("Fluid curl", p, on("fluid")), "SLIDER", "Fluid curl") != nullptr, "Fluid curl on Fluid");
     check(!rowFor(rowsOf("Fluid curl", p, on("julia")), "SLIDER", "Fluid curl"), "no Fluid curl on a shader style");
     check(rowsOf("Geometry", p, on("julia")).size() == 1, "no plate on a shader style");
@@ -148,7 +148,7 @@ void theStyleDecidesWhatShows() {
 }
 
 void searchHidesWholePagesAndMatchesWords() {
-    const SceneParams p;
+    SceneParams p;
     customize::RowContext ctx = on("julia");
     const std::string keys = "Palette\n@waves\n@palette_maker\nReaction DNA";
     auto rows = rowsOf(keys, p, ctx);
@@ -170,7 +170,7 @@ void searchHidesWholePagesAndMatchesWords() {
 }
 
 void shellSlidersAndNotes() {
-    const SceneParams p;
+    SceneParams p;
     customize::RowContext ctx = on("");
     check(!rowFor(rowsOf("@transition_length", p, ctx), "SHELL", "Transition length"), "no length without a transition");
     ctx.transition = true;
@@ -255,9 +255,27 @@ void theOwnersLayoutHolds() {
     check(std::find(colour.begin(), colour.end(), "Hue shift") != colour.end(), "Hue shift in Look's colour detail");
 }
 
+// The panel's one read: each section's rows after its SECTION line, the same rows a read of that section alone gives.
+void sectionsReadInOneCall() {
+    SceneParams p;
+    const auto ctx = on("");
+    const std::string first = "Brightness\nSaturation";
+    const std::string second = "Speed\nZoom";
+    const std::string out = customize::sectionRows(first + "\n\n" + second, p, ctx);
+    const std::string header = "rows|" + std::to_string(customize::kRowsVersion) + "\n";
+    const auto body = [&](const std::string& keys) { return customize::rows(keys, p, ctx).substr(header.size()); };
+    check(out == header + "SECTION|0\n" + body(first) + "SECTION|1\n" + body(second), "two sections in one read");
+    check(!body(first).empty() && !body(second).empty(), "both sections draw rows");
+    check(customize::sectionRows("Brightness\n\n\n\nSpeed", p, ctx).find("SECTION|2\n") != std::string::npos,
+          "an empty section keeps its line");
+    const char* api = geode_customize_section_rows("", (first + "\n\n" + second).c_str(), "", 0, 0, nullptr);
+    check(api != nullptr && out == api, "the C ABI hands the same text");
+}
+
 }  // namespace
 
 int main() {
+    sectionsReadInOneCall();
     theOwnersLayoutHolds();
     everyPlacedControlHasOneWidget();
     slidersCarryTheirRangeDefaultUnitAndSteps();

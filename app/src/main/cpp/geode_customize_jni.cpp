@@ -50,6 +50,18 @@ Java_dev_geode_engine_bridge_CustomizeNative_customizeRows(JNIEnv* env, jobject,
                                                 liquidMode, wireOf(look)));
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_CustomizeNative_customizeSectionRows(JNIEnv* env, jobject, jstring styleId, jstring sections,
+                                                              jstring query, jboolean transition, jint liquidMode,
+                                                              jfloatArray params) {
+    Utf8Chars style(env, styleId);
+    Utf8Chars keyLines(env, sections);
+    Utf8Chars search(env, query);
+    FloatElements look(env, params);
+    return utf8String(env, geode_customize_section_rows(textOf(style), textOf(keyLines), textOf(search),
+                                                        transition == JNI_TRUE ? 1 : 0, liquidMode, wireOf(look)));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_CustomizeNative_customizeMatches(JNIEnv* env, jobject, jstring query, jstring text) {
     Utf8Chars search(env, query);

@@ -96,7 +96,19 @@ class MacroStore internal constructor(
             .getOrDefault(emptyMap())
 
     /** What the waves and envelopes on each knob add to its turn on the visual now; the knob's second arc polls it. */
-    fun liveMods(): Map<Int, MacroLiveMod> = runCatching { MacroLiveTable.read(MacroNative.macroBankLiveMods()) }.getOrDefault(emptyMap())
+    fun liveMods(): Map<Int, MacroLiveMod> =
+        runCatching {
+            val packed = MacroNative.macroBankLiveMods()
+            // The poll runs every frame or so; a still bank hands back the map it last built.
+            if (!packed.contentEquals(livePacked)) {
+                livePacked = packed
+                liveRead = MacroLiveTable.read(packed)
+            }
+            liveRead
+        }.getOrDefault(emptyMap())
+
+    private var livePacked = FloatArray(0)
+    private var liveRead: Map<Int, MacroLiveMod> = emptyMap()
 
     fun rename(
         id: Int,

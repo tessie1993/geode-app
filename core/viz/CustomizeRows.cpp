@@ -355,8 +355,9 @@ bool matches(std::string_view query, std::string_view text) {
     return it != text.end();
 }
 
-std::string rows(std::string_view keys, const SceneParams& p, const RowContext& ctx) {
-    std::string out = "rows|" + std::to_string(kRowsVersion) + "\n";
+namespace {
+
+void appendRows(std::string& out, std::string_view keys, const SceneParams& p, const RowContext& ctx) {
     size_t start = 0;
     while (start < keys.size()) {
         const size_t end = std::min(keys.find('\n', start), keys.size());
@@ -376,6 +377,27 @@ std::string rows(std::string_view keys, const SceneParams& p, const RowContext& 
             case Widget::Liquid: liquid(out, *c, p, ctx); break;
             case Widget::Piece: piece(out, *c, ctx); break;
         }
+    }
+}
+
+std::string header() { return "rows|" + std::to_string(kRowsVersion) + "\n"; }
+
+}  // namespace
+
+std::string rows(std::string_view keys, const SceneParams& p, const RowContext& ctx) {
+    std::string out = header();
+    appendRows(out, keys, p, ctx);
+    return out;
+}
+
+std::string sectionRows(std::string_view sections, const SceneParams& p, const RowContext& ctx) {
+    std::string out = header();
+    size_t start = 0;
+    for (int index = 0; start <= sections.size(); ++index) {
+        const size_t end = std::min(sections.find("\n\n", start), sections.size());
+        out += "SECTION|" + std::to_string(index) + "\n";
+        appendRows(out, sections.substr(start, end - start), p, ctx);
+        start = end + 2;
     }
     return out;
 }

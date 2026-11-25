@@ -1125,6 +1125,10 @@ GEODE_API void        geode_customize_borrow(const char* category, const float* 
  * next customize rows call. */
 GEODE_API const char* geode_customize_rows(const char* style_id, const char* keys, const char* query, int transition, int liquid_mode,
                                            const float* params);
+/* geode_customize_rows for several sections in one call (core/viz/CustomizeRows sectionRows): sections as keys, parted by an
+ * empty line; each section's rows follow a SECTION|<index> line. Valid until this thread's next customize rows call. */
+GEODE_API const char* geode_customize_section_rows(const char* style_id, const char* sections, const char* query, int transition,
+                                                   int liquid_mode, const float* params);
 /* 1 when the panel search query matches text (core/viz/CustomizeRows matches): blank matches all, else a case-blind substring
  * of the trimmed query. */
 GEODE_API int geode_customize_matches(const char* query, const char* text);

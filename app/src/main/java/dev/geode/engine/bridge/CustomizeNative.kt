@@ -51,6 +51,19 @@ object CustomizeNative {
         params: FloatArray,
     ): String
 
+    /**
+     * [customizeRows] for several sections in one call (core/viz/CustomizeRows `sectionRows`): [sections] are key lines
+     * parted by an empty line, and each section's rows follow a SECTION line, so the panel reads once per change.
+     */
+    external fun customizeSectionRows(
+        styleId: String,
+        sections: String,
+        query: String,
+        transition: Boolean,
+        liquidMode: Int,
+        params: FloatArray,
+    ): String
+
     /** Whether the panel search [query] matches [text] (core/viz/CustomizeRows `matches`): blank matches all, else case-blind. */
     external fun customizeMatches(
         query: String,

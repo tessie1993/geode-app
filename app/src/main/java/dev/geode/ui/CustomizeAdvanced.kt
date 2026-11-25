@@ -483,7 +483,8 @@ internal fun LayersPage() {
     val active = LocalSceneId.current
     var edits by remember { mutableIntStateOf(0) }
     // Read again now and then too: what Auto Director or a knob draws moves without an edit here.
-    val shown by produceState(VizNative.layerShown(active), active, edits) {
+    // The first value read once, not on every pass: produceState keeps only its first initial value anyway.
+    val shown by produceState(remember { VizNative.layerShown(active) }, active, edits) {
         while (true) {
             value = VizNative.layerShown(active)
             delay(LAYER_SHOWN_POLL_MS)

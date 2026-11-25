@@ -130,6 +130,13 @@ internal fun CustomizePanel(
     ) {
         ProvideKnobLinks(sceneId, proLock) {
             ParamSurface(sceneId = sceneId, query = query) {
+                // The sections on screen, a search's every one, read from native in one call per change (not one per section).
+                val searchingAll = query.isNotBlank()
+                val drawn =
+                    remember(searchingAll, categories, open, sectionsOf) {
+                        if (searchingAll) categories.flatMap(sectionsOf) else sectionsOf(open)
+                    }
+                val sectionRows = rememberSectionRows(drawn, host)
                 val header: @Composable (CustomizeCategory) -> Unit = { category ->
                     CustomizeHeader(
                         viewModel = viewModel,
@@ -155,35 +162,37 @@ internal fun CustomizePanel(
                         )
                     }
                 }
-                if (query.isNotBlank()) {
-                    // A search shows every match at once, in every category; each control hides itself unless it matches.
-                    Column(Modifier.fillMaxSize()) {
-                        header(open)
-                        LazyColumn(
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = GeodeSpacing.S, vertical = GeodeSpacing.XS),
-                            verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
-                        ) {
-                            items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
-                                Column(Modifier.fillMaxWidth()) { CustomizeControls(section.controls, host) }
+                CompositionLocalProvider(LocalSectionRows provides sectionRows) {
+                    if (searchingAll) {
+                        // A search shows every match at once, in every category; each control hides itself unless it matches.
+                        Column(Modifier.fillMaxSize()) {
+                            header(open)
+                            LazyColumn(
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = GeodeSpacing.S, vertical = GeodeSpacing.XS),
+                                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
+                            ) {
+                                items(drawn, key = { it.path }) { section ->
+                                    Column(Modifier.fillMaxWidth()) { CustomizeControls(section, host) }
+                                }
                             }
                         }
+                    } else {
+                        CustomizeBrowser(
+                            categories = categories,
+                            selected = open,
+                            onSelect = { groups.selectTab(it.name) },
+                            sectionsOf = sectionsOf,
+                            openGroups = openGroups,
+                            onToggleGroup = { groups.toggle(it.path) },
+                            // This tab only; groups.collapseAll(null) would close every tab's.
+                            onCollapseAll = { groups.collapseAll(it.name) },
+                            onExpandAll = { c -> sectionsOf(c).forEach { groups.expand(it.path) } },
+                            sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
+                            modifier = Modifier.fillMaxSize(),
+                            header = header,
+                        ) { section -> CustomizeControls(section, host) }
                     }
-                } else {
-                    CustomizeBrowser(
-                        categories = categories,
-                        selected = open,
-                        onSelect = { groups.selectTab(it.name) },
-                        sectionsOf = sectionsOf,
-                        openGroups = openGroups,
-                        onToggleGroup = { groups.toggle(it.path) },
-                        // This tab only; groups.collapseAll(null) would close every tab's.
-                        onCollapseAll = { groups.collapseAll(it.name) },
-                        onExpandAll = { c -> sectionsOf(c).forEach { groups.expand(it.path) } },
-                        sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
-                        modifier = Modifier.fillMaxSize(),
-                        header = header,
-                    ) { section -> CustomizeControls(section.controls, host) }
                 }
             }
         }

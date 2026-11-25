@@ -43,10 +43,6 @@ constexpr Unrouted kUnrouted[] = {
     {"phraseIndex", "a count that wraps; it numbers the values of the phrase-count sources"},
     {"scale", "a catalogue index, not a magnitude; ScaleBrightness, ScaleTension and ScaleFit are its views"},
     {"sectionBars", "a count that wraps; SectionProgress is worked out from it"},
-    {"loudnessM", "no source yet: an analysis output nothing outside the engine reads"},
-    {"loudnessS", "no source yet: an analysis output nothing outside the engine reads"},
-    {"busy", "no source yet: an analysis output nothing outside the engine reads"},
-    {"drive", "no source yet: it scales every route's reach (sound/DriveGain.hpp) and cannot be routed itself"},
 };
 
 // The arrays no route reads: a route moves one value, and these are pictures of the sound a style draws.

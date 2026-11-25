@@ -87,8 +87,11 @@ enum class ReactSource {
     SectionReturn, SectionProgress,
     // How fast the chords move round the circle of fifths: 0 still … 1 at a quarter of the circle a second.
     ChordMotion,
+    // Absolute loudness and drive (core/sound/LufsMeter), none relative to the song: momentary (400 ms) and
+    // short-term (3 s) loudness, how busy the texture is, and the drive, the music's magnitude.
+    LoudnessMomentary, LoudnessShortTerm, Busy, Drive,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::ChordMotion) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::Drive) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in

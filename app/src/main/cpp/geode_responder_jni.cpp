@@ -31,6 +31,7 @@ jfloatArray floatsOf(JNIEnv* env, const float* values, int count) {
     return out;
 }
 
+// Every call here may return null: a text or an array that could not be made (out of memory) or read.
 // The most one row can list: its user responses (24) and every route of the matrix (256) that sits on it.
 constexpr int kMaxListed = 24 + GEODE_REACT_ROUTES;
 
@@ -54,6 +55,8 @@ Java_dev_geode_engine_bridge_ResponderNative_responderRows(JNIEnv* env, jobject,
                                                            jint mask) {
     Utf8Chars saved(env, reactions);
     Utf8Chars id(env, styleId);
+    // A text that could not be read is not "no text" (a new style's): hand back null and edit nothing.
+    if ((reactions && !saved.get()) || (styleId && !id.get())) return nullptr;
     float out[GEODE_RESP_ROWS * GEODE_RESP_ROW_VALUES] = {};
     return floatsOf(env, out,
                     geode_resp_rows(saved.get(), id.get(), seed, static_cast<unsigned>(mask), out, GEODE_RESP_ROWS * GEODE_RESP_ROW_VALUES));
@@ -64,6 +67,7 @@ Java_dev_geode_engine_bridge_ResponderNative_responderValues(JNIEnv* env, jobjec
                                                              jint mask, jint row) {
     Utf8Chars saved(env, reactions);
     Utf8Chars id(env, styleId);
+    if ((reactions && !saved.get()) || (styleId && !id.get())) return nullptr;
     std::vector<float> out(static_cast<size_t>(kMaxListed) * GEODE_RESP_LIST_VALUES);
     const int n = geode_resp_values(saved.get(), id.get(), seed, static_cast<unsigned>(mask), row, out.data(),
                                     static_cast<int>(out.size()));
@@ -74,6 +78,7 @@ JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_ResponderNative_responderEdit(JNIEnv* env, jobject, jstring reactions, jint op, jint row, jint index,
                                                            jint field, jfloat value) {
     Utf8Chars saved(env, reactions);
+    if (reactions && !saved.get()) return nullptr;
     return textOf(env, [&](char* out, int capacity) { return geode_resp_edit(saved.get(), op, row, index, field, value, out, capacity); });
 }
 

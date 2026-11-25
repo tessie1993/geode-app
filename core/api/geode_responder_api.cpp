@@ -92,7 +92,10 @@ int geode_resp_edit(const char* reactions, int op, int row, int index, int field
             resp::setField(config, row, index, field, value);
             break;
         case GEODE_RESP_EDIT_CLEAR:
-            config = resp::newStyleConfig();
+            config = resp::Config{};
+            break;
+        case GEODE_RESP_EDIT_STYLE_MUTE:
+            if (std::isfinite(value)) resp::setMuted(config, row, index, value > 0.5f);
             break;
         default:
             break;

@@ -97,6 +97,9 @@ public:
     }
     // An event the picture made (Moment::Collide) came: the responder's row for it hears it on the next step.
     void hearMoment(viz::Moment moment, float strength) { responder_.hear(moment, strength); }
+    // The song starts over (a new play: track change, seek, an export's start): the responses' counters, cooldowns,
+    // envelopes and seeded chance start again, so the same song from here gives the same fires.
+    void restartPlay() { responder_.reset(); }
     // A preset morph: the params glide over `seconds`, for three times that long. <= 0 is ignored.
     void beginMorph(float seconds);
     // A new surface: the stages' state starts over (their configuration and the fade are kept).

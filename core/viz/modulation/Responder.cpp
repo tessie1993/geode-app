@@ -160,7 +160,7 @@ bool setField(Config& c, int row, int nth, int field, float value) {
         }
         case Field::Amount: r.amount = value; break;
         case Field::Strength: {
-            const int k = ordinal(value, 4);
+            const int k = ordinal(value, static_cast<int>(ModCurve::Smooth) + 1);
             if (k < 0) return false;
             r.strength = static_cast<ModCurve>(k);
             break;
@@ -237,19 +237,22 @@ void Bank::releaseHeld(int index) {
 }
 
 void Bank::configure(const Config& config) {
-    const int kept = std::min(config_.count, config.count);
-    // A While response that is gone, or is no longer the same kind and drive, lets go of what it holds.
-    for (int i = 0; i < std::clamp(config_.count, 0, kMaxResponses); ++i) {
+    std::array<bool, kMaxResponses> same{};
+    for (int i = 0; i < kMaxResponses && i < config_.count && i < config.count; ++i) {
         const Response& was = config_.responses[static_cast<size_t>(i)];
-        const bool same = i < config.count && config.responses[static_cast<size_t>(i)].kind == was.kind &&
-                          config.responses[static_cast<size_t>(i)].drive == was.drive;
-        if (!same) releaseHeld(i);
+        const Response& now = config.responses[static_cast<size_t>(i)];
+        same[static_cast<size_t>(i)] = was.row == now.row && was.kind == now.kind && was.target == now.target && was.drive == now.drive;
+    }
+    // A While response that is gone, or is no longer the same one, lets go of what it holds.
+    for (int i = 0; i < std::clamp(config_.count, 0, kMaxResponses); ++i) {
+        if (!same[static_cast<size_t>(i)]) releaseHeld(i);
     }
     config_ = config;
     config_.count = std::clamp(config_.count, 0, kMaxResponses);
     for (int i = 0; i < config_.count; ++i) clampResponse(config_.responses[static_cast<size_t>(i)]);
-    // What keeps its place keeps playing; the rest starts from rest.
-    for (int i = kept; i < kMaxResponses; ++i) {
+    // A response that is still the same one keeps playing; any other starts from rest with its own generator.
+    for (int i = 0; i < kMaxResponses; ++i) {
+        if (same[static_cast<size_t>(i)]) continue;
         runtime_[static_cast<size_t>(i)] = Runtime{};
         runtime_[static_cast<size_t>(i)].rng = seedFor(i);
     }
@@ -263,16 +266,16 @@ void Bank::preview(const Response& r) {
     if (previewed_.drive == DriveMode::Follow || previewed_.drive == DriveMode::While) previewed_.drive = DriveMode::Once;
     previewSet_ = true;
     previewPending_ = true;
+    previewFired_ = false;
     runtime_[kPreview] = Runtime{};
     runtime_[kPreview].rng = seedFor(kPreview);
 }
 
 void Bank::compile(std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
-    if (config_.gate) {
+    if (config_.muteCount > 0) {
         for (ReactRoute& r : routes) {
-            if (!r.enabled || r.external) continue;
-            const int row = rowOfSource(r.source);
-            if (row >= 0 && !config_.rowOn[static_cast<size_t>(row)]) r.enabled = false;
+            if (!r.enabled || r.external || !r.styleDefault) continue;
+            if (isMuted(config_, static_cast<int>(r.source), static_cast<int>(r.target))) r.enabled = false;
         }
     }
     status_.compiled = 0;
@@ -322,6 +325,7 @@ void Bank::reset() {
         rs.slot = slot;
     }
     previewPending_ = false;
+    previewFired_ = false;
     status_.lit.fill(0.0f);
     status_.active = 0;
     activeNow_ = 0;
@@ -337,8 +341,10 @@ void Bank::hear(Moment moment, float strength) {
     heardStrength_[k] = std::max(heardStrength_[k], std::clamp(finiteOr(strength, 0.0f), 0.0f, 1.0f));
 }
 
-void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals, std::uint32_t moments, ReactionEngine& engine) {
+void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals, std::uint32_t moments, ReactionEngine& engine,
+                float previewDt) {
     dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, kMaxDt) : 0.0f;
+    previewDt = std::isfinite(previewDt) && previewDt >= 0.0f ? std::clamp(previewDt, 0.0f, kMaxDt) : dt;
     const float bpm = std::isfinite(f.bpm) && f.bpm > 0.0f ? f.bpm : 0.0f;
     const float fall = std::exp(-dt / kLitSeconds);
     std::array<bool, kRows> came{};
@@ -379,8 +385,20 @@ void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals,
         advance(i, r, live, came[row], false, strength[row], level[row], bpm, dt, engine);
     }
     if (previewSet_) {
-        advance(kPreview, previewed_, true, previewPending_, true, 1.0f, 1.0f, bpm, dt, engine);
+        advance(kPreview, previewed_, true, previewPending_, true, 1.0f, 1.0f, bpm, previewDt, engine);
+        if (previewPending_) previewFired_ = true;
         previewPending_ = false;
+        // Played out: the route it took goes back to the matrix.
+        if (previewFired_ && !runtime_[kPreview].running) {
+            const int slot = runtime_[kPreview].slot;
+            if (slot >= 0) {
+                engine.setExternal(slot, 0.0f);
+                engine.routes[static_cast<size_t>(slot)].enabled = false;
+            }
+            runtime_[kPreview].slot = -1;
+            previewSet_ = false;
+            previewFired_ = false;
+        }
     }
     status_.active = activeNow_;
     status_.cost = status_.enabledRoutes + 2 * activeNow_;
@@ -398,8 +416,8 @@ void Bank::advance(int index, const Response& r, bool live, bool candidate, bool
     const float shaped = std::clamp(shape(strength, r.strength), 0.0f, 1.0f);
 
     // Whether the event plays it: a cooldown that has not run out passes the hit over (it is not counted), the
-    // Nth counts the hits that get past it, and the chance is drawn on every counted hit so the generator's
-    // place never depends on the odds.
+    // Nth counts the hits that get past it, and the chance is drawn on every counted hit, whatever the odds, so
+    // the generator's place depends only on how many hits were counted.
     bool fire = false;
     if (playable && !follows && candidate) {
         if (previewing) {
@@ -419,16 +437,22 @@ void Bank::advance(int index, const Response& r, bool live, bool candidate, bool
         s.running = true;
         s.gate = true;
     }
-    // A While response stays on as long as its event holds (a rise through 0.5, let go below 0.3).
-    if (playable && !fire && r.drive == DriveMode::While) {
-        s.gate = level >= MomentWatch::kRise || (s.gate && level >= MomentWatch::kRearm);
-    }
+    // A While response stays on as long as its event holds, and lets go below 0.3. Only a hit that played opens it
+    // again: one that the Nth, the chance or the cooldown passed over does not pull a release back to the sustain.
+    if (playable && !fire && r.drive == DriveMode::While) s.gate = s.gate && level >= MomentWatch::kRearm;
 
     if (r.kind == kParam) {
         float out = 0.0f;
         if (!playable) {
-            s.voice.reset();
-            s.running = false;
+            if (live && !t.ok && s.voice.stage != AdsrStage::Idle) {
+                // The tempo went: a beat unit has no length now, so the envelope lets go over the fade out it had.
+                const AdsrShape stages{0.0f, 0.0f, 1.0f, s.releaseSeconds / std::max(s.voice.peak, kMinHit), false, false, 0.0f};
+                out = s.voice.step(stages, dt, 0.0f, 0.0f, false, false);
+                s.running = s.voice.stage != AdsrStage::Idle;
+            } else {
+                s.voice.reset();
+                s.running = false;
+            }
             s.gate = false;
         } else if (follows) {
             out = std::clamp(shape(level, r.strength), 0.0f, 1.0f);
@@ -440,8 +464,19 @@ void Bank::advance(int index, const Response& r, bool live, bool candidate, bool
             s.running = out > 0.001f;
         } else {
             const bool open = r.drive == DriveMode::While ? s.gate : s.age < s.holdFor;
-            const AdsrShape stages{t.in, 0.0f, 1.0f, t.out, false, r.drive == DriveMode::Once, 0.0f};
-            out = s.voice.step(stages, dt, fire ? std::max(shaped, kMinHit) : 0.0f, 0.0f, open, open);
+            float hit = fire ? std::max(shaped, kMinHit) : 0.0f;
+            if (fire && r.drive != DriveMode::While && s.holdFor <= 0.0f) {
+                // No fade in and no hold: a hit, which lets go at once instead of standing at its peak for a frame or two.
+                s.voice.stage = AdsrStage::Release;
+                s.voice.level = hit;
+                s.voice.peak = hit;
+                hit = 0.0f;
+            }
+            s.releaseSeconds = t.out;
+            // The voice's release is a rate from the peak, so the fade out is its length at any strength.
+            const AdsrShape stages{t.in, 0.0f, 1.0f, t.out / std::max(fire ? std::max(shaped, kMinHit) : s.voice.peak, kMinHit),
+                                   false, r.drive == DriveMode::Once, 0.0f};
+            out = s.voice.step(stages, dt, hit, 0.0f, open, open);
             s.age += dt;
             s.running = s.voice.stage != AdsrStage::Idle;
         }

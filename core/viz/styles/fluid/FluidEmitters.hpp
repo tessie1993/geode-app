@@ -60,7 +60,7 @@ private:
     void stirrerSplats(std::vector<Splat>& out, const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, float radius);
     void beatSplatsFor(std::vector<Splat>& out, const GeodeSoundFrame& f, float aspect, float baseHue, float hueSpan, float radius, float speed);
     void suctionSplats(std::vector<Splat>& out, float radius);
-    void fieldSplats(std::vector<Splat>& out, float aspect, float radius);
+    void fieldSplats(std::vector<Splat>& out, float dt, float aspect, float radius);
     void sparkleSplats(std::vector<Splat>& out, float aspect, float baseHue, float hueSpan, float radius);
     void pumpSplats(std::vector<Splat>& out, float baseHue, float hueSpan, float radius);
     float nextFloat() { return uniform_(rng_); }

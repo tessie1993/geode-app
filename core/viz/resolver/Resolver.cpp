@@ -107,7 +107,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // moments the waves and envelopes hear.
     reactions_.stepSignals(sound, dt, &director_.emotion());
     const std::uint32_t moments = momentWatch_.step(reactions_.signals());
-    responder_.step(sound, dt, reactions_.signals(), moments, reactions_);
+    responder_.step(sound, dt, reactions_.signals(), moments, reactions_, glide);
     reactions_.tickRoutes();
     const auto& envValues = adsr_.tick(dt, sound, moments);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);

@@ -20,6 +20,8 @@ namespace geode::viz::fronts {
 inline constexpr int kMaxFronts = 8;
 // Floats a front takes in the packed uniform array: three vec4.
 inline constexpr int kFloatsPerFront = 12;
+// The longest a front may live; a longer ask is cut to it.
+inline constexpr float kMaxLifeSeconds = 60.0f;
 
 enum class Kind : int { Line = 0, Ring = 1, Wedge = 2 };
 enum class Effect : int { Brighten = 0, ColourShift = 1, Bend = 2, Invert = 3, Reveal = 4 };
@@ -39,16 +41,20 @@ struct Spawn {
     float palettePos = 0.0f;   // 0..1 on the current palette (ColourShift; the tint of the others)
     float spread = 0.7f;       // a Wedge's half angle, radians
 
-    // A front that enters at `edge` and travels inward, square to it: a Sweep across when it is a Line.
-    static Spawn fromEdge(Edge edge, Kind kind) {
+    // A front that enters at `edge` and travels inward, square to it: a Sweep across when it is a Line. The speed
+    // is set so it crosses the whole frame in life_s: a frame is `aspect` heights wide, so a sweep from the left or
+    // right goes faster on a landscape frame. An unset aspect reads as square.
+    static Spawn fromEdge(Edge edge, Kind kind, float aspect = 1.0f) {
         Spawn s;
         s.kind = kind;
+        float extent = 1.0f;
         switch (edge) {
-            case Edge::Left: s.originX = 0.0f; s.originY = 0.5f; s.dirX = 1.0f; s.dirY = 0.0f; break;
-            case Edge::Right: s.originX = 1.0f; s.originY = 0.5f; s.dirX = -1.0f; s.dirY = 0.0f; break;
+            case Edge::Left: s.originX = 0.0f; s.originY = 0.5f; s.dirX = 1.0f; s.dirY = 0.0f; extent = aspect; break;
+            case Edge::Right: s.originX = 1.0f; s.originY = 0.5f; s.dirX = -1.0f; s.dirY = 0.0f; extent = aspect; break;
             case Edge::Bottom: s.originX = 0.5f; s.originY = 0.0f; s.dirX = 0.0f; s.dirY = 1.0f; break;
             case Edge::Top: s.originX = 0.5f; s.originY = 1.0f; s.dirX = 0.0f; s.dirY = -1.0f; break;
         }
+        s.speed = (std::isfinite(extent) ? std::clamp(extent, 0.1f, 10.0f) : 1.0f) / s.life_s;
         return s;
     }
 };
@@ -71,10 +77,26 @@ inline float envelope(float age, float life) {
     return k * k * (3.0f - 2.0f * k);
 }
 
+// The signed distance of the pixel at uv (u, v) past a Line front that has travelled `distance`, in frame heights:
+// negative where the front has already passed it, positive where it has not reached it yet. fronts_frag.glsl's
+// measure() is this maths; the host test holds the sign.
+inline float lineDistance(const Spawn& s, float distance, float u, float v, float aspect) {
+    const float px = (u - s.originX) * aspect;
+    const float py = v - s.originY;
+    return px * s.dirX + py * s.dirY - distance;
+}
+
+// A Reveal's weight of "the front has passed here" at signed distance d with half width w: 1 behind the front,
+// 0 ahead of it. The same expression as fronts_frag.glsl's `passed` (before its wedge mask).
+inline float revealPassed(float d, float w) {
+    const float t = std::clamp((d + w) / (2.0f * w), 0.0f, 1.0f);
+    return 1.0f - t * t * (3.0f - 2.0f * t);
+}
+
 class FrontField {
 public:
-    // Starts a front and returns its slot, or -1 when the request is not usable (a non-finite number, or no
-    // life). Every slot taken: the oldest is reused, so a hit never goes unanswered.
+    // Starts a front and returns its slot, or -1 when the request is not usable (a non-finite number, an unknown
+    // kind or effect, or no life). A life over kMaxLifeSeconds is cut to it. Every slot taken: the oldest is reused, so a hit never goes unanswered.
     int spawnFront(const Spawn& in) {
         if (!usable(in)) return -1;
         int slot = -1;
@@ -104,6 +126,8 @@ public:
         s.spawn.strength = std::clamp(in.strength, 0.0f, 1.0f);
         s.spawn.palettePos = in.palettePos - std::floor(in.palettePos);
         s.spawn.spread = std::clamp(in.spread, 0.01f, 3.1f);
+        s.spawn.life_s = std::min(in.life_s, kMaxLifeSeconds);
+        ++spawns_;
         return slot;
     }
 
@@ -118,6 +142,10 @@ public:
     }
 
     void clear() { slots_ = {}; }
+
+    // How many fronts have ever been started: the frame compares it with the last it saw, so a spawn while the
+    // picture is held asks for a redraw.
+    unsigned spawns() const { return spawns_; }
 
     int count() const {
         int n = 0;
@@ -176,10 +204,15 @@ private:
         for (float v : {s.originX, s.originY, s.dirX, s.dirY, s.speed, s.width, s.strength, s.life_s, s.palettePos, s.spread}) {
             if (!std::isfinite(v)) return false;
         }
+        const int kind = static_cast<int>(s.kind);
+        const int effect = static_cast<int>(s.effect);
+        if (kind < static_cast<int>(Kind::Line) || kind > static_cast<int>(Kind::Wedge)) return false;
+        if (effect < static_cast<int>(Effect::Brighten) || effect > static_cast<int>(Effect::Reveal)) return false;
         return s.life_s > 0.0f;
     }
 
     std::array<Slot, kMaxFronts> slots_{};
+    unsigned spawns_ = 0;
 };
 
 }  // namespace geode::viz::fronts

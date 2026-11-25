@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -142,7 +143,7 @@ void everyRowStartsOff() {
     resp::Config c = resp::newStyleConfig();
     bool any = false;
     for (const bool on : c.rowOn) any = any || on;
-    check(!any && c.gate && c.count == 0, "a new style has every row off and gates the style's own routes");
+    check(!any && c.count == 0 && c.muteCount == 0, "a new style has every row off and nothing muted");
 
     Rig rig;
     resp::addResponse(c, param(kKick, LfoTarget::Zoom, 1.0f, 0.1f, 0.2f, 0.3f));
@@ -501,32 +502,120 @@ void compileFillsTheFreeSlotsFromTheTop() {
     check(full.bank.status().compiled == 0 && full.bank.status().dropped == 2, "a full matrix drops responses and says so");
 }
 
-void aRowThatIsOffHoldsBackTheStyleToo() {
-    const auto routeOn = [](ReactSource s) {
-        ReactRoute r;
-        r.enabled = true;
-        r.source = s;
-        r.target = LfoTarget::Zoom;
-        return r;
-    };
+std::string edit(const char* text, int op, int row, int index, int field, float value);
+resp::Config read(const std::string& text);
+
+ReactRoute styleRoute(ReactSource source, LfoTarget target, bool style = true) {
+    ReactRoute r;
+    r.enabled = true;
+    r.source = source;
+    r.target = target;
+    r.styleDefault = style;
+    return r;
+}
+
+constexpr int kSrcKick = static_cast<int>(ReactSource::Kick);
+constexpr int kTgtZoom = static_cast<int>(LfoTarget::Zoom);
+
+void aRowThatIsOffStillPlaysTheStyle() {
     Rig rig;
-    rig.hand[0] = routeOn(ReactSource::Kick);
-    rig.hand[1] = routeOn(ReactSource::Mid);
-    rig.hand[2] = routeOn(ReactSource::Downbeat);
-    rig.hand[3] = routeOn(ReactSource::Surge);
+    rig.hand[0] = styleRoute(ReactSource::Kick, LfoTarget::Zoom);
+    rig.hand[1] = styleRoute(ReactSource::Downbeat, LfoTarget::Warp);
+    rig.hand[2] = styleRoute(ReactSource::Surge, LfoTarget::Twist);
+    rig.load(resp::newStyleConfig());
+    check(rig.engine.routes[0].enabled && rig.engine.routes[1].enabled && rig.engine.routes[2].enabled,
+          "with every row off the style's own routes still play");
+    float seen = 0.0f;
+    run(rig, 0.5f, 2.0f, [&](int) { seen = std::fmax(seen, rig.engine.output(0)); });
+    check(seen > 0.0f, "and move the picture on their event");
+}
+
+void aMutedChipSilencesOnlyThatRoute() {
+    Rig rig;
+    rig.hand[0] = styleRoute(ReactSource::Kick, LfoTarget::Zoom);
+    rig.hand[1] = styleRoute(ReactSource::Kick, LfoTarget::Warp);
+    rig.hand[2] = styleRoute(ReactSource::Snare, LfoTarget::Zoom);
     resp::Config c = resp::newStyleConfig();
+    check(resp::setMuted(c, kSrcKick, kTgtZoom, true) && c.muteCount == 1, "a style route is muted by its source and target");
+    check(resp::setMuted(c, kSrcKick, kTgtZoom, true) && c.muteCount == 1, "twice is once");
+    check(!resp::setMuted(c, -1, kTgtZoom, true) && !resp::setMuted(c, kSrcKick, 0, true) && c.muteCount == 1, "a pair that is no route is refused");
     rig.load(c);
-    check(!rig.engine.routes[0].enabled && rig.engine.routes[1].enabled && !rig.engine.routes[2].enabled && !rig.engine.routes[3].enabled,
-          "with every row off the style's routes on events hold back, the ones no row claims play");
-    resp::setRowOn(c, kKick, true);
-    resp::setRowOn(c, static_cast<int>(Moment::Drop), true);
+    check(!rig.engine.routes[0].enabled && rig.engine.routes[1].enabled && rig.engine.routes[2].enabled,
+          "only the muted route is silent: the same target on another source and the same source on another target play");
+    float zoom = 0.0f;
+    float warp = 0.0f;
+    run(rig, 0.5f, 2.0f, [&](int) {
+        zoom = std::fmax(zoom, rig.engine.output(0));
+        warp = std::fmax(warp, rig.engine.output(1));
+    });
+    check(zoom == 0.0f && warp > 0.0f, "and it sounds so");
+    resp::setMuted(c, kSrcKick, kTgtZoom, false);
     rig.load(c);
-    check(rig.engine.routes[0].enabled && rig.engine.routes[3].enabled && !rig.engine.routes[2].enabled,
-          "a row that is on lets its routes play (Surge is the Drop row's, a bar's downbeat the Bar row's)");
-    c.gate = false;
-    resp::setRowOn(c, kKick, false);
+    check(c.muteCount == 0 && rig.engine.routes[0].enabled, "unmuting brings it back");
+}
+
+void aHandRouteAlwaysPlays() {
+    Rig rig;
+    rig.hand[0] = styleRoute(ReactSource::Kick, LfoTarget::Zoom, false);
+    resp::Config c = resp::newStyleConfig();
+    resp::setMuted(c, kSrcKick, kTgtZoom, true);
     rig.load(c);
-    check(rig.engine.routes[0].enabled && rig.engine.routes[2].enabled, "a list saved before the rows existed plays as it always did");
+    check(rig.engine.routes[0].enabled, "a route the user added is never held back, even by a mute of the same pair");
+
+    StyleDna dna;
+    dna.routes[0] = styleRoute(ReactSource::Kick, LfoTarget::Warp, false);
+    dna.count = 1;
+    HandRoutes user;
+    user.user = true;
+    user.count = 1;
+    user.routes[0] = styleRoute(ReactSource::Snare, LfoTarget::Zoom, false);
+    user.mask = hand::bit(Moment::Snare);
+    RouteArray merged{};
+    const int n = mergeHand(user, dna, merged);
+    check(n == 2 && !merged[0].styleDefault && merged[1].styleDefault, "the merge marks the style's routes and not the user's");
+}
+
+void aSavedLookWithNoResponderTextIsUntouched() {
+    const std::string legacy =
+        "reactions/2\n"
+        "true|KICK|COLOR_SHIFT|JUMP|0.35|LINEAR|0.08|0.35\n"
+        "true|SNARE|WARP|FOLLOW|0.6|SMOOTH|0.03|0.45";
+    ModDocument doc;
+    doc.readReactions(legacy, GEODE_HAND_ALL);
+    check(doc.reactionsText() == legacy, "a saved look with no responder text writes back byte for byte");
+    resp::Config c;
+    reactiontext::decodeResponses(legacy, c);
+    Rig rig;
+    rig.hand[0] = styleRoute(ReactSource::Kick, LfoTarget::Zoom);
+    rig.hand[1] = styleRoute(ReactSource::Snare, LfoTarget::Warp);
+    rig.hand[2] = styleRoute(ReactSource::Mid, LfoTarget::Bloom, false);
+    rig.load(c);
+    bool same = true;
+    for (size_t i = 0; i < rig.hand.size(); ++i) {
+        const ReactRoute& a = rig.hand[i];
+        const ReactRoute& b = rig.engine.routes[i];
+        same = same && a.enabled == b.enabled && a.source == b.source && a.target == b.target && a.amount == b.amount && a.external == b.external;
+    }
+    check(same, "and the matrix it plays is the matrix it was dealt");
+    std::vector<char> text(8);
+    check(geode_resp_default_text(text.data(), static_cast<int>(text.size())) == 0, "a new style has no responder text");
+}
+
+void chipMutesSurviveSaveAndLoad() {
+    const std::string legacy = "reactions/2\ntrue|KICK|COLOR_SHIFT|JUMP|0.35|LINEAR|0.08|0.35";
+    std::string t = edit(legacy.c_str(), GEODE_RESP_EDIT_STYLE_MUTE, kSrcKick, kTgtZoom, 0, 1.0f);
+    t = edit(t.c_str(), GEODE_RESP_EDIT_STYLE_MUTE, static_cast<int>(ReactSource::Snare), static_cast<int>(LfoTarget::Warp), 0, 1.0f);
+    resp::Config c = read(t);
+    check(c.muteCount == 2 && resp::isMuted(c, kSrcKick, kTgtZoom), "a mute is saved in the reactions text, keyed by source and target");
+    ModDocument doc;
+    doc.readReactions(t, GEODE_HAND_ALL);
+    check(doc.hand.user && doc.hand.count == 1 && doc.reactionsText() == t, "beside the user's routes, which it leaves as they were");
+    const std::string again = edit(t.c_str(), GEODE_RESP_EDIT_ROW_ON, 2, 0, 0, 1.0f);
+    check(read(again).muteCount == 2 && read(again).rowOn[2], "other edits keep it");
+    const std::string off = edit(again.c_str(), GEODE_RESP_EDIT_STYLE_MUTE, kSrcKick, kTgtZoom, 0, 0.0f);
+    check(read(off).muteCount == 1 && !resp::isMuted(read(off), kSrcKick, kTgtZoom), "and unmuting takes it out");
+    const std::string cleared = edit(again.c_str(), GEODE_RESP_EDIT_CLEAR, 0, 0, 0, 0.0f);
+    check(read(cleared).muteCount == 0, "clear puts every style route back on");
 }
 
 void aPreviewPlaysOnceNow() {
@@ -613,7 +702,7 @@ void savedTextReadsBack() {
     const std::string lines = reactiontext::encodeResponses(c);
     resp::Config back;
     reactiontext::decodeResponses("reactions/2\n" + lines, back);
-    check(back.gate && back.rowOn[kKick] && back.rowOn[static_cast<size_t>(Moment::Beat)] && !back.rowOn[1] && back.count == 2,
+    check(back.rowOn[kKick] && back.rowOn[static_cast<size_t>(Moment::Beat)] && !back.rowOn[1] && back.count == 2,
           "rows and responses read back");
     const resp::Response& x = back.responses[0];
     check(x.row == kKick && !x.enabled && x.target == LfoTarget::Zoom && x.amount == 0.75f && x.strength == ModCurve::Smooth &&
@@ -632,7 +721,7 @@ void oldTextStillLoads() {
         "false|KICK_4|ROTATION|STEP|-0.2|LINEAR|0.12|0.12";
     resp::Config c;
     reactiontext::decodeResponses(legacy, c);
-    check(!c.gate && c.count == 0 && !c.rowOn[0], "a list saved before responses has none, and does not gate the style's routes");
+    check(c.count == 0 && c.muteCount == 0 && !c.rowOn[0], "a list saved before responses has none, and mutes none of the style's routes");
     ModDocument doc;
     doc.readReactions(legacy, GEODE_HAND_ALL);
     check(doc.hand.user && doc.hand.count == 2 && doc.responses.empty() && doc.reactionsText() == legacy, "and its routes read and write as they did");
@@ -648,8 +737,8 @@ void oldTextStillLoads() {
     check(kept.reactionsText() == again.reactionsText() && again.hand.count == 2, "and a route edit's text keeps the responses");
 
     ModDocument none;
-    none.readReactions("reactions/2\nroutes|auto\ngate|true", GEODE_HAND_ALL);
-    check(!none.hand.user && none.responses == "gate|true" && none.reactionsText() == "reactions/2\nroutes|auto\ngate|true",
+    none.readReactions("reactions/2\nroutes|auto\ngate|true\nrow|KICK|true", GEODE_HAND_ALL);
+    check(!none.hand.user && none.responses == "row|KICK|true" && none.reactionsText() == "reactions/2\nroutes|auto\nrow|KICK|true",
           "a list of rows alone leaves the style's own routes playing");
     const ModDocument blank;
     check(blank.reactionsText().empty() && reactiontext::isList("reactions/2") && !reactiontext::isList("nonsense"),
@@ -689,7 +778,7 @@ void theNativeInterfaceEditsTheText() {
     const resp::Config fresh = read(text.data());
     bool any = false;
     for (const bool on : fresh.rowOn) any = any || on;
-    check(fresh.gate && !any && fresh.count == 0, "a new style's text has every row off");
+    check(!any && fresh.count == 0 && fresh.muteCount == 0 && text[0] == '\0', "a new style's text is no text: every row off, the style plays");
     check(std::string(geode_resp_row_name(0)) == "KICK" && std::string(geode_resp_row_name(GEODE_RESP_ROWS - 1)) == "COLLIDE" &&
               geode_resp_row_name(GEODE_RESP_ROWS) == nullptr && geode_resp_row_name(-1) == nullptr,
           "rows are named");
@@ -721,7 +810,7 @@ void theNativeInterfaceEditsTheText() {
     check(read(t).responses[0].row == 3 && read(t).rowOn[0], "a response moves to another row");
     t = edit(t.c_str(), GEODE_RESP_EDIT_CLEAR, 0, 0, 0, 0.0f);
     const resp::Config cleared = read(t);
-    check(cleared.count == 0 && !cleared.rowOn[0] && cleared.gate, "clear is a new style again");
+    check(cleared.count == 0 && !cleared.rowOn[0], "clear is a new style again");
 
     ModDocument doc;
     doc.readReactions(
@@ -731,6 +820,154 @@ void theNativeInterfaceEditsTheText() {
     ModDocument after;
     after.readReactions(routed, GEODE_HAND_ALL);
     check(after.hand.user && after.hand.count == 1 && read(routed).rowOn[1], "editing a row keeps the user's routes");
+}
+
+// ── What the review asked for ────────────────────────────────────────────────────────────────────────────
+
+void aRuntimeStaysOnlyWithTheSameResponse() {
+    resp::Response a;
+    a.row = kKick;
+    a.kind = resp::kThing;
+    a.everyNth = 2;
+    a.drive = resp::DriveMode::Once;
+    resp::Response b = a;
+    b.drive = resp::DriveMode::Long;
+    resp::Config both = resp::newStyleConfig();
+    resp::setRowOn(both, kKick, true);
+    resp::addResponse(both, a);
+    resp::addResponse(both, b);
+    Rig rig;
+    rig.bank.registerKind(resp::kThing, &rig.counter);
+    rig.load(both);
+    runPlain(rig, 0.5f, 0.5f);  // the 1st hit: both play, and each has counted one
+    check(rig.counter.plays.size() == 2, "both play the first hit");
+    resp::Config onlyB = resp::newStyleConfig();
+    resp::setRowOn(onlyB, kKick, true);
+    resp::addResponse(onlyB, b);
+    rig.load(onlyB);
+    runPlain(rig, 0.5f, 0.5f);
+    check(rig.counter.plays.size() == 3, "a removal does not hand the first response's count to the one that moved up");
+    resp::Config louder = onlyB;
+    louder.responses[0].amount = 1.0f;
+    rig.load(louder);
+    runPlain(rig, 0.5f, 0.5f);
+    check(rig.counter.plays.size() == 3, "an edit of the same response keeps its count (the 2nd hit is passed over)");
+}
+
+void theSeededSequenceRestartsWithThePlay() {
+    Rig rig;
+    rig.bank.registerKind(resp::kThing, &rig.counter);
+    rig.load(thingOn(kKick, 1, 0.5f, 0.0f));
+    runPlain(rig, 30.0f, 0.5f);
+    const std::vector<std::int64_t> first = rig.counter.frames;
+    rig.bank.reset();  // the song starts over: nothing else is reset
+    rig.counter.frames.clear();
+    rig.frame = 0;
+    runPlain(rig, 30.0f, 0.5f);
+    check(!first.empty() && rig.counter.frames == first, "the same song from a restart gives the same fires");
+}
+
+void anOlderReaderTakesAutoWithResponsesForNoRoutes() {
+    float routes[ReactionEngine::kRoutes * ReactionEngine::kConfigFloats] = {};
+    check(reactiontext::decode("reactions/2\nroutes|auto\ngate|true\nrow|KICK|true", routes) == 0,
+          "a build that knows no responses reads Auto with responses as a list of no routes (documented, not migrated)");
+}
+
+void aPreviewGivesItsRouteBack() {
+    Rig rig;
+    rig.load(resp::newStyleConfig());
+    rig.bank.preview(param(kKick, LfoTarget::Zoom, 1.0f, 0.05f, 0.05f, 0.1f));
+    rig.engine.routes = rig.hand;
+    rig.bank.compile(rig.engine.routes);
+    for (int i = 0; i < 40; ++i) rig.step(silent());
+    check(!rig.engine.routes[kLast].enabled, "a preview that has played out frees its route");
+}
+
+void aPreviewPlaysOnTheWallClock() {
+    Rig rig;
+    rig.load(resp::newStyleConfig());
+    rig.bank.preview(param(kKick, LfoTarget::Zoom, 1.0f, 0.1f, 0.1f, 0.1f));
+    rig.engine.routes = rig.hand;
+    rig.bank.compile(rig.engine.routes);
+    for (int i = 0; i < 5; ++i) {
+        const GeodeSoundFrame f = silent();
+        rig.engine.stepSignals(f, 0.0f);  // the frame clock has stopped (silence)
+        rig.bank.step(f, 0.0f, rig.engine.signals(), rig.watch.step(rig.engine.signals()), rig.engine, kDt);
+        rig.engine.tickRoutes();
+    }
+    check(rig.out() > 0.5f, "a preview tapped in silence plays on the wall step");
+}
+
+// How many frames a kick of this strength keeps the output up.
+int framesUp(float strength, float fadeIn, float hold, float fadeOut, std::vector<float>* trace = nullptr) {
+    Rig rig;
+    rig.load(oneOn(kKick, param(kKick, LfoTarget::Zoom, 1.0f, fadeIn, hold, fadeOut)));
+    int up = 0;
+    run(rig, 3.0f, 10.0f, [&](int) {
+        if (rig.out() > 0.01f) ++up;
+        if (trace) trace->push_back(rig.out());
+    }, strength);
+    return up;
+}
+
+void theEnvelopeKeepsItsTimes() {
+    const int hard = framesUp(1.0f, 0.05f, 0.0f, 0.5f);
+    const int soft = framesUp(0.2f, 0.05f, 0.0f, 0.5f);
+    check(std::abs(hard - soft) <= 3, "the fade out lasts as long at any strength");
+    std::vector<float> trace;
+    framesUp(1.0f, 0.0f, 0.0f, 0.3f, &trace);
+    check(trace[0] < 1.0f && trace[1] < trace[0], "with no fade in and no hold a hit lets go at once");
+}
+
+void aLostTempoLetsTheEnvelopeGo() {
+    resp::Response r = param(kKick, LfoTarget::Zoom, 1.0f, 0.2f, 4.0f, 1.0f);
+    r.unit = resp::TimeUnit::Beats;
+    Rig rig;
+    rig.load(oneOn(kKick, r));
+    for (int i = 0; i < 15; ++i) {
+        GeodeSoundFrame f = silent();
+        if (i == 0) f.kick = 1.0f;
+        f.bpm = 100.0f;
+        rig.step(f);
+    }
+    check(rig.out() > 0.95f, "holding");
+    rig.step(silent());  // no tempo any more
+    const float one = rig.out();
+    check(one > 0.5f && one < 1.0f, "the tempo going lets it fall, not cut");
+    for (int i = 0; i < 100; ++i) rig.step(silent());
+    check(rig.out() == 0.0f, "and it ends");
+}
+
+void aWhileResponseIsNotPulledBackByAPassedOverHit() {
+    resp::Response r;
+    r.row = kKick;
+    r.kind = resp::kThing;
+    r.drive = resp::DriveMode::While;
+    r.everyNth = 2;
+    Rig rig;
+    rig.bank.registerKind(resp::kThing, &rig.counter);
+    rig.load(oneOn(kKick, r));
+    for (int i = 0; i < 60; ++i) {
+        GeodeSoundFrame f = silent();
+        if (i == 0 || i == 30) f.kick = 1.0f;
+        f.kickEnv = (i < 10 || (i >= 30 && i < 40)) ? 1.0f : 0.0f;
+        rig.step(f);
+    }
+    check(rig.counter.plays.size() == 1 && rig.counter.released == 1, "a hit the Nth passed over does not reopen a released response");
+}
+
+void aKeyNeedsClarity() {
+    ReactSignals s;
+    int came = 0;
+    MomentWatch w;
+    for (int i = 0; i < 400; ++i) {
+        GeodeSoundFrame f = silent();
+        f.keyHue = i < 100 ? 0.0f : 1.0f / 12.0f;
+        f.keyClarity = i < 100 ? 0.8f : 0.1f;
+        s.step(f, kDt);
+        if ((w.step(s) & (1u << static_cast<int>(Moment::KeyChange))) != 0u) ++came;
+    }
+    check(came == 0, "an unclear key does not change");
 }
 
 }  // namespace
@@ -748,12 +985,25 @@ int main() {
     aKeyChangeIsAKeyHeldForAMoment();
     laterKindsRegisterWithoutTouchingTheBank();
     compileFillsTheFreeSlotsFromTheTop();
-    aRowThatIsOffHoldsBackTheStyleToo();
+    aRowThatIsOffStillPlaysTheStyle();
+    aMutedChipSilencesOnlyThatRoute();
+    aHandRouteAlwaysPlays();
+    aSavedLookWithNoResponderTextIsUntouched();
+    chipMutesSurviveSaveAndLoad();
     aPreviewPlaysOnceNow();
     theCostBudgetIsReadable();
     savedTextReadsBack();
     oldTextStillLoads();
     theNativeInterfaceEditsTheText();
+    aRuntimeStaysOnlyWithTheSameResponse();
+    theSeededSequenceRestartsWithThePlay();
+    anOlderReaderTakesAutoWithResponsesForNoRoutes();
+    aPreviewGivesItsRouteBack();
+    aPreviewPlaysOnTheWallClock();
+    theEnvelopeKeepsItsTimes();
+    aLostTempoLetsTheEnvelopeGo();
+    aWhileResponseIsNotPulledBackByAPassedOverHit();
+    aKeyNeedsClarity();
     if (failures != 0) {
         std::printf("responder_test: %d failed\n", failures);
         return 1;

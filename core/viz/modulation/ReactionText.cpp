@@ -182,11 +182,16 @@ std::string encodeResponses(const responder::Config& config) {
         if (!out.empty()) out += '\n';
         out += line;
     };
-    if (config.gate) add("gate|true");
     for (int row = 0; row < responder::kRows; ++row) {
         if (config.rowOn[static_cast<size_t>(row)]) {
             add("row|" + std::string(responder::kRowNames[static_cast<size_t>(row)]) + "|true");
         }
+    }
+    for (int i = 0; i < config.muteCount && i < responder::kMaxMutes; ++i) {
+        const responder::Mute& m = config.mutes[static_cast<size_t>(i)];
+        if (m.source < 0 || m.source >= kReactSourceCount || m.target < 0 || m.target >= modtargets::kTargetCount) continue;
+        add("mute|" + std::string(reactSourceInfo(static_cast<ReactSource>(m.source)).name) + "|" +
+            modtargets::name(static_cast<LfoTarget>(m.target)));
     }
     const int n = config.count < responder::kMaxResponses ? config.count : responder::kMaxResponses;
     for (int i = 0; i < n; ++i) {
@@ -235,7 +240,11 @@ void decodeResponses(std::string_view text, responder::Config& config) {
     for (size_t i = 1; i < lines.size(); ++i) {
         const std::vector<std::string_view> f = fieldsOf(trim(lines[i]));
         if (f.size() == 2 && f[0] == "gate") {
-            config.gate = f[1] == "true";
+            // Saved by a build whose rows held back the style's routes; the rows no longer do, so it means nothing.
+        } else if (f.size() == 3 && f[0] == "mute") {
+            const int source = sourceNamed(f[1]);
+            const int target = targetNamed(f[2]);
+            if (source >= 0 && target > static_cast<int>(LfoTarget::None)) responder::setMuted(config, source, target, true);
         } else if (f.size() == 3 && f[0] == "row") {
             const int row = responder::rowNamed(f[1]);
             if (row >= 0) config.rowOn[static_cast<size_t>(row)] = f[2] == "true";

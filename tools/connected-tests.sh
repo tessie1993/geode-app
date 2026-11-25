@@ -35,14 +35,24 @@ INFRA='device .* not found|device offline|AdbCommandRejectedException|ShellComma
 # Every adb call that needs a device carries a timeout: with no device attached, `adb logcat`
 # prints "waiting for device" and never returns. Runs 41282308944 and 41282326381 lost the
 # emulator, and the retry's `adb logcat -G` then sat silent until the job's 75-minute limit.
+# One `adb logcat` ends for good when adb drops the device, and losing the device is the failure
+# this log is kept for. So it is restarted, with a marked line, each time adb brings the device
+# back; a restart dumps the buffers again, so lines from before a drop can appear twice. The loop
+# runs in its own process group (setsid), so stop_logcat ends it and its adb together.
 start_logcat() {
     timeout 30 adb logcat -G 16M >/dev/null 2>&1 || true
-    adb logcat -b main,system,crash,events -v threadtime >"$ART/logcat-attempt$1.txt" 2>&1 &
+    setsid bash -c '
+        while :; do
+            adb wait-for-device logcat -b main,system,crash,events -v threadtime
+            echo "--------- connected-tests.sh: logcat ended $(date -u +%T), restarting once adb has the device"
+            # adb can return at once (no server, two transports after a reconnect); never spin.
+            sleep 1
+        done' >"$ART/logcat-attempt$1.txt" 2>&1 &
     LOGCAT_PID=$!
 }
 
 stop_logcat() {
-    kill "$LOGCAT_PID" >/dev/null 2>&1 || true
+    kill -- -"$LOGCAT_PID" >/dev/null 2>&1 || true
     wait "$LOGCAT_PID" 2>/dev/null || true
 }
 

@@ -49,7 +49,10 @@ int CastAudioPump::pump(bool fromMusic, int64_t untilUs) {
     // Another app's audio writes the player's own ring while it is captured; that is not the music.
     // Asked again after the take: a capture that began during it may have written what it took.
     int64_t gained = fromMusic && sound::player::playerIsSource() ? gain() : 0;
-    if (gained > 0 && !sound::player::playerIsSource()) gained = 0;
+    if (gained > 0 && !sound::player::playerIsSource()) {
+        gained = 0;
+        resampler_.reset();  // its history holds the capture's last frames; the next take builds a fresh one
+    }
     const int64_t heldBefore = counts_.held;
     const CastAudio::Step s = counts_.step(gained, untilUs);
     int16_t* hold = hold_.data();

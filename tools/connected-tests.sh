@@ -45,6 +45,8 @@ start_logcat() {
         while :; do
             adb wait-for-device logcat -b main,system,crash,events -v threadtime
             echo "--------- connected-tests.sh: logcat ended $(date -u +%T), restarting once adb has the device"
+            # adb can return at once (no server, two transports after a reconnect); never spin.
+            sleep 1
         done' >"$ART/logcat-attempt$1.txt" 2>&1 &
     LOGCAT_PID=$!
 }

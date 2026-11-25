@@ -69,7 +69,8 @@ class BackgroundPlaybackTest {
         val b = connectBrowser().also { browser = it }
         val atClose = onMain { b.currentPosition }
         awaitMain("playback to keep moving after the activity was destroyed") {
-            b.isPlaying && b.currentPosition > atClose
+            // Not "past": with repeat one the position wraps, and a later poll can land below it.
+            b.isPlaying && b.currentPosition != atClose
         }
         assertThat(onMain { foregroundMediaNotification() }).isTrue()
     }

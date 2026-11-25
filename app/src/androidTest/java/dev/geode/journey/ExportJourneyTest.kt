@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -65,9 +66,10 @@ class ExportJourneyTest {
     /**
      * A free user's render with the page's defaults: the whole (short) track, into the Videos
      * library. It runs the native encoder, the export foreground service and the MediaStore
-     * insert, and the result must be a finished (not pending) video with both tracks. The
-     * notification rationale comes first on a fresh install; "Not now" is the answer that leaves
-     * the render to run without it.
+     * insert, and the result must be a finished (not pending) video with both tracks. A fresh
+     * install asks two things first: whether to add the render to My videos ("Just the video" keeps
+     * it to the file this test checks), then the notification rationale ("Not now" lets the render
+     * run without the permission).
      */
     @Test
     fun aShortRenderIsSaved() {
@@ -77,9 +79,12 @@ class ExportJourneyTest {
             b.setMediaItem(TestTrack.mediaItem(TestTrack.write()))
             b.prepare()
         }
+        // Render stays disabled until the player has the track; a disabled button still takes the tap.
+        awaitMain("the track to load") { b.playbackState == Player.STATE_READY }
         compose.tap("Studio")
         compose.tap("Render")
         compose.tap(renderButton)
+        compose.tap("Just the video")
         compose.tap("Not now")
 
         val result = Regex("Saved (.+) to Movies/BeatRealms\\.")
@@ -92,7 +97,7 @@ class ExportJourneyTest {
                 .config[SemanticsProperties.Text]
                 .firstNotNullOf { result.matchEntire(it.text)?.groupValues?.get(1) }
 
-        val video = finishedVideo(name).also { saved += it }
+        val video = finishedVideo(name)
         MediaMetadataRetriever().use { meta ->
             meta.setDataSource(context, video)
             assertThat(meta.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO)).isEqualTo("yes")
@@ -101,7 +106,10 @@ class ExportJourneyTest {
         }
     }
 
-    /** The app's video named [name] in the Videos library; a row still pending is a render cut short. */
+    /**
+     * The app's video named [name] in the Videos library; a row still pending is a render cut short.
+     * Every row found is queued for deletion before the check, so a failure leaves none behind.
+     */
     private fun finishedVideo(name: String): Uri {
         val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         val where =
@@ -112,6 +120,7 @@ class ExportJourneyTest {
                 .query(collection, arrayOf(MediaStore.MediaColumns._ID), where, arrayOf(name, context.packageName), null)
                 ?.use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
                 .orEmpty()
+        saved += ids.map { ContentUris.withAppendedId(collection, it) }
         assertThat(ids).hasSize(1)
         return ContentUris.withAppendedId(collection, ids.single())
     }

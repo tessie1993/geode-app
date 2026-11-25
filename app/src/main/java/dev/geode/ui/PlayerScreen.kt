@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -542,7 +543,7 @@ private fun PlayerHero(
             }
         }
         if (!hasSource) {
-            Row(
+            FlowRow(
                 Modifier.padding(horizontal = CARD_INSET),
                 horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
             ) {

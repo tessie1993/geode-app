@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -82,7 +83,7 @@ private fun PresetFolderGroup(
             ),
             style = MaterialTheme.typography.labelMedium,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(filled = false, onClick = { folderPicker.launchPicker(ctx, null) }) {
                 Text(stringResource(R.string.folders_choose_preset))
             }
@@ -140,7 +141,7 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(
                 compact = true,
                 filled = false,

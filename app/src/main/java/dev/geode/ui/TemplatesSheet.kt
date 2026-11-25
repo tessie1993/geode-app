@@ -6,6 +6,7 @@ import android.content.res.Resources
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -77,10 +80,14 @@ fun TemplatesSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                Text(stringResource(R.string.template_sheet_title), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.template_sheet_title),
+                    Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleMedium,
+                )
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CrystalButton(compact = true, filled = false, onClick = {
                         val pasted = clipboardText(context)
                         if (pasted.isNullOrBlank()) {

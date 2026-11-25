@@ -196,11 +196,17 @@ class GeodeContainer(
      * finished long before the session asks, so its read is a map lookup. The session reads the
      * same [prefsFiles] (nothing outside `data/` and this class builds another), so the load started
      * here is the one it gets.
+     *
+     * The UI's `PlayerSession`, built on Main before the first frame, reads the library prefs the
+     * same way (`MusicLibraryRepository`), and billing, built with it, the Pro cache
+     * (`PrefsEntitlementStore`).
      */
     private fun warmPlaybackPrefs() {
         appScope.launch(Dispatchers.IO) {
             prefsFiles.player
             prefsFiles.audioFx
+            prefsFiles.library
+            prefsFiles.pro
         }
     }
 

@@ -4,9 +4,10 @@
 #
 # Hand-written for now: the cold-start path from Application.onCreate to the first
 # usable player frame, plus the paywall, which first-run users see right after
-# onboarding. A Macrobenchmark-generated profile replaces this when the module split
-# A :baselineprofile module is planned; until then these rules keep the startup
-# path out of the interpreter on a fresh install.
+# onboarding. A Macrobenchmark-generated profile (a :baselineprofile module) is
+# planned to replace this; until then these rules keep the startup path out of the
+# interpreter on a fresh install. A rule that matches no class is dropped silently,
+# so a renamed or moved class needs its rule changed with it.
 #
 # H = hot, S = run at startup, P = run after startup; ** matches any members.
 
@@ -22,7 +23,11 @@ HSPLdev/geode/ui/SettingsViewModel**;->**(**)**
 HSPLdev/geode/ui/PlayerSession**;->**(**)**
 HSPLdev/geode/ui/PlayerScreenKt**;->**(**)**
 HSPLdev/geode/ui/BootIntroKt**;->**(**)**
-HSPLdev/geode/data/ThemeStore**;->**(**)**
+# The settings repositories GeodeContainer builds in Application.onCreate; the splash
+# waits on the general settings and the app state.
+HSPLdev/geode/data/prefs/**;->**(**)**
+HSPLdev/geode/data/GeneralSettings**;->**(**)**
+HSPLdev/geode/data/AppState**;->**(**)**
 HSPLdev/geode/data/GeodePrefsFiles;->**(**)**
 HSPLdev/geode/data/PlayerPrefs**;->**(**)**
 HSPLdev/geode/playback/PlaybackEngine**;->**(**)**

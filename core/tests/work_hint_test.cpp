@@ -24,6 +24,8 @@ int main() {
     check(WorkHint::targetNs(0.0f) == 0 && WorkHint::targetNs(-5.0f) == 0, "no rate, no target");
     check(WorkHint::targetNs(std::numeric_limits<float>::quiet_NaN()) == 0, "a NaN rate gives no target");
     check(WorkHint::targetNs(std::numeric_limits<float>::infinity()) == 0, "an infinite rate gives no target");
+    check(WorkHint::audioNs(512, 48000) == 10666666, "a 512-frame hop at 48 kHz is 10.67 ms");
+    check(WorkHint::audioNs(0, 48000) == 0 && WorkHint::audioNs(512, 0) == 0, "no audio, no target");
     WorkHint hint;
     hint.report(0, 1000);
     hint.report(16000000, 0);

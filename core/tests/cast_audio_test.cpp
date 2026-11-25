@@ -28,8 +28,8 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/PcmConvert.hpp"
-#include "sound/PlayerSignals.hpp"
 #include "audio/dsp/PcmResampler.hpp"
+#include "sound/PlayerSignals.hpp"
 #include "viz/frame/CastAudio.hpp"
 #include "viz/frame/FixedRateClock.hpp"
 

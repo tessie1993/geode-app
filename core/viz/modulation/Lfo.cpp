@@ -205,7 +205,8 @@ float LfoEngine::followBipolar(int i, float value, float dt) {
     // A non-finite field is no signal: clamp passes NaN, which would hold followed_ for good.
     const float target = std::clamp(std::isfinite(value) ? value : 0.0f, -1.0f, 1.0f);
     const float tau = target > followed_[i] ? kFollowRiseSeconds : kFollowFallSeconds;
-    followed_[i] += (target - followed_[i]) * std::clamp(dt / tau, 0.0f, 1.0f);
+    // exp(-dt / tau), not dt / tau: the same rise and fall in seconds at every frame rate, an export's included.
+    followed_[i] += (target - followed_[i]) * (1.0f - std::exp(-std::max(dt, 0.0f) / tau));
     return followed_[i];
 }
 

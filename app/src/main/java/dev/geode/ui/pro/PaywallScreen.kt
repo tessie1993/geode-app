@@ -1,5 +1,8 @@
 package dev.geode.ui.pro
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,6 +40,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -52,6 +58,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,9 +67,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -70,6 +79,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -80,6 +90,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -89,6 +102,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.billing.FakePurchaseOutcome
 import dev.geode.pro.BillingError
+import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.pro.ProductLoad
@@ -123,17 +137,20 @@ fun PaywallHost(reducedMotion: Boolean) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleStartEffect(viewModel) {
         viewModel.onForeground()
-        onStopOrDispose { }
+        onStopOrDispose { viewModel.onBackground() }
     }
     if (!state.visible) return
+    val context = LocalContext.current
+    val shareForStyle: () -> Unit = { if (shareApp(context)) viewModel.keepStyleForShare() }
     val debugActions =
         DebugActions(
             onOwnedChange = viewModel::setDebugOwned,
             onOutcomeChange = viewModel::setDebugOutcome,
             onCompletePending = viewModel::completeDebugPending,
+            onTesterCode = viewModel::enterTesterCode,
         )
     if (state.highlighted == ProFeature.PREMIUM_STYLES) {
-        StylePaywallSheet(state, viewModel, debugActions)
+        StylePaywallSheet(state, viewModel, debugActions, shareForStyle)
     } else {
         Dialog(
             onDismissRequest = viewModel::dismiss,
@@ -148,6 +165,7 @@ fun PaywallHost(reducedMotion: Boolean) {
                 onStartTrial = viewModel::startTrial,
                 onClose = viewModel::dismiss,
                 debugActions = debugActions,
+                onShareForStyle = shareForStyle,
             )
         }
     }
@@ -168,6 +186,7 @@ private fun StylePaywallSheet(
     state: PaywallUiState,
     viewModel: PaywallViewModel,
     debugActions: DebugActions,
+    onShareForStyle: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -193,6 +212,7 @@ private fun StylePaywallSheet(
             onStartTrial = viewModel::startTrial,
             onClose = close,
             debugActions = debugActions,
+            onShareForStyle = onShareForStyle,
             asSheet = true,
         )
     }
@@ -202,6 +222,7 @@ class DebugActions(
     val onOwnedChange: (Boolean) -> Unit,
     val onOutcomeChange: (FakePurchaseOutcome) -> Unit,
     val onCompletePending: () -> Unit,
+    val onTesterCode: (String) -> Boolean = { false },
 )
 
 /**
@@ -221,6 +242,7 @@ fun PaywallScreen(
     onStartTrial: () -> Unit,
     onClose: () -> Unit,
     debugActions: DebugActions? = null,
+    onShareForStyle: () -> Unit = {},
     asSheet: Boolean = false,
 ) {
     Box(
@@ -230,7 +252,9 @@ fun PaywallScreen(
             Modifier.fillMaxSize().background(ProColors.background)
         },
     ) {
-        Column(Modifier.fillMaxSize()) {
+        // Above the keyboard (edge to edge, the window no longer resizes for it), so the tester-code
+        // field scrolls into view when focused instead of sitting under the keys.
+        Column(Modifier.fillMaxSize().imePadding()) {
             // The offer scrolls; the price and the button stay pinned below it (PurchaseBar), so
             // the one thing the screen is for is never below the fold.
             Column(
@@ -259,7 +283,7 @@ fun PaywallScreen(
                         if (owned) {
                             OwnedContent(onDone = onClose)
                         } else {
-                            OfferContent(state, onRestore, onStartTrial)
+                            OfferContent(state, onRestore, onStartTrial, onShareForStyle)
                         }
                     }
                     if (state.debug != null && debugActions != null) {
@@ -303,6 +327,7 @@ private fun OfferContent(
     state: PaywallUiState,
     onRestore: () -> Unit,
     onStartTrial: () -> Unit,
+    onShareForStyle: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         ProBadge()
@@ -325,6 +350,13 @@ private fun OfferContent(
         Spacer(Modifier.height(24.dp))
         ComparisonTable(highlighted = state.highlighted)
         TrialRow(state, onStartTrial)
+        if (state.shareBonusStyleId != null) {
+            OutlinedButton(
+                onClick = onShareForStyle,
+                enabled = !state.isBusy,
+                modifier = Modifier.fillMaxWidth().heightIn(min = MIN_TOUCH),
+            ) { Text(stringResource(R.string.pro_share_keep_style), color = Color.White, textAlign = TextAlign.Center) }
+        }
         TextButton(
             onClick = onRestore,
             enabled = !state.isBusy,
@@ -518,10 +550,11 @@ private fun restoreText(result: RestoreResult): Int =
 
 private fun titleFor(trigger: PaywallTrigger?): Int =
     when (trigger) {
-        PaywallTrigger.Onboarding -> R.string.pro_title_onboarding
+        PaywallTrigger.TasteMilestone -> R.string.pro_title_milestone
         PaywallTrigger.TrialEnded -> R.string.pro_title_trial_ended
         is PaywallTrigger.Feature ->
             when (trigger.feature) {
+                ProFeature.EXPORT -> R.string.pro_title_export
                 ProFeature.EXPORT_4K -> R.string.pro_title_export_4k
                 ProFeature.EXPORT_60FPS -> R.string.pro_title_export_60fps
                 ProFeature.NO_WATERMARK -> R.string.pro_title_watermark
@@ -534,43 +567,47 @@ private fun titleFor(trigger: PaywallTrigger?): Int =
                 ProFeature.AUTO_DIRECTOR -> R.string.pro_title_auto_director
                 ProFeature.CAST -> R.string.pro_title_cast
             }
-        PaywallTrigger.Settings, null -> R.string.pro_title_default
+        PaywallTrigger.Settings, PaywallTrigger.Returned, null -> R.string.pro_title_default
     }
 
-/** One row of the comparison: a label, and what each tier gets (null: a lock or a check). */
-private class CompareRow(
+/**
+ * One row of the comparison: a label, and what each tier gets (null: a lock or a check), with the
+ * number a cell's text takes ([freeCount], [proCount]). Every [ProFeature] has a row, so the paywall
+ * lists everything Pro opens; `PaywallRowsTest` holds it to that.
+ */
+internal class CompareRow(
     val label: Int,
     val free: Int?,
     val pro: Int?,
     val features: Set<ProFeature>,
+    val freeCount: (() -> Int)? = null,
+    val proCount: (() -> Int)? = null,
 )
 
-private val COMPARE_ROWS =
+internal val COMPARE_ROWS =
     listOf(
-        CompareRow(R.string.pro_row_styles, R.string.pro_row_styles_free, R.string.pro_row_styles_pro, setOf(ProFeature.PREMIUM_STYLES)),
         CompareRow(
-            R.string.pro_row_resolution,
-            R.string.pro_row_resolution_free,
-            R.string.pro_row_resolution_pro,
-            setOf(ProFeature.EXPORT_4K),
+            R.string.pro_row_styles,
+            R.string.pro_row_styles_free,
+            R.string.pro_row_styles_pro,
+            setOf(ProFeature.PREMIUM_STYLES),
+            freeCount = { FreeTier.freeStyleIds.size },
+            proCount = { FreeTier.styleCount },
         ),
-        CompareRow(R.string.pro_row_fps, R.string.pro_row_fps_free, R.string.pro_row_fps_pro, setOf(ProFeature.EXPORT_60FPS)),
-        CompareRow(
-            R.string.pro_row_length,
-            R.string.pro_row_length_free,
-            R.string.pro_row_length_pro,
-            setOf(ProFeature.FULL_LENGTH_EXPORT),
-        ),
-        CompareRow(
-            R.string.pro_row_watermark,
-            R.string.pro_row_watermark_free,
-            R.string.pro_row_watermark_pro,
-            setOf(ProFeature.NO_WATERMARK),
-        ),
+        CompareRow(R.string.pro_row_export, null, null, setOf(ProFeature.EXPORT, ProFeature.NO_WATERMARK)),
+        CompareRow(R.string.pro_row_resolution, null, R.string.pro_row_resolution_pro, setOf(ProFeature.EXPORT_4K)),
+        CompareRow(R.string.pro_row_fps, null, R.string.pro_row_fps_pro, setOf(ProFeature.EXPORT_60FPS)),
+        CompareRow(R.string.pro_row_length, null, R.string.pro_row_length_pro, setOf(ProFeature.FULL_LENGTH_EXPORT)),
+        CompareRow(R.string.pro_row_loop_batch, null, null, setOf(ProFeature.FULL_LENGTH_EXPORT)),
         CompareRow(R.string.pro_row_studio, null, null, setOf(ProFeature.STUDIO)),
         CompareRow(R.string.pro_row_wallpaper, null, null, setOf(ProFeature.LIVE_WALLPAPER, ProFeature.SCREENSAVER)),
         CompareRow(R.string.pro_row_cast, null, null, setOf(ProFeature.CAST)),
-        CompareRow(R.string.pro_row_customization, null, null, setOf(ProFeature.ADVANCED_CUSTOMIZATION)),
+        CompareRow(
+            R.string.pro_row_customization,
+            R.string.pro_row_customization_free,
+            R.string.pro_row_customization_pro,
+            setOf(ProFeature.ADVANCED_CUSTOMIZATION),
+        ),
         CompareRow(
             R.string.pro_row_auto_director,
             R.string.pro_row_auto_director_free,
@@ -619,6 +656,18 @@ private fun ComparisonTable(highlighted: ProFeature?) {
     }
 }
 
+/** A cell's text, with its number when it has one; null for a lock or a check. */
+@Composable
+private fun cellText(
+    text: Int?,
+    count: (() -> Int)?,
+): String? =
+    when {
+        text == null -> null
+        count == null -> stringResource(text)
+        else -> stringResource(text, count())
+    }
+
 @Composable
 private fun headerStyle() = MaterialTheme.typography.labelMedium
 
@@ -628,8 +677,8 @@ private fun CompareRowView(
     highlighted: Boolean,
 ) {
     val label = stringResource(row.label)
-    val free = row.free?.let { stringResource(it) } ?: stringResource(R.string.pro_not_included)
-    val pro = row.pro?.let { stringResource(it) } ?: stringResource(R.string.pro_included)
+    val free = cellText(row.free, row.freeCount) ?: stringResource(R.string.pro_not_included)
+    val pro = cellText(row.pro, row.proCount) ?: stringResource(R.string.pro_included)
     val spoken = stringResource(R.string.pro_row_spoken, label, free, pro)
     Row(
         Modifier
@@ -720,6 +769,10 @@ private fun DebugPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(stringResource(R.string.pro_debug_title), style = MaterialTheme.typography.titleSmall, color = ProColors.error)
+        if (!debug.unlocked) {
+            TesterCodeField(actions.onTesterCode)
+            return@Column
+        }
         Row(
             Modifier
                 .fillMaxWidth()
@@ -747,6 +800,52 @@ private fun DebugPanel(
             OutlinedButton(onClick = actions.onCompletePending) { Text(stringResource(R.string.pro_debug_complete_pending)) }
         }
     }
+}
+
+/**
+ * Opens the share sheet with the app's store link. True once it opened: Android cannot report whether
+ * anything was posted, so that is what earns the share bonus.
+ */
+private fun shareApp(context: Context): Boolean {
+    val send =
+        Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, context.getString(R.string.pro_share_text, PLAY_STORE_URL))
+            .putExtra(Intent.EXTRA_TITLE, context.getString(R.string.pro_share_chooser))
+    return try {
+        // The Sharesheet's own title, as the Android docs show it; ours is the preview's title (EXTRA_TITLE).
+        context.startActivity(Intent.createChooser(send, null))
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    }
+}
+
+/** The Play listing, named by the store build's id (debug and sideload ids carry `.debug`). */
+private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.beatrealms3d.app"
+
+/** A debug or sideload build's tester code: the only way to Pro there before the debug controls open. */
+@Composable
+private fun TesterCodeField(onSubmit: (String) -> Boolean) {
+    var code by remember { mutableStateOf("") }
+    var wrong by remember { mutableStateOf(false) }
+    val submit = { wrong = !onSubmit(code) }
+    OutlinedTextField(
+        value = code,
+        onValueChange = {
+            code = it
+            wrong = false
+        },
+        label = { Text(stringResource(R.string.pro_debug_code_label)) },
+        isError = wrong,
+        supportingText = if (wrong) ({ Text(stringResource(R.string.pro_debug_code_wrong)) }) else null,
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { submit() }),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedButton(onClick = { submit() }, enabled = code.isNotBlank()) { Text(stringResource(R.string.pro_debug_code_unlock)) }
 }
 
 /**

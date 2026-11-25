@@ -455,6 +455,7 @@ private fun ConnectedDisplayRows() {
                         close()
                     },
                     leadingIcon = { CheckSlot(option.displayId == display.displayId) },
+                    modifier = Modifier.semantics { selected = option.displayId == display.displayId },
                 )
             }
         }

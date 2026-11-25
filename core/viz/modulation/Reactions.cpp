@@ -110,6 +110,8 @@ constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
     GEODE_DER(InOutro, 0),
     GEODE_DER(SectionReturn, 2.5f), GEODE_DER(SectionProgress, 0),
     GEODE_DER(ChordMotion, 0),
+    GEODE_SRC(LoudnessMomentary, loudnessM, Unit, 0), GEODE_SRC(LoudnessShortTerm, loudnessS, Unit, 0),
+    GEODE_SRC(Busy, busy, Unit, 0), GEODE_SRC(Drive, drive, Unit, 0),
 }};
 
 #undef GEODE_SRC
@@ -280,6 +282,10 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"SECTION_RETURN", "A section comes back", "FORM", true},
     {"SECTION_PROGRESS", "Through the section", "FORM", false},
     {"CHORD_MOTION", "Chords moving", "HARMONY", false},
+    {"LOUDNESS_MOMENTARY", "Loudness, absolute (fast)", "LEVELS", false},
+    {"LOUDNESS_SHORT_TERM", "Loudness, absolute (slow)", "LEVELS", false},
+    {"BUSY", "Busy", "TEXTURE", false},
+    {"DRIVE", "Drive", "LEVELS", false},
 }};
 
 // A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength
@@ -381,6 +387,13 @@ float field(const GeodeSoundFrame& f, size_t offset) {
 const ReactSourceInfo& reactSourceInfo(ReactSource s) {
     const int i = std::clamp(static_cast<int>(s), 0, kReactSourceCount - 1);
     return kSourceInfo[static_cast<size_t>(i)];
+}
+
+int reactSourceField(ReactSource s) {
+    const int i = static_cast<int>(s);
+    if (i < 0 || i >= kReactSourceCount) return -1;
+    const SourceSpec& spec = kSourceTable[static_cast<size_t>(i)];
+    return spec.kind == Kind::Derived ? -1 : static_cast<int>(spec.offset / sizeof(float));
 }
 
 void ReactSignals::reset() {

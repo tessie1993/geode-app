@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.DragInteraction
@@ -38,9 +39,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -55,6 +63,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.C
 import dev.geode.R
 import dev.geode.data.Lyrics
 import dev.geode.model.QueueTrack
@@ -87,6 +96,7 @@ fun TrackSeekBar(
     playheadHeight: Dp? = null,
 ) {
     var dragFraction by remember { mutableFloatStateOf(-1f) }
+    var focused by remember { mutableStateOf(false) }
     val played =
         if (dragFraction >= 0f) {
             dragFraction
@@ -111,7 +121,21 @@ fun TrackSeekBar(
                     onSeek(target.coerceIn(0f, 1f))
                     true
                 }
-            }.pointerInput(durationMs) {
+            }.onKeyEvent { event ->
+                // D-pad and arrow keys step as the remote's rewind and fast-forward do (TV-PC):
+                // Media3's default seek-back and seek-forward increments.
+                val stepMs =
+                    when (event.key) {
+                        Key.DirectionLeft -> -C.DEFAULT_SEEK_BACK_INCREMENT_MS
+                        Key.DirectionRight -> C.DEFAULT_SEEK_FORWARD_INCREMENT_MS
+                        else -> return@onKeyEvent false
+                    }
+                if (durationMs <= 0) return@onKeyEvent false
+                if (event.type == KeyEventType.KeyDown) onSeek(((positionMs() + stepMs) / durationMs.toFloat()).coerceIn(0f, 1f))
+                true
+            }.onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .pointerInput(durationMs) {
                 detectTapGestures { offset ->
                     onSeek((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
                 }
@@ -150,6 +174,11 @@ fun TrackSeekBar(
         drawRoundRect(idle, Offset(0f, y), Size(size.width, h), CornerRadius(h / 2f))
         drawRoundRect(primary, Offset(0f, y), Size(size.width * played, h), CornerRadius(h / 2f))
         val head = playheadHeight?.toPx()
+        if (focused) {
+            // The remote's place: a ring round the playhead, the size of the band the drawing keeps to.
+            val x = (size.width * played).coerceIn(0f, size.width)
+            drawCircle(primary, radius = thumb * 2f, center = Offset(x, mid), style = Stroke(SEEK_FOCUS_RING.toPx()))
+        }
         if (head == null) {
             val x = (size.width * played).coerceIn(thumb, maxOf(thumb, size.width - thumb))
             drawCircle(playhead, radius = thumb, center = Offset(x, mid))
@@ -166,6 +195,7 @@ fun TrackSeekBar(
 }
 
 private val SEEK_TRACK = 4.dp
+private val SEEK_FOCUS_RING = 2.dp
 private val SEEK_THUMB_RADIUS = 6.dp
 
 @Composable

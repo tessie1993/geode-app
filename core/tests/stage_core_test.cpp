@@ -48,7 +48,7 @@ struct Port final : StagePort {
     int64_t applied = 0;
     bool surfaceAtAck = false;
     int frameDones = 0;
-    std::vector<int64_t> presented;  // each swap's presentation time, 0 for none
+    std::vector<int64_t> presented;  // each swap's stamp, 0 for none
 
     Outcome createContext(bool& surfaceless) override {
         surfaceless = true;
@@ -126,7 +126,12 @@ struct Client final : StageClient {
     bool serviceReady = false;
     int framesAtService = -1;
 
-    void surfaceCreated() override { created++; }
+    int64_t appliedAtCreated = -1;
+    int64_t appliedAtFirstFrame = -1;
+    void surfaceCreated() override {
+        created++;
+        appliedAtCreated = port.applied;
+    }
     void surfaceChanged(int w, int h) override {
         changed++;
         width = w;
@@ -135,6 +140,7 @@ struct Client final : StageClient {
     void frameTime(int64_t vsyncNs) override { vsyncTimes.push_back(vsyncNs); }
     void framePresent(int64_t presentNs) override { presentTimes.push_back(presentNs); }
     uint32_t frame(float pacedFps, float capFps) override {
+        if (frames == 0) appliedAtFirstFrame = port.applied;
         frames++;
         paced = pacedFps;
         cap = capFps;
@@ -273,12 +279,20 @@ void handOvers() {
 void vsyncTimes() {
     Rig r;
     r.show();
-    // t = the vsync's frame time, b = ns from it to the expected presentation.
-    r.send(command(kStageFrameDue, 0, 4'000'000, 60.0f, 60.0f, 1'000'000'000));
+    // t = the vsync's frame time, b = ns from it to the expected presentation, a = ns between presentations.
+    r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'000'000'000));
     check(r.client->vsyncTimes.size() == 1 && r.client->vsyncTimes[0] == 1'000'000'000, "a frame is told the vsync it is for");
-    check(r.port.presented.size() == 1 && r.port.presented[0] == 1'004'000'000, "and presents at the vsync's expected time");
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f, 1'016'000'000));
-    check(r.client->vsyncTimes.back() == 1'016'000'000 && r.port.presented.back() == 0, "a vsync with no expected time presents as it can");
+    check(r.client->presentTimes.back() == 1'020'000'000, "and the vsync it is shown at");
+    check(r.port.presented.size() == 1 && r.port.presented[0] == 1'016'000'000,
+          "the swap is stamped half an interval before that vsync, between it and the one before");
+    r.send(command(kStageFrameDue, 0, 20'000'000, 60.0f, 60.0f, 1'008'000'000));
+    check(r.client->presentTimes.back() == 1'028'000'000 && r.port.presented.size() == 2 && r.port.presented[1] == 1'028'000'000,
+          "with no interval the stamp is the presentation time itself, as it was");
+    r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'016'000'000));
+    check(r.port.presented.size() == 3 && r.port.presented[2] == 1'032'000'000, "the next frame with one is stamped again");
+    r.send(command(kStageFrameDue, 8'000'000, 0, 60.0f, 60.0f, 1'024'000'000));
+    check(r.client->vsyncTimes.back() == 1'024'000'000 && r.port.presented.size() == 4 && r.port.presented[3] == 0,
+          "a vsync with no expected time presents as it can");
     r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
     check(r.client->vsyncTimes.back() == 0 && r.port.presented.back() == 0, "a request with no vsync time says so");
 }
@@ -395,6 +409,22 @@ void governedCap() {
     check(r.port.vsyncCapFps == -1.0f && r.port.rate == 0.0f, "letting go follows the device again");
 }
 
+// Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the
+// shell's Main thread waiting on shader warm-up or a blocked swap.
+void aWindowIsAcknowledgedBeforeTheClientOrAFrame() {
+    Rig r;
+    r.core.apply(command(kStageWindow, 1080, 2340, 0.0f, 0.0f, 1, &windowA), r.now);
+    r.core.apply(command(kStageMode, static_cast<int32_t>(RunMode::Animated)), r.now);
+    r.core.step(r.now);
+    check(r.client->created == 1 && r.client->appliedAtCreated == 1, "a new window is acknowledged before the client is told of it");
+    check(r.port.surfaceAtAck, "with its surface already made");
+    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
+    check(r.client->frames == 1 && r.client->appliedAtFirstFrame == 1, "and before the first frame");
+
+    r.send(command(kStageWindowGone, 0, 0, 0.0f, 0.0f, 2));
+    check(r.port.applied == 2 && !r.port.surfaceAtAck, "a window that went is acknowledged with its surface gone");
+}
+
 void endsOutOfTurn() {
     Rig r;
     r.show();
@@ -421,6 +451,7 @@ int main() {
     pauseAndLoss();
     serviceAndQuit();
     governedCap();
+    aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();
     if (failures) {
         std::fprintf(stderr, "%d stage core check(s) failed\n", failures);

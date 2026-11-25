@@ -25,6 +25,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +43,7 @@ import kotlin.coroutines.resume
  * the Play Store app, which does the networking. That shapes three things here:
  * - Purchases are verified on the device ([PurchaseVerifier]) and acknowledged from the device.
  *   An unacknowledged purchase is refunded by Play after three days, so acknowledgement is retried
- *   on every [refresh] until it sticks.
+ *   with backoff, and again on every [refresh] until it sticks.
  * - The entitlement is cached ([EntitlementStore]) with the signed purchase, and outlives an
  *   unreachable Play Store indefinitely: only a successful purchase query that no longer lists
  *   Pro as purchased takes it away ([CachedEntitlement.after]).
@@ -62,20 +63,22 @@ class PlayBillingRepository(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val connectLock = Mutex()
 
+    /** Purchase tokens with an acknowledgement under way; main thread only, like all state here. */
+    private val acknowledging = mutableSetOf<String>()
+
     private val client: BillingClient =
         BillingClient
             .newBuilder(context.applicationContext)
             .setListener(this)
             .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
             // PBL 8+: the library re-establishes a dropped service connection itself before the
-            // next call, so onBillingServiceDisconnected below only logs.
+            // next call, so nothing here reconnects on onBillingServiceDisconnected.
             .enableAutoServiceReconnection()
             .build()
 
     private val isPro = MutableStateFlow(store.load().vouchesForPro(verifier::isGenuine))
     private val product = MutableStateFlow<ProductLoad>(ProductLoad.Loading)
     private val status = MutableStateFlow<PurchaseStatus>(PurchaseStatus.Idle)
-    private var productDetails: ProductDetails? = null
 
     override fun isProStream(): Flow<Boolean> = isPro.asStateFlow()
 
@@ -85,9 +88,9 @@ class PlayBillingRepository(
 
     override suspend fun refresh() {
         val connected = connect()
-        if (connected.responseCode != BillingResponseCode.OK) {
+        if (connected != BillingResponseCode.OK) {
             // Keep whatever the cache vouches for; only the product goes unavailable.
-            product.value = ProductLoad.Unavailable(connected.toError())
+            product.value = ProductLoad.Unavailable(billingErrorFor(connected))
             return
         }
         loadProduct()
@@ -96,7 +99,7 @@ class PlayBillingRepository(
 
     override suspend fun restorePurchases(): RestoreResult {
         val connected = connect()
-        if (connected.responseCode != BillingResponseCode.OK) return RestoreResult.Failed(connected.toError())
+        if (connected != BillingResponseCode.OK) return RestoreResult.Failed(billingErrorFor(connected))
         return when (val owned = queryOwned()) {
             null -> RestoreResult.Failed(BillingError.UNKNOWN)
             else ->
@@ -124,14 +127,16 @@ class PlayBillingRepository(
 
     private suspend fun startPurchase() {
         val connected = connect()
-        if (connected.responseCode != BillingResponseCode.OK) {
-            status.value = PurchaseStatus.Failed(connected.toError())
+        if (connected != BillingResponseCode.OK) {
+            status.value = PurchaseStatus.Failed(billingErrorFor(connected))
             return
         }
-        val details = productDetails ?: loadProduct()
+        // Queried for each attempt: a kept ProductDetails goes stale and fails the launch.
+        val details = loadProduct()
         val activity = activities.current
         if (details == null || activity == null) {
-            status.value = PurchaseStatus.Failed(if (details == null) BillingError.PRODUCT_UNAVAILABLE else BillingError.UNKNOWN)
+            val whyNoProduct = (product.value as? ProductLoad.Unavailable)?.error ?: BillingError.PRODUCT_UNAVAILABLE
+            status.value = PurchaseStatus.Failed(if (details == null) whyNoProduct else BillingError.UNKNOWN)
             return
         }
         val offerToken = details.oneTimePurchaseOfferDetailsList?.firstOrNull()?.offerToken
@@ -147,7 +152,7 @@ class PlayBillingRepository(
             BillingResponseCode.OK -> Unit // The result arrives in onPurchasesUpdated.
             BillingResponseCode.ITEM_ALREADY_OWNED -> settleAlreadyOwned()
             BillingResponseCode.USER_CANCELED -> status.value = PurchaseStatus.Cancelled
-            else -> status.value = PurchaseStatus.Failed(launched.toError())
+            else -> status.value = PurchaseStatus.Failed(billingErrorFor(launched.responseCode))
         }
     }
 
@@ -160,16 +165,21 @@ class PlayBillingRepository(
         purchases: MutableList<Purchase>?,
     ) {
         when (result.responseCode) {
-            BillingResponseCode.OK -> scope.launch { handle(purchases.orEmpty(), fullList = false) }
+            BillingResponseCode.OK ->
+                scope.launch {
+                    handle(purchases.orEmpty(), fullList = false)
+                    // The flow ended without naming a Pro purchase to grant or wait for: ask Play.
+                    if (status.value == PurchaseStatus.InProgress) settleAlreadyOwned()
+                }
             BillingResponseCode.USER_CANCELED -> status.value = PurchaseStatus.Cancelled
             BillingResponseCode.ITEM_ALREADY_OWNED -> scope.launch { settleAlreadyOwned() }
-            else -> status.value = PurchaseStatus.Failed(result.toError())
+            else -> status.value = PurchaseStatus.Failed(billingErrorFor(result.responseCode))
         }
     }
 
     private suspend fun settleAlreadyOwned() {
         queryOwned()
-        status.value = if (isPro.value) PurchaseStatus.Purchased else PurchaseStatus.Failed(BillingError.UNKNOWN)
+        status.value = status.value.settled(isPro.value)
     }
 
     /** Returns the Pro purchases Play reports, or null when the query itself failed. */
@@ -194,7 +204,7 @@ class PlayBillingRepository(
      * Play holds for this user, so a missing Pro purchase is a revocation; an update from
      * [onPurchasesUpdated] carries only what changed and never revokes.
      */
-    private suspend fun handle(
+    private fun handle(
         purchases: List<Purchase>,
         fullList: Boolean,
     ) {
@@ -205,17 +215,14 @@ class PlayBillingRepository(
             }
         val genuine = completed.firstOrNull()?.let { SignedPurchase(it.originalJson, it.signature) }
         settle(if (fullList) PlayAnswer.FullList(genuine) else PlayAnswer.Update(genuine))
-        when {
-            completed.isNotEmpty() -> {
-                completed.filterNot { it.isAcknowledged }.forEach { acknowledge(it) }
-                if (status.value == PurchaseStatus.InProgress || status.value == PurchaseStatus.Pending) {
-                    status.value = PurchaseStatus.Purchased
-                }
-            }
-            pro.any { it.purchaseState == Purchase.PurchaseState.PENDING } -> status.value = PurchaseStatus.Pending
-            fullList -> if (status.value == PurchaseStatus.Pending) status.value = PurchaseStatus.Idle
-            pro.isNotEmpty() -> status.value = PurchaseStatus.Failed(BillingError.UNKNOWN)
-        }
+        completed.filterNot { it.isAcknowledged }.forEach { acknowledge(it) }
+        status.value =
+            status.value.after(
+                completed = completed.isNotEmpty(),
+                pending = pro.any { it.purchaseState == Purchase.PurchaseState.PENDING },
+                anyPro = pro.isNotEmpty(),
+                fullList = fullList,
+            )
     }
 
     /** Folds [answer] into the cache and the live flag; [CachedEntitlement.after] decides what may revoke. */
@@ -226,11 +233,33 @@ class PlayBillingRepository(
         isPro.value = next.vouchesForPro(verifier::isGenuine)
     }
 
-    private suspend fun acknowledge(purchase: Purchase) {
-        val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
-        val result = suspendCancellableCoroutine { cont -> client.acknowledgePurchase(params) { if (cont.isActive) cont.resume(it) } }
-        // Not fatal: the next refresh sees isAcknowledged == false and tries again.
-        if (result.responseCode != BillingResponseCode.OK) RingLog.note(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
+    /**
+     * Acknowledges [purchase] off the caller's path, so a slow Play never holds up the paywall,
+     * retrying as [acknowledgeRetryDelayMs] says. Not fatal when every try fails: the next
+     * refresh sees isAcknowledged == false and starts again.
+     */
+    private fun acknowledge(purchase: Purchase) {
+        val token = purchase.purchaseToken
+        if (!acknowledging.add(token)) return
+        scope.launch {
+            try {
+                var tries = 1
+                do {
+                    val result = acknowledgeOnce(token)
+                    val failed = result.responseCode != BillingResponseCode.OK
+                    if (failed) RingLog.note(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
+                    val wait = if (failed) acknowledgeRetryDelayMs(result.responseCode, tries++) else null
+                    if (wait != null) delay(wait)
+                } while (wait != null)
+            } finally {
+                acknowledging.remove(token)
+            }
+        }
+    }
+
+    private suspend fun acknowledgeOnce(token: String): BillingResult {
+        val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()
+        return suspendCancellableCoroutine { cont -> client.acknowledgePurchase(params) { if (cont.isActive) cont.resume(it) } }
     }
 
     private suspend fun loadProduct(): ProductDetails? {
@@ -253,47 +282,113 @@ class PlayBillingRepository(
                 }
             }
         val offer = details?.oneTimePurchaseOfferDetailsList?.firstOrNull()
-        productDetails = details
         product.value =
             when {
-                result.responseCode != BillingResponseCode.OK -> ProductLoad.Unavailable(result.toError())
+                result.responseCode != BillingResponseCode.OK -> ProductLoad.Unavailable(billingErrorFor(result.responseCode))
                 details == null || offer == null -> ProductLoad.Unavailable(BillingError.PRODUCT_UNAVAILABLE)
                 else -> ProductLoad.Ready(ProProduct(offer.formattedPrice, offer.priceAmountMicros, offer.priceCurrencyCode))
             }
         return details
     }
 
-    private suspend fun connect(): BillingResult =
+    /** Connects if needed and returns Play's response code. */
+    private suspend fun connect(): Int =
         connectLock.withLock {
-            if (client.isReady) return@withLock OK
+            if (client.isReady) return@withLock BillingResponseCode.OK
             suspendCancellableCoroutine { cont ->
                 client.startConnection(
-                    object : BillingClientStateListener {
-                        override fun onBillingSetupFinished(result: BillingResult) {
-                            if (cont.isActive) cont.resume(result)
-                        }
-
-                        override fun onBillingServiceDisconnected() {
-                            RingLog.note(TAG, "billing service disconnected; the library reconnects on the next call")
-                        }
+                    setupListener {
+                        if (it == BillingResponseCode.SERVICE_DISCONNECTED) RingLog.note(TAG, "billing service disconnected")
+                        if (cont.isActive) cont.resume(it)
                     },
                 )
             }
         }
 
-    private fun BillingResult.toError(): BillingError =
-        when (responseCode) {
-            BillingResponseCode.BILLING_UNAVAILABLE, BillingResponseCode.FEATURE_NOT_SUPPORTED -> BillingError.BILLING_UNAVAILABLE
-            BillingResponseCode.SERVICE_UNAVAILABLE,
-            BillingResponseCode.NETWORK_ERROR,
-            BillingResponseCode.SERVICE_DISCONNECTED,
-            -> BillingError.NETWORK
-            BillingResponseCode.ITEM_UNAVAILABLE, BillingResponseCode.DEVELOPER_ERROR -> BillingError.PRODUCT_UNAVAILABLE
-            else -> BillingError.UNKNOWN
-        }
-
     private companion object {
         const val TAG = "PlayBilling"
-        val OK: BillingResult = BillingResult.newBuilder().setResponseCode(BillingResponseCode.OK).build()
     }
 }
+
+/**
+ * Reports how a connection attempt ended through [onResult], a `BillingResponseCode`. A service
+ * that drops before setup finished answers SERVICE_DISCONNECTED, as a failed attempt the user can
+ * retry: a caller left waiting on a setup that never reports holds up every later refresh, restore
+ * and purchase.
+ */
+internal fun setupListener(onResult: (Int) -> Unit): BillingClientStateListener =
+    object : BillingClientStateListener {
+        override fun onBillingSetupFinished(result: BillingResult) = onResult(result.responseCode)
+
+        override fun onBillingServiceDisconnected() = onResult(BillingResponseCode.SERVICE_DISCONNECTED)
+    }
+
+/**
+ * Where a purchase attempt stands after Play reported purchases: [completed] a paid, verified Pro,
+ * [pending] one awaiting payment, [anyPro] any Pro purchase at all. [fullList] is a purchase query,
+ * which says nothing about a sheet that is still up. A flow result naming no Pro at all leaves the
+ * attempt open for [settled], after Play was asked what the user owns.
+ */
+internal fun PurchaseStatus.after(
+    completed: Boolean,
+    pending: Boolean,
+    anyPro: Boolean,
+    fullList: Boolean,
+): PurchaseStatus =
+    when {
+        completed -> if (this == PurchaseStatus.InProgress || this == PurchaseStatus.Pending) PurchaseStatus.Purchased else this
+        pending -> PurchaseStatus.Pending
+        fullList -> if (this == PurchaseStatus.Pending) PurchaseStatus.Idle else this
+        anyPro -> PurchaseStatus.Failed(BillingError.UNKNOWN)
+        else -> this
+    }
+
+/**
+ * Ends an attempt that a purchase query left open (already owned, or a flow result with no
+ * purchase): Pro if the user has it, failed otherwise. A status the query settled itself, such as
+ * a pending payment, stands.
+ */
+internal fun PurchaseStatus.settled(isPro: Boolean): PurchaseStatus =
+    when {
+        this != PurchaseStatus.InProgress -> this
+        isPro -> PurchaseStatus.Purchased
+        else -> PurchaseStatus.Failed(BillingError.UNKNOWN)
+    }
+
+/**
+ * How long to wait before acknowledging again after try number [tries] (from 1) failed with
+ * [responseCode], or null to stop. The tries, the first wait and the doubling are the billing
+ * errors guide's backoff for acknowledgement, for the responses it lists as retriable.
+ */
+internal fun acknowledgeRetryDelayMs(
+    responseCode: Int,
+    tries: Int,
+): Long? =
+    when {
+        tries >= ACKNOWLEDGE_MAX_TRIES -> null
+        responseCode in ACKNOWLEDGE_RETRIABLE -> ACKNOWLEDGE_RETRY_MS shl (tries - 1)
+        else -> null
+    }
+
+private const val ACKNOWLEDGE_MAX_TRIES = 3
+private const val ACKNOWLEDGE_RETRY_MS = 2_000L
+private val ACKNOWLEDGE_RETRIABLE =
+    setOf(
+        BillingResponseCode.NETWORK_ERROR,
+        BillingResponseCode.SERVICE_DISCONNECTED,
+        BillingResponseCode.SERVICE_UNAVAILABLE,
+        BillingResponseCode.ERROR,
+    )
+
+/** The paywall's wording for a failed `BillingResponseCode`. */
+internal fun billingErrorFor(responseCode: Int): BillingError =
+    when (responseCode) {
+        BillingResponseCode.BILLING_UNAVAILABLE, BillingResponseCode.FEATURE_NOT_SUPPORTED -> BillingError.BILLING_UNAVAILABLE
+        BillingResponseCode.SERVICE_UNAVAILABLE,
+        BillingResponseCode.NETWORK_ERROR,
+        BillingResponseCode.SERVICE_DISCONNECTED,
+        -> BillingError.NETWORK
+        BillingResponseCode.ITEM_UNAVAILABLE -> BillingError.PRODUCT_UNAVAILABLE
+        // DEVELOPER_ERROR included: a misused API is not "not sold in your country".
+        else -> BillingError.UNKNOWN
+    }

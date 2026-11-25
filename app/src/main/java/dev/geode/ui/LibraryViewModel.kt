@@ -69,6 +69,8 @@ data class LibraryUiState(
     val isScanning: Boolean = false,
     /** The whole library (no search) is empty, and the device has been asked: see [showEmptyLibrary]. */
     val libraryEmpty: Boolean = false,
+    /** MediaStore has not answered yet, a folder scan runs, or the lists have not caught up with the library. */
+    val loading: Boolean = false,
 ) {
     val tracks: List<DeviceTrack> get() = browse.tracks
 
@@ -182,11 +184,12 @@ class LibraryViewModel
                     sort = querySort.second,
                     isScanning = scanning,
                     libraryEmpty = loaded && empty,
+                    loading = !loaded || scanning || (!empty && querySort.first.isBlank() && result.tracks.isEmpty()),
                 )
             }.stateIn(
                 scope = viewModelScope,
                 started = WhileUiSubscribed,
-                initialValue = LibraryUiState(),
+                initialValue = LibraryUiState(loading = true),
             )
 
         /**

@@ -77,8 +77,7 @@ public:
             lastTargetFps_ = target;
             deficitSeconds_ = 0.0f;
         }
-        const float fps = dtSeconds > 1e-6f ? 1.0f / dtSeconds : 1000.0f;
-        if (fps < 5.0f || fps > 180.0f) return 0;
+        if (!(dtSeconds > 1e-6f)) return 0;
         const bool stall = pacedFps_ > 0.0f && dtSeconds >= kStallPeriods / pacedFps_;
         const bool aloneStall = stall && !afterStall_;
         afterStall_ = stall;

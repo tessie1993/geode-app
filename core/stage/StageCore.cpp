@@ -57,6 +57,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             dueFps_ = command.f;
             dueFrameNs_ = command.t;
             duePresentNs_ = command.b > 0 ? command.t + command.b : 0;
+            dueStampNs_ = viz::frame::latchStampNs(duePresentNs_, command.a);
             paced_.store(command.f, std::memory_order_relaxed);
             break;
         case kStageFrameRate:
@@ -72,11 +73,8 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
 void StageCore::step(int64_t nowMs) {
     lifecycle_.tick(nowMs);
     runActions();
-    // Acknowledged once the lifecycle has acted on it: a window that went has no EGL surface left on it here.
-    if (seenSeq_ > appliedSeq_) {
-        appliedSeq_ = seenSeq_;
-        port_.windowApplied(appliedSeq_);
-    }
+    // Already acknowledged inside runActions when the surface moved; this is for a hand-over that moved none.
+    acknowledge();
     if (serviceDue_) {
         serviceDue_ = false;
         if (client_) client_->service(lifecycle_.canDraw());
@@ -87,7 +85,7 @@ void StageCore::step(int64_t nowMs) {
         if (lifecycle_.vsyncOn() && lifecycle_.canDraw()) {
             // The surface's own cap, not the one the vsync paced to: the renderer's governor measures against the
             // paced rate and steps under the user's maximum, which only the own cap says.
-            draw(dueFps_, cap_, dueFrameNs_, duePresentNs_);
+            draw(dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
             runActions();
         }
         port_.frameDone();
@@ -123,6 +121,14 @@ void StageCore::followGovernor() {
     restateRate();
 }
 
+// A window that went has no EGL surface left on it; a new one is held by its surface. Nothing after that touches the
+// window the shell handed over, so the shell need not wait for the client's calls, the vsync or a frame.
+void StageCore::acknowledge() {
+    if (seenSeq_ <= appliedSeq_) return;
+    appliedSeq_ = seenSeq_;
+    port_.windowApplied(appliedSeq_);
+}
+
 void StageCore::runActions() {
     for (int i = 0; i < kMaxActions; ++i) {
         const Action action = lifecycle_.next();
@@ -131,6 +137,7 @@ void StageCore::runActions() {
             return;
         }
         lifecycle_.done(action, execute(action));
+        if ((action.act == Act::CreateSurface && window_) || (action.act == Act::DestroySurface && !window_)) acknowledge();
     }
     unsettled_ = true;
 }
@@ -155,7 +162,7 @@ Outcome StageCore::execute(const Action& action) {
             return Outcome::Done;
         case Act::StartVsync: port_.vsyncRun(true); return Outcome::Done;
         case Act::StopVsync: port_.vsyncRun(false); return Outcome::Done;
-        case Act::DrawOnce: draw(paced_.load(std::memory_order_relaxed), cap_, 0, 0); return Outcome::Done;
+        case Act::DrawOnce: draw(paced_.load(std::memory_order_relaxed), cap_, 0, 0, 0); return Outcome::Done;
         case Act::ClientTrimSpares:
             if (client_) client_->trimSpares();
             return Outcome::Done;
@@ -178,8 +185,9 @@ Outcome StageCore::execute(const Action& action) {
 }
 
 // One frame and its swap; the swap's outcome is the lifecycle's next event. frameNs is the vsync's frame time and
-// presentNs the frame's expected presentation (0 for a frame no vsync asked for: the client's own clock, no time).
-void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs) {
+// presentNs the frame's expected presentation (0 for a frame no vsync asked for: the client's own clock, no time);
+// stampNs is what the swap is stamped with for it (frame::latchStampNs, 0 for no stamp).
+void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs) {
     if (!client_) return;
     client_->frameTime(frameNs);
     client_->framePresent(presentNs);
@@ -188,7 +196,7 @@ void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t pres
     followGovernor();
     // The picture is the one already on screen: no new buffer, so no swap, and the display keeps the last.
     if ((events & kFrameNothingNew) != 0) return;
-    port_.presentAt(presentNs);
+    port_.presentAt(stampNs);
     switch (port_.swap()) {
         case Outcome::Done: lifecycle_.frameDrawn(); break;
         case Outcome::ContextLost: lifecycle_.contextLost(); break;

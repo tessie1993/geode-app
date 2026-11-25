@@ -270,7 +270,7 @@
           processes: System UI, Bluetooth, a wired headset's buttons.
         -->
         <receiver
-            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:name=".playback.ResumeButtonReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />

@@ -108,7 +108,8 @@ class ExportJourneyTest {
 
     /**
      * The app's video named [name] in the Videos library; a row still pending is a render cut short.
-     * Every row found is queued for deletion before the check, so a failure leaves none behind.
+     * Every row found is queued for deletion before the check, so a failed check leaves none behind.
+     * A render that never finishes leaves its pending row to MediaStore, which expires pending rows.
      */
     private fun finishedVideo(name: String): Uri {
         val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI

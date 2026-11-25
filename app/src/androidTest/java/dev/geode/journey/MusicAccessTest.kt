@@ -80,6 +80,14 @@ class MusicAccessTest {
         openLibrary()
         compose.tap(text(R.string.library_permission_allow))
         answer(allow = false)
+        // The refusal has reached the app once Android would show a rationale: the first "no".
+        compose.waitUntil(JOURNEY_TIMEOUT_MS) {
+            var rationale = false
+            compose.runOnUiThread {
+                rationale = compose.activity.shouldShowRequestPermissionRationale(Manifest.permission.READ_MEDIA_AUDIO)
+            }
+            rationale
+        }
         compose.awaitNode(hasText(text(R.string.library_permission_rationale)))
 
         compose.tap(text(R.string.library_permission_allow))

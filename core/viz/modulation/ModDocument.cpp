@@ -364,13 +364,11 @@ std::string ModDocument::reactionsText() const {
         text = reactiontext::encode(floats.data(), count);
     } else {
         text = reactiontext::encode(nullptr, 0);
-        text += '
-';
+        text += '\n';
         text += reactiontext::kAutoLine;
     }
     if (!responses.empty()) {
-        text += '
-';
+        text += '\n';
         text += responses;
     }
     return text;

@@ -149,14 +149,14 @@ void numbers() {
 }
 
 void cap() {
-    const std::vector<Route> many(40, Route{true, ReactSource::Kick, LfoTarget::Zoom, ReactMode::Follow, 0.3f, ModCurve::Linear, 0.05f, 0.3f});
+    const std::vector<Route> many(ReactionEngine::kRoutes + 8, Route{true, ReactSource::Kick, LfoTarget::Zoom, ReactMode::Follow, 0.3f, ModCurve::Linear, 0.05f, 0.3f});
     const std::vector<float> packed = pack(many);
     const std::string text = reactiontext::encode(packed.data(), static_cast<int>(many.size()));
     int lines = 1;
     for (char c : text) lines += c == '\n' ? 1 : 0;
     check(lines == ReactionEngine::kRoutes + 1, "encode writes at most the matrix's routes");
     std::string longText = "reactions/2";
-    for (int i = 0; i < 40; ++i) longText += "\ntrue|KICK|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3";
+    for (int i = 0; i < ReactionEngine::kRoutes + 8; ++i) longText += "\ntrue|KICK|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3";
     check(decode(longText).count == ReactionEngine::kRoutes, "decode reads at most the matrix's routes");
 }
 

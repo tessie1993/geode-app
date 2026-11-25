@@ -57,7 +57,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 - `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
 - `.github/actions/android-build-setup` is the setup every Gradle job uses: JDK 21, Gradle, SDK 36, NDK, CMake, optional ccache.
-- `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
+- `android.yml` runs every night on main (`schedule`) and by hand on any branch: the emulator tests and the sound engine across frame rates on the test tracks.
 - `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`, `sound-module-gate.sh`, `hand-declaration-gate.sh`, and `store-check.sh` on the Play listing text.
 - `build-lint.yml` and `native-host-tests.yml` skip their heavy job on a pull request whose changed paths are all documents (`tools/ci-docs-only.sh`); `arch-map.yml` never skips.
 - `tools/ktlint-changed.sh` runs CI's ktlint check on changed Kotlin without Gradle.
@@ -382,3 +382,4 @@ A line records what was done; it is not a rule.
 - 2026-11-20: `docs/agents/kotlin-logic-map.md` › Port order opens with a status line: which steps landed or are thin shells, and the two slices left (export mux, Cast render thread).
 - 2026-11-21: Compose runtime tracing in the debug APK (`libs.compose.runtime.tracing`, `debugImplementation`), so a Perfetto trace names the composables that recompose; the sideload build is `<profileable android:shell="true"/>` (`app/src/sideload/AndroidManifest.xml`), so it can be profiled from the shell.
 - 2026-11-25: `tools/agent-setup.sh` pins Google's `android/skills` at 7f7b217 (v1.0.24, was v1.0.20 at bf68e2d) and `chrisbanes/skills` at f1132f9 (2026-11-24, was 8df9735); the skills new at those commits that Geode rarely needs are listed by name only in `.claude/settings.json` (`credential-holder`, `credential-issuer`, `credential-verifier`, `ios-to-android`, `phone-number-verification`, `deliver-issue`, `run-project`); `android-jni-security` and `simplify-changes` keep their descriptions.
+- 2026-11-25: `android.yml` also runs every night on main (`schedule`, 02:17 UTC), next to `workflow_dispatch`.

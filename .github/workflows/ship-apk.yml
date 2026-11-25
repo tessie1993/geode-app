@@ -121,6 +121,9 @@ jobs:
         if: always()
         run: ccache -s || true
 
+      - name: Keep only the ccache entries this build used
+        run: ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
+
       - name: Save the ccache
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

@@ -116,7 +116,7 @@ The renderer runs these in order each frame.
 
 - `Director`, the auto-director: at sections and drops the feeling decides a behaviour look, held until the next.
 - The director's five axes are Energy, Speed, Complexity, Space and Chaos: offsets on scene params and the camera's music moves; never the user's macro bank.
-- The director also sets the camera's softness and the breath dial by a factor; a dial at 0 stays off; it never touches Spin (`motionDrift`).
+- The director also sets the camera's softness; Camera shake (`motionAmount`) at 0 stays off; it never touches Spin (`motionDrift`).
 - The director is base plus modulation.
 - The director's axis push scales into the room a slider has left above its default, so a slider between its default and the end still moves the picture (`director::applyAxes`).
 - Owner's rule: the director never touches a colour param and plays no route of its own, and nothing in it follows the frame.
@@ -142,6 +142,7 @@ The renderer runs these in order each frame.
 - Then LFO, then ADSR.
 - An LFO or envelope slot set "On a moment" restarts or fires on Customize › Music's moments (`MomentWatch` in `Reactions`).
 - Then `Reactions` (the reaction matrix).
+- Then Spin: a style that turns gets a constant Rotation rate (`kSpinRadPerSecond` x its `spinRate` x the Spin dial x Speed); no sound sets it.
 - Then `safety::apply` (`core/viz/VisualSafety`), the unconditional clamp, last.
 - In an export the renderer also steps `StyleSchedule` (the segment's style switches, by time and by beat, on the picture's clock, so it holds in silence).
 - Then it steps `CameraRig`, the one camera every render path shares, which also reads the sound frame for its own cuts, trauma shake and clock-driven orbit.
@@ -250,7 +251,7 @@ The renderer runs these in order each frame.
 - 3D styles read the rig through `lib_camera`.
 - Every style hears sound through `lib_sound`, pasted by `lib_scene_uniforms`; scenes upload it with `core/viz/SoundUniforms`.
 - A style's six knobs are `uKnob[6]` in `lib_scene_uniforms` (k0 PULSE … k5 SPACE).
-- `ShaderScene` uploads the `uKnob` knobs and the audio-motion uniforms (`lib_scene_motion`) as neutral constants: nothing computes them.
+- `ShaderScene` uploads the `uKnob` knobs and the audio-motion uniforms (`lib_scene_motion`) as constants, except the two flow clocks (`uFlowPhase`, `uFlowTime`), which run at a fixed base rate times Speed; nothing computes any of them from the sound.
 - The neon set (`glow_vortex`, `neon_chrome_sea`, `black_hole`, `hex_hive`, `mandelbox_cathedral`) shares `lib_neon`.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
 - `lib_shell` maps a style's normalized inputs (0..1, 0.5 = the tuned constant) to their ranges (`shellMap`) and applies Spawn, Fractal and the two layers to a style's own field (`SHELL_FIELD3`, `SHELL_DENSITY3`, `SHELL_FIELD2`); the hooks are 0.0 until the engine uploads them.

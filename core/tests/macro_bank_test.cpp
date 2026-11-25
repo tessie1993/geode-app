@@ -108,6 +108,19 @@ EngineStyles engineStyles() {
     return s;
 }
 
+// Bass gain is not shown on a style that reads no bass (StyleBandReads.inc), but a macro link to it is still
+// applied there: the hiding is display only.
+void aBandGainLinkStillAppliesWhereTheRowIsHidden() {
+    const std::string style = "tunnel";
+    check(catalogue::reaches(catalogue::Scope::BassBand, style) && !catalogue::shows(catalogue::Scope::BassBand, style),
+          "tunnel reaches the bass band but shows no Bass gain");
+    const Target gain = macrobank::targetNamed("bassGain");
+    check(macrobank::linkable(gain), "Bass gain is a linkable target");
+    const SceneParams base;
+    const SceneParams out = macrobank::apply(base, oneKnob({Link{gain, 1.0f, 1.0f}}, 1.0f), style);
+    check(out.bassGain != base.bassGain, "a knob linked to Bass gain still moves it on a style that hides the row");
+}
+
 void linkableTargetsWriteLiveParams() {
     const auto targets = linkableTargets();
     check(targets.size() > 30u, "most modulation targets can be linked");
@@ -1379,6 +1392,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     linkableTargetsWriteLiveParams();
+    aBandGainLinkStillAppliesWhereTheRowIsHidden();
     centreIsTheIdentity();
     aFullTurnMovesEveryLinkByItsWeight();
     neverPastTheRange();

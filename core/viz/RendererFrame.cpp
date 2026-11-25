@@ -258,6 +258,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     }
     signal::StyleContext style;
     style.id = activeScene_ ? &activeScene_->id() : nullptr;
+    style.spin = sceneSpin_.load(std::memory_order_relaxed);
     // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
     // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
     const sound::Emotion::State* heard = nullptr;

@@ -23,6 +23,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "viz/styles/catalogue/Catalogue.hpp"
@@ -413,6 +414,8 @@ const std::vector<Carrier>& shaderCarriers() {
         // Audio drive is lib_sound's uSoundDrive (SoundUniforms::upload). The band trims scale the frame's
         // band fields (viz/BandTrim) before the style, which reads them as SND_* fields.
         {"audioDrive", {"uSoundDrive"}},
+        // Spin is the resolver's steady turn on a style that turns (Resolver, kSpinRadPerSecond), added to Rotation.
+        {"motionDrift", {"uRotation"}},
         {"bassGain", {"SND_BASS", "SND_BASS_ATT", "SND_LOW", "SND_BASS_PRESENCE", "SND_FLUX_LOW"}},
         {"midGain", {"SND_MID", "SND_MID_ATT", "SND_MIDDLE", "SND_MID_PRESENCE", "SND_FLUX_MID"}},
         {"trebGain", {"SND_TREBLE", "SND_TREBLE_ATT", "SND_HIGH", "SND_TREBLE_PRESENCE", "SND_FLUX_HIGH"}},
@@ -435,12 +438,8 @@ const std::set<std::string>& sharedStageFields() {
         "camPath", "camFly", "camOrbit", "camFov", "camShake", "camPush", "camYaw", "camPitch", "camRoll", "camSmooth",
         "camTouch", "camGyro",
         "reactAmount", "reactSeed", "paramFadeSec",
-        // The motion field and the note layer were cut (owner decision 48), so these dials move no style:
-        // Motion amount now only scales the camera's shake (CameraRig) and the director's Energy axis, and the
-        // rest (Breath, Spin, Key colour and the five Notes & key amounts) are read by nothing. They stay on the
-        // wire until they are retired (ParamTable.inc); delete them from here then.
-        "motionAmount", "motionBreath", "motionDrift", "motionHue",
-        "noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums",
+        // Camera shake (motionAmount) scales the camera rig's shake, which the rig applies to every style's view.
+        "motionAmount",
     };
     return kShared;
 }
@@ -504,6 +503,8 @@ bool poolCarries(const std::string& styleId, const std::string& field) {
 
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
+    // Spin only turns a style the catalogue gives a spin rate.
+    if (field == "motionDrift") return catalogue::spinRate(styleId) != 0.0f && words.count("uRotation") != 0;
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
     if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);
@@ -560,7 +561,7 @@ bool compositeApplies(catalogue::Kind, const std::string& field) {
 // The words a dedicated renderer's sources name that carry each field it is shown, where the field's own
 // name is not one: the palette through SceneParams::paletteBase/Range, the band trims through the frame's
 // band fields.
-bool kindReads(catalogue::Kind kind, const std::string& field, const std::set<std::string>& words) {
+bool kindReads(catalogue::Kind kind, const std::string& styleId, const std::string& field, const std::set<std::string>& words) {
     static const std::map<std::string, std::vector<const char*>> kVia = {
         {"palette", {"paletteBase"}},
         {"paletteBaseOverride", {"paletteBase"}},
@@ -577,6 +578,7 @@ bool kindReads(catalogue::Kind kind, const std::string& field, const std::set<st
         {"midGain", {"mid", "midAtt", "middle", "midPresence", "fluxMid"}},
         {"trebGain", {"treble", "trebleAtt", "high", "treblePresence", "fluxHigh"}},
     };
+    if (field == "motionDrift") return catalogue::spinRate(styleId) != 0.0f;
     // TrailPass echoes (zooms and warps) the kept frame of any scene that keeps one (Scene::trailRetention).
     if (field == "trailZoom" || field == "trailWarp") return words.count("trailRetention") != 0;
     if (compositeApplies(kind, field)) return true;
@@ -625,12 +627,24 @@ void everyShownControlReachesItsStyle(const std::string& assetsRoot, const std::
             words = kindWords[kind];
         }
         ++styles;
+        // The other direction of StyleBandReads.inc: a style it lists as reading no bass (or no treble) must not
+        // reach a word that carries the band. The hidden row is only true if the style really is deaf to it.
+        if (shader) {
+            for (const auto& [scope, field] : {std::pair{catalogue::Scope::BassBand, "bassGain"}, std::pair{catalogue::Scope::TrebleBand, "trebGain"}}) {
+                if (!catalogue::reaches(scope, id) || catalogue::shows(scope, id)) continue;
+                std::string read;
+                for (const char* u : carrierOf(field)->anyOf) {
+                    if (heard.count(u) != 0) read = u;
+                }
+                check(read.empty(), id + ": StyleBandReads.inc lists it as reading no " + field + " band, but it reads " + read);
+            }
+        }
         std::string missing;
         for (const auto& [field, control] : shownFields(id)) {
             if (sharedStageFields().count(field) != 0 && (shader || kTrailFields.count(field) == 0)) continue;
             if (shader) check(carrierOf(field) != nullptr, id + ": " + field + " (" + control + ") has no carrier; classify it in style_reads_test");
             ++cells;
-            if (shader ? readsField(id, field, words, heard) : kindReads(kind, field, words)) continue;
+            if (shader ? readsField(id, field, words, heard) : kindReads(kind, id, field, words)) continue;
             ++gaps;
             ++missingByField[field];
             missing += " " + field;

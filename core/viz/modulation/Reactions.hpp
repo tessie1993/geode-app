@@ -284,6 +284,8 @@ private:
     ReactSignals signals_;
     std::array<float, kRoutes> acc_{};
     std::array<float, kRoutes> out_{};
+    // Whether the route has resolved a frame since it was enabled (or since reset): the first one snaps out_ to its target.
+    std::array<bool, kRoutes> primed_{};
     // The music's absolute reach (core/sound/DriveGain) of the frame last ticked: apply() scales what the audio
     // adds by it, never the params' base values.
     float gain_ = 1.0f;

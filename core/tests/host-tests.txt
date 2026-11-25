@@ -53,6 +53,8 @@ params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/params/Pa
 # The rate params' phases (core/viz/params/RatePhases): a change of Speed never jumps the phase, a ramp's phase is its integral at 30/60/120 fps.
 rate_phases_test | stub | core/tests/rate_phases_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
+# A modulation cable's smoothing step (core/viz/modulation/Slew.hpp): the same value at equal times at 30/60/120 fps, tau 0 follows, a huge dt snaps without overshoot.
+slew_test | stub | core/tests/slew_test.cpp |
 # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/panel/ParamRandomizer.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp |

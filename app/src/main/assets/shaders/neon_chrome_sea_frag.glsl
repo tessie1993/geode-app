@@ -341,7 +341,7 @@ void main() {
         n = normalize(mix(n, vec3(0.0, 1.0, 0.0), smoothstep(3.0, 35.0, t) * 0.88));
 
         float cosV = max(dot(n, -rd), 0.0);
-        float fres = 0.55 + 0.45 * pow(1.0 - cosV, 5.0);
+        float fres = 0.55 + 0.45 * pow(max(1.0 - cosV, 0.0), 5.0);
         vec3 refl = reflect(rd, n);
         refl.y = abs(refl.y);
         vec3 env = ocSky(refl);

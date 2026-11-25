@@ -99,6 +99,32 @@ internal object SharedLinkInbox {
     var offer by mutableStateOf<SharedLinkOffer?>(null)
 }
 
+/** What an incoming link leads to. Only [Confirm] can ever import, and only through the user. */
+internal sealed interface SharedLinkRoute {
+    data class Confirm(
+        val offer: SharedLinkOffer,
+    ) : SharedLinkRoute
+
+    data object UnreadablePreset : SharedLinkRoute
+
+    data object UnreadableTemplate : SharedLinkRoute
+
+    data object NotOurs : SharedLinkRoute
+}
+
+/** [offer] as read for the confirm dialog; a preset link is read before a template link, as [VisualsViewModel.offerFor] does. */
+internal fun sharedLinkRoute(
+    offer: SharedLinkOffer?,
+    isPresetLink: Boolean,
+    isTemplateLink: Boolean,
+): SharedLinkRoute =
+    when {
+        offer != null -> SharedLinkRoute.Confirm(offer)
+        isPresetLink -> SharedLinkRoute.UnreadablePreset
+        isTemplateLink -> SharedLinkRoute.UnreadableTemplate
+        else -> SharedLinkRoute.NotOurs
+    }
+
 /** "Import shared preset?" / "Replace template?" for the link waiting in [SharedLinkInbox]. */
 @Composable
 internal fun SharedLinkConfirm() {
@@ -208,23 +234,27 @@ class MainActivity : ComponentActivity() {
 
     /**
      * A `geode://preset` or `geode://template` link. Anything can send one, so a readable link
-     * is parked in [SharedLinkInbox] for the user to confirm; an unreadable one goes straight
-     * to the import path, which writes nothing and says why. The intent's data is consumed only
-     * when it was one of ours, so anything else is left for the platform.
+     * is parked in [SharedLinkInbox] for the user to confirm and an unreadable one is only
+     * reported: nothing is imported without the confirm button. The intent's data is consumed
+     * only when it was one of ours, so anything else is left for the platform.
      */
     private fun receiveSharedLink(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
-        val offer = visualsViewModel.offerFor(data)
-        if (offer != null) {
-            SharedLinkInbox.offer = offer
-            intent.data = null
-            return
+        val route =
+            sharedLinkRoute(
+                visualsViewModel.offerFor(data),
+                PresetLink.isPresetLink(data),
+                visualsViewModel.isTemplateLink(data),
+            )
+        when (route) {
+            is SharedLinkRoute.Confirm -> SharedLinkInbox.offer = route.offer
+            SharedLinkRoute.UnreadablePreset ->
+                Toast.makeText(this, R.string.preset_link_unreadable, Toast.LENGTH_LONG).show()
+            SharedLinkRoute.UnreadableTemplate ->
+                Toast.makeText(this, R.string.template_link_unreadable, Toast.LENGTH_LONG).show()
+            SharedLinkRoute.NotOurs -> return
         }
-        if (PresetLink.isPresetLink(data) || visualsViewModel.isTemplateLink(data)) {
-            importSharedPreset(this, visualsViewModel, data)
-            importSharedTemplate(this, visualsViewModel, data)
-            intent.data = null
-        }
+        intent.data = null
     }
 
     override fun onPictureInPictureModeChanged(

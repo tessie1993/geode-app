@@ -27,7 +27,7 @@ section|SHAPE|stirrers|PRO|ALWAYS|Stirrers,Stirrer speed|Stirrers
 section|SHAPE|fluid_quality|PRO|ALWAYS|Fluid quality,Lower the quality when the phone struggles|Quality
 section|MOTION|basics|BASICS|ALWAYS|Speed,Zoom,Rotation|Basics
 section|MOTION|drift|PRO|ALWAYS|Sway,Drift X,Drift Y|Drift
-section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin|Inner motion
+section|MOTION|inner_motion|PRO|ALWAYS|Camera shake,Spin|Inner motion
 section|DIVE|basics|BASICS|ALWAYS|Endless zoom,Dive speed|Basics
 section|DIVE|tunnel|PRO|ALWAYS|Ring spacing,Tunnel shape,Dive blend,Depth fade|Tunnel
 section|DIVE|spiral_aim|PRO|ALWAYS|Dive twist,Dive aim X,Dive aim Y,Dive lens|Spiral & aim
@@ -38,7 +38,6 @@ section|CAMERA|feel|PRO|THREE_D|Handheld shake,Tilt phone to look,Drag to look,C
 section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,Reaction DNA|Basics
 section|MUSIC|moments|PRO|ALWAYS|@moments|Moments
 section|MUSIC|listening|PRO|ALWAYS|Bass gain,Mid gain,Treble gain,@rise_fall|Listening
-section|MUSIC|notes_key|PRO|ALWAYS|Key colour,@notes_key|Notes & key
 section|MUSIC|reactions|PRO|ALWAYS|@reactions|Reactions
 section|EFFECTS|basics|BASICS|ALWAYS|Trails,Vignette,@transition_style|Basics
 section|EFFECTS|trail_detail|PRO|ALWAYS|Trail length,Trail zoom (echo in/out),Trail warp (liquid echo)|Trail detail

@@ -255,13 +255,17 @@ void paramScopesMatchTheOldParamScope() {
               catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
           "every kind dives");
     check(catalogue::reaches(Scope::SceneClock, "silk_web") && catalogue::reaches(Scope::SceneClock, "fluid_ink"), "every style takes the scene clock");
-    // Life's present is a ShaderScene on the shared block (core/viz/present): the bass and mid bands, the look,
-    // Turbulence. It reads no treble envelope, so Treble gain is hidden there (StyleBandReads.inc).
+    // Life's present is a ShaderScene on the shared block (core/viz/present): the bands, the look, Turbulence.
     check(catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::MidBand, "life_orbium") &&
-              !catalogue::reaches(Scope::TrebleBand, "life_orbium") && catalogue::reaches(Scope::BandGains, "life_orbium"),
-          "life hears the bass and mid bands, not the treble");
-    check(catalogue::reaches(Scope::BassBand, "silk_web") && !catalogue::reaches(Scope::BassBand, "tunnel") &&
-              catalogue::reaches(Scope::TrebleBand, "tunnel") && catalogue::reaches(Scope::MidBand, "tunnel"),
+              catalogue::reaches(Scope::TrebleBand, "life_orbium"),
+          "life reaches every band: a link, a route or a roll may still write a gain there");
+    // A control is SHOWN only where the style reads the band (StyleBandReads.inc); reaches() is never narrowed by it.
+    check(catalogue::shows(Scope::BassBand, "life_orbium") && catalogue::shows(Scope::MidBand, "life_orbium") &&
+              !catalogue::shows(Scope::TrebleBand, "life_orbium") && catalogue::shows(Scope::BandGains, "life_orbium"),
+          "life shows the bass and mid gains, not the treble");
+    check(catalogue::reaches(Scope::BassBand, "tunnel") && !catalogue::shows(Scope::BassBand, "tunnel") &&
+              catalogue::shows(Scope::TrebleBand, "tunnel") && catalogue::shows(Scope::MidBand, "tunnel") &&
+              catalogue::shows(Scope::BassBand, "silk_web"),
           "a shader style that reads no bass hides Bass gain and keeps the others");
     check(catalogue::reaches(Scope::ShaderLook, "life_orbium") && catalogue::reaches(Scope::Turbulence, "life_orbium") &&
               catalogue::reaches(Scope::MarchDetail, "life_worms") && catalogue::fliesCamera("life_worms"),

@@ -597,6 +597,7 @@ void ReactionEngine::reset() {
     acc_.fill(0.0f);
     out_.fill(0.0f);
     primed_.fill(false);
+    cableKey_.fill(-1);
     high_.fill(false);
     circ_.fill(0.0f);
     circSource_.fill(0);
@@ -687,6 +688,9 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt, const sound::Emoti
                 break;
             }
         }
+        const int cableKey = (static_cast<int>(r.target) * kReactSourceCount + static_cast<int>(r.source)) * kReactModeCount + static_cast<int>(r.mode);
+        if (cableKey != cableKey_[k]) primed_[k] = false;
+        cableKey_[k] = cableKey;
         const bool first = !primed_[k];
         primed_[k] = true;
         float attack = std::max(r.attackSeconds, 0.0f);

@@ -1,0 +1,55 @@
+name: Android emulator
+description: >-
+  The emulator every device job boots: KVM for the runner, then an API 36 x86_64 emulator with the
+  settings that survive the visualizer journeys on these runners, running the given script.
+  Build the APKs first: built inside the emulator step, the native build shares the emulator's vCPUs.
+
+inputs:
+  script:
+    description: The commands to run once the emulator is up (each line on its own; a failing line ends it).
+    required: true
+  profile:
+    description: The hardware profile (avdmanager list device); empty is avdmanager's default device.
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # The emulator needs hardware acceleration to be usable; ubuntu runners
+    # expose KVM but not to unprivileged processes by default.
+    - name: Enable KVM for the emulator
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+          | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Run on the emulator
+      uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+      with:
+        # API 36 (Android 16), the app's targetSdk: what new phones run. minSdk is 33,
+        # so READ_MEDIA_AUDIO and POST_NOTIFICATIONS behave as on a real phone.
+        api-level: 36
+        target: google_apis
+        arch: x86_64
+        profile: ${{ inputs.profile }}
+        # The default 2 GB left the guest at ~75 MB free mid-suite. The journeys
+        # pin Settings > Performance themselves (journey/Journeys.kt, Onboarded),
+        # so the extra RAM does not change what the app renders.
+        ram-size: 4096M
+        heap-size: 576M
+        # Three guest vCPUs: the fourth is left for the host side of
+        # swiftshader, which renders every GL frame the app draws.
+        cores: 3
+        disk-size: 6000M
+        force-avd-creation: true
+        emulator-boot-timeout: 900
+        # swangle_indirect (ANGLE on SwiftShader Vulkan), not swiftshader_indirect: under the
+        # visualizer journeys the legacy translator died host-side with "DisplaySurfaceGlContextHelper
+        # context was preempted by others ... Failed to restore previous context: 12297" and the
+        # emulator dropped off adb after 27/33 tests (runs 41282308944, 41282326381, 41288443184).
+        emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+        disable-animations: true
+        working-directory: .
+        script: ${{ inputs.script }}

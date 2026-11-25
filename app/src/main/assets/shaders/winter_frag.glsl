@@ -357,7 +357,7 @@ float wiSnow(vec3 ro, vec3 rd, float sceneT, vec2 wind, float density, float tre
         // Never thinner than a pixel; the light a sub-pixel flake would spread
         // over its pixel is kept by the area ratio, so far snow dims, not shimmers.
         float re = max(r, px1 * t * 0.8);
-        float flake = smoothstep(re, re * 0.3, length(fpos)) * (r * r) / (re * re);
+        float flake = (1.0 - smoothstep(re * 0.3, re, length(fpos))) * (r * r) / (re * re);
         float twinkle = 0.65 + 0.35 * sin(uTime * (2.0 + seed * 5.0) + seed * 40.0 + treble * 6.0);
         float fade = smoothstep(0.2, 1.0, t) * exp(-t * 0.12);
         snow += flake * twinkle * fade * (0.55 + 0.45 * step(0.25, jitter.y));

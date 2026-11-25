@@ -23,7 +23,7 @@ out vec4 fragColor;
 
 vec2 hollowMap(vec3 p) {
     float r = max(length(p.xy), 1.0e-3);
-    float th = atan(p.y, p.x) / HOLLOW_TAU;
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) / HOLLOW_TAU;
     float b = mix(0.9, 0.42, gHollowForm);
     float turn = log(r) / b - th - 0.125 * p.z;
     float c = turn - floor(turn + 0.5);

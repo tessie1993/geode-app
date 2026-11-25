@@ -23,7 +23,7 @@ out vec4 fragColor;
 
 vec2 hollowMap(vec3 p) {
     float r = length(p.xy);
-    float th = atan(p.y, p.x);
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float d = 2.3 + 0.25 * sin(3.0 * th + 0.7853982 * p.z) - r;
     for (int i = 0; i < 5; i++) {
         float f = float(i);

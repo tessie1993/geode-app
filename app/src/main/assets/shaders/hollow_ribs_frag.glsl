@@ -24,7 +24,7 @@ out vec4 fragColor;
 vec2 hollowMap(vec3 p) {
     vec2 o = p.xy * vec2(0.8, 1.0);
     float r = length(o);
-    float th = atan(o.y, o.x);
+    float th = (abs(o.y) + abs(o.x) > 0.0 ? atan(o.y, o.x) : 0.0);
     float hull = 1.7 - r;
     float lean = p.z + 2.0 * gHollowForm * th / HOLLOW_TAU;
     float z = lean - floor(lean + 0.5);

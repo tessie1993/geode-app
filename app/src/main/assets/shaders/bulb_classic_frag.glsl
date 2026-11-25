@@ -114,7 +114,7 @@ void main() {
         float shade = bulbShadow(p, n, key, 2.0, bulbEps(hitT));
         float dif = max(dot(n, key), 0.0) * shade;
         float sky = 0.5 + 0.5 * n.y;
-        float ndv = max(dot(n, -rd), 0.0);
+        float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float rim = pow(1.0 - ndv, 3.0);
         float spec = pow(max(dot(reflect(rd, n), key), 0.0), 20.0) * shade;
         // Creases: the trap's closest approach plus the step count.

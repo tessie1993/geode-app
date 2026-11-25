@@ -25,7 +25,7 @@ vec2 hollowMap(vec3 p) {
     float r = length(p.xy);
     float z = p.z - 4.0 * floor(p.z * 0.25 + 0.5);
     float room = 1.75 - length(vec3(p.xy, z * 0.95));
-    float gate = mix(0.5, 1.7, gHollowForm) + 0.1 * sin(5.0 * atan(p.y, p.x)) - r;
+    float gate = mix(0.5, 1.7, gHollowForm) + 0.1 * sin(5.0 * (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0)) - r;
     float d = -hollowSmin(-room, -gate, 0.45);
     return vec2(d, 5.0 * length(vec3(p.xy * 0.6, z)) + 0.5);
 }

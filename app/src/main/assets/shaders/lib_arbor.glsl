@@ -232,7 +232,7 @@ ArborHit arborTree(vec3 p, ArborForm f, float grow) {
                 g.x *= m;
             } else {
                 float w = ARB_TAU / f.arms;
-                float a = atan(p.z, p.x) + 0.5 * w;
+                float a = (abs(p.z) + abs(p.x) > 0.0 ? atan(p.z, p.x) : 0.0) + 0.5 * w;
                 float k = floor(a / w);
                 path = path * f.arms + mod(k, f.arms);
                 a -= (k + 0.5) * w;
@@ -399,7 +399,7 @@ vec2 arbView() {
     }
     if (uMirrorX > 0.5) uv.x = abs(uv.x);
     if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
+        float ang = (abs(uv.y) + abs(uv.x) > 0.0 ? atan(uv.y, uv.x) : 0.0);
         float rad = length(uv);
         float seg = 6.2831853 / uSymmetry;
         ang = abs(mod(ang, seg) - seg * 0.5);

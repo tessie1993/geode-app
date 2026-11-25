@@ -31,7 +31,7 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     vec3 off = vec3(0.5, 0.36, 0.44) * (0.7 + 0.7 * gFlameForm);
     for (int i = 0; i < 3; i++) {
         q = abs(q) - off;
-        q *= clamp(0.62 / dot(q, q), 1.0, 5.0);
+        q *= clamp(0.62 / max(dot(q, q), 1.0e-6), 1.0, 5.0);
         q.xy = flameRot(0.6) * q.xy;
     }
     f = vec2(1.3 * q.y + 0.4 * q.x, 2.2 * (l - ORB_R) + 0.5);

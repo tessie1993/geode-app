@@ -132,7 +132,7 @@ void main() {
         vec2 slope = amp * (normalize(IS_SWELL_A) * cos(pa) + normalize(IS_SWELL_B) * cos(pb));
         vec3 wn = normalize(vec3(-slope.x, 1.0, -slope.y));
         float depth = sea - terraField(p.xz);
-        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(wn, -rd), 0.0), 5.0);
+        float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(wn, -rd), 0.0, 1.0), 5.0);
         vec3 refl = terraSky(reflect(rd, wn), sun, zenith, horizon, sunCol);
         vec3 deepC = mix(vec3(0.02, 0.10, 0.22), terraPal(0.62) * 0.2, 0.3);
         vec3 shallowC = mix(vec3(0.10, 0.62, 0.60), terraPal(0.48) * 0.7, 0.2);

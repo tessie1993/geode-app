@@ -358,7 +358,7 @@ vec2 lucidView(bool fold) {
     }
     if (uMirrorX > 0.5) uv.x = abs(uv.x);
     if (fold && uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
+        float ang = (abs(uv.y) + abs(uv.x) > 0.0 ? atan(uv.y, uv.x) : 0.0);
         float rad = length(uv);
         float seg = 6.2831853 / uSymmetry;
         ang = abs(mod(ang, seg) - seg * 0.5);

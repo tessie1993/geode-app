@@ -128,7 +128,7 @@ float rodField(vec3 p) {
     // The mids' twist is anchored at the eye. Anchored at depth 0 as it was,
     // a slewed mid level times a depth of thousands turned the tube by whole
     // sectors per frame, so the rods spun on every change in the mids.
-    float ang = atan(p.y, p.x) + p.z * ROD_TWIST_BASE + (p.z - gFly) * gTwist;
+    float ang = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0) + p.z * ROD_TWIST_BASE + (p.z - gFly) * gTwist;
     float sector = ROD_TAU / ROD_STRANDS;
     // Strand and ring ids wrapped (14 strands, 1024 rings) so the hashes and
     // hues repeat over the 8192 travel wrap.

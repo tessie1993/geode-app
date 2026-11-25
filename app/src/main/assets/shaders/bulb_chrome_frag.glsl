@@ -150,7 +150,7 @@ void main() {
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
         vec3 n = bulbNormal(p, bulbEps(hitT));
-        float ndv = max(dot(n, -rd), 0.0);
+        float ndv = clamp(dot(n, -rd), 0.0, 1.0);
         float ao = bulbStepAO(used);
         vec3 metal = mix(vec3(0.9, 0.92, 0.95), tone(gHue + 0.1), 0.12);
         float fres = 0.75 + 0.25 * pow(1.0 - ndv, 4.0);

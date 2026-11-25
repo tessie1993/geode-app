@@ -360,7 +360,7 @@ vec3 glass(vec2 w, float stain, float id) {
     // A rose: rings and petals at the head of the lancet.
     vec2 r = w - vec2(0.0, 0.95);
     float rr = length(r);
-    float pet = abs(fract(atan(r.y, r.x) / MC_TAU * 8.0) - 0.5);
+    float pet = abs(fract((abs(r.y) + abs(r.x) > 0.0 ? atan(r.y, r.x) : 0.0) / MC_TAU * 8.0) - 0.5);
     float rose = (1.0 - smoothstep(0.38, 0.42, rr)) * (0.6 + 0.4 * (1.0 - smoothstep(0.0, 0.2, pet - rr * 0.3)));
     pane = mix(pane, neon(0.55 + stain + rr), rose * 0.7);
     return pane * lead * (0.7 + 0.3 * pick);
@@ -414,7 +414,7 @@ vec3 floorDesign(vec2 q, float z, float zl, float ringPulse, out vec3 base) {
     if (ax > 0.38 && ax < 0.98) {
         vec2 c = vec2(ax - 0.68, zl);
         float r = length(c);
-        float a = atan(c.y, c.x);
+        float a = (abs(c.y) + abs(c.x) > 0.0 ? atan(c.y, c.x) : 0.0);
         float seg = 3.14159265 / 4.0;
         float fa = abs(mod(a, seg) - 0.5 * seg);
         float star = r * cos(fa) - mix(0.28, 0.16, fa / (0.5 * seg)) * 0.95;
@@ -459,7 +459,7 @@ vec3 shaftColour(vec3 p) {
 /** The fractal's surface: iridescent glass-chrome with orbit filigree. */
 vec3 fractalColour(vec3 rd, vec3 n, vec4 tr, float filGain) {
     float cosV = max(dot(n, -rd), 0.0);
-    float fres = 0.08 + 0.92 * pow(1.0 - cosV, 4.0);
+    float fres = 0.08 + 0.92 * pow(max(1.0 - cosV, 0.0), 4.0);
     // Thin film through the ramp, kept to its cool half by a triangle wave:
     // dark orange reads as brown, so the warm end stays for the filigree.
     float film = 1.0 + 2.5 * tr.w + 1.2 * tr.y;
@@ -472,7 +472,7 @@ vec3 fractalColour(vec3 rd, vec3 n, vec4 tr, float filGain) {
 /** Glass-chrome stone: dark, a thin film over the view angle, the vault's neon reflected. */
 vec3 stoneColour(vec3 rd, vec3 n, float y, float occ) {
     float cosV = max(dot(n, -rd), 0.0);
-    float fres = 0.06 + 0.94 * pow(1.0 - cosV, 5.0);
+    float fres = 0.06 + 0.94 * pow(max(1.0 - cosV, 0.0), 5.0);
     vec3 refl = reflect(rd, n);
     vec3 irid = neon(0.35 + 0.25 * abs(2.0 * fract(1.7 * (0.5 + cosV) + 0.3 * y) - 1.0));
     vec3 env = neon(0.1 + 0.2 * refl.y) * (0.2 + 0.8 * smoothstep(-0.3, 1.0, refl.y));
@@ -482,7 +482,7 @@ vec3 stoneColour(vec3 rd, vec3 n, float y, float occ) {
 /** The great rose at the end of the nave, in its plane rp: rings and petals, a 2D pattern (its shell wrapper). */
 float mcRose(vec2 rp) {
     float rr = length(rp);
-    float ra = atan(rp.y, rp.x) + uTime * 0.03;
+    float ra = (abs(rp.y) + abs(rp.x) > 0.0 ? atan(rp.y, rp.x) : 0.0) + uTime * 0.03;
     float petal = abs(fract(ra / MC_TAU * sPetals) - 0.5);
     return inlay(rr - 0.55, 0.02) + inlay(rr - 0.35, 0.015) + inlay(rr - 0.12, 0.02)
         + inlay(petal * rr * 2.0 - 0.02, 0.01) * step(rr, 0.55) * step(0.12, rr);
@@ -652,7 +652,7 @@ void main() {
                 rt += rd2 * 0.9;
                 if (rt > MC_FAR * 0.5) break;
             }
-            float fres = 0.04 + 0.96 * pow(1.0 - max(-rd.y, 0.0), 5.0);
+            float fres = 0.04 + 0.96 * pow(1.0 - clamp(-rd.y, 0.0, 1.0), 5.0);
             col += rcol * mix(0.18, 0.5, fres) * exp(-rt * 0.06);
         } else if (mat == MAT_RIB) {
             // A neon tube: a hot core over a coloured sheath.

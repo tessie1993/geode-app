@@ -25,7 +25,7 @@ void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     float l = max(length(p), 1.0e-3);
     float ll = log(l);
     float waist = max(1.0 - p.y * p.y / (l * l), 1.0e-3);
-    float th = atan(p.z, p.x);
+    float th = (abs(p.z) + abs(p.x) > 0.0 ? atan(p.z, p.x) : 0.0);
     f.x = 2.0 * (ll - mix(0.35, 1.5, gFlameForm) * log(waist)) - uTime * FLAME_RATE(45);
     f.y = 8.0 * th / FLAME_TAU + 1.4 * ll;
     hue = vec2(0.3 * ll - 0.1 * log(waist), 0.5 + 0.2 * ll);

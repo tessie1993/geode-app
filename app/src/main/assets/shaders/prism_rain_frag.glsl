@@ -212,8 +212,9 @@ float map(vec3 p) {
 
 vec3 normalAt(vec3 p, float eps) {
     vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+    vec3 g = k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+           + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps);
+    return dot(g, g) > 0.0 ? normalize(g) : vec3(0.0, 1.0, 0.0);
 }
 
 /** Hue to a pure rainbow colour, independent of the palette: the split light. */

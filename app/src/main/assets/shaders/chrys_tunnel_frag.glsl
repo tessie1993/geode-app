@@ -294,12 +294,12 @@ void main() {
         float front = max(fogAmt, cover);
         // Behind the petals, a disc that only exists during the bloom, so the
         // gaps between petals never show the palette stepping.
-        col = mix(col, pal(bh + 0.04) * 0.14, cover * smoothstep(size * 0.8, size * 0.55, length(vq)));
+        col = mix(col, pal(bh + 0.04) * 0.14, cover * (1.0 - smoothstep(size * 0.55, size * 0.8, length(vq))));
         for (int i = 0; i < 2; i++) {
             float k = float(i);
             float count = 9.0 + 4.0 * k;
             vec4 pet = chrysPetal(chrysTurn(chrysRingOffset(k, count)) * fq, count, size * 0.12, size * (1.0 - 0.3 * k), 0.5, 0.4 / max(size, 0.2), 0.4, 0.5);
-            float m = smoothstep(0.006 * (1.0 + size), -0.006 * (1.0 + size), pet.x) * front;
+            float m = (1.0 - smoothstep(-0.006 * (1.0 + size), 0.006 * (1.0 + size), pet.x)) * front;
             vec3 pc = mix(pal(bh) * 0.18, pal(bh + 0.08) * 0.42, clamp(pet.y, 0.0, 1.0)) * chrysPetalShade(pet, 0.4);
             col = mix(col, pc, m);
         }

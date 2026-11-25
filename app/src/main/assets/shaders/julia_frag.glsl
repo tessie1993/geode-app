@@ -148,6 +148,8 @@ vec3 normalAt(vec3 p, float eps) {
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
+// 32-bit integer maths: fragment int and uint default to mediump in GLSL ES 3.00 (4.5.4), which may be 16 bits.
+precision highp int;
 /**
  * A hashed point in the unit disc for event number `n` (PCG integer hash, so
  * it is exact on every device). Used to pick where the next glide goes.

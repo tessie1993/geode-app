@@ -138,9 +138,10 @@
 //
 // Integer hashing on the cell index. A cell id is a whole number, and an
 // arithmetic float hash of a whole number loses its fraction on mediump-leaning
-// GPUs and stripes; uint arithmetic is exact and GLSL ES 3.00 guarantees highp
-// int in the fragment stage. The mixer is a xorshift-multiply avalanche
-// (public-domain construction).
+// GPUs and stripes; uint arithmetic is exact once it is highp: fragment int and
+// uint default to mediump in GLSL ES 3.00 (4.5.4), which may be 16 bits. The
+// mixer is a xorshift-multiply avalanche (public-domain construction).
+precision highp int;
 
 uint truchetMix(uint x) {
     x ^= x >> 16;
@@ -374,7 +375,7 @@ TruchetArc truchetQuarter(vec2 f, float parity, float bit) {
     bool first = l1 < l2;
     vec2 w = first ? w1 : w2;
     float l = max(first ? l1 : l2, 1e-5);
-    float a = atan(w.y, w.x) * (2.0 / TRUCHET_PI);
+    float a = (abs(w.y) + abs(w.x) > 0.0 ? atan(w.y, w.x) : 0.0) * (2.0 / TRUCHET_PI);
     TruchetArc r;
     r.d = l - 0.5;
     r.s = parity > 0.5 ? a : 1.0 - a;

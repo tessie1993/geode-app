@@ -172,7 +172,7 @@ void main() {
         col = glassEnv(rd, lk) * 0.7;
         // The stone's fire thrown into the dark: spectral rays from its centre, turning with it,
         // longer on bright mixes, flickering on the hat.
-        float ra = atan(uv.y, uv.x);
+        float ra = (abs(uv.y) + abs(uv.x) > 0.0 ? atan(uv.y, uv.x) : 0.0);
         float rl = length(uv);
         // k1 TEXTURE widens the rays (a lower power), k5 SPACE carries them further.
         float wide = 1.0 + kTexture;

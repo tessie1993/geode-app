@@ -136,7 +136,7 @@ float radialGap(float r, float R, float rose, float rmn, float rpm) {
 /** The style's world at p: its distance, and in `found` what is there (mat 1 on a petal; a.x the corolla's index mod 16, a.y its angle, a.z its rose, a.w its sector offset, b.x its opening). */
 float mapAt(vec3 p, inout LucidHit found) {
     float r = length(p.xy);
-    float th = atan(p.y, p.x);
+    float th = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
 
     // The tube: a shell on half the petals' rose depth, so it stays round behind them.
     float rw = roseAt(th + gTurnW, gAmpW);
@@ -149,7 +149,7 @@ float mapAt(vec3 p, inout LucidHit found) {
     float thL = th + gTurn + id * 0.77;
     float rl = roseAt(thL, gAmp);
     float zc = (cell + 0.5) * LP_CELL + LP_THROAT_Z;
-    float open = smoothstep(gOpenFar, 3.0, zc - gEye.z);
+    float open = (1.0 - smoothstep(3.0, gOpenFar, zc - gEye.z));
     float k = mix(LP_K_BUD, LP_K_OPEN, open);
     float g = (lzc - LP_THROAT_Z) + k * (r - gRin * rl);
     float sq = gRpm / gRmn;

@@ -145,7 +145,7 @@ void main() {
     // the knot repeats round the frame as a ring of glass.
     float wedges = glassComplexity() >= 0.5 ? 8.0 : 6.0;
     vec2 kv = uv * glassRot(0.05 * t);
-    float ka = atan(kv.y, kv.x);
+    float ka = (abs(kv.y) + abs(kv.x) > 0.0 ? atan(kv.y, kv.x) : 0.0);
     float seg = GLASS_TAU / wedges;
     ka = abs(mod(ka, seg) - seg * 0.5);
     vec2 folded = vec2(cos(ka), sin(ka)) * length(kv);

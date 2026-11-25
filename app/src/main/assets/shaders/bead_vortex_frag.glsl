@@ -180,7 +180,7 @@ float strandLayer(vec3 p, float rr, float a, float r, float n, float turns, floa
 float bvField(vec3 p) {
     vec2 rel = p.xy - boreCentre(p.z);
     float rr = max(length(rel), 1e-4);
-    float a = atan(rel.y, rel.x);
+    float a = (abs(rel.y) + abs(rel.x) > 0.0 ? atan(rel.y, rel.x) : 0.0);
     float d = BV_R3 * gScale - rr;
     gMat = 2.0;
     gStrand = 0.0;

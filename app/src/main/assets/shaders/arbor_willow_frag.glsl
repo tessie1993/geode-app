@@ -196,7 +196,7 @@ void main() {
         vec2 radial = p.xz / max(r, 1e-3) * ring * 0.35;
         vec3 n = normalize(vec3(radial.x + lap, 1.0, radial.y + lap));
         vec3 rr = reflect(rd, n);
-        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
+        float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
         col = skyCol(rr, moonDir, hue) * (0.25 + 0.75 * fres);
         // The canopy's shade on the water, darkest under the trunk.
         col *= mix(0.35, 1.0, smoothstep(0.5, 3.5, r));

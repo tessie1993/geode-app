@@ -236,7 +236,7 @@ void main() {
     shellSetup3(ro, 3.0, 4.0, false);
     bool shellRest = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
 
-    float tGround = rd.y < -1e-3 ? (AU_GROUND - ro.y) / rd.y : 1e9;
+    float tGround = (rd.y < -1e-3 && ro.y > AU_GROUND) ? (AU_GROUND - ro.y) / rd.y : 1e9;
     float tEnd = min(AU_FAR, tGround);
 
     // Per-pixel dither of the first sample, fixed in time, hides step banding.

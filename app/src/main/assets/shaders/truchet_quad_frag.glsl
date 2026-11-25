@@ -161,7 +161,7 @@ float disc(float ink, vec2 p, vec2 v, float k, float w) {
 float quadInk(vec2 p, float w) {
     vec3 leaf = leafAt(p);
     float lv = leaf.z;
-    float s = exp2(-lv);
+    float s = lv < 0.5 ? 1.0 : (lv < 1.5 ? 0.5 : 0.25);
     vec2 f = (p - leaf.xy) / s;
 
     vec2 rid = vec2(leaf.x, mod(leaf.y, TQ_IDWRAP)) * 4.0 + vec2(lv * 4099.0, 0.0);

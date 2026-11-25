@@ -127,7 +127,7 @@ float seArm(float n, float a, float lr, float tw, float pitch, float sharp) {
 float dens(vec3 p, float armsA, float armsB, float armBlend, float pitch, float sharp,
            float flowAmt, float swell, float filSharp, float r0) {
     float r = length(p.xy);
-    float a = atan(p.y, p.x);
+    float a = (abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0);
     float lr = log(max(r, 1e-3));
     float tw = p.z * SE_TWIST;
 
@@ -203,7 +203,7 @@ vec3 seEye(vec3 rd, float swell, float halo) {
     // toward the travel direction, which glides, so a spike re-aims the gaze.
     vec2 e = rd.xy / rd.z - uMoveDir * 0.025;
     float r = length(e);
-    float a = atan(e.y, e.x);
+    float a = (abs(e.y) + abs(e.x) > 0.0 ? atan(e.y, e.x) : 0.0);
     vec3 warm = pal(0.10);
     float cr = r * 7.0;
     float rings = 0.5 + 0.5 * sin(cr * 5.0 - uFlowPhase * 3.0);

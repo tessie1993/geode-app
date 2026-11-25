@@ -309,7 +309,7 @@ void main() {
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.3, 0.2, 1.0);
         float diff = max(dot(n, -rd), 0.0);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 32.0);
-        float fres = pow(1.0 - diff, 3.0);
+        float fres = pow(max(1.0 - diff, 0.0), 3.0);
         // Dark stone, its tone stepping with the level whose hole it lines.
         vec3 stone = pal(hue + 0.07 * lev) * (0.05 + 0.22 * diff) * ao
                    + pal(hue + 0.25) * fres * 0.10 * ao + vec3(spec) * 0.18 * ao;

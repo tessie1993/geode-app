@@ -132,7 +132,7 @@ void main() {
         float r = length(p.xz);
         float dif = max(dot(n, moon), 0.0);
         vec3 rock = mix(vec3(0.07, 0.06, 0.07), terraPal(hue + 0.7) * 0.06, 0.4);
-        float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+        float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
         col = rock * (dif * vec3(0.9, 1.0, 1.3) * 1.6 + 0.2) * terraStepAO(used);
         col += horizon * rim * 0.35;
         // Crater light falls on the upper flanks and the bowl.

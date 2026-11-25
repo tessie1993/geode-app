@@ -67,7 +67,7 @@ void main() {
         col = diveShade(n, rd, hitT, used, base, 40.0);
         vec3 refl = reflect(rd, n);
         float fog = exp(-0.055 * hitT);
-        float fres = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
         col += diveColor(0.3 + 0.5 * refl.y + lean) * 0.25 * fres * fog;
         if (scene == DIVE_JEWEL) {
             float pick = step(0.66, dive_hash11(id * 91.0 + fract(floor(SND_HIT_TIME) * 0.618) * 37.0));

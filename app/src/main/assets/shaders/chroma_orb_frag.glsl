@@ -113,7 +113,7 @@ vec2 rot(vec2 p, float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)) * p; }
 
 vec2 fold(vec2 p, float n) {
     float w = CO_TAU / n;
-    float a = mod(atan(p.y, p.x), w);
+    float a = mod((abs(p.y) + abs(p.x) > 0.0 ? atan(p.y, p.x) : 0.0), w);
     a = abs(a - 0.5 * w);
     return length(p) * vec2(cos(a), sin(a));
 }
@@ -125,7 +125,7 @@ float foldCount() { return (uKaleido > 0.5 && uSymmetry >= 2.0) ? floor(uSymmetr
 float polyR(vec2 q, float n) {
     // At least a triangle: two folds would make the bore a slot through the orb.
     float w = CO_TAU / max(n, 3.0);
-    float a = mod(atan(q.y, q.x), w) - 0.5 * w;
+    float a = mod((abs(q.y) + abs(q.x) > 0.0 ? atan(q.y, q.x) : 0.0), w) - 0.5 * w;
     return length(q) * cos(a);
 }
 
@@ -182,7 +182,7 @@ vec3 normalAt(vec3 p, float eps) {
                    + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
-float disc(vec2 g, float radius, float aa) { return smoothstep(radius, radius - 0.06 - aa, length(g)); }
+float disc(vec2 g, float radius, float aa) { return 1.0 - smoothstep(radius - 0.06 - aa, radius, length(g)); }
 
 // Three square lattices of discs, the second offset half a cell and the third
 // turned 45 degrees, so the rows read as woven rather than as one grid.

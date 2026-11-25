@@ -54,7 +54,7 @@ float ptSdStar(vec2 p, float r, float n, float m) {
     float en = 3.141593 / m;
     vec2 acs = vec2(cos(an), sin(an));
     vec2 ecs = vec2(cos(en), sin(en));
-    float bn = mod(atan(p.x, p.y), 2.0 * an) - an;
+    float bn = mod((abs(p.x) + abs(p.y) > 0.0 ? atan(p.x, p.y) : 0.0), 2.0 * an) - an;
     p = length(p) * vec2(cos(bn), abs(sin(bn)));
     p -= r * acs;
     p += ecs * clamp(-dot(p, ecs), 0.0, r * acs.y / ecs.y);

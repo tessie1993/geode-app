@@ -138,7 +138,7 @@ void main() {
     vec3 p = ro + rd * max(hitT, 0.0);
     if (hitT > 0.0) {
         vec3 n = bulbNormal(p, bulbEps(hitT));
-        rim = pow(1.0 - max(dot(n, -rd), 0.0), 2.5);
+        rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.5);
         ao = bulbStepAO(used);
         fA = log2(max(trap.x, 1e-4)) * 2.2 - phase;
         fB = length(p) * 16.0 * dense - phase;

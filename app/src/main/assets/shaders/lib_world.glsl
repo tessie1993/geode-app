@@ -299,7 +299,7 @@ float wBulb(vec3 q, float s, float n) {
         if (r > 2.0) break;
         float rs = max(r, 1e-6);
         float theta = acos(clamp(z.z / rs, -1.0, 1.0)) * n;
-        float phi = atan(z.y, z.x) * n;
+        float phi = (abs(z.y) + abs(z.x) > 0.0 ? atan(z.y, z.x) : 0.0) * n;
         dr = pow(rs, n - 1.0) * n * dr + 1.0;
         float zr = pow(rs, n);
         z = vec3(zr * sin(theta) * cos(phi), zr * sin(phi) * sin(theta), zr * cos(theta)) + p;
@@ -427,7 +427,7 @@ float wKifs(vec3 q, float s, float sc) {
 vec2 wPolar(vec2 v, float n) {
     float r = length(v);
     float seg = WG_TAU / n;
-    float a = abs(wMod(atan(v.y, v.x) + seg * 0.5, seg) - seg * 0.5);
+    float a = abs(wMod((abs(v.y) + abs(v.x) > 0.0 ? atan(v.y, v.x) : 0.0) + seg * 0.5, seg) - seg * 0.5);
     return r * vec2(cos(a), sin(a));
 }
 
@@ -557,6 +557,8 @@ float wPrims(vec3 q) {
 /** The blend's slope per unit of relief: smoothstep's 1.5 over the 400-unit stretch, rounded up. */
 #define WG_WRAP_SLOPE 0.004
 
+// 32-bit integer maths: fragment int and uint default to mediump in GLSL ES 3.00 (4.5.4), which may be 16 bits.
+precision highp int;
 /** A lattice point's hash: Knuth's multiplicative hash per axis, then xor-shift-multiply rounds. */
 uint wHash(int x, int y) {
     uint h = (uint(x) * 0x9E3779B1u) ^ (uint(y) * 0x85EBCA77u);
@@ -909,7 +911,7 @@ vec3 worldRender(vec3 ro, vec3 rd, float budget, float jitter) {
             if (i < 4) {
                 dir = i == 1 ? h.yyx : (i == 2 ? h.yxy : h.xxx);
             } else {
-                n = normalize(n);
+                n = dot(n, n) > 0.0 ? normalize(n) : -rd;
                 vec3 hp = o;
                 float detail = worldDetail(hp, n);
                 vec3 base = pal(worldHue(trap)) * mix(1.0, 0.3 + 1.4 * detail, WG_TEX_AMOUNT);
@@ -918,7 +920,7 @@ vec3 worldRender(vec3 ro, vec3 rd, float budget, float jitter) {
                 float pattern = mix(1.0, 2.0 * detail, WG_TEX_EMIT);
                 vec3 l = normalize(uCamBasis[1] * 0.8 - rd * 0.6 + vec3(0.0, 0.3, 0.0));
                 float diff = max(dot(n, l), 0.0);
-                float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
+                float rim = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
                 float occ = clamp(1.0 - used / max(budget, 1.0), 0.15, 1.0) * clamp(0.35 + sqrt(trap.w) * 0.5, 0.25, 1.0);
                 // The far ground is seen at a grazing angle, where the rim would light all of it: damp it there.
                 surf = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern * (1.0 - 0.7 * ground);
@@ -927,7 +929,7 @@ vec3 worldRender(vec3 ro, vec3 rd, float budget, float jitter) {
                 float gloss = ground * WG_FLOOR_GLOSS;
                 if (gloss > 0.02) {
                     // A glossy ground: Schlick's fresnel weighs what it mirrors, more at grazing angles.
-                    float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
+                    float fres = 0.04 + 0.96 * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
                     mix_ = gloss * (0.25 + 0.75 * fres);
                     o = hp + n * 0.01;
                     dir = reflect(rd, n);

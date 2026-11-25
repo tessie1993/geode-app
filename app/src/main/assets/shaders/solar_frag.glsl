@@ -310,7 +310,7 @@ void main() {
             float rays = mix(rayLo, rayHi, nMix) * 0.5 * sndEq(abs(lon) / SO_PI);
             // TONE moves the streamers in latitude; at rest this is 1 - y^2.
             float lat = dir.y * dir.y;
-            float belt = mix(pow(1.0 - lat, 1.0 + 3.0 * tonePull), lat, tonePush);
+            float belt = mix(pow(max(1.0 - lat, 0.0), 1.0 + 3.0 * tonePull), lat, tonePush);
             rays *= 0.45 + 0.55 * belt;
             float x = (r - gR) / ext;
             float dens = exp(-x * 3.5) * (0.35 + rays + low);

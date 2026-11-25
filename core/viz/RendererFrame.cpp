@@ -41,6 +41,8 @@ constexpr float kLiquidEdge = 0.6f;
 constexpr float kFeedbackIdleSeconds = 2.0f;
 // Wall seconds the UI blur may sit unused (no sheet over the visual) before its targets are freed.
 constexpr float kUiBlurIdleSeconds = 1.0f;
+// Wall seconds an effect pass (fronts) may sit unused before its target is freed.
+constexpr float kEffectIdleSeconds = 2.0f;
 // A sum of frame steps lands within this of its whole seconds (60 steps of 1/60 in float).
 constexpr float kStepSumSlack = 1e-4f;
 // A speaker that stands this long is paused (the sound engine's own starve time).
@@ -55,6 +57,20 @@ float layerKnobTurn(const signal::EngineSettings& settings, int id, const macrob
         }
     }
     return std::nanf("");
+}
+
+// The palette stack's ramp (kRampSize RGB8 texels) at u, as the style's sampler reads it: wrapped, linear between
+// texel centres.
+colour::Rgb rampAt(const std::vector<std::uint8_t>& bytes, float u) {
+    constexpr int n = palette::kRampSize;
+    const float x = colour::wrap01(std::isfinite(u) ? u : 0.0f) * static_cast<float>(n) - 0.5f;
+    const float base = std::floor(x);
+    const float f = x - base;
+    const int i0 = ((static_cast<int>(base) % n) + n) % n;
+    const int i1 = (i0 + 1) % n;
+    const auto texel = [&](int i, int c) { return static_cast<float>(bytes[static_cast<size_t>(3 * i + c)]) / 255.0f; };
+    return {texel(i0, 0) + (texel(i1, 0) - texel(i0, 0)) * f, texel(i0, 1) + (texel(i1, 1) - texel(i0, 1)) * f,
+            texel(i0, 2) + (texel(i1, 2) - texel(i0, 2)) * f};
 }
 }  // namespace
 
@@ -470,8 +486,7 @@ bool Renderer::holds(const Scene& scene, const Scene* held) const {
 }
 
 void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
-    // A held picture is redrawn while a front is alive: the fronts were drawn into it last frame.
-    if (!sceneJustSwitched_ && !fronts_.live() && holds(scene, heldScene_)) {
+    if (!sceneJustSwitched_ && holds(scene, heldScene_)) {
         // The field holds, but a scene that draws the rig owes a moved eye a new picture of it.
         if (!scene.drawsCamera() || camera_.pose() == heldPose_) return;
         heldPose_ = camera_.pose();
@@ -510,7 +525,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
         glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, kSurfaceAttachments);
     }
     CompositePass::Inputs& in = compositeInputs_;
-    in.texA = fboA_.tex();
+    in.texA = sceneShown_;
     in.texB = physicsOutgoingTex_ != 0 ? physicsOutgoingTex_ : fboB_.tex();
     if (liquidTex != 0) in.texA = liquidTex;
     // The smear bends the finished picture by the flow field; Liquid mode rides that field itself.
@@ -638,6 +653,12 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     std::array<float, SceneParams::kFieldCount> wire;
     p.toWire(wire.data());
     const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
+    // A front spawned since the last frame is drawn even while the picture is held (the count is read before the
+    // decrement, so the request outlives it by a frame).
+    if (fronts_.spawns() != frontsSeen_) {
+        frontsSeen_ = fronts_.spawns();
+        redrawFrames_ = std::max(redrawFrames_, 2);
+    }
     if (redrawFrames_ > 0) redrawFrames_--;
     if (redrawSeconds_ > 0.0f) {
         redrawSeconds_ -= wallDt;
@@ -669,10 +690,13 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         repeated_ = true;
         trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
         uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
+        if (!fronts_.live()) frontPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
         return;
     }
     drawSceneTarget(*scene, p, dt);
-    drawFronts(p, dt);
+    // Everything after reads the picture through sceneShown_; fboA_ keeps only what the scene drew.
+    sceneShown_ = fboA_.tex();
+    drawFronts(p, dt, wallDt);
     // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
     trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
@@ -698,7 +722,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
 // the feedback, trail, blur and physics targets (they run on the draw), so a skipped frame holds none of them.
 constexpr float kRepeatAfterSeconds = 3.0f;
 static_assert(kRepeatAfterSeconds > kFeedbackIdleSeconds && kRepeatAfterSeconds > kUiBlurIdleSeconds &&
-                  kRepeatAfterSeconds > physics::kIdleSeconds,
+                  kRepeatAfterSeconds > physics::kIdleSeconds && kRepeatAfterSeconds > kEffectIdleSeconds,
               "a repeated frame runs after every idle window has freed its target");
 
 // True when drawing this frame would repeat the last drawn one exactly, so the buffer on screen is already it.
@@ -718,7 +742,7 @@ bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wall
                        layerScene_ == nullptr && outgoingScene_ == nullptr && !trails && !liquidOn() &&
                        diveMix_ == 0.0f && !p.endlessZoom && CameraRig::flatDive(p) == 0.0f &&
                        !physics::planFor(p).any() && smearWarp_ == 0.0f && !smearLinger_.live() &&
-                       !fronts_.live() && !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
+                       !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
                        !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
     stillSeconds_ = quiet ? stillSeconds_ + wallDt : 0.0f;
     return repeatAllowed_ && quiet && stillSeconds_ >= kRepeatAfterSeconds;
@@ -844,11 +868,11 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
 GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     const liquid::Born born = liquid::bornFrom(p.liquidBorn);
     // A re-roll and the next style each draw a whole second scene, so only the full liquid affords them.
-    if (liveLiquid_ != liquid::Mode::Full || born == liquid::Born::Live || born == liquid::Born::Forms) return fboA_.tex();
-    if (!bornFbo_.ensure(renderWidth_, renderHeight_)) return fboA_.tex();
+    if (liveLiquid_ != liquid::Mode::Full || born == liquid::Born::Live || born == liquid::Born::Forms) return sceneShown_;
+    if (!bornFbo_.ensure(renderWidth_, renderHeight_)) return sceneShown_;
     if (born == liquid::Born::Rerolled) {
         // A stateful family (the fluid) cannot draw twice in one frame without stepping twice.
-        if (scene.family() != SceneFamily::Shader) return fboA_.tex();
+        if (scene.family() != SceneFamily::Shader) return sceneShown_;
         if (!bornRolled_) {
             const uint64_t seed = bornClock_.rollSeed();
             bornParams_ = randomizer::randomize(p, seed, randomizer::Tab::Shape, scene.id(), {});
@@ -868,20 +892,20 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     }
     // The next style: a flat shader style the born clock picked, staged like the layer scene, one target
     // at a time. The one it replaces is released, so a long play does not keep every style it passed.
-    if (requestedPending_ || outgoingScene_ != nullptr) return fboA_.tex();
+    if (requestedPending_ || outgoingScene_ != nullptr) return sceneShown_;
     if (bornSceneId_.empty()) {
         std::vector<std::string> pool;
         for (const std::string& id : catalogue::allIds()) {
             if (id != scene.id() && catalogue::isShaderStyle(id) && !catalogue::isMarched(id) && registry_.knows(id)) pool.push_back(id);
         }
-        if (pool.empty()) return fboA_.tex();
+        if (pool.empty()) return sceneShown_;
         bornSceneId_ = pool[static_cast<size_t>(bornClock_.rollSeed() % pool.size())];
         if (!lastBornSceneId_.empty() && lastBornSceneId_ != bornSceneId_) dropScene(lastBornSceneId_);
         lastBornSceneId_ = bornSceneId_;
     }
     bornAsked_ = bornSceneId_;
     Scene* next = readySecondary(bornSceneId_, layerAsked_);
-    if (next == nullptr || next == &scene || next == layerScene_) return fboA_.tex();
+    if (next == nullptr || next == &scene || next == layerScene_) return sceneShown_;
     glBindFramebuffer(GL_FRAMEBUFFER, bornFbo_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -904,8 +928,8 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     // the frame clock (dt) has that rule in it too and would apply it twice.
     const motion::Motion heard = motion::trailMotion({p.trailZoom, p.trailWarp}, soundFrame_, frameSettings_.reducedMotion);
     liquid::LiquidPass::Frame f;
-    f.styleTex = fboA_.tex();
-    f.bornTex = fboA_.tex();
+    f.styleTex = sceneShown_;
+    f.bornTex = sceneShown_;
     f.velocityTex = compositePass_.zeroTex();
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
@@ -921,29 +945,46 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     return liquidPass_.run(f);
 }
 
-void Renderer::drawFronts(const SceneParams& p, float dt) {
+// Each position's colour on the palette the style draws with: the look's palette stack (its ramp texture, sampled
+// here on its bytes) when one draws, else lib_palette's palStops / palProcedural.
+void Renderer::paletteTints(const SceneParams& p, const float* positions, int count, float* out) const {
+    const auto stops = p.paletteStops();
+    const int stopCount = p.paletteStopCount();
+    const std::vector<std::uint8_t>& ramp = paletteRamp_.bytes();
+    const bool stacked = paletteRamp_.active() && ramp.size() >= static_cast<size_t>(3 * palette::kRampSize);
+    for (int i = 0; i < count; ++i) {
+        const float t = positions[i];
+        colour::Rgb c;
+        if (stacked) {
+            c = rampAt(ramp, t * p.hueRange + p.colorShift + p.paletteShift);
+        } else if (stopCount > 0) {
+            c = colour::ramp(stops.data(), stopCount, t * p.hueRange + p.colorShift + p.paletteShift);
+        } else {
+            c = colour::procedural(p.paletteBase() + p.colorShift + p.paletteShift, p.paletteRange() * p.hueRange, t);
+        }
+        out[3 * i] = c.r;
+        out[3 * i + 1] = c.g;
+        out[3 * i + 2] = c.b;
+    }
+}
+
+void Renderer::drawFronts(const SceneParams& p, float dt, float wallDt) {
+    if (!fronts_.live()) {
+        frontPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
+        return;
+    }
     fronts_.step(dt);
     if (!fronts_.live()) return;
     const fronts::Packed packed = fronts_.pack();
-    // Each front's palette position on the palette the style draws with (lib_palette's palProcedural / palStops).
-    const auto stops = p.paletteStops();
-    const int stopCount = p.paletteStopCount();
     std::array<float, 3 * fronts::kMaxFronts> tint{};
-    for (int i = 0; i < packed.count; ++i) {
-        const float t = packed.palettePos[static_cast<size_t>(i)];
-        const colour::Rgb c = stopCount > 0
-                                  ? colour::ramp(stops.data(), stopCount, t * p.hueRange + p.colorShift + p.paletteShift)
-                                  : colour::procedural(p.paletteBase() + p.colorShift + p.paletteShift,
-                                                       p.paletteRange() * p.hueRange, t);
-        tint[static_cast<size_t>(3 * i)] = c.r;
-        tint[static_cast<size_t>(3 * i + 1)] = c.g;
-        tint[static_cast<size_t>(3 * i + 2)] = c.b;
-    }
+    paletteTints(p, packed.palettePos.data(), packed.count, tint.data());
     const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
-    // A Reveal shows the layer behind the front, when the look has one.
-    const GLuint other = layerScene_ ? fboL_.tex() : 0;
-    if (frontPass_.run(fboA_.tex(), other, renderWidth_, renderHeight_, aspect, packed, tint, quadVao_.get())) {
-        fboA_.swap(frontPass_.target());
+    // A Reveal shows the layer behind the front, when the composite shows one: at layer mix 0 fboL_ holds nothing.
+    const bool layerShown =
+        layerScene_ && safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_)) > 0.0f;
+    const GLuint other = layerShown ? fboL_.tex() : 0;
+    if (frontPass_.run(sceneShown_, other, renderWidth_, renderHeight_, aspect, packed, tint, quadVao_.get())) {
+        sceneShown_ = frontPass_.target().tex();
     }
 }
 
@@ -973,7 +1014,7 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
     const auto look = endless::tunnel::lookFor(p, static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1)));
     const bool plain = shown == 0;
     const GLuint dived =
-        divePass_.run(plain ? fboA_.tex() : shown, plain ? renderWidth_ : liquidPass_.width(),
+        divePass_.run(plain ? sceneShown_ : shown, plain ? renderWidth_ : liquidPass_.width(),
                       plain ? renderHeight_ : liquidPass_.height(), renderWidth_, renderHeight_, divePhase_,
                       diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_.get());
     return dived != 0 ? dived : shown;
@@ -982,7 +1023,7 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
 GLuint Renderer::drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown) {
     physicsOutgoingTex_ = 0;
     physics::PhysicsLayers::Frame f;
-    f.styleTex = shown != 0 ? shown : fboA_.tex();
+    f.styleTex = shown != 0 ? shown : sceneShown_;
     f.width = renderWidth_;
     f.height = renderHeight_;
     // The music's clock, as every simulation steps: silence holds the layers, an export steps exactly 1/fps.
@@ -1011,8 +1052,8 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     const bool threeD = scene.drawsCamera();
     const liquid::Born born = liquid::bornFrom(p.liquidBorn);
     liquid::LiquidPass::Frame f;
-    f.styleTex = fboA_.tex();
-    f.bornTex = threeD ? fboA_.tex() : drawBorn(scene, p, dt);
+    f.styleTex = sceneShown_;
+    f.bornTex = threeD ? sceneShown_ : drawBorn(scene, p, dt);
     f.velocityTex = flowing ? ff->velocityTex() : compositePass_.zeroTex();
     f.velScaleX = flowing ? ff->velScaleX() : 0.0f;
     f.velScaleY = flowing ? ff->velScaleY() : 0.0f;

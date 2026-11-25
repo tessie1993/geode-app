@@ -17,7 +17,7 @@ VERSION=1.5.0
 SHA256=a27854622198800f50971a049dcdba38f2105d47e7e7258786c7d28045c5735d
 JAR="${XDG_CACHE_HOME:-$HOME/.cache}/geode-tools/ktlint-cli-$VERSION-all.jar"
 URL="https://repo1.maven.org/maven2/com/pinterest/ktlint/ktlint-cli/$VERSION/ktlint-cli-$VERSION-all.jar"
-LINTED='^(app|engine/[^/]+)/(src/.*\.kts?|[^/]*\.kts)$'
+LINTED='^(app|baselineprofile|engine/[^/]+)/(src/.*\.kts?|[^/]*\.kts)$'
 
 if ! echo "$SHA256  $JAR" | sha256sum -c --status 2>/dev/null; then
     mkdir -p "$(dirname "$JAR")"

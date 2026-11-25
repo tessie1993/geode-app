@@ -16,7 +16,8 @@ Every line here was true when it was written and may have gone stale: check the 
 ## Gradle modules (`settings.gradle.kts`)
 
 - `:app`: the UI, services, stores, export and cast shells, and the JNI glue in `app/src/main/cpp`.
-- `:app` is the only module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
+- `:baselineprofile`: the Baseline Profile generator (`com.android.test`, target `:app`), run only by `baseline-profile.yml`.
+- `:app` is the only app module. The JNI declarations are the `*Native.kt` objects in `app/src/main/java/dev/geode/engine/bridge/`, one per JNI source file (`geode_viz_jni.cpp`'s are split by name prefix); `GeodeNative.kt` holds `geode_jni.cpp`'s and loads the library.
 - The Media3 PCM tap is `app/src/main/java/dev/geode/playback/PcmTap.kt`, in `:app`: a forwarder; the format, the epoch and the gate are native (`geode_pcm_ring_tap_*`).
 
 ## Native core (`core/`)
@@ -55,7 +56,7 @@ Every line here was true when it was written and may have gone stale: check the 
 
 ## CI (`.github/workflows/`)
 
-- `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`.
+- `build-lint.yml`, `native-host-tests.yml`, `arch-map.yml`, `shader-check.yml`, `ship-apk.yml`, `release.yml`, `render-thumbs.yml`, `store-assets.yml`, `ui-tour.yml`, `pages.yml`, `baseline-profile.yml`.
 - `.github/actions/android-build-setup` is the setup every Gradle job uses: JDK 21, Gradle, SDK 36, NDK, CMake, optional ccache.
 - `android.yml` runs only when started by hand: the emulator tests and the sound engine across frame rates on the test tracks.
 - `arch-map.yml` runs the gates in `tools/`: `layer-gate.sh`, `engine-kotlin-gate.sh`, `jni-parity-gate.sh`, `no-bpm-bias-gate.sh`, `network-gate.sh`, `audio-kotlin-gate.sh`, `actions-pin-gate.sh`, `sound-module-gate.sh`, `hand-declaration-gate.sh`, and `store-check.sh` on the Play listing text.
@@ -383,3 +384,4 @@ A line records what was done; it is not a rule.
 - 2026-11-21: Compose runtime tracing in the debug APK (`libs.compose.runtime.tracing`, `debugImplementation`), so a Perfetto trace names the composables that recompose; the sideload build is `<profileable android:shell="true"/>` (`app/src/sideload/AndroidManifest.xml`), so it can be profiled from the shell.
 - 2026-11-25: Play billing: a purchase flow whose OK result names no Pro asks Play what is owned instead of staying in progress (already-owned with a pending payment now reads pending), a service that drops during setup answers the waiting caller, `DEVELOPER_ERROR` reads as unknown instead of "not in your country", `ProductDetails` is queried per attempt instead of kept, and a failed acknowledgement is retried with backoff off the caller's path (`billing/PlayBillingRepository.kt`, `PlayBillingRulesTest`).
 - 2026-11-25: `tools/agent-setup.sh` pins Google's `android/skills` at 7f7b217 (v1.0.24, was v1.0.20 at bf68e2d) and `chrisbanes/skills` at f1132f9 (2026-11-24, was 8df9735); the skills new at those commits that Geode rarely needs are listed by name only in `.claude/settings.json` (`credential-holder`, `credential-issuer`, `credential-verifier`, `ios-to-android`, `phone-number-verification`, `deliver-issue`, `run-project`); `android-jni-security` and `simplify-changes` keep their descriptions.
+- 2026-11-25: Baseline Profile generator: module `:baselineprofile` (`BaselineProfileGenerator`: launch past the boot intro to the shell, then the Visuals tab), the `androidx.baselineprofile` plugin on `:app` (`mergeIntoMain`, beside `baseline-prof.txt`), catalog entries, `settings.gradle.kts`, the root `build.gradle.kts`, the manual `baseline-profile.yml`, and `tools/ktlint-changed.sh` lints the module.

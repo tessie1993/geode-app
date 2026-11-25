@@ -9,6 +9,7 @@ plugins {
     id("geode.kotlin-common")
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 val keystoreProps =
@@ -207,6 +208,12 @@ android {
     }
 }
 
+// :app:generateBaselineProfile (baseline-profile.yml) writes into src/main/generated/baselineProfiles,
+// beside the hand-written src/main/baseline-prof.txt; no build runs it.
+baselineProfile {
+    mergeIntoMain = true
+}
+
 val checkNativePageAlignment =
     tasks.register("checkNativePageAlignment") {
         description = "Fails if a packaged .so is not 16 KB page aligned."
@@ -295,6 +302,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.billing)
     implementation(libs.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

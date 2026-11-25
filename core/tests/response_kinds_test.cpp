@@ -277,7 +277,7 @@ void morphAndMeltActOnTheLatestOrTheOldest() {
     resp::addResponse(c, morph);
     rig.load(c);
     rig.kick();
-    rig.run(5);
+    rig.run(30);  // the kick's trigger falls below its re-arm line before the next one is heard
     rig.kick();
     check(rig.things.count() == 2, "two Things born");
     rig.snare();
@@ -651,6 +651,7 @@ void touching(ThingPool& pool, float x, float y, float life = 10.0f) {
     s.y = y;
     s.size = 0.05f;
     s.life_s = life;
+    s.attack_s = 0.0f;  // solid from its first step: a Thing still fading in touches nothing
     pool.spawn(s);
     s.x = x + 0.01f;
     pool.spawn(s);

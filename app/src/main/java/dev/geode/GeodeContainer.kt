@@ -18,6 +18,7 @@ import dev.geode.data.AutoDirectorCodec
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.BehaviourCodec
 import dev.geode.data.BehaviourRepository
+import dev.geode.data.CacheSweeper
 import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.GeneralSettingsCodec
@@ -115,6 +116,7 @@ class GeodeContainer(
     init {
         warmPlaybackPrefs()
         sweepStaleRenderScratch(context.applicationContext.cacheDir)
+        sweepOldShareCopies(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
         discardStaleRestore(context.applicationContext)
@@ -227,10 +229,23 @@ class GeodeContainer(
     private fun sweepStaleRenderScratch(cacheDir: File) {
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep stale render scratch") {
-                cacheDir
-                    .listFiles()
-                    .orEmpty()
-                    .filter { file -> file.isFile && isRenderScratch(file.name) }
+                CacheSweeper.withPrefix(cacheDir, RENDER_SCRATCH_PREFIXES).forEach { file -> file.delete() }
+            }
+        }
+    }
+
+    /**
+     * Trims `cacheDir/share`, the copies handed to a share sheet: each share clears the earlier ones,
+     * but the last copy stayed until the next share. A day is long enough for the other app to have
+     * read it; at most [SHARE_COPIES_KEPT] stay whatever their age.
+     */
+    private fun sweepOldShareCopies(cacheDir: File) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep old share copies") {
+                val shares = File(cacheDir, "share")
+                val cutoff = System.currentTimeMillis() - SHARE_COPY_MAX_AGE_MS
+                (CacheSweeper.olderThan(shares, cutoff) + CacheSweeper.beyondNewest(shares, SHARE_COPIES_KEPT))
+                    .distinct()
                     .forEach { file -> file.delete() }
             }
         }
@@ -326,7 +341,8 @@ class GeodeContainer(
          */
         val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-", "backup")
 
-        fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
+        const val SHARE_COPY_MAX_AGE_MS = 24 * 60 * 60 * 1000L
+        const val SHARE_COPIES_KEPT = 8
     }
 }
 

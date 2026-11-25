@@ -30,6 +30,5 @@ void* operator new(std::size_t n) {
     throw std::bad_alloc();
 }
 
-void operator delete(void* p) noexcept { std::free(p); }
-
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+// operator delete is left to the library: libstdc++'s frees with std::free, the pair of the malloc above. Defining
+// it here too lets GCC see free() meet a pointer from operator new and fail the build (-Wmismatched-new-delete).

@@ -1,4 +1,4 @@
-// C ABI over what Customize draws: the control rows (viz/panel/CustomizeRows), the panel's words (viz/panel/PanelText), the
+// C ABI over what Customize draws: the control rows (viz/panel/CustomizeRows), the
 // style names (viz/styles/catalogue/StyleNames) and the palette pages (viz/panel/PalettePanel). See geode_api.h. Pure, any thread.
 #include <algorithm>
 #include <string>
@@ -8,7 +8,6 @@
 #include "api/geode_api.h"
 #include "viz/panel/CustomizeRows.hpp"
 #include "viz/panel/PalettePanel.hpp"
-#include "viz/panel/PanelText.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/styles/catalogue/StyleNames.hpp"
 
@@ -61,23 +60,6 @@ int geode_customize_query_blank(const char* query) try {
     return customize::blank(query ? query : "") ? 1 : 0;
 } catch (...) {
     return 1;
-}
-
-const char* geode_panel_format(const char* id, const char* const* args, int count) try {
-    std::vector<std::string> filled;
-    for (int i = 0; args && i < count; ++i) filled.emplace_back(args[i] ? args[i] : "");
-    // The placeholders reach at most four arguments; a missing one is dropped as an empty text is.
-    filled.resize(4);
-    std::string text = geode::viz::panel::format(id ? id : "", {filled[0], filled[1], filled[2], filled[3]});
-    return handOut(std::move(text));
-} catch (...) {
-    return nullptr;
-}
-
-const char* geode_panel_text(const char* id) try {
-    return geode::viz::panel::text(id ? id : "");
-} catch (...) {
-    return nullptr;
 }
 
 const char* geode_style_label(const char* style_id) try {

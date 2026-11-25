@@ -90,14 +90,3 @@ internal object CustomizeMapTable {
         return rows.filter { it[0] == type }
     }
 }
-
-/** A word the Customize panel draws, by its id (core/viz/PanelText), asked of native once. */
-internal fun panelText(id: String): String = panelWords.getOrPut(id) { CustomizeNative.panelText(id) }
-
-/** A panel sentence with its placeholders filled by [args] (core/viz/PanelText `format`), asked of native. */
-internal fun panelFormat(
-    id: String,
-    vararg args: String,
-): String = CustomizeNative.panelFormat(id, arrayOf(*args))
-
-private val panelWords = java.util.concurrent.ConcurrentHashMap<String, String>()

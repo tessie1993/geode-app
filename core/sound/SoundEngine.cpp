@@ -8,6 +8,7 @@
 
 #include "sound/DriveGain.hpp"
 #include "sound/OnsetFlux.hpp"
+#include "sound/OutputPolicy.hpp"
 #include "sound/Tuning.hpp"
 
 namespace geode::sound {
@@ -36,18 +37,18 @@ constexpr float kHitDriveFloor = 0.4f;
 // Onset density: 8 note starts a second is "busy" (1.0). Kicks and snares: 4 a second.
 constexpr float kBusyOnsetsPerSecond = 8.0f;
 constexpr float kBusyHitsPerSecond = 4.0f;
-constexpr float kRateTau = 2.0f;
+constexpr float kRateTau = policy::kBusyRate.decay;
 // drive = loudnessS * (kDriveBase + kDriveBusy * busy), eased: 0.5 s up, 1.5 s down.
 constexpr float kDriveBase = 0.35f;
 constexpr float kDriveBusy = 0.65f;
-constexpr float kDriveRise = 0.5f;
-constexpr float kDriveFall = 1.5f;
+constexpr float kDriveRise = policy::kDrive.attack;
+constexpr float kDriveFall = policy::kDrive.release;
 constexpr float kTiltTop = 22050.0f;
 constexpr float kTimeWrap = 3600.0f;
 constexpr float kCountWrap = 4096.0f;
 constexpr int kWaveSlack = 32;
-constexpr float kRunTau = 1.0f;
-constexpr float kEase = 0.06f;
+constexpr float kRunTau = policy::kRunRate.decay;
+constexpr float kEase = policy::kEased.attack;
 constexpr float kLn2 = 0.69314718f;
 // Flux compares each hop's spectrum against the one this long before, rounded to whole hops of the true length.
 constexpr float kFluxLag = 1.0f / 30.0f;
@@ -690,7 +691,7 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
 }
 
 void SoundEngine::drums(float dt, bool silent, GeodeSoundFrame& out) {
-    static constexpr float kAttack = 0.005f;
+    static constexpr float kAttack = policy::kDrumEnvelope.attack;
     // Short enough for metal and drum & bass double kicks (~85 ms) and trap hat rolls (~40 ms); the
     // trigger's hysteresis (re-arm below half the threshold) is what separates hits, not this.
     static constexpr std::array<float, 3> kRefractory = {0.05f, 0.05f, 0.03f};
@@ -767,7 +768,7 @@ void SoundEngine::transients(float dt, bool silent, GeodeSoundFrame& out) {
     out.transient = allowed ? hit.strength * worth : 0.0f;
     if (out.transient > 0.0f) s.transientSharpness = hit.sharpness;
     out.transientSharpness = s.transientSharpness;
-    out.transientEnv = s.transientEnv.step(out.transient, 0.005f, 0.2f, dt);
+    out.transientEnv = s.transientEnv.step(out.transient, policy::kOnsetEnvelope.attack, policy::kOnsetEnvelope.decay, dt);
 }
 
 void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
@@ -782,7 +783,7 @@ void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
     out.hardCut = warm || s.silent || !allowed ? 0.0f : s.hardCut.step(rawVol, t.hardCutLevel, t.hardCutHalfLife, dt);
     const float onset = s.onset.step(out.flux, std::max(1.1f, t.onsetThreshold), 0.06f, dt);
     out.onset = allowed ? onset : 0.0f;
-    out.onsetEnv = s.envelope[3].step(out.onset, 0.005f, 0.2f, dt);
+    out.onsetEnv = s.envelope[3].step(out.onset, policy::kOnsetEnvelope.attack, policy::kOnsetEnvelope.decay, dt);
 
     if (!s.silent) {
         s.belowSeconds = out.rms < silenceOn ? s.belowSeconds + dt : 0.0f;

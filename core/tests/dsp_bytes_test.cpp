@@ -38,7 +38,6 @@ geode_dsp* fresh(int channels) {
     geode_dsp_ramp_to(d, -6.0f, 0);
     geode_dsp_set_enabled(d, 1);
     geode_dsp_set_band(d, 2, 600);
-    geode_dsp_set_limiter(d, 1);
     geode_dsp_configure(d, 48000, channels);
     geode_dsp_flush(d);
     return d;

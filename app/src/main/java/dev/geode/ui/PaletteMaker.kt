@@ -175,7 +175,7 @@ internal fun PaletteDropdown(
             options = options.map { it[3] },
             selectedIndex = head[2].toInt(),
             lockKey = lockKey,
-            placeholder = head[3],
+            placeholder = cellText(head[3]),
         ) { i ->
             // Native names the pick: a built-in by its index, else one of the saved palettes by its place.
             val own = options[i][2].toInt()
@@ -273,12 +273,13 @@ private fun StopsRow(
     FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
         stops.forEach { f ->
             val on = f[3] == "1"
+            val heard = cellText(f[4])
             Box(
                 Modifier
                     .size(GeodeSpacing.TouchTarget)
                     .clickable(role = Role.Tab) { onSelect(f[1].toInt()) }
                     .semantics {
-                        contentDescription = f[4]
+                        contentDescription = heard
                         selected = on
                     },
                 contentAlignment = Alignment.Center,

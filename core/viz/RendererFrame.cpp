@@ -63,17 +63,6 @@ float Renderer::beginFrame(double timeSeconds) {
     const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     if (settleHoldSeconds_ > 0.0f) settleHoldSeconds_ -= dt;
-    // "Adapt to frame time" (frame::FrameGovernor): this frame's step against the rate the pacer really paces to.
-    // An export (offscreen, a fixed step) and a recording pass the user's settings through.
-    {
-        const bool held = offscreen_.load(std::memory_order_relaxed) || fixedFps_.load(std::memory_order_relaxed) > 0 ||
-                          governorHeld_.load(std::memory_order_relaxed);
-        frame::GovernorUser user;
-        user.renderScale = userScale_.load(std::memory_order_relaxed);
-        user.marchScale = marchScale_.load(std::memory_order_relaxed);
-        user.postFx = userPostFx_.load(std::memory_order_relaxed);
-        governor_.onFrame(dt, pacedFps(), ownCapFps_.load(std::memory_order_relaxed), user, settling(), held);
-    }
     {
         // Before anything reads it this frame. No analysis yet (nothing heard) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
@@ -199,7 +188,8 @@ Scene* Renderer::resolveActiveScene() {
     requestedPending_ = requested == nullptr;
     sceneJustSwitched_ = false;
     if (requested && requested != activeScene_) {
-        lastTimeS_ = frameNowS_;
+        // The build ran inside this frame: the next one steps by 0, not by the build.
+        restartClock();
         const bool cuts = TransitionCatalog::builtIn(frameTransitionId_) == TransitionStyle::Cut;
         if (!cuts && activeScene_) {
             outgoingScene_ = activeScene_;
@@ -220,9 +210,6 @@ Scene* Renderer::resolveActiveScene() {
         sceneJustSwitched_ = true;
         // A new style gets about a second of draws even in silence: its build and first load span frames.
         redrawSeconds_ = kRedrawSeconds;
-        // A new style costs what it costs: "Adapt to frame time" starts again from the user's own settings, its
-        // backoff cleared (frame::FrameGovernor). The build and the blend are settling frames it does not count.
-        governor_.reset();
     }
     return activeScene_;
 }
@@ -319,8 +306,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // The knobs' live modulation for the shell's second arc: an on-screen surface's, never an export's.
     if (!offscreen_.load(std::memory_order_relaxed)) macrobank::publishLive(out.knobMods);
     SceneParams p = out.params;
-    // Settings › Performance's extra effects, under the governor's steps.
-    const bool userPostFx = governor_.governed().postFx;
+    // Settings › Performance's extra effects.
+    const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
     // Liquid mode is a mode the user switched on, not an optional pass.
     liveLiquid_ = p.flowEnabled ? liquid::Mode::Full : liquid::Mode::Off;
     liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
@@ -605,7 +592,7 @@ void Renderer::stepSmear(float dt) {
     // Never in an export, never beside Liquid mode, and, as flow distortion, one of the optional passes: off
     // without Performance's extra effects. The field is built only once smear can run.
     const bool wanted = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
-                        governor_.governed().postFx;
+                        userPostFx_.load(std::memory_order_relaxed);
     fluid::FlowField* ff = wanted ? overlays_.useFlow() : nullptr;
     const bool can = ff != nullptr && ff->available();
     if (!can) {
@@ -649,11 +636,17 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // scene clock's scale (never backwards).
     const float musicDt = wallDt * musicRate_;
     float dt = sceneClock_.sim(musicDt);
-    if (governor_.governed().renderScale != appliedUserScale_) applyRenderScale();
+    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
+        applyRenderScale();
+        restartClock();
+    }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
-    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
+    if (SceneResidency::trimSignal().poll(seenTrim_)) {
+        trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
+        restartClock();
+    }
     Scene* scene = resolveActiveScene();
     if (sceneJustSwitched_) {
         // A new scene starts its clock at rest, and this frame's step with it.

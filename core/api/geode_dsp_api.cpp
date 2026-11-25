@@ -151,9 +151,6 @@ void geode_dsp_set_crossfeed(geode_dsp* d, int enabled) {
     if (d) d->processor.setCrossfeed(enabled != 0);
 }
 
-void geode_dsp_set_limiter(geode_dsp* d, int enabled) {
-    if (d) d->processor.setLimiter(enabled != 0);
-}
 
 void geode_dsp_ramp_to(geode_dsp* d, float db, int ms) {
     if (d) d->processor.gain().rampTo(db, ms);

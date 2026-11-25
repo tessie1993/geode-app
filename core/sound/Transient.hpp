@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <vector>
 
+#include "sound/OutputPolicy.hpp"
+
 // Transients: the sharp start of any sound (a pluck, a click, a consonant, a struck chord, a drum), heard
 // per sample in a few milliseconds. The frame's `onset` is a spectral-flux peak on the analysis hop and lands
 // ~70 ms late; the drums listen to their own bands only. This listens to every sound, at the speed of its
@@ -63,7 +65,7 @@ public:
     // A hat roll's spacing, the drums' shortest.
     static constexpr float kRefractorySeconds = 0.03f;
     // How long after the crossing the attack is measured before it is reported.
-    static constexpr float kAttackSeconds = 0.005f;
+    static constexpr float kAttackSeconds = policy::kDrumEnvelope.attack;
 
     // One hop's report: strength 0 when nothing fired; else 0.05..1, and the attack's sharpness, 0..1.
     struct Hit {

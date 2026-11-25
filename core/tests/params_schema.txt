@@ -65,7 +65,7 @@ param|62|fisheye|FLOAT|0|-1|1|FADE|LIVE
 param|63|strobe|FLOAT|0|0|1|FADE|RETIRED
 param|64|paramFadeSec|FLOAT|0|0|5|HOLD|LIVE
 param|65|fluidQuality|INT|2|0|4|HOLD|LIVE
-param|66|fluidAutoQuality|BOOL|1|0|1|HOLD|LIVE
+param|66|fluidAutoQuality|BOOL|1|0|1|HOLD|RETIRED
 param|67|fluidIterations|INT|20|8|40|HOLD|LIVE
 param|68|fluidPressure|FLOAT|0.8|0|1|FADE|LIVE
 param|69|fluidCurl|FLOAT|30|0|50|FADE|LIVE

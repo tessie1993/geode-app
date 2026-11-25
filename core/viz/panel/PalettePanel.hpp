@@ -15,7 +15,8 @@
 // only draws the rows. Host-tested in core/tests/palette_panel_test.cpp.
 namespace geode::viz::palettepanel {
 
-constexpr int kTextVersion = 1;
+// Bumped whenever a row or a field changes meaning. 2: the words are viz/panel/PanelText refs, not text.
+constexpr int kTextVersion = 2;
 // Colours a swatch strip draws.
 constexpr int kSwatchSamples = 24;
 // The stops an old hue gradient opens as in Your colours, and as a stack layer.
@@ -42,8 +43,9 @@ Maker edit(Maker m, Edit op, int arg);
 
 // The editor as the shell draws it:
 //   maker|<kTextVersion>|<selected>|<removable 0/1>|<addable 0/1>|<swatch>
-//   stop|<index>|<RRGGBB>|<selected 0/1>|<what a screen reader hears>
-// swatch: kSwatchSamples colours of the loop, "RRGGBB" joined by ','.
+//   stop|<index>|<RRGGBB>|<selected 0/1>|<word: what a screen reader hears>
+// swatch: kSwatchSamples colours of the loop, "RRGGBB" joined by ','. A <word> is viz/panel/PanelText's `ref`:
+// the id of the shell's string and what fills it, here and in the rows below.
 std::string makerView(const Maker& m);
 
 // A saved palette's colours as a stack layer: its stops, else its hue gradient as kStackHueStops stops.
@@ -54,19 +56,19 @@ std::string savedSwatch(const int* stops, int count, float base, float span);
 
 // Look's palette list on a style the stack does not draw: the built-in palettes the schema lists, then the
 // user's saved ones (savedIds, one id a line, in the shell's order), and which one the look holds.
-//   list|<kTextVersion>|<selected or -1>|<placeholder>|<swatch>
+//   list|<kTextVersion>|<selected or -1>|<word: placeholder>|<swatch>
 //   option|<built-in index or -1>|<saved index or -1>|<name>
 // savedNames is one name a line, in savedIds' order. The swatch is what the look's own palette paints.
 std::string listView(const SceneParams& p, std::string_view customId, std::string_view savedIds, std::string_view savedNames);
 
 // The stack card (viz/colour/Palette's stack text) on a look:
-//   card|<kTextVersion>|<heading>|<tip>
-//   layer|<index>|<name>|<amount param>|<amount>|<min>|<max>|<movable up 0/1>|<up label>|<remove label>|<amount label>|<swatch>
-//   blend|<label>|<selected>                      with two layers or more
-//   blendoption|<SHARE or MIX>|<words>
-//   add|<label>|<mark>                            while there is room
+//   card|<kTextVersion>|<word: heading>|<word: tip>
+//   layer|<index>|<name>|<amount param>|<amount>|<min>|<max>|<movable up 0/1>|<word: up>|<word: remove>|<word: amount>|<swatch>
+//   blend|<word>|<selected>                       with two layers or more
+//   blendoption|<SHARE or MIX>|<word>
+//   add|<word>|<word: mark>                       while there is room
 //   pick|<library index>|<name>
-//   yours|<label>|<mark>                          while there is room and the user has a saved palette
+//   yours|<word>|<word: mark>                     while there is room and the user has a saved palette
 std::string stackCard(std::string_view stack, const SceneParams& p, int savedCount);
 
 }  // namespace geode::viz::palettepanel

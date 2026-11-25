@@ -77,7 +77,7 @@ void CurlFlowScene::draw(float timeSeconds) {
     if (!available_ || !field_) return;
     const fluid::Fbo& fld = *field_;
     saveFramebufferAndViewport();
-    autoQualityTick();
+    applyQualityTier();
     if (!particles_.available()) {
         // The tier's population and the shipped fallback were both refused: draw nothing, cleanly.
         restoreFramebufferAndViewport();

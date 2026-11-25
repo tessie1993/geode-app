@@ -211,7 +211,7 @@ fun PlayerScreen(
 
     // The pane ends above the floating dock (the phone shell's reserve), as every other screen
     // does: the dock's glass is translucent, so a card left under it read through the tab labels.
-    BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = LocalDockReserve.current)) {
+    BoxWithConstraints(Modifier.fillMaxSize().dockBottomPadding(LocalDockReserve.current)) {
         // Two columns in landscape or at expanded width: art and transport on one side, the cards
         // on the other. The window says when; this pane's width says whether there is room, so the
         // Player half of the two-pane Library stays one column.

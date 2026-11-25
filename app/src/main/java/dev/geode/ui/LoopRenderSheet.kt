@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -28,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
@@ -210,9 +212,12 @@ private fun LoopRenderControls(
         onValueChange = onCrossfadeSecondsChange,
         valueRange = (LoopSpec.minCrossfadeMs / 1000f)..(LoopSpec.maxCrossfadeMs / 1000f),
     )
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().toggleable(value = driftEnabled, role = Role.Switch, onValueChange = onDriftEnabledChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(stringResource(R.string.export_loop_drift_toggle), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = driftEnabled, onCheckedChange = onDriftEnabledChange)
+        Switch(checked = driftEnabled, onCheckedChange = null)
     }
     if (driftEnabled) {
         CrystalSlider(

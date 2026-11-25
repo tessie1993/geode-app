@@ -48,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -651,6 +652,7 @@ private fun RenderLookGroup(
                         open = false
                         onLook(null)
                     },
+                    modifier = Modifier.semantics { selected = lookName == null },
                 )
                 presets.forEach { preset ->
                     DropdownMenuItem(
@@ -659,6 +661,7 @@ private fun RenderLookGroup(
                             open = false
                             onLook(preset.name)
                         },
+                        modifier = Modifier.semantics { selected = preset.name == lookName },
                     )
                 }
             }

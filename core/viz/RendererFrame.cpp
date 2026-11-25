@@ -116,7 +116,8 @@ float Renderer::beginFrame(double timeSeconds) {
     // stutter's loop sends it back.
     sceneStep_ = sceneClock_.step(dt * musicRate_);
     timeSeconds_ = std::fmod(timeSeconds_ + sceneStep_, static_cast<double>(kTimeWrapSeconds));
-    if (timeSeconds_ < 0.0) timeSeconds_ += static_cast<double>(kTimeWrapSeconds);
+    // A reverse at the start of the clock stops at 0; it never wraps to the end of the period.
+    if (timeSeconds_ < 0.0) timeSeconds_ = 0.0;
     applyStyleSchedule(dt);
     std::vector<std::pair<std::string, std::string>> pending;
     {
@@ -200,7 +201,6 @@ Scene* Renderer::resolveActiveScene() {
     sceneJustSwitched_ = false;
     if (requested && requested != activeScene_) {
         lastTimeS_ = frameNowS_;
-        sceneClock_.reset();
         const bool cuts = TransitionCatalog::builtIn(frameTransitionId_) == TransitionStyle::Cut;
         if (!cuts && activeScene_) {
             outgoingScene_ = activeScene_;
@@ -226,6 +226,16 @@ Scene* Renderer::resolveActiveScene() {
         governor_.reset();
     }
     return activeScene_;
+}
+
+// What the scenes hear: the live frame, or while Clock control holds the last frame, the sound the last drawn frame
+// saw, so a live frame that skips the draw and an export that draws show the same picture. The responder, the
+// waves and the director always hear the live frame (trimmedSound).
+const GeodeSoundFrame& Renderer::sceneSound(const SceneParams& p) {
+    if (!soundHeld_) return trimmedSound(p);
+    if (bandTrimsAreIdentity(p)) return heldSound_;
+    bandTrimInto(heldSound_, p, heldTrimmed_);
+    return heldTrimmed_;
 }
 
 const GeodeSoundFrame& Renderer::trimmedSound(const SceneParams& p) {
@@ -450,7 +460,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     } else if (unseen) {
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        updateScene(*layerScene_, trimmedSound(p), dt);
+        updateScene(*layerScene_, sceneSound(p), dt);
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
         glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
@@ -458,7 +468,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         glClear(GL_COLOR_BUFFER_BIT);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        updateScene(*layerScene_, trimmedSound(p), dt);
+        updateScene(*layerScene_, sceneSound(p), dt);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(static_cast<float>(timeSeconds_));
     }
@@ -472,7 +482,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
-            updateScene(*outgoingScene_, trimmedSound(op), dt);
+            updateScene(*outgoingScene_, sceneSound(op), dt);
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(static_cast<float>(timeSeconds_));
         }
@@ -515,7 +525,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     scene.setParams(p);
     deliverPcm(scene);
-    updateScene(scene, trimmedSound(p), dt);
+    updateScene(scene, sceneSound(p), dt);
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(static_cast<float>(timeSeconds_));
@@ -579,11 +589,12 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     compositePass_.draw(in);
 }
 
-void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
-    // Stepped once per frame ahead of every draw so each scene reads the same anchor.
-    touchField_.step(dt);
-    stepLiquid(scene, p, dt);
-    stepSmear(dt);
+void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt, float inputDt) {
+    // Stepped once per frame ahead of every draw so each scene reads the same anchor. The fingers (touch, smear, the
+    // liquid's gestures) run on the picture's step, not the scene clock's: a freeze never numbs them.
+    touchField_.step(inputDt);
+    stepLiquid(scene, p, dt, inputDt);
+    stepSmear(inputDt);
 }
 
 void Renderer::stepSmear(float dt) {
@@ -635,13 +646,22 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // The picture's step drives the responder, the waves and the sound; the simulations step by it through the
     // scene clock's scale (never backwards).
     const float musicDt = wallDt * musicRate_;
-    const float dt = sceneClock_.sim(musicDt);
+    float dt = sceneClock_.sim(musicDt);
     if (governor_.governed().renderScale != appliedUserScale_) applyRenderScale();
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
     if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
     Scene* scene = resolveActiveScene();
+    if (sceneJustSwitched_) {
+        // A new scene starts its clock at rest, and this frame's step with it.
+        sceneClock_.reset();
+        sceneStep_ = musicDt;
+        dt = musicDt;
+    }
+    const bool holding = sceneClock_.holds();
+    if (holding && !soundHeld_) heldSound_ = stillDrawn_ ? stillSound_ : soundFrame_;
+    soundHeld_ = holding;
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.
     const bool staging = requestedPending_ && prep_.active() && prep_.attempts() < ScenePrep::kMaxAttempts;
@@ -672,7 +692,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     heldWire_ = wire;
     heldWidth_ = renderWidth_;
     heldHeight_ = renderHeight_;
-    stepOverlays(*scene, p, dt);
+    stepOverlays(*scene, p, dt, musicDt);
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // A shader style paints its whole frame, so its Trails cannot live in the scene target: they are
@@ -692,8 +712,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (stillRepeats(*scene, p, wallDt, trails, targetFbo)) {
         // The window already shows this frame. What the draw would have freed on its idle clocks is free already.
         repeated_ = true;
-        trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
-        uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
+        // A held frame (Clock control) is not an idle one: the trail and blur history stays for the thaw.
+        if (!sceneClock_.holds()) {
+            trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
+            uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
+        }
         return;
     }
     drawSceneTarget(*scene, p, dt);
@@ -703,7 +726,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
     trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
-    shown = drawDive(*scene, p, dt, wallDt, shown);
+    shown = drawDive(*scene, p, wallDt, shown);
     shown = drawPhysics(p, dt, wallDt, shown);
     uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
     // With a blur running the frame is drawn into the blur's own image, which draw() then copies to the
@@ -737,9 +760,9 @@ static_assert(kRepeatAfterSeconds > kFeedbackIdleSeconds && kRepeatAfterSeconds 
 bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wallDt, bool trails, GLuint targetFbo) {
     const auto lookYaw = lookYaw_.load(std::memory_order_relaxed);
     const auto lookPitch = lookPitch_.load(std::memory_order_relaxed);
-    const bool inputsSame = stillDrawn_ && std::memcmp(&stillSound_, &soundFrame_, sizeof soundFrame_) == 0 &&
-                            stillTouch_ == touchField_.points() && stillPose_ == camera_.pose() &&
-                            stillYaw_ == lookYaw && stillPitch_ == lookPitch;
+    const bool otherSame = stillDrawn_ && stillTouch_ == touchField_.points() && stillPose_ == camera_.pose() &&
+                           stillYaw_ == lookYaw && stillPitch_ == lookPitch;
+    const bool inputsSame = otherSame && std::memcmp(&stillSound_, &soundFrame_, sizeof soundFrame_) == 0;
     const bool quiet = inputsSame && frameStill_ && framePcmCount_ == 0 && heldScene_ == &scene && !sceneJustSwitched_ &&
                        scene.family() == SceneFamily::Shader && !requestedPending_ && stager_.idle() &&
                        layerScene_ == nullptr && outgoingScene_ == nullptr && !trails && !liquidOn() &&
@@ -749,8 +772,10 @@ bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wall
                        !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
     stillSeconds_ = quiet ? stillSeconds_ + wallDt : 0.0f;
     // Clock control's freeze with "hold last frame": the scene clock stands at 0, so the picture is the one on the
-    // window whatever the sound does, and nothing is drawn (no pass animates on a stopped clock).
-    const bool frozen = sceneClock_.holds() && stillDrawn_ && heldScene_ == &scene && !sceneJustSwitched_ &&
+    // window whatever the sound does, and nothing is drawn. Everything else that picture reads must still stand: no
+    // look, size or redraw owed (frameStill_), no new PCM, the same touch and camera.
+    const bool frozen = sceneClock_.holds() && otherSame && frameStill_ && framePcmCount_ == 0 &&
+                        heldScene_ == &scene && !sceneJustSwitched_ &&
                         !requestedPending_ && layerScene_ == nullptr && outgoingScene_ == nullptr &&
                         !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
                         !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
@@ -815,7 +840,7 @@ void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
     edgeGlowPass_.draw(frame::PassInputs{}, frame::PassTarget{targetFbo, width_, height_});
 }
 
-void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
+void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt, float inputDt) {
     if (!liquidOn()) {
         liquidWasOn_ = false;
         return;
@@ -846,7 +871,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         }
         fingers++;
     }
-    const liquid::GestureOut g = liquidGestures_.step(std::min(fingers, 2), xy, dt);
+    const liquid::GestureOut g = liquidGestures_.step(std::min(fingers, 2), xy, inputDt);
     const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
     const bool threeD = scene.drawsCamera();
     const bool reducedMotion = frameSettings_.reducedMotion;
@@ -920,7 +945,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     glClear(GL_COLOR_BUFFER_BIT);
     next->setParams(p);
     deliverPcm(*next);
-    updateScene(*next, trimmedSound(p), dt);
+    updateScene(*next, sceneSound(p), dt);
     const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
     next->draw(static_cast<float>(timeSeconds_));
     return bornFbo_.tex();
@@ -1011,7 +1036,7 @@ void Renderer::drawFields(float dt) {
     }
 }
 
-GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown) {
+GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float wallDt, GLuint shown) {
     const float wall = std::isfinite(wallDt) ? std::clamp(wallDt, 0.0f, 0.1f) : 0.0f;
     diveFollow_.step(soundFrame_, wall, p.audioDrive, p.diveFollow);
     // Liquid mode's liquid has a dive of its own on a flat style (LiquidMath's Dive), which takes Dive
@@ -1029,7 +1054,7 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
         if (was) divePass_.releaseTarget();
         return shown;
     }
-    // dt is the music's clock: no sound, no travel.
+    // The scene clock's own step (Clock control): no sound, no travel; a reverse runs the dive back.
     if (on) {
         const float octaves = endless::travel((zoom ? p.endlessZoomSpeed : 0.0f) + fly, diveFollow_);
         divePhase_ = endless::advance(divePhase_, endless::copiesPerSecond(octaves, p.diveSpacing), sceneStep_);

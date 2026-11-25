@@ -11,9 +11,10 @@ namespace geode::viz::sceneclock {
 //
 // Its kind-params (Response::params):
 //   P0 mode        0 Freeze, 1 Stutter, 2 Reverse
-//   P1 loop        Stutter: the length looped back over (see P4)
+//   P1 loop        Stutter: the length looped back over (see P4), held to 4 s
 //   P2 repeats     Stutter: how many times it loops
-//   P3 rate        Reverse: the speed backwards (0 reads as 1)
+//   P3 rate        Reverse: the speed backwards (0 reads as 1). A fired Reverse takes up to 4x; Follow holds the
+//                  scale to [-1, 1], so it reverses at 1x at most
 //   P4 loop unit   0 seconds, 1 beats: a beat loop needs a heard tempo and does nothing without one
 //   P5 hold frame  Freeze: above 0.5, the renderer re-presents the last frame while the clock stands at 0
 // The envelope is the response's own (fade in, hold, fade out; While holds until its event ends). Follow drives a

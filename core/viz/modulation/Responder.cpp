@@ -227,8 +227,24 @@ bool Bank::registerKind(KindId kind, ResponseKindHandler* handler) {
     return true;
 }
 
+void Bank::releaseHeld(int index) {
+    Runtime& rs = runtime_[static_cast<size_t>(index)];
+    const Response& r = config_.responses[static_cast<size_t>(index)];
+    if (rs.running && r.kind != kParam && r.drive == DriveMode::While && handlers_[static_cast<size_t>(r.kind)] != nullptr) {
+        handlers_[static_cast<size_t>(r.kind)]->release(index);
+    }
+    rs.running = false;
+}
+
 void Bank::configure(const Config& config) {
     const int kept = std::min(config_.count, config.count);
+    // A While response that is gone, or is no longer the same kind and drive, lets go of what it holds.
+    for (int i = 0; i < std::clamp(config_.count, 0, kMaxResponses); ++i) {
+        const Response& was = config_.responses[static_cast<size_t>(i)];
+        const bool same = i < config.count && config.responses[static_cast<size_t>(i)].kind == was.kind &&
+                          config.responses[static_cast<size_t>(i)].drive == was.drive;
+        if (!same) releaseHeld(i);
+    }
     config_ = config;
     config_.count = std::clamp(config_.count, 0, kMaxResponses);
     for (int i = 0; i < config_.count; ++i) clampResponse(config_.responses[static_cast<size_t>(i)]);
@@ -297,6 +313,7 @@ void Bank::compile(std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
 }
 
 void Bank::reset() {
+    for (int i = 0; i < std::clamp(config_.count, 0, kMaxResponses); ++i) releaseHeld(i);
     for (int i = 0; i <= kMaxResponses; ++i) {
         Runtime& rs = runtime_[static_cast<size_t>(i)];
         const int slot = rs.slot;

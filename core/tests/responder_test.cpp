@@ -651,7 +651,8 @@ void oldTextStillLoads() {
     none.readReactions("reactions/2\nroutes|auto\ngate|true", GEODE_HAND_ALL);
     check(!none.hand.user && none.responses == "gate|true" && none.reactionsText() == "reactions/2\nroutes|auto\ngate|true",
           "a list of rows alone leaves the style's own routes playing");
-    check(ModDocument{}.reactionsText().empty() && reactiontext::isList("reactions/2") && !reactiontext::isList("nonsense"),
+    const ModDocument blank;
+    check(blank.reactionsText().empty() && reactiontext::isList("reactions/2") && !reactiontext::isList("nonsense"),
           "no routes and no responses is Auto");
 
     resp::Config bad;

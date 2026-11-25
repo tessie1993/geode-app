@@ -16,6 +16,7 @@ HSPLdev/geode/RingLog;->**(**)**
 HSPLdev/geode/di/**;->**(**)**
 HSPLdev/geode/ui/MainActivity;->**(**)**
 HSPLdev/geode/ui/AppShellKt**;->**(**)**
+HSPLdev/geode/ui/GlobalSearchKt**;->**(**)**
 HSPLdev/geode/ui/GeodeAppState**;->**(**)**
 HSPLdev/geode/ui/PlayerViewModel**;->**(**)**
 HSPLdev/geode/ui/SettingsViewModel**;->**(**)**

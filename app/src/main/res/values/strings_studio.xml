@@ -14,10 +14,6 @@
     <string name="render_pro_mark">" ♛"</string>
     <!-- The Render bar's summary: quality · frame rate · where it is saved. -->
     <string name="render_summary">%1$s · %2$s · %3$s</string>
-    <string name="render_pro_title">Part of Pro</string>
-    <string name="render_pro_body">4K and 60 fps come with Pro. You can render this video now at the free limits instead: 1080p, 30 fps, the first minute, with the watermark.</string>
-    <string name="render_pro_unlock">Go Pro</string>
-    <string name="render_pro_free">Render free version</string>
     <string name="render_keep_title">Add it to My videos?</string>
     <string name="render_keep_body">My videos lists the video with its song and look, so you can find it, play it and share it again.</string>
     <string name="render_keep_yes">Add</string>

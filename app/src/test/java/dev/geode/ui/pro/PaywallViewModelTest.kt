@@ -10,7 +10,10 @@ import dev.geode.pro.BillingError
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FreeTier
 import dev.geode.pro.GetFeatureGateUseCase
+import dev.geode.pro.InMemoryPromptStore
+import dev.geode.pro.InMemoryShareBonusRepository
 import dev.geode.pro.PaywallNavigator
+import dev.geode.pro.PaywallPrompts
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.pro.ProductLoad
@@ -88,7 +91,9 @@ class PaywallViewModelTest {
         val trialStore = InMemoryTrialStore()
         val trial = StoredTrialRepository(trialStore, clock)
         val navigator = PaywallNavigator()
-        val viewModel = PaywallViewModel(billing, trial, GetFeatureGateUseCase(billing, trial), navigator)
+        val shareBonus = InMemoryShareBonusRepository()
+        val prompts = PaywallPrompts(InMemoryPromptStore(), navigator) { scope.testScheduler.currentTime }
+        val viewModel = PaywallViewModel(billing, trial, GetFeatureGateUseCase(billing, trial, shareBonus), navigator, shareBonus, prompts)
 
         init {
             // uiState is WhileSubscribed, as the screen collects it; keep a subscriber for the test.
@@ -184,7 +189,7 @@ class PaywallViewModelTest {
     fun `cancelling leaves the user free and dismiss clears the status`() =
         runTest(dispatcher) {
             val f = Fixture(this)
-            f.viewModel.open(PaywallTrigger.Onboarding)
+            f.viewModel.open(PaywallTrigger.TasteMilestone)
             advanceUntilIdle()
             f.billing.nextOutcome.value = FakePurchaseOutcome.CANCEL
 
@@ -266,7 +271,15 @@ class PaywallViewModelTest {
             f.billing.setOwned(true)
             advanceTimeBy(FreeTier.TRIAL_DURATION_MS * 2)
             val trial = StoredTrialRepository(f.trialStore, f.clock)
-            val fresh = PaywallViewModel(f.billing, trial, GetFeatureGateUseCase(f.billing, trial), f.navigator)
+            val fresh =
+                PaywallViewModel(
+                    f.billing,
+                    trial,
+                    GetFeatureGateUseCase(f.billing, trial, f.shareBonus),
+                    f.navigator,
+                    f.shareBonus,
+                    f.prompts,
+                )
             advanceUntilIdle()
 
             assertNull(f.navigator.request.value)
@@ -288,5 +301,44 @@ class PaywallViewModelTest {
             f.viewModel.setDebugOutcome(FakePurchaseOutcome.PENDING)
             advanceUntilIdle()
             assertEquals(FakePurchaseOutcome.PENDING, f.state.debug!!.nextOutcome)
+        }
+
+    @Test
+    fun `sharing from a locked style's paywall keeps that style, once`() =
+        runTest(dispatcher) {
+            val f = Fixture(this)
+            f.viewModel.open(PaywallTrigger.Feature(ProFeature.PREMIUM_STYLES, styleId = "glow_vortex"))
+            advanceUntilIdle()
+            assertEquals("glow_vortex", f.state.shareBonusStyleId)
+
+            f.viewModel.keepStyleForShare()
+            advanceUntilIdle()
+
+            assertNull(f.navigator.request.value)
+            assertTrue(
+                f.viewModel.gate.value
+                    .allowsStyle("glow_vortex"),
+            )
+            f.viewModel.open(PaywallTrigger.Feature(ProFeature.PREMIUM_STYLES, styleId = "black_hole"))
+            advanceUntilIdle()
+            assertNull("the bonus is once per install", f.state.shareBonusStyleId)
+            assertFalse(
+                f.viewModel.gate.value
+                    .allowsStyle("black_hole"),
+            )
+        }
+
+    @Test
+    fun `no share offer for Pro or for a paywall that names no style`() =
+        runTest(dispatcher) {
+            val f = Fixture(this)
+            f.viewModel.open(PaywallTrigger.Feature(ProFeature.CAST))
+            advanceUntilIdle()
+            assertNull(f.state.shareBonusStyleId)
+
+            f.billing.setOwned(true)
+            f.viewModel.open(PaywallTrigger.Feature(ProFeature.PREMIUM_STYLES, styleId = "glow_vortex"))
+            advanceUntilIdle()
+            assertNull(f.state.shareBonusStyleId)
         }
 }

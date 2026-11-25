@@ -38,8 +38,8 @@ enum class GeodeDestination(
 
 /**
  * The tabs of [GeodeDestination.STUDIO], in the order they show. Studio owns everything that makes
- * a video: [RENDER] makes a video of what is playing (open to free and trial users within
- * `pro/FreeTier`) and [MY_VIDEOS] lists every finished render and recorded take. Render comes first
+ * a video: [RENDER] makes a video of what is playing (Pro and the trial; a free user's Render opens
+ * the paywall) and [MY_VIDEOS] lists every finished render and recorded take. Render comes first
  * because it is where a first visit and every free user lands; the last tab used is kept across
  * restarts by `data/StudioPrefsStore`. There was a third tab, Edit, until the owner dropped video
  * editing (#227): [fromName] reads a name saved back then, or any unknown one, as Render.

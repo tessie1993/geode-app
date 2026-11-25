@@ -6,6 +6,8 @@ import dev.geode.audio.AudioFxLimits
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.billing.CachedEntitlement
 import dev.geode.billing.PrefsEntitlementStore
+import dev.geode.billing.PrefsPromptStore
+import dev.geode.billing.PrefsShareBonusRepository
 import dev.geode.billing.PrefsTrialStore
 import dev.geode.data.AppState
 import dev.geode.data.AppStateCodec
@@ -195,6 +197,17 @@ class PrefsSchemaTest {
                 PrefsTrialStore(it[PrefsEntitlementStore.PREFS_FILE]).saveStartedAt(1L)
                 PrefsTrialStore(it[PrefsEntitlementStore.PREFS_FILE]).saveEndNoticeShown()
                 PrefsTrialStore(it[PrefsEntitlementStore.PREFS_FILE]).saveLastSeen(1L)
+            },
+            Owner("$APP/billing/PrefsShareBonusRepository.kt", PrefsShareBonusRepository.PREF_KEYS) {
+                PrefsShareBonusRepository(it[PrefsEntitlementStore.PREFS_FILE]).grant("glow_vortex")
+            },
+            Owner("$APP/billing/PrefsPromptStore.kt", PrefsPromptStore.PREF_KEYS) {
+                PrefsPromptStore(it[PrefsEntitlementStore.PREFS_FILE]).run {
+                    saveSessions(1)
+                    saveVisualsMs(1L)
+                    saveMilestoneShown()
+                    saveStoppedAt(1L)
+                }
             },
             Owner("$DATA/PerformanceStore.kt", PerformanceStore.PREF_KEYS),
             Owner("$DATA/LookStore.kt", LookStore.PREF_KEYS),

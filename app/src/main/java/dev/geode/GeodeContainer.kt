@@ -44,6 +44,7 @@ import dev.geode.data.VisualsSettingsRepository
 import dev.geode.data.backup.BackupRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.data.releaseGrant
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -196,9 +197,14 @@ class GeodeContainer(
      * The UI's `PlayerSession`, built on Main before the first frame, reads the library prefs the
      * same way (`MusicLibraryRepository`), and billing, built with it, the Pro cache
      * (`PrefsEntitlementStore`).
+     *
+     * It also loads libgeode (`GeodeNative.ensureLoaded`, which the first `*Native` touch would otherwise
+     * run on Main) and opens the `general` file, so the settings repositories' `current()` is a lookup.
      */
     private fun warmPlaybackPrefs() {
         appScope.launch(Dispatchers.IO) {
+            GeodeNative.ensureLoaded()
+            prefsFiles.general
             prefsFiles.player
             prefsFiles.audioFx
             prefsFiles.library

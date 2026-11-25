@@ -33,7 +33,7 @@ import javax.inject.Inject
 enum class TourNav { LIBRARY, VISUALS, CUSTOMIZE, STUDIO }
 
 /**
- * What the tour draws. [navigate], [offerPro] and [replayNote] are events kept as state: the host
+ * What the tour draws. [navigate] and [replayNote] are events kept as state: the host
  * acts on each and hands it back, so none is lost to a rotation or played twice.
  */
 data class TourUiState(
@@ -42,7 +42,6 @@ data class TourUiState(
     val tip: GestureTip? = null,
     val replayNote: Boolean = false,
     val navigate: TourNav? = null,
-    val offerPro: Boolean = false,
     val progress: TourProgress = TourProgress(),
 )
 
@@ -171,10 +170,6 @@ class TourViewModel
             _uiState.update { it.copy(navigate = null) }
         }
 
-        fun onProOffered() {
-            _uiState.update { it.copy(offerPro = false) }
-        }
-
         fun onReplayNoteShown() {
             _uiState.update { it.copy(replayNote = false) }
         }
@@ -223,7 +218,6 @@ class TourViewModel
             save { Tour.ended(it, ended, skipped) }
             _uiState.update {
                 it.copy(
-                    offerPro = it.offerPro || Tour.offersPro(ended, skipped),
                     replayNote = it.replayNote || (skipped && !ended.replay),
                 )
             }

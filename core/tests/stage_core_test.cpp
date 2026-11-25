@@ -126,7 +126,12 @@ struct Client final : StageClient {
     bool serviceReady = false;
     int framesAtService = -1;
 
-    void surfaceCreated() override { created++; }
+    int64_t appliedAtCreated = -1;
+    int64_t appliedAtFirstFrame = -1;
+    void surfaceCreated() override {
+        created++;
+        appliedAtCreated = port.applied;
+    }
     void surfaceChanged(int w, int h) override {
         changed++;
         width = w;
@@ -135,6 +140,7 @@ struct Client final : StageClient {
     void frameTime(int64_t vsyncNs) override { vsyncTimes.push_back(vsyncNs); }
     void framePresent(int64_t presentNs) override { presentTimes.push_back(presentNs); }
     uint32_t frame(float pacedFps, float capFps) override {
+        if (frames == 0) appliedAtFirstFrame = port.applied;
         frames++;
         paced = pacedFps;
         cap = capFps;
@@ -403,6 +409,22 @@ void governedCap() {
     check(r.port.vsyncCapFps == -1.0f && r.port.rate == 0.0f, "letting go follows the device again");
 }
 
+// Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the
+// shell's Main thread waiting on shader warm-up or a blocked swap.
+void aWindowIsAcknowledgedBeforeTheClientOrAFrame() {
+    Rig r;
+    r.core.apply(command(kStageWindow, 1080, 2340, 0.0f, 0.0f, 1, &windowA), r.now);
+    r.core.apply(command(kStageMode, static_cast<int32_t>(RunMode::Animated)), r.now);
+    r.core.step(r.now);
+    check(r.client->created == 1 && r.client->appliedAtCreated == 1, "a new window is acknowledged before the client is told of it");
+    check(r.port.surfaceAtAck, "with its surface already made");
+    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
+    check(r.client->frames == 1 && r.client->appliedAtFirstFrame == 1, "and before the first frame");
+
+    r.send(command(kStageWindowGone, 0, 0, 0.0f, 0.0f, 2));
+    check(r.port.applied == 2 && !r.port.surfaceAtAck, "a window that went is acknowledged with its surface gone");
+}
+
 void endsOutOfTurn() {
     Rig r;
     r.show();
@@ -429,6 +451,7 @@ int main() {
     pauseAndLoss();
     serviceAndQuit();
     governedCap();
+    aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();
     if (failures) {
         std::fprintf(stderr, "%d stage core check(s) failed\n", failures);

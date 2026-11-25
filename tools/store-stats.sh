@@ -10,8 +10,7 @@ styles=$(grep -c '^style|' "$cat")
 shader=$(grep -c '^style|[^|]*|SHADER|' "$cat")
 families=$(grep -c '^family|' "$cat")
 family_styles=$(grep '^family|' "$cat" | cut -d'|' -f5 | tr ',' '\n' | grep -c .)
-neon_pro=$(grep -A2 'val neonProIds' app/src/main/java/dev/geode/pro/FreeTier.kt | grep -o '"[a-z_]*"' | wc -l)
-free=$((shader - (family_styles - families) - neon_pro))
+free=$(sed -n '/val freeStyleIds/,/)$/p' app/src/main/java/dev/geode/pro/FreeTier.kt | grep -cE '^ *(NEON_OPENER|"[a-z_]+"),')
 loose=$((shader - family_styles))
 generic=$(awk '/genericLooks\(\) \{/,/return kLooks/' core/viz/styles/catalogue/CataloguePresets.cpp | grep -c '^        {"')
 variants=$(awk '/variants\(\) \{/,/return kVariants/' core/viz/styles/catalogue/CataloguePresets.cpp | grep -c '^        {"')
@@ -22,7 +21,7 @@ echo "  by kind                   $(grep '^style|' "$cat" | cut -d'|' -f3 | sort
 # A family carries its own count: "10 x 12, 3 x 10" is ten families of twelve and three of ten.
 family_sizes=$(grep '^family|' "$cat" | cut -d'|' -f5 | awk -F, '{print NF}' | sort -rn | uniq -c | awk '{printf "%s%d x %d", (NR > 1 ? ", " : ""), $1, $2}')
 echo "style families              $families ($family_styles styles: $family_sizes)"
-echo "free styles                 $free (shader $shader - family non-openers $((family_styles - families)) - neon Pro $neon_pro)"
+echo "free styles                 $free (FreeTier.freeStyleIds, plus one a share earns)"
 echo "Pro-only styles             $((styles - free))"
 echo "bundled looks (presets)     $((loose * generic + variants)) ($generic generic x $loose loose shader styles + $variants hand-tuned)"
 echo "Customize categories        $(awk '/^enum class CustomizeCategory/,/;/' app/src/main/java/dev/geode/ui/*.kt | grep -cE '^\s+[A-Z_]+[(,]' || true)"
@@ -31,7 +30,7 @@ echo "export codecs               $(awk '/^enum class ExportCodec/,/;/' app/src/
 echo "export frame rates          ($(grep -oE 'kOptions\[[0-9]\] == [0-9]+' core/shell/ExportFps.cpp | grep -oE '[0-9]+$' | paste -sd, | sed 's/,/, /g'))"
 echo "export aspect ratios        $(awk '/^enum class ExportRatio/,/^}/' app/src/main/java/dev/geode/export/VideoExporter.kt | grep -oE '"[0-9]+:[0-9]+"' | tr -d '"' | paste -sd' ')"
 echo "export destinations         $(awk '/^enum class ExportDestination/,/;/' app/src/main/java/dev/geode/data/ExportPrefs.kt | grep -oE '^\s+[A-Z]+,' | tr -d ' ,' | paste -sd' ')"
-echo "free export cap             $(grep -oE 'FREE_MAX_SHORT_SIDE[^=]*= *[0-9_]+' app/src/main/java/dev/geode/pro/FreeTier.kt | grep -oE '[0-9_]+$')p, $(grep -oE 'FREE_MAX_EXPORT_MS[^=]*= *[0-9_L* ]+' app/src/main/java/dev/geode/pro/FreeTier.kt | sed -E 's/.*= *//') ms"
+echo "export                      Pro and the trial only; the trial is capped at $(grep -oE 'FREE_MAX_EXPORT_MS[^=]*= *[0-9_L* ]+' app/src/main/java/dev/geode/pro/FreeTier.kt | sed -E 's/.*= *//') ms with the watermark"
 echo "minSdk / targetSdk          $(grep -oE 'minSdk = [0-9]+' app/build.gradle.kts | grep -oE '[0-9]+') / $(grep -oE 'targetSdk = [0-9]+' app/build.gradle.kts | grep -oE '[0-9]+')"
 echo "version base / code base    $(val geode.versionBase gradle.properties) / $(val geode.versionCodeBase gradle.properties)"
 echo "permissions                 $(grep -c '<uses-permission' app/src/main/AndroidManifest.xml)"

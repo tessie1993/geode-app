@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -251,7 +252,9 @@ fun PaywallScreen(
             Modifier.fillMaxSize().background(ProColors.background)
         },
     ) {
-        Column(Modifier.fillMaxSize()) {
+        // Above the keyboard (edge to edge, the window no longer resizes for it), so the tester-code
+        // field scrolls into view when focused instead of sitting under the keys.
+        Column(Modifier.fillMaxSize().imePadding()) {
             // The offer scrolls; the price and the button stay pinned below it (PurchaseBar), so
             // the one thing the screen is for is never below the fold.
             Column(

@@ -32,6 +32,7 @@ bool needsTempo(int row) { return row == static_cast<int>(Moment::Beat) || row =
 // The event's strength on the frame it comes.
 float triggerValue(int row, const ReactSignals& signals) {
     if (row == static_cast<int>(Moment::KeyChange)) return signals.keyChange();
+    if (row == static_cast<int>(Moment::Collide)) return 0.0f;  // the picture's event: Bank::hear gives its strength
     return signals.value(hand::trigger(static_cast<Moment>(row)));
 }
 
@@ -54,6 +55,7 @@ float levelOf(int row, const ReactSignals& signals) {
         case Moment::Onset: return signals.value(S::OnsetEnv);
         case Moment::LoudnessPeak: return signals.value(S::Surge);
         case Moment::KeyChange: return signals.keyChange();
+        case Moment::Collide: return 0.0f;
     }
     return 0.0f;
 }
@@ -306,6 +308,16 @@ void Bank::reset() {
     status_.lit.fill(0.0f);
     status_.active = 0;
     activeNow_ = 0;
+    heardMask_ = 0;
+    heardStrength_.fill(0.0f);
+}
+
+void Bank::hear(Moment moment, float strength) {
+    const int row = static_cast<int>(moment);
+    if (row < 0 || row >= kRows) return;
+    const size_t k = static_cast<size_t>(row);
+    heardMask_ |= 1u << row;
+    heardStrength_[k] = std::max(heardStrength_[k], std::clamp(finiteOr(strength, 0.0f), 0.0f, 1.0f));
 }
 
 void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals, std::uint32_t moments, ReactionEngine& engine) {
@@ -322,8 +334,25 @@ void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals,
         came[k] = c;
         strength[k] = std::clamp(finiteOr(triggerValue(row, signals), 0.0f), 0.0f, 1.0f);
         level[k] = std::clamp(finiteOr(levelOf(row, signals), 0.0f), 0.0f, 1.0f);
+        // An event the picture made since the last step comes like a moment of the music; its level is its strength.
+        if (((heardMask_ >> row) & 1u) != 0u) {
+            c = true;
+            strength[k] = std::max(strength[k], heardStrength_[k]);
+            level[k] = std::max(level[k], heardStrength_[k]);
+            came[k] = true;
+        }
         status_.lit[k] *= fall;
         if (c) status_.lit[k] = 1.0f;
+    }
+    heardMask_ = 0;
+    heardStrength_.fill(0.0f);
+    // Where the sound puts things: the pitch heard as a height, the pan as a place across (the middle when none).
+    const float pitch = signals.value(ReactSource::PitchConfidence) > 0.0f
+                            ? std::clamp(finiteOr(signals.value(ReactSource::PitchHeight), 0.5f), 0.0f, 1.0f)
+                            : 0.5f;
+    const float pan = std::clamp(0.5f + 0.5f * finiteOr(signals.value(ReactSource::StereoPan), 0.0f), 0.0f, 1.0f);
+    for (ResponseKindHandler* handler : handlers_) {
+        if (handler != nullptr) handler->tick(dt, pitch, pan, beatSeconds(bpm));
     }
     activeNow_ = 0;
     for (int i = 0; i < config_.count; ++i) {

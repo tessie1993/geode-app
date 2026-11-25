@@ -118,6 +118,15 @@ public:
         return slot;
     }
 
+    // Sets the strength of the Field in `slot`, held as a spawn's is (a Swirl keeps its sign). For a response that
+    // follows a level. False for a free slot or a number that is not finite.
+    bool setStrength(int slot, float strength) {
+        if (!alive(slot) || !std::isfinite(strength)) return false;
+        Spawn& q = slots_[static_cast<size_t>(slot)].sp;
+        q.strength = q.kind == Kind::Swirl ? std::clamp(strength, -kMaxStrength, kMaxStrength) : std::clamp(strength, 0.0f, kMaxStrength);
+        return true;
+    }
+
     // Ages and drifts every Field by `dt` seconds; one past its life is gone. A non-finite or non-positive dt
     // changes nothing.
     void step(float dt) {

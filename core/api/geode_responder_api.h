@@ -18,8 +18,8 @@ extern "C" {
    on a new style (geode_resp_default_text), and a row that is off also holds back the style's own routes on
    its events, which are listed on the row as "style default" responses and edited with the route calls. */
 
-#define GEODE_RESP_ROWS 15
-#define GEODE_RESP_KINDS 16 /* a response's kind: 0 moves a parameter, 1..4 are reserved for Things, Fronts, Fields and Clock control */
+#define GEODE_RESP_ROWS 16
+#define GEODE_RESP_KINDS 16 /* a response's kind: 0 moves a parameter, 1 Things, 2 Fronts, 3 Fields, 4 Clock control (their kind-params are P0..P5, see viz/things/ThingResponse.hpp and its siblings) */
 
 /* A response's fields, in geode_resp_values' order and as geode_resp_edit's `field`. Enums travel as ordinals:
    strength is the curve (0 linear, 1 exponential, 2 logarithmic, 3 smooth), unit 0 seconds / 1 beats, drive
@@ -68,7 +68,7 @@ extern "C" {
 
 /* The saved text of a new style: every row off, the rows holding back the style's own routes. */
 GEODE_API int geode_resp_default_text(char* out, int capacity);
-/* A row's saved name (KICK, SNARE, … KEY_CHANGE), static; NULL for a row there is none of. */
+/* A row's saved name (KICK, SNARE, … KEY_CHANGE, COLLIDE), static; NULL for a row there is none of. */
 GEODE_API const char* geode_resp_row_name(int row);
 
 /* Every row's GEODE_RESP_ROW_VALUES, in row order, for the text (NULL: a new style's), the style and the hand mask. */

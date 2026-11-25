@@ -14,7 +14,7 @@ object ResponderNative {
     /** The saved text of a new style: every row off. */
     external fun responderDefaultText(): String
 
-    /** A row's saved name (KICK … KEY_CHANGE), or null for a row there is none of. */
+    /** A row's saved name (KICK … KEY_CHANGE, COLLIDE), or null for a row there is none of. */
     external fun responderRowName(row: Int): String?
 
     /**
@@ -57,7 +57,7 @@ object ResponderNative {
     external fun responderStatus(handle: Long): FloatArray
 
     // Mirrors of GEODE_RESP_*.
-    const val RESP_ROWS: Int = 15
+    const val RESP_ROWS: Int = 16
     const val RESP_FIELDS: Int = 20
     const val RESP_LIST_VALUES: Int = 22
     const val RESP_ROW_VALUES: Int = 4
@@ -89,11 +89,11 @@ object ResponderNative {
     const val RESP_EDIT_CLEAR: Int = 4
 
     // The status values after the rows' lights.
-    const val RESP_STATUS_COST: Int = 15
-    const val RESP_STATUS_BUDGET: Int = 16
-    const val RESP_STATUS_LEVEL: Int = 17
-    const val RESP_STATUS_ACTIVE: Int = 18
-    const val RESP_STATUS_DROPPED: Int = 19
-    const val RESP_STATUS_ROUTES: Int = 20
-    const val RESP_STATUS_VALUES: Int = 21
+    const val RESP_STATUS_COST: Int = 16
+    const val RESP_STATUS_BUDGET: Int = 17
+    const val RESP_STATUS_LEVEL: Int = 18
+    const val RESP_STATUS_ACTIVE: Int = 19
+    const val RESP_STATUS_DROPPED: Int = 20
+    const val RESP_STATUS_ROUTES: Int = 21
+    const val RESP_STATUS_VALUES: Int = 22
 }

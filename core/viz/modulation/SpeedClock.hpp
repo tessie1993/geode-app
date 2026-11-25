@@ -37,10 +37,14 @@ struct FlowClock {
     double time = 0.0;
 
     void reset() { phase = time = 0.0; }
+    // `dt` is the scene clock's step (Clock control): it holds at 0 on a freeze and is negative on a reverse, and
+    // both clocks follow it, wrapping into 0..kWrapSeconds either way.
     void step(float speed, float dt) {
-        const float d = dt < 0.0f ? 0.0f : (dt > 0.1f ? 0.1f : dt);
+        const float d = std::isfinite(dt) ? dt : 0.0f;
         phase = std::fmod(phase + d * kBaseHz, static_cast<double>(kWrapSeconds));
         time = advance(time, speed, kBaseHz, d, kWrapSeconds);
+        if (phase < 0.0) phase += static_cast<double>(kWrapSeconds);
+        if (time < 0.0) time += static_cast<double>(kWrapSeconds);
     }
 };
 

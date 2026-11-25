@@ -53,6 +53,9 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       pcmSideScratch_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
     resolver_.registerResponseKind(responder::kClock, &clockKind_);
+    resolver_.registerResponseKind(responder::kThing, &thingKind_);
+    resolver_.registerResponseKind(responder::kFront, &frontKind_);
+    resolver_.registerResponseKind(responder::kField, &fieldKind_);
 }
 
 Renderer::~Renderer() = default;

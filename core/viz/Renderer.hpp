@@ -31,10 +31,13 @@
 #include "viz/passes/DivePass.hpp"
 #include "viz/passes/FrontPass.hpp"
 #include "viz/fronts/FrontField.hpp"
+#include "viz/fronts/FrontResponse.hpp"
 #include "viz/passes/ThingPass.hpp"
 #include "viz/passes/FieldPass.hpp"
+#include "viz/fields/FieldResponse.hpp"
 #include "viz/fields/FieldSet.hpp"
 #include "viz/things/ThingPool.hpp"
+#include "viz/things/ThingResponse.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/GlHandle.hpp"
@@ -622,6 +625,11 @@ private:
     // signed move this frame (stepped in beginFrame, so a response fired in a frame takes hold on the next).
     sceneclock::SceneClock sceneClock_;
     sceneclock::ClockKind clockKind_{sceneClock_};
+    // The picture kinds of the Event Responder (viz/fronts, viz/things, viz/fields: FrontResponse and its siblings),
+    // over the three systems above; registered with the resolver in the constructor.
+    fronts::FrontKind frontKind_{fronts_};
+    things::ThingKind thingKind_{things_};
+    fields::FieldKind fieldKind_{fields_};
     float sceneStep_ = 0.0f;
     // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
     // they were drawn at. redrawFrames_ lets a request the params do not carry through.

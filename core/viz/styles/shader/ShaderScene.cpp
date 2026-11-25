@@ -88,8 +88,8 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const float clockRate = clocked_ ? clockRate_ : 1.0f;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * clockStep, static_cast<double>(kTimeWrapSeconds));
     if (shaderTime_ < 0.0) shaderTime_ += static_cast<double>(kTimeWrapSeconds);
-    rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    flow_.step(p.speed, dt);
+    rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * clockStep, kTwoPi);
+    flow_.step(p.speed, clockStep);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed * clockRate, kTimeWrapSeconds);
     if (pool_) {

@@ -893,6 +893,7 @@ std::uint32_t MomentWatch::step(const std::array<float, kMomentCount>& triggers)
 std::uint32_t MomentWatch::step(const ReactSignals& signals) {
     std::array<float, kMomentCount> triggers{};
     for (int m = 0; m < kMomentCount; ++m) {
+        if (m == static_cast<int>(Moment::Collide)) continue;  // the picture's event: no trigger in the sound
         triggers[static_cast<size_t>(m)] =
             m == static_cast<int>(Moment::KeyChange) ? signals.keyChange() : signals.value(hand::trigger(static_cast<Moment>(m)));
     }

@@ -988,6 +988,9 @@ void Renderer::drawThings(const SceneParams& p, float dt) {
     const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
     things_.setAspect(aspect);
     things_.step(dt, &fields_);
+    // The contacts of this step come back to the responder as the Collide moment, heard on the next frame.
+    const float collided = thingKind_.drainCollisions();
+    if (collided > 0.0f) resolver_.hearMoment(Moment::Collide, collided);
     if (!things_.live()) return;
     const things::Packed packed = things_.pack();
     std::array<float, 3 * things::kMaxThings> tint{};

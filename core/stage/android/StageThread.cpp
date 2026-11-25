@@ -42,7 +42,7 @@ std::shared_ptr<StageThread> StageThread::start(Kind kind, std::shared_ptr<Stage
 }
 
 StageThread::StageThread(Kind kind, std::shared_ptr<StageClient> client, float capFps)
-    : inbox_(std::make_shared<Inbox>()), startCap_(capFps), core_(kind, std::move(client), capFps, *this) {
+    : inbox_(std::make_shared<Inbox>()), core_(kind, std::move(client), capFps, *this) {
     eventFd_ = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
 }
 
@@ -167,7 +167,7 @@ void StageThread::run() {
         }
         ALooper* looper = ALooper_prepare(0);
         inbox_->bind(looper);
-        sink_ = VsyncThread::process().attach(inbox_, startCap_);
+        sink_ = VsyncThread::process().attach(inbox_);
         loop();
     } catch (...) {
         GEODE_LOGE(kTag, "stage thread ended on an exception");
@@ -252,7 +252,7 @@ void StageThread::setFrameRate(void* window, float fps) {
 
 void StageThread::vsyncRun(bool on) { VsyncThread::process().run(sink_, on); }
 
-void StageThread::vsyncCap(float capFps) { VsyncThread::process().setCap(sink_, capFps); }
+bool StageThread::gpuBusy() { return egl_.previousFrameBusy(); }
 
 void StageThread::frameDone() { VsyncThread::frameDone(sink_); }
 

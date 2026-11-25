@@ -194,18 +194,12 @@ GEODE_API const char* geode_viz_look_defaults(void);
    changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
    quality (an export). */
 GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
-/* Settings › Performance's "Adapt to frame time" (core/viz/frame/FrameGovernor), 0 or 1, any thread: while frames
-   miss their budget the renderer steps render scale, march scale, post FX and then the frame rate down under the
-   user's own values, and back up once they keep up. Off until set; an export and a recording are never stepped. */
-GEODE_API void        geode_viz_set_adaptive(geode_viz*, int on);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
-   GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
-   only a fixed rate paces it, Cast's) to the renderer; the latched quality; a new surface's first frame
-   cleared to black and nothing else; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
-   hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
+   0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
+   only a fixed rate paces it, Cast's) to the renderer; the latched quality; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
+   hears nothing); geode_viz_render at CLOCK_MONOTONIC.
    Answers the GEODE_FRAME_* events; the shell acts on a bit only when it is set. 0 for a null handle. */
-#define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
 #define GEODE_FRAME_LIQUID_CHANGED  0x4  /* Liquid mode changed: geode_viz_liquid_mode */
 #define GEODE_FRAME_ERROR_CHANGED   0x8  /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
 #define GEODE_FRAME_DIRECTOR_MOMENT 0x20 /* director moments wait: geode_viz_take_director_style_moments */
@@ -1478,11 +1472,6 @@ GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, fl
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* "Adapt to frame time" as the live surface that drew last runs now (core/viz/frame/FrameGovernor), for the tab's
-   "Now: …" line: the paced fps (0 = free-running), render scale, march scale, post FX (0/1) and the steps taken
-   (-1 = no live frame yet). Returns the count, 0 when out is too small. Any thread. */
-#define GEODE_PERF_ADAPT_NOW_FLOATS 5
-GEODE_API int             geode_perf_adapt_now(float* out, int capacity);
 /* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
@@ -1659,22 +1648,6 @@ GEODE_API int             geode_stage_presents(unsigned flags);
 GEODE_API int             geode_stage_step_target(int page, unsigned flags, int look_count);
 GEODE_API int             geode_stage_step_index(const unsigned char* open, int count, int here, int step);
 
-/* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
-#define GEODE_PACER_STATE_LONGS 8
-/* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
-   Surface.setFrameRate when it moves. */
-#define GEODE_PACER_CAP_SLOT 6
-/* The slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync): the cap, or
-   the next whole divide of the panel under it (45 fps for a 60 fps cap on a 90 Hz panel). The shell passes
-   it to geode_viz_frame as paced_fps. */
-#define GEODE_PACER_PACED_SLOT 7
-/* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync). GEODE_LIVE_FPS_FOLLOW follows the panel: every vsync of the rate the display runs now
-   (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
-GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
-/* A start after a stop: forget the gap, keep the panel's period. */
-GEODE_API void            geode_pacer_resume(long long* state);
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
    spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface

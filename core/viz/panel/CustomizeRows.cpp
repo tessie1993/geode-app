@@ -84,7 +84,6 @@ const std::vector<Control>& table() {
         {"Bass pump", W::Check, "fluidBassPump", nullptr, kOwn, R::Always, false},
         {"Treble sparkle", W::Check, "fluidSparkle", nullptr, kOwn, R::Always, false},
         {"Fluid quality", W::Pick, "fluidQuality", nullptr, kOwn, R::Always, false},
-        {"Lower the quality when the phone struggles", W::Check, "fluidAutoQuality", nullptr, kOwn, R::Always, false},
         // Motion
         {"Speed", W::Slider, "speed", nullptr, kOwn, R::Always, false},
         {"Zoom", W::Slider, "zoom", nullptr, kOwn, R::Always, false},

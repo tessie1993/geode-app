@@ -62,9 +62,12 @@ bool RecordTap::start(void* nativeWindow, int width, int height) {
         if (surface == EGL_NO_SURFACE) continue;
         // The one real test of "this context draws into that surface" is to make them current together.
         const bool fits = eglMakeCurrent(display, surface, read, context) == EGL_TRUE;
+        // The swap interval belongs to the surface that is current when it is set: the encoder's, which must not wait
+        // for a vsync, set while it is current and before the stage's own surface is made current again. Set after
+        // that it turned the stage's own vsync off, for good.
+        if (fits) eglSwapInterval(display, 0);
         eglMakeCurrent(display, draw, read, context);
         if (fits) {
-            eglSwapInterval(display, 0);
             display_ = display;
             surface_ = surface;
             width_ = width;

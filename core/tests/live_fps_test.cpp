@@ -1,20 +1,17 @@
 // Host-side checks for core/viz/frame/LiveFps (owner decision of 2026-11-12, "Offer 90 and 120 in
 // Performance"): which live frame-rate caps Settings › Performance offers on a display, how a stored cap
-// snaps to that display, and the cap the pacer paces to. Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml) with the
+// snaps to that display. Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml) with the
 // system compiler; no GL.
 //
 // What is pinned: 30 and 60 on every display and 60 the default; 90 and 120 only where a refresh rate the
-// display can switch to shows them evenly (itself or a whole multiple, within a hertz); a stored cap
-// snapped to the nearest offered, the lower on a tie; a cap paced as it is, the pacer drawing it on 120
-// and 90 Hz panels; and Follow device: every vsync of the panel the system chose (144 included), its rate
-// in the paced slot.
+// display can switch to shows them evenly (itself or a whole multiple, within a hertz); and a stored cap
+// snapped to the nearest offered, the lower on a tie.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
 
 #include "viz/frame/LiveFps.hpp"
-#include "viz/frame/Pacer.hpp"
 #include "viz/frame/Quality.hpp"
 
 namespace frame = geode::viz::frame;
@@ -40,7 +37,7 @@ void sixtyIsAlwaysOffered() {
     check(choices({}) == std::vector<int>({30, 60, -1}), "an unknown display offers 30, 60 and Follow device");
     check(frame::liveFpsChoices(nullptr, 3, nullptr, 0) == 3, "a null rate list is an unknown display, and counting needs no array");
     check(choices({60.0f}) == std::vector<int>({30, 60, -1}), "a 60 Hz phone offers 30 and 60 only");
-    check(choices({48.0f}) == std::vector<int>({30, 60, -1}), "even a panel under 60 keeps 60: the pacer draws every vsync");
+    check(choices({48.0f}) == std::vector<int>({30, 60, -1}), "even a panel under 60 keeps 60: the stage draws every vsync");
     check(frame::kLiveFpsDefault == 60, "the default stays 60");
     // Every Settings › Performance tier is a cap every display offers, so picking a tier never shows a value
     // the tab cannot.
@@ -94,84 +91,12 @@ void aStoredCapSnapsToTheDisplay() {
     check(frame::kLiveFpsFollow == -1, "Follow is -1: an older build reads a negative cap as none, every vsync");
 }
 
-void aCapIsPacedAsItIs() {
-    frame::PacerState s;
-    for (const float cap : {120.0f, 90.0f, 60.0f, 45.0f, 30.0f, 24.0f, 15.0f}) {
-        check(frame::pacerCapFps(s, cap) == cap, "a cap is paced as it is");
-    }
-    check(frame::pacerCapFps(s, 0.0f) == 0.0f && frame::pacerCapFps(s, NAN) == 0.0f && frame::pacerCapFps(s, INFINITY) == 0.0f &&
-              frame::pacerCapFps(s, -60.0f) == 0.0f,
-          "a free-running surface stays free");
-}
-
-// Draws `seconds` of a panel at `panelHz` under `cap`; returns how many frames the second half drew per second.
-int drawnPerSecond(float panelHz, float cap, int seconds = 2) {
-    frame::PacerState p;
-    const double period = 1e9 / panelHz;
-    const int vsyncs = static_cast<int>(std::lround(panelHz * seconds));
-    int drawn = 0;
-    for (int i = 0; i < vsyncs; ++i) {
-        const auto t = 1'000'000'000 + static_cast<int64_t>(std::llround(period * i));
-        if (frame::Pacer::onVsync(p, t, cap) > 0.0 && i >= vsyncs / 2) drawn++;
-    }
-    return drawn * 2 / seconds;
-}
-
-void thePacerDrawsTheCap() {
-    check(drawnPerSecond(120.0f, 120.0f) == 120, "120 on a 120 Hz panel draws every vsync");
-    check(drawnPerSecond(90.0f, 90.0f) == 90, "90 on a 90 Hz panel draws every vsync");
-    // A panel held at 120 Hz cannot divide to 90 evenly and draws the next whole divide, 60.
-    check(drawnPerSecond(120.0f, 90.0f) == 60, "90 on a 120 Hz mode: 60");
-    check(drawnPerSecond(60.0f, 120.0f) == 60, "a 120 cap the panel cannot reach draws the panel's 60");
-}
-
-// One Follow device surface: its pacer state and the clock its vsyncs arrive on.
-struct Follow {
-    frame::PacerState p;
-    double tNs = 1e9;
-
-    // `seconds` of a panel at `panelHz`; returns how many frames the last second drew. The cap is what
-    // geode_pacer_on_vsync paces each vsync to.
-    int run(double panelHz, int seconds) {
-        const double period = 1e9 / panelHz;
-        const int vsyncs = static_cast<int>(std::lround(panelHz * seconds));
-        const int lastSecond = vsyncs - static_cast<int>(std::lround(panelHz));
-        int drawn = 0;
-        for (int i = 0; i < vsyncs; ++i) {
-            tNs += period;
-            const float cap = frame::pacerCapFps(p, static_cast<float>(frame::kLiveFpsFollow));
-            if (frame::Pacer::onVsync(p, static_cast<int64_t>(std::llround(tNs)), cap) > 0.0 && i >= lastSecond) drawn++;
-        }
-        return drawn;
-    }
-};
-
-// Follow device: every vsync of the panel the system chose, its real rate in the paced slot.
-void followDeviceDrawsThePanelsOwnRate() {
-    Follow f;
-    check(frame::pacerCapFps(f.p, -1.0f) == 0.0f, "before the panel is measured Follow draws every vsync");
-    check(f.run(120.0, 2) == 120, "a 120 Hz panel: 120 frames a second");
-    check(f.p.divisor == 1 && f.p.pacedMilliHz == 120'000, "every vsync, and the paced rate says 120 for the target");
-    // The system changes the panel (battery saver, Smooth display off): Follow follows it.
-    check(f.run(60.0, 3) == 60 && f.p.pacedMilliHz == 60'000, "the panel drops to 60: 60 frames a second");
-    check(f.run(90.0, 3) == 90 && f.p.pacedMilliHz == 90'000, "a 90 Hz mode: 90");
-
-    Follow odd;
-    check(odd.run(144.0, 2) == 144, "an odd 144 Hz panel draws every vsync, never an uneven divide");
-    check(odd.p.divisor == 1 && odd.p.pacedMilliHz == 144'000, "and reads as 144");
-
-    check(Follow().run(60.0, 2) == 60, "a 60 Hz phone follows at 60");
-}
-
 }  // namespace
 
 int main() {
     sixtyIsAlwaysOffered();
     highRatesOnlyWhereTheDisplayShowsThem();
     aStoredCapSnapsToTheDisplay();
-    aCapIsPacedAsItIs();
-    thePacerDrawsTheCap();
-    followDeviceDrawsThePanelsOwnRate();
     if (failures == 0) std::printf("live_fps_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

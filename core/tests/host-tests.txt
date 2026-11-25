@@ -268,17 +268,14 @@ stage_step_test | stub | core/tests/stage_step_test.cpp core/api/geode_stage_ste
 style_pick_test | stub | core/tests/style_pick_test.cpp core/api/geode_style_pick_api.cpp |
 # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for its own time, read once per renderer.
 transition_choice_test | core | core/tests/transition_choice_test.cpp |
-# The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
-pacer_test | core | core/tests/pacer_test.cpp |
-# Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it, the cap the pacer paces to.
+# The times a frame is read and shown at: the cap a surface runs at, where the sound is read, the swap's stamp.
+present_time_test | core | core/tests/present_time_test.cpp |
+# Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it.
 live_fps_test | core | core/tests/live_fps_test.cpp |
-# Settings › Performance's "Adapt to frame time": render scale, march, post FX, then the frame rate last, climbing back in reverse after the dwell, never above the user's settings, off/export/record pass through, a new style starts over.
-frame_governor_test | core | core/tests/frame_governor_test.cpp |
 # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
-# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate restated, the client's service, a thread ending out of turn.
-stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp \
-    core/stage/StagePacing.cpp |
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the client's service, a thread ending out of turn.
+stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |
 # The look snapshot a renderer is handed whole: only the parts that differ reach it, all on a new one; its defaults.
 look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
 # A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
@@ -287,8 +284,10 @@ live_client_test | mt | core/tests/live_client_test.cpp core/stage/LiveClient.cp
 work_hint_test | core | core/tests/work_hint_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 command_queue_test | mt | core/tests/command_queue_test.cpp |
-# The stage's pacer on the vsync thread: the same divides and dt as the bare pacer at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
-stage_pacing_test | core | core/tests/stage_pacing_test.cpp core/stage/StagePacing.cpp |
+# The stage's vsync callback on the vsync thread: start and stop, one callback posted, a lapse once stopped.
+stage_pacing_test | core | core/tests/stage_pacing_test.cpp |
+# The stage's vsync rule: draw every vsync unless the last frame is in flight (CPU or GPU fence), no memory, the frame-rate hint for the window, the presentation rate from its interval.
+vsync_rule_test | core | core/tests/vsync_rule_test.cpp |
 # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
 renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |
 # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.

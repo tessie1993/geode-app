@@ -214,7 +214,7 @@ object SoundNative {
         nowMs: Long,
     ): Long
 
-    /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
+    /** A surface's stored fps choice as the frame-rate hint it states: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
 
     /** Whether the wallpaper's [zoom] (0 none, 1 fully out behind the shade or recents) covers it ([SURFACE_COVERED]). */

@@ -5,9 +5,9 @@
 // What is pinned: each command's lifecycle event (window, window gone, size, mode, pause and resume, redraw, cap,
 // quit), the window references (one release per hand-over, replaced, gone, discarded or closed), the hand-over's
 // acknowledgement only after the old surface is gone, a vsync's frame drawn only while the vsync runs and a frame
-// can be drawn, the frame-rate preference restated for a new window, a new size and a new cap, the cap "Adapt to
-// frame time" asks for after a frame handed to the pacer and the window under the user's own, the client's
-// service between frames, a lost context forgotten with none current, and a thread ending out of turn still
+// can be drawn, the frame-rate preference restated for a new window, a new size and a new cap and never by a
+// frame, a vsync skipped while the GPU has not finished the last frame (and drawn again the moment it has), the
+// presentation rate read from the vsync's interval, the client's service between frames, a lost context forgotten with none current, and a thread ending out of turn still
 // releasing the client once and freeing everything.
 #include <cstdint>
 #include <cstdio>
@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "stage/StageCore.hpp"
-#include "stage/StagePacing.hpp"
+#include "stage/VsyncRule.hpp"
 
 using namespace geode::stage;
 
@@ -44,7 +44,8 @@ struct Port final : StagePort {
     float rate = -1.0f;
     int rateCalls = 0;
     bool vsync = false;
-    float vsyncCapFps = -1.0f;
+    bool gpuBusyNow = false;  // the last swapped frame's fence has not signalled
+    int gpuAsks = 0;
     int64_t applied = 0;
     bool surfaceAtAck = false;
     int frameDones = 0;
@@ -104,7 +105,10 @@ struct Port final : StagePort {
         rateCalls++;
     }
     void vsyncRun(bool on) override { vsync = on; }
-    void vsyncCap(float capFps) override { vsyncCapFps = capFps; }
+    bool gpuBusy() override {
+        gpuAsks++;
+        return gpuBusyNow;
+    }
     void windowApplied(int64_t sequence) override {
         applied = sequence;
         surfaceAtAck = surfaceOn != nullptr;
@@ -116,8 +120,8 @@ struct Client final : StageClient {
     Port& port;
     int created = 0, changed = 0, frames = 0, trims = 0, losses = 0, releases = 0, services = 0;
     int width = 0, height = 0;
+    int restarts = 0;
     float paced = -1.0f, cap = -1.0f;
-    float governed = 0.0f;  // the cap the governor asks for after each frame, 0 for none
     uint32_t nextEvents = 0;
     std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
     std::vector<int64_t> presentTimes;  // the presentation time each frame was told, 0 for none
@@ -146,7 +150,7 @@ struct Client final : StageClient {
         cap = capFps;
         return nextEvents;
     }
-    float governedCapFps() override { return governed; }
+    void restartClock() override { restarts++; }
     void trimSpares() override { trims++; }
     void contextLost() override {
         losses++;
@@ -177,6 +181,8 @@ Command command(uint16_t kind, int32_t a = 0, int32_t b = 0, float f = 0.0f, flo
 
 int windowA = 0, windowB = 0;
 
+bool near(float a, float b) { return a - b < 0.01f && b - a < 0.01f; }
+
 struct Rig {
     Port port;
     std::shared_ptr<Client> client = std::make_shared<Client>(port);
@@ -204,18 +210,18 @@ void windowAndFrames() {
     check(r.port.rateWindow == &windowA && r.port.rate == 60.0f, "a new window is told the cap's rate");
     check((r.core.state() & kStateDrawable) != 0 && (r.core.state() & kStateVsync) == 0, "drawable, not pacing while hidden");
 
-    r.send(command(kStageFrameDue, 0, 0, 30.0f, 60.0f));
+    r.send(command(kStageFrameDue, 33'333'333, 0));
     check(r.client->frames == 0 && r.port.swaps == 0, "a frame request with the vsync stopped is dropped");
-    check(r.core.pacedFps() == 30.0f, "its rate is still the one read back");
+    check(near(r.core.pacedFps(), 30.0f), "its rate, read from the interval between presentations, is still read back");
 
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
     check(r.port.vsync, "a watched view starts the vsync");
     r.client->nextEvents = 0x4;
-    r.send(command(kStageFrameDue, 0, 0, 45.0f, 60.0f));
+    r.send(command(kStageFrameDue, 22'222'222, 0));
     r.client->nextEvents = 0x10;
-    r.send(command(kStageFrameDue, 0, 0, 45.0f, 60.0f));
+    r.send(command(kStageFrameDue, 22'222'222, 0));
     check(r.client->frames == 2 && r.port.swaps == 2, "each request draws one frame and swaps it");
-    check(r.client->paced == 45.0f && r.client->cap == 60.0f, "at the pacer's rates");
+    check(near(r.client->paced, 45.0f) && r.client->cap == 60.0f, "told the rate the display presents at and the user's cap");
     check(r.core.takeEvents() == 0x14 && r.core.takeEvents() == 0, "the frames' events add up and are taken once");
 
     r.core.step(r.now);
@@ -225,15 +231,33 @@ void windowAndFrames() {
     r.send(command(kStageSize, 2340, 1080));
     check(r.client->changed == 2 && r.client->width == 2340 && r.port.rateCalls == rates + 1, "a new size reaches the client and restates the rate");
     r.send(command(kStageCap, 0, 0, 90.0f));
-    check(r.port.vsyncCapFps == 90.0f && r.port.rate == 90.0f && r.core.pacedFps() == 90.0f,
-          "a cap goes to the pacer, the window and the read-back");
-    r.send(command(kStageFrameRate, 0, 0, 72.0f));
-    check(r.port.rate == 72.0f && r.port.rateWindow == &windowA, "the pacer's hint goes to the window");
+    check(r.port.rate == 90.0f && r.port.rateWindow == &windowA, "a cap goes to the window as its frame-rate hint");
+    check(near(r.core.pacedFps(), 45.0f), "and does not move the rate the display presents at");
+    const int hints = r.port.rateCalls;
+    r.send(command(kStageFrameDue, 22'222'222, 0));
+    check(r.port.rateCalls == hints, "a drawn frame states no rate: the hint is set on a change only");
 
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
     check(!r.port.vsync && r.client->trims == 1, "hidden: the vsync stops and the spares go");
     r.send(command(kStageRedraw));
-    check(r.client->frames == 3 && r.client->paced == 90.0f && r.client->cap == 90.0f, "a redraw while stopped draws one frame at the cap");
+    check(r.client->frames == 4 && near(r.client->paced, 45.0f) && r.client->cap == 90.0f, "a redraw while stopped draws one frame at the last rate, with the cap");
+}
+
+// Red against: a resume that steps the picture by the whole pause (no restart when the vsync starts again), a frame
+// no vsync asked for stepping by the time since the last, and a restart on every drawn frame (the step would always
+// be 0).
+void theClockRestartsWhereNoTimePassedOnScreen() {
+    Rig r;
+    r.show();
+    check(r.client->restarts == 1, "the vsync starting restarts the clock once");
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.client->restarts == 1, "drawn frames do not");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    r.send(command(kStageRedraw));
+    check(r.client->restarts == 2, "a frame no vsync asked for restarts it");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
+    check(r.client->restarts == 3, "and so does the vsync starting again after the stop");
 }
 
 void trimReachesAStageThatDrawsNothing() {
@@ -258,7 +282,6 @@ void handOvers() {
     check(r.port.applied == 3 && !r.port.surfaceAtAck, "and acknowledged only once no surface is left on it");
     check(r.port.context, "the context outlives the window");
     const int rates = r.port.rateCalls;
-    r.send(command(kStageFrameRate, 0, 0, 72.0f));
     r.send(command(kStageCap, 0, 0, 90.0f));
     check(r.port.rateCalls == rates, "no rate is stated with no window");
 
@@ -380,33 +403,66 @@ void serviceAndQuit() {
     check(r.port.swaps == swaps, "nothing draws after quit");
 }
 
-void governedCap() {
+// Red against: a vsync drawn on top of a frame the GPU has not finished (the queue stuffs and every frame lands late),
+// a skip that is remembered (the next vsync waits too), a skipped request left unanswered (the vsync thread would
+// wait for ever), and a fence asked about on a vsync nothing will draw.
+void aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame() {
     Rig r;
     r.show();
-    r.client->governed = 30.0f;
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
-    check(r.port.vsyncCapFps == 30.0f && r.port.rate == 30.0f, "a governed cap goes to the pacer and the window after the frame");
-    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f));
-    check(r.client->cap == 60.0f && r.client->paced == 30.0f, "the frame is still told the user's own cap, and the paced rate");
-    const int rates = r.port.rateCalls;
-    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f));
-    check(r.port.rateCalls == rates, "an unchanged governed cap restates nothing");
-    r.send(command(kStageCap, 0, 0, 90.0f));
-    check(r.port.vsyncCapFps == 30.0f && r.port.rate == 30.0f, "a new user cap stays under the governor's");
-    r.client->governed = 0.0f;
-    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f));
-    check(r.port.vsyncCapFps == 90.0f && r.port.rate == 90.0f, "the governor letting go gives the user's cap back");
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.client->frames == 1 && r.port.swaps == 1, "an idle GPU draws");
+    r.port.gpuBusyNow = true;
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.client->frames == 1 && r.port.swaps == 1, "a GPU still on the last frame skips the vsync, however many come");
+    check(r.port.frameDones == 3, "and the vsync thread is told each request is done");
+    r.port.gpuBusyNow = false;
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.client->frames == 2 && r.port.swaps == 2, "the first vsync after the fence signals draws: no skip is remembered");
 
-    // Follow device: the governor's cap as it is, and no stated rate again once it lets go.
+    r.send(command(kStagePause, 1));
+    const int asks = r.port.gpuAsks;
+    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.port.gpuAsks == asks, "a request that will not draw never asks the fence");
+}
+
+// Red against: a cap that depends on the platform honouring the hint (a display that keeps presenting at 120 Hz under a
+// 60 cap would draw 120), a guard that lowers a display that does follow the hint, and a skipped frame left unanswered.
+void aCapThePlatformIgnoredIsKeptByTheStage() {
+    Rig r(Kind::View, 60.0f);
+    r.show();
+    const int warm = CapGuard::kSustainFrames - 1;
+    for (int i = 0; i < warm; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
+    check(r.client->frames == warm, "until the rate has stayed over the cap, every vsync draws");
+    const int dones = r.port.frameDones;
+    for (int i = 0; i < 120; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
+    check(r.client->frames == warm + 60, "then a 120 Hz display under a 60 cap draws every second vsync");
+    check(r.port.frameDones == dones + 120, "and each skipped request is still told done");
+
+    Rig honoured(Kind::View, 60.0f);
+    honoured.show();
+    for (int i = 0; i < 200; ++i) honoured.send(command(kStageFrameDue, 16'666'667, 0));
+    check(honoured.client->frames == 200, "a display that follows the hint draws every vsync");
+
+    Rig follow(Kind::View, -1.0f);
+    follow.show();
+    for (int i = 0; i < 200; ++i) follow.send(command(kStageFrameDue, 8'333'333, 0));
+    check(follow.client->frames == 200, "Follow device is never cut");
+}
+
+// Red against: the user's rate stated on every frame (a call across to the system per vsync), a stated rate that is
+// the display's own, and Follow device stated as a rate.
+void theRateHintFollowsTheCapNotTheFrames() {
+    Rig r(Kind::View, 60.0f);
+    r.show();
+    check(r.port.rate == 60.0f, "the window is asked for the user's cap");
     r.send(command(kStageCap, 0, 0, -1.0f));
-    check(r.port.vsyncCapFps == -1.0f && r.port.rate == 0.0f, "Follow device states no rate");
-    r.client->governed = 30.0f;
-    r.send(command(kStageFrameDue, 0, 0, 90.0f, -1.0f));
-    check(r.port.vsyncCapFps == 30.0f && r.port.rate == 30.0f, "under Follow device the governor's cap is paced as it is");
-    check(r.client->cap == -1.0f, "and the frame is told Follow device");
-    r.client->governed = 0.0f;
-    r.send(command(kStageFrameDue, 0, 0, 30.0f, -1.0f));
-    check(r.port.vsyncCapFps == -1.0f && r.port.rate == 0.0f, "letting go follows the device again");
+    check(r.port.rate == 0.0f, "Follow device states no rate");
+    r.send(command(kStageCap, 0, 0, 30.0f));
+    check(r.port.rate == 30.0f, "a new cap is stated");
+    const int hints = r.port.rateCalls;
+    for (int i = 0; i < 20; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
+    check(r.port.rateCalls == hints && r.client->frames == 20, "twenty frames at a faster display state nothing and are all drawn");
 }
 
 // Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the
@@ -443,6 +499,7 @@ void endsOutOfTurn() {
 
 int main() {
     windowAndFrames();
+    theClockRestartsWhereNoTimePassedOnScreen();
     trimReachesAStageThatDrawsNothing();
     handOvers();
     vsyncTimes();
@@ -450,7 +507,9 @@ int main() {
     aFrameThatRepeatsThePictureIsNotSwapped();
     pauseAndLoss();
     serviceAndQuit();
-    governedCap();
+    aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame();
+    theRateHintFollowsTheCapNotTheFrames();
+    aCapThePlatformIgnoredIsKeptByTheStage();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();
     if (failures) {

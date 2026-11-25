@@ -10,7 +10,7 @@
 #include "viz/modulation/MotionField.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
-#include "viz/SoundUniforms.hpp"
+#include "viz/glsl/SoundUniforms.hpp"
 #include "viz/gl/Texture.hpp"
 #include "viz/pool/PoolMath.hpp"
 #include "viz/world/MorphDriver.hpp"

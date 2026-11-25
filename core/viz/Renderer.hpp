@@ -49,7 +49,7 @@
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 #include "viz/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
 #include "viz/input/TouchSmear.hpp"
@@ -325,7 +325,7 @@ private:
     void applyUnderlayUpload();
     static double monotonicSeconds();
     void fail(const std::string& message);
-    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
+    // Re-applies the process-wide shader overrides (viz/glsl/ShaderOverrides) to resident scenes when they change.
     void syncShaderOverrides();
 
     ShaderSource assets_;

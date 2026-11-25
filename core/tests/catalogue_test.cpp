@@ -186,7 +186,7 @@ void everyOldStyleKeepsItsNumbersAndKind() {
 // library is on the shader include allow-list (ShaderIncludes.inc, the list ShaderSource and the shader checks read).
 void familiesAreWellFormed() {
     static const std::set<std::string> includes = {
-#include "viz/ShaderIncludes.inc"
+#include "viz/glsl/ShaderIncludes.inc"
     };
     std::set<std::string> seen;
     size_t total = 0;

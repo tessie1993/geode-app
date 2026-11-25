@@ -135,7 +135,7 @@ GEODE_API const char* geode_layer_shown(const char* active_style);
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
-/* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
+/* Customize › Advanced › Shader code (core/viz/glsl/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
 GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);

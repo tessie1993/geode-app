@@ -53,7 +53,7 @@ ShaderScene::~ShaderScene() { release(); }
 
 void ShaderScene::setFragmentSource(const std::string& source) {
     std::lock_guard<std::mutex> lock(pendingLock_);
-    // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
+    // "" is a cleared shader override (viz/glsl/ShaderOverrides): back to the built-in style.
     pendingFragment_ = source.empty() ? stockFragment_ : source;
 }
 

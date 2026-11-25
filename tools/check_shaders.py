@@ -1,7 +1,7 @@
 """Compile-checks every fragment and vertex shader with the NDK's glslc.
 
-Resolves the `//#include lib_x` lines the way core/viz/ShaderSource.cpp does,
-against the same allow-list (core/viz/ShaderIncludes.inc: an unknown or
+Resolves the `//#include lib_x` lines the way core/viz/glsl/ShaderSource.cpp does,
+against the same allow-list (core/viz/glsl/ShaderIncludes.inc: an unknown or
 missing include fails here as it fails on the phone), then compiles for an
 OpenGL target. The Silk simulation bodies (silk_step, silk_show) are not whole
 shaders; they are compiled inside the preamble core/viz/compute/SimGlsl.cpp
@@ -20,7 +20,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHADERS = ROOT / "app/src/main/assets/shaders"
-INCLUDES_INC = ROOT / "core/viz/ShaderIncludes.inc"
+INCLUDES_INC = ROOT / "core/viz/glsl/ShaderIncludes.inc"
 # Shaders the engine compiles with defines prepended, one entry per variant it
 # builds. FluidLook prepends LOOK (one per fluid style's material) and the
 # SHADING / BLOOM / SUNRAYS keywords; each look's code sits behind its own #if,
@@ -140,7 +140,7 @@ ALLOWED = allow_list()
 
 
 def resolve(text, path):
-    # Mirrors core/viz/ShaderSource.cpp: an include repeated outside its own
+    # Mirrors core/viz/glsl/ShaderSource.cpp: an include repeated outside its own
     # chain is pasted again, not skipped, so a double include fails here the
     # way it fails on the device (redefinition) instead of passing silently.
     def expand(m):

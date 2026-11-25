@@ -1,6 +1,6 @@
 // The shader include allow-list: every `//#include <name>` a shader may use.
 //
-// The one source of truth. core/viz/ShaderSource.cpp pastes this file into its
+// The one source of truth. core/viz/glsl/ShaderSource.cpp pastes this file into its
 // kIncludes array; tools/check_shaders.py and tools/glslcheck/check.mjs
 // read it as text. Keep it to `"name",` entries and `//`
 // line comments: the readers take every double-quoted name outside a comment.

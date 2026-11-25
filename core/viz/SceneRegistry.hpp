@@ -6,7 +6,7 @@
 #include "viz/gl/GlProfile.hpp"
 #include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/Scene.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 #include "viz/gl/ProgramLoader.hpp"
 
 namespace geode::viz {

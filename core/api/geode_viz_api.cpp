@@ -46,7 +46,7 @@
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 #include "viz/passes/Transition.hpp"
 #include "viz/director/TransitionChoice.hpp"
 #include "viz/passes/TransitionLibrary.hpp"
@@ -56,7 +56,7 @@
 #include "viz/frame/Pacer.hpp"
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
-#include "viz/ShaderOverrides.hpp"
+#include "viz/glsl/ShaderOverrides.hpp"
 #include "viz/frame/WallpaperWindow.hpp"
 
 struct geode_viz {

@@ -1,4 +1,4 @@
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -13,7 +13,7 @@ namespace {
 // tools/glslcheck read too: one list, so the checks cannot drift from the app.
 // Sized by the compiler, so adding a library is one line there and nothing here.
 constexpr const char* kIncludes[] = {
-#include "viz/ShaderIncludes.inc"
+#include "viz/glsl/ShaderIncludes.inc"
 };
 
 struct AssetClose {

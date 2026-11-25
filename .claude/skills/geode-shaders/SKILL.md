@@ -9,7 +9,7 @@ Shaders are GLSL ES 3.00 (`#version 300 es`) in `app/src/main/assets/shaders/`. 
 
 ## House rules
 
-- Shared code comes in by `//#include lib_x`. The allow-list is `core/viz/ShaderIncludes.inc` (compiled into `core/viz/ShaderSource.cpp`, read by `check_shaders.py` and `glslcheck`): a new `lib_*` file must be added there.
+- Shared code comes in by `//#include lib_x`. The allow-list is `core/viz/glsl/ShaderIncludes.inc` (compiled into `core/viz/glsl/ShaderSource.cpp`, read by `check_shaders.py` and `glslcheck`): a new `lib_*` file must be added there.
 - Every style hears sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`). `lib_scene_uniforms` pastes it in, together with the six knobs `uKnob[6]` (k0 PULSE … k5 SPACE; exactly 0.5 while Note & key reactions are off).
 - 3D styles read the camera through `lib_camera` (`core/viz/CameraRig`). Fly speed flies the rig; a style never zooms UV to dive.
 - Endless zoom is not a style's business: `dive_frag` (`core/viz/passes/DivePass`, the law in `core/viz/passes/EndlessZoom.hpp`) nests the finished picture of any style inside itself. A style adds no zoom layers or dive uniforms of its own.

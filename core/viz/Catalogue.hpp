@@ -74,7 +74,7 @@ struct Range {
 struct Family {
     const char* name;
     const char* prefix;
-    const char* library;  // on core/viz/ShaderSource.cpp's include allow-list
+    const char* library;  // on core/viz/glsl/ShaderSource.cpp's include allow-list
     Look look;            // every style of the family is shown in this group
     std::span<const char* const> ids;
     const char* opener() const { return ids[0]; }

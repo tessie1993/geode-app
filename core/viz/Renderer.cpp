@@ -13,7 +13,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/director/DirectorStyle.hpp"
 #include "viz/gl/GlProber.hpp"
-#include "viz/ShaderOverrides.hpp"
+#include "viz/glsl/ShaderOverrides.hpp"
 #include "viz/passes/Underlay.hpp"
 #include "util/WorkHint.hpp"
 
@@ -354,7 +354,7 @@ std::string Renderer::lastError() const {
 }
 
 // GL thread, from readyScene (every frame's way to its scenes). The overrides are process-wide
-// (viz/ShaderOverrides, #364): when their generation moves, every resident scene whose override
+// (viz/glsl/ShaderOverrides, #364): when their generation moves, every resident scene whose override
 // changed gets the new source (or "" = its built-in one) and recompiles on its next draw through the
 // same path a first build takes, so a compile error still reaches lastError(). One atomic load a
 // frame otherwise.
@@ -820,7 +820,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
     // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
-    // dream): one process-wide table (viz/ShaderOverrides, #364). Recorded so syncShaderOverrides
+    // dream): one process-wide table (viz/glsl/ShaderOverrides, #364). Recorded so syncShaderOverrides
     // only re-applies what changed after this build.
     const std::string custom = shader_overrides::get(id);
     appliedShaders_[id] = custom;

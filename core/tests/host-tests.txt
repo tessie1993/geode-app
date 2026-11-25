@@ -229,7 +229,7 @@ wallpaper_window_test | core | core/tests/wallpaper_window_test.cpp |
 # The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its
 # lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
 edge_glow_pass_test | fakegl | core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/gl/Program.cpp \
-    core/viz/ShaderSource.cpp |
+    core/viz/glsl/ShaderSource.cpp |
 # Who deletes a GL name (core/viz/gl/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
 # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
 gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Compute.cpp core/viz/gl/Quad.cpp \
@@ -238,7 +238,7 @@ gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Comput
 transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
 # The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
 transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core/viz/passes/Transition.cpp \
-    core/viz/gl/Program.cpp core/viz/ShaderSource.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
+    core/viz/gl/Program.cpp core/viz/glsl/ShaderSource.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/util/Json.cpp |
 # The uniform value cache: an unchanged upload is skipped, a changed one sent, a rebuilt program starts empty.
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
@@ -289,7 +289,7 @@ stage_pacing_test | core | core/tests/stage_pacing_test.cpp core/stage/StagePaci
 # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
 renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |
 # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
-shader_overrides_test | mt | core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp |
+shader_overrides_test | mt | core/tests/shader_overrides_test.cpp core/viz/glsl/ShaderOverrides.cpp |
 # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
 library_search_test | stub | core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp |
 # The lyrics parse and the line sung at a position (Player's Lyrics panel).
@@ -392,7 +392,7 @@ catalogue_test | core | core/tests/catalogue_test.cpp core/viz/Catalogue.cpp cor
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp | core/tests/catalogue.txt
 # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads,
 # and every Customize control a style shows moves it (known gaps: core/tests/style_param_gaps.txt, only shrinks).
-style_reads_test | fakegl | core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
+style_reads_test | fakegl | core/tests/style_reads_test.cpp core/viz/glsl/ShaderSource.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp | app/src/main/assets/ --gaps core/tests/style_param_gaps.txt --core core/
 # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).

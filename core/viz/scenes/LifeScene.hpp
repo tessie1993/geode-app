@@ -8,7 +8,7 @@
 
 #include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
-#include "viz/SoundUniforms.hpp"
+#include "viz/glsl/SoundUniforms.hpp"
 #include "viz/gl/FluidBuffers.hpp"
 #include "viz/present/FieldPresent.hpp"
 #include "viz/gl/ProgramLoader.hpp"

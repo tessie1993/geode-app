@@ -1,4 +1,4 @@
-#include "viz/ShaderOverrides.hpp"
+#include "viz/glsl/ShaderOverrides.hpp"
 
 #include <atomic>
 #include <mutex>

@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "viz/gl/Program.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 #include "viz/passes/TransitionLibrary.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 

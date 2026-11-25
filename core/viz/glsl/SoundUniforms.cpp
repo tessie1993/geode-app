@@ -1,4 +1,4 @@
-#include "viz/SoundUniforms.hpp"
+#include "viz/glsl/SoundUniforms.hpp"
 
 #include <algorithm>
 #include <cstring>

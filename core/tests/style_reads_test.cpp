@@ -27,7 +27,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/panel/CustomizeMap.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 
 using namespace geode::viz;
 

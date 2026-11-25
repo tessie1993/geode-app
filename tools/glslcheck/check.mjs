@@ -10,8 +10,8 @@
 // catalogue_test checks that file against core/viz/Catalogue.cpp, so the list
 // here is the list the app ships.
 //
-// Includes are resolved the way core/viz/ShaderSource.cpp resolves them: the
-// registered names are read from core/viz/ShaderIncludes.inc, the allow-list
+// Includes are resolved the way core/viz/glsl/ShaderSource.cpp resolves them: the
+// registered names are read from core/viz/glsl/ShaderIncludes.inc, the allow-list
 // ShaderSource.cpp compiles in (kIncludes), the line pattern
 // is the same anchored `//#include <name>`, and an unknown name is a hard
 // error - so a library added to the app without registering it fails here

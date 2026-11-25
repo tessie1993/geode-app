@@ -13,8 +13,8 @@ on:
   pull_request:
     paths:
       - app/src/main/assets/shaders/**
-      - core/viz/ShaderIncludes.inc
-      - core/viz/ShaderSource*
+      - core/viz/glsl/ShaderIncludes.inc
+      - core/viz/glsl/ShaderSource*
       - core/viz/compute/SimGlsl*
       - tools/check_shaders.py
       - tools/glslcheck/**

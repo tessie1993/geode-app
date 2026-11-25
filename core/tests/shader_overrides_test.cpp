@@ -1,4 +1,4 @@
-// Host-side checks for the process-wide shader overrides (core/viz/ShaderOverrides, #364). Built and run
+// Host-side checks for the process-wide shader overrides (core/viz/glsl/ShaderOverrides, #364). Built and run
 // by CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
 // What is pinned: one table every renderer reads (live, export, wallpaper, dream), so an edit set once is
@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-#include "viz/ShaderOverrides.hpp"
+#include "viz/glsl/ShaderOverrides.hpp"
 
 namespace so = geode::viz::shader_overrides;
 

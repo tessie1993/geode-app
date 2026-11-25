@@ -7,7 +7,7 @@
 #include "viz/gl/GlProfile.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
-#include "viz/SoundUniforms.hpp"
+#include "viz/glsl/SoundUniforms.hpp"
 #include "viz/compute/SimPass.hpp"
 #include "viz/gl/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"

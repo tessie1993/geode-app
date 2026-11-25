@@ -7,7 +7,7 @@
 
 #include "viz/gl/Program.hpp"
 #include "viz/gl/Quad.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 #include "viz/gl/Texture.hpp"
 #include "viz/frame/Pass.hpp"
 

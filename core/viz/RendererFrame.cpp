@@ -276,7 +276,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
         emotionSeeded_ = true;
         heard = &soundEmotion_;
     }
-    // The chain itself, param fade to safety clamp (signal/Resolver).
+    // The chain itself, param fade to safety clamp (viz/resolver/Resolver).
     // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =

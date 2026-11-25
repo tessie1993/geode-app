@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "signal/Resolver.hpp"
+#include "viz/resolver/Resolver.hpp"
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/hop/SharedAnalysis.hpp"
@@ -273,7 +273,7 @@ private:
     void applyStyleSchedule(float dt);
     void applyRenderScale();
     Scene* resolveActiveScene();
-    // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
+    // This frame's engine settings (viz/resolver/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
@@ -372,7 +372,7 @@ private:
     // "Adapt to frame time": fed each live frame in beginFrame; its governed() is what the frame draws with.
     frame::FrameGovernor governor_;
     std::atomic<bool> governorHeld_{false};
-    // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
+    // The scene params resolver (viz/resolver/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;
     // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,

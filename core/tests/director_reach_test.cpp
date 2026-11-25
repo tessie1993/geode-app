@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "signal/Resolver.hpp"
+#include "viz/resolver/Resolver.hpp"
 #include "viz/panel/CustomizeMap.hpp"
 #include "viz/director/DirectorReach.hpp"
 #include "viz/modulation/ModTargets.hpp"

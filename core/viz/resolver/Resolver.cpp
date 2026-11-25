@@ -1,4 +1,4 @@
-#include "signal/Resolver.hpp"
+#include "viz/resolver/Resolver.hpp"
 
 #include <algorithm>
 

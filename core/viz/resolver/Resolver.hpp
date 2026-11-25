@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-#include "signal/EngineSettings.hpp"
+#include "viz/resolver/EngineSettings.hpp"
 #include "sound/SoundFrame.h"
 #include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
@@ -46,7 +46,7 @@ namespace geode::signal {
 // NoteResponse, Lfo, Adsr, Reactions, MacroBank, MotionField, VisualSafety, Catalogue); never on a GL header.
 // Later steps (route producers, base plus modulation, one clamp) rebuild behind this interface.
 
-// The chain reads one EngineSettings value a frame (signal/EngineSettings.hpp): the renderer's SettingsLatch
+// The chain reads one EngineSettings value a frame (viz/resolver/EngineSettings.hpp): the renderer's SettingsLatch
 // hands it the process globals live, or an export's copy pinned at prepare (#350).
 
 // The style on screen this frame.

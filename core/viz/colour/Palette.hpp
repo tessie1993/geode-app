@@ -179,7 +179,7 @@ bool offered(int index);
 //   entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stop count>
 const std::string& libraryText();
 
-// The look's stack as every renderer in the process reads it (signal/EngineSettings; an export pins its
+// The look's stack as every renderer in the process reads it (viz/resolver/EngineSettings; an export pins its
 // copy). Null while the look keeps none: its old colour params draw. Any thread.
 namespace detail {
 inline std::mutex& globalLock() {

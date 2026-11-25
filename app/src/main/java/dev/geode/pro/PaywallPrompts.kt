@@ -42,7 +42,6 @@ class PaywallPrompts(
 ) {
     private var unsavedVisualsMs = 0L
     private var outbound = false
-    private var leftForOwnLaunch = false
 
     init {
         store.saveSessions(store.sessions() + 1)
@@ -85,13 +84,15 @@ class PaywallPrompts(
         outbound = false
     }
 
-    /** The app left the screen. Whether it left for a screen it opened itself is taken now, and cleared. */
+    /**
+     * The app left the screen. Leaving for a screen it opened itself records no absence at all, so
+     * the way back is never a return, even when the process is ended meanwhile.
+     */
     @Synchronized
     fun onBackground() {
         flush()
-        leftForOwnLaunch = outbound
+        store.saveStoppedAt(if (outbound) 0L else nowMs())
         outbound = false
-        store.saveStoppedAt(nowMs())
     }
 
     @Synchronized
@@ -99,9 +100,7 @@ class PaywallPrompts(
         val left = store.stoppedAtMs()
         if (left <= 0L) return
         store.saveStoppedAt(0L)
-        val fromOwnLaunch = leftForOwnLaunch
-        leftForOwnLaunch = false
-        if (fromOwnLaunch || !gate.isFree() || store.sessions() < 2) return
+        if (!gate.isFree() || store.sessions() < 2) return
         if (nowMs() - left < FreeTier.RETURN_AWAY_MS) return
         navigator.open(PaywallTrigger.Returned)
     }

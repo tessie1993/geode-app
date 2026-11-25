@@ -128,4 +128,16 @@ class PaywallPromptsTest {
         prompts.onBreak(free)
         assertEquals(PaywallTrigger.TasteMilestone, navigator.request.value)
     }
+
+    @Test
+    fun `a screen the app opened is still no return after the process ended while there`() {
+        val store = InMemoryPromptStore(sessionCount = 1)
+        prompts(store).apply {
+            onOutboundLaunch()
+            onBackground()
+        }
+        now += FreeTier.RETURN_AWAY_MS * 2
+        prompts(store).onForeground(free)
+        assertNull(navigator.request.value)
+    }
 }

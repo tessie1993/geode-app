@@ -635,7 +635,7 @@ struct OldChain {
         reactions.reset();
         director.reset();
     }
-    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s,
+    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s, float spin,
                  const std::string& styleId) {
         float morph;
         if (morphRemainSec > 0.0f) {
@@ -664,6 +664,8 @@ struct OldChain {
         AdsrEngine::apply(p, adsr.configs, envValues);
         reactions.tick(soundFrame, dt, &director.emotion());
         reactions.apply(p);
+        // Spin: a steady turn at 0.5 rad/s x the style's rate x the Spin dial x Speed, on a style that turns.
+        if (spin != 0.0f) p.rotation = std::clamp(p.rotation + 0.5f * spin * std::clamp(p.motionDrift, 0.0f, 1.0f) * p.speed, -3.0f, 3.0f);
         p = safety::apply(p, s.reducedMotion);
         params = p;
         // Renderer::stepCamera, after the chain.
@@ -822,6 +824,7 @@ void testParityWithTheOldChain() {
     int switches = 0;
     int morphs = 0;
     int resets = 0;
+    static constexpr float kSpins[] = {1.0f, 0.0f, -0.5f};
     for (std::uint32_t seed = 1; seed <= 16; ++seed) {
         Rng g(seed);
         auto now = std::make_unique<Resolver>();
@@ -829,6 +832,7 @@ void testParityWithTheOldChain() {
         EngineSettings s = randomSettings(g);
         SceneParams requested = randomRequested(g);
         const std::string* id = nullptr;
+        float spin = 0.0f;
         float t = 0.0f;
         bool same = true;
         for (int i = 0; i < 900; ++i) {
@@ -854,6 +858,7 @@ void testParityWithTheOldChain() {
             if (i == 30 || g.below(120) == 0) {
                 id = &kIds[static_cast<size_t>(g.below(3))];
                 g.coin();  // once the palette wheel's pick; drawn still, so the runs keep their sequence
+                spin = kSpins[g.below(3)];
                 ++switches;
             }
             if (g.below(200) == 0) {
@@ -866,8 +871,9 @@ void testParityWithTheOldChain() {
             const GeodeSoundFrame f = noisyFrame(t, g);
             StyleContext st;
             st.id = id;
+            st.spin = spin;
             const Resolver::Frame& a = now->step(requested, f, dt, s, st);
-            old->resolve(requested, f, dt, s, id != nullptr ? *id : std::string());
+            old->resolve(requested, f, dt, s, spin, id != nullptr ? *id : std::string());
             moments += a.styleMoments;
             same = same && sameBits(wire(a.params), wire(old->params)) && a.styleMoments == old->styleMoments &&
                    std::memcmp(&a.cameraMoves, &old->cameraMoves, sizeof(a.cameraMoves)) == 0;
@@ -973,6 +979,32 @@ void testAStoppedClockStillGlidesToTheRequest() {
     Resolver held;
     const float stuck = held.step(requested, frame(0.0f), 0.0f, off, style(kStyle, true)).params.saturation;
     check(stuck == 1.0f, "with no wall step the glide follows dt (got " + std::to_string(stuck) + ")");
+}
+
+// Spin turns a style that turns at a steady rate, in silence and in music alike: 0.5 rad/s x the style's rate x the
+// Spin dial x Speed. A style that holds still, or the dial at 0, turns nothing. No sound sets it.
+// Kills: a spin that follows the sound, ignores Speed, the dial or the style's rate.
+void testSpinIsASteadyTurn() {
+    const EngineSettings s;
+    GeodeSoundFrame silent{};
+    const auto rotation = [&](float spin, float dial, float speed) {
+        Resolver r;
+        SceneParams requested;
+        requested.paramFadeSec = 0.0f;
+        requested.rotation = 0.0f;
+        requested.motionDrift = dial;
+        requested.speed = speed;
+        StyleContext st;
+        st.id = &kStyle;
+        st.spin = spin;
+        float out = 0.0f;
+        for (int i = 0; i < 30; ++i) out = r.step(requested, silent, kDt, s, st).params.rotation;
+        return out;
+    };
+    check(std::fabs(rotation(1.0f, 0.5f, 1.0f) - 0.25f) < 1e-6f, "a turning style turns at a steady rate in silence");
+    check(std::fabs(rotation(1.0f, 0.5f, 2.0f) - 0.5f) < 1e-6f, "the turn scales with Speed");
+    check(std::fabs(rotation(-0.5f, 1.0f, 1.0f) + 0.25f) < 1e-6f, "the style's rate signs and scales it, the dial scales it");
+    check(rotation(0.0f, 0.5f, 1.0f) == 0.0f && rotation(1.0f, 0.0f, 1.0f) == 0.0f, "a style that holds still, or Spin at 0, turns nothing");
 }
 
 // Reduced motion is applied to speed exactly once, by the clamp that runs last: Speed's top, 4, reaches the
@@ -1530,6 +1562,7 @@ int main() {
     testParamFadeCutsLandsAndGlides();
     testAStoppedClockStillGlidesToTheRequest();
     testReducedMotionHasTheLastWordOnSpeed();
+    testSpinIsASteadyTurn();
     testStyleMomentsOnlyAtDropsAndSections();
     testDisabledStagesAreExactIdentity();
     testLiveAndExportNeverHearEachOther();

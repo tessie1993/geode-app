@@ -17,7 +17,7 @@ namespace geode::viz {
 //
 //   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
 //              set of scene params and a scale on the camera rig's music moves; the camera's spring
-//              softness and the Breath dial. The user's macro bank (viz/modulation/MacroBank) is never
+//              softness. The user's macro bank (viz/modulation/MacroBank) is never
 //              touched: it adds on top of whatever the director left. Spin (motionDrift) is never the
 //              director's either (#1181): whether a turning style spins is the user's choice
 //
@@ -122,7 +122,6 @@ public:
         float energy = 0.5f;
         Axes axes{};
         float camSmooth = 0.5f;
-        float motionBreath = 0.5f;
         CameraRig::Moves moves{};
     };
 

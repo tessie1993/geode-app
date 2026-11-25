@@ -259,6 +259,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     }
     signal::StyleContext style;
     style.id = activeScene_ ? &activeScene_->id() : nullptr;
+    style.spin = sceneSpin_.load(std::memory_order_relaxed);
     // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
     // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
     const sound::Emotion::State* heard = nullptr;
@@ -533,7 +534,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     const SceneParams& fx = lastFinalParams_;
     in.postRotationAngle = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
     in.twistSeed = styleVariantSeed(activeScene_->id());
-    in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, static_cast<double>(kTimeWrapSeconds))), fx.life);
+    const double birthsWrap = static_cast<double>(kTimeWrapSeconds);
+    in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, birthsWrap)), fx.life);
     in.quadVao = quadVao_.get();
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();

@@ -26,6 +26,7 @@ namespace geode::signal {
 //   → the macro bank (the user's knobs, an offset added to whatever the director left)
 //   → LFOs → envelopes
 //   → reaction routes (the user's or the style's DNA; the director plays no route)
+//   → Spin (a steady turn on a style that turns)
 //   → safety::apply, last, so nothing before it can pass the flash and motion limits
 //
 // WHY a module of its own (#344): the chain used to sit inside the GL renderer, behind its mutex and
@@ -49,7 +50,12 @@ namespace geode::signal {
 // The style on screen this frame.
 struct StyleContext {
     const std::string* id = nullptr;  // null when no style is on screen
+    float spin = 0.0f;                // SceneRegistry::spinRate of the style: 0 holds still
 };
+
+// What a style that turns (spinRate 1, the Spin dial at 1, Speed 1) adds to Rotation, in radians a second: a steady
+// turn, never set by the sound.
+inline constexpr float kSpinRadPerSecond = 0.5f;
 
 class Resolver {
 public:

@@ -8,8 +8,12 @@
 
 namespace geode::viz {
 
-// The running phase of every rate parameter (a meta row with kRate: Speed, Rotation, Dive speed, Fly speed,
-// Stirrer speed, Palette cycle).
+// The running phase of every rate parameter (a meta row with kRate).
+//
+// A slot gets kRate only when something reads its phase (kReadRates below: the renderer reads Speed's for Life's
+// births and Rotation's for the post pass); rate_phases_test holds the two lists equal, so a flag cannot be set
+// for a phase nobody reads. Other rate params (Dive speed, Fly speed, Stirrer speed, Palette cycle) integrate
+// in their own consumers for now and are not flagged.
 //
 // A rate is a speed per second. A consumer that needs a position from it must integrate it: `clock * rate` is elapsed
 // time times the live dial, so every move of the dial (a slider, a wave, a macro, a route) shifts the position by
@@ -21,6 +25,8 @@ namespace geode::viz {
 // one given the same inputs give the same bits. dt is used as given (no clamp here): a non-positive or non-finite dt,
 // or a non-finite rate, adds nothing. Phases are doubles and are not wrapped (a float clock past 4096 s stalls at a
 // slow rate, a double does not); the consumer wraps what it reads for its own period (wrapped()).
+inline constexpr ParamSlot kReadRates[] = {ParamSlot::speed, ParamSlot::rotation};
+
 class RatePhases {
 public:
     static const std::vector<ParamSlot>& slots() {
@@ -50,8 +56,13 @@ public:
 
     // The phase held to [0, period), for a consumer that draws it.
     double wrapped(ParamSlot slot, double period) const {
-        const double w = std::fmod(phase(slot), period);
-        return w < 0.0 ? w + period : w;
+        double w = std::fmod(phase(slot), period);
+        if (w < 0.0) {
+            w += period;
+            // A tiny negative remainder plus the period rounds up to the period itself: [0, period) is half open.
+            if (w >= period) w = 0.0;
+        }
+        return w;
     }
 
 private:

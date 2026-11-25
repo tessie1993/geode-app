@@ -1,18 +1,22 @@
 name: Instrumented tests (emulator)
 
-# The two checks that run only by hand: the instrumented tests on an emulator, and the sound
-# engine across frame rates on the owner's test tracks.
+# The instrumented tests on an emulator, and the sound engine across frame rates on the owner's
+# test tracks: every night on main, and by hand on any branch.
 # Pull requests are gated by build-lint.yml, native-host-tests.yml and arch-map.yml.
 # This workflow builds no APK to keep and ships nothing: a branch build is build-lint.yml's
 # artifact, a pre-release is ship-apk.yml (Run workflow, with the ref).
 
 on:
   workflow_dispatch:
+  # Nightly on main (the default branch). Off the top of the hour: GitHub delays or drops
+  # scheduled runs at the start of an hour under load (docs.github.com, "schedule" event).
+  schedule:
+    - cron: "17 2 * * *"
 
 permissions:
   contents: read
 
-# A newer manual run on the same branch replaces the older one.
+# A newer run on the same branch replaces the older one; a manual run on main replaces that night's.
 concurrency:
   group: geode-emulator-${{ github.ref_name }}
   cancel-in-progress: true

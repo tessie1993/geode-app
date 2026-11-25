@@ -184,8 +184,7 @@ void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, v
         c.kind = kStageFrameDue;
         c.f = sink->pacing.fps();
         c.g = sink->pacing.capFps();
-        // The vsync's own time, for the frame's step, how far ahead of it the preferred timeline presents, and the
-        // interval between presentations, which places the swap's stamp (frame::latchStampNs).
+        // The vsync's own time, for the frame's step; the rest places the swap's stamp (frame::latchStampNs).
         c.t = frameTimeNanos;
         const Present present = presentOf(callbackData, frameTimeNanos);
         c.b = present.afterNs;

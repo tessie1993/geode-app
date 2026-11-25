@@ -13,7 +13,7 @@
 // (core/tests/stage_core_test.cpp); core/stage/android carries out the port's calls and nothing else.
 namespace geode::stage {
 
-// What a stage thread is told. a, b: sizes, a mode or a frame's times; f, g: rates; t: a window hand-over's sequence number;
+// What a stage thread is told. a, b: sizes, a mode or a frame's intervals; f, g: rates; t: a window hand-over's sequence number or a vsync's time;
 // target: a window the sender acquired for the stage.
 enum StageCommand : uint16_t {
     kStageWindow = 1,      // Ordered: target = the window, a = width, b = height, t = sequence

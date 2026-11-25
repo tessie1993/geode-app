@@ -58,8 +58,8 @@ inline int64_t listenAtNs(int64_t nowNs, int64_t presentNs) {
     return nowNs + std::min(presentNs - nowNs, maxAhead);
 }
 
-// The stamp (EGL_ANDROID_presentation_time) of a frame meant for the presentation at `presentNs`, `intervalNs` after
-// the one before it: the midpoint of the two. The compositor shows a buffer at the first presentation after its
+// The stamp (EGL_ANDROID_presentation_time) of a frame meant for the presentation at `presentNs`, where presentations
+// are `intervalNs` apart: the midpoint between it and the one before. The compositor shows a buffer at the first presentation after its
 // stamp, so a stamp on `presentNs` itself can fall either side. 0 (no stamp) when either is unknown.
 inline int64_t latchStampNs(int64_t presentNs, int64_t intervalNs) {
     if (presentNs <= 0 || intervalNs <= 0) return 0;

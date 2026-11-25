@@ -167,7 +167,7 @@ GEODE_API void        geode_viz_gyro_off(geode_viz*);
    request until the renderer can draw it, and then not again. Also what the reaction matrix deals the DNA
    of. An export, which never calls geode_viz_frame, sets its scene with geode_viz_set_scene. */
 GEODE_API void        geode_viz_request_scene(geode_viz*, const char* scene_id);
-/* The user's look as the shell hands it, whole (core/viz/LookSnapshot). lfos, adsrs and reactions are the saved
+/* The user's look as the shell hands it, whole (core/viz/looks/LookSnapshot). lfos, adsrs and reactions are the saved
    texts geode_viz_set_lfos, _set_adsrs and _set_reactions read (NULL lfos or adsrs: none saved; NULL reactions:
    the style's own routes); tuning is the saved sound tuning, none for the engine's defaults. */
 typedef struct geode_viz_look {
@@ -188,7 +188,7 @@ typedef struct geode_viz_look {
 GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look);
 /* The look a renderer starts on before one is set: "<scene id>\n<transition id>\n<transition ms>\n", then the
    shell's visual defaults a line each: attack, decay, style timer s, playlist interval s, preset morph max s.
-   Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/LookSnapshot). */
+   Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/looks/LookSnapshot). */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
    changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
@@ -817,7 +817,7 @@ GEODE_API int         geode_params_palette_stops(const float* frame, int* out);
 GEODE_API void        geode_params_clear_custom_palette(const float* in, float* out);
 GEODE_API void        geode_params_apply_stops(const float* in, const int* stops, int count, float* out);
 GEODE_API void        geode_params_apply_gradient(const float* in, float base, float span, float* out);
-/* The look files (viz/LookFiles): the shell reads and writes the bytes, every rule is here. Text out is valid until
+/* The look files (viz/looks/LookFiles): the shell reads and writes the bytes, every rule is here. Text out is valid until
  * the calling thread's next call of the same function. Pure, any thread.
  * file_safe_name: a name as a file stem (A-Z a-z 0-9 - _ space kept, anything else '_', and a changed or blank name
  * gets '-' and four SHA-256 bytes in hex); file_safe_chars the same without the hash (a preset folder). looks_order: the indices of `names` in list order into out (count ints),
@@ -845,7 +845,7 @@ GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const cha
 /* The saved palette id a look keeps on a params frame native wrote (a roll, a reset): `look_id` while the frame
  * still draws its own palette, "" once it does not. Thread-local text. */
 GEODE_API const char* geode_saved_palette_frame_id(const char* look_id, const float* frame);
-/* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
+/* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/looks/LookFiles). read: the text as
  * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[4] = name, scene id (a
  * retired style resolved), custom shader (NULL when absent), saved palette id, and out_envelope[2] =
  * attack and decay held to the sliders' ranges; 1, or 0 with nothing written when it is no preset. The strings stay
@@ -855,7 +855,7 @@ GEODE_API int         geode_preset_read(const char* text, float* out_frame, int 
 GEODE_API const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay,
                                          const char* custom_shader, const float* frame, int n,
                                          const char* custom_palette_id);
-/* Preset names (viz/LookFiles). is_built_in: 1 when the name holds the built-ins' " · ". clean_name: the separator
+/* Preset names (viz/looks/LookFiles). is_built_in: 1 when the name holds the built-ins' " · ". clean_name: the separator
  * as " - ", trimmed, `fallback` when nothing is left; folder_name: trimmed. rename_problem and folder_name_problem:
  * 0 fine, 1 blank, 2 taken (another of the `count` names, case ignored); `current` NULL for a new folder.
  * copy_name: a duplicate's free "<name> copy" ("... 2" on, case ignored); import_name: cleaned (`fallback` when
@@ -873,7 +873,7 @@ GEODE_API const char* geode_preset_import_name(const char* raw, const char* fall
 GEODE_API const char* geode_preset_replace_target(const char* raw, const char* const* names, int count);
 GEODE_API int         geode_preset_built_in_clash(const char* raw, const char* const* names, int count);
 GEODE_API int         geode_preset_matches_scene(const char* preset_scene_id, const char* active_scene_id);
-/* A geode://preset link's framing (viz/LookFiles); the shell gzips and base64s the payload. frame: the link for a
+/* A geode://preset link's framing (viz/looks/LookFiles); the shell gzips and base64s the payload. frame: the link for a
  * payload; fits: 1 when a link is short enough to share; is: 1 when the trimmed text starts with the prefix, case
  * ignored; payload: what follows it, a '#' or '?' tail cut, or NULL when it is no link or too long; find: the first
  * link in pasted text up to whitespace, or NULL; body_accepted: 1 when an inflated payload is not blank;
@@ -886,7 +886,7 @@ GEODE_API const char* geode_preset_link_find(const char* text);
 GEODE_API int         geode_preset_link_body_accepted(const char* body);
 GEODE_API int         geode_preset_link_max_length(void);
 GEODE_API int         geode_preset_link_max_inflated(void);
-/* The template library (viz/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
+/* The template library (viz/looks/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
  * (the template format's); file_tail: what every file of that id ends with. unique_name: the name a new template
  * takes beside the `count` names in `taken` ("<name> 2" and on when it is taken, ASCII caseless). starter_count and
  * starter(i): the bundled starter set, each a whole template file ("" past the end); is_starter: 1 for a starter's
@@ -897,7 +897,7 @@ GEODE_API const char* geode_template_unique_name(const char* base, const char* c
 GEODE_API int         geode_template_starter_count(void);
 GEODE_API const char* geode_template_starter(int index);
 GEODE_API int         geode_template_is_starter(const char* id);
-/* The template file (viz/TemplateFile): the shell hands the text in and keeps the text out. read: 1 when `text` is a
+/* The template file (viz/looks/TemplateFile): the shell hands the text in and keeps the text out. read: 1 when `text` is a
  * template, out_text[6] = the file text this build writes for it, id, name, scene id, custom shader
  * (NULL when absent), saved palette id, the params into out_frame (n at least geode_viz_param_count) and attack and
  * decay into out_envelope[2]; 0 when it is JSON but no template and -1 when it cannot be read, out_text[0] the reason

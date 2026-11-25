@@ -1,4 +1,4 @@
-// Host checks for the look files (core/viz/LookFiles: file names, saved palettes, presets, the template library) and
+// Host checks for the look files (core/viz/looks/LookFiles: file names, saved palettes, presets, the template library) and
 // the look's own palette in its params (core/viz/params/ParamsPalette). Each section is what a Kotlin store or helper decided
 // before it moved here (PresetStore, PaletteStore, TemplateRepository, the SceneParams palette helpers).
 // Built and run by CI (.github/workflows/native-host-tests.yml).
@@ -14,7 +14,7 @@
 
 #include "util/Json.hpp"
 #include "viz/Catalogue.hpp"
-#include "viz/LookFiles.hpp"
+#include "viz/looks/LookFiles.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/params/ParamsJson.hpp"
 #include "viz/params/ParamsPalette.hpp"

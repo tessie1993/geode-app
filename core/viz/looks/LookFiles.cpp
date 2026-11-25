@@ -1,4 +1,4 @@
-#include "viz/LookFiles.hpp"
+#include "viz/looks/LookFiles.hpp"
 
 #include <algorithm>
 #include <cmath>

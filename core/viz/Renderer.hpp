@@ -34,7 +34,7 @@
 #include "viz/gl/GlProfile.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
-#include "viz/LookSnapshot.hpp"
+#include "viz/looks/LookSnapshot.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/MotionField.hpp"
 #include "viz/modulation/NoteResponse.hpp"

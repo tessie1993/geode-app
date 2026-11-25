@@ -1,4 +1,4 @@
-#include "viz/TemplateFile.hpp"
+#include "viz/looks/TemplateFile.hpp"
 
 #include <algorithm>
 #include <array>
@@ -9,7 +9,7 @@
 #include <random>
 
 #include "viz/Catalogue.hpp"
-#include "viz/LookFiles.hpp"
+#include "viz/looks/LookFiles.hpp"
 #include "viz/params/ParamsJson.hpp"
 
 namespace geode::viz::files {
@@ -299,7 +299,7 @@ TemplateLook readLook(const Value* source, const std::string& body) {
     look.customShader = textOrNone(source, "customShader");
     const Value* params = objectAt(source, "params");
     if (params) {
-        // From the text itself where it is standard JSON, as the preset reader does (viz/LookFiles).
+        // From the text itself where it is standard JSON, as the preset reader does (viz/looks/LookFiles).
         SceneParams read;
         std::string paletteId;
         std::string ignored;

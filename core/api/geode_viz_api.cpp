@@ -36,7 +36,7 @@
 #include "viz/modulation/NoteResponse.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
-#include "viz/LookSnapshot.hpp"
+#include "viz/looks/LookSnapshot.hpp"
 #include "viz/modulation/MacroBank.hpp"
 #include "viz/modulation/ModDocument.hpp"
 #include "viz/modulation/ModState.hpp"

@@ -7,7 +7,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/panel/ControlRange.hpp"
 #include "viz/panel/CustomizeMap.hpp"
-#include "viz/LookSnapshot.hpp"
+#include "viz/looks/LookSnapshot.hpp"
 #include "viz/panel/PanelText.hpp"
 #include "viz/panel/SliderMap.hpp"
 #include "viz/TableNumber.hpp"

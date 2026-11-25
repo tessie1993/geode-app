@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,6 +39,7 @@ import dev.geode.export.ExportAspect
 import dev.geode.export.LoopSpec
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.geodeContainer
+import dev.geode.ui.theme.GeodeSpacing
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -213,7 +215,10 @@ private fun LoopRenderControls(
         valueRange = (LoopSpec.minCrossfadeMs / 1000f)..(LoopSpec.maxCrossfadeMs / 1000f),
     )
     Row(
-        Modifier.fillMaxWidth().toggleable(value = driftEnabled, role = Role.Switch, onValueChange = onDriftEnabledChange),
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = GeodeSpacing.TouchTarget)
+            .toggleable(value = driftEnabled, role = Role.Switch, onValueChange = onDriftEnabledChange),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(R.string.export_loop_drift_toggle), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)

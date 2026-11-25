@@ -26,7 +26,7 @@ namespace geode::audio {
 // through untouched, and frames are clamped to the buffer's capacity, so no caller mistake can walk past it.
 //
 // Bit-perfect USB (issue #353): while the DAC takes the stream bit-perfect, the chain is pure pass-through, so
-// the DAC gets the file's exact samples whatever gain, ramp, equalizer, crossfeed or limiter is set. The shell
+// the DAC gets the file's exact samples whatever gain, ramp, equalizer or crossfeed is set. The shell
 // only says whether the platform granted the bit-perfect path for the stream it is about to open
 // (setBitPerfect, any thread); this latches it at flush(), the moment a new AudioTrack follows (Media3 flushes
 // the pipeline whenever it builds one), so the chain and the platform switch together. The live chain is
@@ -82,7 +82,6 @@ public:
     void setBassBoost(int permille);
     void setLoudnessMb(int millibels);
     void setCrossfeed(bool enabled);
-    void setLimiter(bool enabled);
 
     // ReplayGain, fades, crossfade and sleep (GainStage.hpp); its setters are thread-safe themselves.
     GainStage& gain() { return gain_; }
@@ -99,7 +98,6 @@ private:
         int bassBoost = 0;
         int loudnessMb = 0;
         bool crossfeed = false;
-        bool limiter = true;
     };
 
     static void applyTo(DspChain& chain, const Settings& s);

@@ -1,6 +1,6 @@
 // Bit-perfect USB (issue #353, ticket #489): while the platform takes the AudioTrack bit-perfect, the playback
 // DSP is pure pass-through, so the DAC gets the file's exact samples whatever gain, equalizer, bass boost,
-// loudness, crossfeed or limiter is set (the gain ramps of #483 sit inside the same chain, so they are skipped
+// loudness or crossfeed is set (the gain ramps of #483 sit inside the same chain, so they are skipped
 // with it). These cases drive the C ABI in the order Media3 calls it (configure, flush, process) and compare
 // every byte, on both the float and the 16-bit path, including full-scale and silent samples.
 #include <cmath>
@@ -30,17 +30,15 @@ void tuneHard(geode_dsp* d) {
     geode_dsp_set_bass_boost(d, 800);
     geode_dsp_set_loudness_mb(d, 600);
     geode_dsp_set_crossfeed(d, 1);
-    geode_dsp_set_limiter(d, 1);
 }
 
-// Neutral: nothing that changes a sample (the limiter is off too: its lookahead delays the signal).
+// Neutral: nothing that changes a sample.
 void tuneNeutral(geode_dsp* d) {
     geode_dsp_ramp_to(d, 0.0f, 0);
     geode_dsp_set_enabled(d, 0);
     geode_dsp_set_bass_boost(d, 0);
     geode_dsp_set_loudness_mb(d, 0);
     geode_dsp_set_crossfeed(d, 0);
-    geode_dsp_set_limiter(d, 0);
 }
 
 std::vector<float> floats(size_t n, float phase) {

@@ -147,6 +147,14 @@ public:
         primed_ = false;
         stillAt_ = -1;
     }
+    // Nothing is heard any more (the ring's analysis went with the source): the frame, the feeling and the hits it held
+    // are not true of anything, so they clear, and the next read starts from its own position.
+    void forget(GeodeSoundFrame& out, Emotion::State& emotion, Hits& hits) {
+        restart();
+        out = GeodeSoundFrame{};
+        emotion = Emotion::State{};
+        hits.clear();
+    }
     // The writer stopped and the engine runs on silence: its newest hops share one position.
     static bool starved(const AnalysisThread& analysis);
 

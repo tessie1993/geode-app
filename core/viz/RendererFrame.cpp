@@ -112,7 +112,18 @@ float Renderer::beginFrame(double timeSeconds) {
             ownSound_->thread().pump(dt);
             ownUnpumped_ = 0;
         }
-        if (heard) readSound(*heard, dt, fade);
+        if (heard) {
+            readSound(*heard, dt, fade);
+        } else if (soundHeard_) {
+            // The source is gone and nothing replaced it: the last frame is not what is playing, so it must not
+            // keep the picture moving (the clock runs on its presence) or its reactions fed.
+            soundReader_.forget(soundFrame_, soundEmotion_, soundHits_);
+            soundHeard_ = false;
+            trimmedValid_ = false;
+            sectionChangeOwed_ = false;
+            lastListen_ = -1;
+            listenStillSeconds_ = 0.0f;
+        }
     }
     // No sound, no movement: the picture's clock is the frame's step times the music's rate. A renderer
     // nothing feeds stays still.
@@ -283,6 +294,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
             std::lock_guard<std::mutex> lock(soundLock_);
             sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();
             if (heard) heard->newPlay(frameSettings_.director.seed);
+            resolver_.newPlay();
         }
         emotionSeed_ = frameSettings_.director.seed;
         emotionSeeded_ = true;

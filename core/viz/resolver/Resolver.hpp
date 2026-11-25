@@ -98,6 +98,10 @@ public:
     void beginMorph(float seconds);
     // A new surface: the stages' state starts over (their configuration and the fade are kept).
     void reset();
+    // A new play (the director's seed changed): what the reaction matrix learned of the last song (its sections, its
+    // melody and chord followers, its smoothed outputs) and the moments seen start over, so none of it drives the new
+    // song's first frames. Routes, waves, envelopes, the fade and the director (which restarts on its own seed) stay.
+    void newPlay();
 
     // One frame.
     const Frame& step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,

@@ -1,6 +1,7 @@
 #include "stage/android/VsyncThread.hpp"
 
 #include "stage/StageCore.hpp"
+#include "stage/VsyncRule.hpp"
 
 #include <pthread.h>
 #include <sys/resource.h>
@@ -23,7 +24,6 @@ constexpr int kDisplayNice = -4;
 
 enum VsyncCommand : uint16_t {
     kVsyncRun = 1,     // LastWins: a = 1 on, 0 off
-    kVsyncCap = 2,     // LastWins: f = cap fps
 };
 
 // A command waits at most this long for room; the queue only fills under a burst of stages.
@@ -67,8 +67,8 @@ VsyncThread::VsyncThread() : inbox_(std::make_shared<Inbox>()) {
     std::thread([this] { loop(); }).detach();
 }
 
-VsyncThread::Sink* VsyncThread::attach(std::shared_ptr<Inbox> stage, float capFps) {
-    return new Sink{StagePacing(capFps), std::move(stage), false, nullptr};
+VsyncThread::Sink* VsyncThread::attach(std::shared_ptr<Inbox> stage) {
+    return new Sink{StagePacing(), std::move(stage), false, nullptr};
 }
 
 void VsyncThread::run(Sink* sink, bool on) {
@@ -78,15 +78,6 @@ void VsyncThread::run(Sink* sink, bool on) {
     c.a = on ? 1 : 0;
     c.target = sink;
     if (!inbox_->pushWithin(c, Merge::LastWins, kPushWithin)) GEODE_LOGW(kTag, "vsync run dropped");
-}
-
-void VsyncThread::setCap(Sink* sink, float capFps) {
-    if (!sink) return;
-    Command c;
-    c.kind = kVsyncCap;
-    c.f = capFps;
-    c.target = sink;
-    if (!inbox_->pushWithin(c, Merge::LastWins, kPushWithin)) GEODE_LOGW(kTag, "vsync cap dropped");
 }
 
 void VsyncThread::detach(Sink* sink) {
@@ -115,7 +106,7 @@ void VsyncThread::retire(Sink* sink) {
 }
 
 void VsyncThread::loop() {
-    pthread_setname_np(pthread_self(), "GeodeFramePacer");
+    pthread_setname_np(pthread_self(), "GeodeVsync");
     if (setpriority(PRIO_PROCESS, static_cast<id_t>(gettid()), kDisplayNice) != 0) {
         GEODE_LOGW(kTag, "vsync thread keeps the default priority");
     }
@@ -156,7 +147,6 @@ void VsyncThread::apply(const Command& command) {
                 sink->pacing.stop();
             }
             break;
-        case kVsyncCap: sink->pacing.setCap(command.f); break;
         default: break;
     }
 }
@@ -169,30 +159,21 @@ void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, v
     }
     // Re-posted first: the cadence survives a slow stage, and a skipped vsync still wakes the next one.
     AChoreographer_postVsyncCallback(process().choreographer_, &VsyncThread::onFrame, sink);
+    // One frame per vsync, unless the last is still in flight on the stage thread.
+    if (skipVsync(sink->stageBusy.load(std::memory_order_acquire), false)) return;
     const int64_t frameTimeNanos = AChoreographerFrameCallbackData_getFrameTimeNanos(callbackData);
-    const StagePacing::Tick tick = sink->pacing.step(frameTimeNanos, sink->stageBusy.load(std::memory_order_acquire));
-    if (tick.restateRate) {
-        Command c;
-        c.kind = kStageFrameRate;
-        c.f = tick.rateFps;
-        sink->stage->queue.push(c, Merge::LastWins);
-    }
-    if (tick.draw) {
-        // Coalesced like requestRender: a stage behind the vsync takes one request, not a backlog. A full queue
-        // drops it, and the next drawn vsync asks again.
-        Command c;
-        c.kind = kStageFrameDue;
-        c.f = sink->pacing.fps();
-        c.g = sink->pacing.capFps();
-        // The vsync's own time, for the frame's step; the rest places the swap's stamp (frame::latchStampNs).
-        c.t = frameTimeNanos;
-        const Present present = presentOf(callbackData, frameTimeNanos);
-        c.b = present.afterNs;
-        c.a = present.intervalNs;
-        // Busy before the push, so a stage that finishes at once clears it after, never before.
-        sink->stageBusy.store(true, std::memory_order_release);
-        if (sink->stage->queue.push(c, Merge::LastWins) == Pushed::Full) sink->stageBusy.store(false, std::memory_order_release);
-    }
+    // Coalesced like requestRender: a stage behind the vsync takes one request, not a backlog. A full queue
+    // drops it, and the next vsync asks again.
+    Command c;
+    c.kind = kStageFrameDue;
+    // The vsync's own time, for the frame's step; the rest places the swap's stamp (frame::latchStampNs).
+    c.t = frameTimeNanos;
+    const Present present = presentOf(callbackData, frameTimeNanos);
+    c.b = present.afterNs;
+    c.a = present.intervalNs;
+    // Busy before the push, so a stage that finishes at once clears it after, never before.
+    sink->stageBusy.store(true, std::memory_order_release);
+    if (sink->stage->queue.push(c, Merge::LastWins) == Pushed::Full) sink->stageBusy.store(false, std::memory_order_release);
 }
 
 }  // namespace geode::stage::platform

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <utility>
 
-#include "stage/StagePacing.hpp"
+#include "stage/VsyncRule.hpp"
 
 namespace geode::stage {
 
@@ -15,7 +15,7 @@ constexpr int kMaxActions = 64;
 }  // namespace
 
 StageCore::StageCore(Kind kind, std::shared_ptr<StageClient> client, float capFps, StagePort& port)
-    : lifecycle_(kind), client_(std::move(client)), port_(port), cap_(capFps), paced_(capFps) {}
+    : lifecycle_(kind), client_(std::move(client)), port_(port), cap_(capFps), paced_(0.0f) {}
 
 void StageCore::apply(const Command& command, int64_t nowMs) {
     switch (command.kind) {
@@ -48,20 +48,15 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
         case kStageRedraw: lifecycle_.redrawNeeded(); break;
         case kStageCap:
             cap_ = command.f;
-            paced_.store(pacedCap(), std::memory_order_relaxed);
-            port_.vsyncCap(pacedCap());
             restateRate();
             break;
         case kStageFrameDue:
             frameDue_ = true;
-            dueFps_ = command.f;
+            dueFps_ = presentRateFps(command.a);
             dueFrameNs_ = command.t;
             duePresentNs_ = command.b > 0 ? command.t + command.b : 0;
             dueStampNs_ = viz::frame::latchStampNs(duePresentNs_, command.a);
-            paced_.store(command.f, std::memory_order_relaxed);
-            break;
-        case kStageFrameRate:
-            if (window_) port_.setFrameRate(window_, command.f);
+            paced_.store(dueFps_, std::memory_order_relaxed);
             break;
         case kStageQuit: lifecycle_.quit(); break;
         case kStageService: serviceDue_ = true; break;
@@ -81,10 +76,9 @@ void StageCore::step(int64_t nowMs) {
     }
     if (frameDue_) {
         frameDue_ = false;
-        // A request already in flight when the vsync stopped is dropped here.
-        if (lifecycle_.vsyncOn() && lifecycle_.canDraw()) {
-            // The surface's own cap, not the one the vsync paced to: the renderer's governor measures against the
-            // paced rate and steps under the user's maximum, which only the own cap says.
+        // A request already in flight when the vsync stopped is dropped here, and so is one whose predecessor the GPU
+        // has not finished (stage/VsyncRule).
+        if (lifecycle_.vsyncOn() && lifecycle_.canDraw() && !skipVsync(false, port_.gpuBusy())) {
             draw(dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
             runActions();
         }
@@ -106,19 +100,9 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The hint is the paced cap's, so the panel is asked for what will be drawn.
+// The window is asked for the user's rate, as a hint; what is drawn does not depend on the answer (stage/VsyncRule).
 void StageCore::restateRate() {
-    if (window_) port_.setFrameRate(window_, StagePacing::frameRateFor(pacedCap()));
-}
-
-float StageCore::pacedCap() const { return StagePacing::capUnder(cap_, governedCap_); }
-
-void StageCore::followGovernor() {
-    const float governed = client_ ? client_->governedCapFps() : 0.0f;
-    if (governed == governedCap_) return;
-    governedCap_ = governed;
-    port_.vsyncCap(pacedCap());
-    restateRate();
+    if (window_) port_.setFrameRate(window_, frameRateHint(cap_));
 }
 
 // A window that went has no EGL surface left on it; a new one is held by its surface. Nothing after that touches the
@@ -193,7 +177,6 @@ void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t pres
     client_->framePresent(presentNs);
     const uint32_t events = client_->frame(pacedFps, capFps);
     events_.fetch_or(events & ~kFrameNothingNew, std::memory_order_relaxed);
-    followGovernor();
     // The picture is the one already on screen: no new buffer, so no swap, and the display keeps the last.
     if ((events & kFrameNothingNew) != 0) return;
     port_.presentAt(stampNs);

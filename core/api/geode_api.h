@@ -203,7 +203,7 @@ GEODE_API void        geode_viz_set_adaptive(geode_viz*, int on);
    0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
    only a fixed rate paces it, Cast's) to the renderer; the latched quality; a new surface's first frame
    cleared to black and nothing else; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
-   hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
+   hears nothing); geode_viz_render at CLOCK_MONOTONIC.
    Answers the GEODE_FRAME_* events; the shell acts on a bit only when it is set. 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY      0x1  /* the first frame on a new surface, cleared to black: present it */
 #define GEODE_FRAME_LIQUID_CHANGED  0x4  /* Liquid mode changed: geode_viz_liquid_mode */

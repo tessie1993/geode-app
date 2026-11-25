@@ -17,7 +17,7 @@ public:
     virtual void surfaceCreated() = 0;
     // The window's size in pixels, after every new surface and every size change, context current.
     virtual void surfaceChanged(int width, int height) = 0;
-    // One frame, context current: paced is the rate the pacer draws at now (0 every vsync), cap the surface's own.
+    // One frame, context current: paced is the rate the display presents at (read from the vsync's own interval, 0 not known), cap the surface's own, a hint only.
     // Returns event bits the shell polls (geode_stage_take_events).
     virtual uint32_t frame(float pacedFps, float capFps) = 0;
     // Called just before each frame: the vsync's frame time (CLOCK_MONOTONIC ns) the frame is for, 0 when no vsync

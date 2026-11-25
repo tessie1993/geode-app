@@ -13,12 +13,12 @@ One fact per line. The design of the native host every live surface draws throug
 ## Thread model
 
 - Two kinds of thread, as today: one process-wide vsync thread, and one stage thread per surface.
-- The vsync thread is named `GeodeFramePacer` and runs at nice -4 (`THREAD_PRIORITY_DISPLAY`).
+- The vsync thread is named `GeodeVsync` and runs at nice -4 (`THREAD_PRIORITY_DISPLAY`).
 - It is started on first use and never quit: an idle looper costs nothing, and a thread torn down on every pause would race the next start.
 - Its object is allocated once and never freed, so the thread never runs on an object a static destructor took down at exit.
-- It owns an `ALooper` and the `AChoreographer` of that looper, and serves every stage's pacer, so a preview wallpaper beside the app costs no second clock thread.
-- It never draws, so a slow frame on one surface never delays another surface's vsync and never stops the pacer from hearing every vsync.
-- That is why the clock is not merged into the render thread: `AChoreographer` delivers one callback per looper turn, so a frame longer than a vsync would make the pacer miss vsyncs and change its period estimate and divide (`core/viz/frame/Pacer`), which the owner fixed as unchanged.
+- It owns an `ALooper` and the `AChoreographer` of that looper, and serves every stage's callback, so a preview wallpaper beside the app costs no second clock thread.
+- It never draws, so a slow frame on one surface never delays another surface's vsync.
+- That is why the clock is not merged into the render thread: `AChoreographer` delivers one callback per looper turn, so a frame longer than a vsync would make the callback miss vsyncs.
 - Each stage thread is named `GeodeStage` and runs at nice -4, Android's display priority (`kStageNice` in `core/stage/android/StageThread.cpp`), as the vsync thread does.
 - One stage thread per surface, not one render thread for all: the app view and a live wallpaper (or its preview) can run at once, each `geode_viz` has its own GL objects in its own context, and one thread would switch contexts every frame and let one surface's slow frame stall the other.
 - A stage thread owns an `ALooper` too: it sleeps in `ALooper_pollOnce` and is woken by `ALooper_wake` when a command arrives.
@@ -35,7 +35,7 @@ One fact per line. The design of the native host every live surface draws throug
 ## What the shell reads back
 
 - One state word (`geode_stage_state`): window, context, surface, drawable, vsync, paused, context refused, surface bad, released, and the run mode in bits 12-13.
-- The rate the pacer draws at now (`geode_stage_paced_fps`).
+- The rate the display last presented at, read from the vsync's own interval (`geode_stage_paced_fps`).
 - The frame events the client returned since the last read (`geode_stage_take_events`), OR-ed together.
 - Native never calls up into Kotlin: no `JavaVM`, no global references; the shell polls.
 
@@ -82,26 +82,22 @@ One fact per line. The design of the native host every live surface draws throug
 - A stage leaving the vsync thread goes on a list under a mutex, not through the queue, so the detach cannot be dropped and no callback re-posts for a stage that is gone.
 - The consumer is woken through a callback, only when the queue turns non-empty; the platform layer passes `ALooper_wake`.
 
-## Vsync and pacing (`core/stage/StagePacing`)
+## Vsync (`core/stage/StagePacing`, `core/stage/VsyncRule`)
 
-- `AChoreographer_postFrameCallback64` (API 29) on the vsync thread's own choreographer, re-posted from each callback.
-- The pacer is fed the callback's `frameTimeNanos`, `CLOCK_MONOTONIC`: the same time base as the Java `Choreographer.FrameCallback`, so pacing stays exactly as it was.
-- `AChoreographer_postVsyncCallback` (API 33) adds frame timelines and an expected presentation time; feeding that instead would change the dt the pacer sees, so any switch is a separate, later decision.
-- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap and nothing lowers it for heat or load. The cap is a ceiling, not a cadence: a slot reached while the stage is still on the last frame (`Sink::stageBusy`, cleared by `StagePort::frameDone`) is missed, and the first vsync after the stage finishes draws.
-- `StagePacing` owns the eight-int64 `PacerState` and picks the cap as `geode_pacer_on_vsync` does (`frame::pacerCapFps`): the surface's cap, or the panel's rate under Follow device; the pacer divides by that cap, never lowered for heat. The one thing that lowers it is "Adapt to frame time": after each frame `StageCore` asks the client for `governedCapFps` and, when it moves, sends the surface's cap under it (`StagePacing::capUnder`) to the pacer and the window's hint, the same path a cap from the shell takes.
-- A callback re-posts first, before the pacer runs, so the cadence survives a slow frame and a skipped vsync still wakes the next one.
+- `AChoreographer_postVsyncCallback` (API 33) on the vsync thread's own choreographer, re-posted from each callback. It carries the frame timelines: the vsync's frame time and the expected presentation time, both `CLOCK_MONOTONIC`.
+- One frame per vsync callback: the stage draws on every vsync the system delivers. The user's frame rate is a hint to the platform (below), never a divisor of the vsyncs.
+- One fixed rule skips a vsync (`skipVsync`): the last frame is still in flight. On the vsync thread that is `Sink::stageBusy` (the stage thread has not finished the frame it was asked for, cleared by `StagePort::frameDone`); on the stage thread it is the GPU side: `EglWindow::swap` inserts an `EGL_KHR_fence_sync` fence after the draw and before the swap, and the next frame request polls it with `eglClientWaitSyncKHR` and a zero timeout (`StagePort::gpuBusy`). A skipped vsync is not queued or remembered; the next one asks again. A device without the extension has no fence and so no GPU-side skip.
+- The picture's clock is the frame's expected presentation time (the vsync's frame time when none is given), and the step is the difference between two frames' clocks.
+- A callback re-posts first, so a skipped vsync still wakes the next one.
 - There is no NDK call to remove a posted callback, so stop only clears the running flag and the pending callback lapses on its next vsync.
-- A start while a callback is still pending posts nothing, so two starts never double the callback and halve every dt.
-- A start resumes the pacer, so a resume never inherits the gap it was paused across; the period estimate survives.
-- A drawn vsync hands the stage thread one last-wins frame request carrying the paced rate and the surface's cap; requests coalesce like `requestRender` did.
-- The rate handed to the frame is the pacer's paced rate, or the cap until the first vsync after a cap change; the cap handed with it is the surface's own, which the governor needs as the user's maximum.
+- A start while a callback is still pending posts nothing, so two starts never fire twice per vsync.
+- A drawn vsync hands the stage thread one last-wins frame request carrying the vsync's time, the offset to its expected presentation and the interval between presentations; requests coalesce like `requestRender` did. The rate handed to the frame is read from that interval.
 
 ## Frame-rate hint
 
 - `ANativeWindow_setFrameRate` (API 30) with `ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT`: the NDK documents it as the change strategy only-if-seamless, the twin of the two-argument `Surface.setFrameRate`.
-- The rate is the effective cap (`StagePacing::frameRateFor` of `StagePacing::capUnder`): the surface's cap, 0 for Follow device, or the governor's lower cap while "Adapt to frame time" has stepped the frame rate down; 0 is the platform's no preference.
-- It is stated on every new window, every size change and every cap change, and again when a vsync paces to a new cap (a new panel rate under Follow device).
-- It is called on the stage thread, which holds the window; a hint from a vsync reaches it as a last-wins command.
+- The rate is the surface's cap (`frameRateHint`): 0 for Follow device or no cap; 0 is the platform's no preference. Nothing lowers it for heat or load.
+- It is stated on every new window, every size change and every cap change, on the stage thread, which holds the window. A drawn frame states nothing.
 
 ## EGL
 
@@ -147,9 +143,9 @@ One fact per line. The design of the native host every live surface draws throug
 
 ## Files
 
-- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.{hpp,cpp}`, `core/stage/StageClient.hpp`, `core/stage/LiveClient.{hpp,cpp}`: pure, host-tested.
+- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.hpp`, `core/stage/VsyncRule.hpp`, `core/stage/StageClient.hpp`, `core/stage/LiveClient.{hpp,cpp}`: pure, host-tested.
 - `core/stage/android/EglWindow.{hpp,cpp}`, `core/stage/android/VsyncThread.{hpp,cpp}`, `core/stage/android/StageThread.{hpp,cpp}`: the platform layer, Android only, in no host-test line, and deciding nothing.
-- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`, `live_client_test.cpp`.
+- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`, `vsync_rule_test.cpp`, `live_client_test.cpp`.
 
 ## What cannot be host-tested
 
@@ -160,7 +156,7 @@ One fact per line. The design of the native host every live surface draws throug
 - Rotation and fold: one surfaceChanged, no black flash, the rate hint restated.
 - Picture-in-picture: the stage draws while paused-but-started, at the PiP size.
 - Second screen (Presentation): a second stage on the external window, both pacing independently.
-- Wallpaper preview beside the home-screen wallpaper: two surface stages and the app view at once, one `GeodeFramePacer` thread.
+- Wallpaper preview beside the home-screen wallpaper: two surface stages and the app view at once, one `GeodeVsync` thread.
 - Lock screen: the lock look, Stopped when covered, Still with the settle burst and then no frames.
 - 60, 90 and 120 Hz panels: the same divides and paced rates as before the stage (60 cap on 90 Hz draws 45), and the panel mode follows the hint where it can switch seamlessly.
 - Screen off and on: vsync stops, the context survives, the first frame after is not a 600 s step.

@@ -145,7 +145,7 @@ struct geode_viz {
     // (Renderer::onSurfaceCreated forgets GL objects and the stages' motion, never what the shell set), so the
     // shell never sends the look again for a new surface.
     geode::viz::frame::LiveFrame live;
-    // The time the last live frame was drawn at (seconds, CLOCK_BOOTTIME), so the next never runs back. GL thread only.
+    // The time the last live frame was drawn at (seconds, CLOCK_MONOTONIC), so the next never runs back. GL thread only.
     double liveSeconds = 0.0;
     // The shell's whole look as set last (geode_viz_set_look), so only the parts that differ reach the renderer; a new
     // handle starts with none, so it gets the whole look. lookLock: the compare and its sets never interleave.
@@ -233,11 +233,10 @@ static_assert(static_cast<int>(layer_state::Source::Director) == GEODE_LAYER_SOU
 static_assert(static_cast<int>(layer_state::Source::Macro) == GEODE_LAYER_SOURCE_MACRO);
 static_assert(layer_state::kSources == 3);
 
-// A live frame's time: CLOCK_BOOTTIME, since boot with deep sleep counted, the clock SystemClock.elapsedRealtimeNanos
-// reads, so the picture's clock runs on as it did when the shell stamped each frame.
-double bootSeconds() {
+// The picture's clock: CLOCK_MONOTONIC, the clock the vsync's frame time and expected presentation time are on.
+double monotonicSeconds() {
     timespec ts{};
-    clock_gettime(CLOCK_BOOTTIME, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) * 1e-9;
 }
 
@@ -540,8 +539,8 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, float pacedFps, bool mayRepeat)
-        : v_(v), ring_(ring), vsyncNs_(vsyncNs), pacedFps_(pacedFps) {
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, bool mayRepeat)
+        : v_(v), ring_(ring), vsyncNs_(vsyncNs) {
         v_.presentNs = presentNs;
         v_.mayRepeat = mayRepeat;
     }
@@ -569,19 +568,15 @@ public:
     bool frameRepeated() override { return v_.renderer.frameRepeated(); }
 
 private:
-    // The frame's time: the vsync it was asked for at, on the boot clock, so the step is the vsyncs' own spacing and
-    // not the thread hop's jitter; with no vsync (the cast's fallback) the clock at the draw. Never earlier than the
-    // last frame's, and never later than now. A vsync older than 1.5 draw intervals is stale (the stage was behind):
-    // the step is then the clock at the draw, the time that really passed (frame::freshAgoSeconds).
+    // The frame's time: when the display is expected to show it (the vsync's expected presentation), so the picture's
+    // step is the presentations' own spacing and not the thread hop's jitter. Without one, the vsync it was asked for
+    // at, and without that (the cast's fallback) the clock at the draw. Never earlier than the last frame's.
     double frameSeconds() {
-        const double boot = bootSeconds();
-        double seconds = boot;
-        if (vsyncNs_ > 0) {
-            timespec mono{};
-            clock_gettime(CLOCK_MONOTONIC, &mono);
-            const double ago = static_cast<double>(mono.tv_sec) + static_cast<double>(mono.tv_nsec) * 1e-9 -
-                               static_cast<double>(vsyncNs_) * 1e-9;
-            seconds = boot - frame::freshAgoSeconds(ago, pacedFps_);
+        double seconds = monotonicSeconds();
+        if (v_.presentNs > 0) {
+            seconds = static_cast<double>(v_.presentNs) * 1e-9;
+        } else if (vsyncNs_ > 0) {
+            seconds = static_cast<double>(vsyncNs_) * 1e-9;
         }
         seconds = std::max(seconds, v_.liveSeconds);
         v_.liveSeconds = seconds;
@@ -591,7 +586,6 @@ private:
     geode_viz& v_;
     const geode_pcm_ring* ring_;
     int64_t vsyncNs_;
-    float pacedFps_;
 };
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
@@ -609,7 +603,7 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs, bool mayRepeat) {
     if (!v) return 0;
     try {
-        VizStages stages(*v, ring, vsyncNs, presentNs, pacedFps, mayRepeat);
+        VizStages stages(*v, ring, vsyncNs, presentNs, mayRepeat);
         return static_cast<int>(v->live.run(stages, pacedFps, capFps));
     } catch (...) {
         // Nothing to tell the shell this frame; the next one starts over.

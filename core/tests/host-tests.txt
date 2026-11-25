@@ -96,6 +96,13 @@ resolver_test | stub | core/tests/resolver_test.cpp core/viz/resolver/Resolver.c
     core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp |
+# A new play starts the reaction matrix over (Resolver::newPlay): the last song's smoothed routes and followers never reach the next song's first frame.
+new_play_reactions_test | stub | core/tests/new_play_reactions_test.cpp core/viz/resolver/Resolver.cpp core/viz/resolver/EngineSettings.cpp \
+    core/sound/*.cpp core/viz/director/Director.cpp core/viz/director/DirectorTuning.cpp core/viz/director/DirectorReach.cpp \
+    core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/Lfo.cpp \
+    core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
+    core/viz/params/ParamsFields.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp |
 # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
 # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
 director_reach_test | stub | core/tests/director_reach_test.cpp core/viz/resolver/Resolver.cpp core/viz/modulation/Responder.cpp \
@@ -663,6 +670,9 @@ analysis_thread_tsan | tsan | core/tests/analysis_thread_test.cpp core/sound/hop
 # between two, every hit once at any frame rate with its sample, two surfaces on one shared analysis alike, hops on
 # both sides of a speaker behind the writer, and an export equal at 30, 60 and 120 fps.
 frame_blend_test | mt | core/tests/frame_blend_test.cpp core/sound/interp/FrameBlend.cpp \
+    core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp |
+# A reader that loses its source forgets what it heard (FrameReader::forget): no frame, feeling or owed hit outlives the source.
+heard_forget_test | mt | core/tests/heard_forget_test.cpp core/sound/interp/FrameBlend.cpp \
     core/sound/hop/AnalysisThread.cpp core/sound/*.cpp core/audio/ingest/PcmRing.cpp |
 # The sound output policy (core/sound/OutputPolicy): every frame output has one row, names are unique, and the rows carry
 # the constants the stages read.

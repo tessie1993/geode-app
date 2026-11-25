@@ -78,6 +78,7 @@ internal fun panelFormat(
 
 /** A native row's cell as text: a word core names by id (core/viz/panel/PanelText `ref`) resolved here, anything else as it is. */
 @Composable
+@Suppress("SpreadOperator")
 internal fun cellText(cell: String): String {
     if (!cell.startsWith(PanelWords.WORD)) return cell
     val parts = cell.substring(PanelWords.WORD.length).split(PanelWords.UNIT)

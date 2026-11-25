@@ -31,7 +31,7 @@ class PanelWordsTest {
         val resources = ApplicationProvider.getApplicationContext<Application>().resources
         words.forEach { (id, args) ->
             val text = resources.getString(PanelWords.byId.getValue(id))
-            val placeholders = Regex("""%(\d+)\$s""").findAll(text).map { it.groupValues[1] }.toSet()
+            val placeholders = Regex("%(\\d+)\\\$s").findAll(text).map { it.groupValues[1] }.toSet()
             assertEquals("placeholders in $id", (1..args).map { it.toString() }.toSet(), placeholders)
         }
     }

@@ -82,8 +82,8 @@ class PlaybackService : MediaLibraryService() {
                 // The app plays through PlaybackEngine directly, so no MediaController ever
                 // connects to fetch the session through onGetSession. Until a session is added,
                 // MediaSessionService neither posts the playback notification nor calls
-                // startForeground, and the startForegroundService() from ensureRunning() ends in
-                // ForegroundServiceDidNotStartInTimeException a few seconds into every track.
+                // startForeground, and a startForegroundService() from ensureRunning() ends in
+                // ForegroundServiceDidNotStartInTimeException a few seconds into the track.
                 .also { addSession(it) }
         session?.let(notificationButtons::attach)
         player.addListener(notificationButtons)
@@ -502,11 +502,11 @@ class PlaybackService : MediaLibraryService() {
             // A plain start first: it promises nothing, and Media3 starts itself into the foreground
             // once its notification controller sees the player playing. startForegroundService would
             // promise a startForeground that never comes when playback stops before that (a pause, a
-            // track that fails or ends at once): ForegroundServiceDidNotStartInTimeException. The plain
-            // start is refused while the app is in the background (this runs from onIsPlayingChanged,
-            // which can fire off-screen); only then is the promise made. From the background that start
-            // is refused too on API 31+ (ForegroundServiceStartNotAllowedException) unless an exemption
-            // holds, such as a media button, so a refusal is noted and the user is told.
+            // track that fails or ends at once): ForegroundServiceDidNotStartInTimeException. The
+            // platform can refuse the plain start once the app is in the background (this runs from
+            // onIsPlayingChanged, which can fire off-screen); only then is the promise made. From the
+            // background that start is refused too on API 31+ (ForegroundServiceStartNotAllowedException)
+            // unless an exemption holds, such as a media button, so a refusal is noted and the user is told.
             val intent = Intent(context, PlaybackService::class.java)
             runCatching {
                 startPromisingOnlyWhenRefused(

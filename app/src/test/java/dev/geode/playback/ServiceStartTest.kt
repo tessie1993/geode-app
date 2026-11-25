@@ -32,4 +32,13 @@ class ServiceStartTest {
             )
         }
     }
+
+    @Test
+    fun anyOtherFailureOfThePlainStartMakesNoPromise() {
+        var promises = 0
+        assertThrows(SecurityException::class.java) {
+            startPromisingOnlyWhenRefused(plain = { throw SecurityException("not ours to start") }, promised = { promises++ })
+        }
+        assertEquals(0, promises)
+    }
 }

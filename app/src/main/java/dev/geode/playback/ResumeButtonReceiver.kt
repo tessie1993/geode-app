@@ -12,7 +12,9 @@ import dev.geode.data.SessionStore
  * receiver answers the key with startForegroundService, and the service reaches the foreground only
  * once something plays. With an empty player and no saved queue nothing ever does, and the system
  * kills the app (ForegroundServiceDidNotStartInTimeException). [shouldStartForegroundService] is
- * the hook Media3 gives for that.
+ * the hook Media3 gives for that. It reads the saved queue on the main thread, the small file
+ * onPlaybackResumption reads next, so both answer by one rule ([ResumeSource]). A queue that is
+ * there and cannot play is not caught here.
  */
 @OptIn(UnstableApi::class)
 class ResumeButtonReceiver : MediaButtonReceiver() {

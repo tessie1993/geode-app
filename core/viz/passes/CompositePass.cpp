@@ -1,11 +1,11 @@
-#include "viz/CompositePass.hpp"
+#include "viz/passes/CompositePass.hpp"
 
 #include <algorithm>
 
 #include "util/Log.hpp"
 #include "viz/gl/BlueNoise.hpp"
-#include "viz/CompositeGrade.hpp"
-#include "viz/TwistShape.hpp"
+#include "viz/passes/CompositeGrade.hpp"
+#include "viz/passes/TwistShape.hpp"
 
 namespace geode::viz {
 

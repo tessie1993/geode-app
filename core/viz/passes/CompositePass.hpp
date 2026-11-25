@@ -6,10 +6,10 @@
 #include <string>
 #include <vector>
 
-#include "viz/Births.hpp"
+#include "viz/passes/Births.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/gl/Texture.hpp"
-#include "viz/Transition.hpp"
+#include "viz/passes/Transition.hpp"
 
 namespace geode::viz {
 
@@ -48,9 +48,9 @@ public:
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
         float postRotationAngle = 0.0f;
-        // The playing style's variant seed (styleVariantSeed): where its twist turns from (viz/TwistShape).
+        // The playing style's variant seed (styleVariantSeed): where its twist turns from (viz/passes/TwistShape).
         std::uint32_t twistSeed = 0u;
-        // Life's births (viz/Births) for a scene that has no shader to draw them (gate x): all 0 at Life 0.
+        // Life's births (viz/passes/Births) for a scene that has no shader to draw them (gate x): all 0 at Life 0.
         std::array<float, births::kFloats> postBirths{};
         GLuint quadVao = 0;
         SceneParams fx;

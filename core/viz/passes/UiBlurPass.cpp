@@ -1,4 +1,4 @@
-#include "viz/UiBlurPass.hpp"
+#include "viz/passes/UiBlurPass.hpp"
 
 #include <algorithm>
 #include <cmath>

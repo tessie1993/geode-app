@@ -81,7 +81,7 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     // The shading pass (lib_shade): the soft shadows on the styles with a lit surface, the escape colour on the
     // families whose folds feed it.
     {"SHADOW", "SHADOW"}, {"ESCAPE_COLOR", "ESCAPE"},
-    // Births (viz/Births): every style has Life.
+    // Births (viz/passes/Births): every style has Life.
     {"LIFE", "UNIVERSAL"},
 };
 

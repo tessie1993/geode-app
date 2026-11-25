@@ -19,14 +19,14 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Circular.hpp"
 #include "viz/modulation/VisualSafety.hpp"
-#include "viz/EndlessZoom.hpp"
+#include "viz/passes/EndlessZoom.hpp"
 #include "viz/modulation/MotionField.hpp"
 #include "viz/modulation/ReactionDna.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/Reactions.hpp"
 #include "viz/gl/ScenePrep.hpp"
 #include "viz/modulation/SpeedClock.hpp"
-#include "viz/TwistShape.hpp"
+#include "viz/passes/TwistShape.hpp"
 
 using namespace geode::viz;
 

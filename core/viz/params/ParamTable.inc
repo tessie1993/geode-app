@@ -527,7 +527,7 @@ GEODE_PARAM_META(paletteStop3, "Palette", Universal, 0, 0, 0)
 GEODE_PARAM(Int, paletteStop4, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
 GEODE_PARAM_META(paletteStop4, "Palette", Universal, 0, 0, 0)
 
-// Endless zoom's tunnel (viz/EndlessZoom.hpp, tunnel::Look; Customize › Dive). Appended so every wire
+// Endless zoom's tunnel (viz/passes/EndlessZoom.hpp, tunnel::Look; Customize › Dive). Appended so every wire
 // index survives. Each default is the plain tunnel, so a look saved before them dives as it did.
 // Octaves between two nested copies.
 GEODE_PARAM(Float, diveSpacing, 1.0f, 0.5f, 2.0f, Fade)
@@ -707,7 +707,7 @@ GEODE_PARAM_META(escapeColor, "Escape colour", Escape, kMod, 0, 0)
 GEODE_PARAM_MOD(escapeColor, 1.0f, kModLight)
 
 // Life (Customize › Shape › Form): how much the picture is born and dies on its own. At 0 nothing is born and
-// every style draws exactly as before. Above 0, up to three births (viz/Births: native, on the Speed clock alone,
+// every style draws exactly as before. Above 0, up to three births (viz/passes/Births: native, on the Speed clock alone,
 // no sound or tempo in it) each take a seeded spawn point off the centre, grow from nothing, drift away by
 // translation only, then collapse by a kind that rotates from birth to birth: implode (shrinks to its own
 // centre), fold back (folds in on itself across a line) or cave in (hollows from the inside). Life sets how many

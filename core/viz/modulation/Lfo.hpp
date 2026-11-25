@@ -27,7 +27,7 @@ enum class LfoTarget {
     CamFly, CamOrbit, CamPush, CamYaw, CamPitch, CamRoll, CamFov, CamShake,
     // Appended: Liquid mode's Swirl, Push and Dive (viz/liquid), after the camera rig's.
     FlowCurl, FlowForce, EndlessZoomSpeed,
-    // Appended: the dive's spiral and where it points (viz/EndlessZoom.hpp).
+    // Appended: the dive's spiral and where it points (viz/passes/EndlessZoom.hpp).
     DiveTwist, DiveAimX, DiveAimY,
     // Appended: a macro knob (viz/modulation/MacroBank), the one LfoConfig::knob / AdsrConfig::knob names. It writes no param:
     // the resolver adds the wave or the envelope to the knob's turn, and the knob moves what it links.
@@ -52,7 +52,7 @@ enum class LfoTarget {
     // Appended: the soft shadows' darkness and the escape colour's reach (viz/params/ParamTable.inc shadow, escapeColor),
     // ordinals 80 and 81.
     Shadow, EscapeColor,
-    // Appended: how much the picture is born and dies (viz/params/ParamTable.inc life, viz/Births), ordinal 82.
+    // Appended: how much the picture is born and dies (viz/params/ParamTable.inc life, viz/passes/Births), ordinal 82.
     Life,
 };
 // The names above are the targets as first shipped (viz/modulation/ModTable.hpp kLegacy). Every later ordinal is a field with a mod

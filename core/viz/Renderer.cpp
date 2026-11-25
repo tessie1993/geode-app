@@ -14,7 +14,7 @@
 #include "viz/director/DirectorStyle.hpp"
 #include "viz/gl/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
-#include "viz/Underlay.hpp"
+#include "viz/passes/Underlay.hpp"
 #include "util/WorkHint.hpp"
 
 namespace geode::viz {

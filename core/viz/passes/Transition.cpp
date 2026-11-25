@@ -1,4 +1,4 @@
-#include "viz/Transition.hpp"
+#include "viz/passes/Transition.hpp"
 
 #include <algorithm>
 

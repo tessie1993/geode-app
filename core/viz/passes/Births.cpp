@@ -1,4 +1,4 @@
-#include "viz/Births.hpp"
+#include "viz/passes/Births.hpp"
 
 #include <algorithm>
 #include <cmath>

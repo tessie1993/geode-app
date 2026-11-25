@@ -102,7 +102,7 @@ add_library(geode_core STATIC
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
     viz/colour/ArtPalette.cpp
-    viz/Births.cpp
+    viz/passes/Births.cpp
     api/geode_widget_glow_api.cpp
     viz/WidgetGlow.cpp
     library/Tags.cpp
@@ -222,9 +222,9 @@ add_library(geode_core STATIC
     viz/LayerPick.cpp
     viz/LayerState.cpp
     viz/modulation/NoteResponse.cpp
-    viz/UiBlurPass.cpp
-    viz/DivePass.cpp
-    viz/Underlay.cpp
+    viz/passes/UiBlurPass.cpp
+    viz/passes/DivePass.cpp
+    viz/passes/Underlay.cpp
     viz/frame/ExportPasses.cpp
     viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
@@ -238,10 +238,10 @@ add_library(geode_core STATIC
     viz/CameraRig.cpp
     viz/modulation/VisualSafety.cpp
     viz/input/TouchField.cpp
-    viz/Transition.cpp
-    viz/CompositeGrade.cpp
-    viz/CompositePass.cpp
-    viz/TrailPass.cpp
+    viz/passes/Transition.cpp
+    viz/passes/CompositeGrade.cpp
+    viz/passes/CompositePass.cpp
+    viz/passes/TrailPass.cpp
     viz/Catalogue.cpp
     viz/CataloguePresets.cpp
     viz/panel/ParamRandomizer.cpp
@@ -258,7 +258,7 @@ add_library(geode_core STATIC
     viz/scenes/ShaderScene.cpp
     viz/SoundUniforms.cpp
     viz/gl/BlueNoise.cpp
-    viz/Overlays.cpp
+    viz/passes/Overlays.cpp
     viz/compute/SimField.cpp
     viz/compute/SimGlsl.cpp
     viz/compute/SimPass.cpp

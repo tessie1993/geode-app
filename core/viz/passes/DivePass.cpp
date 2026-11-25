@@ -1,4 +1,4 @@
-#include "viz/DivePass.hpp"
+#include "viz/passes/DivePass.hpp"
 
 #include <algorithm>
 

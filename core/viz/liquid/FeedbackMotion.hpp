@@ -217,7 +217,7 @@ inline Motion fromSound(const Motion& base, const GeodeSoundFrame& s, bool reduc
 }
 
 // What the renderer asks of the pass while Liquid is off (Renderer::drawTrails): a shader style's Trails
-// as an echo zoom and warp. Endless zoom is not here: it is its own stage (viz/DivePass).
+// as an echo zoom and warp. Endless zoom is not here: it is its own stage (viz/passes/DivePass).
 struct TrailAsk {
     float trailZoom = 0.0f;  // -0.5..0.5
     float trailWarp = 0.0f;  // 0..1

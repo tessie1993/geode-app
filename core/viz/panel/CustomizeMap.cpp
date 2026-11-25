@@ -64,7 +64,7 @@ const std::vector<Section>& table() {
         // Spin shows only on the styles that turn (catalogue::Scope::Spin); 0 holds them still.
         {C::Motion, "inner_motion", false, S::Always, {"Motion amount", "Breath", "Spin"}},
 
-        // The endless zoom (viz/EndlessZoom.hpp): on, and how fast, then the tunnel it draws.
+        // The endless zoom (viz/passes/EndlessZoom.hpp): on, and how fast, then the tunnel it draws.
         {C::Dive, "basics", true, S::Always, {"Endless zoom", "Dive speed"}},
         {C::Dive, "tunnel", false, S::Always, {"Ring spacing", "Tunnel shape", "Dive blend", "Depth fade"}},
         {C::Dive, "spiral_aim", false, S::Always, {"Dive twist", "Dive aim X", "Dive aim Y", "Dive lens"}},
@@ -161,7 +161,7 @@ const std::vector<HeldControl>& held() {
         // The shading pass: no roll deals them (ParamRandomizer's neverRolled); their scope is their meta row's.
         {"Soft shadows", {"shadow"}, std::nullopt},
         {"Escape colour", {"escapeColor"}, std::nullopt},
-        // Births (viz/Births): Universal, no roll deals it.
+        // Births (viz/passes/Births): Universal, no roll deals it.
         {"Life", {"life"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},

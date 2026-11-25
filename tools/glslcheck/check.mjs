@@ -391,7 +391,7 @@ function liquidJobs(args, registry) {
 
 // ---- Endless zoom (--dive <style>) ------------------------------------------
 //
-// The style, then dive_frag.glsl over its picture (core/viz/DivePass): --frames snapshots spread over
+// The style, then dive_frag.glsl over its picture (core/viz/passes/DivePass): --frames snapshots spread over
 // one step of travel at --speed octaves a second (negative rises out), so the first and the one
 // after the last are the same picture. --look <name>=<value> sets a Dive control (spacing, twist, aimX,
 // aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.

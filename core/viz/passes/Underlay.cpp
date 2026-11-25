@@ -1,4 +1,4 @@
-#include "viz/Underlay.hpp"
+#include "viz/passes/Underlay.hpp"
 
 #include <algorithm>
 #include <cmath>

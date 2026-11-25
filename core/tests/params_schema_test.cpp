@@ -663,7 +663,7 @@ void everyLiveRowHasOneMeta() {
     check(std::string(escape.label) == "Escape colour" && escape.scope == catalogue::Scope::Escape && (escape.flags & kMod) != 0 &&
               escape.rollLo == 0.0f && escape.rollHi == 0.0f && SceneParams::spec(ParamSlot::escapeColor).defaultValue == 0.5f,
           "Escape colour: a target on its own scope, 0.5 by default, never dealt by the param roll");
-    // Births (viz/Births): every style has Life, off by default, never rolled.
+    // Births (viz/passes/Births): every style has Life, off by default, never rolled.
     const ParamMeta& life = SceneParams::meta(ParamSlot::life);
     check(std::string(life.label) == "Life" && life.scope == catalogue::Scope::Universal && (life.flags & kMod) != 0 &&
               life.rollLo == 0.0f && life.rollHi == 0.0f && SceneParams::spec(ParamSlot::life).defaultValue == 0.0f,

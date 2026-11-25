@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "viz/EndlessZoom.hpp"
+#include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/ShaderSource.hpp"

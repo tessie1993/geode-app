@@ -1,5 +1,5 @@
 #include "api/geode_api.h"
-#include "viz/Underlay.hpp"
+#include "viz/passes/Underlay.hpp"
 
 namespace underlay = geode::viz::underlay;
 

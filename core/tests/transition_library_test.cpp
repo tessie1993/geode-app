@@ -1,4 +1,4 @@
-// Host-side checks for core/viz/TransitionLibrary (#438): the GL Transitions library parse the renderer
+// Host-side checks for core/viz/passes/TransitionLibrary (#438): the GL Transitions library parse the renderer
 // uses, and the picker table the shell reads through geode_transition_picker. Built and run by CI
 // ("Native host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL.
 //
@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "viz/director/TransitionChoice.hpp"
-#include "viz/TransitionLibrary.hpp"
+#include "viz/passes/TransitionLibrary.hpp"
 
 using namespace geode::viz;
 

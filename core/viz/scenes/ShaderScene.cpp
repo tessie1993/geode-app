@@ -5,11 +5,11 @@
 #include <cmath>
 
 #include "util/Log.hpp"
-#include "viz/Births.hpp"
+#include "viz/passes/Births.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/colour/Colour.hpp"
 #include "viz/modulation/NoteResponse.hpp"
-#include "viz/TwistShape.hpp"
+#include "viz/passes/TwistShape.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
 
@@ -220,7 +220,7 @@ void ShaderScene::uploadParams() {
     // The shading pass (lib_shade): the soft shadows' darkness (Scope::Shadow) and the escape colour's reach (Scope::Escape).
     set1f(Uniform::uShadow, p.shadow);
     set1f(Uniform::uEscapeColor, p.escapeColor);
-    // Life's births (viz/Births) on the scene's own clock, already Speed-integrated: all 0 at Life 0, so lib_grow's
+    // Life's births (viz/passes/Births) on the scene's own clock, already Speed-integrated: all 0 at Life 0, so lib_grow's
     // birth passes are all skipped.
     set1f(Uniform::uLife, p.life);
     {

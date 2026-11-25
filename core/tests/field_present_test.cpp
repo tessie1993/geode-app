@@ -11,7 +11,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
-#include "viz/CompositeGrade.hpp"
+#include "viz/passes/CompositeGrade.hpp"
 #include "viz/present/FieldGeometry.hpp"
 
 using namespace geode::viz;

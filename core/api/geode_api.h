@@ -216,7 +216,7 @@ GEODE_API int         geode_viz_liquid_mode(geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
-/* Frosted glass under the app's sheet (core/viz/UiBlurPass): blurs the finished frame inside one rounded
+/* Frosted glass under the app's sheet (core/viz/passes/UiBlurPass): blurs the finished frame inside one rounded
  * rect, after the composite. The rect is normalised to the viewport with y DOWN (a view's left/top/right/
  * bottom in pixels over the visual's width/height); strength 0..1 mixes the blur in, 0 turns it off and
  * costs nothing; corner_px is the corner radius in surface pixels. Any thread, latched for the next frame.
@@ -1262,7 +1262,7 @@ GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* styl
 GEODE_API int         geode_macro_bank_live_mods(float* out, int capacity);
 /* A knob's turn plus what modulation adds to it, held to -1..1: what the engine draws it at. */
 GEODE_API float       geode_macro_bank_modulated(float turn, float add);
-/* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
+/* Background image bake (core/viz/passes/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
  * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
@@ -1468,7 +1468,7 @@ GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state)
  * video bit rate, out[5] the audio bit rate (bit/s). out holds GEODE_CAST_FORMAT_INTS ints. */
 #define GEODE_CAST_FORMAT_INTS 6
 GEODE_API void            geode_cast_format(int* out);
-/* What Customize's transition picker lists (core/viz/TransitionLibrary, encodeTransitionPicker): the built-in
+/* What Customize's transition picker lists (core/viz/passes/TransitionLibrary, encodeTransitionPicker): the built-in
    ids it offers (TransitionChoice's pickerIds: no "cut", then "random"), RS, then the GL Transitions library's
    names (gl_transitions.json, read from the APK once per process), each list's entries separated by US. UTF-8.
    Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */

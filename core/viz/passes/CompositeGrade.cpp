@@ -1,4 +1,4 @@
-#include "viz/CompositeGrade.hpp"
+#include "viz/passes/CompositeGrade.hpp"
 
 #include <algorithm>
 #include <cmath>

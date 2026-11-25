@@ -28,7 +28,7 @@
 #include "viz/gl/Quad.hpp"
 #include "viz/Scene.hpp"
 #include "viz/gl/Texture.hpp"
-#include "viz/Transition.hpp"
+#include "viz/passes/Transition.hpp"
 #include "viz/compute/SimPass.hpp"
 #include "viz/frame/ExportPasses.hpp"
 #include "viz/frame/Pass.hpp"

@@ -25,10 +25,10 @@
 #include "sound/interp/Waveform.hpp"
 #include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
-#include "viz/CompositePass.hpp"
+#include "viz/passes/CompositePass.hpp"
 #include "viz/director/Director.hpp"
-#include "viz/DivePass.hpp"
-#include "viz/EndlessZoom.hpp"
+#include "viz/passes/DivePass.hpp"
+#include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/GlHandle.hpp"
 #include "viz/gl/GlProfile.hpp"
@@ -38,7 +38,7 @@
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/MotionField.hpp"
 #include "viz/modulation/NoteResponse.hpp"
-#include "viz/Overlays.hpp"
+#include "viz/passes/Overlays.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/gl/ProgramBinaryCache.hpp"
@@ -53,10 +53,10 @@
 #include "viz/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
 #include "viz/input/TouchSmear.hpp"
-#include "viz/TrailPass.hpp"
+#include "viz/passes/TrailPass.hpp"
 #include "viz/frame/FrameGovernor.hpp"
 #include "viz/frame/LiveFps.hpp"
-#include "viz/UiBlurPass.hpp"
+#include "viz/passes/UiBlurPass.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 #include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
@@ -308,7 +308,7 @@ private:
     // A shader style's Trails with Liquid off (length, echo zoom, warp), run through the liquid pass on
     // the wall clock. 0 when its targets are not there.
     GLuint drawTrails(const SceneParams& p, float dt, float wallDt);
-    // Endless zoom (EndlessZoom.hpp, viz/DivePass): the same stage over every style's finished picture.
+    // Endless zoom (EndlessZoom.hpp, viz/passes/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns

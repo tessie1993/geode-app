@@ -6,7 +6,7 @@
 #include "util/Json.hpp"
 
 // The GL Transitions library asset (gl_transitions.json): parsed once here, for the renderer's
-// composite (core/viz/Transition) and for the shell's one read of it (#438). The shell gets
+// composite (core/viz/passes/Transition) and for the shell's one read of it (#438). The shell gets
 // `encodeTransitionPicker` through geode_transition_picker: the names it lists, nothing to parse.
 // Pure, with no GL and no assets, so the host can test it (core/tests/transition_library_test.cpp).
 namespace geode::viz {

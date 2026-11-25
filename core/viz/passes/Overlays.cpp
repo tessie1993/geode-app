@@ -1,4 +1,4 @@
-#include "viz/Overlays.hpp"
+#include "viz/passes/Overlays.hpp"
 
 namespace geode::viz {
 

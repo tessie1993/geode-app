@@ -98,6 +98,7 @@ add_library(geode SHARED
     app/src/main/cpp/geode_audio_out_jni.cpp
     app/src/main/cpp/geode_webrtc_jni.cpp
     app/src/main/cpp/geode_modulation_jni.cpp
+    app/src/main/cpp/geode_responder_jni.cpp
     app/src/main/cpp/geode_panel_jni.cpp
     app/src/main/cpp/geode_auto_jni.cpp
     app/src/main/cpp/geode_cast_jni.cpp

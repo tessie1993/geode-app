@@ -350,7 +350,7 @@ void reactionEdits() {
     doc.editReactions(none, style, -1, 0, 0, 1.0f);
     doc.editReactions(none, style, static_cast<int>(ReactionEdit::RouteRemove), 3, 0, 0.0f);
     doc.editReactions(none, style, static_cast<int>(ReactionEdit::RecipeToggle), kEventRecipeCount, 0, 0.0f);
-    doc.editReactions(none, style, static_cast<int>(ReactionEdit::MusicToggle), kMomentCount, 0, 0.0f);
+    doc.editReactions(none, style, static_cast<int>(ReactionEdit::MusicToggle), kPageMoments, 0, 0.0f);
     check(doc.reactionsText() == before, "an edit that names nothing changes nothing");
 
     ModDocument read;
@@ -377,8 +377,8 @@ void reactionEdits() {
 
     check(doc.recipeState(none, style, -1) == 0u && doc.recipeState(none, style, kEventRecipeCount) == 0u,
           "an unknown recipe has no state");
-    float music[kMomentCount * kMusicValues] = {};
-    check(doc.musicValues(none, music, kMomentCount * kMusicValues) == kMomentCount * kMusicValues, "every moment has a row");
+    float music[kPageMoments * kMusicValues] = {};
+    check(doc.musicValues(none, music, kPageMoments * kMusicValues) == kPageMoments * kMusicValues, "every moment has a row");
     check(music[0] == 0.0f && music[1] == 0.0f, "nothing is the hand's and nothing plays while Auto on such a style");
 }
 
@@ -459,7 +459,7 @@ void catalog() {
     for (const char* line : {
              "count|waves|3",
              "count|envelopes|2",
-             "count|routes|16",
+             "count|routes|256",
              "range|lfo.rateSeconds|2|0.05|60",
              "range|lfo.depth|0.3|0|1",
              "range|adsr.attack|0.05|0.005|1",

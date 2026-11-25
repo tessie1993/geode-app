@@ -13,6 +13,7 @@
 #include "viz/modulation/MacroBank.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/modulation/Reactions.hpp"
+#include "viz/modulation/Responder.hpp"
 
 namespace geode::signal {
 
@@ -68,7 +69,22 @@ public:
     // Per-renderer configuration, kept until changed. Plain copies; call from the stepping thread.
     void setLfoConfigs(const std::array<viz::LfoConfig, viz::LfoEngine::kSlots>& configs) { lfo_.configs = configs; }
     void setAdsrConfigs(const std::array<viz::AdsrConfig, viz::AdsrEngine::kCount>& configs) { adsr_.configs = configs; }
-    void setReactionRoutes(const std::array<viz::ReactRoute, viz::ReactionEngine::kRoutes>& routes) { reactions_.routes = routes; }
+    void setReactionRoutes(const std::array<viz::ReactRoute, viz::ReactionEngine::kRoutes>& routes) {
+        handRoutes_ = routes;
+        recompile();
+    }
+    // The Event Responder's rows and responses (viz/modulation/Responder): they compile into the matrix's free slots
+    // beside the routes above, and play from the step after.
+    void setResponses(const viz::responder::Config& config) {
+        responder_.configure(config);
+        recompile();
+    }
+    // Plays one response once, on the next step (the picker's preview).
+    void previewResponse(const viz::responder::Response& response) {
+        responder_.preview(response);
+        recompile();
+    }
+    const viz::responder::Bank& responder() const { return responder_; }
     // A preset morph: the params glide over `seconds`, for three times that long. <= 0 is ignored.
     void beginMorph(float seconds);
     // A new surface: the stages' state starts over (their configuration and the fade are kept).
@@ -90,9 +106,17 @@ private:
     viz::macrobank::KnobMods knobModsOf(const std::array<float, viz::LfoEngine::kSlots>& waves,
                                         const std::array<float, viz::AdsrEngine::kCount>& envs) const;
 
+    // The matrix's routes as the style and the user deal them, and the matrix with the responses compiled in.
+    void recompile() {
+        reactions_.routes = handRoutes_;
+        responder_.compile(reactions_.routes);
+    }
+
     viz::LfoEngine lfo_;
     viz::AdsrEngine adsr_;
     viz::ReactionEngine reactions_;
+    std::array<viz::ReactRoute, viz::ReactionEngine::kRoutes> handRoutes_{};
+    viz::responder::Bank responder_;
     // Customize › Music's moments as they come, for the waves and envelopes set "On a moment".
     viz::MomentWatch momentWatch_;
     viz::Director director_;

@@ -548,7 +548,7 @@ struct MomentSpec {
 };
 
 using S = ReactSource;
-const std::array<MomentSpec, kMomentCount> kMoments{{
+const std::array<MomentSpec, kPageMoments> kMoments{{
     {S::KickEnv, true, S::Kick, 1.0f},
     {S::SnareEnv, true, S::Snare, 1.0f},
     {S::HatEnv, true, S::Hat, 1.0f},

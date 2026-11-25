@@ -43,6 +43,7 @@ void Resolver::reset() {
     // Exactly what a new surface has always reset; the LFO and envelope phases, the fade and the director's
     // commit count carry on (a reset director counts from 0, so the next commit is a new moment again).
     reactions_.reset();
+    responder_.reset();
     director_.reset();
     directorReach_.reset();
     momentWatch_.reset();
@@ -102,8 +103,12 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // The reaction matrix hears the frame before the waves and envelopes, so a slot set "On a moment" restarts or
     // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them. It hears
     // the feeling the director heard too (the degree accent, the mood and its tension are sources like any other).
-    reactions_.tick(sound, dt, &director_.emotion());
+    // The Event Responder gives its compiled routes their levels between the matrix's two halves, on the same
+    // moments the waves and envelopes hear.
+    reactions_.stepSignals(sound, dt, &director_.emotion());
     const std::uint32_t moments = momentWatch_.step(reactions_.signals());
+    responder_.step(sound, dt, reactions_.signals(), moments, reactions_);
+    reactions_.tickRoutes();
     const auto& envValues = adsr_.tick(dt, sound, moments);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data(), moments);

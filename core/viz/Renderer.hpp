@@ -182,6 +182,12 @@ public:
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
     void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
+    // The Event Responder's rows and responses (viz/modulation/Responder), latched for the next frame like the routes.
+    void setResponses(const responder::Config& config);
+    // Plays one response once on the next frame, as its event would (the picker's preview). Any thread.
+    void previewResponse(const responder::Response& response);
+    // The responder's lights and cost budget as the last frame left them, for the Customize page. Any thread.
+    responder::Status responderStatus() const;
     // Gyro look, -1..1 per axis; read by the camera only while camGyro is on.
     void setLook(float yaw, float pitch) {
         lookYaw_.store(yaw, std::memory_order_relaxed);
@@ -490,6 +496,12 @@ private:
     bool lfoConfigsDirty_ = false;
     bool adsrConfigsDirty_ = false;
     bool reactionRoutesDirty_ = false;
+    responder::Config responses_;
+    bool responsesDirty_ = false;
+    responder::Response previewRequest_;
+    bool previewDirty_ = false;
+    mutable std::mutex responderLock_;
+    responder::Status responderStatus_;
     PcmHandoff pcm_;
     // Whether writeAudio keeps the PCM tail: a built scene reads it, or one is being built. Set at the end of each frame.
     std::atomic<bool> pcmWanted_{true};

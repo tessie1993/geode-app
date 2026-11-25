@@ -62,6 +62,8 @@ add_library(geode_core STATIC
     api/geode_palette_api.cpp
     api/geode_customize_rows_api.cpp
     api/geode_modulation_api.cpp
+    api/geode_responder_api.cpp
+    viz/modulation/Responder.cpp
     viz/modulation/ModCatalog.cpp
     viz/modulation/ModDocument.cpp
     api/geode_mod_state_api.cpp

@@ -150,6 +150,14 @@ _Avoid_: Lock (that word belongs to Pro)
 One line of the reaction matrix: a sound (band, level, event or musical value) moves one scene param, by following, stepping, adding up, jumping or toggling.
 _Avoid_: Binding, mapping
 
+**Event row**:
+One Song event (Kick, Snare, Beat, Bar, Onset, Loudness peak, Key change…) in Customize › Music. It owns an ordered list of responses and starts off on a new style; a row that is off also holds back the style's own routes on that event.
+_Avoid_: Trigger, patch
+
+**Response**:
+What the picture does when an event row's event is heard: its own parameters, a strength curve, fade in / hold / fade out, a drive mode (Once, While, Follow, Long), and every Nth hit, chance and cooldown. A response that moves a parameter compiles into a route of the reaction matrix; later kinds (Things, Fronts, Fields, Clock control) register with the Event Responder.
+_Avoid_: Reaction, effect
+
 **Jump**:
 A route mode: each hit holds a new random value for its target (sample and hold), seeded so an export draws the same ones.
 

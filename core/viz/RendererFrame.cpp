@@ -255,6 +255,14 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
             resolver_.setReactionRoutes(reactionRoutes_);
             reactionRoutesDirty_ = false;
         }
+        if (responsesDirty_) {
+            resolver_.setResponses(responses_);
+            responsesDirty_ = false;
+        }
+        if (previewDirty_) {
+            resolver_.previewResponse(previewRequest_);
+            previewDirty_ = false;
+        }
     }
     signal::StyleContext style;
     style.id = activeScene_ ? &activeScene_->id() : nullptr;
@@ -276,6 +284,10 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
         resolver_.step(requested, trimmedSound(requested), dt, frameSettings_, style, heard, wallDt);
+        {
+            std::lock_guard<std::mutex> lock(responderLock_);
+            responderStatus_ = resolver_.responder().status();
+        }
     if (out.styleMoments > 0) {
         // The intent first, so a take that sees the count finds the moment's intent with it.
         {

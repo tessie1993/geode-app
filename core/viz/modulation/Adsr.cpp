@@ -18,13 +18,56 @@ bool hasLiveTarget(const AdsrConfig& c) {
 }
 }  // namespace
 
+float AdsrVoice::step(const AdsrShape& c, float dt, float hit, float energy, bool gateOpen, bool gateHolds) {
+    if (hit > 0.0f && (c.retrigger || stage == AdsrStage::Idle || stage == AdsrStage::Release)) {
+        const bool wasAttacking = stage == AdsrStage::Attack;
+        stage = AdsrStage::Attack;
+        peak = wasAttacking ? std::max(peak, hit) : std::max(hit, level);
+    }
+    const float ceiling = std::clamp(peak, 0.0f, 1.0f);
+    const float sustainTarget =
+        (c.sustainTrack ? c.sustain * std::clamp(energy / std::max(c.gateThreshold, AdsrEngine::kMinGateThreshold), 0.0f, 1.0f)
+                        : c.sustain) *
+        ceiling;
+    switch (stage) {
+        case AdsrStage::Attack:
+            level += dt / std::max(c.attack, AdsrEngine::kMinStageSeconds) * ceiling;
+            if (level >= ceiling) {
+                level = ceiling;
+                stage = AdsrStage::Decay;
+            }
+            break;
+        case AdsrStage::Decay:
+            level -= dt / std::max(c.decay, AdsrEngine::kMinStageSeconds) * std::max(1.0f - sustainTarget, 0.05f);
+            if (level <= sustainTarget) {
+                level = sustainTarget;
+                stage = gateHolds ? AdsrStage::Sustain : AdsrStage::Release;
+            }
+            break;
+        case AdsrStage::Sustain:
+            level += (sustainTarget - level) * std::min(dt * 8.0f, 1.0f);
+            if (!gateHolds) stage = AdsrStage::Release;
+            break;
+        case AdsrStage::Release:
+            level -= dt / std::max(c.release, AdsrEngine::kMinStageSeconds);
+            if (gateOpen && level > 0.01f) {
+                stage = AdsrStage::Sustain;
+            } else if (level <= 0.0f) {
+                level = 0.0f;
+                stage = AdsrStage::Idle;
+            }
+            break;
+        case AdsrStage::Idle:
+            break;
+    }
+    return std::clamp(level, 0.0f, 1.0f);
+}
+
 const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const GeodeSoundFrame& sound, std::uint32_t moments) {
     for (int i = 0; i < kCount; i++) {
         const AdsrConfig& c = configs[i];
         if (!c.enabled || !hasLiveTarget(c)) {
-            level_[i] = 0.0f;
-            stage_[i] = Stage::Idle;
-            peak_[i] = 1.0f;
+            voice_[i].reset();
             out_[i] = 0.0f;
             continue;
         }
@@ -46,46 +89,8 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         const bool onMoment = c.moment >= 0 && c.moment < 32;
         const float onset = std::isfinite(sound.onset) ? std::clamp(sound.onset, 0.0f, 1.0f) : 0.0f;
         const float hit = onMoment ? (((moments >> c.moment) & 1u) != 0 ? 1.0f : 0.0f) : onset;
-        if (hit > 0.0f && (c.retrigger || stage_[i] == Stage::Idle || stage_[i] == Stage::Release)) {
-            const bool wasAttacking = stage_[i] == Stage::Attack;
-            stage_[i] = Stage::Attack;
-            peak_[i] = wasAttacking ? std::max(peak_[i], hit) : std::max(hit, level_[i]);
-        }
-        const float ceiling = std::clamp(peak_[i], 0.0f, 1.0f);
-        const float sustainTarget =
-            (c.sustainTrack ? c.sustain * std::clamp(energy / std::max(c.gateThreshold, kMinGateThreshold), 0.0f, 1.0f) : c.sustain) * ceiling;
-        switch (stage_[i]) {
-            case Stage::Attack:
-                level_[i] += dt / std::max(c.attack, kMinStageSeconds) * ceiling;
-                if (level_[i] >= ceiling) {
-                    level_[i] = ceiling;
-                    stage_[i] = Stage::Decay;
-                }
-                break;
-            case Stage::Decay:
-                level_[i] -= dt / std::max(c.decay, kMinStageSeconds) * std::max(1.0f - sustainTarget, 0.05f);
-                if (level_[i] <= sustainTarget) {
-                    level_[i] = sustainTarget;
-                    stage_[i] = gateHolds ? Stage::Sustain : Stage::Release;
-                }
-                break;
-            case Stage::Sustain:
-                level_[i] += (sustainTarget - level_[i]) * std::min(dt * 8.0f, 1.0f);
-                if (!gateHolds) stage_[i] = Stage::Release;
-                break;
-            case Stage::Release:
-                level_[i] -= dt / std::max(c.release, kMinStageSeconds);
-                if (gateOpen && level_[i] > 0.01f) {
-                    stage_[i] = Stage::Sustain;
-                } else if (level_[i] <= 0.0f) {
-                    level_[i] = 0.0f;
-                    stage_[i] = Stage::Idle;
-                }
-                break;
-            case Stage::Idle:
-                break;
-        }
-        out_[i] = std::clamp(level_[i], 0.0f, 1.0f);
+        const AdsrShape shape{c.attack, c.decay, c.sustain, c.release, c.sustainTrack, c.retrigger, c.gateThreshold};
+        out_[i] = voice_[i].step(shape, dt, hit, energy, gateOpen, gateHolds);
     }
     return out_;
 }

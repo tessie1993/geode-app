@@ -1515,6 +1515,59 @@ void testEveryLookControlReachesTheResolvedParams() {
     check(controls >= 10, "Look has its controls");
 }
 
+// The Event Responder (viz/modulation/Responder) through the resolver's own chain: a response compiled into the
+// matrix moves a param when its event comes and not before, a row that is off moves nothing, a preview plays whatever
+// the row says, and a resolver with no responses is the resolver it was.
+void testAResponseMovesAParamThroughTheMatrix() {
+    namespace resp = geode::viz::responder;
+    const int kick = static_cast<int>(geode::viz::Moment::Kick);
+    SceneParams requested;
+    EngineSettings s;
+    resp::Response r;
+    r.row = kick;
+    r.target = LfoTarget::Zoom;
+    r.amount = 0.5f;
+    r.fadeIn = 0.05f;
+    r.hold = 0.3f;
+    r.fadeOut = 0.3f;
+    resp::Config on = resp::newStyleConfig();
+    resp::setRowOn(on, kick, true);
+    resp::addResponse(on, r);
+    resp::Config off = resp::newStyleConfig();
+    resp::addResponse(off, r);
+
+    auto plain = std::make_unique<Resolver>();
+    auto heard = std::make_unique<Resolver>();
+    auto muted = std::make_unique<Resolver>();
+    auto asked = std::make_unique<Resolver>();
+    heard->setResponses(on);
+    muted->setResponses(off);
+    asked->setResponses(off);
+    asked->previewResponse(r);
+    float before = 0.0f;
+    float moved = 0.0f;
+    float mutedMoved = 0.0f;
+    float previewed = 0.0f;
+    for (int i = 0; i < 120; ++i) {
+        GeodeSoundFrame f{};
+        f.drive = 1.0f;
+        if (i == 60) f.kick = 1.0f;
+        const float base = plain->step(requested, f, kDt, s, style(kStyle, i == 0)).params.zoom;
+        const float a = heard->step(requested, f, kDt, s, style(kStyle, i == 0)).params.zoom;
+        const float b = muted->step(requested, f, kDt, s, style(kStyle, i == 0)).params.zoom;
+        const float c = asked->step(requested, f, kDt, s, style(kStyle, i == 0)).params.zoom;
+        if (i < 60) before = std::max(before, std::fabs(a - base));
+        if (i >= 60) moved = std::max(moved, std::fabs(a - base));
+        mutedMoved = std::max(mutedMoved, std::fabs(b - base));
+        if (i < 40) previewed = std::max(previewed, std::fabs(c - base));
+    }
+    check(before == 0.0f, "a response moves nothing before its event");
+    check(moved > 0.01f, "and the event moves the param through the matrix");
+    check(mutedMoved == 0.0f, "a row that is off moves nothing");
+    check(previewed > 0.01f, "a preview plays at once, whatever its row says");
+    check(heard->responder().status().budget > 0, "the resolver hands the page its budget");
+}
+
 int main() {
     testEveryLookControlReachesTheResolvedParams();
     testOrder();
@@ -1542,6 +1595,7 @@ int main() {
     testSilenceHoldsAKnobStill();
     testMomentWatch();
     testAMomentRestartsAWaveAndFiresAnEnvelope();
+    testAResponseMovesAParamThroughTheMatrix();
     if (failures) {
         std::printf("resolver_test: %d failed\n", failures);
         return 1;

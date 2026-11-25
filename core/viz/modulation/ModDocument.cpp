@@ -11,6 +11,7 @@
 #include "viz/modulation/ModCatalog.hpp"
 #include "viz/modulation/ModTargets.hpp"
 #include "viz/modulation/ReactionText.hpp"
+#include "viz/modulation/Responder.hpp"
 #include "util/TableNumber.hpp"
 
 namespace geode::viz {
@@ -89,7 +90,7 @@ float beatsOf(float v) {
 int knobOf(int v) { return v >= 1 && v <= 999999 ? v : 0; }
 
 // A Moment ordinal; anything else is none.
-int momentOf(int v) { return v >= 0 && v < kMomentCount ? v : -1; }
+int momentOf(int v) { return v >= 0 && v < kPageMoments ? v : -1; }
 
 // The ordinal an edit's value names, or -1 outside 0..count-1.
 int ordinalOf(float value, int count) {
@@ -287,9 +288,14 @@ void ModDocument::readAdsrs(std::string_view text) {
 
 void ModDocument::readReactions(std::string_view text, std::uint32_t mask) {
     hand = HandRoutes{};
+    responses.clear();
     RouteFloats floats{};
     const int count = reactiontext::decode(text, floats.data());
     if (count < 0) return;
+    responder::Config config;
+    reactiontext::decodeResponses(text, config);
+    responses = reactiontext::encodeResponses(config);
+    if (reactiontext::autoMarked(text)) return;
     hand.user = true;
     hand.count = std::min(count, ReactionEngine::kRoutes);
     hand.mask = mask & hand::kAll;
@@ -349,11 +355,25 @@ std::string ModDocument::adsrsText() const {
 }
 
 std::string ModDocument::reactionsText() const {
-    if (!hand.user) return {};
-    RouteFloats floats{};
-    const int count = std::clamp(hand.count, 0, ReactionEngine::kRoutes);
-    for (int i = 0; i < count; ++i) writeRoute(hand.routes[static_cast<size_t>(i)], floats.data() + i * kRouteFloats);
-    return reactiontext::encode(floats.data(), count);
+    if (!hand.user && responses.empty()) return {};
+    std::string text;
+    if (hand.user) {
+        RouteFloats floats{};
+        const int count = std::clamp(hand.count, 0, ReactionEngine::kRoutes);
+        for (int i = 0; i < count; ++i) writeRoute(hand.routes[static_cast<size_t>(i)], floats.data() + i * kRouteFloats);
+        text = reactiontext::encode(floats.data(), count);
+    } else {
+        text = reactiontext::encode(nullptr, 0);
+        text += '
+';
+        text += reactiontext::kAutoLine;
+    }
+    if (!responses.empty()) {
+        text += '
+';
+        text += responses;
+    }
+    return text;
 }
 
 void ModDocument::setLfo(int slot, int field, float value) {
@@ -463,7 +483,7 @@ void ModDocument::editReactions(const StyleDna& dna, const std::string& styleId,
         return;
     }
     if (edit == ReactionEdit::MusicToggle || edit == ReactionEdit::MusicStrength || edit == ReactionEdit::MusicReset) {
-        if (a < 0 || a >= kMomentCount) return;
+        if (a < 0 || a >= kPageMoments) return;
         const auto moment = static_cast<Moment>(a);
         if (edit == ReactionEdit::MusicToggle) {
             if (b < 0 || b >= kMusicActionCount) return;
@@ -560,8 +580,8 @@ int ModDocument::playingValues(const StyleDna& dna, const std::string& styleId, 
 int ModDocument::musicValues(const StyleDna& dna, float* out, int capacity) const {
     RouteArray playing{};
     const int count = mergeHand(hand, dna, playing);
-    std::array<float, static_cast<size_t>(kMomentCount * kMusicValues)> values{};
-    for (int m = 0; m < kMomentCount; ++m) {
+    std::array<float, static_cast<size_t>(kPageMoments * kMusicValues)> values{};
+    for (int m = 0; m < kPageMoments; ++m) {
         const MomentState s = momentState(hand, playing, count, static_cast<Moment>(m));
         float* o = values.data() + m * kMusicValues;
         o[0] = flagValue(s.mine);

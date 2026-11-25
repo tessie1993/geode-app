@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -158,7 +159,9 @@ internal fun BoxScope.StageIcons(
     onStep: (Int) -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
+    val recordState = studioViewModel.recordState.collectAsStateWithLifecycle()
+    // recordedMs ticks four times a second and nothing here shows it.
+    val record by remember { derivedStateOf { recordState.value.copy(recordedMs = 0L) } }
     val nudge = LocalTourNudge.current
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
     val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()

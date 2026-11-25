@@ -73,7 +73,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.runningFold
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
+import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 /**
@@ -554,21 +556,28 @@ class WidgetTransportAction : ActionCallback {
         val app = context.applicationContext
         val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
         val future = MediaController.Builder(app, token).buildAsync()
-        future.addListener(
-            {
-                val controller = runCatching { future.get() }.getOrNull() ?: return@addListener
-                when {
-                    command == PLAY_PAUSE && controller.currentMediaItem == null -> openApp(app)
-                    command == PLAY_PAUSE -> Util.handlePlayPauseButtonAction(controller)
-                    command == NEXT -> controller.seekToNext()
-                    command == PREVIOUS -> controller.seekToPrevious()
-                }
-                // Releasing unbinds the service. Held until the session has had the command and
-                // the service is in the foreground, or a cold start would lose the tap.
-                Handler(Looper.getMainLooper()).postDelayed(controller::release, RELEASE_DELAY_MS)
-            },
-            ContextCompat.getMainExecutor(app),
-        )
+        // Glance ends its broadcast when this returns, and in a cached process nothing else keeps
+        // the process running: wait here until the session has the command.
+        suspendCancellableCoroutine { sent ->
+            sent.invokeOnCancellation { ContextCompat.getMainExecutor(app).execute { MediaController.releaseFuture(future) } }
+            future.addListener(
+                {
+                    runCatching { future.get() }.getOrNull()?.let { controller ->
+                        when {
+                            command == PLAY_PAUSE && controller.currentMediaItem == null -> openApp(app)
+                            command == PLAY_PAUSE -> Util.handlePlayPauseButtonAction(controller)
+                            command == NEXT -> controller.seekToNext()
+                            command == PREVIOUS -> controller.seekToPrevious()
+                        }
+                        // Releasing unbinds the service. Held until the session has had the command and
+                        // the service is in the foreground, or a cold start would lose the tap.
+                        Handler(Looper.getMainLooper()).postDelayed(controller::release, RELEASE_DELAY_MS)
+                    }
+                    if (sent.isActive) sent.resume(Unit)
+                },
+                ContextCompat.getMainExecutor(app),
+            )
+        }
     }
 
     private fun openApp(context: Context) {

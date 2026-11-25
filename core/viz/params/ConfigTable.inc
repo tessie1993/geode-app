@@ -25,7 +25,7 @@
 // ceiling with chained modulation, the envelope's shortest stage on decay and release): they stay in
 // the engine, named, and the comment at each says why.
 
-// ---- LFO slots (viz/Lfo, viz/ModDocument)----------------------------------------------------------
+// ---- LFO slots (viz/modulation/Lfo, viz/modulation/ModDocument)----------------------------------------------------------
 GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 // ModSource: Lfo .. StereoPan.
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
@@ -36,7 +36,7 @@ GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (2, 0.05 and 60 s). A slot saved in Hz migrates through
 // config::lfoRateSecondsFromHz.
 GEODE_CONFIG(lfo, rateSeconds, Float, 2.0f, 0.05f, 60.0f, Seconds)
-// Default 0.3 (Lfo.hpp). The control range is Customize's slider, which reads it from viz/ModCatalog;
+// Default 0.3 (Lfo.hpp). The control range is Customize's slider, which reads it from viz/modulation/ModCatalog;
 // the engine lets a chained slot push depth up to LfoEngine::kMaxModulatedDepth.
 GEODE_CONFIG(lfo, depth, Float, 0.3f, 0.0f, 1.0f, Fraction)
 // ModPolarity: Bipolar, Positive, Negative.
@@ -46,13 +46,13 @@ GEODE_CONFIG(lfo, curve, Int, 0, 0, 3, None)
 // Beat timing (Lfo.hpp LfoConfig::beats): 0 is free (rateSeconds), else 1, 2, 4, 8, 16 or 32 beats a cycle;
 // any other value reads as free.
 GEODE_CONFIG(lfo, beats, Float, 0.0f, 0.0f, 32.0f, None)
-// The macro knob a wave on LfoTarget::Macro turns, by its id (viz/MacroBank); 0 is none.
+// The macro knob a wave on LfoTarget::Macro turns, by its id (viz/modulation/MacroBank); 0 is none.
 GEODE_CONFIG(lfo, knob, Int, 0, 0, 999999, None)
-// On a moment (viz/Reactions Moment: Kick .. Loudness): the wave restarts its cycle on it; -1 runs free.
+// On a moment (viz/modulation/Reactions Moment: Kick .. Loudness): the wave restarts its cycle on it; -1 runs free.
 GEODE_CONFIG(lfo, moment, Int, -1, -1, 9, None)
 
-// ---- Envelopes (viz/Adsr, viz/ModDocument) --------------------------------------------------------
-// Defaults are Adsr.hpp's; ranges are Customize's sliders, which read them from viz/ModCatalog.
+// ---- Envelopes (viz/modulation/Adsr, viz/modulation/ModDocument) --------------------------------------------------------
+// Defaults are Adsr.hpp's; ranges are Customize's sliders, which read them from viz/modulation/ModCatalog.
 // The engine's shortest stage is attack's min, for every stage.
 GEODE_CONFIG(adsr, enabled, Bool, 0, 0, 1, None)
 GEODE_CONFIG(adsr, attack, Float, 0.05f, 0.005f, 1.0f, Seconds)
@@ -68,7 +68,7 @@ GEODE_CONFIG(adsr, sustainTrack, Bool, 0, 0, 1, None)
 GEODE_CONFIG(adsr, retrigger, Bool, 1, 0, 1, None)
 // The macro knob the envelope turns when LfoTarget::Macro is among its targets, by id; 0 is none.
 GEODE_CONFIG(adsr, knob, Int, 0, 0, 999999, None)
-// On a moment (viz/Reactions Moment): the envelope fires on it instead of on a note start; -1 is a note start.
+// On a moment (viz/modulation/Reactions Moment): the envelope fires on it instead of on a note start; -1 is a note start.
 GEODE_CONFIG(adsr, moment, Int, -1, -1, 9, None)
 
 // ---- Palette maker's gradient (PaletteStore.kt) ----------------------------------------------------

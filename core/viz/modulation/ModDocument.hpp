@@ -4,11 +4,11 @@
 #include <string>
 #include <string_view>
 
-#include "viz/Adsr.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ReactionDna.hpp"
-#include "viz/Reactions.hpp"
-#include "viz/WaveRandomizer.hpp"
+#include "viz/modulation/Adsr.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ReactionDna.hpp"
+#include "viz/modulation/Reactions.hpp"
+#include "viz/modulation/WaveRandomizer.hpp"
 
 // The user's whole modulation: the three waves, the two envelopes and the reaction routes set by hand,
 // with the text each is saved as, every edit an editor makes and every value an editor draws. The shell
@@ -20,7 +20,7 @@
 //              depth, polarity, curve, beats, knob, moment (enums by name)
 //   envelopes  a JSON array of up to AdsrEngine::kCount objects: enabled, targets (names), attack, decay,
 //              sustain, release, amount, band, gateThreshold, sustainTrack, retrigger, knob, moment
-//   reactions  viz/ReactionText's "reactions/2" list; no text at all is Auto (the style's own routes play)
+//   reactions  viz/modulation/ReactionText's "reactions/2" list; no text at all is Auto (the style's own routes play)
 // Reading forgives: text that is no array gives every slot its defaults, a missing slot or field its
 // default, an unknown name its default (an unknown envelope target is dropped), a number out of range the
 // nearest the slot allows. A wave saved with rateHz (cycles a second) and no rateSeconds reads as its period.

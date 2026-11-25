@@ -12,7 +12,7 @@
 #include "viz/gl/Program.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/TransitionLibrary.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {
 

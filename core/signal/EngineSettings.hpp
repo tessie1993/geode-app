@@ -6,7 +6,7 @@
 
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
-#include "viz/MacroBank.hpp"
+#include "viz/modulation/MacroBank.hpp"
 #include "viz/colour/Palette.hpp"
 
 namespace geode::signal {

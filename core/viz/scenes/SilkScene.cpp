@@ -6,7 +6,7 @@
 #include "util/Log.hpp"
 #include "viz/LiveSignal.hpp"
 #include "viz/gl/Quad.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 #include "viz/gl/FluidBuffers.hpp"
 
 namespace geode::viz {

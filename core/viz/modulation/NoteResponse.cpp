@@ -1,4 +1,4 @@
-#include "viz/NoteResponse.hpp"
+#include "viz/modulation/NoteResponse.hpp"
 
 #include <algorithm>
 #include <array>

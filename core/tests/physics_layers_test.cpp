@@ -13,9 +13,9 @@
 #include <string>
 #include <vector>
 
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 #include "viz/physics/PhysicsPlan.hpp"
 
 using geode::viz::LfoTarget;

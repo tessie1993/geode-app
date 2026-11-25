@@ -62,15 +62,15 @@ add_library(geode_core STATIC
     api/geode_palette_api.cpp
     api/geode_customize_rows_api.cpp
     api/geode_modulation_api.cpp
-    viz/ModCatalog.cpp
-    viz/ModDocument.cpp
+    viz/modulation/ModCatalog.cpp
+    viz/modulation/ModDocument.cpp
     api/geode_mod_state_api.cpp
-    viz/ModState.cpp
+    viz/modulation/ModState.cpp
     api/geode_mod_controls_api.cpp
     viz/ModControls.cpp
     api/geode_studio_api.cpp
     studio/StudioEdit.cpp
-    viz/ReactionText.cpp
+    viz/modulation/ReactionText.cpp
     api/geode_randomize_all_api.cpp
     api/geode_shake_api.cpp
     api/geode_macro_bank_api.cpp
@@ -211,17 +211,17 @@ add_library(geode_core STATIC
     viz/colour/Palette.cpp
     viz/params/ParamsFields.cpp
     viz/params/ConfigFields.cpp
-    viz/Lfo.cpp
-    viz/ModTargets.cpp
-    viz/MacroBank.cpp
-    viz/MacroControls.cpp
+    viz/modulation/Lfo.cpp
+    viz/modulation/ModTargets.cpp
+    viz/modulation/MacroBank.cpp
+    viz/modulation/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
     viz/DirectorStyle.cpp
     viz/DirectorTuning.cpp
     viz/LayerPick.cpp
     viz/LayerState.cpp
-    viz/NoteResponse.cpp
+    viz/modulation/NoteResponse.cpp
     viz/UiBlurPass.cpp
     viz/DivePass.cpp
     viz/Underlay.cpp
@@ -230,13 +230,13 @@ add_library(geode_core STATIC
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
     api/geode_cast_tee_api.cpp
-    viz/Adsr.cpp
-    viz/MotionField.cpp
+    viz/modulation/Adsr.cpp
+    viz/modulation/MotionField.cpp
     viz/ShapeGraph.cpp
-    viz/ReactionDna.cpp
-    viz/Reactions.cpp
+    viz/modulation/ReactionDna.cpp
+    viz/modulation/Reactions.cpp
     viz/CameraRig.cpp
-    viz/VisualSafety.cpp
+    viz/modulation/VisualSafety.cpp
     viz/input/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
@@ -251,7 +251,7 @@ add_library(geode_core STATIC
     viz/PalettePanel.cpp
     viz/StyleNames.cpp
     viz/RandomizeAll.cpp
-    viz/WaveRandomizer.cpp
+    viz/modulation/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp

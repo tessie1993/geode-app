@@ -1,4 +1,4 @@
-// Host-side checks for the modulation-target table (core/viz/ModTargets, #642): which style each LFO,
+// Host-side checks for the modulation-target table (core/viz/modulation/ModTargets, #642): which style each LFO,
 // envelope and reaction target reaches, which slot a chained target steers, the config defaults and
 // ranges, the polarity a source starts on, and the text table the shell reads instead of keeping its own.
 // Built and run by CI (.github/workflows/android.yml, "Modulation target host tests"); no GL.
@@ -21,9 +21,9 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/ReactionDna.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/ReactionDna.hpp"
 
 using namespace geode::viz;
 using catalogue::Scope;
@@ -157,7 +157,7 @@ void everyTargetKeepsItsNameAndScope() {
     }
 }
 
-// The targets as data (viz/ModTable.hpp, the mod rows of viz/params/ParamTable.inc) keep what the hand-written tables said:
+// The targets as data (viz/modulation/ModTable.hpp, the mod rows of viz/params/ParamTable.inc) keep what the hand-written tables said:
 // the luminance set (held to the flash rate and the route floors) and every target's scale, as first shipped.
 void legacyTargetsKeepTheirLightAndScale() {
     using T = LfoTarget;

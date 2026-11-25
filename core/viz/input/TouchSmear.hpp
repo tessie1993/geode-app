@@ -4,7 +4,7 @@
 #include <cmath>
 
 #include "viz/input/TouchField.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz::touch {
 

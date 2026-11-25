@@ -6,7 +6,7 @@
 #include <string>
 
 #include "viz/gl/Program.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/gl/FluidBuffers.hpp"

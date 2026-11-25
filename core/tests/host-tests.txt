@@ -41,12 +41,12 @@ ROWS_SRC="core/viz/CustomizeRows.cpp core/viz/CustomizeMap.cpp core/viz/PanelTex
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp"
 
 # --- Native host tests
-viz_math_test | stub | core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
-    core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+viz_math_test | stub | core/tests/viz_math_test.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/CameraRig.cpp core/viz/modulation/MotionField.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
 params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
@@ -55,16 +55,16 @@ palette_test | stub | core/tests/palette_test.cpp core/viz/colour/Palette.cpp co
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp | core/tests/palettes.txt
 # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
 touch_transform_test | stub | core/tests/touch_transform_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # A Customize slider's range (core/viz/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
 control_range_test | stub | core/tests/control_range_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir,
 # the gesture reader (tap, double tap, swipe, swirl, hold, pair kind, the strips), the gesture map and the keys.
 touch_gesture_test | stub | core/tests/touch_gesture_test.cpp core/api/geode_gesture_api.cpp |
 # Settings › Touch › Smear: the fingers' kicks on the flow field, the bend, its linger, silence and reduced motion.
 touch_smear_test | stub | core/tests/touch_smear_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The touch field: a point that is not a number is dropped, not counted as a finger.
 touch_field_test | mt | core/tests/touch_field_test.cpp core/viz/input/TouchField.cpp |
 # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
@@ -73,28 +73,28 @@ fluid_math_test | stub | core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath
 liquid_test | stub | core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp |
 # The physics layers' pure maths: off in every look, the plan, back fluid | style | front particles, the music clock, the params.
 physics_layers_test | stub-mt | core/tests/physics_layers_test.cpp core/viz/physics/PhysicsPlan.cpp \
-    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The Pool style's surface: caustics within one safety step, nothing past 3 Hz, true derivatives, still in silence, 30/60/120 fps, wakes.
 pool_test | stub | core/tests/pool_test.cpp core/viz/pool/PoolMath.cpp |
 # The shape graph (core/viz/ShapeGraph, lib_shapes' maths): one seed one film, Shapes 0 untouched, no trace of a shape that left, glides land, 0.9 s crossfades, no turn, the colour's blend, 1-Lipschitz, the reach.
 shape_graph_test | stub | core/tests/shape_graph_test.cpp core/viz/ShapeGraph.cpp |
 # The feedback pass's motion, a per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
 feedback_motion_test | stub | core/tests/feedback_motion_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/Lfo.cpp core/viz/VisualSafety.cpp |
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
 resolver_test | stub | core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp \
     core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp \
-    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/NoteResponse.cpp core/viz/Lfo.cpp \
-    core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/MacroBank.cpp core/viz/ModTargets.cpp \
-    core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/params/Params.cpp \
+    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp core/viz/modulation/Lfo.cpp \
+    core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/modulation/MotionField.cpp core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
 # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
 director_reach_test | stub | core/tests/director_reach_test.cpp core/signal/Resolver.cpp \
     core/signal/EngineSettings.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
-    core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/NoteResponse.cpp \
-    core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/MacroBank.cpp \
-    core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp \
+    core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp \
+    core/viz/modulation/ModTargets.cpp core/viz/modulation/MotionField.cpp core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # Which built scenes stay on the GPU (#378): a bounded LRU with pins, a spare budget, lazy resize.
 scene_residency_test | core | core/tests/scene_residency_test.cpp |
@@ -110,10 +110,10 @@ musical_test | core | core/tests/musical_test.cpp core/sound/*.cpp |
 meter_test | core | core/tests/meter_test.cpp core/sound/*.cpp |
 # The auto-director: the emotion table, the live feeling and the director's decisions.
 director_test | stub | core/tests/director_test.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
-    core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/CameraRig.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/VisualSafety.cpp |
+    core/viz/modulation/Reactions.cpp core/viz/modulation/Lfo.cpp core/viz/CameraRig.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/modulation/VisualSafety.cpp |
 # Note & key reactions: knobs by meaning, the drum weight, no param written, off = today.
-note_response_test | core | core/tests/note_response_test.cpp core/viz/NoteResponse.cpp |
+note_response_test | core | core/tests/note_response_test.cpp core/viz/modulation/NoteResponse.cpp |
 # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
 pcm_handoff_test | core | core/tests/pcm_handoff_test.cpp |
 # The PCM ingest ring: random chunk sizes and a mid-stream rate change, every sample once, in order, with its rate; the C ABI.
@@ -197,8 +197,8 @@ output_choice_test | core | core/tests/output_choice_test.cpp core/audio/output/
 # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
 layer_state_test | core | core/tests/layer_state_test.cpp core/viz/LayerState.cpp |
 # Customize › Layers' blends: one native label each, in wire order, Screen first on, and a layerBlend case for every one.
-layer_blend_test | stub | core/tests/layer_blend_test.cpp core/viz/VisualSafety.cpp core/viz/params/Params.cpp \
-    core/viz/params/ParamsFields.cpp core/viz/Lfo.cpp |
+layer_blend_test | stub | core/tests/layer_blend_test.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
+    core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp |
 # Customize › Layers' style: the user's pick, Auto Director's at its moments or a knob's, never the style on screen.
 layer_pick_test | core | core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp core/viz/LayerState.cpp \
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp |
@@ -238,8 +238,8 @@ gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Comput
 transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
 # The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
 transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core/viz/Transition.cpp \
-    core/viz/gl/Program.cpp core/viz/ShaderSource.cpp core/viz/VisualSafety.cpp core/viz/params/Params.cpp \
-    core/viz/params/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp |
+    core/viz/gl/Program.cpp core/viz/ShaderSource.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
+    core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/util/Json.cpp |
 # The uniform value cache: an unchanged upload is skipped, a changed one sent, a rebuilt program starts empty.
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
 # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
@@ -336,7 +336,7 @@ cast_audio_test | stub-mt | core/tests/cast_audio_test.cpp core/api/geode_frame_
 # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
 world_genome_test | stub | core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp \
     core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/params/Params.cpp \
-    core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp | app/src/main/assets/shaders/lib_world.glsl app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
+    core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp core/viz/modulation/Lfo.cpp | app/src/main/assets/shaders/lib_world.glsl app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
 # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
 hls_segments_test | stub | core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp |
 # Cast's tee: the stage's own picture to the stream (no second render): the triple-buffer hand-off, the fallback after a stale copy, one copy per cast frame from any stage rate, the placement (a portrait stage turned, every stage centre-cropped).
@@ -368,14 +368,14 @@ live_http_test | stub | core/tests/live_http_test.cpp core/cast/LiveHttp.cpp cor
 qr_code_test | stub | core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp \
     core/util/QrCode.cpp |
 # The config params schema (#423): LFO, envelope, palette, look and morph rows; Lfo and Adsr clamp as before; the store conversions equal Kotlin's; the text.
-config_schema_test | stub | core/tests/config_schema_test.cpp core/viz/params/ConfigFields.cpp core/viz/Adsr.cpp \
-    core/viz/Lfo.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp \
-    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp \
+config_schema_test | stub | core/tests/config_schema_test.cpp core/viz/params/ConfigFields.cpp core/viz/modulation/Adsr.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/modulation/MotionField.cpp \
+    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp |
 # The renderer's reaction resolve (#750): DNA, or the user's routes under the hand mask, as the old Kotlin path; resolved exactly on a change of scene, seed, routes or mask.
-reaction_resolve_test | stub | core/tests/reaction_resolve_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
-    core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
+reaction_resolve_test | stub | core/tests/reaction_resolve_test.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/CameraRig.cpp core/viz/modulation/MotionField.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 
 # --- Field present host test
 # A simulation presented in 3D (core/viz/present): its surfaces, the eye's ray a finger is mapped by, the
@@ -402,56 +402,56 @@ presets_test | stub | core/tests/presets_test.cpp core/viz/CataloguePresets.cpp 
     core/viz/scenes/StyleCatalog.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp |
 
 # --- Modulation target host tests
-# The modulation-target table (core/viz/ModTargets, #642): each target's scope and chained slot, the
+# The modulation-target table (core/viz/modulation/ModTargets, #642): each target's scope and chained slot, the
 # slot defaults, each source's natural polarity, and its text byte-equal to core/tests/mod_targets.txt.
-mod_targets_test | stub | core/tests/mod_targets_test.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp \
-    core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
-    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp | core/tests/mod_targets.txt
+mod_targets_test | stub | core/tests/mod_targets_test.cpp core/viz/modulation/ModTargets.cpp core/viz/Catalogue.cpp \
+    core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/Lfo.cpp \
+    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp | core/tests/mod_targets.txt
 
 # --- Reaction text host tests
-# The saved text of the user's reaction routes (core/viz/ReactionText).
-reaction_text_test | stub | core/tests/reaction_text_test.cpp core/viz/ReactionText.cpp core/viz/ModTargets.cpp \
-    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
-    core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp |
+# The saved text of the user's reaction routes (core/viz/modulation/ReactionText).
+reaction_text_test | stub | core/tests/reaction_text_test.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 
 # --- Modulation document host tests
-# The user's modulation (core/viz/ModDocument, ModCatalog): saved waves, envelopes and routes still read,
+# The user's modulation (core/viz/modulation/ModDocument, ModCatalog): saved waves, envelopes and routes still read,
 # a forgiving read lands on a default or inside a range, every edit clamps, the pickers list what runs,
 # and Customize › Music's moment and action rows equal core/tests/mod_catalog_music.txt.
-mod_document_test | stub | core/tests/mod_document_test.cpp core/viz/ModDocument.cpp core/viz/ModCatalog.cpp \
-    core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/ReactionText.cpp core/viz/ModTargets.cpp \
-    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
-    core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp | core/tests/mod_catalog_music.txt
+mod_document_test | stub | core/tests/mod_document_test.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp \
+    core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp | core/tests/mod_catalog_music.txt
 # Which wave and envelope controls Customize shows (core/viz/ModControls).
 mod_controls_test | stub | core/tests/mod_controls_test.cpp core/viz/ModControls.cpp \
-    core/api/geode_mod_controls_api.cpp core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/util/Json.cpp \
-    core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
-    core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/VisualSafety.cpp |
-# The modulation the app holds (core/viz/ModState, geode_mod_state_*): an event is the document's own edit,
+    core/api/geode_mod_controls_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp core/util/Json.cpp \
+    core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+    core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/modulation/VisualSafety.cpp |
+# The modulation the app holds (core/viz/modulation/ModState, geode_mod_state_*): an event is the document's own edit,
 # no route of the user's is Auto with no mask, the keep set is normalised and toggled, and the hand mask and
 # keep set reach their process-wide setters.
-mod_state_test | stub-mt | core/tests/mod_state_test.cpp core/viz/ModState.cpp core/api/geode_mod_state_api.cpp \
-    core/api/geode_modulation_api.cpp core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/util/Json.cpp \
-    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/ReactionText.cpp core/viz/ModTargets.cpp \
-    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
-    core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp |
+mod_state_test | stub-mt | core/tests/mod_state_test.cpp core/viz/modulation/ModState.cpp core/api/geode_mod_state_api.cpp \
+    core/api/geode_modulation_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp core/util/Json.cpp \
+    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 
 # --- Random waves host tests
 # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
-# a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
-lfo_random_test | stub | core/tests/lfo_random_test.cpp core/viz/WaveRandomizer.cpp core/viz/ModTargets.cpp \
-    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
-    core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/VisualSafety.cpp |
+# a tempo only once the music gives one) and the roll of a set of waves (core/viz/modulation/WaveRandomizer).
+lfo_random_test | stub | core/tests/lfo_random_test.cpp core/viz/modulation/WaveRandomizer.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
+    core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 
 # --- Macro bank host tests
-# The macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
+# The macro bank (core/viz/modulation/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
 # the identity, both ways move, the range and the safety clamp hold, edits validate, the text round trips,
 # the process-wide bank (geode_macro_bank_set).
-macro_bank_test | stub | core/tests/macro_bank_test.cpp core/viz/MacroBank.cpp core/viz/MacroControls.cpp \
-    core/api/geode_macro_bank_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
-    core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/VisualSafety.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp |
+macro_bank_test | stub | core/tests/macro_bank_test.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/MacroControls.cpp \
+    core/api/geode_macro_bank_api.cpp core/viz/modulation/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+    core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/modulation/VisualSafety.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp |
 
 # --- Native export DSP tests
 # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin, the playback DSP's hand-off and its gain.
@@ -547,15 +547,15 @@ params_test | core | core/tests/params_test.cpp core/viz/ParamRandomizer.cpp cor
     core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # The params object of a preset, link, template look and saved look (core/viz/params/ParamsJson), with the app's preset fixtures.
 params_json_test | stub | core/tests/params_json_test.cpp core/viz/params/ParamsJson.cpp core/api/geode_params_json_api.cpp \
-    core/util/Json.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp | app/src/test/resources/presets
+    core/util/Json.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp | app/src/test/resources/presets
 # The look's own palette in its params, saved palettes, preset files and the template library (core/viz/params/ParamsPalette, LookFiles).
 look_files_test | stub | core/tests/look_files_test.cpp core/viz/params/ParamsPalette.cpp core/viz/LookFiles.cpp \
     core/viz/params/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | app/src/test/resources/presets
+    core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | app/src/test/resources/presets
 # The template file: read, defaults, carried keys, write, refusals, and its C ABI (core/viz/TemplateFile).
 template_file_test | stub | core/tests/template_file_test.cpp core/viz/TemplateFile.cpp core/api/geode_looks_api.cpp \
     core/viz/LookFiles.cpp core/viz/params/ParamsPalette.cpp core/viz/params/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp \
-    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp \
+    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp |
 # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
 param_text_test | stub | core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp |

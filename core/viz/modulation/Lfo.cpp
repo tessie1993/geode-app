@@ -1,9 +1,9 @@
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {
 

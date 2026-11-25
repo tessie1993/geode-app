@@ -5,16 +5,16 @@
 
 #include "signal/EngineSettings.hpp"
 #include "sound/SoundFrame.h"
-#include "viz/Adsr.hpp"
+#include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/MacroBank.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/NoteResponse.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/MacroBank.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/NoteResponse.hpp"
 #include "viz/params/Params.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 namespace geode::signal {
 

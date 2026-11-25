@@ -1,6 +1,6 @@
 #pragma once
-#include "viz/Adsr.hpp"
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Adsr.hpp"
+#include "viz/modulation/Lfo.hpp"
 
 // Which of a wave's or an envelope's controls do anything as the slot stands, so Customize shows only those
 // (geode_mod_lfo_shows, geode_mod_adsr_shows). The rules are the engine's: a control the engine reads in this

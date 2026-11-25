@@ -6,11 +6,11 @@
 #include <string>
 #include <string_view>
 
-#include "viz/ReactionDna.hpp"
+#include "viz/modulation/ReactionDna.hpp"
 
 // The user's modulation as the app holds it while it runs (geode_mod_state_*): the waves, the envelopes, the
 // reaction routes with their hand mask, and Customize's keep set. The panel sends each edit here as an event
-// and gets nothing back from it; this applies the edit (core/viz/ModDocument and CustomizeMap decide every
+// and gets nothing back from it; this applies the edit (core/viz/modulation/ModDocument and CustomizeMap decide every
 // field, range and toggle) and keeps the result. The shell reads the texts back only to save them and to draw
 // the editors; a renderer still gets them through its look. Host-tested in core/tests/mod_state_test.cpp.
 namespace geode::viz::modstate {

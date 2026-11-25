@@ -1,4 +1,4 @@
-#include "viz/ReactionDna.hpp"
+#include "viz/modulation/ReactionDna.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -536,7 +536,7 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
 
 namespace {
 
-// How a moment is acted on (its sources are hand::momentOf's, in viz/Reactions.cpp): the source a new smooth
+// How a moment is acted on (its sources are hand::momentOf's, in viz/modulation/Reactions.cpp): the source a new smooth
 // action follows (`pulse`), the one a stepped action fires on (`hit`, when it has a single instant), and how
 // much longer every action's fall lasts for the moments that come rarely and should be felt for longer (a
 // drop, a new section).

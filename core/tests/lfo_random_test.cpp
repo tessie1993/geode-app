@@ -1,5 +1,5 @@
-// Host-side checks for "Random on waves": the two random wave shapes of core/viz/Lfo (Random steps, Random
-// glide) and the roll of a whole set of waves (core/viz/WaveRandomizer). No GL.
+// Host-side checks for "Random on waves": the two random wave shapes of core/viz/modulation/Lfo (Random steps, Random
+// glide) and the roll of a whole set of waves (core/viz/modulation/WaveRandomizer). No GL.
 //
 // The shapes: a new value each cycle, held in between, the same at 30, 60 and 120 fps, different per
 // slot, set by the engine's seed, one step per cycle when the music clock jitters over a boundary, no
@@ -15,10 +15,10 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/VisualSafety.hpp"
-#include "viz/WaveRandomizer.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/VisualSafety.hpp"
+#include "viz/modulation/WaveRandomizer.hpp"
 
 using namespace geode::viz;
 

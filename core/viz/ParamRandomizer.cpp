@@ -102,7 +102,7 @@ const std::vector<Roll>& rolls() {
         {T::Reactivity, "Motion amount", [](SceneParams& p, Rng& r) { p.motionAmount = drawn(r, ParamSlot::motionAmount); }},
         {T::Reactivity, "Breath", [](SceneParams& p, Rng& r) { p.motionBreath = drawn(r, ParamSlot::motionBreath); }},
         {T::Reactivity, "Key colour", [](SceneParams& p, Rng& r) { p.motionHue = drawn(r, ParamSlot::motionHue); }},
-        // A new reaction personality for the style (core/viz/ReactionDna).
+        // A new reaction personality for the style (core/viz/modulation/ReactionDna).
         {T::Reactivity, kReactionDna, [](SceneParams& p, Rng& r) { p.reactSeed = counted(r, ParamSlot::reactSeed); }},
         {T::Reactivity, "Bass gain", [](SceneParams& p, Rng& r) { p.bassGain = drawn(r, ParamSlot::bassGain); }},
         {T::Reactivity, "Mid gain", [](SceneParams& p, Rng& r) { p.midGain = drawn(r, ParamSlot::midGain); }},

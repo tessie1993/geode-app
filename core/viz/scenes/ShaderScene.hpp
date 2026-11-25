@@ -7,7 +7,7 @@
 #include <optional>
 #include <string>
 
-#include "viz/MotionField.hpp"
+#include "viz/modulation/MotionField.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
@@ -64,7 +64,7 @@ private:
 
     // ---- wave three: the continuous motion layer ----------------------------
     //
-    // motionField_ is this scene's own instance (see viz/MotionField.hpp): it
+    // motionField_ is this scene's own instance (see viz/modulation/MotionField.hpp): it
     // is a pure function of the same GeodeSoundFrame/dt sequence update()
     // already receives, so every ShaderScene settles to the same continuous
     // uniforms without needing a channel back to Renderer's own instance
@@ -108,7 +108,7 @@ private:
     float rotationAngle_ = 0.0f;
     double shaderTime_ = 0.0;  // double: a float clock stalls at a slow Speed late in a session
     // The sound engine's bass, mid and treble clocks at Speed's rate (uSoundTimeSped,
-    // viz/SpeedClock.hpp), beside uTime and the motion field's uFlowTime: integrated,
+    // viz/modulation/SpeedClock.hpp), beside uTime and the motion field's uFlowTime: integrated,
     // never clock * uSpeed, so moving Speed changes how fast they run, not where they are.
     std::array<speedclock::Follower, 3> soundTimeSped_{};
 

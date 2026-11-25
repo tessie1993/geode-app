@@ -63,7 +63,7 @@ constexpr bool everyLiveRowHasOneMeta() {
 }
 static_assert(everyLiveRowHasOneMeta(), "ParamTable.inc: every live row needs exactly one GEODE_PARAM_META row, a retired row none");
 
-// A mod row (a modulation target, viz/ModTable.hpp) only under a live Float or Circular row that fades and has a
+// A mod row (a modulation target, viz/modulation/ModTable.hpp) only under a live Float or Circular row that fades and has a
 // Customize label (not "@": a field read before the modulation runs), at most one per field, and kMod in the field's meta
 // flags exactly when it has one: an offset on a pick, a count, a switch or a held value would jump, not glide.
 constexpr bool modRowsOnContinuousFields() {

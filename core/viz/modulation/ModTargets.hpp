@@ -4,7 +4,7 @@
 #include <string>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 
 // The modulation-target table (#642): what the shell needs to know about every LfoTarget, ModSource,
 // ModPolarity, ModCurve and LfoWave to offer them, and nothing it would have to keep a copy of.
@@ -13,7 +13,7 @@
 // Per source: the polarity that makes it useful the moment it is picked. Plus a slot's defaults and
 // rate range (LfoConfig). Pure: the host tests build it beside the catalogue.
 //
-// viz/ModDocument and viz/ModCatalog answer the editors from it; text() is the whole table in one piece,
+// viz/modulation/ModDocument and viz/modulation/ModCatalog answer the editors from it; text() is the whole table in one piece,
 // which mod_targets_test holds to its fixture.
 namespace geode::viz::modtargets {
 
@@ -54,7 +54,7 @@ using Mask = std::bitset<kTargetCount>;
 Mask offerMask(const std::string& styleId, int picker);
 // A mask in lowercase hex, the highest ordinal's digit first, no leading zeros ("0" for none).
 std::string hex(const Mask& mask);
-// Bit per MusicAction (viz/ReactionDna) whose target reaches `styleId`: Customize › Music hides the rest.
+// Bit per MusicAction (viz/modulation/ReactionDna) whose target reaches `styleId`: Customize › Music hides the rest.
 std::uint32_t musicActionsFor(const std::string& styleId);
 // An oscillator swings both ways; a follower reads 0 in silence, so a bipolar follower would shove the
 // param negative every time the music stops: followers start up only (stereo pan is centred, so both).

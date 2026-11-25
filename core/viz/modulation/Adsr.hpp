@@ -5,7 +5,7 @@
 
 #include "api/geode_api.h"
 #include "viz/params/Config.hpp"
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 
 namespace geode::viz {
 
@@ -27,7 +27,7 @@ struct AdsrConfig {
     bool retrigger = config::spec(config::Slot::adsr_retrigger).defaultValue > 0.5f;
     // The macro knob's id a Macro target turns; 0 is none.
     int knob = 0;
-    // -1 fires on a note start; a Moment ordinal (viz/Reactions) fires on that moment instead.
+    // -1 fires on a note start; a Moment ordinal (viz/modulation/Reactions) fires on that moment instead.
     int moment = -1;
 };
 

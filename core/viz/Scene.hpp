@@ -9,7 +9,7 @@
 
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
-#include "viz/NoteResponse.hpp"
+#include "viz/modulation/NoteResponse.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
@@ -76,7 +76,7 @@ struct SceneHost {
     std::function<float()> pacedFps;
     // Settings › Performance's march-step multiplier (0..1); unset means full budget.
     std::function<float()> marchScale;
-    // Note & key reactions (viz/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)
+    // Note & key reactions (viz/modulation/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)
     // leaves every knob at 0.5, the midpoint each style was tuned around.
     std::function<const NoteUniforms*()> notes;
     // The play's seed: the auto-director's (viz/Director), or the one an export pinned, so a scene

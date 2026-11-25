@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 
 // The macro bank: the user's knobs, each a named value that moves a set of scene params the user

@@ -4,7 +4,7 @@
 #include <string_view>
 
 #include "viz/params/Params.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz::control {
 

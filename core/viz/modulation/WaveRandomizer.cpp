@@ -1,10 +1,10 @@
-#include "viz/WaveRandomizer.hpp"
+#include "viz/modulation/WaveRandomizer.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
-#include "viz/ModTargets.hpp"
+#include "viz/modulation/ModTargets.hpp"
 
 namespace geode::viz::waves {
 

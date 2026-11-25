@@ -92,7 +92,7 @@ inline constexpr unsigned kInput = 1u << 1;
 inline constexpr unsigned kModLight = 1u << 0;
 
 // A field's mod row (ParamTable.inc): whether it has one, how far one unit of modulation moves it, and its flags.
-// viz/ModTable.hpp turns these rows into the modulation targets.
+// viz/modulation/ModTable.hpp turns these rows into the modulation targets.
 struct ParamMod {
     bool on;
     float scale;

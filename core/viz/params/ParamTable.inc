@@ -47,7 +47,7 @@
 //
 // params_schema_test holds each row's count to its field's min..max.
 //
-// Under a field a wave, an envelope, a reaction route or a macro knob can move, its mod row (viz/ModTable.hpp):
+// Under a field a wave, an envelope, a reaction route or a macro knob can move, its mod row (viz/modulation/ModTable.hpp):
 //
 //   GEODE_PARAM_MOD(name, scale, flags)
 //
@@ -394,7 +394,7 @@ GEODE_PARAM(Float, rippleOverlaySpecular, 0.3f, 0.0f, 1.0f, Fade)
 // Retired: the superformula driver (viz/FormDrive) it scaled is gone since wave three.
 GEODE_PARAM(Float, formDrive, 0.7f, 0.0f, 1.0f, Fade)
 
-// Wave three: the continuous motion system (viz/MotionField), which replaced formDrive, flash, strobe,
+// Wave three: the continuous motion system (viz/modulation/MotionField), which replaced formDrive, flash, strobe,
 // pulse and shake as the way the music moves a scene. Appended after the older fields so every existing wire
 // index survives.
 GEODE_PARAM(Float, motionAmount, 0.7f, 0.0f, 1.0f, Fade)
@@ -411,7 +411,7 @@ GEODE_PARAM_META(motionDrift, "Spin", Spin, 0, 0, 0)
 GEODE_PARAM(Float, motionHue, 0.4f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(motionHue, "Key colour", Universal, 0, 0.1f, 0.8f)
 
-// The shared camera rig (viz/CameraRig) and the reaction matrix (viz/Reactions). Appended after wave
+// The shared camera rig (viz/CameraRig) and the reaction matrix (viz/modulation/Reactions). Appended after wave
 // three so every wire index survives. The cam* offsets (push, yaw, pitch, roll) are what reaction
 // routes and LFOs write; the rig springs toward them, so a route never snaps the view.
 // Travel speed along the path, negative backward: the slider stops at -2..2, the LFO and the routes reach 2.5.
@@ -467,7 +467,7 @@ GEODE_PARAM_META(reactAmount, "Reaction strength", Universal, 0, 0, 0)
 GEODE_PARAM(Int, reactSeed, 0, 0, 16777215, Hold)
 GEODE_PARAM_META(reactSeed, "Reaction DNA", Universal, 0, 1, 16777215)
 
-// Note & key reactions (viz/NoteResponse), per style like every Customize control, so a preset, a
+// Note & key reactions (viz/modulation/NoteResponse), per style like every Customize control, so a preset, a
 // template and an export carry them. Appended so every existing wire index survives. Inert while
 // Settings › Behaviour › Note & key reactions is off: the layer then does nothing at all.
 // Customize › Music › Notes & key (Pro): how much each part feeds the style knobs, 0 none .. 1 as

@@ -1,4 +1,4 @@
-// Host-side checks for the modulation the app holds while it runs (core/viz/ModState, api/geode_mod_state_api.cpp):
+// Host-side checks for the modulation the app holds while it runs (core/viz/modulation/ModState, api/geode_mod_state_api.cpp):
 // a panel event applies the same rules as the document's own edits, the routes go back to Auto when none is the
 // user's, the keep set is normalised and toggled, and the hand mask and the keep set reach the process-wide
 // setters. geode_hand_set and geode_director_keep_set are recorded here instead of reaching a director.
@@ -10,10 +10,10 @@
 
 #include "api/geode_modulation_api.h"
 #include "viz/params/Config.hpp"
-#include "viz/ModDocument.hpp"
-#include "viz/ModState.hpp"
+#include "viz/modulation/ModDocument.hpp"
+#include "viz/modulation/ModState.hpp"
 #include "viz/ParamRandomizer.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 using namespace geode::viz;
 

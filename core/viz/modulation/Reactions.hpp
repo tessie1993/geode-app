@@ -6,7 +6,7 @@
 #include "api/geode_api.h"
 #include "sound/Emotion.hpp"
 #include "viz/Circular.hpp"
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 
 namespace geode::viz {
@@ -14,7 +14,7 @@ namespace geode::viz {
 // The reaction matrix: many audio features routed to many targets, each route
 // with its own amount, curve, mode and smoothing. MotionField is one fixed
 // table every style shares; this is the data-driven layer on top of it, and
-// viz/ReactionDna seeds it per style, so two
+// viz/modulation/ReactionDna seeds it per style, so two
 // styles hear the same bar of music differently.
 //
 // Pure: no GL, no allocation, no locks. tick() runs on the render thread once
@@ -92,7 +92,7 @@ constexpr int kReactSourceCount = static_cast<int>(ReactSource::ChordMotion) + 1
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in
-// viz/ModCatalog's table and does not keep its own list. `name` is the stable saved name,
+// viz/modulation/ModCatalog's table and does not keep its own list. `name` is the stable saved name,
 // `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ, RHYTHM, HARMONY, FORM), `event` a trigger
 // held as an envelope rather than a level, `circle` a value on a circle (a hue, a pitch class, a phase):
 // the route smoothing follows it round the seam (viz/Circular.hpp) instead of sweeping back across the
@@ -199,7 +199,7 @@ private:
 // The owner's rule: "Auto drives every untouched moment; a hand-set moment shows a 'mine' mark and the
 // director leaves it alone; 'Reset to Auto' is in its ⋮." All of it is native: the moments and
 // the mask here, where the director reads them; the merge with the live DNA and the page's edits in
-// viz/ReactionDna. Kotlin only labels the rows and passes the mask along.
+// viz/modulation/ReactionDna. Kotlin only labels the rows and passes the mask along.
 //
 // WHY a moment is a set of sources, not one: the DNA and the director deal routes from every drum signal
 // (the kick's envelope, its hit, every 4th kick, its toggle), and a listener hears all of them as "the
@@ -235,7 +235,7 @@ std::uint32_t global();
 ReactSource trigger(Moment m);
 }  // namespace hand
 
-// Customize › Music's moments as triggers, for a wave or an envelope the user set "On a moment" (viz/Lfo, viz/Adsr).
+// Customize › Music's moments as triggers, for a wave or an envelope the user set "On a moment" (viz/modulation/Lfo, viz/modulation/Adsr).
 // A moment comes when its trigger (hand::trigger) rises through 0.5, and comes again only after it fell below 0.3: the
 // reaction matrix's Step rule, so a held level is one moment, not one a frame. Silence brings none.
 class MomentWatch {

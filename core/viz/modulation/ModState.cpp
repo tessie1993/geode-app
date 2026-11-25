@@ -1,9 +1,9 @@
-#include "viz/ModState.hpp"
+#include "viz/modulation/ModState.hpp"
 
 #include <utility>
 
 #include "viz/CustomizeMap.hpp"
-#include "viz/ModDocument.hpp"
+#include "viz/modulation/ModDocument.hpp"
 
 namespace geode::viz::modstate {
 

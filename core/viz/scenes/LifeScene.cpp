@@ -6,7 +6,7 @@
 #include <limits>
 
 #include "viz/gl/Quad.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 #include "viz/gl/SceneTarget.hpp"
 
 namespace geode::viz {

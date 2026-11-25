@@ -1,4 +1,4 @@
-#include "viz/ModDocument.hpp"
+#include "viz/modulation/ModDocument.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -8,9 +8,9 @@
 
 #include "util/Json.hpp"
 #include "viz/params/ConfigMath.hpp"
-#include "viz/ModCatalog.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/ReactionText.hpp"
+#include "viz/modulation/ModCatalog.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/ReactionText.hpp"
 #include "viz/TableNumber.hpp"
 
 namespace geode::viz {
@@ -20,7 +20,7 @@ namespace {
 using json::Value;
 
 constexpr int kRouteFloats = ReactionEngine::kConfigFloats;
-static_assert(kRouteFieldCount == kRouteFloats, "a route's fields are viz/ReactionText's floats, in its order");
+static_assert(kRouteFieldCount == kRouteFloats, "a route's fields are viz/modulation/ReactionText's floats, in its order");
 using RouteFloats = std::array<float, static_cast<size_t>(ReactionEngine::kRoutes * kRouteFloats)>;
 
 // A saved number as a float; NaN for one that is not finite, so the caller's range check refuses it.
@@ -202,7 +202,7 @@ void writeRoute(const ReactRoute& r, float* o) {
     o[7] = r.releaseSeconds;
 }
 
-// A route viz/ReactionText read: its ordinals are inside their enums and its numbers inside the matrix's range.
+// A route viz/modulation/ReactionText read: its ordinals are inside their enums and its numbers inside the matrix's range.
 ReactRoute routeOf(const float* f) {
     ReactRoute r;
     r.enabled = f[0] > 0.5f;
@@ -228,7 +228,7 @@ bool setRoute(ReactRoute& r, RouteField field, float value) {
             return i >= 0;
         }
         case RouteField::Target: {
-            // Never None: a route that moves nothing is not saved (viz/ReactionText).
+            // Never None: a route that moves nothing is not saved (viz/modulation/ReactionText).
             const int i = ordinalOf(value, modtargets::kTargetCount);
             if (i > 0) r.target = static_cast<LfoTarget>(i);
             return i > 0;

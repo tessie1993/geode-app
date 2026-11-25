@@ -1,4 +1,4 @@
-#include "viz/Adsr.hpp"
+#include "viz/modulation/Adsr.hpp"
 
 #include <algorithm>
 #include <cmath>

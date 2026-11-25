@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/fluid/FluidQuality.hpp"

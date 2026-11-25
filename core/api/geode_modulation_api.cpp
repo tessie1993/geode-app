@@ -4,9 +4,9 @@
 #include <string_view>
 
 #include "api/geode_text_out.hpp"
-#include "viz/ModCatalog.hpp"
-#include "viz/ModDocument.hpp"
-#include "viz/ModTargets.hpp"
+#include "viz/modulation/ModCatalog.hpp"
+#include "viz/modulation/ModDocument.hpp"
+#include "viz/modulation/ModTargets.hpp"
 
 // The handle-free half of the modulation ABI: the calls that need no style traits. The ones that deal a
 // style's own routes sit beside the renderer (geode_viz_api.cpp), the wave roll beside the other rolls

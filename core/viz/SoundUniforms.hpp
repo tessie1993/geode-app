@@ -5,7 +5,7 @@
 
 #include "api/geode_api.h"
 #include "viz/gl/Program.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 #include "viz/gl/Texture.hpp"
 
 namespace geode::viz {

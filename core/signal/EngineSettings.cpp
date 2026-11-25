@@ -2,8 +2,8 @@
 
 #include <random>
 
-#include "viz/NoteResponse.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/NoteResponse.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 namespace geode::signal {
 

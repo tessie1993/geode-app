@@ -1,4 +1,4 @@
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 #include <algorithm>
 #include <atomic>

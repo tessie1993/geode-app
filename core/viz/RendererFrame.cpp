@@ -16,7 +16,7 @@
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
-#include "viz/MotionField.hpp"
+#include "viz/modulation/MotionField.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
 #include "viz/gl/SceneTarget.hpp"

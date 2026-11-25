@@ -1,11 +1,11 @@
-#include "viz/MotionField.hpp"
+#include "viz/modulation/MotionField.hpp"
 
 #include <algorithm>
 #include <cmath>
 
 #include "sound/DriveGain.hpp"
 #include "viz/Circular.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {
 

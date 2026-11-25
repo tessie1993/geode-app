@@ -18,14 +18,14 @@
 #include "viz/CameraRig.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/Circular.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 #include "viz/EndlessZoom.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/ReactionDna.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/ReactionDna.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/Reactions.hpp"
 #include "viz/gl/ScenePrep.hpp"
-#include "viz/SpeedClock.hpp"
+#include "viz/modulation/SpeedClock.hpp"
 #include "viz/TwistShape.hpp"
 
 using namespace geode::viz;
@@ -1578,7 +1578,7 @@ void motionFieldBarWaveFollowsTheHeardBar() {
     check(std::fabs(m.state().barOsc - 0.5f) < 0.02f, "with no beat heard the wave is the clock's again, not a stand-in bar");
     check(jump < 0.05f, "losing the beat eases the wave over, never jumps it");
 }
-// ---- Speed-integrated clocks (viz/SpeedClock, MotionField::State::flowTime) ----
+// ---- Speed-integrated clocks (viz/modulation/SpeedClock, MotionField::State::flowTime) ----
 
 // A frame whose loudness wanders, so the flow rate is not a constant.
 GeodeSoundFrame wandering(int k) {

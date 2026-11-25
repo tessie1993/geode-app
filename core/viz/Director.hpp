@@ -17,14 +17,14 @@ namespace geode::viz {
 //
 //   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
 //              set of scene params and a scale on the camera rig's music moves; the camera's spring
-//              softness and the motion field's breath. The user's macro bank (viz/MacroBank) is never
+//              softness and the motion field's breath. The user's macro bank (viz/modulation/MacroBank) is never
 //              touched: it adds on top of whatever the director left. Spin (motionDrift) is never the
 //              director's either (#1181): whether a turning style spins is the user's choice
 //
 // Two things it never does (owner's rule). It never touches colour: the palette, saturation,
 // brightness, temperature and contrast are the style's and the user's. And it plays no reaction of its
 // own: what moves on a kick, a note or a drop is the reaction matrix alone (the user's routes, else the
-// style's DNA, viz/ReactionDna), which the user can see and edit. It hears nothing of the sound but
+// style's DNA, viz/modulation/ReactionDna), which the user can see and edit. It hears nothing of the sound but
 // Form's states and events and the feeling: a look is decided, glided in and then held.
 //
 // It decides at musical moments only: the first confident key, a new section, a drop, a modulation that

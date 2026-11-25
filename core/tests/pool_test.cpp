@@ -14,7 +14,7 @@
 #include <cstring>
 #include <random>
 
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 #include "viz/pool/PoolMath.hpp"
 
 using namespace geode::viz::pool;

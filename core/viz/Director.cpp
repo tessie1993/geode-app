@@ -570,7 +570,7 @@ SceneParams Director::apply(const SceneParams& p) const {
     // of an untouched style, added as its distance from the default, so a slider the user moved keeps
     // its whole offset.
     o.camSmooth = std::clamp(p.camSmooth + a * (L.camSmooth - kDefaults.camSmooth), std::min(0.0f, p.camSmooth), std::max(1.0f, p.camSmooth));
-    // The motion dials scale how far the music moves the picture (viz/MotionField), so the look turns
+    // The motion dials scale how far the music moves the picture (viz/modulation/MotionField), so the look turns
     // them by a factor, never an offset: a dial the user set to 0 stays off, and the director cannot
     // switch on a reaction to the sound the user switched off.
     const auto turned = [a](float user, float look, float base) {

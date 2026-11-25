@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-/* The user's modulation (core/viz/ModDocument): the three waves, the two envelopes and the reaction routes set
+/* The user's modulation (core/viz/modulation/ModDocument): the three waves, the two envelopes and the reaction routes set
    by hand. The shell holds each as the text it saves and nothing else: it reads a value to draw through the
    *_values calls, makes an edit through the *_edit calls (which hand the new text back) and gives a renderer
    the texts as they are. Every default, range, clamp and "what may this move" is decided here.
@@ -84,7 +84,7 @@ extern "C" {
 /* geode_mod_targets_offered's `picker`: a wave slot (0 .. GEODE_LFO_SLOTS - 1) or the route editor. */
 #define GEODE_MOD_PICKER_REACTION (-2)
 
-/* What the editors show (core/viz/ModCatalog): every wave shape, source, direction, curve, band, reaction
+/* What the editors show (core/viz/modulation/ModCatalog): every wave shape, source, direction, curve, band, reaction
    source and mode, target and recipe with its saved name and its words, the slider ranges and the slot counts,
    as the line table ModCatalog.hpp documents. Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_mod_catalog_text(void);
@@ -128,7 +128,7 @@ GEODE_API int geode_mod_music_state(const char* style_id, int seed, const char* 
 /* GEODE_MOD_RECIPE_* for one recipe over what plays; 0 for an unknown recipe or a NULL style. */
 GEODE_API unsigned geode_mod_recipe_state(int recipe, const char* style_id, int seed, const char* reactions, unsigned mask);
 
-/* Randomize for the waves (core/viz/WaveRandomizer): `lfos` rolled, on the look in `params` (the
+/* Randomize for the waves (core/viz/modulation/WaveRandomizer): `lfos` rolled, on the look in `params` (the
    geode_viz_set_params wire). running_only 0 is the wave editor's button: every slot switched on and rolled.
    1 is a roll of everything: only the steady waves already on, and none when `locked` (newline-joined keys)
    keeps "@waves" or "#EXPERT". Returns 0 with an empty out when nothing changed. */
@@ -141,7 +141,7 @@ GEODE_API const char* geode_mod_waves_roll(const char* style_id, const char* loc
 
 /* A renderer's modulation, as the saved texts. May come from any thread; latched for the next frame.
    geode_viz_set_reactions takes NULL for Auto. What the matrix plays is resolved natively
-   (core/viz/ReactionResolve) from the scene playing, the params' reactSeed and these routes under the hand
+   (core/viz/modulation/ReactionResolve) from the scene playing, the params' reactSeed and these routes under the hand
    mask the renderer reads itself (geode_hand_set, or the one an export pinned), and worked out again before
    a render only when one of them changed: the shell sends the routes only when they change, and a new hand
    mask reaches every renderer without the shell. */
@@ -156,7 +156,7 @@ GEODE_API void geode_viz_set_reactions(geode_viz*, const char* reactions);
    drops the saved routes and mask, and the mask is 0. */
 GEODE_API int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask);
 
-/* The user's modulation as the app holds it while it runs (core/viz/ModState), process-wide. The panel sends each
+/* The user's modulation as the app holds it while it runs (core/viz/modulation/ModState), process-wide. The panel sends each
    edit as an event that returns nothing: native applies it with the rules above and keeps the result. The shell
    reads the texts back (geode_mod_state_text) only to draw the editors, to save them and to hand a renderer its
    look. Thread-safe; none touches a renderer's GL or audio state. */

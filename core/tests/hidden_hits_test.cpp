@@ -1,5 +1,5 @@
 // No hidden hit reactions (owner, 2026-11-12): what moves on a hit is the user's reaction matrix
-// (core/viz/Reactions) and the controls the user sets, never a scene, a pass or a simulation reacting to
+// (core/viz/modulation/Reactions) and the controls the user sets, never a scene, a pass or a simulation reacting to
 // the hit on its own. resolver_test holds the params to it ("with no route and the Motion dials at 0 no
 // param hears the sound"); a scene, though, takes the raw sound frame and draws on the GL thread, where
 // no host test can watch it. This reads the sources instead, the nearest a host test gets.

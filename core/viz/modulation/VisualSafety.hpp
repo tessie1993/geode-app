@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 
 namespace geode::viz {

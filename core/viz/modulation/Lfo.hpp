@@ -4,7 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/params/Config.hpp"
-#include "viz/ModTable.hpp"
+#include "viz/modulation/ModTable.hpp"
 #include "viz/params/Params.hpp"
 
 namespace geode::viz {
@@ -29,7 +29,7 @@ enum class LfoTarget {
     FlowCurl, FlowForce, EndlessZoomSpeed,
     // Appended: the dive's spiral and where it points (viz/EndlessZoom.hpp).
     DiveTwist, DiveAimX, DiveAimY,
-    // Appended: a macro knob (viz/MacroBank), the one LfoConfig::knob / AdsrConfig::knob names. It writes no param:
+    // Appended: a macro knob (viz/modulation/MacroBank), the one LfoConfig::knob / AdsrConfig::knob names. It writes no param:
     // the resolver adds the wave or the envelope to the knob's turn, and the knob moves what it links.
     Macro,
     // Appended: the palette stack's amounts (Palette 1, 3..8; Palette 2's is PaletteMix's) and where along it
@@ -55,7 +55,7 @@ enum class LfoTarget {
     // Appended: how much the picture is born and dies (viz/params/ParamTable.inc life, viz/Births), ordinal 82.
     Life,
 };
-// The names above are the targets as first shipped (viz/ModTable.hpp kLegacy). Every later ordinal is a field with a mod
+// The names above are the targets as first shipped (viz/modulation/ModTable.hpp kLegacy). Every later ordinal is a field with a mod
 // row in viz/params/ParamTable.inc, in slot order, with no name here: a target is data, not an enumerator.
 static_assert(static_cast<int>(LfoTarget::Life) == modtable::kLegacyCount - 1, "the named targets are the legacy table's");
 // The last ordinal: the wire's range for a target.
@@ -93,7 +93,7 @@ struct LfoConfig {
     float beats = 0.0f;
     /* The macro knob's id a Macro target turns; 0 is none. */
     int knob = 0;
-    /* -1 runs free; a Moment ordinal (viz/Reactions) restarts the cycle each time that moment comes, on the slot's
+    /* -1 runs free; a Moment ordinal (viz/modulation/Reactions) restarts the cycle each time that moment comes, on the slot's
      * own period (beat timing gives way to it). */
     int moment = -1;
 };

@@ -3,8 +3,8 @@
 #include <vector>
 
 #include "viz/CustomizeMap.hpp"
-#include "viz/MacroBank.hpp"
-#include "viz/ModTargets.hpp"
+#include "viz/modulation/MacroBank.hpp"
+#include "viz/modulation/ModTargets.hpp"
 
 // The macro bank seen from Customize's sliders: which target a slider is, which knobs move it, and a new
 // knob made from one. Apart from MacroBank.cpp so the renderer's builds need not link the Customize map.

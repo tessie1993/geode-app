@@ -9,7 +9,7 @@
 // Then, for #528's mutants: parity with the old chain (main's Renderer::resolveParams before #344) bit for
 // bit over seeded random setups, the preset morph and param fade by hand-worked frames, the motion field
 // before the clamp, the style moments, disabled stages as exact identity, and live beside export.
-// Then the macro bank (viz/MacroBank, process-wide through geode_macro_bank_set): its offset reaches the
+// Then the macro bank (viz/modulation/MacroBank, process-wide through geode_macro_bank_set): its offset reaches the
 // resolved params, an export's pin keeps the bank it was pinned with, and the director never touches it.
 // Then a wave and an envelope on a macro knob (LfoTarget::Macro): they turn the knob where the bank runs, so the
 // knob's links move, the user's turn is never rewritten, safety stays last, 30/60/120 fps agree, silence holds still;
@@ -31,12 +31,12 @@
 #include "sound/Harmony.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/Director.hpp"
-#include "viz/MacroBank.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/NoteResponse.hpp"
+#include "viz/modulation/MacroBank.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/NoteResponse.hpp"
 #include "viz/colour/Palette.hpp"
-#include "viz/Reactions.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/Reactions.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 using geode::signal::EngineSettings;
 using geode::signal::Resolver;

@@ -1,9 +1,9 @@
-#include "viz/ModCatalog.hpp"
+#include "viz/modulation/ModCatalog.hpp"
 
 #include <array>
 
-#include "viz/ModTargets.hpp"
-#include "viz/ReactionText.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/ReactionText.hpp"
 #include "viz/TableNumber.hpp"
 
 namespace geode::viz::modcatalog {

@@ -1,4 +1,4 @@
-#include "viz/MacroBank.hpp"
+#include "viz/modulation/MacroBank.hpp"
 
 #include <algorithm>
 #include <array>
@@ -9,9 +9,9 @@
 #include <mutex>
 
 #include "viz/Catalogue.hpp"
-#include "viz/ModTargets.hpp"
+#include "viz/modulation/ModTargets.hpp"
 #include "viz/TableNumber.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz::macrobank {
 

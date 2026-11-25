@@ -4,7 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/params/Params.hpp"
-#include "viz/SpeedClock.hpp"
+#include "viz/modulation/SpeedClock.hpp"
 
 namespace geode::viz {
 
@@ -73,7 +73,7 @@ public:
     void setVariant(std::uint32_t seed);
     // Advances every average, oscillator and integrator by one frame. speed is
     // SceneParams.speed, read only by flowTime: the flow phase's rate times
-    // Speed, integrated (viz/SpeedClock.hpp), so a style gets a Speed-scaled
+    // Speed, integrated (viz/modulation/SpeedClock.hpp), so a style gets a Speed-scaled
     // flow without uFlowPhase * uSpeed, which jumps whenever Speed moves.
     // Renderer's instance shapes SceneParams and never uploads flowTime, so it
     // keeps the default.

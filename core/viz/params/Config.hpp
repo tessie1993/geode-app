@@ -7,7 +7,7 @@ namespace geode::viz::config {
 
 // The config params schema (#423): the values the data stores hold beside the scene params (LFO and
 // envelope slots, the palette maker's gradient, the look's envelope, the preset morph), one row each in
-// viz/params/ConfigTable.inc. Everything here is constexpr and header-only, so viz/Lfo and viz/Adsr read their
+// viz/params/ConfigTable.inc. Everything here is constexpr and header-only, so viz/modulation/Lfo and viz/modulation/Adsr read their
 // defaults and ranges from the rows without a new translation unit to link; only the shell's text table
 // (geode_config_schema_text) lives in viz/params/ConfigFields.cpp. The conversions the stores run on old saves
 // are in viz/params/ConfigMath.hpp.

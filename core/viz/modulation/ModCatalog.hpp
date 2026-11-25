@@ -2,10 +2,10 @@
 #include <string>
 #include <string_view>
 
-#include "viz/Adsr.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ReactionDna.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Adsr.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ReactionDna.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 // What the modulation editors show: every wave shape, source, direction, curve, envelope band, reaction
 // source and mode, target and ready-made recipe, with the name a saved document carries and the words a
@@ -26,7 +26,7 @@ constexpr int kBandCount = static_cast<int>(EnvBand::Width) + 1;
 constexpr int kBeatChoices = 7;
 float beatChoice(int index);
 
-// The route editor's slider reach; a saved route may hold more (viz/ReactionText).
+// The route editor's slider reach; a saved route may hold more (viz/modulation/ReactionText).
 constexpr float kRouteRiseMaxSeconds = 1.0f;
 constexpr float kRouteFallMaxSeconds = 3.0f;
 

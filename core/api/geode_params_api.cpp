@@ -14,15 +14,15 @@
 #include "viz/ControlRange.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/params/Config.hpp"
-#include "viz/ModDocument.hpp"
-#include "viz/ModState.hpp"
+#include "viz/modulation/ModDocument.hpp"
+#include "viz/modulation/ModState.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/PanelRoll.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/params/ParamsPalette.hpp"
 #include "viz/input/TouchGesture.hpp"
 #include "viz/input/TouchTransform.hpp"
-#include "viz/WaveRandomizer.hpp"
+#include "viz/modulation/WaveRandomizer.hpp"
 
 using geode::viz::SceneParams;
 namespace randomizer = geode::viz::randomizer;

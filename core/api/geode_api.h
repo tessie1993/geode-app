@@ -83,7 +83,7 @@ GEODE_API const char* geode_director_tuning_with(const char* text, int index, fl
  * returning section's family stepped on by its returns, else the next style along the catalogue; -1 to
  * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
 GEODE_API int         geode_auto_pick_among(const char* ids, int on_screen, int director_moment);
-/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the six style knobs each
+/* Note & key reactions (core/viz/modulation/NoteResponse): notes, chords, key and mood driving the six style knobs each
  * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
@@ -125,7 +125,7 @@ GEODE_API void        geode_note_response_set(int enabled);
 #define GEODE_LAYER_LIST_FAMILIES 2
 #define GEODE_LAYER_LIST_STYLES 3
 #define GEODE_LAYER_LIST_KNOBS 4
-#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on (core/viz/VisualSafety) */
+#define GEODE_LAYER_BLEND_DEFAULT 1 /* Screen, the blend a new layer starts on (core/viz/modulation/VisualSafety) */
 GEODE_API void        geode_layer_set(const char* layer);
 GEODE_API const char* geode_layer_edit(int field, float value, const char* style_id);
 GEODE_API int         geode_layer_values(const char* active_style, int family, float* out, int capacity);
@@ -152,7 +152,7 @@ GEODE_API size_t      geode_shader_override(const char* style_id, char* out, siz
 #define GEODE_HAND_UNCLAIMED 0x40000000u
 #define GEODE_HAND_ALL 0x400003FFu
 GEODE_API void        geode_hand_set(unsigned mask, int has_user);
-/* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
+/* Modulation targets (core/viz/modulation/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
    shell hides a chip the style ignores. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
 /* The phone's tilt for the camera's "Tilt phone to look" (viz/input/GyroLook): one game rotation vector reading
@@ -1203,7 +1203,7 @@ GEODE_API int         geode_param_history_record(const float* before, int count,
 GEODE_API const char* geode_param_history_step(int redo, const float* current, int count, const char* current_palette,
                                                const char* style_id, float* out);
 GEODE_API int         geode_param_history_state(void);
-/* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
+/* The macro bank (core/viz/modulation/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
  * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
  * Every call that takes a bank reads any text (NULL, empty or unreadable = the default bank) and every edit

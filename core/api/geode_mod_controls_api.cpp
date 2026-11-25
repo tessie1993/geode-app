@@ -4,7 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/ModControls.hpp"
-#include "viz/ModDocument.hpp"
+#include "viz/modulation/ModDocument.hpp"
 
 namespace viz = geode::viz;
 

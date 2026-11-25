@@ -1,8 +1,8 @@
-#include "viz/ModTargets.hpp"
+#include "viz/modulation/ModTargets.hpp"
 
 #include <array>
 
-#include "viz/ReactionDna.hpp"
+#include "viz/modulation/ReactionDna.hpp"
 #include "viz/TableNumber.hpp"
 
 namespace geode::viz::modtargets {
@@ -58,7 +58,7 @@ std::string build() {
 
 }  // namespace
 
-// A legacy target's frozen name; any later one is its field's name (viz/ModTable.hpp).
+// A legacy target's frozen name; any later one is its field's name (viz/modulation/ModTable.hpp).
 const char* name(LfoTarget target) {
     if (!known(target)) return "";
     const int i = static_cast<int>(target);

@@ -36,7 +36,7 @@ Every line here was true when it was written and may have gone stale: check the 
 - `core/stage`: the surface threads (`core/stage/android/StageThread.cpp`, `VsyncThread.cpp`).
 - `core/tests`: host tests; `core/tests/host-tests.txt` declares each one's flags and sources, `tools/host-tests.sh` builds and runs them, and `.github/workflows/native-host-tests.yml` calls it.
 - Shaders are in `app/src/main/assets/shaders`.
-- The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/MacroBank.cpp`).
+- The four base macro knobs are Shape, Motion, Colour and Depth (`core/viz/modulation/MacroBank.cpp`).
 - The analysis runs on one thread per ring, shared by every surface that hears the ring (`core/sound/hop/SharedAnalysis.hpp`, `AnalysisThread`); a renderer reads it at the speaker's sample (`core/sound/interp/FrameBlend`). An export runs the same analysis inline.
 - The parameter resolver still runs on the drawing thread (`core/viz/RendererFrame.cpp`).
 - Live analysis runs on its own thread per ring (`core/sound/hop/AnalysisThread.cpp`); an export runs it inline. The parameter resolver runs on the drawing thread (`core/viz/RendererFrame.cpp`).
@@ -385,3 +385,4 @@ A line records what was done; it is not a rule.
 - 2026-11-25: Moved the GL plumbing (handles, caps and probe, programs with their cache and stager, framebuffer, texture, quad, compute, `ProgramLoader`, `FluidBuffers`) into `core/viz/gl/`. Includes, `core/CMakeLists.txt`, `core/tests/host-tests.txt`, tool and workflow paths follow. No behaviour change.
 - 2026-11-25: Moved `Colour`, `Palette`, `PaletteTable.inc` and `ArtPalette` into `core/viz/colour/`. Includes, `core/CMakeLists.txt`, `core/tests/host-tests.txt`, tool and workflow paths follow. No behaviour change.
 - 2026-11-25: Moved the scene parameter and config schema (`Params*`, `ParamTable.inc`, `Config*`) into `core/viz/params/`. Includes, `core/CMakeLists.txt`, `core/tests/host-tests.txt`, tool and workflow paths follow. No behaviour change.
+- 2026-11-25: Moved the modulation files (`Lfo`, `Adsr`, `Mod*`, `Reaction*`, `MacroBank`, `MacroControls`, `WaveRandomizer`, `MotionField`, `NoteResponse`, `SpeedClock`, `VisualSafety`) into `core/viz/modulation/`. Includes, `core/CMakeLists.txt`, `core/tests/host-tests.txt`, tool and workflow paths follow. No behaviour change.

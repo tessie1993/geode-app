@@ -89,7 +89,7 @@ def speed_twice(text):
     slider, an LFO, a macro, a reaction route) jumps the picture by
     elapsed * delta-speed. The motion field's flow phase and the sound
     engine's band clocks are accumulated the same way: their Speed-scaled
-    forms are uFlowTime and uSoundTimeSped (core/viz/SpeedClock.hpp). Read per
+    forms are uFlowTime and uSoundTimeSped (core/viz/modulation/SpeedClock.hpp). Read per
     statement, comments stripped, so `uTime * 0.2 * uSpeed` is caught too and
     prose about the rule is not.
     """

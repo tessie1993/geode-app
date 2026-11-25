@@ -5,7 +5,7 @@
 
 #include "sound/DriveGain.hpp"
 #include "sound/SoundFrame.h"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 
 namespace geode::viz::liquid::motion {

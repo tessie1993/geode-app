@@ -2,7 +2,7 @@
 #include <string>
 #include <string_view>
 
-#include "viz/ReactionDna.hpp"
+#include "viz/modulation/ReactionDna.hpp"
 
 namespace geode::viz {
 

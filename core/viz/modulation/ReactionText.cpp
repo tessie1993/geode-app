@@ -1,12 +1,12 @@
-#include "viz/ReactionText.hpp"
+#include "viz/modulation/ReactionText.hpp"
 
 #include <array>
 #include <cmath>
 #include <cstdlib>
 #include <vector>
 
-#include "viz/ModTargets.hpp"
-#include "viz/Reactions.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/Reactions.hpp"
 #include "viz/TableNumber.hpp"
 
 namespace geode::viz::reactiontext {

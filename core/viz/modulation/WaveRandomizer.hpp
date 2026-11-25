@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 
 // Randomize for the waves (Customize › Expert › Waves): a whole set of LFO slots rolled at once. Pure:

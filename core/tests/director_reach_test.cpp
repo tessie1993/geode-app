@@ -17,9 +17,9 @@
 #include "signal/Resolver.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/DirectorReach.hpp"
-#include "viz/ModTargets.hpp"
+#include "viz/modulation/ModTargets.hpp"
 #include "viz/ParamRandomizer.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 using geode::signal::EngineSettings;
 using geode::signal::Resolver;

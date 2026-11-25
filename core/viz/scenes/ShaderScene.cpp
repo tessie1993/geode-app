@@ -8,7 +8,7 @@
 #include "viz/Births.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/colour/Colour.hpp"
-#include "viz/NoteResponse.hpp"
+#include "viz/modulation/NoteResponse.hpp"
 #include "viz/TwistShape.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
@@ -244,7 +244,7 @@ void ShaderScene::uploadParams() {
     set1f(Uniform::uContrast, p.contrast);
     set1f(Uniform::uGamma, p.gamma);
     // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
-    // music by Note & key reactions (viz/NoteResponse) when that is on, else
+    // music by Note & key reactions (viz/modulation/NoteResponse) when that is on, else
     // held at the midpoint each style was tuned around (NoteUniforms' default),
     // so with the switch off every style draws exactly as it did. Only as many
     // elements as survived linking are written (uploading past the live length
@@ -263,7 +263,7 @@ void ShaderScene::uploadMotion() {
     // Wave three: the continuous replacement for the spike-latched state.
     // Nothing here is a trigger; every value is a running average, a
     // phase-locked oscillator gated by confidence, or a slow re-target that
-    // eases over seconds. See viz/MotionField.hpp for the derivation.
+    // eases over seconds. See viz/modulation/MotionField.hpp for the derivation.
     const MotionField::State& m = motionField_.state();
     set1f(Uniform::uEnergyRel, m.energyRel);
     set1f(Uniform::uBassRel, m.bassRel);

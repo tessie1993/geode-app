@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#include "viz/Reactions.hpp"
+#include "viz/modulation/Reactions.hpp"
 
 namespace geode::viz {
 
@@ -82,9 +82,9 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
 
 // ── Customize › Music: the hand wins per moment ─────────────────────────────────────────────────────
 //
-// The moments and the hand mask are in viz/Reactions.hpp, where the director reads them. Here: how the
+// The moments and the hand mask are in viz/modulation/Reactions.hpp, where the director reads them. Here: how the
 // user's routes and the live DNA merge, and what each chip on the page does to the routes. Kotlin only
-// labels the rows and chips and calls these through viz/ModDocument (api/geode_modulation_api.h).
+// labels the rows and chips and calls these through viz/modulation/ModDocument (api/geode_modulation_api.h).
 
 // What a moment can do to the picture, one chip each. The ordinal is the edit call's value, never saved.
 enum class MusicAction { Flash, Zoom, Shake, Colour, Camera, Warp };
@@ -134,7 +134,7 @@ LfoTarget musicActionTarget(MusicAction action);
 // same matrix as the DNA and the user's routes, and turning it off takes its routes back out. The amounts
 // and attack/release times come from docs/CUSTOMIZE_MACROS_RESEARCH.md § Event reactions; the flash-prone
 // ones (bloom, brightness, colour steps) still pass through safety::apply. Each one's title and sentence are
-// viz/ModCatalog's; the shell toggles one through viz/ModDocument.
+// viz/modulation/ModCatalog's; the shell toggles one through viz/modulation/ModDocument.
 
 // Wire ordinals, in the menu's order; append only.
 enum class EventRecipe {

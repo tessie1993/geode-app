@@ -115,7 +115,7 @@ void LfoEngine::apply(SceneParams& p, const std::array<float, kSlots>& values) c
 
 
 float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
-    constexpr float kLockConf = 0.35f;
+    constexpr float kLockConf = GEODE_SOUND_BEAT_LOCK_ON;
     constexpr float kEaseSeconds = 0.5f;
     const float n = std::clamp(c.beats, 1.0f, 32.0f);
     const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;

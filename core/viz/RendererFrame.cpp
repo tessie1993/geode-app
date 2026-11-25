@@ -825,7 +825,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         liquidFrame_.twist = 0.0f;
     }
     const bool trigger = soundFrame_.phrase > 0.5f || sound::sectionChanged(soundFrame_);
-    if (bornClock_.step(dt, trigger, soundFrame_.beatConf > 0.35f)) {
+    if (bornClock_.step(dt, trigger, soundFrame_.beatConf > GEODE_SOUND_BEAT_LOCK_ON)) {
         bornRolled_ = false;
         bornSceneId_.clear();
     }

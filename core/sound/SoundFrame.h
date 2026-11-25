@@ -40,6 +40,12 @@
 #define GEODE_SOUND_BPM_SLOWEST 30.0f
 #define GEODE_SOUND_BPM_FASTEST 300.0f
 
+/* The beat tracker's lock lines on beatConf (core/sound/Rhythm): it locks once beatConf has held above
+ * GEODE_SOUND_BEAT_LOCK_ON for a second and lets go once it has held below GEODE_SOUND_BEAT_LOCK_OFF for two.
+ * A reader that asks "is the beat heard?" of beatConf uses these lines, not numbers of its own. */
+#define GEODE_SOUND_BEAT_LOCK_ON 0.35f
+#define GEODE_SOUND_BEAT_LOCK_OFF 0.2f
+
 typedef struct GeodeSoundFrame {
     /* Relative levels, the core, over a +6 dB/octave tilted spectrum. bass 20–250 Hz, mid 250 Hz–
      * 4 kHz, treble 4–16 kHz; sub 20–60 Hz and midHigh 2–6 kHz split out the floor and the presence region.

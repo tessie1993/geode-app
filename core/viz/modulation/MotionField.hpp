@@ -107,8 +107,8 @@ private:
     static constexpr float kRhythmLockSeconds = 1.0f;
     // The bar wave follows Rhythm's bar from a beat confidence of kBarBeatUnsure (its unlock line) to
     // kBarBeatSure (its lock line), eased over kBarOnBeatSeconds.
-    static constexpr float kBarBeatUnsure = 0.2f;
-    static constexpr float kBarBeatSure = 0.35f;
+    static constexpr float kBarBeatUnsure = GEODE_SOUND_BEAT_LOCK_OFF;
+    static constexpr float kBarBeatSure = GEODE_SOUND_BEAT_LOCK_ON;
     static constexpr float kBarOnBeatSeconds = 1.0f;
     static constexpr float kBreathSeconds = 0.5f;
 

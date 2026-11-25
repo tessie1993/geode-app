@@ -1,6 +1,8 @@
 #pragma once
 #include <cmath>
 
+#include "sound/SoundFrame.h"
+
 // Tap along (Visuals): taps on the visual in time with the song roll new Music moments and reactions.
 // Pure, so core/tests/tap_along_test.cpp drives it; the renderer hands it each frame's beat as the sound
 // engine heard it (frame()), the shell each tap's touch-down time (tap()).
@@ -22,7 +24,7 @@ public:
     static constexpr double kLateS = 0.16;
     static constexpr double kSpreadS = 0.06;
     static constexpr double kFrameAgeS = 0.25;
-    static constexpr float kMinConf = 0.35f;     // the tracker's own "locked" line (SoundFrame.h)
+    static constexpr float kMinConf = GEODE_SOUND_BEAT_LOCK_ON;  // the tracker's own "locked" line
     static constexpr float kMinPresence = 0.5f;  // music, not the silence fade
 
     // The frame's beat at t seconds (CLOCK_MONOTONIC): beatPhase 0..1, bpm, beatConf and presence.

@@ -294,7 +294,7 @@ constexpr float kTriggerFloor = 0.5f;
 // is the phrase phase in eighths at the downbeat (Rhythm builds that phase from it), so "every 4 bars" lands on
 // bars 1 and 5 of the phrase, and a new section, which restarts the phrase, restarts the counts with it. A
 // bar is Rhythm's bar, whatever metre it reads (four beats or three).
-constexpr float kTrustedBeat = 0.2f;
+constexpr float kTrustedBeat = GEODE_SOUND_BEAT_LOCK_OFF;
 constexpr int kBarsInPhrase = 8;
 // Each count: how many bars it spans (the phrase's is counted on the phrase trigger), its hold, its pulse (none
 // for every bar and every phrase: those pulses are Downbeat and Phrase) and its flip.

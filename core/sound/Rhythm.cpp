@@ -33,8 +33,8 @@ constexpr float kComb = 0.5f;
 constexpr float kLevel = 0.45f;
 // ... and of its family when its period is a whole multiple or divisor of that one's, within this share.
 constexpr float kFamily = 0.04f;
-constexpr float kLockOn = 0.35f;
-constexpr float kLockOff = 0.2f;
+constexpr float kLockOn = GEODE_SOUND_BEAT_LOCK_ON;
+constexpr float kLockOff = GEODE_SOUND_BEAT_LOCK_OFF;
 constexpr float kLockAfter = 1.0f;         // seconds past the line before locking, ...
 constexpr float kUnlockAfter = 2.0f;       // ... and below it before letting go
 constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected per kPhaseEvery

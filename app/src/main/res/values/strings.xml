@@ -68,7 +68,7 @@
     <string name="help_topic_safety">Flashing and motion</string>
     <string name="help_topic_safety_body">BeatRealms caps brightness, contrast and glow and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate. Fluid shaders you write are not limited. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
-    <string name="help_topic_performance_body">The visual draws at the resolution and frame rate you pick in Settings › Performance, and with Adapt to frame time on it lowers them for a while when frames come late; Saver, a lower frame rate cap or a lower resolution keeps the phone cooler. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
+    <string name="help_topic_performance_body">The visual draws at the resolution and frame rate you pick in Settings › Performance; Saver, a lower frame rate cap or a lower resolution keeps the phone cooler. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 
     <!-- Per-track metadata editor. -->
     <string name="track_info_title">Track info</string>

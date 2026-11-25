@@ -6,6 +6,7 @@
 #include "stage/CommandQueue.hpp"
 #include "stage/StageClient.hpp"
 #include "stage/StageLifecycle.hpp"
+#include "stage/VsyncRule.hpp"
 
 // What a stage thread does with each command and on each turn of its loop (docs/agents/native-stage.md): which
 // lifecycle event a command is, when a window hand-over is acknowledged, when a requested frame is drawn, when the
@@ -55,7 +56,7 @@ public:
     // The last frame swapped is still in the GPU's queue: its fence (inserted after the draw, before the swap) has not
     // signalled. Asked with no wait. False when no frame was swapped, or the platform has no fence.
     virtual bool gpuBusy() { return false; }
-    // The frame the vsync asked for is finished (drawn, or dropped unseen): the pacer may ask for the next at its
+    // The frame the vsync asked for is finished (drawn, or dropped unseen): the vsync thread may ask for the next at its
     // first vsync from now. Called once per kStageFrameDue taken, after the swap.
     virtual void frameDone() {}
 };
@@ -101,6 +102,8 @@ private:
     StagePort& port_;
     void* window_ = nullptr;
     float cap_;
+    // The user's cap kept when the platform ignores the frame-rate hint (stage/VsyncRule).
+    CapGuard capGuard_;
     bool frameDue_ = false;
     float dueFps_ = 0.0f;
     int64_t dueFrameNs_ = 0;

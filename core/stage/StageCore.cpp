@@ -78,8 +78,9 @@ void StageCore::step(int64_t nowMs) {
     if (frameDue_) {
         frameDue_ = false;
         // A request already in flight when the vsync stopped is dropped here, and so is one whose predecessor the GPU
-        // has not finished (stage/VsyncRule).
-        if (lifecycle_.vsyncOn() && lifecycle_.canDraw() && !skipVsync(false, port_.gpuBusy())) {
+        // has not finished, or that the user's cap leaves out where the platform ignored its hint (stage/VsyncRule).
+        if (lifecycle_.vsyncOn() && lifecycle_.canDraw() && !skipVsync(false, port_.gpuBusy()) &&
+            capGuard_.draws(dueFps_, cap_)) {
             draw(dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
             runActions();
         }

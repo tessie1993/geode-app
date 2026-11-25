@@ -158,7 +158,7 @@ One fact per line. The design of the native host every live surface draws throug
 - Second screen (Presentation): a second stage on the external window, both pacing independently.
 - Wallpaper preview beside the home-screen wallpaper: two surface stages and the app view at once, one `GeodeVsync` thread.
 - Lock screen: the lock look, Stopped when covered, Still with the settle burst and then no frames.
-- 60, 90 and 120 Hz panels: the same divides and paced rates as before the stage (60 cap on 90 Hz draws 45), and the panel mode follows the hint where it can switch seamlessly.
+- 60, 90 and 120 Hz panels: every vsync draws, the cap is the window's hint (the panel mode follows it where it can switch seamlessly), and where the display keeps presenting at over 1.5 times the cap, `CapGuard` draws every whole divide that lands at or under it.
 - Screen off and on: vsync stops, the context survives, the first frame after is not a 600 s step.
 - Low-memory trim: `geode_memory_trim` still reaches the renderer while the stage is stopped, and spares trim on the way out.
 - Context loss (force with a GPU reset or a driver that drops contexts on sleep): surfaces rebuild and keep drawing.

@@ -21,8 +21,8 @@ object PerfNative {
     const val LIVE_FPS_MAX_CHOICES = 5
 
     /**
-     * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap and handed
-     * to the pacer as one. The stage runs at the rate the display runs now and states no rate of its own.
+     * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap but
+     * stating no rate. The stage runs at the rate the display runs now and states no rate of its own.
      */
     const val LIVE_FPS_FOLLOW = -1
 

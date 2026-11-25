@@ -473,6 +473,8 @@ void Renderer::surfaceChanged(int width, int height) {
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
     applyRenderScale();
+    // The targets were rebuilt: the next frame steps by 0, not by that.
+    restartClock();
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx) {

@@ -255,6 +255,7 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
     static const std::vector<std::pair<const char*, const char*>> kListed = {
         {"paramFadeSec", "an automation preference, not a look"},
         {"fluidQuality", "a performance setting, not a look"},
+        {"fluidAutoQuality", "retired: nothing steps the fluid tier down"},
         {"fluidSpawnProgress", "how much the song itself drives the look"},
         {"fluidParticlesEnabled", "the fluid particle layer's master switch"},
         {"fluidDyeEnabled", "the fluid ink layer's master switch"},

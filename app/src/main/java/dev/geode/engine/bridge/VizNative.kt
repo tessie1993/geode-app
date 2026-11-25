@@ -153,8 +153,8 @@ object VizNative {
 
     /**
      * One whole live frame into framebuffer 0 (geode_viz_frame, `core/viz/frame/LiveFrame`), GL thread: the
-     * renderer hears [ring] (0: nothing) and draws with what was pushed to it. [pacedFps] is the rate this
-     * surface's pacer last drew at (0 free-running) and [capFps] the surface's own cap (the same for a fixed
+     * renderer hears [ring] (0: nothing) and draws with what was pushed to it. [pacedFps] is the
+     * rate the display last presented this surface at (0 not known) and [capFps] the surface's own cap (the same for a fixed
      * rate). Answers the `FRAME_*` events; act on a bit only when it is set.
      */
     external fun vizFrame(

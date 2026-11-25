@@ -8,7 +8,7 @@
 // (core/stage/VsyncRule).
 namespace geode::viz::frame {
 
-// The rate a surface runs at: the lower of two caps (the pacer's paced rate and the surface's own). Either
+// The rate a surface runs at: the lower of two caps (the rate the display presents at and the surface's own). Either
 // <= 0, or not a number, means none.
 inline float effectiveCapFps(float aFps, float bFps) {
     const bool a = std::isfinite(aFps) && aFps > 0.0f;

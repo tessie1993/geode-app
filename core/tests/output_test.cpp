@@ -71,6 +71,17 @@ void frameClock() {
     check(frameStepSeconds(0, 1.0, 3.0) == 2.0f, "a long frame is a long step: nothing clamps it");
     check(frameStepSeconds(0, 1.0, 1.0) == 0.0f, "two frames on the same clock step by 0");
     check(frameStepSeconds(0, 2.0, 1.0) == 0.0f, "a clock that ran back never steps the engine backwards");
+
+    // A frame that built a scene or compiled shaders restarts the clock (Renderer::restartClock, lastTimeS = -1): the
+    // build is not the next frame's step, so a capped and an uncapped phone step the same after it.
+    double last = -1.0;
+    const double clockAt[] = {1.000, 1.016, 6.000, 6.016, 6.033};
+    const float want[] = {0.0f, 0.016f, 4.984f, 0.0f, 0.017f};
+    for (int i = 0; i < 5; ++i) {
+        const float dt = frameStepSeconds(0, last, clockAt[i]);
+        check(std::fabs(dt - want[i]) < 1e-3f, "a stall is one long frame, the restart after it steps 0, then real steps again");
+        last = i == 2 ? -1.0 : clockAt[i];
+    }
 }
 
 // The export's frame grid and audio cut over a three-hour render, at every rate Studio offers (24, 25, 30, 50,

@@ -183,7 +183,8 @@ Scene* Renderer::resolveActiveScene() {
     requestedPending_ = requested == nullptr;
     sceneJustSwitched_ = false;
     if (requested && requested != activeScene_) {
-        lastTimeS_ = frameNowS_;
+        // The build ran inside this frame: the next one steps by 0, not by the build.
+        restartClock();
         const bool cuts = TransitionCatalog::builtIn(frameTransitionId_) == TransitionStyle::Cut;
         if (!cuts && activeScene_) {
             outgoingScene_ = activeScene_;
@@ -599,11 +600,17 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     repeated_ = false;
     const float wallDt = beginFrame(timeSeconds);
     const float dt = wallDt * musicRate_;
-    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) applyRenderScale();
+    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
+        applyRenderScale();
+        restartClock();
+    }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
-    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
+    if (SceneResidency::trimSignal().poll(seenTrim_)) {
+        trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
+        restartClock();
+    }
     Scene* scene = resolveActiveScene();
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.

@@ -1,5 +1,6 @@
 #include "stage/android/EglWindow.hpp"
 
+#include <atomic>
 #include <cstring>
 #include <vector>
 
@@ -104,6 +105,15 @@ bool EglWindow::ensureDisplay() {
         destroySync_ = reinterpret_cast<decltype(destroySync_)>(eglGetProcAddress("eglDestroySyncKHR"));
         clientWaitSync_ = reinterpret_cast<decltype(clientWaitSync_)>(eglGetProcAddress("eglClientWaitSyncKHR"));
         if (!createSync_ || !destroySync_ || !clientWaitSync_) createSync_ = nullptr;
+    }
+    // Said once per process, not once per stage: what a device lacks is the device's, and the stage then runs without it.
+    static std::atomic<bool> told{false};
+    if (!presentationTime_ && !told.exchange(true)) {
+        GEODE_LOGW(kTag, "no eglPresentationTimeANDROID: swaps are not stamped with their presentation time");
+    }
+    static std::atomic<bool> toldFence{false};
+    if (!createSync_ && !toldFence.exchange(true)) {
+        GEODE_LOGW(kTag, "no EGL_KHR_fence_sync: a vsync is skipped only on the CPU side, never for the GPU");
     }
     return true;
 }

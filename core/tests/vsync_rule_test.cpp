@@ -2,8 +2,8 @@
 // with the system compiler; no EGL, no Android.
 //
 // What is pinned: a vsync draws unless the last frame is still in flight, on either side of the stage (the CPU
-// side the vsync thread knows, the GPU side the fence says), with no memory and no adaptive part: the same inputs
-// answer the same however many vsyncs came before; the rate hint states the user's rate, 0 for Follow device, no cap
+// side the vsync thread knows, the GPU side the fence says); the user's cap kept by a whole-number divide when the
+// platform ignores the hint, and left alone when it does not; the rate hint states the user's rate, 0 for Follow device, no cap
 // or a cap that is not a number; and the presentation rate is read from the interval between presentations.
 #include <cmath>
 #include <cstdint>
@@ -35,16 +35,49 @@ void aVsyncDrawsUnlessAFrameIsInFlight() {
     check(skipVsync(true, true), "both: skip");
 }
 
-// Red against: any state kept between calls (an adaptive rule): a long run of busy vsyncs leaves the next idle one
-// drawing, and the busy pattern never changes what idle answers.
-void theRuleHasNoMemory() {
-    for (int i = 0; i < 1000; ++i) skipVsync(i % 3 != 0, i % 5 == 0);
-    check(!skipVsync(false, false), "after a thousand skips an idle vsync draws");
+// Counts the frames CapGuard lets through of `frames` frames at `rate` against `cap`, after `warm` frames that are not counted.
+int guardedDraws(CapGuard& g, float rate, float cap, int frames, int warm = 0) {
+    for (int i = 0; i < warm; ++i) g.draws(rate, cap);
     int drawn = 0;
-    for (int i = 0; i < 600; ++i) {
-        if (!skipVsync(false, false)) ++drawn;
-    }
-    check(drawn == 600, "a stage that keeps up draws on every one of 600 vsyncs, whatever the user's rate");
+    for (int i = 0; i < frames; ++i) drawn += g.draws(rate, cap) ? 1 : 0;
+    return drawn;
+}
+
+// Red against: a cap that is only a hint (a display that ignores it draws every vsync, over what the user chose), a
+// divide that is not a whole number of vsyncs (uneven frames), one that starts before the rate has stayed over the cap
+// (a mode switch in flight would drop frames).
+void aCapThePlatformIgnoredIsKept() {
+    const int warm = CapGuard::kSustainFrames - 1;
+    CapGuard sixtyOn120;
+    check(guardedDraws(sixtyOn120, 120.0f, 60.0f, 120, warm) == 60, "120 Hz shown under a 60 cap draws every second vsync");
+    CapGuard thirtyOn120;
+    check(guardedDraws(thirtyOn120, 120.0f, 30.0f, 120, warm) == 30, "120 Hz under a 30 cap draws every fourth");
+    CapGuard thirtyOn90;
+    check(guardedDraws(thirtyOn90, 90.0f, 30.0f, 90, warm) == 30, "90 Hz under a 30 cap draws every third");
+    CapGuard early;
+    check(guardedDraws(early, 120.0f, 60.0f, CapGuard::kSustainFrames - 1) == CapGuard::kSustainFrames - 1,
+          "before the rate has stayed over the cap for a while, every vsync draws");
+}
+
+// Red against: a guard that lowers what the user did not ask to lower: a display at the cap (the hint was honoured), one
+// within the over factor, Follow device, no cap, an unknown rate, and one that stays on after the hint is honoured.
+void aCapTheUserDidNotBreakIsLeftAlone() {
+    CapGuard honoured;
+    check(guardedDraws(honoured, 60.0f, 60.0f, 300) == 300, "a display that follows the hint draws every vsync");
+    CapGuard close;
+    check(guardedDraws(close, 90.0f, 60.0f, 300) == 300, "90 Hz under a 60 cap is within the over factor: every vsync");
+    CapGuard follow;
+    check(guardedDraws(follow, 120.0f, static_cast<float>(frame::kLiveFpsFollow), 300) == 300, "Follow device is never cut");
+    CapGuard none;
+    check(guardedDraws(none, 120.0f, 0.0f, 300) == 300, "no cap is never cut");
+    CapGuard unknown;
+    check(guardedDraws(unknown, 0.0f, 30.0f, 300) == 300, "an unknown rate is never cut");
+    CapGuard nan;
+    check(guardedDraws(nan, std::numeric_limits<float>::quiet_NaN(), 30.0f, 300) == 300, "a NaN rate is never cut");
+    CapGuard followed;
+    guardedDraws(followed, 120.0f, 60.0f, 100);
+    check(guardedDraws(followed, 60.0f, 60.0f, 100) == 100, "the moment the display follows the hint, every vsync draws again");
+    check(guardedDraws(followed, 120.0f, 60.0f, 20) == 20, "and a rate that goes back over the cap must stay over it again first");
 }
 
 // Red against: Follow device (-1) stated as a rate (a negative hint), a NaN or infinite cap passed on to the
@@ -70,7 +103,8 @@ void thePresentRateIsReadFromTheInterval() {
 
 int main() {
     aVsyncDrawsUnlessAFrameIsInFlight();
-    theRuleHasNoMemory();
+    aCapThePlatformIgnoredIsKept();
+    aCapTheUserDidNotBreakIsLeftAlone();
     theHintIsTheUsersRateAndNothingElse();
     thePresentRateIsReadFromTheInterval();
     if (failures) {

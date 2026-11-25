@@ -426,6 +426,30 @@ void aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame() {
     check(r.port.gpuAsks == asks, "a request that will not draw never asks the fence");
 }
 
+// Red against: a cap that depends on the platform honouring the hint (a display that keeps presenting at 120 Hz under a
+// 60 cap would draw 120), a guard that lowers a display that does follow the hint, and a skipped frame left unanswered.
+void aCapThePlatformIgnoredIsKeptByTheStage() {
+    Rig r(Kind::View, 60.0f);
+    r.show();
+    const int warm = CapGuard::kSustainFrames - 1;
+    for (int i = 0; i < warm; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
+    check(r.client->frames == warm, "until the rate has stayed over the cap, every vsync draws");
+    const int dones = r.port.frameDones;
+    for (int i = 0; i < 120; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
+    check(r.client->frames == warm + 60, "then a 120 Hz display under a 60 cap draws every second vsync");
+    check(r.port.frameDones == dones + 120, "and each skipped request is still told done");
+
+    Rig honoured(Kind::View, 60.0f);
+    honoured.show();
+    for (int i = 0; i < 200; ++i) honoured.send(command(kStageFrameDue, 16'666'667, 0));
+    check(honoured.client->frames == 200, "a display that follows the hint draws every vsync");
+
+    Rig follow(Kind::View, -1.0f);
+    follow.show();
+    for (int i = 0; i < 200; ++i) follow.send(command(kStageFrameDue, 8'333'333, 0));
+    check(follow.client->frames == 200, "Follow device is never cut");
+}
+
 // Red against: the user's rate stated on every frame (a call across to the system per vsync), a stated rate that is
 // the display's own, and Follow device stated as a rate.
 void theRateHintFollowsTheCapNotTheFrames() {
@@ -485,6 +509,7 @@ int main() {
     serviceAndQuit();
     aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame();
     theRateHintFollowsTheCapNotTheFrames();
+    aCapThePlatformIgnoredIsKeptByTheStage();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();
     if (failures) {

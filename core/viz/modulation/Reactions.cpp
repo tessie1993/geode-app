@@ -383,6 +383,13 @@ const ReactSourceInfo& reactSourceInfo(ReactSource s) {
     return kSourceInfo[static_cast<size_t>(i)];
 }
 
+int reactSourceField(ReactSource s) {
+    const int i = static_cast<int>(s);
+    if (i < 0 || i >= kReactSourceCount) return -1;
+    const SourceSpec& spec = kSourceTable[static_cast<size_t>(i)];
+    return spec.kind == Kind::Derived ? -1 : static_cast<int>(spec.offset / sizeof(float));
+}
+
 void ReactSignals::reset() {
     values_.fill(0.0f);
     lastClock_.fill(0.0f);

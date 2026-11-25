@@ -30,6 +30,8 @@
 #include "viz/passes/DivePass.hpp"
 #include "viz/passes/FrontPass.hpp"
 #include "viz/fronts/FrontField.hpp"
+#include "viz/passes/ThingPass.hpp"
+#include "viz/things/ThingPool.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/GlHandle.hpp"
@@ -314,6 +316,8 @@ private:
     // Fronts over the style's finished picture, before the trails: steps them, and when any is alive draws them
     // and trades fboA_ for the result. Nothing alive: nothing runs.
     void drawFronts(const SceneParams& p, float dt);
+    // Things (viz/things/ThingPool.hpp) laid over the picture right after the fronts: same shape, same skip.
+    void drawThings(const SceneParams& p, float dt);
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
@@ -556,6 +560,8 @@ private:
     DivePass divePass_;
     FrontPass frontPass_;
     fronts::FrontField fronts_;
+    ThingPass thingPass_;
+    things::ThingPool things_;
     // The physics layers (viz/physics): nothing made until a layer's param turns it on.
     physics::PhysicsLayers physicsLayers_{loader_};
     // The outgoing style with this frame's physics layers over it; 0 when the composite reads fboB_ as it is.

@@ -103,11 +103,12 @@ void FluidScene::draw(float timeSeconds) {
     const float hueBase = hue::base(p.paletteBase()) + style_.hueOffset;
     const float hueSpan = hue::span(p.hueRange, p.paletteRange());
     choreography_.tick(f, simDt, sim_.aspect());
+    emitters_.fieldSet = host_.fieldSet ? host_.fieldSet() : nullptr;
     emitters_.tick(f, simDt, sim_.aspect(), hueBase, hueSpan, splats_);
     for (const auto& s : splats_) sim_.queueSplat(s);
     sim_.step(simDt);
     if (particles_.available() && p.fluidParticlesEnabled) {
-        applyChoreographyTo(particles_);
+        applyChoreographyTo(particles_, sim_.aspect());
         particles_.step(simDt, sim_.velocityTex(), sim_.aspect(), sim_.flowScale(), time_);
     }
     look_.bloomIntensity = std::clamp(p.fluidBloomIntensity * style_.bloom, 0.1f, 2.0f) * (0.6f + p.fluidBloomAudio * energy);

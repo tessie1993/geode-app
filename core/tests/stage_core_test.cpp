@@ -280,8 +280,8 @@ void vsyncTimes() {
     check(r.port.presented.size() == 1 && r.port.presented[0] == 1'016'000'000,
           "the swap is stamped half an interval before that vsync, between it and the one before");
     r.send(command(kStageFrameDue, 0, 20'000'000, 60.0f, 60.0f, 1'008'000'000));
-    check(r.client->presentTimes.back() == 1'028'000'000 && r.port.presented.size() == 2 && r.port.presented[1] == 0,
-          "with no interval the swap is not stamped: a stamp on the vsync itself can fall either side");
+    check(r.client->presentTimes.back() == 1'028'000'000 && r.port.presented.size() == 2 && r.port.presented[1] == 1'028'000'000,
+          "with no interval the stamp is the presentation time itself, as it was");
     r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'016'000'000));
     check(r.port.presented.size() == 3 && r.port.presented[2] == 1'032'000'000, "the next frame with one is stamped again");
     r.send(command(kStageFrameDue, 8'000'000, 0, 60.0f, 60.0f, 1'024'000'000));

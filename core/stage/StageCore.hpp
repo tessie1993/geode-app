@@ -51,7 +51,7 @@ public:
     virtual void vsyncCap(float capFps) = 0;
     // Every hand-over up to this sequence number is applied: its sender may stop waiting.
     virtual void windowApplied(int64_t sequence) = 0;
-    // The next swap's stamp, CLOCK_MONOTONIC ns: the display shows it at the first vsync after this time (0: none, the
+    // The next swap's stamp, CLOCK_MONOTONIC ns (frame::latchStampNs): the frame is not shown before it (0: none, the
     // swap presents when it can). Set just before each swap, so it never outlives the frame it was given for.
     virtual void presentAt(int64_t stampNs) { static_cast<void>(stampNs); }
     // The frame the vsync asked for is finished (drawn, or dropped unseen): the pacer may ask for the next at its

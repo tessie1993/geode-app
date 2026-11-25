@@ -311,14 +311,17 @@ internal fun StudioRenderTab(
                     }
             }
         }
+    // Remembered: the order is native and O(tracks), and this tab recomposes on every vizState emission.
     val batchTracks =
-        RenderScope.tracksFor(
-            selection.scope,
-            current = null,
-            queue = queue.tracks.map { BatchTrack(it.uri, it.title.ifBlank { it.uri.substringAfterLast('/') }) },
-            playlist = playlists.firstOrNull { it.name == selection.playlistName }?.tracks.orEmpty(),
-            chosen = selection.chosenUris.map { BatchTrack(it, titles[it] ?: it.substringAfterLast('/')) },
-        )
+        remember(selection.scope, selection.playlistName, selection.chosenUris, queue.tracks, playlists, titles) {
+            RenderScope.tracksFor(
+                selection.scope,
+                current = null,
+                queue = queue.tracks.map { BatchTrack(it.uri, it.title.ifBlank { it.uri.substringAfterLast('/') }) },
+                playlist = playlists.firstOrNull { it.name == selection.playlistName }?.tracks.orEmpty(),
+                chosen = selection.chosenUris.map { BatchTrack(it, titles[it] ?: it.substringAfterLast('/')) },
+            )
+        }
     val lookPresets =
         remember(viz.presets) {
             (viz.presets + BuiltInPresets.ALL)

@@ -200,9 +200,7 @@ private fun VisualsHubContent(
     ShakeToScreenshot(enabled = !pip, visualizerView = visualizerView, viewModel = visualsViewModel)
     val tapAlong = rememberTapAlong(visualizerView, visualsViewModel)
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val recordState = studioViewModel.recordState.collectAsStateWithLifecycle()
-    // recordedMs ticks four times a second and nothing here shows it.
-    val record by remember { derivedStateOf { recordState.value.copy(recordedMs = 0L) } }
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()
     val general by settingsViewModel.general.collectAsStateWithLifecycle()

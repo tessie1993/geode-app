@@ -45,7 +45,7 @@ constexpr float kChordShiftMinSeconds = 1.5f;
 // How sure the beat is, 0..1: nothing below the tracker's unlock line, all of it once it is locked. PULSE and
 // FLOW lean on the bar and the phrase only as far as this, and on the drums and the song part for the rest, so
 // no tempo is assumed where none is heard.
-constexpr float kBeatUnsure = 0.2f;
+constexpr float kBeatUnsure = GEODE_SOUND_BEAT_LOCK_OFF;
 constexpr float kBeatSure = 0.45f;
 float beatLock(const GeodeSoundFrame& f) { return clamp01((finite(f.beatConf) - kBeatUnsure) / (kBeatSure - kBeatUnsure)); }
 

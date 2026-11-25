@@ -1061,7 +1061,7 @@ void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
     s.onsetRate = s.onsetRate * decay + (open ? clear / kRateTau : 0.0f);
     s.hitRate = s.hitRate * decay + (open ? hits / kRateTau : 0.0f);
     out.busy = clamp01(0.5f * clamp01(s.onsetRate / kBusyOnsetsPerSecond) + 0.25f * clamp01(s.hitRate / kBusyHitsPerSecond) +
-                       0.25f * clamp01((out.beatConf - 0.35f) / 0.5f));  // the tracker counts as locked above ~0.35
+                       0.25f * clamp01((out.beatConf - GEODE_SOUND_BEAT_LOCK_ON) / 0.5f));  // from the tracker's lock line
     const float raw = open ? out.loudnessS * (kDriveBase + kDriveBusy * out.busy) : 0.0f;
     s.drive = lag(s.drive, raw, kDriveRise, kDriveFall, dt);
     out.drive = clamp01(s.drive);

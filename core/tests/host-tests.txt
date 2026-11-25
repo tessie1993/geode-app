@@ -582,6 +582,8 @@ randomize_all_test | stub | core/tests/randomize_all_test.cpp core/viz/panel/Ran
 # --- Easter egg host tests
 # The hidden Visuals gestures: shake to screenshot's detector (core/viz/input/Shake) and tap along's beat matcher (core/viz/input/TapAlong).
 easter_eggs_test | stub | core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp |
+# Readers that ask whether the beat is heard use the tracker's own lock lines (core/sound/SoundFrame.h).
+beat_lock_test | stub | core/tests/beat_lock_test.cpp |
 
 # --- Artwork palette
 # The artwork palette (core/viz/colour/ArtPalette): a cover's base hue, span and confidence, pinned to the Kotlin it replaced.

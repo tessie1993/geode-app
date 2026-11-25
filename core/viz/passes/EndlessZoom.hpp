@@ -59,7 +59,7 @@ public:
     /** The most the music moves the rate, either way. */
     static constexpr float kReach = 0.15f;
     /** Rhythm's lock (SoundFrame.h: beatConf). */
-    static constexpr float kLocked = 0.35f;
+    static constexpr float kLocked = GEODE_SOUND_BEAT_LOCK_ON;
     /** Seconds the multiplier takes to ease to a new average, and back to 1 when the beat is lost. */
     static constexpr float kEaseSeconds = 2.0f;
 

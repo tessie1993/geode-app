@@ -40,6 +40,12 @@
 #define GEODE_SOUND_BPM_SLOWEST 30.0f
 #define GEODE_SOUND_BPM_FASTEST 300.0f
 
+/* The beat tracker's lock lines on beatConf (core/sound/Rhythm): it locks once beatConf has held above
+ * GEODE_SOUND_BEAT_LOCK_ON for a second and lets go once it has held below GEODE_SOUND_BEAT_LOCK_OFF for two.
+ * A reader that asks "is the beat heard?" of beatConf uses these lines, not numbers of its own. */
+#define GEODE_SOUND_BEAT_LOCK_ON 0.35f
+#define GEODE_SOUND_BEAT_LOCK_OFF 0.2f
+
 typedef struct GeodeSoundFrame {
     /* Relative levels, the core, over a +6 dB/octave tilted spectrum. bass 20–250 Hz, mid 250 Hz–
      * 4 kHz, treble 4–16 kHz; sub 20–60 Hz and midHigh 2–6 kHz split out the floor and the presence region.
@@ -139,7 +145,7 @@ typedef struct GeodeSoundFrame {
     float bpm;          /* tempo, beats per minute, 0 = none heard (never a stand-in number); the last heard
                            while unlocked, and 0 again once a whole 6 s window has held no beat. Within GEODE_SOUND_BPM_SLOWEST..FASTEST, the detector's search limits */
     float beatPhase;    /* 0 on the beat … 1 just before the next: 1 - beatPhase is how soon it lands */
-    float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above ~0.35) */
+    float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above GEODE_SOUND_BEAT_LOCK_ON) */
     float beat;         /* trigger on each beat the oscillator predicts */
     float beatCount;    /* beats so far, a count wrapping at 4096 */
     float downbeat;     /* trigger on the first beat of each bar (the beat slot the kicks favour, 4/4) */

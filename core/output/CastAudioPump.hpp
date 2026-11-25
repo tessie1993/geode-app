@@ -18,10 +18,11 @@ namespace geode::output {
 // Only the player's music leaves the phone: while another ring feeds the visuals (the mic, another app's
 // audio) nothing is taken and the cut is padded with silence, so the room's sound never reaches the TV and
 // the mic never hears the TV. A ring with another channel count than the stream's, or a take with no rate,
-// is read and dropped. The resampler is rebuilt (fresh state) when the ring's rate changes.
+// is read and dropped. The resampler is rebuilt (fresh state) when the ring's rate changes, and after a take
+// dropped because a capture of another app began during it.
 //
-// One thread. Nothing allocates per frame: the buffers are sized at construction, the resampler's when the
-// rate changes, and the block grows only past a second of audio (a render-loop stall that long).
+// One thread. Nothing allocates per frame: the buffers are sized at construction, the resampler's when it is
+// rebuilt, and the block grows only past a second of audio (a render-loop stall that long).
 class CastAudioPump {
 public:
     // music: the player's ring, null for none (silence throughout). rateHz and channels: the stream's.

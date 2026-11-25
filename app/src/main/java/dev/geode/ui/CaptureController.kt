@@ -351,19 +351,21 @@ internal class CaptureController(
             try {
                 val access = withContext(Dispatchers.IO) { nowPlayingBridge.hasAccess() }
                 notificationAccessAbsent = !access
+                // Read once: the capture thread can end between two reads of the native state.
+                val capturing = playbackCapture.active
                 // A capture that ended on its own (an AudioRecord error, the audio server restarting) hands the
                 // ring back as a stop does; mirrored as merely inactive, the player stays shut out of its ring.
-                if (_externalAudio.value.active && !playbackCapture.active) {
+                if (_externalAudio.value.active && !capturing) {
                     stopExternalAudio()
                     return@launch
                 }
-                val quiet = playbackCapture.active && playbackCapture.quiet
+                val quiet = capturing && playbackCapture.quiet
                 hearDeviceMix(quiet)
                 // On the mix the app is heard after all, so neither notice applies.
                 val unheard = quiet && !deviceMix.running
                 _externalAudio.update {
                     it.copy(
-                        active = playbackCapture.active,
+                        active = capturing,
                         hasSessionAccess = access,
                         refusedByApp = unheard && (it.nowPlaying?.playing ?: false),
                         hearingSilence = unheard,

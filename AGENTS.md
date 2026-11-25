@@ -389,3 +389,4 @@ A line records what was done; it is not a rule.
 - 2026-11-24: A Customize slider row shows its value only while the slider is off its default (`LabeledSlider`, `ui/CustomizeTabs.kt`); at the default the word "Default" is left out of the row and stays in the TalkBack state.
 - 2026-11-24: Visuals draws a soft shade behind the status bar, as tall as the bar (`ui/VisualsHub.kt`, `STATUS_SHADE_ALPHA`), so the always-light status icons stay readable over a bright style.
 - 2026-11-25: Customize's count reads "15 settings changed" instead of "15 changes" (`customize_summary_changed`, `res/values/strings.xml`).
+- 2026-11-25: A macro knob shows its value only while it is off centre (`MacroKnobDial`, `ui/CustomizeMacros.kt`); "as styled" is left out under a centred knob and stays in the TalkBack state.

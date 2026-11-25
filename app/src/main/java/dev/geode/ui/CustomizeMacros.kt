@@ -216,6 +216,7 @@ private fun MacroKnobDial(
     val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val arc = MaterialTheme.colorScheme.primary
     val text = knobText(knob.value)
+    val centred = abs(knob.value) < KNOB_EPSILON
     // Only who moves the knob is read in composition (it changes rarely); the values are read in the draw below.
     val liveNow by rememberUpdatedState(live)
     val sources by remember { derivedStateOf { liveNow()?.sources } }
@@ -255,14 +256,15 @@ private fun MacroKnobDial(
                 live()?.let { drawModulation(it, knob.value, reduced, stroke) }
             }
         }
-        // Name and value, then the ⋮: no caption (UI V2 rule 3), and the knobs keep one height.
+        // Name and value, then the ⋮: no caption (UI V2 rule 3), and the knobs keep one height (the ⋮'s).
+        // The value shows only off centre: "as styled" under every knob was four repeats of nothing to read.
         Text(knob.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!centred) Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             KnobMenu(
                 title = knob.name,
                 about = knob.hint,
-                centred = abs(knob.value) < KNOB_EPSILON,
+                centred = centred,
                 onReset = { onSet(0f) },
                 onRemove = onRemove,
             )

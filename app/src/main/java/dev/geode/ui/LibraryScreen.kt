@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -716,14 +717,14 @@ private fun GroupDetail(
             }
             Text(
                 name.ifEmpty { stringResource(R.string.library_group_unnamed) },
-                Modifier.padding(end = 12.dp),
+                Modifier.padding(end = 12.dp).semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { viewModel.playAll(queue) },
                 contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
@@ -1017,7 +1018,7 @@ private fun PlaylistsTab(
             }
         }
     Column {
-        Row(
+        FlowRow(
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1451,7 +1452,7 @@ private fun LibraryFoldersCard(libraryViewModel: LibraryViewModel) {
                         }
                     }
                 }
-                Row(
+                FlowRow(
                     Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

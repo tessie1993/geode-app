@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -60,7 +62,11 @@ fun RecordSaveSheet(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.record_save_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.record_save_title),
+                Modifier.semantics { heading() },
+                style = MaterialTheme.typography.titleMedium,
+            )
             Text(
                 stringResource(R.string.record_save_body, title),
                 style = MaterialTheme.typography.bodySmall,

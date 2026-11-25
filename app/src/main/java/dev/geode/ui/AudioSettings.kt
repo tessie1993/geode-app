@@ -2,7 +2,7 @@ package dev.geode.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -148,7 +148,7 @@ private fun SoundTuningControls(
         TuningSlot(stringResource(R.string.audio_reactivity, "%.2f".format(tuning[reactivity])), tuning, reactivity, onChange)
         val speed = SoundNative.SOUND_TUNING_SPEED
         TuningSlot(stringResource(R.string.audio_speed, "%.2f".format(tuning[speed])), tuning, speed, onChange)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(filled = false, onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
             TextButton(onClick = { onChange(null) }) { Text(stringResource(R.string.audio_default)) }
         }

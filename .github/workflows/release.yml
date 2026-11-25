@@ -111,16 +111,22 @@ jobs:
       # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
       # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
       # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
-      # A commit that never shipped has no number and fails here: borrowing the latest one could
-      # repeat a versionCode already uploaded to Play.
+      # A commit that never shipped has no number and a signed build fails here: borrowing the
+      # latest one could repeat a versionCode already uploaded to Play.
       - name: Release number
         id: number
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.keystore.outputs.signed }}
         run: |
           set -euo pipefail
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
-          N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)")
+          # Without a number, an unsigned dry run builds as <base>-dev: it cannot go to Play.
+          if ! N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)" 2>"$RUNNER_TEMP/number.err"); then
+            if [ "$SIGNED" = "true" ]; then cat "$RUNNER_TEMP/number.err" >&2; exit 1; fi
+            echo "::warning::This commit has no release number: the dry-run bundle is version $BASE-dev."
+            exit 0
+          fi
           case "$N" in
             ''|*[!0-9]*) echo "::error::No release number for this commit (got '$N')."; exit 1 ;;
           esac
@@ -134,13 +140,14 @@ jobs:
           GEODE_KEY_ALIAS: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_ALIAS || '' }}
           GEODE_KEY_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_PASSWORD || '' }}
           PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+          N: ${{ steps.number.outputs.n }}
         run: |
           set -euo pipefail
           # Empty values must read as unset, or the build tries to sign with "".
           for v in GEODE_KEYSTORE GEODE_KEYSTORE_PASSWORD GEODE_KEY_ALIAS GEODE_KEY_PASSWORD; do
             [ -n "${!v}" ] || unset "$v"
           done
-          ./gradlew :app:bundleRelease -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+          ./gradlew :app:bundleRelease ${N:+-PreleaseNumber=$N} --stacktrace --no-daemon
 
       - name: Check the bundle against Play and the app's promises
         env:
@@ -163,10 +170,17 @@ jobs:
           grep -Eq 'isShrinkResources\s*=\s*true' app/build.gradle.kts \
             || { echo "::error::Resource shrinking is off for release"; exit 1; }
 
-          # The baseline profile ships inside the bundle.
-          unzip -l "$aab" | grep -q 'BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof' \
-            && echo "Baseline profile: present" \
-            || echo "::warning::No baseline profile in the bundle"
+          # What Play reads from the bundle beside the code: the baseline profile it installs with
+          # the app, and libgeode.so's symbols for both ABIs, which name the frames of native
+          # crashes and ANRs in Play Console.
+          entries=$(unzip -Z1 "$aab")
+          for entry in \
+            BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof \
+            BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libgeode.so.sym \
+            BUNDLE-METADATA/com.android.tools.build.debugsymbols/x86_64/libgeode.so.sym; do
+            grep -qxF "$entry" <<<"$entries" || { echo "::error::The bundle lacks $entry"; exit 1; }
+          done
+          echo "Baseline profile and native symbols: present"
 
           if [ "$SIGNED" = "true" ]; then
             # jarsigner exits 0 on an UNSIGNED jar ("jar is unsigned"), so the verdict is read

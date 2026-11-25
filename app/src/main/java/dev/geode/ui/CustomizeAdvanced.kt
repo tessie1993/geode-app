@@ -3,7 +3,6 @@
 package dev.geode.ui
 
 import android.content.Context
-import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -537,46 +536,6 @@ internal fun LayersPage() {
     val blends = remember(active, values) { list(VizNative.LAYER_LIST_BLENDS) }
     DropdownRow("Blend", blends, blend) { edit(VizNative.LAYER_BLEND, it.toFloat(), "") }
     LabeledSlider(LAYER_MIX, values[VizNative.LAYER_MIX], 0f..1f, scope = ParamScope.UNIVERSAL) { edit(VizNative.LAYER_MIX, it, "") }
-}
-
-/**
- * One Note & key strength: a 0..2 slider (1 = as designed; the range is the schema's) with its one-line hint under it. The key is
- * the shown name, since these are not catalogue parameters: they have no style scope (every style hears
- * notes) and the randomizer never rolls them, so the scope and unit are given rather than looked up.
- */
-@Composable
-private fun NoteKeySlider(
-    @StringRes name: Int,
-    @StringRes hint: Int,
-    p: SceneParams,
-    param: String,
-    onChange: (SceneParams) -> Unit,
-) {
-    val label = stringResource(name)
-    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamsNative.PARAM_UNIT_TIMES, onChange = onChange)
-    if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
-}
-
-/**
- * Music › Notes & key: how strongly each part of the musical layer (core/viz/NoteResponse) feeds this
- * style's own knobs, saved with the style like every Customize value. The switch that runs the layer at all is
- * Settings › Sound reaction (free, on by default); with it off these sliders do nothing, so the page says so
- * rather than letting a user drag a dead control.
- */
-@Composable
-internal fun NoteKeyPage(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val context = LocalContext.current
-    val running by remember { context.geodeContainer.noteResponse }.enabled.collectAsStateWithLifecycle()
-    if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
-    ControlHint(stringResource(R.string.note_key_intro))
-    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, "notePitch", onChange)
-    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, "noteIntervals", onChange)
-    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, "noteTension", onChange)
-    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, "noteChords", onChange)
-    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, "noteDrums", onChange)
 }
 
 private const val TRANSITION_CHIP_LIMIT = 40

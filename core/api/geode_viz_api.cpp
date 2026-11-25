@@ -33,7 +33,6 @@
 #include "viz/director/DirectorStyle.hpp"
 #include "viz/input/GyroLook.hpp"
 #include "viz/input/TapAlong.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/looks/LookSnapshot.hpp"
@@ -813,8 +812,6 @@ const char* geode_auto_draw(const char* locked_styles, const char* current_style
     picked = std::string(ids.substr(at, ids.find('\n', at) - at));
     return picked.c_str();
 }
-
-void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 
 void geode_layer_set(const char* layer) { layer_state::set(layer_state::decode(text(layer))); }
 

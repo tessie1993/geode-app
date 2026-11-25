@@ -441,11 +441,6 @@ Java_dev_geode_engine_bridge_DirectorNative_directorTuningWith(JNIEnv* env, jobj
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_DirectorNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
-    geode_note_response_set(enabled ? 1 : 0);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_shaderOverrideSet(JNIEnv* env, jobject, jstring styleId,
                                                            jstring fragmentSource) {
     Utf8Chars id(env, styleId);

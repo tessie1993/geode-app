@@ -30,8 +30,6 @@ import dev.geode.data.LookStore
 import dev.geode.data.MacroBankCodec
 import dev.geode.data.MacroStore
 import dev.geode.data.MediaStoreSource
-import dev.geode.data.NoteResponseCodec
-import dev.geode.data.NoteResponseStore
 import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PaletteStackCodec
 import dev.geode.data.PaletteStackStore
@@ -95,8 +93,6 @@ class GeodeContainer(
         AutoDirectorStore(PrefsSettingsRepository(prefsFiles.general, AutoDirectorCodec, appScope), appScope) {
             withContext(Dispatchers.IO) { keepSet.start() }
         }
-
-    val noteResponse = NoteResponseStore(PrefsSettingsRepository(prefsFiles.general, NoteResponseCodec, appScope), appScope)
 
     /** The Styles grid's favourites and recents. */
     val styleShelf = StyleShelfStore(PrefsSettingsRepository(prefsFiles.viz, StyleShelfCodec, appScope), appScope)

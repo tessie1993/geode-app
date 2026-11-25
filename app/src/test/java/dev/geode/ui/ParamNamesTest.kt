@@ -20,12 +20,11 @@ class ParamNamesTest {
     // Customize's controls and the palette stack name their params natively (core/tests/customize_rows_test holds them).
     private val screens = listOf("CustomizeAdvanced", "CustomizeTabs")
 
-    // The name argument of LabeledSlider(key, p, "name"), ChoiceChips(key, "name", p), NoteKeySlider(title, hint, p, "name"),
+    // The name argument of LabeledSlider(key, p, "name"), ChoiceChips(key, "name", p)
     // and ControlRange.of("name").
     private val call =
         Regex(
-            """(?:Labeled(?:Int)?Slider\(\w+, \w+, |ChoiceChips\([\w.]+, |NoteKeySlider\([\w.]+, [\w.]+, \w+, """ +
-                """|ControlRange\.of\()"(\w+)"""",
+            """(?:Labeled(?:Int)?Slider\(\w+, \w+, |ChoiceChips\([\w.]+, |ControlRange\.of\()"(\w+)"""",
         )
 
     private fun names(): List<String> {

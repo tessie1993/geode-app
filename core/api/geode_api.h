@@ -83,10 +83,6 @@ GEODE_API const char* geode_director_tuning_with(const char* text, int index, fl
  * returning section's family stepped on by its returns, else the next style along the catalogue; -1 to
  * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
 GEODE_API int         geode_auto_pick_among(const char* ids, int on_screen, int director_moment);
-/* Note & key reactions (core/viz/modulation/NoteResponse): notes, chords, key and mood driving the six style knobs each
- * style spends its own way; no scene param and no colour. Process-wide like the director; each
- * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
-GEODE_API void        geode_note_response_set(int enabled);
 /* Customize › Advanced › Layers (core/viz/LayerState, core/viz/LayerPick): a second style over the main one,
  * process-wide like geode_director_set, so live, export, the wallpaper and the dream all draw it. Native keeps the
  * layer; the shell only saves the line edit hands back ("layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|
@@ -240,11 +236,11 @@ GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int
 GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
                                              const float* offsets, int count, float* out);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
- * reads geode_macro_bank_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live
- * edits, the player's next track and its free taste never reach the render. The macro bank, the Note & key switch
+ * reads geode_macro_bank_set, geode_hand_set or geode_director_set again, so live
+ * edits, the player's next track and its free taste never reach the render. The macro bank
  * and the hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
  * whole export when entitled (Pro or the trial, 1/0) or when duration_ms fits the free taste, else off
- * (director::forExport); the note entropy is 0, so an export is deterministic. Returns the pinned hand mask,
+ * (director::forExport). Returns the pinned hand mask,
  * the one the export's reactions (geode_viz_set_reactions) then play under; 0 for a null handle. */
 GEODE_API unsigned    geode_viz_pin_engine_settings(geode_viz*, int entitled, long long duration_ms);
 GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
@@ -1227,7 +1223,7 @@ GEODE_API int         geode_param_history_state(void);
  * geode_macro_bank_hide_knob takes a knob off screen into the bank's library and geode_macro_bank_show_knob puts one
  * back (a built-in knob too, as built, when the bank lacks it). geode_macro_bank_auto_name
  * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
- * adds to its params each frame, after the director and the note layer and before the LFOs. geode_macro_bank_live_mods is
+ * adds to its params each frame, after the director and before the LFOs. geode_macro_bank_live_mods is
  * what the waves and envelopes on a knob (LfoTarget MACRO) add to its turn on the on-screen surface's last frame, one row
  * 5 floats per knob (id, add, sources: 1 wave, 2 envelope, 3 both, lowest add, highest add) written to out, at most
  * capacity rows, the row count returned, for the knob's second arc; poll it from the UI. */

@@ -164,7 +164,6 @@ private fun PanelPiece(
             val handMask by vm.handMask.collectAsStateWithLifecycle()
             ProGated(lockKey, label) { ReactionsSection(p, reactions, handMask, vm::editReactions, vm::rerollReactions) }
         }
-        "@notes_key" -> NoteKeyPage(p, onChange)
         "@transition_style" -> TransitionPicker(viz.transitionId, host.viewModel::setTransitionId)
         "@envelopes" -> {
             val adsrs by vm.adsrs.collectAsStateWithLifecycle()

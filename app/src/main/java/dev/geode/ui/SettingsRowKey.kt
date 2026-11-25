@@ -47,7 +47,6 @@ enum class SettingsRowKey {
     // Sound reaction
     LIVE_INPUT,
     OTHER_APPS_AUDIO,
-    NOTE_RESPONSE,
     SOUND_TUNING,
 
     // Photosensitivity & motion

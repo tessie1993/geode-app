@@ -506,34 +506,11 @@ int geode_live_fps_cap(int stored_fps, const float* rates, int count) {
     return geode::viz::frame::liveFpsCap(stored_fps, rates, std::max(count, 0));
 }
 
-double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
-    namespace frame = geode::viz::frame;
-    static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
-    static_assert(sizeof(long long) == sizeof(int64_t));
-    auto* wire = reinterpret_cast<int64_t*>(state);
-    static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
-    static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
-    frame::PacerState s = frame::unpack(wire);
-    // Follow device takes its cap from the panel the state has measured (frame::followCapFps).
-    const float cap = frame::pacerCapFps(s, cap_fps);
-    const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap);
-    frame::pack(s, wire);
-    return dt;
-}
-
 void geode_memory_trim(int android_level) {
     const auto trim = geode::viz::SceneResidency::trimForAndroidLevel(android_level);
     geode::viz::SceneResidency::trimSignal().request(trim);
     // The signal is read inside a frame; a stage that draws none is told on its own thread.
     if (trim != geode::viz::MemoryTrim::None) geode::api::trimStages();
-}
-
-void geode_pacer_resume(long long* state) {
-    namespace frame = geode::viz::frame;
-    auto* wire = reinterpret_cast<int64_t*>(state);
-    frame::PacerState s = frame::unpack(wire);
-    frame::Pacer::resume(s);
-    frame::pack(s, wire);
 }
 
 }  // extern "C"

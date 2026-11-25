@@ -200,7 +200,7 @@ GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, floa
 GEODE_API void        geode_viz_set_adaptive(geode_viz*, int on);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
-   GEODE_PACER_PACED_SLOT; 0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
+   0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
    only a fixed rate paces it, Cast's) to the renderer; the latched quality; a new surface's first frame
    cleared to black and nothing else; the latched gyro; the requested scene; `ring` heard (geode_viz_feed_ring, NULL
    hears nothing); geode_viz_render at CLOCK_BOOTTIME, the clock of SystemClock.elapsedRealtimeNanos.
@@ -1665,22 +1665,6 @@ GEODE_API int             geode_stage_presents(unsigned flags);
 GEODE_API int             geode_stage_step_target(int page, unsigned flags, int look_count);
 GEODE_API int             geode_stage_step_index(const unsigned char* open, int count, int here, int step);
 
-/* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
-#define GEODE_PACER_STATE_LONGS 8
-/* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
-   Surface.setFrameRate when it moves. */
-#define GEODE_PACER_CAP_SLOT 6
-/* The slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync): the cap, or
-   the next whole divide of the panel under it (45 fps for a 60 fps cap on a 90 Hz panel). The shell passes
-   it to geode_viz_frame as paced_fps. */
-#define GEODE_PACER_PACED_SLOT 7
-/* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
-   every vsync). GEODE_LIVE_FPS_FOLLOW follows the panel: every vsync of the rate the display runs now
-   (core/viz/frame/LiveFps, followCapFps); the paced slot reads that rate. */
-GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
-/* A start after a stop: forget the gap, keep the panel's period. */
-GEODE_API void            geode_pacer_resume(long long* state);
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
    spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface

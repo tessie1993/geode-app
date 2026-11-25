@@ -3,8 +3,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
-#include <type_traits>
 
 // The frame clock every surface shares: which vsyncs a surface draws on, and
 // the dt each drawn frame steps the engine by. Pure, with no GL and no Android, so the host can test
@@ -83,11 +81,6 @@ struct PacerState {
     // 90 Hz panel). The shell hands it to the renderer as the surface's paced rate.
     int64_t pacedMilliHz = 0;
 };
-
-// The wire layout for the ABI: eight int64s in this order.
-inline constexpr int kPacerStateLongs = 8;
-inline constexpr int kPacerCapSlot = 6;
-inline constexpr int kPacerPacedSlot = 7;
 
 class Pacer {
 public:
@@ -192,32 +185,5 @@ private:
         s.samples--;
     }
 };
-
-// Wire helpers for the ABI. Copied as bytes: the shell's array is jlong / long long, which is not the
-// same type as int64_t (long on LP64), so reading it through int64_t would break strict aliasing.
-static_assert(std::is_trivially_copyable_v<PacerState> && sizeof(PacerState) == kPacerStateLongs * sizeof(int64_t));
-static_assert(kPacerCapSlot == 6 && kPacerPacedSlot == kPacerStateLongs - 1,
-              "the cap and the paced rate keep their slots; the paced rate is the last");
-// One slot at a time, each a memcpy of one int64_t, in the wire order.
-inline int64_t loadSlot(const int64_t* w, int i) {
-    int64_t v;
-    std::memcpy(&v, w + i, sizeof v);
-    return v;
-}
-inline void storeSlot(int64_t* w, int i, int64_t v) { std::memcpy(w + i, &v, sizeof v); }
-inline PacerState unpack(const int64_t* w) {
-    return PacerState{loadSlot(w, 0), loadSlot(w, 1), loadSlot(w, 2), loadSlot(w, 3),
-                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot), loadSlot(w, kPacerPacedSlot)};
-}
-inline void pack(const PacerState& s, int64_t* w) {
-    storeSlot(w, 0, s.lastDrawnNs);
-    storeSlot(w, 1, s.lastVsyncNs);
-    storeSlot(w, 2, s.periodNs);
-    storeSlot(w, 3, s.samples);
-    storeSlot(w, 4, s.sinceDrawn);
-    storeSlot(w, 5, s.divisor);
-    storeSlot(w, kPacerCapSlot, s.capMilliHz);
-    storeSlot(w, kPacerPacedSlot, s.pacedMilliHz);
-}
 
 }  // namespace geode::viz::frame

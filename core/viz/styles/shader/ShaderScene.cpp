@@ -64,6 +64,7 @@ void ShaderScene::setWorldAssets(const std::string& shapes, const std::string& m
 }
 
 void ShaderScene::init() {
+    flow_.reset();
     program_ = 0;
     uniforms_ = UniformCache(0);
     worldParts_ = 0;
@@ -88,6 +89,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     shaderTime_ = std::fmod(shaderTime_ + p.speed * clockStep, static_cast<double>(kTimeWrapSeconds));
     if (shaderTime_ < 0.0) shaderTime_ += static_cast<double>(kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
+    flow_.step(p.speed, dt);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed * clockRate, kTimeWrapSeconds);
     if (pool_) {
@@ -250,14 +252,11 @@ void ShaderScene::uploadParams() {
 // (location -1). Each still costs a cached lookup; the UniformCache setters then skip the driver
 // call, as they do for a value the program already holds.
 void ShaderScene::uploadMotion() {
-    // The audio-motion uniforms (lib_scene_motion) are held at the neutral constant the old motion field
-    // started from, in silence: nothing computes them any more, and a style that still names one reads a
-    // steady value, never garbage. Average loudness, mid brightness and tonality, no hue driver, the bar wave
-    // at its middle, no orbit, drift or flow, no breath.
+    // The audio-motion uniforms (lib_scene_motion) are held at constants: nothing computes them from the music
+    // any more, and a style that still names one reads a steady value, never garbage. Average loudness, mid
+    // brightness and tonality, no hue driver, the bar wave at its middle, no orbit, drift or breath. Only the
+    // two flow clocks move: a fixed base rate, with Speed on uFlowTime, never a loudness term.
     set1f(Uniform::uEnergyRel, 1.0f);
-    set1f(Uniform::uBassRel, 1.0f);
-    set1f(Uniform::uMidRel, 1.0f);
-    set1f(Uniform::uTrebRel, 1.0f);
     set1f(Uniform::uMotionBright, 0.0f);
     set1f(Uniform::uHarmony, 0.5f);
     set1f(Uniform::uKeyHue, 0.0f);
@@ -266,8 +265,8 @@ void ShaderScene::uploadMotion() {
     uniforms_.set2f(Uniform::uOrbit, 0.0f, 0.0f);
     set1f(Uniform::uDrift, 0.0f);
     set1f(Uniform::uBreath, 1.0f);
-    set1f(Uniform::uFlowPhase, 0.0f);
-    set1f(Uniform::uFlowTime, 0.0f);
+    set1f(Uniform::uFlowPhase, static_cast<float>(flow_.phase));
+    set1f(Uniform::uFlowTime, static_cast<float>(flow_.time));
     uniforms_.set3f(Uniform::uSoundTimeSped, static_cast<float>(soundTimeSped_[0].value), static_cast<float>(soundTimeSped_[1].value),
                          static_cast<float>(soundTimeSped_[2].value));
 

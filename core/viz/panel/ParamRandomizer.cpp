@@ -99,9 +99,7 @@ const std::vector<Roll>& rolls() {
         {T::Shape, "Density", [](SceneParams& p, Rng& r) { p.density = drawn(r, ParamSlot::density); }},
 
         {T::Reactivity, "Audio drive", [](SceneParams& p, Rng& r) { p.audioDrive = drawn(r, ParamSlot::audioDrive); }},
-        {T::Reactivity, "Motion amount", [](SceneParams& p, Rng& r) { p.motionAmount = drawn(r, ParamSlot::motionAmount); }},
-        {T::Reactivity, "Breath", [](SceneParams& p, Rng& r) { p.motionBreath = drawn(r, ParamSlot::motionBreath); }},
-        {T::Reactivity, "Key colour", [](SceneParams& p, Rng& r) { p.motionHue = drawn(r, ParamSlot::motionHue); }},
+        {T::Reactivity, "Camera shake", [](SceneParams& p, Rng& r) { p.motionAmount = drawn(r, ParamSlot::motionAmount); }},
         // A new reaction personality for the style (core/viz/modulation/ReactionDna).
         {T::Reactivity, kReactionDna, [](SceneParams& p, Rng& r) { p.reactSeed = counted(r, ParamSlot::reactSeed); }},
         {T::Reactivity, "Bass gain", [](SceneParams& p, Rng& r) { p.bassGain = drawn(r, ParamSlot::bassGain); }},
@@ -301,13 +299,6 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"escapeColor", "how far the escape moves the palette: the user's, which the routes, waves and knobs move"},
         // Births (viz/passes/Births): 0 draws every style as before, so a roll never brings them in.
         {"life", "how much the picture is born and dies: off until the user, a knob or a route raises it"},
-        // Note & key reactions: how much each source drives, the user's, never a roll's.
-        {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
-        {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},
-        {"noteIntervals", "a Note & key amount: how much the user wants the notes to move things"},
-        {"noteTension", "a Note & key amount: how much the user wants the notes to move things"},
-        {"noteChords", "a Note & key amount: how much the user wants the notes to move things"},
-        {"noteDrums", "a Note & key amount: how much the user wants the notes to move things"},
         // Liquid mode's pickers: the user's choice of what the liquid is, not a look to roll.
         {"liquidBorn", "a Liquid mode pick"},
         {"liquidAge", "a Liquid mode pick"},
@@ -334,6 +325,15 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"rippleOverlaySpecular", "retired"},
         {"formDrive", "retired"},
         {"motionOrbit", "retired"},
+        // Breath, Key colour and the Note & key amounts, retired with the motion field and the note layer.
+        {"motionBreath", "retired"},
+        {"motionHue", "retired"},
+        {"noteColor", "retired"},
+        {"notePitch", "retired"},
+        {"noteIntervals", "retired"},
+        {"noteTension", "retired"},
+        {"noteChords", "retired"},
+        {"noteDrums", "retired"},
         // The Kaleidoscope switch and its count, retired for kaleidoFolds (rolled under Kaleidoscope).
         {"symmetry", "retired"},
         {"kaleidoscope", "retired"},

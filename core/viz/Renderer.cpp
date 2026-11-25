@@ -485,6 +485,7 @@ void Renderer::onSurfaceCreated() {
     lastTimeS_ = -1.0;
     sceneClock_.reset();
     resolver_.reset();
+    ratePhases_.reset();
     camera_.reset();
 }
 

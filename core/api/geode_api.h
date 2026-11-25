@@ -725,7 +725,7 @@ GEODE_API const char* geode_backup_file_name(int year, int month, int day);
  * _resolve: the style a saved id opens on (a retired id's replacement; any other id is itself).
  * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
  * _scope_of: the name of the scope a Customize control (its Customize key) has; "UNIVERSAL" if none.
- * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
+ * _reaches: 1 when a control of a scope, by that name, is shown for the style (catalogue::shows; an unknown name shows everywhere).
  * _override: the value a style holds a control at, NaN when the control is the user's.
  * _value: a size the shell's controls quote, by name: "fluidTiers" (the Fluid quality tiers), "touchPoints"
  *   (the fingers geode_viz_set_touch takes), "touchRotationPerDegree"; NaN for any other name. */

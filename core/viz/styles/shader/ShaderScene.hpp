@@ -110,6 +110,8 @@ private:
     // viz/modulation/SpeedClock.hpp), beside uTime: integrated,
     // never clock * uSpeed, so moving Speed changes how fast they run, not where they are.
     std::array<speedclock::Follower, 3> soundTimeSped_{};
+    // uFlowPhase and uFlowTime: the steady travel clocks (viz/modulation/SpeedClock.hpp), reset with the scene.
+    speedclock::FlowClock flow_;
 
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;

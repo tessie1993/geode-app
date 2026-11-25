@@ -320,6 +320,8 @@ private:
     float dt_ = 0.0f;
     // Whether the route has resolved a frame since it was enabled (or since reset): the first one snaps out_ to its target.
     std::array<bool, kRoutes> primed_{};
+    // The (target, source, mode) the route resolved last: a route re-pointed in place is a new cable and snaps again.
+    std::array<int, kRoutes> cableKey_{};
     // The music's absolute reach (core/sound/DriveGain) of the frame last ticked: apply() scales what the audio
     // adds by it, never the params' base values.
     float gain_ = 1.0f;

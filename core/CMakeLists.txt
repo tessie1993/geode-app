@@ -239,7 +239,6 @@ add_library(geode_core STATIC
     viz/modulation/VisualSafety.cpp
     viz/input/TouchField.cpp
     viz/passes/Transition.cpp
-    viz/passes/CompositeGrade.cpp
     viz/passes/CompositePass.cpp
     viz/passes/TrailPass.cpp
     viz/styles/catalogue/Catalogue.cpp

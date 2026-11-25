@@ -13,7 +13,6 @@ One fact per line. Add a gate as a new bullet.
 - The others in each family are Pro (`FreeTier.familyProIds`); the catalogue names each family's opener.
 - Sharing the app keeps one more style, the locked one the paywall offers, once per install (`ShareBonusRepository`, `FeatureGate.bonusStyleId`); opening the share sheet earns it.
 - Exporting a video is Pro (`ProFeature.EXPORT`, first in `FeatureGate.blockingExportFeature`); the trial exports one minute with the watermark.
-- Note & key reactions are free (Settings › Sound reaction, on by default); their Customize › Advanced card is Pro like every card.
 
 ## Gates
 

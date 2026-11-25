@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <utility>
 
 #include "viz/params/RatePhases.hpp"
 
@@ -26,10 +27,18 @@ bool isRate(ParamSlot s) {
     return false;
 }
 
+// Every kRate slot is one the renderer reads, and every slot it reads is flagged: a flag cannot drift from its reader.
+void everyRateSlotHasAReader() {
+    for (ParamSlot s : RatePhases::slots()) {
+        bool read = false;
+        for (ParamSlot r : kReadRates) read = read || r == s;
+        check(read, std::string("a kRate slot nobody reads: ") + SceneParams::fieldNames()[static_cast<size_t>(s)]);
+    }
+    for (ParamSlot r : kReadRates) check(isRate(r), "a slot the renderer reads is flagged kRate");
+}
+
 void theRateParamsAreMarked() {
-    check(isRate(ParamSlot::speed) && isRate(ParamSlot::rotation) && isRate(ParamSlot::endlessZoomSpeed) &&
-              isRate(ParamSlot::camFly) && isRate(ParamSlot::fluidStirrerSpeed) && isRate(ParamSlot::fluidPaletteCycleSpeed),
-          "Speed, Rotation, Dive speed, Fly speed, Stirrer speed and Palette cycle are rates");
+    check(isRate(ParamSlot::speed) && isRate(ParamSlot::rotation), "Speed and Rotation are rates");
     check(!isRate(ParamSlot::zoom) && !isRate(ParamSlot::warp), "an offset is no rate");
     RatePhases r;
     check(r.phase(ParamSlot::zoom) == 0.0, "a slot that is no rate has no phase");
@@ -76,11 +85,46 @@ void aRampsPhaseIsItsIntegral() {
 void aNegativeRateRunsBackAndTheWrapStaysInRange() {
     RatePhases r;
     SceneParams p;
-    p.camFly = -1.5f;
+    p.rotation = -1.5f;
     for (int i = 0; i < 120; ++i) r.step(p, 1.0f / 60.0f);
-    check(std::fabs(r.phase(ParamSlot::camFly) + 3.0) < 1e-3, "a negative rate runs the phase back");
-    const double w = r.wrapped(ParamSlot::camFly, 2.0);
+    check(std::fabs(r.phase(ParamSlot::rotation) + 3.0) < 1e-3, "a negative rate runs the phase back");
+    const double w = r.wrapped(ParamSlot::rotation, 2.0);
     check(w >= 0.0 && w < 2.0 && std::fabs(w - 1.0) < 1e-3, "wrapped lands in [0, period)");
+    // A remainder just below zero must not round up to the period.
+    RatePhases tiny;
+    p.rotation = -1e-20f;
+    tiny.step(p, 1.0f);
+    const double t = tiny.wrapped(ParamSlot::rotation, 2.0);
+    check(t >= 0.0 && t < 2.0, "a tiny negative phase wraps inside [0, period)");
+}
+
+// A day and more of Speed at a fast rate: the wrap is exact where a float clock would have stalled long before.
+void aHugePhaseWrapsExactly() {
+    RatePhases r;
+    SceneParams p;
+    p.rotation = 1e7f;  // exact in a float
+    r.step(p, 1.0f);
+    const double w = r.wrapped(ParamSlot::rotation, 7100.0);
+    check(std::fabs(w - 3200.0) < 1e-6, "1e7 wrapped at 7100 is 3200");
+    check(w >= 0.0 && w < 7100.0, "a huge phase stays in [0, period)");
+}
+
+// Two runs from reset give the same phases bit for bit (a new surface starts the phases over).
+void twoRunsFromResetAgree() {
+    RatePhases r;
+    SceneParams p;
+    auto run = [&]() {
+        r.reset();
+        for (int i = 0; i < 500; ++i) {
+            p.speed = 0.5f + 0.001f * static_cast<float>(i);
+            p.rotation = 0.3f - 0.0007f * static_cast<float>(i);
+            r.step(p, 1.0f / 60.0f);
+        }
+        return std::make_pair(r.phase(ParamSlot::speed), r.phase(ParamSlot::rotation));
+    };
+    const auto a = run();
+    const auto b = run();
+    check(a.first == b.first && a.second == b.second, "two runs from reset give identical phases");
 }
 
 void badInputsAddNothing() {
@@ -104,10 +148,13 @@ void badInputsAddNothing() {
 }  // namespace
 
 int main() {
+    everyRateSlotHasAReader();
     theRateParamsAreMarked();
     aChangeOfSpeedNeverJumpsThePhase();
     aRampsPhaseIsItsIntegral();
     aNegativeRateRunsBackAndTheWrapStaysInRange();
+    aHugePhaseWrapsExactly();
+    twoRunsFromResetAgree();
     badInputsAddNothing();
     if (failures == 0) std::printf("rate_phases_test: ok\n");
     return failures == 0 ? 0 : 1;

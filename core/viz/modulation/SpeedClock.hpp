@@ -10,8 +10,8 @@ namespace geode::viz {
 // change (the slider, an LFO, a macro knob, a reaction route) moves it by
 // clock * delta-speed in one frame, which an hour into a set is a different
 // picture. ShaderScene already does this for uTime (shaderTime_ += speed * dt);
-// these do it for the other clocks a style may want Speed on: the motion
-// field's flow phase (uFlowTime) and the sound engine's band clocks
+// these do it for the other clocks a style may want Speed on: the flow clocks
+// (uFlowPhase, uFlowTime) and the sound engine's band clocks
 // (uSoundTimeSped). tools/check_shaders.py rejects uTime * uSpeed outright, and
 // uFlowPhase * uSpeed for the same reason.
 namespace speedclock {
@@ -25,6 +25,24 @@ namespace speedclock {
 inline double advance(double clock, float speed, float rate, float dt, float wrap) {
     return std::fmod(clock + dt * (speed * rate), static_cast<double>(wrap));
 }
+
+// The flow clocks (uFlowPhase, uFlowTime): a steady travel phase that runs at one fixed base rate, in silence
+// and in music alike, never faster or slower for how loud the music is. The rate is a frequency in Hz, not a
+// tempo. phase runs at the base rate; time runs at the base rate times Speed, integrated, so it equals phase at
+// Speed 1 and moving Speed never jumps it. Each scene owns one and resets it with the scene.
+struct FlowClock {
+    static constexpr float kBaseHz = 0.08f;
+    static constexpr float kWrapSeconds = 7100.0f;
+    double phase = 0.0;
+    double time = 0.0;
+
+    void reset() { phase = time = 0.0; }
+    void step(float speed, float dt) {
+        const float d = dt < 0.0f ? 0.0f : (dt > 0.1f ? 0.1f : dt);
+        phase = std::fmod(phase + d * kBaseHz, static_cast<double>(kWrapSeconds));
+        time = advance(time, speed, kBaseHz, d, kWrapSeconds);
+    }
+};
 
 // Follows a clock that something else integrates (the sound engine's band
 // clocks, whose rate this side does not know) by its per-frame increment,

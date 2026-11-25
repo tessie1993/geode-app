@@ -71,8 +71,8 @@ class Renderer {
 public:
     // The scene clocks accumulate in double and wrap here, about every two hours. The wrap stays: what reaches
     // the GPU is a highp float, whose step at 7100 s is already 0.0005 s, so a longer period would only coarsen
-    // uTime; a sin(uTime * k) jumps at the wrap unless k * 7100 is a whole number of turns (Births and uDrift
-    // are built to land on one). Moving the wrap needs a two-float uTime in the shaders, which changes them.
+    // uTime; a sin(uTime * k) jumps at the wrap unless k * 7100 is a whole number of turns (Births is
+    // built to land on one). Moving the wrap needs a two-float uTime in the shaders, which changes them.
     static constexpr float kTimeWrapSeconds = 7100.0f;
 
     Renderer(AAssetManager* assets, std::string cacheDir);

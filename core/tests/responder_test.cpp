@@ -931,9 +931,11 @@ void aLostTempoLetsTheEnvelopeGo() {
         rig.step(f);
     }
     check(rig.out() > 0.95f, "holding");
-    rig.step(silent());  // no tempo any more
-    const float one = rig.out();
-    check(one > 0.5f && one < 1.0f, "the tempo going lets it fall, not cut");
+    rig.step(silent());  // no tempo any more: the sustain gives way to the release on this frame
+    check(rig.out() > 0.5f, "the tempo going does not cut it");
+    for (int i = 0; i < 5; ++i) rig.step(silent());
+    const float later = rig.out();
+    check(later > 0.5f && later < 1.0f, "it falls over its fade out");
     for (int i = 0; i < 100; ++i) rig.step(silent());
     check(rig.out() == 0.0f, "and it ends");
 }

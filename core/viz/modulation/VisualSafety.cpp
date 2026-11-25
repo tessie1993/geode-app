@@ -1,0 +1,82 @@
+#include "viz/modulation/VisualSafety.hpp"
+
+#include <algorithm>
+
+namespace geode::viz {
+
+const char* transitionStyleId(TransitionStyle style) {
+    switch (style) {
+        case TransitionStyle::Cut: return "cut";
+        case TransitionStyle::Fade: return "fade";
+        case TransitionStyle::Melt: return "melt";
+        case TransitionStyle::Slide: return "slide";
+        case TransitionStyle::Zoom: return "zoom";
+    }
+    return "fade";
+}
+
+BlendMode blendModeFromOrdinal(int i) {
+    return (i >= 0 && i < kBlendModes) ? static_cast<BlendMode>(i) : BlendMode::Screen;
+}
+
+const char* blendModeLabel(BlendMode mode) {
+    switch (mode) {
+        case BlendMode::Normal: return "Normal";
+        case BlendMode::Screen: return "Screen";
+        case BlendMode::Add: return "Add";
+        case BlendMode::Multiply: return "Multiply";
+        case BlendMode::Difference: return "Difference";
+        case BlendMode::Overlay: return "Overlay";
+        case BlendMode::Lighten: return "Lighten";
+        case BlendMode::Darken: return "Darken";
+    }
+    return "Screen";
+}
+
+namespace safety {
+
+SceneParams apply(const SceneParams& p, bool reducedMotion) {
+    SceneParams out = p;
+    out.bloom = std::min(p.bloom, kMaxBloom);
+    out.brightness = std::clamp(p.brightness, 0.0f, 1.0f + kMaxFlashDepth);
+    out.intensity = std::clamp(p.intensity, 0.0f, 1.0f + kMaxFlashDepth);
+    out.contrast = std::clamp(p.contrast, 0.0f, 1.0f + kMaxFlashDepth);
+    if (reducedMotion) {
+        out.speed *= kReducedMotionScale;
+        out.sway *= kReducedMotionScale;
+        out.driftX *= kReducedMotionScale;
+        out.driftY *= kReducedMotionScale;
+        out.rotation *= kReducedMotionScale;
+        out.turbulence *= kReducedMotionScale;
+        // The two forward speeds, the fly-through and the dive, are scaled here and only here:
+        // CameraRig and the dive stage take them as they arrive, so the one scale reaches every
+        // render path once.
+        out.camFly *= kReducedMotionScale;
+        out.endlessZoomSpeed *= kReducedMotionScale;
+        // The physics layers' stir (viz/physics): the fluid's push and the particles' drift.
+        out.simForce *= kReducedMotionScale;
+    }
+    return out;
+}
+
+float limitLfoRate(float rateHz, LfoTarget target) {
+    // A wave on a macro knob may move a luminance param through the knob's links, so it is held like one.
+    return isLuminanceTarget(target) || target == LfoTarget::Macro ? std::min(rateHz, kWcagFlashesPerSecond) : rateHz;
+}
+
+TransitionStyle transitionStyle(TransitionStyle requested) {
+    return requested == TransitionStyle::Cut ? TransitionStyle::Fade : requested;
+}
+
+std::string transitionId(const std::string& requested) {
+    return requested == transitionStyleId(TransitionStyle::Cut) ? transitionStyleId(TransitionStyle::Fade) : requested;
+}
+
+float layerMix(float requested, BlendMode mode) {
+    const float mix = std::clamp(requested, 0.0f, 1.0f);
+    return (mode == BlendMode::Difference || mode == BlendMode::Add) ? std::min(mix, kMaxFlashDepth) : mix;
+}
+
+}  // namespace safety
+
+}  // namespace geode::viz

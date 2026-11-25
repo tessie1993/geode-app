@@ -1,7 +1,7 @@
 // Shader truth: what the catalogue says about a shader style against what its shader reads.
 // ShaderScene treats a program with an active uCamBasis as flying the camera rig and spends the
 // Detail budget through uSteps, so the catalogue's two per-style facts must follow the source.
-// And every Customize control a style is shown (core/viz/CustomizeMap) moves it, but for the known
+// And every Customize control a style is shown (core/viz/panel/CustomizeMap) moves it, but for the known
 // gaps in core/tests/style_param_gaps.txt, which may only shrink.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Style reads host tests").
 //
@@ -25,9 +25,9 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 
 using namespace geode::viz;
 
@@ -220,7 +220,7 @@ void theReaderFollowsCallsNotDeclarations() {
     check(read.count("uWarp") == 0 && read.count("uTwist") == 1, "#ifndef on a name the source defines drops its branch");
 }
 
-// The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/present/FieldPresent
+// The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/styles/life/FieldPresent
 // draws it as a ShaderScene); "" for one that draws flat.
 std::string presentShader(catalogue::Kind kind) { return kind == catalogue::Kind::Life ? "life_show_frag.glsl" : ""; }
 
@@ -374,11 +374,11 @@ const std::vector<Carrier>& shaderCarriers() {
         {"backLayer", {"uBackLayer"}},
         // Life's births (lib_grow): every style runs them, in its field loop or its wrappers, or over its picture.
         {"life", {"uLife"}},
-        // Formula: shown only on the styles that keep formulas of their own (the Formula flag in viz/styles/StyleTable.inc).
+        // Formula: shown only on the styles that keep formulas of their own (the Formula flag in viz/styles/catalogue/StyleTable.inc).
         {"formula", {"uFormula"}},
-        // Shapes: shown only on the styles that melt the shape graph in (the Shapes flag in viz/styles/StyleTable.inc, lib_shapes).
+        // Shapes: shown only on the styles that melt the shape graph in (the Shapes flag in viz/styles/catalogue/StyleTable.inc, lib_shapes).
         {"shapes", {"uShapeMix"}},
-        // The shading pass (lib_shade): Soft shadows on the styles with a lit surface (the Shadow flag in viz/styles/StyleTable.inc),
+        // The shading pass (lib_shade): Soft shadows on the styles with a lit surface (the Shadow flag in viz/styles/catalogue/StyleTable.inc),
         // Escape colour on the families whose folds feed it (kEscapeFamilies).
         {"shadow", {"uShadow"}},
         {"escapeColor", {"uEscapeColor"}},
@@ -531,21 +531,21 @@ bool readsField(const std::string& styleId, const std::string& field, const std:
 // The scene sources each dedicated renderer reads its SceneParams in, under core/.
 std::vector<std::string> kindSources(catalogue::Kind kind) {
     using K = catalogue::Kind;
-    const std::vector<std::string> fluid = {"viz/scenes/FluidSceneBase.cpp", "viz/fluid/FluidMath.cpp",     "viz/fluid/FluidEmitters.cpp",
-                                            "viz/fluid/FluidChoreography.cpp", "viz/fluid/FluidLook.cpp", "viz/fluid/FluidParticles.cpp",
-                                            "viz/fluid/FluidSim.cpp"};
+    const std::vector<std::string> fluid = {"viz/styles/fluid/FluidSceneBase.cpp", "viz/styles/fluid/FluidMath.cpp",     "viz/styles/fluid/FluidEmitters.cpp",
+                                            "viz/styles/fluid/FluidChoreography.cpp", "viz/styles/fluid/FluidLook.cpp", "viz/styles/shared/FluidParticles.cpp",
+                                            "viz/styles/fluid/FluidSim.cpp"};
     auto with = [&](std::vector<std::string> own) {
         own.insert(own.end(), fluid.begin(), fluid.end());
         return own;
     };
     switch (kind) {
-        case K::Silk: return {"viz/scenes/SilkScene.cpp"};
-        case K::Life: return {"viz/scenes/LifeScene.cpp"};
-        case K::Mycelium: return {"viz/scenes/MycoScene.cpp"};
-        case K::Acid: return {"viz/scenes/AcidScene.cpp"};
-        case K::Cymatics: return {"viz/scenes/CymaticsScene.cpp", "viz/scenes/CymaticsMath.cpp"};
-        case K::Fluid: return with({"viz/scenes/FluidScene.cpp"});
-        case K::CurlFlow: return with({"viz/scenes/CurlFlowScene.cpp"});
+        case K::Silk: return {"viz/styles/silk/SilkScene.cpp"};
+        case K::Life: return {"viz/styles/life/LifeScene.cpp"};
+        case K::Mycelium: return {"viz/styles/mycelium/MycoScene.cpp"};
+        case K::Acid: return {"viz/styles/acid/AcidScene.cpp"};
+        case K::Cymatics: return {"viz/styles/cymatics/CymaticsScene.cpp", "viz/styles/cymatics/CymaticsMath.cpp"};
+        case K::Fluid: return with({"viz/styles/fluid/FluidScene.cpp"});
+        case K::CurlFlow: return with({"viz/styles/fluid/CurlFlowScene.cpp"});
         case K::Shader: break;
     }
     return {};

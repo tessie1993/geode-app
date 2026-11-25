@@ -1,4 +1,4 @@
-// The palette stack (viz/Palette, Customize › Look): each gradient option, the 16-colour and 8-palette caps,
+// The palette stack (viz/colour/Palette, Customize › Look): each gradient option, the 16-colour and 8-palette caps,
 // Share and Mix, the mirror of one palette, one colour's three drawings, the text codec and the edits, an old
 // look's colours drawn as they were, the recent colours, and the library text against the fixture.
 //
@@ -15,9 +15,9 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
-#include "viz/Palette.hpp"
-#include "viz/Params.hpp"
+#include "viz/colour/Colour.hpp"
+#include "viz/colour/Palette.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode::viz;
 namespace pl = geode::viz::palette;

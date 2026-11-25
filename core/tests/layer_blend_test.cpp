@@ -1,4 +1,4 @@
-// Host-side checks for Customize › Layers' blends (core/viz/VisualSafety's BlendMode), the list the shell shows
+// Host-side checks for Customize › Layers' blends (core/viz/modulation/VisualSafety's BlendMode), the list the shell shows
 // from geode_layer_list (GEODE_LAYER_LIST_BLENDS). Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml)
 // from the repository root, with the system compiler; no GL.
 //
@@ -15,7 +15,7 @@
 
 #include "api/geode_api.h"
 #include "viz/LayerState.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 using namespace geode::viz;
 

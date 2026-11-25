@@ -100,7 +100,7 @@ makeTexture('dye', 128, 128, (x, y, px) => {
   px[3] = 255;
 });
 
-// The app's FullscreenTriangle (core/viz/Quad.cpp): three vertices at
+// The app's FullscreenTriangle (core/viz/gl/Quad.cpp): three vertices at
 // location 0. quad_vert.glsl builds its triangle from gl_VertexID and needs
 // no buffer; fluid_base_vert.glsl reads aPosition and does.
 const triangle = gl.createBuffer();

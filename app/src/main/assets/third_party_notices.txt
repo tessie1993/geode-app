@@ -4,7 +4,8 @@ THIRD-PARTY NOTICES
 WebGL-Fluid-Simulation
 ----------------------
 The fluid simulation shaders and pipeline in app/src/main/assets/shaders/fluid_*.glsl
-and core/viz/fluid/ are ported in part from:
+and core/viz/styles/fluid/ (with FluidBuffers in core/viz/gl/ and FlowField and FluidParticles
+in core/viz/styles/shared/) are ported in part from:
 
   https://github.com/PavelDoGreat/WebGL-Fluid-Simulation
 

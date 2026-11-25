@@ -1,4 +1,4 @@
-// Host-side checks for core/viz/LookSnapshot: the look the shell hands a renderer whole (geode_viz_set_look,
+// Host-side checks for core/viz/looks/LookSnapshot: the look the shell hands a renderer whole (geode_viz_set_look,
 // geode_stage_set_look) and the latch that passes on only the parts that differ.
 //
 // What is pinned: the first look is every part, and so is the first on a new latch (a renderer made again);
@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <string>
 
-#include "viz/LookSnapshot.hpp"
+#include "viz/looks/LookSnapshot.hpp"
 
 using namespace geode::viz;
 

@@ -11,7 +11,7 @@
 // mean is decided here: the playlist's JSON, each scene id resolved to today's style id, the playlist off
 // when it has no entries, and the intervals held to native's range.
 //
-// The interval range is geode::viz::auto_plan::clampInterval (core/viz/AutoPlan.hpp, kIntervalMinS ..
+// The interval range is geode::viz::auto_plan::clampInterval (core/viz/director/AutoPlan.hpp, kIntervalMinS ..
 // kIntervalMaxS), used here as it stands. Native AutoPlan already owns when the playlist steps, the timed
 // draw and the pool; what this module still decides is the reading of the saved values. It should merge into
 // AutoPlan's file as `auto_plan::readSaved` (a pure function over these same structs) the next time core/viz

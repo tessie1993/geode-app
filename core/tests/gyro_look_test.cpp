@@ -1,4 +1,4 @@
-// Host-side checks for core/viz/GyroLook (#755): phone tilt to camera look. Built and run by CI
+// Host-side checks for core/viz/input/GyroLook (#755): phone tilt to camera look. Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no sensor.
 //
 // What is pinned: the first reading is the baseline and a reset recaptures it, the yaw delta wraps
@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <limits>
 
-#include "viz/GyroLook.hpp"
+#include "viz/input/GyroLook.hpp"
 
 using geode::viz::GyroLook;
 

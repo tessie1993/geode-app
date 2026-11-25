@@ -4,13 +4,13 @@
 #include <optional>
 #include <string>
 
-#include "viz/Framebuffer.hpp"
-#include "viz/Program.hpp"
-#include "viz/fluid/FluidBuffers.hpp"
-#include "viz/fluid/FluidParticles.hpp"
-#include "viz/fluid/FluidSim.hpp"
+#include "viz/gl/Framebuffer.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/FluidBuffers.hpp"
+#include "viz/styles/shared/FluidParticles.hpp"
+#include "viz/styles/fluid/FluidSim.hpp"
 #include "viz/physics/PhysicsPlan.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 
 namespace geode::viz::physics {
 

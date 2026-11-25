@@ -1,4 +1,4 @@
-// Host-side checks for Auto visuals' decisions (core/viz/AutoPlan, geode_auto_*), as the Kotlin controller
+// Host-side checks for Auto visuals' decisions (core/viz/director/AutoPlan, geode_auto_*), as the Kotlin controller
 // behaved before they moved here. No GL, no device.
 //
 // What is pinned:
@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/AutoPlan.hpp"
+#include "viz/director/AutoPlan.hpp"
 
 namespace plan = geode::viz::auto_plan;
 

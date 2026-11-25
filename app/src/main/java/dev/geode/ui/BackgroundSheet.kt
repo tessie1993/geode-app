@@ -45,6 +45,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -104,7 +106,11 @@ private fun BackgroundActions(
     onPick: () -> Unit,
     onClear: () -> Unit,
 ) {
-    Text(stringResource(R.string.background_sheet_title), style = MaterialTheme.typography.titleMedium)
+    Text(
+        stringResource(R.string.background_sheet_title),
+        Modifier.semantics { heading() },
+        style = MaterialTheme.typography.titleMedium,
+    )
     if (!hasImage) {
         Text(
             stringResource(R.string.background_none),
@@ -233,6 +239,7 @@ private fun BlendRow(
                             open = false
                             onSelect(option)
                         },
+                        modifier = Modifier.semantics { selected = option == current },
                     )
                 }
             }

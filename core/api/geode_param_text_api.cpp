@@ -1,7 +1,7 @@
-// C ABI over the Customize value text (viz/ParamText). See geode_api.h.
+// C ABI over the Customize value text (viz/panel/ParamText). See geode_api.h.
 #include "api/geode_api.h"
 #include "api/geode_text_out.hpp"
-#include "viz/ParamText.hpp"
+#include "viz/panel/ParamText.hpp"
 
 using geode::viz::ParamUnit;
 

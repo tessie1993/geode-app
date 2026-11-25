@@ -16,7 +16,7 @@ struct MusicPlaylist {
     std::vector<std::string> tracks;  // track uris, in order
 };
 
-// The file stem a playlist name is stored under (files::safeFileName in core/viz/LookFiles); handed in so this
+// The file stem a playlist name is stored under (files::safeFileName in core/viz/looks/LookFiles); handed in so this
 // module stays free of the look files.
 using StemFn = std::function<std::string(const std::string&)>;
 

@@ -1,7 +1,7 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/ParamsJson.hpp"
+#include "viz/params/ParamsJson.hpp"
 
 using geode::viz::SceneParams;
 

@@ -1,4 +1,4 @@
-// Host checks for the template file (core/viz/TemplateFile): what the shell's TemplateFormat read, defaulted, carried
+// Host checks for the template file (core/viz/looks/TemplateFile): what the shell's TemplateFormat read, defaulted, carried
 // and wrote before the codec moved here, its JVM checks (SharedLinkNumbersTest) included, and the C ABI the shell
 // calls (api/geode_looks_api.cpp). Built and run by CI (.github/workflows/native-host-tests.yml).
 #include <cmath>
@@ -9,10 +9,10 @@
 
 #include "api/geode_api.h"
 #include "util/Json.hpp"
-#include "viz/Catalogue.hpp"
-#include "viz/LookFiles.hpp"
-#include "viz/Params.hpp"
-#include "viz/TemplateFile.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/looks/LookFiles.hpp"
+#include "viz/params/Params.hpp"
+#include "viz/looks/TemplateFile.hpp"
 
 using namespace geode;
 using viz::SceneParams;

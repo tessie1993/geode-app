@@ -11,16 +11,16 @@
 #include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/BandTrim.hpp"
-#include "viz/Births.hpp"
-#include "viz/Catalogue.hpp"
-#include "viz/CompositeGrade.hpp"
-#include "viz/EndlessZoom.hpp"
+#include "viz/passes/Births.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/passes/CompositeGrade.hpp"
+#include "viz/passes/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/ParamRandomizer.hpp"
-#include "viz/Quad.hpp"
-#include "viz/SceneTarget.hpp"
-#include "viz/TransitionChoice.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
+#include "viz/gl/Quad.hpp"
+#include "viz/gl/SceneTarget.hpp"
+#include "viz/director/TransitionChoice.hpp"
 
 namespace geode::viz {
 
@@ -276,7 +276,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
         emotionSeeded_ = true;
         heard = &soundEmotion_;
     }
-    // The chain itself, param fade to safety clamp (signal/Resolver).
+    // The chain itself, param fade to safety clamp (viz/resolver/Resolver).
     // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =

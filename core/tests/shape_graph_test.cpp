@@ -1,4 +1,4 @@
-// Host checks for the shape graph (core/viz/ShapeGraph), the morphing CSG list lib_shapes melts into a style's
+// Host checks for the shape graph (core/viz/styles/shared/ShapeGraph), the morphing CSG list lib_shapes melts into a style's
 // own form by Shapes. ShapeGraph::sample and sampleInto are lib_shapes' maths line for line, so these hold the
 // shader's rules too. Built and run by CI ("Native host tests" in .github/workflows/native-host-tests.yml); no GL.
 //
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/ShapeGraph.hpp"
+#include "viz/styles/shared/ShapeGraph.hpp"
 
 using namespace geode::viz::shapes;
 

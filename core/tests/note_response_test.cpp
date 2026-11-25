@@ -1,10 +1,10 @@
-// Host test of the note & key reactions (viz/NoteResponse): that the six style knobs each answer to at
+// Host test of the note & key reactions (viz/modulation/NoteResponse): that the six style knobs each answer to at
 // least two fields of the sound frame, that FLOW follows the song part, the feeling and the phrase and not the
 // loudness, that PULSE locks to the bar while the beat is sure, that a percussive track raises the drum weight and a tonal one
 // lowers it, that the knobs are all it hands on (no scene param, no colour), that it is deterministic,
 // that off is exactly 0.5 on every knob, that silence is stable, and that the user's amounts scale each
 // source.
-// Built by CI (.github/workflows/android.yml, "Note response test") with core/viz/NoteResponse.cpp alone:
+// Built by CI (.github/workflows/android.yml, "Note response test") with core/viz/modulation/NoteResponse.cpp alone:
 // the emotion state is an input, so the test sets it directly.
 #include <cmath>
 #include <cstdio>
@@ -14,7 +14,7 @@
 #include <initializer_list>
 #include <string>
 
-#include "viz/NoteResponse.hpp"
+#include "viz/modulation/NoteResponse.hpp"
 
 using geode::sound::Emotion;
 using geode::viz::NoteResponse;

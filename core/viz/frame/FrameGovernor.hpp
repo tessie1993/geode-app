@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "viz/fluid/FluidQuality.hpp"
+#include "viz/styles/fluid/FluidQuality.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/Quality.hpp"
 

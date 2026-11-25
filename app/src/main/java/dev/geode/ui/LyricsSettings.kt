@@ -9,7 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -57,7 +57,11 @@ internal fun LyricsSection(viewModel: PlayerViewModel) {
                 return@Column
             }
             Text(song, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 CrystalButton(onClick = { if (!context.searchWeb(query)) Toast.makeText(context, noBrowser, Toast.LENGTH_SHORT).show() }) {
                     Text(stringResource(R.string.lyrics_search_web))
                 }

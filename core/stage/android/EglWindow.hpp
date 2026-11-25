@@ -31,9 +31,9 @@ public:
     void releaseCurrent();
     // EGL_SUCCESS, or the error eglSwapBuffers left.
     EGLint swap();
-    // The next swap's presentation time, CLOCK_MONOTONIC ns, for the system to hold the frame to; 0: none. Used by
+    // The next swap's stamp, CLOCK_MONOTONIC ns: the system does not show the frame before it; 0: none. Used by
     // that swap alone. Does nothing where EGL_ANDROID_presentation_time is missing.
-    void presentAt(int64_t presentNs) { presentNs_ = presentNs; }
+    void presentAt(int64_t stampNs) { stampNs_ = stampNs; }
     void destroySurface();
     void destroyContext();
 
@@ -46,7 +46,7 @@ private:
     bool surfaceless_ = false;
     // eglPresentationTimeANDROID, from EGL_ANDROID_presentation_time; null without it.
     EGLBoolean (*presentationTime_)(EGLDisplay, EGLSurface, int64_t) = nullptr;
-    int64_t presentNs_ = 0;
+    int64_t stampNs_ = 0;
 };
 
 }  // namespace geode::stage::platform

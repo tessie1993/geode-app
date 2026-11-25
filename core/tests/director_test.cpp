@@ -1,5 +1,5 @@
 // Host test of the auto-director: the emotion table (tools/music_emotion.py), the live feeling
-// (sound/Emotion) and the director's decisions (viz/Director): when it decides, that it never touches a colour
+// (sound/Emotion) and the director's decisions (viz/director/Director): when it decides, that it never touches a colour
 // param and holds its look still between decisions, that happy and sad stay apart whatever the seed, and that
 // it is deterministic. Then the director's behaviour axes (director::applyAxes, axisMoves), and its musical
 // spans: looks on the bar, the feeling's glide, the build's lean and each section's remembered look.
@@ -18,7 +18,7 @@
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
 #include "viz/CameraRig.hpp"
-#include "viz/Director.hpp"
+#include "viz/director/Director.hpp"
 
 using geode::sound::Emotion;
 using geode::viz::CameraRig;
@@ -1223,7 +1223,7 @@ void testStyleIntents() {
     check(d.styleIntent().kind == Kind::Progress && d.styleIntent().from == "first_style" && d.styleIntent().progress, "a new section: the next along");
     const uint64_t firstDraw = d.styleIntent().draw;
     {
-        // Another play of the same song draws its own (which entry a moment lands on, viz/DirectorStyle).
+        // Another play of the same song draws its own (which entry a moment lands on, viz/director/DirectorStyle).
         Director other;
         other.configure({1.0f, 32});
         Player o{other, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};

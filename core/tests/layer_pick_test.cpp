@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 

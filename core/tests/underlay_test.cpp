@@ -1,4 +1,4 @@
-// Host-side checks for the background image bake (core/viz/Underlay, #651). Built and run by CI
+// Host-side checks for the background image bake (core/viz/passes/Underlay, #651). Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
 // What is pinned: the crop rect and the dim are bit-exact with the Kotlin they replace
@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Underlay.hpp"
+#include "viz/passes/Underlay.hpp"
 
 namespace underlay = geode::viz::underlay;
 

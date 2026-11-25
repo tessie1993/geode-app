@@ -13,6 +13,10 @@
 #include "viz/styles/shared/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
 
+namespace geode::viz::fields {
+class FieldSet;
+}
+
 namespace geode::viz {
 
 enum class SceneFamily { Shader, Fluid };
@@ -87,6 +91,9 @@ struct SceneHost {
     // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
     // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
     std::function<const shapes::Packed*()> shapeGraph;
+    // The live Fields (viz/fields/FieldSet), read only: the fluid takes each as a force on its flow and its
+    // particles. Unset reads as none.
+    std::function<const fields::FieldSet*()> fieldSet;
 };
 
 }  // namespace geode::viz

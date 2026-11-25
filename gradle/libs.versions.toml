@@ -22,6 +22,9 @@ androidxTestTruth = "1.7.0"
 androidxTestOrchestrator = "1.6.1"
 androidxTestServices = "1.6.0"
 espresso = "3.7.0"
+# UI Automator drives windows outside the app, such as the system permission dialog. 2.4.1 is the
+# latest stable on Google Maven (checked 2026-11-25).
+uiautomator = "2.4.1"
 # Robolectric runs Android code in local JVM tests. 4.17 is the latest stable on Maven Central
 # (4.18 is beta); it supports up to API 36, so tests pin sdk=36 in robolectric.properties.
 robolectric = "4.18"
@@ -77,6 +80,7 @@ androidx-test-services = { module = "androidx.test.services:test-services", vers
 # clearPackageData and land in connected_android_test_additional_output (the thumbs render).
 androidx-test-services-storage = { module = "androidx.test.services:storage", version.ref = "androidxTestServices" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 
 ktlint-gradle = { module = "org.jlleitschuh.gradle.ktlint:org.jlleitschuh.gradle.ktlint.gradle.plugin", version.ref = "ktlint" }
 detekt-gradle = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }

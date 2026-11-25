@@ -77,11 +77,14 @@ class ShellTabsTest {
 
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        compose.awaitNode(hasText("Library") and hasClickAction())
+        // Under 360 dp only the selected tab is labelled; the others carry their name as the icon's
+        // content description, so the tab is looked for the way tap() finds it.
+        val libraryTab = (hasText("Library") or hasContentDescription("Library")) and hasClickAction()
+        compose.awaitNode(libraryTab)
 
         // Past the default 6 s fade: the options are up, so the bar stays.
         Thread.sleep(FADE_AND_MORE_MS)
-        compose.awaitNode(hasText("Library") and hasClickAction())
+        compose.awaitNode(libraryTab)
         compose.tap("Library")
         compose.awaitNoNode(hasText("Pick something to play"))
     }

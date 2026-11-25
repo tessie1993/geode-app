@@ -30,6 +30,8 @@
 #include "viz/passes/DivePass.hpp"
 #include "viz/passes/FrontPass.hpp"
 #include "viz/fronts/FrontField.hpp"
+#include "viz/passes/ThingPass.hpp"
+#include "viz/things/ThingPool.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/GlHandle.hpp"
@@ -309,6 +311,8 @@ private:
     // `count` palette positions (0..1) as the colours the style draws at them, three floats each into `out`: the ramp
     // of the look's palette stack when one draws, else the old stops or cosine ramp.
     void paletteTints(const SceneParams& p, const float* positions, int count, float* out) const;
+    // Things (viz/things/ThingPool.hpp) laid over the picture right after the fronts: same shape, same skip.
+    void drawThings(const SceneParams& p, float dt, float wallDt);
     // Endless zoom (EndlessZoom.hpp, viz/passes/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene picture, sceneShown_) when the dive is off, else the dived picture.
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
@@ -549,11 +553,14 @@ private:
     DivePass divePass_;
     FrontPass frontPass_;
     fronts::FrontField fronts_;
-    // The scene's picture as the later passes read it: fboA_'s texture, or the last effect pass's (fronts) result
-    // over it. fboA_ itself holds only what the scene drew, so the trails' feedback never sees an effect.
+    ThingPass thingPass_;
+    things::ThingPool things_;
+    // The scene's picture as the later passes read it: fboA_'s texture, or the last effect pass's (fronts, then
+    // Things) result over it. fboA_ itself holds only what the scene drew, so the trails' feedback never sees an effect.
     GLuint sceneShown_ = 0;
-    // fronts_.spawns() as the last frame saw it.
+    // fronts_.spawns() and things_.revision() as the last frame saw them.
     unsigned frontsSeen_ = 0;
+    unsigned thingsSeen_ = 0;
     // The physics layers (viz/physics): nothing made until a layer's param turns it on.
     physics::PhysicsLayers physicsLayers_{loader_};
     // The outgoing style with this frame's physics layers over it; 0 when the composite reads fboB_ as it is.

@@ -648,8 +648,9 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
     // A front spawned since the last frame is drawn even while the picture is held (the count is read before the
     // decrement, so the request outlives it by a frame).
-    if (fronts_.spawns() != frontsSeen_) {
+    if (fronts_.spawns() != frontsSeen_ || things_.revision() != thingsSeen_) {
         frontsSeen_ = fronts_.spawns();
+        thingsSeen_ = things_.revision();
         redrawFrames_ = std::max(redrawFrames_, 2);
     }
     if (redrawFrames_ > 0) redrawFrames_--;
@@ -684,12 +685,14 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
         uiBlurPass_.releaseIdle(wallDt, kUiBlurIdleSeconds - kStepSumSlack);
         if (!fronts_.live()) frontPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
+        if (!things_.live()) thingPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
         return;
     }
     drawSceneTarget(*scene, p, dt);
     // Everything after reads the picture through sceneShown_; fboA_ keeps only what the scene drew.
     sceneShown_ = fboA_.tex();
     drawFronts(p, dt, wallDt);
+    drawThings(p, dt, wallDt);
     // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
     trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
@@ -978,6 +981,23 @@ void Renderer::drawFronts(const SceneParams& p, float dt, float wallDt) {
     const GLuint other = layerShown ? fboL_.tex() : 0;
     if (frontPass_.run(sceneShown_, other, renderWidth_, renderHeight_, aspect, packed, tint, quadVao_.get())) {
         sceneShown_ = frontPass_.target().tex();
+    }
+}
+
+void Renderer::drawThings(const SceneParams& p, float dt, float wallDt) {
+    const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
+    things_.setAspect(aspect);
+    if (!things_.live()) {
+        thingPass_.releaseIdle(wallDt, kEffectIdleSeconds - kStepSumSlack);
+        return;
+    }
+    things_.step(dt);
+    if (!things_.live()) return;
+    const things::Packed packed = things_.pack();
+    std::array<float, 3 * things::kMaxThings> tint{};
+    paletteTints(p, packed.palettePos.data(), packed.count, tint.data());
+    if (thingPass_.run(sceneShown_, renderWidth_, renderHeight_, aspect, packed, tint, quadVao_.get())) {
+        sceneShown_ = thingPass_.target().tex();
     }
 }
 

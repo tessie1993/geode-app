@@ -169,7 +169,7 @@ private fun libraryLandscapeOrExpanded(): Boolean {
 }
 
 /** Centres a list and caps it at [LIBRARY_COLUMN_MAX] per column, so a wide pane is not one stretched row. */
-private fun Modifier.libraryListWidth(columns: Int): Modifier =
+internal fun Modifier.libraryListWidth(columns: Int): Modifier =
     fillMaxSize()
         .wrapContentWidth(Alignment.CenterHorizontally)
         .widthIn(max = LIBRARY_COLUMN_MAX * columns)
@@ -483,7 +483,7 @@ private fun PlayerViewModel.tapTrack(
 }
 
 @Composable
-private fun TrackRow(
+internal fun TrackRow(
     t: DeviceTrack,
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
@@ -634,7 +634,7 @@ private fun AddToPlaylistDialog(
 }
 
 @Composable
-private fun GroupList(
+internal fun GroupList(
     groups: Map<String, List<DeviceTrack>>,
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
@@ -666,7 +666,7 @@ private fun GroupList(
 
 /** One album or artist as a row: its name over [subtitle]. */
 @Composable
-private fun GroupRow(
+internal fun GroupRow(
     name: String,
     subtitle: String,
     onClick: () -> Unit,
@@ -692,7 +692,7 @@ private fun GroupRow(
 
 /** An album's or artist's tracks, opened in place: back, Play all, Shuffle, then the list. */
 @Composable
-private fun GroupDetail(
+internal fun GroupDetail(
     name: String,
     tracks: List<DeviceTrack>,
     viewModel: PlayerViewModel,
@@ -778,7 +778,7 @@ private fun LibraryHeader(onSearch: () -> Unit) {
  * keyboard's Search key only puts the keyboard away: the results are already there.
  */
 @Composable
-private fun LibrarySearchField(
+internal fun LibrarySearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
@@ -828,7 +828,7 @@ private fun LibrarySearchField(
  * field's text, which the results in [state] trail by the debounce.
  */
 @Composable
-private fun LibrarySearchResults(
+internal fun LibrarySearchResults(
     state: LibraryUiState,
     typed: String,
     viewModel: PlayerViewModel,
@@ -991,7 +991,7 @@ private fun FavouritesRow(
 }
 
 @Composable
-private fun PlaylistsTab(
+internal fun PlaylistsTab(
     viewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
     wide: Boolean = false,
@@ -1321,7 +1321,7 @@ private fun PlaylistTracks(
 }
 
 @Composable
-private fun FoldersTab(
+internal fun FoldersTab(
     folders: Map<String, List<DeviceTrack>>,
     viewModel: PlayerViewModel,
     wide: Boolean = false,

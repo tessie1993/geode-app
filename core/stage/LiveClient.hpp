@@ -86,7 +86,7 @@ public:
     void framePresent(int64_t presentNs) override;
     float governedCapFps() override { return viz_ ? viz_->governedCapFps() : 0.0f; }
     void trimSpares() override;
-    void contextLost() override {}
+    void contextLost() override;
     void service(bool ready) override;
     void release(bool glCurrent) override;
 

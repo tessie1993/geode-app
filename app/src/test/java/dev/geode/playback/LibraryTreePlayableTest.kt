@@ -28,6 +28,12 @@ class LibraryTreePlayableTest {
     }
 
     @Test
+    fun aSearchResultResolvesAmongTheLibrarysTracks() {
+        assertEquals(LISTED, tree.playable("$SEARCH|$LISTED")?.localConfiguration?.uri?.toString())
+        for (uri in UNLISTED) assertNull(uri, tree.playable("$SEARCH|$uri"))
+    }
+
+    @Test
     fun aUriTheLibraryDoesNotListResolvesToNothing() {
         for (uri in UNLISTED) {
             assertNull(uri, tree.playable("${LibraryTree.TRACKS}|$uri"))
@@ -38,6 +44,7 @@ class LibraryTreePlayableTest {
     private companion object {
         const val LISTED = "content://media/external/audio/media/1"
         val ALBUM = LibraryTree.folderId(LibraryTree.ALBUMS, "Album")
+        const val SEARCH = "${LibraryTree.SEARCH}/title"
         val UNLISTED =
             listOf(
                 "https://example.invalid/a.mp3",

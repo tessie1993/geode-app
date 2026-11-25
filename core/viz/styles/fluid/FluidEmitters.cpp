@@ -47,9 +47,10 @@ void Emitters::tick(const GeodeSoundFrame& f, float dt, float aspect, float base
     if (beatEdge && beatSplats > 0) beatSplatsFor(out, f, aspect, baseHue, hueSpan, radius, speed);
     stirrerSplats(out, f, dt, aspect, baseHue, hueSpan, radius);
     suctionSplats(out, radius);
-    fieldSplats(out, aspect, radius);
     if (sparkle && live::treble(f) > trebleMean_ * 1.6f && live::treble(f) > 0.08f) sparkleSplats(out, aspect, baseHue, hueSpan, radius);
     if (bassPump && bassEnv_ > 0.15f) pumpSplats(out, baseHue, hueSpan, radius);
+    // Last, so the cap on splats a frame drops a Field's before the user's own sparkle and bass pump.
+    fieldSplats(out, dt, aspect, radius);
     if (out.size() > static_cast<size_t>(kMaxSplatsPerFrame)) out.resize(static_cast<size_t>(kMaxSplatsPerFrame));
 }
 
@@ -166,11 +167,13 @@ void Emitters::suctionSplats(std::vector<Splat>& out, float radius) {
     out.push_back({a.x + ox, a.y + oy, a.x, a.y, radius * 0.8f, -ox / len * strength, -oy / len * strength, 0.0f, 0.0f, 0.0f});
 }
 
-// Each live Field puts one splat of velocity a frame, on a ring round its place, that goes the way the Field pushes:
+// Each live Field puts one splat of velocity a step, on a ring round its place, that goes the way the Field pushes:
 // in for Attract, out for Repel, round for Swirl (its sign the turning). It is the same path as the suction splat
-// above (the splats the sim takes), with no dye; the push is the Field's strength times its envelope.
-void Emitters::fieldSplats(std::vector<Splat>& out, float aspect, float radius) {
-    if (fieldSet == nullptr) return;
+// above (the splats the sim takes), with no dye; the push is the Field's strength times its envelope, times
+// dt * 60 (a 60 fps frame is one), so it is the same at any frame rate and nothing while the clock is stopped.
+void Emitters::fieldSplats(std::vector<Splat>& out, float dt, float aspect, float radius) {
+    const float scale = dt * 60.0f;
+    if (fieldSet == nullptr || !(scale > 0.0f)) return;
     for (int i = 0; i < fields::kMaxFields; ++i) {
         const fields::View v = fieldSet->view(i);
         if (!v.alive || v.strength == 0.0f) continue;
@@ -181,7 +184,7 @@ void Emitters::fieldSplats(std::vector<Splat>& out, float aspect, float radius) 
         const float ox = std::cos(ang) * 0.18f;
         const float oy = std::sin(ang) * 0.18f;
         const float len = std::max(std::sqrt(ox * ox + oy * oy), 1e-4f);
-        const float speed = kBaseSpeed * 0.7f * v.strength;
+        const float speed = kBaseSpeed * 0.7f * v.strength * scale;
         float dx = -ox / len;
         float dy = -oy / len;
         if (v.kind == fields::Kind::Repel) {

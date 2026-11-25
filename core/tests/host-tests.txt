@@ -550,11 +550,11 @@ params_json_test | stub | core/tests/params_json_test.cpp core/viz/params/Params
     core/util/Json.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp | app/src/test/resources/presets
 # The look's own palette in its params, saved palettes, preset files and the template library (core/viz/params/ParamsPalette, LookFiles).
 look_files_test | stub | core/tests/look_files_test.cpp core/viz/params/ParamsPalette.cpp core/viz/looks/LookFiles.cpp \
-    core/viz/params/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+    core/viz/params/ParamsJson.cpp core/util/Sha256.cpp core/util/Json.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | app/src/test/resources/presets
 # The template file: read, defaults, carried keys, write, refusals, and its C ABI (core/viz/looks/TemplateFile).
 template_file_test | stub | core/tests/template_file_test.cpp core/viz/looks/TemplateFile.cpp core/api/geode_looks_api.cpp \
-    core/viz/looks/LookFiles.cpp core/viz/params/ParamsPalette.cpp core/viz/params/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp \
+    core/viz/looks/LookFiles.cpp core/viz/params/ParamsPalette.cpp core/viz/params/ParamsJson.cpp core/util/Sha256.cpp core/util/Json.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp |
 # The text a Customize control shows for its value and the unit it reads in (core/viz/panel/ParamText).

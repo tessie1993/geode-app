@@ -4,7 +4,7 @@
 #include <cmath>
 
 #include "sound/DriveGain.hpp"
-#include "viz/Circular.hpp"
+#include "util/Circular.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {

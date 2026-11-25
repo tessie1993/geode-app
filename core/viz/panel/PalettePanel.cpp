@@ -7,7 +7,7 @@
 #include "viz/panel/ControlRange.hpp"
 #include "viz/colour/Palette.hpp"
 #include "viz/panel/PanelText.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz::palettepanel {
 

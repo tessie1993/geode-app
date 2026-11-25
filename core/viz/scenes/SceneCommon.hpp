@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "api/geode_api.h"
-#include "viz/Circular.hpp"
+#include "util/Circular.hpp"
 #include "viz/modulation/MotionField.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/gl/Program.hpp"

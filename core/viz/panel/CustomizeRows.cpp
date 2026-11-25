@@ -10,7 +10,7 @@
 #include "viz/looks/LookSnapshot.hpp"
 #include "viz/panel/PanelText.hpp"
 #include "viz/panel/SliderMap.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz::customize {
 

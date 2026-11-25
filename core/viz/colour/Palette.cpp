@@ -7,7 +7,7 @@
 #include <initializer_list>
 #include <optional>
 
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz::palette {
 

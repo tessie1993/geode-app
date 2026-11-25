@@ -10,7 +10,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/modulation/ModTargets.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz::macrobank {

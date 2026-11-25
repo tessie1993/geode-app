@@ -17,7 +17,7 @@
 #include "viz/gl/BuildReport.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Catalogue.hpp"
-#include "viz/Circular.hpp"
+#include "util/Circular.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/modulation/MotionField.hpp"
@@ -74,7 +74,7 @@ void followRouteTracksSource() {
     check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
 }
 
-// ---- Circular sources (viz/Circular.hpp): hues take the short arc, phases only go forward ----
+// ---- Circular sources (util/Circular.hpp): hues take the short arc, phases only go forward ----
 
 void circularHelpersTakeTheShortWay() {
     check(std::fabs(circular::arcDelta(0.95f, 0.05f) - 0.1f) < 1e-5f, "0.95 -> 0.05 is +0.1 round the seam, not -0.9");

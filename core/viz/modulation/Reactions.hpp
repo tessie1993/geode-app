@@ -5,7 +5,7 @@
 
 #include "api/geode_api.h"
 #include "sound/Emotion.hpp"
-#include "viz/Circular.hpp"
+#include "util/Circular.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 
@@ -95,7 +95,7 @@ constexpr int kReactSourceCount = static_cast<int>(ReactSource::ChordMotion) + 1
 // viz/modulation/ModCatalog's table and does not keep its own list. `name` is the stable saved name,
 // `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ, RHYTHM, HARMONY, FORM), `event` a trigger
 // held as an envelope rather than a level, `circle` a value on a circle (a hue, a pitch class, a phase):
-// the route smoothing follows it round the seam (viz/Circular.hpp) instead of sweeping back across the
+// the route smoothing follows it round the seam (util/Circular.hpp) instead of sweeping back across the
 // whole circle, so the rule is data, not a list in the smoother.
 struct ReactSourceInfo {
     const char* name;

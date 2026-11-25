@@ -3,7 +3,7 @@
 #include <array>
 
 #include "viz/modulation/ReactionDna.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz::modtargets {
 

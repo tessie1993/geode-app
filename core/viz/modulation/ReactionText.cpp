@@ -7,7 +7,7 @@
 
 #include "viz/modulation/ModTargets.hpp"
 #include "viz/modulation/Reactions.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz::reactiontext {
 

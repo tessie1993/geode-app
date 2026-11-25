@@ -6,7 +6,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/params/Params.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 

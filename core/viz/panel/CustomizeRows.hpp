@@ -78,7 +78,7 @@ struct RowContext {
 //                                           source ATTACK, DECAY or TRANSITION
 //   PIECE|<id>|<lock key>|<label>|<text>    a piece the shell draws by id; label names it to Pro and the
 //                                           screen reader, text is its button's words
-// Numbers in viz/TableNumber's form.
+// Numbers in util/TableNumber's form.
 std::string rows(std::string_view keys, const SceneParams& p, const RowContext& context);
 
 // Whether text matches the panel's search: blank matches, else a case-blind part of it.

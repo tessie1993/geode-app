@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 // The look snapshot (GLOSSARY): everything the user set that decides what a renderer draws, as the shell hands it
 // whole (geode_viz_set_look). The latch keeps the one set last, so only the parts that differ reach the renderer.

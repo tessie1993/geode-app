@@ -13,7 +13,7 @@
 #include "viz/colour/Colour.hpp"
 #include "viz/params/ParamsJson.hpp"
 #include "viz/params/ParamsPalette.hpp"
-#include "viz/Sha256.hpp"
+#include "util/Sha256.hpp"
 
 namespace geode::viz::files {
 

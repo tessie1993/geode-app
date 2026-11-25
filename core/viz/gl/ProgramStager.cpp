@@ -7,7 +7,7 @@
 #include "viz/gl/GlProber.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/gl/ScenePrep.hpp"
-#include "viz/Sha256.hpp"
+#include "util/Sha256.hpp"
 
 #ifndef GL_COMPLETION_STATUS_KHR
 #define GL_COMPLETION_STATUS_KHR 0x91B1

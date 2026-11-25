@@ -197,7 +197,7 @@ add_library(geode_core STATIC
     viz/gl/GlProber.cpp
     viz/gl/GlProfile.cpp
     viz/gl/Compute.cpp
-    viz/Sha256.cpp
+    util/Sha256.cpp
     viz/gl/ProgramBinaryCache.cpp
     viz/gl/Program.cpp
     viz/gl/ProgramStager.cpp

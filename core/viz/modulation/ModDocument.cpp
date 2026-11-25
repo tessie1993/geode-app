@@ -11,7 +11,7 @@
 #include "viz/modulation/ModCatalog.hpp"
 #include "viz/modulation/ModTargets.hpp"
 #include "viz/modulation/ReactionText.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz {
 

@@ -10,7 +10,7 @@
 #include "viz/gl/CacheSentinels.hpp"
 #include "viz/gl/CacheTouchPolicy.hpp"
 #include "viz/gl/GlProber.hpp"
-#include "viz/Sha256.hpp"
+#include "util/Sha256.hpp"
 
 namespace geode::viz {
 

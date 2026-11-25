@@ -3,7 +3,7 @@
 #include <set>
 
 #include "viz/Catalogue.hpp"
-#include "viz/TableNumber.hpp"
+#include "util/TableNumber.hpp"
 
 namespace geode::viz::catalogue {
 namespace {

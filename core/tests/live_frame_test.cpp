@@ -108,14 +108,16 @@ void stageOrder() {
     f.setQuality(UserQuality{0.75f, 1.0f, true});
     f.requestScene("a");
     f.gyroPush(GyroReading{0.1f, 0.2f, 0.3f, 0.9f, 1});
+    // A new surface's first frame is a whole frame: every stage runs, in this one order.
     frame(f, r);
+    const std::vector<std::string> want = {"paced", "quality", "liquid", "gyroReset", "gyro", "scene",
+                                           "ring", "render", "error", "director", "still"};
+    check(r.log == want, "the stages run in their one order");
     r.liquid = 1;
     frame(f, r, 90.0f, 120.0f);
-    // The quality went on the first frame; this one has nothing new for it.
-    const std::vector<std::string> want = {"paced", "liquid", "gyroReset", "gyro", "scene", "ring",
-                                           "render", "error", "director", "still"};
-    check(r.log == want, "the stages run in their one order");
     check(r.paced == 90.0f && r.cap == 120.0f, "the paced rate and the cap reach the renderer apart");
+    const std::vector<std::string> next = {"paced", "liquid", "gyro", "ring", "render", "error", "director", "still"};
+    check(r.log == next, "and the next frame runs only what is still due");
 }
 
 // Red against: a new surface's first frame that draws nothing (the old clear-only rule, which the stage thread

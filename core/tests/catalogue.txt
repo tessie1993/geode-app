@@ -413,7 +413,6 @@ key|Bass gain|BASS_BAND
 key|Mid gain|MID_BAND
 key|Treble gain|TREBLE_BAND
 key|Fluid quality|EMITTERS
-key|Lower the quality when the phone struggles|EMITTERS
 key|Solver iterations|FLUID_SIM
 key|Pressure|FLUID_SIM
 key|Fluid curl|FLUID_SIM

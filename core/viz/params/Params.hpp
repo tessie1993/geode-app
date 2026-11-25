@@ -66,7 +66,9 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::colorCycle,
                                                ParamSlot::cycleSpeed,
                                                // Colour map: the colour maps are palettes of the stack.
-                                               ParamSlot::paletteLut};
+                                               ParamSlot::paletteLut,
+                                               // Lower the quality when the phone struggles: nothing steps the fluid tier down.
+                                               ParamSlot::fluidAutoQuality};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.

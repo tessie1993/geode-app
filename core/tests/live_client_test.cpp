@@ -189,6 +189,21 @@ void recordTee() {
     check(r.seen.starts == 2 && r.seen.fails == 2 && r.seen.stops == 3 && r.client.recordClosed(), "a tee the driver refused fails and closes");
 }
 
+// Red against: a tee and its mark kept open across a lost context. Their GL names are gone, and the context made
+// next gives the same numbers to the renderer's objects, which the mark then draws with and deletes at its stop.
+void aLostContextEndsTheRecording() {
+    Rig r;
+    r.client.recordStart(RecordAsk{});
+    r.client.service(true);
+    r.client.contextLost();
+    check(r.seen.fails == 1 && r.seen.stops == 1 && r.client.recordClosed(), "a lost context fails the recording and closes its tee");
+    r.client.recordStop();
+    r.client.service(true);
+    check(r.seen.stops == 1, "the stop that follows closes nothing more");
+    r.client.contextLost();
+    check(r.seen.fails == 1 && r.seen.stops == 1, "with no recording a lost context does nothing");
+}
+
 void releases() {
     Rig r;
     r.seen.teeOpens = true;
@@ -218,6 +233,7 @@ int main() {
     frameReports();
     warmUps();
     recordTee();
+    aLostContextEndsTheRecording();
     releases();
     if (failures) {
         std::fprintf(stderr, "%d live client check(s) failed\n", failures);

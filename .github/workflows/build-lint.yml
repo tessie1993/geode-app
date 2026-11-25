@@ -116,10 +116,13 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest --continue --stacktrace --no-daemon
 
       # The emulator run (android.yml) is manual, so without this a device test that no longer
-      # compiles shows only when someone starts it. Compiles; runs nothing.
+      # compiles shows only when someone starts it. Compiles; runs nothing. The duplicate-class
+      # check and the manifest merge are where a test library that clashes with the app shows.
       - name: Compile device tests
         if: success() || failure()
-        run: ./gradlew :app:compileDebugAndroidTestSources --stacktrace --no-daemon
+        run: >-
+          ./gradlew :app:compileDebugAndroidTestSources :app:checkDebugAndroidTestDuplicateClasses
+          :app:processDebugAndroidTestManifest --stacktrace --no-daemon
 
       - name: detekt
         if: success() || failure()

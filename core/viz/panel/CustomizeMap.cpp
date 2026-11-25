@@ -77,6 +77,8 @@ const std::vector<Section>& table() {
         // The auto-director's switch is not a Customize control: it is Visuals › Settings' first row (and
         // Settings › Visual playback), since it changes the look with the song rather than being part of it.
         {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "Reaction DNA"}},
+        // Song events (viz/modulation/Responder): each event row and the responses it plays, the page that edits them.
+        {C::Music, "song_events", false, S::Always, {"@song_events"}},
         {C::Music, "moments", false, S::Always, {"@moments"}},
         {C::Music, "listening", false, S::Always, {"Bass gain", "Mid gain", "Treble gain", "@rise_fall"}},
         // What reacts to what stays with the music; the waves and envelopes, slot editors for the deep
@@ -171,6 +173,7 @@ const std::vector<HeldControl>& held() {
         {"@macros", {}, std::nullopt},
         {"@macro_editor", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
+        {"@song_events", {}, std::nullopt},
         {"@moments", {}, std::nullopt},
         {"@rise_fall", {}, Scope::BandGains},
         {"@transition_style", {}, std::nullopt},
@@ -220,6 +223,7 @@ constexpr SectionTitle kSectionTitles[] = {
     {"inner_motion", "Inner motion"},
     {"framing", "Framing"},
     {"feel", "Feel"},
+    {"song_events", "Song events"},
     {"moments", "Moments"},
     {"listening", "Listening"},
     {"trail_detail", "Trail detail"},

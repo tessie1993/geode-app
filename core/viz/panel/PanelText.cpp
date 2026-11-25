@@ -19,6 +19,7 @@ constexpr Row kRows[] = {
     {"customize_palette_from_artwork", "Take the colours from the artwork"},
     {"customize_personality", "Personality"},
     {"customize_new_personality", "New personality"},
+    {"customize_song_events", "Song events"},
     {"customize_moments", "Moments"},
     {"customize_reactions", "Reactions"},
     {"customize_envelopes", "Envelopes"},

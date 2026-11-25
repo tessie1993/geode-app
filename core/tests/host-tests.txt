@@ -463,6 +463,10 @@ response_kinds_test | stub | core/tests/response_kinds_test.cpp core/viz/modulat
     core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
     core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
+# The Song events page's catalogue (core/viz/modulation/ResponseCatalog, api/geode_responder_catalog_api.cpp): the families, tiles,
+# kind controls, envelope presets and row names as text, every tile making a response the bank accepts, an amount as a percentage
+# of the style's own value, the chips' titles, and the edits that add a tile and apply a preset.
+response_catalog_test | stub | core/tests/response_catalog_test.cpp core/viz/modulation/ResponseCatalog.cpp core/api/geode_responder_catalog_api.cpp     core/viz/panel/ParamText.cpp core/viz/modulation/Responder.cpp core/viz/modulation/Adsr.cpp     core/api/geode_responder_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp     core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp     core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp     core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 # The modulation the app holds (core/viz/modulation/ModState, geode_mod_state_*): an event is the document's own edit,
 # no route of the user's is Auto with no mask, the keep set is normalised and toggled, and the hand mask and
 # keep set reach their process-wide setters.

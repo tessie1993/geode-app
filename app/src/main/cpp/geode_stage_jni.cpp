@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "api/geode_responder_api.h"
 #include "api/geode_stage_api.h"
 #include "jni_util.hpp"
 
@@ -232,6 +233,22 @@ Java_dev_geode_engine_bridge_StageNative_stageSceneIds(JNIEnv* env, jobject, jlo
     std::vector<char> ids(geode_viz_scene_ids(viz, nullptr, 0) + 1, '\0');
     geode_viz_scene_ids(viz, ids.data(), ids.size());
     return geode::jni::utf8String(env, ids.data());
+}
+
+// The Song events page's picker plays a response on the stage's renderer, and reads its event lights and cost.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_StageNative_stageResponsePreview(JNIEnv* env, jobject, jlong stage, jfloatArray values) {
+    FloatElements data(env, values);
+    if (data.get()) geode_viz_response_preview(StageViz(stage), data.get(), data.length());
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_StageNative_stageResponderStatus(JNIEnv* env, jobject, jlong stage) {
+    float out[GEODE_RESP_STATUS_VALUES] = {};
+    const int n = geode_viz_responder_status(StageViz(stage), out, GEODE_RESP_STATUS_VALUES);
+    jfloatArray result = env->NewFloatArray(n);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n, out);
+    return result;
 }
 
 JNIEXPORT void JNICALL

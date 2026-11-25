@@ -188,6 +188,7 @@ const std::vector<Control>& table() {
         {"@macros", W::Piece, "", "", kOwn, R::Always, false},
         {"@macro_editor", W::Piece, "", "macro_editor_title", kOwn, R::Always, false},
         {"@palette_maker", W::Piece, "", "customize_your_colours", kOwn, R::Unsearched, false},
+        {"@song_events", W::Piece, "", "customize_song_events", kOwn, R::Always, false},
         {"@moments", W::Piece, "", "customize_moments", kOwn, R::Always, false},
         {"@rise_fall", W::Piece, "", "", kOwn, R::Always, false},
         {"@transition_style", W::Piece, "", "", kOwn, R::Always, false},

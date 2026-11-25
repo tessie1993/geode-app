@@ -47,6 +47,34 @@ object ResponderNative {
         value: Float,
     ): String
 
+    /** The Song events page's catalogue (core/viz/modulation/ResponseCatalog): its lines are listed in ResponseCatalog.hpp. */
+    external fun responderCatalogText(): String
+
+    /**
+     * One catalogue edit ([RESP_CATALOG_ADD] and the rest) on the saved text (null: a new style's): the new reactions
+     * text. [value] is the tile or preset ordinal.
+     */
+    external fun responderCatalogEdit(
+        reactions: String?,
+        op: Int,
+        row: Int,
+        index: Int,
+        value: Float,
+    ): String
+
+    /** A response's [field] ([RESP_AMOUNT] and the rest) as words; [look] is the params frame an amount is a percentage of. */
+    external fun responderFieldText(
+        values: FloatArray,
+        field: Int,
+        look: FloatArray?,
+    ): String
+
+    /** What a response's chip says. [values] are its [RESP_FIELDS] fields (a listed response's first ones). */
+    external fun responderTitle(values: FloatArray): String
+
+    /** The envelope preset (a catalogue `preset` line's ordinal) a response's envelope is, or -1. */
+    external fun responderPresetOf(values: FloatArray): Int
+
     /** Plays a response once now on a renderer, as its event would (the picker's preview): its [RESP_FIELDS] fields. Any thread. */
     external fun responderPreview(
         handle: Long,
@@ -81,6 +109,11 @@ object ResponderNative {
     const val RESP_COOLDOWN: Int = 13
     const val RESP_P0: Int = 14
 
+    // The catalogue edit ops.
+    const val RESP_CATALOG_ADD: Int = 0
+    const val RESP_CATALOG_PRESET: Int = 1
+    const val RESP_CATALOG_RESET_ROW: Int = 2
+
     // The edit ops.
     const val RESP_EDIT_ROW_ON: Int = 0
     const val RESP_EDIT_ADD: Int = 1
@@ -96,4 +129,19 @@ object ResponderNative {
     const val RESP_STATUS_DROPPED: Int = 20
     const val RESP_STATUS_ROUTES: Int = 21
     const val RESP_STATUS_VALUES: Int = 22
+}
+
+/**
+ * How a style's own reaction on a Song event row is switched off and on (its chip's own switch). A row that is off
+ * never mutes the style's reactions, and there is no master switch: each chip has its own.
+ *
+ * TODO(feat/event-responder #1414): the native call that lists a row's style routes and sets or clears a chip's off
+ * switch, kept in the reactions text, is not on this base. Until it lands the switch is the route's own enabled field,
+ * through the route edit the reactions editor already uses; swap the implementation for that call and keep this seam.
+ */
+fun interface StyleChipSwitch {
+    fun set(
+        routeIndex: Int,
+        on: Boolean,
+    )
 }

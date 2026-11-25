@@ -80,6 +80,26 @@ GEODE_API int geode_resp_values(const char* reactions, const char* style_id, int
    came in. NULL reactions edits a new style's. */
 GEODE_API int geode_resp_edit(const char* reactions, int op, int row, int index, int field, float value, char* out, int capacity);
 
+/* The Song events page's catalogue (core/viz/modulation/ResponseCatalog): the families and tiles of "+ Add response",
+   each kind's own controls with their words, units and ranges, the envelope presets, the strength curves, the drive
+   modes and the rows' names, as the lines ResponseCatalog.hpp lists. Pure, any thread. */
+GEODE_API int geode_resp_catalog_text(char* out, int capacity);
+
+/* geode_resp_catalog_edit's `op`. */
+#define GEODE_RESP_CATALOG_ADD 0    /* row, value = the tile's ordinal (an `entry` line); the row comes on */
+#define GEODE_RESP_CATALOG_PRESET 1 /* row, index = the nth user response of the row, value = the preset's ordinal */
+#define GEODE_RESP_CATALOG_RESET_ROW 2 /* row: its user responses removed and the row off again (the page offers Undo with the text it had) */
+/* One of those edits, as geode_resp_edit: the new reactions text, routes and all (NULL reactions: a new style's). */
+GEODE_API int geode_resp_catalog_edit(const char* reactions, int op, int row, int index, float value, char* out, int capacity);
+
+/* A response's field as words (`values` are its GEODE_RESP_FIELDS fields, `field` a GEODE_RESP_*). A parameter response's
+   amount reads as a percentage of the style's own value on `look` (the params wire; NULL: the defaults). */
+GEODE_API int geode_resp_field_text(const float* values, int count, int field, const float* look, char* out, int capacity);
+/* What a response's chip says: the parameter it moves, or the kind and what it draws or does. */
+GEODE_API int geode_resp_title(const float* values, int count, char* out, int capacity);
+/* The envelope preset (an ordinal of the catalogue's `preset` lines) a response's fade in, hold and fade out make; -1 for none. */
+GEODE_API int geode_resp_preset_of(const float* values, int count);
+
 /* Plays a response once now on the renderer, as its event would (the picker's live preview): `values` are its
    GEODE_RESP_FIELDS fields. Any thread; latched for the next frame. */
 GEODE_API void geode_viz_response_preview(geode_viz*, const float* values, int count);

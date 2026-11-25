@@ -77,8 +77,8 @@ void theEditorViewSaysWhatItOffers() {
     const std::string view = pp::makerView(pp::open(&one, 1, 0.0f, 0.0f));
     const auto lines = linesOf(view);
     check(lines.size() == 2, "a header and one stop");
-    check(lines[0].rfind("maker|1|0|0|1|FF8800,", 0) == 0, "one stop: nothing to remove, room to add, a strip of it");
-    check(lines[1] == "stop|0|FF8800|1|Colour 1 of 1, #FF8800", "the stop's row and what a screen reader hears");
+    check(lines[0].rfind("maker|2|0|0|1|FF8800,", 0) == 0, "one stop: nothing to remove, room to add, a strip of it");
+    check(lines[1] == "stop|0|FF8800|1|id:palette_stop\x1f" "1\x1f" "1\x1f" "#FF8800", "the stop's row and the word a screen reader hears");
 }
 
 void theStackCardShowsWhatTheStackHas() {
@@ -94,7 +94,7 @@ void theStackCardShowsWhatTheStackHas() {
     check(count(two, "yours|") == 1, "Add one of yours with one saved");
     const auto lines = linesOf(two);
     check(lines[1].rfind("layer|0|", 0) == 0 && lines[1].find("|paletteAmount0|") != std::string::npos, "the first layer reads paletteAmount0");
-    check(lines[1].find("|0|Move ") != std::string::npos && lines[2].find("|1|Move ") != std::string::npos,
+    check(lines[1].find("|0|id:palette_stack_up\x1f") != std::string::npos && lines[2].find("|1|id:palette_stack_up\x1f") != std::string::npos,
           "only a layer under another moves up");
 }
 
@@ -102,13 +102,13 @@ void theListPicksWhatTheLookHolds() {
     SceneParams p;
     p.palette = 3;
     auto lines = linesOf(pp::listView(p, "", "dusk\ndawn", "Dusk\nDawn"));
-    check(lines[0].rfind("list|1|3|", 0) == 0, "a built-in palette is its own row");
+    check(lines[0].rfind("list|2|3|", 0) == 0, "a built-in palette is its own row");
     check(count(pp::listView(p, "", "dusk\ndawn", "Dusk\nDawn"), "option|") == SceneParams::kListedPalettes + 2, "the listed built-ins, then yours");
     p.palette = SceneParams::kListedPalettes + 1;
-    check(linesOf(pp::listView(p, "", "", ""))[0].rfind("list|1|-1|", 0) == 0, "a retired built-in has no row");
+    check(linesOf(pp::listView(p, "", "", ""))[0].rfind("list|2|-1|", 0) == 0, "a retired built-in has no row");
     p.paletteStop0 = 0xFF0000;
     lines = linesOf(pp::listView(p, "dawn", "dusk\ndawn", "Dusk\nDawn"));
-    check(lines[0].rfind("list|1|" + std::to_string(SceneParams::kListedPalettes + 1) + "|", 0) == 0, "a saved palette after the built-ins");
+    check(lines[0].rfind("list|2|" + std::to_string(SceneParams::kListedPalettes + 1) + "|", 0) == 0, "a saved palette after the built-ins");
 }
 
 void theCAbiCarriesTheState() {

@@ -327,7 +327,7 @@ GEODE_API void        geode_viz_release_scenes(geode_viz*);
  * GL thread, while the context is still current; without one it does nothing. */
 GEODE_API void        geode_viz_trim_spares(geode_viz*);
 
-/* Playback DSP: gain -> 10-band equalizer -> loudness makeup -> crossfeed -> lookahead limiter on float
+/* Playback DSP: gain -> 10-band equalizer -> loudness makeup -> crossfeed on float
  * interleaved PCM, one chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
  * configure stages the next format's chain, and the old one keeps processing the draining tail until flush
  * makes the staged one live. Setters may be called from any thread and reach every chain; configure, flush
@@ -384,7 +384,6 @@ GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
 GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /* 0..1000 makeup gain */
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
-GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 
 /* Settings › Playback's speed and pitch rows (audio/dsp/PlaybackControls). Pure, any thread. */
 GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
@@ -469,7 +468,7 @@ GEODE_API int        geode_dsp_process_into(geode_dsp*, const void* in, int in_b
                                             int encoding, int channels);
 /* Bit-perfect USB (#353): whether the platform takes the next AudioTrack bit-perfect, from any thread. From the
  * next flush (Media3 flushes whenever it builds an AudioTrack) until a flush with it off, process passes every
- * block through untouched, whatever gain, ramp, equalizer, crossfeed or limiter is set. _live reports the
+ * block through untouched, whatever gain, ramp, equalizer or crossfeed is set. _live reports the
  * latched state (tests). */
 GEODE_API void       geode_dsp_set_bit_perfect(geode_dsp*, int on);
 GEODE_API int        geode_dsp_bit_perfect_live(const geode_dsp*);
@@ -1126,11 +1125,6 @@ GEODE_API const char* geode_customize_rows(const char* style_id, const char* key
 GEODE_API int geode_customize_matches(const char* query, const char* text);
 /* 1 when the panel search query has nothing in it (only spaces and tabs), so whole sections show. */
 GEODE_API int geode_customize_query_blank(const char* query);
-/* A word or sentence of the panel's with its placeholders filled by the count texts of args (geode_panel_text's table,
- * "%1$s" the first); "" for an unknown id. Valid until this thread's next call into core/api/geode_customize_rows_api.cpp. */
-GEODE_API const char* geode_panel_format(const char* id, const char* const* args, int count);
-/* A word or sentence the Customize panel draws, by its id (core/viz/panel/PanelText); "" for an unknown id. Static. */
-GEODE_API const char* geode_panel_text(const char* id);
 /* A style's display name, and a Styles page family's (core/viz/styles/catalogue/StyleNames). Valid until this thread's next call. */
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);

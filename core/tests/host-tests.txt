@@ -501,32 +501,32 @@ loudness_test | stub | core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.
 # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
 # until flush, and no block is ever processed past its buffer.
 dsp_handoff_test | stub | core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp |
 # The shell's raw block (geode_dsp_process_bytes): whole frames from encoding and channels, run as the
 # typed calls run them, part frames dropped; plus the encodings and AudioOutNative's event bits, pinned.
 dsp_bytes_test | stub | core/tests/dsp_bytes_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp | app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp | app/src/main/java/dev/geode/engine/bridge/AudioOutNative.kt
 # Which formats the playback DSP runs (16-bit or float, mono or stereo); any other passes through.
 dsp_runs_test | stub | core/tests/dsp_runs_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
-# The limiter, crossfeed and equalizer forget their state when switched off (or a band set flat), so
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp |
+# The crossfeed and equalizer forget their state when switched off (or a band set flat), so
 # turning them back on never plays old audio.
 dsp_stage_state_test | stub | core/tests/dsp_stage_state_test.cpp core/audio/dsp/Equalizer.cpp \
-    core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+    core/audio/dsp/Crossfeed.cpp |
 # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
-# whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
+# whatever gain, EQ or crossfeed is set; plus the native 16-bit conversion.
 bit_perfect_test | stub | core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp |
 # The playback gain as native ramps (#483): linear in dB and sample-accurate, ReplayGain on the
 # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
 gain_ramp_test | stub | core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp |
 # The built-in equalizer curves: each in its saved place, and no write for a curve that is not there.
 eq_presets_test | stub | core/tests/eq_presets_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp |
 # The sound effects' ranges: each control's range and clamp, and the band levels a session starts on.
 fx_ranges_test | stub | core/tests/fx_ranges_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp \
-    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp |
+    core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp |
 # Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
 playback_controls_test | stub | core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp \
     core/api/geode_playback_api.cpp |
@@ -608,8 +608,8 @@ customize_test | core | core/tests/customize_test.cpp core/viz/panel/CustomizeMa
 
 # --- Customize rows host tests
 # What Customize draws (core/viz/panel/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
-# range and when it hides, the panel's words, the style names, Your colours' editor, the stack card and the palette list.
-customize_rows_test | stub | core/tests/customize_rows_test.cpp $ROWS_SRC |
+# range and when it hides, the ids of the panel's words (core/tests/panel_words.txt), the style names, Your colours' editor, the stack card and the palette list.
+customize_rows_test | stub | core/tests/customize_rows_test.cpp $ROWS_SRC | core/tests/panel_words.txt
 palette_panel_test | stub | core/tests/palette_panel_test.cpp $ROWS_SRC |
 
 # --- Randomize everything host tests

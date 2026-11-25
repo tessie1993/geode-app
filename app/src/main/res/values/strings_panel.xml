@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Customize panel's words that are not one control's label, by the id core names them with
+         (core/viz/panel/PanelText; ui/PanelWords.kt maps each id to its string here). A row's numbers arrive
+         as text, so every placeholder is %s. -->
+    <string name="macro_editor_title">Edit knobs</string>
+    <string name="customize_your_colours">Your colours</string>
+    <string name="customize_palette_from_artwork">Take the colours from the artwork</string>
+    <string name="customize_personality">Personality</string>
+    <string name="customize_new_personality">New personality</string>
+    <string name="customize_song_events">Song events</string>
+    <string name="customize_moments">Moments</string>
+    <string name="customize_reactions">Reactions</string>
+    <string name="customize_envelopes">Envelopes</string>
+    <string name="customize_waves">Waves</string>
+    <string name="customize_randomize_waves">Randomize waves</string>
+    <string name="customize_layers">Layers</string>
+    <string name="customize_shader_code">Shader code</string>
+    <string name="customize_rise">Rise</string>
+    <string name="customize_fall">Fall</string>
+    <string name="customize_transition_length">Transition length</string>
+    <string name="customize_liquid_mode">Liquid mode</string>
+    <string name="customize_shape_held">Shape set by this style: %1$s.</string>
+    <string name="customize_reaction_summary">When %1$s → %2$s · %3$s %4$s</string>
+    <string name="customize_target_inert">%1$s does nothing on this style.</string>
+    <string name="customize_target_inert_pick">%1$s does nothing on this style - pick another.</string>
+    <string name="customize_label_value">%1$s · %2$s</string>
+    <string name="look_summary_custom">Custom palette</string>
+    <string name="palette_stop">Colour %1$s of %2$s, %3$s</string>
+    <string name="palette_stop_add">Add a colour</string>
+    <string name="palette_stop_remove">Remove this colour</string>
+    <string name="palette_from_current">Start from this palette</string>
+    <string name="palette_name_label">Palette name</string>
+    <string name="palette_save">Save palette</string>
+    <string name="palette_saved_heading">Your palettes</string>
+    <string name="palette_none_yet">None yet: make one above and save it.</string>
+    <string name="palette_edit">Edit</string>
+    <string name="palette_delete">Delete</string>
+    <string name="palette_stack_heading">Palettes</string>
+    <string name="palette_stack_explainer">Stack palettes and every style takes its colours from them. With none, the style keeps the palette above.</string>
+    <string name="palette_stack_add">Add palette</string>
+    <string name="palette_stack_add_yours">Add one of yours</string>
+    <string name="palette_stack_add_mark" translatable="false">+</string>
+    <string name="palette_stack_remove">Remove %1$s</string>
+    <string name="palette_stack_up">Move %1$s up</string>
+    <string name="palette_stack_amount">Amount of %1$s</string>
+    <string name="palette_stack_share">Side by side</string>
+    <string name="palette_stack_mix">Mixed</string>
+    <string name="palette_stack_blend">How the palettes combine</string>
+</resources>

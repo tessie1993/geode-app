@@ -172,7 +172,7 @@ std::string makerView(const Maker& m) {
     for (int i = 0; i < n; ++i) {
         const int rgb = m.stops[static_cast<size_t>(i)];
         out += "stop|" + std::to_string(i) + "|" + hex6(rgb) + "|" + (i == m.selected ? "1" : "0") + "|" +
-               cell(panel::format("palette_stop", {std::to_string(i + 1), std::to_string(n), colour::hex(rgb)})) + "\n";
+               cell(panel::ref("palette_stop", {std::to_string(i + 1), std::to_string(n), colour::hex(rgb)})) + "\n";
     }
     return out;
 }
@@ -204,7 +204,7 @@ std::string listView(const SceneParams& p, std::string_view customId, std::strin
             }
         }
     }
-    std::string out = "list|" + std::to_string(kTextVersion) + "|" + std::to_string(selected) + "|" + cell(panel::text("look_summary_custom")) +
+    std::string out = "list|" + std::to_string(kTextVersion) + "|" + std::to_string(selected) + "|" + cell(panel::ref("look_summary_custom")) +
                       "|" + joined(lookSwatch(p)) + "\n";
     for (int i = 0; i < listed; ++i) out += "option|" + std::to_string(i) + "|-1|" + cell(builtIn[static_cast<size_t>(i)].name) + "\n";
     for (size_t i = 0; i < names.size(); ++i) out += "option|-1|" + std::to_string(i) + "|" + cell(names[i]) + "\n";
@@ -214,8 +214,8 @@ std::string listView(const SceneParams& p, std::string_view customId, std::strin
 std::string stackCard(std::string_view stackText, const SceneParams& p, int savedCount) {
     const palette::Stack s = palette::decode(stackText);
     const int layers = static_cast<int>(s.layers.size());
-    std::string out = "card|" + std::to_string(kTextVersion) + "|" + cell(panel::text("palette_stack_heading")) + "|" +
-                      cell(panel::text("palette_stack_explainer")) + "\n";
+    std::string out = "card|" + std::to_string(kTextVersion) + "|" + cell(panel::ref("palette_stack_heading")) + "|" +
+                      cell(panel::ref("palette_stack_explainer")) + "\n";
     for (int i = 0; i < layers && i < palette::kMaxLayers; ++i) {
         const auto& layer = s.layers[static_cast<size_t>(i)];
         const std::string field = "paletteAmount" + std::to_string(i);
@@ -223,23 +223,23 @@ std::string stackCard(std::string_view stackText, const SceneParams& p, int save
         control::of(field, range);
         out += "layer|" + std::to_string(i) + "|" + cell(layer.name) + "|" + field + "|" + tableNumber(p.get(field)) + "|" +
                tableNumber(range.min) + "|" + tableNumber(range.max) + "|" + (i > 0 ? "1" : "0") + "|" +
-               cell(panel::format("palette_stack_up", {layer.name})) + "|" + cell(panel::format("palette_stack_remove", {layer.name})) + "|" +
-               cell(panel::format("palette_stack_amount", {layer.name})) + "|" + joined(layerSwatch(layer)) + "\n";
+               cell(panel::ref("palette_stack_up", {layer.name})) + "|" + cell(panel::ref("palette_stack_remove", {layer.name})) + "|" +
+               cell(panel::ref("palette_stack_amount", {layer.name})) + "|" + joined(layerSwatch(layer)) + "\n";
     }
     if (layers > 1) {
-        out += "blend|" + cell(panel::text("palette_stack_blend")) + "|" + (s.blend == palette::Blend::Mix ? "1" : "0") + "\n";
-        out += std::string("blendoption|") + palette::name(palette::Blend::Share) + "|" + panel::text("palette_stack_share") + "\n";
-        out += std::string("blendoption|") + palette::name(palette::Blend::Mix) + "|" + panel::text("palette_stack_mix") + "\n";
+        out += "blend|" + cell(panel::ref("palette_stack_blend")) + "|" + (s.blend == palette::Blend::Mix ? "1" : "0") + "\n";
+        out += std::string("blendoption|") + palette::name(palette::Blend::Share) + "|" + panel::ref("palette_stack_share") + "\n";
+        out += std::string("blendoption|") + palette::name(palette::Blend::Mix) + "|" + panel::ref("palette_stack_mix") + "\n";
     }
     const auto& lib = palette::library();
     bool picks = false;
     for (size_t i = 0; i < lib.size(); ++i) picks = picks || palette::offered(static_cast<int>(i));
     if (layers < palette::kMaxLayers && picks) {
-        out += "add|" + cell(panel::text("palette_stack_add")) + "|" + panel::text("palette_stack_add_mark") + "\n";
+        out += "add|" + cell(panel::ref("palette_stack_add")) + "|" + panel::ref("palette_stack_add_mark") + "\n";
         for (size_t i = 0; i < lib.size(); ++i) {
             if (palette::offered(static_cast<int>(i))) out += "pick|" + std::to_string(i) + "|" + cell(lib[i].palette.name) + "\n";
         }
-        if (savedCount > 0) out += "yours|" + cell(panel::text("palette_stack_add_yours")) + "|" + panel::text("palette_stack_add_mark") + "\n";
+        if (savedCount > 0) out += "yours|" + cell(panel::ref("palette_stack_add_yours")) + "|" + panel::ref("palette_stack_add_mark") + "\n";
     }
     return out;
 }

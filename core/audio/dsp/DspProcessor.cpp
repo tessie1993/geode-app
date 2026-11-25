@@ -43,7 +43,7 @@ void DspProcessor::flush() {
 }
 
 DspChain* DspProcessor::runnable(int channels) const {
-    // Bit-perfect skips the chain whole: gain, ramps, equalizer, crossfeed and limiter alike. The chain's own
+    // Bit-perfect skips the chain whole: gain, ramps, equalizer and crossfeed alike. The chain's own
     // state stands still meanwhile and is reset at the flush that ends bit-perfect.
     if (bitPerfectLive_.load(std::memory_order_acquire)) return nullptr;
     DspChain* chain = live_.load(std::memory_order_acquire);
@@ -139,7 +139,6 @@ void DspProcessor::applyTo(DspChain& chain, const Settings& s) {
     chain.equalizer().setBassBoost(s.bassBoost);
     chain.loudness().setTargetDb(static_cast<float>(s.loudnessMb) / 100.0f);
     chain.crossfeed().setEnabled(s.crossfeed);
-    chain.limiter().setEnabled(s.limiter);
 }
 
 // Every chain hears every setting, live, staged or idle, so a chain that goes live at a later flush()
@@ -179,12 +178,6 @@ void DspProcessor::setCrossfeed(bool enabled) {
     std::lock_guard<std::mutex> lock(mutex_);
     settings_.crossfeed = enabled;
     forEachChain([&](DspChain& c) { c.crossfeed().setEnabled(enabled); });
-}
-
-void DspProcessor::setLimiter(bool enabled) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    settings_.limiter = enabled;
-    forEachChain([&](DspChain& c) { c.limiter().setEnabled(enabled); });
 }
 
 }  // namespace geode::audio

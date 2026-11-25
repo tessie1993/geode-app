@@ -176,11 +176,6 @@ object GeodeNative {
         enabled: Boolean,
     )
 
-    external fun dspSetLimiter(
-        handle: Long,
-        enabled: Boolean,
-    )
-
     /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
     external fun playbackPitchRatio(semitones: Float): Float
 

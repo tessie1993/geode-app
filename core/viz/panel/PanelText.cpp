@@ -1,109 +1,100 @@
 #include "viz/panel/PanelText.hpp"
 
-#include <vector>
-
 namespace geode::viz::panel {
 
 namespace {
 
-struct Row {
+// In page order. An id is the name of the shell's string resource; args is how many placeholders it has.
+struct Word {
     const char* id;
-    const char* text;
+    int args;
 };
 
-// In page order. An id is the string resource's old name, so a search of the history finds where it came from.
-constexpr Row kRows[] = {
+constexpr Word kWords[] = {
     // Customize's pieces (CustomizeRows draws each by its piece row).
-    {"macro_editor_title", "Edit knobs"},
-    {"customize_your_colours", "Your colours"},
-    {"customize_palette_from_artwork", "Take the colours from the artwork"},
-    {"customize_personality", "Personality"},
-    {"customize_new_personality", "New personality"},
-    {"customize_song_events", "Song events"},
-    {"customize_moments", "Moments"},
-    {"customize_reactions", "Reactions"},
-    {"customize_envelopes", "Envelopes"},
-    {"customize_waves", "Waves"},
-    {"customize_randomize_waves", "Randomize waves"},
-    {"customize_layers", "Layers"},
-    {"customize_shader_code", "Shader code"},
-    {"customize_rise", "Rise"},
-    {"customize_fall", "Fall"},
-    {"customize_transition_length", "Transition length"},
-    {"customize_liquid_mode", "Liquid mode"},
-    {"customize_shape_held", "Shape set by this style: %1$s."},
+    {"macro_editor_title", 0},
+    {"customize_your_colours", 0},
+    {"customize_palette_from_artwork", 0},
+    {"customize_personality", 0},
+    {"customize_new_personality", 0},
+    {"customize_song_events", 0},
+    {"customize_moments", 0},
+    {"customize_reactions", 0},
+    {"customize_envelopes", 0},
+    {"customize_waves", 0},
+    {"customize_randomize_waves", 0},
+    {"customize_layers", 0},
+    {"customize_shader_code", 0},
+    {"customize_rise", 0},
+    {"customize_fall", 0},
+    {"customize_transition_length", 0},
+    {"customize_liquid_mode", 0},
+    {"customize_shape_held", 1},
     // A reaction's one-line summary: source, target, mode, amount.
-    {"customize_reaction_summary", "When %1$s → %2$s · %3$s %4$s"},
+    {"customize_reaction_summary", 4},
     // A reaction or wave aimed at a control this style does not draw (the wave asks for another).
-    {"customize_target_inert", "%1$s does nothing on this style."},
-    {"customize_target_inert_pick", "%1$s does nothing on this style - pick another."},
+    {"customize_target_inert", 1},
+    {"customize_target_inert_pick", 1},
     // A control's label and its value, as one line.
-    {"customize_label_value", "%1$s · %2$s"},
+    {"customize_label_value", 2},
     // Look's palette list on a style the stack does not draw.
-    {"look_summary_custom", "Custom palette"},
+    {"look_summary_custom", 0},
     // Your colours (Customize › Look).
-    {"palette_stop", "Colour %1$d of %2$d, %3$s"},
-    {"palette_stop_add", "Add a colour"},
-    {"palette_stop_remove", "Remove this colour"},
-    {"palette_from_current", "Start from this palette"},
-    {"palette_name_label", "Palette name"},
-    {"palette_save", "Save palette"},
-    {"palette_saved_heading", "Your palettes"},
-    {"palette_none_yet", "None yet: make one above and save it."},
-    {"palette_edit", "Edit"},
-    {"palette_delete", "Delete"},
+    {"palette_stop", 3},
+    {"palette_stop_add", 0},
+    {"palette_stop_remove", 0},
+    {"palette_from_current", 0},
+    {"palette_name_label", 0},
+    {"palette_save", 0},
+    {"palette_saved_heading", 0},
+    {"palette_none_yet", 0},
+    {"palette_edit", 0},
+    {"palette_delete", 0},
     // The palette stack (Customize › Look › Palettes).
-    {"palette_stack_heading", "Palettes"},
-    {"palette_stack_explainer", "Stack palettes and every style takes its colours from them. With none, the style keeps the palette above."},
-    {"palette_stack_add", "Add palette"},
-    {"palette_stack_add_yours", "Add one of yours"},
-    {"palette_stack_add_mark", "+"},
-    {"palette_stack_remove", "Remove %1$s"},
-    {"palette_stack_up", "Move %1$s up"},
-    {"palette_stack_amount", "Amount of %1$s"},
-    {"palette_stack_share", "Side by side"},
-    {"palette_stack_mix", "Mixed"},
-    {"palette_stack_blend", "How the palettes combine"},
+    {"palette_stack_heading", 0},
+    {"palette_stack_explainer", 0},
+    {"palette_stack_add", 0},
+    {"palette_stack_add_yours", 0},
+    {"palette_stack_add_mark", 0},
+    {"palette_stack_remove", 1},
+    {"palette_stack_up", 1},
+    {"palette_stack_amount", 1},
+    {"palette_stack_share", 0},
+    {"palette_stack_mix", 0},
+    {"palette_stack_blend", 0},
 };
+
+constexpr char kUnitSeparator = '\x1f';
 
 }  // namespace
 
-const char* text(std::string_view id) {
-    for (const auto& row : kRows) {
-        if (id == row.id) return row.text;
+int argCount(std::string_view id) {
+    for (const Word& word : kWords) {
+        if (id == word.id) return word.args;
     }
-    return "";
+    return -1;
 }
 
-std::string format(std::string_view id, std::initializer_list<std::string> args) {
-    const std::vector<std::string> given(args);
-    const std::string_view in = text(id);
-    std::string out;
-    for (size_t i = 0; i < in.size(); ++i) {
-        if (in[i] != '%' || i + 1 >= in.size()) {
-            out += in[i];
-            continue;
-        }
-        if (in[i + 1] == '%') {
-            out += '%';
-            ++i;
-            continue;
-        }
-        // "%<n>$s" or "%<n>$d": one digit is enough for every row here.
-        if (i + 3 < in.size() && in[i + 1] >= '1' && in[i + 1] <= '9' && in[i + 2] == '$' && (in[i + 3] == 's' || in[i + 3] == 'd')) {
-            const size_t n = static_cast<size_t>(in[i + 1] - '1');
-            if (n < given.size()) out += given[n];
-            i += 3;
-            continue;
-        }
-        out += in[i];
+bool has(std::string_view id) { return argCount(id) >= 0; }
+
+std::string ref(std::string_view id, std::initializer_list<std::string> args) {
+    if (id.empty()) return {};
+    std::string out = "id:" + std::string(id);
+    // Exactly as many arguments as the word has placeholders: a missing one is blank and an extra one is
+    // dropped, so the shell's format never runs short.
+    const auto* arg = args.begin();
+    for (int i = 0; i < argCount(id); ++i) {
+        out += kUnitSeparator;
+        if (arg == args.end()) continue;
+        for (const char c : *arg) out += c == kUnitSeparator ? ' ' : c;
+        ++arg;
     }
     return out;
 }
 
 std::string ids() {
     std::string out;
-    for (const auto& row : kRows) out += std::string(row.id) + "\n";
+    for (const Word& word : kWords) out += std::string(word.id) + " " + std::to_string(word.args) + "\n";
     return out;
 }
 

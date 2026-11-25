@@ -89,6 +89,7 @@ bool isMetadata(std::string_view s) {
 ParsedLyrics parseLyrics(std::string_view text) {
     std::vector<LyricsLine> timed;
     std::vector<LyricsLine> plain;
+    size_t timedBytes = 0;
     size_t start = 0;
     while (start <= text.size()) {
         size_t end = start;
@@ -115,7 +116,11 @@ ParsedLyrics parseLyrics(std::string_view text) {
             continue;
         }
         if (line.empty()) continue;
-        for (const long long at : stamps) timed.push_back({at, std::string(line)});
+        for (const long long at : stamps) {
+            if (line.size() > kMaxLyricsTextBytes - timedBytes) break;
+            timedBytes += line.size();
+            timed.push_back({at, std::string(line)});
+        }
     }
     ParsedLyrics out;
     if (!timed.empty()) {

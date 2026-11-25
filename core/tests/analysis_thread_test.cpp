@@ -18,6 +18,7 @@
 #include <cstring>
 #include <filesystem>
 #include <limits>
+#include <mutex>
 #include <numbers>
 #include <thread>
 #include <vector>
@@ -32,6 +33,20 @@ using geode::sound::Emotion;
 using geode::sound::Rhythm;
 using geode::sound::SoundEngine;
 using Heard = AnalysisThread::Heard;
+
+namespace geode::sound {
+// The test's way to the control queue: hold its lock from another thread, count what waits.
+struct AnalysisThreadTestAccess {
+    static std::mutex& lock(AnalysisThread& at) { return at.controlLock_; }
+    static int waiting(AnalysisThread& at) {
+        std::lock_guard<std::mutex> l(at.controlLock_);
+        return at.controlCount_;
+    }
+    // The applied tuning: read only with the thread stopped or never started.
+    static GeodeSoundTuning tuning(const AnalysisThread& at) { return at.tuning_; }
+};
+}  // namespace geode::sound
+using geode::sound::AnalysisThreadTestAccess;
 using Clock = std::chrono::steady_clock;
 
 namespace {
@@ -531,6 +546,104 @@ void heldBackSleepsThroughWrites() {
     at.stop();
 }
 
+// A sender holding the control lock never stalls a pass: the pass runs, the controls stay queued, and the next pass
+// after the lock is free applies them, in the order sent.
+static void controlLockNeverBlocksAPass() {
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    check(at.setTuning(SoundEngine::defaultTuning()) && at.trackBoundary() && at.reset(), "controls queue");
+    check(AnalysisThreadTestAccess::waiting(at) == 3, "three wait");
+
+    std::atomic<bool> held{false};
+    std::atomic<bool> release{false};
+    std::thread sender([&] {
+        std::lock_guard<std::mutex> lock(AnalysisThreadTestAccess::lock(at));
+        held.store(true);
+        while (!release.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    });
+    while (!held.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+    std::atomic<bool> passed{false};
+    std::thread pass([&] {
+        at.pump(0.01f);
+        passed.store(true);
+    });
+    const auto deadline = Clock::now() + std::chrono::seconds(10);
+    while (!passed.load() && Clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    check(passed.load(), "a pass completes while another thread holds the control lock");
+    release.store(true);
+    sender.join();
+    pass.join();
+    check(AnalysisThreadTestAccess::waiting(at) == 3, "the held pass applied nothing and dropped nothing");
+
+    at.pump(0.01f);
+    check(AnalysisThreadTestAccess::waiting(at) == 0, "the next pass applies all three");
+    check(at.setTuning(SoundEngine::defaultTuning()), "and the queue takes more");
+}
+
+GeodeSoundTuning gained(float gain) {
+    GeodeSoundTuning t = SoundEngine::defaultTuning();
+    t.gain[0] = gain;
+    return t;
+}
+
+// The lock, held by another thread until let() releases it.
+struct LockHolder {
+    explicit LockHolder(AnalysisThread& at) {
+        holder = std::thread([this, &at] {
+            std::lock_guard<std::mutex> lock(AnalysisThreadTestAccess::lock(at));
+            held.store(true);
+            while (!release.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        });
+        while (!held.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    void let() {
+        release.store(true);
+        holder.join();
+    }
+    std::atomic<bool> held{false};
+    std::atomic<bool> release{false};
+    std::thread holder;
+};
+
+// A pass that could not take the lock leaves the queue whole: the controls sent after it join the back, and the
+// next pass applies all of them in the order sent (the last tuning wins).
+void orderSurvivesAFailedPass() {
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    check(at.setTuning(gained(2.0f)), "tuning X queues");
+    {
+        LockHolder held(at);
+        at.pump(0.01f);
+        held.let();
+    }
+    check(AnalysisThreadTestAccess::waiting(at) == 1, "the failed pass left X queued");
+    check(at.trackBoundary() && at.setTuning(gained(3.0f)), "boundary and tuning Y queue after the failed pass");
+    check(AnalysisThreadTestAccess::waiting(at) == 3, "X, boundary, Y wait in that order");
+    at.pump(0.01f);
+    check(AnalysisThreadTestAccess::waiting(at) == 0, "the next pass applies all three");
+    check(AnalysisThreadTestAccess::tuning(at).gain[0] == 3.0f, "the last tuning sent (Y) is the one applied");
+}
+
+// The thread's first pass fails on the held lock with a control waiting and no writer or sender left to notify:
+// it must come back by itself once the lock is free.
+void failedPassWakesTheThread() {
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    check(at.setTuning(gained(2.5f)), "tuning queues before the thread starts");
+    LockHolder held(at);
+    check(at.start(), "thread starts");
+    const auto spun = Clock::now() + std::chrono::seconds(10);
+    while (at.passes() == 0 && Clock::now() < spun) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    held.let();
+    const auto deadline = Clock::now() + std::chrono::seconds(10);
+    while (AnalysisThreadTestAccess::waiting(at) != 0 && Clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    check(AnalysisThreadTestAccess::waiting(at) == 0, "the thread applies the control with no write and no notify");
+    at.stop();
+    check(AnalysisThreadTestAccess::tuning(at).gain[0] == 2.5f, "and it applied the tuning queued");
+}
+
 int main() {
     std::printf("analysis thread: one engine off the draw thread, hops by ring position\n");
     for (int rate : {48000, 96000}) inlineMatchesBare(rate, false);
@@ -540,6 +653,9 @@ int main() {
     startStop();
     writerStops();
     heldBackSleepsThroughWrites();
+    controlLockNeverBlocksAPass();
+    orderSurvivesAFailedPass();
+    failedPassWakesTheThread();
     if (failures.load() == 0) std::printf("analysis_thread_test: all checks passed\n");
     return failures.load() == 0 ? 0 : 1;
 }

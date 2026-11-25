@@ -1,2 +1,10 @@
 AGENTS.md merge=union
 docs/agents/*.md merge=union
+*.png binary
+*.jpg binary
+*.webp binary
+*.wav binary
+*.mp4 binary
+*.bin binary
+*.jar binary
+*.keystore binary

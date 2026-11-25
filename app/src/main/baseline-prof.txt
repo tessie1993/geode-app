@@ -46,6 +46,9 @@ HPLdev/geode/ui/VisualsStageKt**;->**(**)**
 HPLdev/geode/ui/VisualsSheetKt**;->**(**)**
 HPLdev/geode/ui/PredictiveDismissKt**;->**(**)**
 HPLdev/geode/ui/LibraryScreenKt**;->**(**)**
+HPLdev/geode/ui/LibrarySearchKt**;->**(**)**
+HPLdev/geode/ui/LibraryPlaylistsKt**;->**(**)**
+HPLdev/geode/ui/LibraryFoldersKt**;->**(**)**
 HPLdev/geode/ui/VisualsHubKt**;->**(**)**
 
 Ldev/geode/GeodeApp;

@@ -10,8 +10,8 @@ name: UI tour
 # runs here once per look (uitourConfig=portrait, landscape, font), each in its own job and on its
 # own emulator, side by side. One config takes 35-60 min, so three in a row ran past any sensible
 # timeout (run 45536974759 was cancelled at 2h30 in its third). A config that fails or crashes
-# loses only its own screenshots and artifact. A tour step that cannot
-# find its control is written in the report, not failed: the job fails only when a config's run
+# loses only its own screenshots and artifact.
+# A tour step that cannot find its control is written in the report, not failed: the job fails only when a config's run
 # failed (the app crashed, or the activity never came up), and uploads everything either way.
 #
 # Gesture navigation is switched on before the tour, so WindowInsets.systemGestures are the
@@ -37,8 +37,9 @@ jobs:
       matrix:
         config: [portrait, landscape, font]
     # One config on a software-rendered emulator (portrait took 38 min, font more than 60), plus the
-    # native build.
-    timeout-minutes: 120
+    # native build. The emulator step has its own, shorter limit, so a slow tour still uploads what
+    # it recorded; this one is the backstop.
+    timeout-minutes: 150
     env:
       UITOUR_CONFIG: ${{ matrix.config }}
 
@@ -129,6 +130,7 @@ jobs:
       # Emulator settings are android.yml's instrumented-tests job's, which survive the
       # visualizer journeys on these runners (see the comments there for why each one).
       - name: Run the tour on the emulator
+        timeout-minutes: 110
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 36

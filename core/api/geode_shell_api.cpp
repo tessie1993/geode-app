@@ -212,22 +212,28 @@ int geode_preset_applied(const char* const* names, const int* flags, int count, 
     return shell::presetApplied(presetRows(names, nullptr, flags, count), tapped);
 }
 
-int geode_opened_audio_route(const char* action, const char* scheme, const char* type, int from_history) {
+int geode_opened_audio_route(const char* action, const char* scheme, const char* type, int from_history) try {
     return static_cast<int>(
         shell::openedAudioRoute(textOf(action), textOf(scheme), textOf(type), from_history != 0));
+} catch (...) {
+    return GEODE_OPENED_NOT_OURS;
 }
 
 int geode_opened_audio_refuses(const char* scheme, const char* authority, const char* own_package,
-                               const char* provider_package, int read_granted) {
+                               const char* provider_package, int read_granted) try {
     return shell::openedAudioRefuses(textOf(scheme), textOf(authority), own_package ? own_package : "",
                                      textOf(provider_package), read_granted != 0)
                ? 1
                : 0;
+} catch (...) {
+    return 1;
 }
 
-int geode_opened_audio_display_name(const char* raw, char* out, int capacity) {
+int geode_opened_audio_display_name(const char* raw, char* out, int capacity) try {
     const std::optional<std::string> name = shell::openedAudioDisplayName(textOf(raw));
     return name ? geode::api::textOut(*name, out, capacity) : -1;
+} catch (...) {
+    return -1;
 }
 
 int geode_opened_media_id(const unsigned char* random16, char* out, int capacity) {
@@ -236,7 +242,11 @@ int geode_opened_media_id(const unsigned char* random16, char* out, int capacity
     return geode::api::textOut(shell::openedMediaId(random), out, capacity);
 }
 
-int geode_opened_audio_is_opened(const char* media_id) { return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0; }
+int geode_opened_audio_is_opened(const char* media_id) try {
+    return shell::openedAudioIsOpened(textOf(media_id)) ? 1 : 0;
+} catch (...) {
+    return 0;
+}
 
 int geode_tour_reached(int spot, unsigned shown, int place, int playing) {
     return shell::tourReached(static_cast<shell::TourSpot>(spot), factsOf(shown, place, playing)) ? 1 : 0;

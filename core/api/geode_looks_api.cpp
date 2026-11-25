@@ -128,7 +128,7 @@ const char* geode_saved_palette_frame_id(const char* look_id, const float* frame
     return hold(out, frame ? files::framePaletteId(textOf(look_id), SceneParams::fromWire(frame)) : std::string());
 }
 
-int geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) {
+int geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) try {
     if (!out_frame || n < SceneParams::kFieldCount || !out_text || !out_envelope) return 0;
     thread_local files::Preset read;
     const auto p = files::readPreset(textOf(text));
@@ -142,6 +142,8 @@ int geode_preset_read(const char* text, float* out_frame, int n, const char** ou
     out_envelope[0] = read.attack;
     out_envelope[1] = read.decay;
     return 1;
+} catch (...) {
+    return 0;
 }
 
 const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay, const char* custom_shader,
@@ -211,21 +213,33 @@ const char* geode_preset_link_frame(const char* payload) {
 
 int geode_preset_link_fits(const char* link) { return files::presetLinkFits(textOf(link)) ? 1 : 0; }
 
-int geode_preset_link_is(const char* text) { return files::isPresetLink(textOf(text)) ? 1 : 0; }
+int geode_preset_link_is(const char* text) try {
+    return files::isPresetLink(textOf(text)) ? 1 : 0;
+} catch (...) {
+    return 0;
+}
 
-const char* geode_preset_link_payload(const char* text) {
+const char* geode_preset_link_payload(const char* text) try {
     thread_local std::string out;
     const auto payload = files::presetLinkPayload(textOf(text));
     return payload ? hold(out, *payload) : nullptr;
+} catch (...) {
+    return nullptr;
 }
 
-const char* geode_preset_link_find(const char* text) {
+const char* geode_preset_link_find(const char* text) try {
     thread_local std::string out;
     const auto link = files::findPresetLink(textOf(text));
     return link ? hold(out, *link) : nullptr;
+} catch (...) {
+    return nullptr;
 }
 
-int geode_preset_link_body_accepted(const char* body) { return files::presetLinkBodyAccepted(textOf(body)) ? 1 : 0; }
+int geode_preset_link_body_accepted(const char* body) try {
+    return files::presetLinkBodyAccepted(textOf(body)) ? 1 : 0;
+} catch (...) {
+    return 0;
+}
 
 int geode_preset_link_max_length(void) { return files::kMaxLinkLength; }
 
@@ -257,7 +271,7 @@ const char* geode_template_starter(int index) {
 
 int geode_template_is_starter(const char* id) { return files::isStarter(textOf(id)) ? 1 : 0; }
 
-int geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) {
+int geode_template_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope) try {
     if (!out_frame || n < SceneParams::kFieldCount || !out_text || !out_envelope) return -1;
     thread_local files::TemplateRead read;
     thread_local std::string document;
@@ -278,6 +292,8 @@ int geode_template_read(const char* text, float* out_frame, int n, const char** 
     out_envelope[0] = look.attack;
     out_envelope[1] = look.decay;
     return 1;
+} catch (...) {
+    return -1;
 }
 
 const char* geode_template_create(const char* name, long long created_at_ms, const char* scene_id, float attack, float decay,
@@ -317,10 +333,12 @@ const char* geode_template_new_copy(const char* text, const char* name, long lon
     return hold(out, files::writeTemplate(read.value));
 }
 
-const char* geode_template_link_in(const char* text) {
+const char* geode_template_link_in(const char* text) try {
     thread_local std::string out;
     const auto link = files::templateLinkIn(textOf(text));
     return link ? hold(out, *link) : nullptr;
+} catch (...) {
+    return nullptr;
 }
 
 const char* geode_template_link_of(const char* preset_link, int max_length) {

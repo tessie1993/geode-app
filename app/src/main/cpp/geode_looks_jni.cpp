@@ -32,6 +32,7 @@ std::vector<std::string> stringsOf(JNIEnv* env, jobjectArray array) {
         Utf8Chars chars(env, item);
         out.emplace_back(textOf(chars));
         env->DeleteLocalRef(item);
+        if (env->ExceptionCheck()) break;  // out of memory: the caller's Java frame throws, nothing more is read
     }
     return out;
 }

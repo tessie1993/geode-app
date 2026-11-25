@@ -35,6 +35,7 @@ Texts textsOf(JNIEnv* env, jobjectArray array, bool keepNull = false) {
         out.owned.emplace_back(textOf(chars));
         absent.push_back(keepNull && item == nullptr);
         env->DeleteLocalRef(item);
+        if (env->ExceptionCheck()) break;  // out of memory: the caller's Java frame throws, nothing more is read
     }
     for (size_t i = 0; i < out.owned.size(); ++i) out.pointers.push_back(absent[i] ? nullptr : out.owned[i].c_str());
     return out;

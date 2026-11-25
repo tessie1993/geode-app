@@ -708,7 +708,7 @@ internal fun CardSubHeader(title: String) {
     if (!sectionVisible()) return
     Text(
         title,
-        modifier = Modifier.padding(top = GeodeSpacing.S, bottom = GeodeSpacing.XXS),
+        modifier = Modifier.padding(top = GeodeSpacing.S, bottom = GeodeSpacing.XXS).semantics { heading() },
         style = MaterialTheme.typography.labelLarge,
         color = accentTextColor(),
     )

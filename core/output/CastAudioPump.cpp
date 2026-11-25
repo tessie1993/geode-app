@@ -5,6 +5,7 @@
 
 #include "audio/dsp/PcmConvert.hpp"
 #include "audio/output/OutputFifo.hpp"
+#include "sound/PlayerSignals.hpp"
 
 namespace geode::output {
 
@@ -45,7 +46,8 @@ int64_t CastAudioPump::gain() {
 
 int CastAudioPump::pump(bool fromMusic, int64_t untilUs) {
     blockFrames_ = 0;
-    const int64_t gained = fromMusic ? gain() : 0;
+    // Another app's audio writes the player's own ring while it is captured; that is not the music.
+    const int64_t gained = fromMusic && sound::player::playerIsSource() ? gain() : 0;
     const int64_t heldBefore = counts_.held;
     const CastAudio::Step s = counts_.step(gained, untilUs);
     int16_t* hold = hold_.data();

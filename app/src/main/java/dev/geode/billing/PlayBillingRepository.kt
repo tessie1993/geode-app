@@ -204,7 +204,7 @@ class PlayBillingRepository(
      * Play holds for this user, so a missing Pro purchase is a revocation; an update from
      * [onPurchasesUpdated] carries only what changed and never revokes.
      */
-    private suspend fun handle(
+    private fun handle(
         purchases: List<Purchase>,
         fullList: Boolean,
     ) {
@@ -244,12 +244,13 @@ class PlayBillingRepository(
         scope.launch {
             try {
                 var tries = 1
-                while (true) {
+                do {
                     val result = acknowledgeOnce(token)
-                    if (result.responseCode == BillingResponseCode.OK) break
-                    RingLog.note(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
-                    delay(acknowledgeRetryDelayMs(result.responseCode, tries++) ?: break)
-                }
+                    val failed = result.responseCode != BillingResponseCode.OK
+                    if (failed) RingLog.note(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
+                    val wait = if (failed) acknowledgeRetryDelayMs(result.responseCode, tries++) else null
+                    if (wait != null) delay(wait)
+                } while (wait != null)
             } finally {
                 acknowledging.remove(token)
             }
@@ -374,7 +375,6 @@ private const val ACKNOWLEDGE_RETRY_MS = 2_000L
 private val ACKNOWLEDGE_RETRIABLE =
     setOf(
         BillingResponseCode.NETWORK_ERROR,
-        BillingResponseCode.SERVICE_TIMEOUT,
         BillingResponseCode.SERVICE_DISCONNECTED,
         BillingResponseCode.SERVICE_UNAVAILABLE,
         BillingResponseCode.ERROR,

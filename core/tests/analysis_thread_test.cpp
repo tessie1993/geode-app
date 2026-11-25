@@ -609,7 +609,7 @@ struct LockHolder {
 // A pass that could not take the lock leaves the queue whole: the controls sent after it join the back, and the
 // next pass applies all of them in the order sent (the last tuning wins).
 void orderSurvivesAFailedPass() {
-    PcmRing ring(kRingFrames);
+    PcmRing ring(kRingFrames, 2, kRunway);
     AnalysisThread at(ring, false);
     check(at.setTuning(gained(2.0f)), "tuning X queues");
     {
@@ -628,7 +628,7 @@ void orderSurvivesAFailedPass() {
 // The thread's first pass fails on the held lock with a control waiting and no writer or sender left to notify:
 // it must come back by itself once the lock is free.
 void failedPassWakesTheThread() {
-    PcmRing ring(kRingFrames);
+    PcmRing ring(kRingFrames, 2, kRunway);
     AnalysisThread at(ring, false);
     check(at.setTuning(gained(2.5f)), "tuning queues before the thread starts");
     LockHolder held(at);

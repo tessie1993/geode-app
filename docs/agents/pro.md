@@ -11,7 +11,6 @@ One fact per line. Add a gate as a new bullet.
 - Free gets the loose shader styles, the first style of each style family and the neon opener, Neon Chrome Sea.
 - Neon Chrome Sea is also every install's first style (`FreeTier.FIRST_STYLE_ID`).
 - The others in each family are Pro (`FreeTier.familyProIds`); the catalogue names each family's opener.
-- Note & key reactions are free (Settings › Sound reaction, on by default); their Customize › Advanced card is Pro like every card.
 
 ## Gates
 

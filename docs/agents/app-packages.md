@@ -243,7 +243,6 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `AutoDirectorStore` keeps the auto-director's switch and reach (Visuals quick settings), play seed and Customize's keep set, pushed to native the same way.
 - `AutoDirectorStore` also keeps the Auto Director's settings as the text native writes (`auto_director_tuning`); Visuals › Settings draws native's rows under Director settings.
 - Its `setKept` is the keep set's one writer: the saved set at start, then each lock change `ui/ModulationController` saves.
-- Note & key reactions' switch is `NoteResponseStore` (`ui/NoteResponseSettings`).
 - Studio's project and template folders are `EditorProjectStore`: `files/projects/<id>/`; the old replayed takes are deleted at start.
 - Where recordings go, asked once, is `RecordSaveStore`.
 - What recordings are encoded at and how long one may run is `RecordPrefsStore` (Settings › Export › Record): resolution and frame rate, which follow the Custom defaults until picked, and a maximum length.

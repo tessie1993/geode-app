@@ -26,7 +26,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - The reaction sources `Transient`, `TransientEnv` and `TransientSharpness` read those fields.
 - The LFO source Transient (`ModSource::Transient`) follows `transientEnv`; it followed the flux onset's `onsetEnv` before.
 - `drive` = loudness × texture.
-- `sound/DriveGain` turns `drive` into the gain that `MotionField`, `CameraRig`, `NoteResponse` and `Reactions` multiply the magnitude of audio-driven motion by.
+- `sound/DriveGain` turns `drive` into the gain that `CameraRig` and `Reactions` multiply the magnitude of audio-driven motion by.
 - The gain is full at a drive of 0.5 (`kDriveFull`), an ordinary well-mastered song, since a hit is weighed by the drive in the engine too.
 - The frame's `flux` compares each bin with its neighbourhood ~30 ms before (`sound/OnsetFlux`, a maximum filter a semitone wide), so vibrato and slides do not read as onsets.
 - The relative bass/mid/treble ratios only shape the pulse.
@@ -135,10 +135,6 @@ The renderer runs these in order each frame.
 - Before the look, the reach shuffles, and the Customize randomizer rolls some categories at a section, drop or long stretch from the play seed; sliders glide and toggles flip on the moment.
 - After its axes, the reach adds three slow waves and three sound followers of its own.
 - All reach offsets sit over the user's params and keep off kept controls, the style's scope, a control the user just moved and the hand mask.
-- `NoteResponse` (Note & key reactions): notes, chords, key and mood read into the six style knobs only, drums weighted by measured percussiveness.
-- `NoteResponse` writes no scene param and no colour, so what moves on a note, chord or a drop is the reaction matrix alone.
-- `NoteResponse`'s PULSE follows the beat and bar phases while the beat is sure (beatConf 0.2 to 0.45 blends them in) and the drum envelopes while it is not.
-- `NoteResponse`'s FLOW follows the song part, the feeling and the phrase's arc (while the beat is sure), never the loudness fields.
 - Then the director's axes.
 - Then the macro bank (`core/viz/MacroBank`): the user's global knobs, each an offset on the params it links, `geode_macro_bank_set`.
 - A knob may link any float a Customize control sets; the knob editor's Add random and New ranges are native rolls.
@@ -146,8 +142,6 @@ The renderer runs these in order each frame.
 - Then LFO, then ADSR.
 - An LFO or envelope slot set "On a moment" restarts or fires on Customize › Music's moments (`MomentWatch` in `Reactions`).
 - Then `Reactions` (the reaction matrix).
-- Then `MotionField`.
-- `MotionField`'s bar wave (`uBarOsc`, the breath) follows Rhythm's `barPhase` while the beat is sure and the style's music clock while it is not, blended over a second.
 - Then `safety::apply` (`core/viz/VisualSafety`), the unconditional clamp, last.
 - In an export the renderer also steps `StyleSchedule` (the segment's style switches, by time and by beat, on the picture's clock, so it holds in silence).
 - Then it steps `CameraRig`, the one camera every render path shares, which also reads the sound frame for its own cuts, trauma shake and clock-driven orbit.
@@ -256,7 +250,7 @@ The renderer runs these in order each frame.
 - 3D styles read the rig through `lib_camera`.
 - Every style hears sound through `lib_sound`, pasted by `lib_scene_uniforms`; scenes upload it with `core/viz/SoundUniforms`.
 - A style's six knobs are `uKnob[6]` in `lib_scene_uniforms` (k0 PULSE … k5 SPACE).
-- `ShaderScene::uploadParams` takes the knobs from `NoteResponse` (exactly 0.5 while it is off).
+- `ShaderScene` uploads the `uKnob` knobs and the audio-motion uniforms (`lib_scene_motion`) as neutral constants: nothing computes them.
 - The neon set (`glow_vortex`, `neon_chrome_sea`, `black_hole`, `hex_hive`, `mandelbox_cathedral`) shares `lib_neon`.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
 - `lib_shell` maps a style's normalized inputs (0..1, 0.5 = the tuned constant) to their ranges (`shellMap`) and applies Spawn, Fractal and the two layers to a style's own field (`SHELL_FIELD3`, `SHELL_DENSITY3`, `SHELL_FIELD2`); the hooks are 0.0 until the engine uploads them.
@@ -319,7 +313,7 @@ The renderer runs these in order each frame.
 - A new copy opens at the aim point; nothing is fed back, so the style stays live.
 - Customize › Dive shapes it: `diveSpacing`, `diveShape`, `diveBlend`, `diveFog`, `diveLens`, `diveTwist`, `diveAimX/Y`.
 - `diveFollow` sets how much of the music's follow (below) it takes.
-- Nothing else moves it: no style Zoom, camera, Director, macro, Note & key or reaction, and no hit, band or beat.
+- Nothing else moves it: no style Zoom, camera, Director, macro or reaction, and no hit, band or beat.
 - `endless::Follow` is the music's only hand on it: the absolute `drive` averaged over the last 8 beats `Rhythm` measured (never a tempo it did not measure), worth ±15 %, off without a locked beat.
 - It stops in silence like everything else: no sound, no movement.
 - The renderer's step is the frame's times `sound::motionRate`, 0 once `presence` has faded.

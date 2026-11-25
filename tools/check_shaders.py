@@ -87,9 +87,9 @@ def speed_twice(text):
     never multiplies it by uSpeed again. `uTime * uSpeed` squares Speed and,
     because it is elapsed time times the live slider, any Speed change (the
     slider, an LFO, a macro, a reaction route) jumps the picture by
-    elapsed * delta-speed. The motion field's flow phase and the sound
-    engine's band clocks are accumulated the same way: their Speed-scaled
-    forms are uFlowTime and uSoundTimeSped (core/viz/modulation/SpeedClock.hpp). Read per
+    elapsed * delta-speed. The sound engine's band clocks are accumulated the
+    same way: their Speed-scaled form is uSoundTimeSped (core/viz/modulation/SpeedClock.hpp);
+    uFlowPhase and uFlowTime are held constant now. Read per
     statement, comments stripped, so `uTime * 0.2 * uSpeed` is caught too and
     prose about the rule is not.
     """

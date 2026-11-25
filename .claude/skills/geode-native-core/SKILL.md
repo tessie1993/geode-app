@@ -12,7 +12,7 @@ description: Use when working in Geode's C++20 core (core/, app/src/main/cpp) - 
 - `app/src/main/cpp/*_jni.cpp` only marshal values into the `extern "C"` ABI in `core/api/geode_api.h`. No logic in JNI files.
 - Every JNI `external fun` lives in the `*Native` object named for its JNI file: `geode_<x>_jni.cpp` declares `<X>Native` (`app/src/main/java/dev/geode/engine/bridge/<X>Native.kt`, in `:app`), `geode_jni.cpp` declares `GeodeNative`, and `geode_viz_jni.cpp`'s are split by name prefix (`VizNative`, `MacroNative`, `ParamsNative`, ...). The JNI symbol is `Java_dev_geode_engine_bridge_<X>Native_<name>`. A new native call changes three places: `geode_api.h`, its `*_jni.cpp`, the object's `<X>Native.kt`. Every object but `GeodeNative` runs `GeodeNative.ensureLoaded()` in its `init`; keep constants `const val` so a JVM test reading one never loads the library.
 - Rendering runs on the native stage thread (`core/stage`, one per surface), which owns the EGL context. A new scene is built across frames (`core/viz/gl/ScenePrep.hpp`, `ProgramStager`), never in one, so the main thread never waits out a whole build. Exports (`geode_viz_set_offscreen`) build each scene whole.
-- Per frame: `Director` → `NoteResponse` → LFO → ADSR → `Reactions` → `MotionField` → `safety::apply`, then `CameraRig`. Keep new per-frame work allocation-free.
+- Per frame: `Director` → LFO → ADSR → `Reactions` → `safety::apply`, then `CameraRig`. Keep new per-frame work allocation-free.
 
 ## Check and test on the host
 

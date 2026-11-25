@@ -145,7 +145,7 @@ typedef struct GeodeSoundFrame {
     float bpm;          /* tempo, beats per minute, 0 = none heard (never a stand-in number); the last heard
                            while unlocked, and 0 again once a whole 6 s window has held no beat. Within GEODE_SOUND_BPM_SLOWEST..FASTEST, the detector's search limits */
     float beatPhase;    /* 0 on the beat … 1 just before the next: 1 - beatPhase is how soon it lands */
-    float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above ~0.35) */
+    float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above GEODE_SOUND_BEAT_LOCK_ON) */
     float beat;         /* trigger on each beat the oscillator predicts */
     float beatCount;    /* beats so far, a count wrapping at 4096 */
     float downbeat;     /* trigger on the first beat of each bar (the beat slot the kicks favour, 4/4) */

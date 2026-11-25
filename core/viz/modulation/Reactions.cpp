@@ -599,7 +599,7 @@ void ReactSignals::stepDerived(const GeodeSoundFrame& f, float dt, const sound::
     // A key change: KeyHue settled somewhere new and held it for a moment. The first key heard is no change, and a
     // silent frame (no key clarity) moves nothing.
     keyChange_ *= std::exp(-dt / kKeyChangeSeconds);
-    if (clean(f.keyClarity) > 0.0f) {
+    if (clean(f.keyClarity) >= kKeyTrusted) {
         const float key = clean(f.keyHue);
         if (!keyKnown_) {
             settledKey_ = key;
@@ -790,8 +790,9 @@ void ReactionEngine::apply(SceneParams& p) const {
     if (scale <= 0.0f) return;
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
+        if (!r.enabled || r.target == LfoTarget::None) continue;
         ModChain chain{};
-        if (!r.enabled || r.target == LfoTarget::None || chainOf(r.target, chain)) continue;
+        if (chainOf(r.target, chain)) continue;
         applyLfoTargetInPlace(p, r.target, out_[static_cast<size_t>(i)] * scale);
     }
 }

@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 /* The Event Responder (core/viz/modulation/Responder): Customize › Music's Song event rows, each owning an ordered
-   list of responses. The shell draws the rows and the cards and calls these; every default, range, gate and the
+   list of responses. The shell draws the rows and the cards and calls these; every default, range and the
    whole of what plays is native. Pure calls take the saved reactions text (api/geode_modulation_api.h's: the
    responses ride in the same text as the routes) and hand the new text back; the three geode_viz_* calls need a
    renderer. A text out: `out` gets as much as `capacity` holds, NUL-terminated, and the return is the length the
@@ -44,10 +44,13 @@ extern "C" {
    index of its route in geode_mod_routes_playing (edit it with GEODE_MOD_EDIT_ROUTE_SET), else -1. */
 #define GEODE_RESP_ORIGIN_USER 0
 #define GEODE_RESP_ORIGIN_STYLE 1
-#define GEODE_RESP_LIST_VALUES 22
+#define GEODE_RESP_LIST_VALUES 24
 
-/* geode_resp_rows, per row: on, the user's responses, the style's default responses, and whether the row
-   holds back the style's routes while it is off. */
+/* A listed response: the fields, then origin, route index, and (style defaults only, else -1) the route's source
+   and target ordinals, which are what GEODE_RESP_EDIT_STYLE_MUTE takes. A style default's ENABLED is its own
+   switch: 0 once the user has muted that route. */
+/* geode_resp_rows, per row: on, the user's responses, the style's default responses, and how many of those
+   are muted. A row's switch is for its responses alone: the style's own routes play whatever the rows say. */
 #define GEODE_RESP_ROW_VALUES 4
 
 /* geode_resp_edit's `op`. */
@@ -55,7 +58,8 @@ extern "C" {
 #define GEODE_RESP_EDIT_ADD 1    /* row, value = the target ordinal a new parameter response moves */
 #define GEODE_RESP_EDIT_REMOVE 2 /* row, index = the nth user response of the row */
 #define GEODE_RESP_EDIT_SET 3    /* row, index, field (GEODE_RESP_*), value */
-#define GEODE_RESP_EDIT_CLEAR 4  /* every response removed and every row off again */
+#define GEODE_RESP_EDIT_CLEAR 4  /* every response removed, every row off and every style route back on */
+#define GEODE_RESP_EDIT_STYLE_MUTE 5 /* row = the route's source ordinal, index = its target ordinal, value 1 mutes, 0 unmutes */
 
 /* geode_viz_responder_status: the rows' event lights (0..1, easing out after the event), then these. */
 #define GEODE_RESP_STATUS_COST GEODE_RESP_ROWS /* this frame's work, in route evaluations */
@@ -66,7 +70,11 @@ extern "C" {
 #define GEODE_RESP_STATUS_ROUTES (GEODE_RESP_ROWS + 5)  /* routes of the matrix that play */
 #define GEODE_RESP_STATUS_VALUES (GEODE_RESP_ROWS + 6)
 
-/* The saved text of a new style: every row off, the rows holding back the style's own routes. */
+/* Downgrading: a build from before the Event Responder reads a list that carries `routes|auto` (Auto routes with
+   responses) as a list of zero routes of the user's, so the style's own routes stop playing there. There is no
+   migration; the line is what keeps this build from reading such a list as the user's. */
+
+/* The saved text of a new style: every row off, nothing muted; that is no text at all, so the style's own routes play. */
 GEODE_API int geode_resp_default_text(char* out, int capacity);
 /* A row's saved name (KICK, SNARE, … KEY_CHANGE, COLLIDE), static; NULL for a row there is none of. */
 GEODE_API const char* geode_resp_row_name(int row);

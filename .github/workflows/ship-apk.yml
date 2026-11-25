@@ -8,6 +8,8 @@ name: Ship BeatRealms 3D APK
 # Architecture gates (arch-map.yml). The APK is built and published only when all three are green.
 # A push to main ships every green merge as its own pre-release (see the concurrency comment).
 # A manual run ships the ref it is given, after the same checks on that commit.
+# The APK is built twice (once by the checks, once here): the version name carries the release
+# number, which is reserved only once the checks are green.
 #
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
@@ -48,7 +50,8 @@ permissions:
 # each with its own number (reserved by tag push, so concurrent runs never share one).
 # Nothing is cancelled, so no release is left half-published.
 concurrency:
-  group: geode-ship-${{ github.sha }}
+  # A manual run is keyed on its ref as well: two runs from main for different refs must not share a group.
+  group: geode-ship-${{ github.sha }}-${{ inputs.ref || '' }}
   cancel-in-progress: false
 
 env:
@@ -124,7 +127,7 @@ jobs:
           path: .ci
           persist-credentials: false
 
-      # Build and lint above wrote this run's Gradle cache and ccache, so this build reads them.
+      # Build and lint above saved this run's ccache, so the native build here is mostly hits.
       - name: Set up the Android build
         uses: ./.ci/.github/actions/android-build-setup
         with:

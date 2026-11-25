@@ -145,6 +145,9 @@ struct ReactRoute {
     // True for a route an Event Responder response compiled (viz/modulation/Responder): it reads the level the
     // responder gives it (ReactionEngine::setExternal) instead of `source`. Never saved: the responses are.
     bool external = false;
+    // True for a route the style's own DNA dealt (mergeHand), as against one the user added. Never saved. Only a
+    // style route can be switched off on its own by the Event Responder; the user's are never held back.
+    bool styleDefault = false;
 };
 
 // Every source value for one frame, computed once and shared by all routes.

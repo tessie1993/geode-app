@@ -84,8 +84,9 @@ enum class Field {
     P0, P1, P2, P3, P4, P5,
 };
 constexpr int kFieldCount = static_cast<int>(Field::P5) + 1;
-// A listed response: its fields, then its Origin and (for a style default) the route's index in what plays.
-constexpr int kListValues = kFieldCount + 2;
+// A listed response: its fields, then its Origin, and for a style default the route's index in what plays and the
+// ReactSource and LfoTarget ordinals that name it (-1 for the user's). A style default's Enabled is its own switch.
+constexpr int kListValues = kFieldCount + 4;
 
 // The rows' saved names, in Moment order.
 constexpr std::array<std::string_view, kRows> kRowNames = {
@@ -117,22 +118,33 @@ inline void clampResponse(Response& r) {
     for (float& p : r.params) p = std::clamp(finiteOr(p, 0.0f), -kMaxParam, kMaxParam);
 }
 
-// What the bank holds for one renderer: which rows are on, and every row's responses in order.
+// A style's own route (its DNA) the user switched off, named by what it listens to and what it moves, which stay
+// the same when the style is dealt again (an index in the matrix would not).
+struct Mute {
+    int source = 0;  // a ReactSource ordinal
+    int target = 0;  // an LfoTarget ordinal
+};
+constexpr int kMaxMutes = 64;
+
+// What the bank holds for one renderer: which rows are on, every row's responses in order, and the style's own
+// routes that are switched off. A row's switch is for its responses alone: the style's routes play whatever the
+// rows say, and the user's own routes are never held back by anything here.
 struct Config {
     std::array<bool, kRows> rowOn{};
-    // True: a row that is off also holds back the style's own routes on its events (the "style default" chips),
-    // so nothing plays that its row does not show on. False (a list saved before the rows existed): the style's
-    // routes play as they always did.
-    bool gate = false;
     std::array<Response, kMaxResponses> responses{};
     int count = 0;
+    std::array<Mute, kMaxMutes> mutes{};
+    int muteCount = 0;
 };
 
-// A new style: every row off, the rows gating the style's own routes.
-inline Config newStyleConfig() {
-    Config c;
-    c.gate = true;
-    return c;
+// A new style: every row off, nothing muted.
+inline Config newStyleConfig() { return Config{}; }
+
+inline bool isMuted(const Config& c, int source, int target) {
+    for (int i = 0; i < c.muteCount && i < kMaxMutes; ++i) {
+        if (c.mutes[static_cast<size_t>(i)].source == source && c.mutes[static_cast<size_t>(i)].target == target) return true;
+    }
+    return false;
 }
 
 // The row's own routes of the matrix: the route's source belongs to a Moment (hand::momentOf), or is the
@@ -162,6 +174,9 @@ bool removeResponse(Config& c, int row, int nth);
 // number lands inside its range. The row field moves the response to the end of that row.
 bool setField(Config& c, int row, int nth, int field, float value);
 void setRowOn(Config& c, int row, bool on);
+// Switches a style route off (or on again) by its source and target ordinals. False for a pair that is no route
+// or when the list of mutes is full.
+bool setMuted(Config& c, int source, int target, bool muted);
 // The wire values of a response (kFieldCount of them, the order of Field).
 void fieldValues(const Response& r, float* out);
 
@@ -225,8 +240,8 @@ public:
     // row's switch, the Nth, the chance and the cooldown say. A Follow or While response plays as Once.
     void preview(const Response& r);
 
-    // Holds back the matrix's routes on the rows that are off (only while the config gates), then puts the
-    // parameter responses into the slots the matrix leaves free, taking them from its top. Call after the
+    // Switches off the style's own routes the config mutes (only routes marked `styleDefault`; the user's are never
+    // touched, and a row that is off holds back none), then puts the parameter responses into the slots the matrix leaves free, taking them from its top. Call after the
     // style's routes are in `routes`, and again whenever they, the config or the preview change.
     void compile(std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
 

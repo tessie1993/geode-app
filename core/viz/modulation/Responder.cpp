@@ -197,6 +197,26 @@ void setRowOn(Config& c, int row, bool on) {
     if (row >= 0 && row < kRows) c.rowOn[static_cast<size_t>(row)] = on;
 }
 
+bool setMuted(Config& c, int source, int target, bool muted) {
+    if (source < 0 || source >= kReactSourceCount || target <= static_cast<int>(LfoTarget::None) || target >= modtargets::kTargetCount) {
+        return false;
+    }
+    for (int i = 0; i < c.muteCount; ++i) {
+        Mute& m = c.mutes[static_cast<size_t>(i)];
+        if (m.source != source || m.target != target) continue;
+        if (!muted) {
+            for (int j = i; j + 1 < c.muteCount; ++j) c.mutes[static_cast<size_t>(j)] = c.mutes[static_cast<size_t>(j + 1)];
+            --c.muteCount;
+            c.mutes[static_cast<size_t>(c.muteCount)] = Mute{};
+        }
+        return true;
+    }
+    if (!muted) return true;
+    if (c.muteCount >= kMaxMutes) return false;
+    c.mutes[static_cast<size_t>(c.muteCount++)] = Mute{source, target};
+    return true;
+}
+
 void fieldValues(const Response& r, float* out) {
     out[static_cast<int>(Field::Enabled)] = r.enabled ? 1.0f : 0.0f;
     out[static_cast<int>(Field::Row)] = static_cast<float>(r.row);
@@ -255,11 +275,10 @@ void Bank::preview(const Response& r) {
 }
 
 void Bank::compile(std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
-    if (config_.gate) {
+    if (config_.muteCount > 0) {
         for (ReactRoute& r : routes) {
-            if (!r.enabled || r.external) continue;
-            const int row = rowOfSource(r.source);
-            if (row >= 0 && !config_.rowOn[static_cast<size_t>(row)]) r.enabled = false;
+            if (!r.enabled || r.external || !r.styleDefault) continue;
+            if (isMuted(config_, static_cast<int>(r.source), static_cast<int>(r.target))) r.enabled = false;
         }
     }
     status_.compiled = 0;

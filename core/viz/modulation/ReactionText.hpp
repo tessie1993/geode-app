@@ -18,7 +18,8 @@
 // as lines whose field count is never a route's eight, so a build that does not know them drops them as it drops
 // any line it cannot read, and a list saved before them reads as it always did:
 //   routes|auto         the user has no routes of their own (the style's play); only written beside responses
-//   gate|true           a row that is off also holds back the style's own routes on its events
+//   mute|SOURCE|TARGET  one of the style's own routes the user switched off, named by what it listens to and moves
+//   gate|true           read and ignored: written by a build whose rows held back the style's routes
 //   row|NAME|true       a row that is on (a row not named is off)
 //   response|ROW|enabled|KIND|TARGET|amount|CURVE|fadeIn|hold|fadeOut|UNIT|DRIVE|everyNth|chance|cooldown|p0|p1|p2|p3|p4|p5
 // Reading forgives as the routes do: an unknown row or target, or the wrong field count, drops the line; an unknown

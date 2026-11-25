@@ -18,8 +18,9 @@ object ResponderNative {
     external fun responderRowName(row: Int): String?
 
     /**
-     * Every row's [RESP_ROW_VALUES] (on, the user's responses, the style's default responses, whether it gates the
-     * style's routes), in row order, for the saved text (null: a new style's) on [styleId].
+     * Every row's [RESP_ROW_VALUES] (on, the user's responses, the style's default responses, how many of those are
+     * muted), in row order, for the saved text (null: a new style's) on [styleId]. A row's switch is for its
+     * responses alone: the style's own routes play whatever the rows say.
      */
     external fun responderRows(
         reactions: String?,
@@ -59,7 +60,7 @@ object ResponderNative {
     // Mirrors of GEODE_RESP_*.
     const val RESP_ROWS: Int = 15
     const val RESP_FIELDS: Int = 20
-    const val RESP_LIST_VALUES: Int = 22
+    const val RESP_LIST_VALUES: Int = 24
     const val RESP_ROW_VALUES: Int = 4
     const val RESP_ORIGIN_USER: Int = 0
     const val RESP_ORIGIN_STYLE: Int = 1
@@ -87,6 +88,7 @@ object ResponderNative {
     const val RESP_EDIT_REMOVE: Int = 2
     const val RESP_EDIT_SET: Int = 3
     const val RESP_EDIT_CLEAR: Int = 4
+    const val RESP_EDIT_STYLE_MUTE: Int = 5
 
     // The status values after the rows' lights.
     const val RESP_STATUS_COST: Int = 15

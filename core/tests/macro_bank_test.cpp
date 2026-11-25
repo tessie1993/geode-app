@@ -1,4 +1,4 @@
-// Host-side checks for the macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on
+// Host-side checks for the macro bank (core/viz/modulation/MacroBank): the user's knobs as weighted offsets on
 // scene params. Centre is the identity, a full turn each way moves every linked field by its weight
 // and never past its range, a link the style cannot show is skipped, the offset rides on a moved
 // base, every edit validates, the text survives a round trip and garbage, and the four built-in
@@ -25,13 +25,13 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/MacroBank.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/Params.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/MacroBank.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/params/Params.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 using namespace geode::viz;
 using macrobank::Bank;

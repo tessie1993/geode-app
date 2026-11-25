@@ -40,7 +40,7 @@ if [ "${1:-}" = --self-test ]; then
     expect false core/README.md
     expect false THIRD_PARTY_NOTICES
     expect false .github/workflows/build-lint.yml
-    expect false docs/agents/tests.md core/viz/Params.cpp
+    expect false docs/agents/tests.md core/viz/params/Params.cpp
     expect false gradle.properties
     echo "ci-docs-only self-test passed"
     exit 0

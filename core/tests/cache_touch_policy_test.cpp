@@ -1,11 +1,11 @@
-// Host-side checks for when a used program binary is stamped again (core/viz/CacheTouchPolicy.hpp):
+// Host-side checks for when a used program binary is stamped again (core/viz/gl/CacheTouchPolicy.hpp):
 // a hit stamped within the last day is left alone (no disk write per load), an older one and a program
 // still on probation are stamped. No GL, no files. Built and run by CI ("Native host tests").
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
 
-#include "viz/CacheTouchPolicy.hpp"
+#include "viz/gl/CacheTouchPolicy.hpp"
 
 using geode::viz::touchDue;
 using Dur = std::filesystem::file_time_type::duration;

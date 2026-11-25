@@ -1,4 +1,4 @@
-// The artwork palette (viz/ArtPalette), pinned to the Kotlin `dev.geode.analysis.ArtPalette` it replaces: the
+// The artwork palette (viz/colour/ArtPalette), pinned to the Kotlin `dev.geode.analysis.ArtPalette` it replaces: the
 // expected values below are that code's results worked by hand for each cover, so the port reads a cover as the
 // app did. Its two readers: Customize › Look's "Take the colours from the artwork" (base hue and span on the
 // palette slot, the confidence in its note) and the widget's glow (base hue and span).
@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/ArtPalette.hpp"
+#include "viz/colour/ArtPalette.hpp"
 
 using namespace geode::viz;
 

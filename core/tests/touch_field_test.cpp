@@ -1,13 +1,13 @@
-// Host-side checks for the touch field (core/viz/TouchField): a point that is not a number is dropped, not counted
+// Host-side checks for the touch field (core/viz/input/TouchField): a point that is not a number is dropped, not counted
 // as a finger, so the fingers that are real stay packed from the first slot and the anchor follows them. Built
 // and run by CI (.github/workflows/native-host-tests.yml); no device.
 //
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/touch_field_test.cpp core/viz/TouchField.cpp
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/touch_field_test.cpp core/viz/input/TouchField.cpp
 //     -o touch_field_test && ./touch_field_test
 #include <cmath>
 #include <cstdio>
 
-#include "viz/TouchField.hpp"
+#include "viz/input/TouchField.hpp"
 
 using geode::viz::TouchField;
 

@@ -9,7 +9,7 @@
 #include "library/PlaylistRules.hpp"
 #include "library/SessionDoc.hpp"
 #include "library/SmartPlaylist.hpp"
-#include "viz/LookFiles.hpp"
+#include "viz/looks/LookFiles.hpp"
 
 namespace {
 

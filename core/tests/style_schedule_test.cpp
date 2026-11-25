@@ -1,4 +1,4 @@
-// Host-side checks for an export segment's style schedule (core/viz/StyleSchedule). Built and run by CI
+// Host-side checks for an export segment's style schedule (core/viz/styles/catalogue/StyleSchedule). Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
 // What is pinned (#357): the entitlement handed to set() gates every style a schedule would draw. A take
@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/StyleSchedule.hpp"
+#include "viz/styles/catalogue/StyleSchedule.hpp"
 
 using geode::viz::StyleCue;
 using geode::viz::StyleSchedule;

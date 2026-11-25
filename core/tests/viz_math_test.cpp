@@ -14,19 +14,19 @@
 #include <string_view>
 
 #include "viz/BandTrim.hpp"
-#include "viz/BuildReport.hpp"
+#include "viz/gl/BuildReport.hpp"
 #include "viz/CameraRig.hpp"
-#include "viz/Catalogue.hpp"
-#include "viz/Circular.hpp"
-#include "viz/VisualSafety.hpp"
-#include "viz/EndlessZoom.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/ReactionDna.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/Reactions.hpp"
-#include "viz/ScenePrep.hpp"
-#include "viz/SpeedClock.hpp"
-#include "viz/TwistShape.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "util/Circular.hpp"
+#include "viz/modulation/VisualSafety.hpp"
+#include "viz/passes/EndlessZoom.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/ReactionDna.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/Reactions.hpp"
+#include "viz/gl/ScenePrep.hpp"
+#include "viz/modulation/SpeedClock.hpp"
+#include "viz/passes/TwistShape.hpp"
 
 using namespace geode::viz;
 
@@ -74,7 +74,7 @@ void followRouteTracksSource() {
     check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
 }
 
-// ---- Circular sources (viz/Circular.hpp): hues take the short arc, phases only go forward ----
+// ---- Circular sources (util/Circular.hpp): hues take the short arc, phases only go forward ----
 
 void circularHelpersTakeTheShortWay() {
     check(std::fabs(circular::arcDelta(0.95f, 0.05f) - 0.1f) < 1e-5f, "0.95 -> 0.05 is +0.1 round the seam, not -0.9");
@@ -1578,7 +1578,7 @@ void motionFieldBarWaveFollowsTheHeardBar() {
     check(std::fabs(m.state().barOsc - 0.5f) < 0.02f, "with no beat heard the wave is the clock's again, not a stand-in bar");
     check(jump < 0.05f, "losing the beat eases the wave over, never jumps it");
 }
-// ---- Speed-integrated clocks (viz/SpeedClock, MotionField::State::flowTime) ----
+// ---- Speed-integrated clocks (viz/modulation/SpeedClock, MotionField::State::flowTime) ----
 
 // A frame whose loudness wanders, so the flow rate is not a constant.
 GeodeSoundFrame wandering(int k) {

@@ -1,4 +1,4 @@
-// Host-side checks for core/viz/TouchSmear: Settings › Gestures & controls › Touch › Smear turns the fingers the
+// Host-side checks for core/viz/input/TouchSmear: Settings › Gestures & controls › Touch › Smear turns the fingers the
 // touch field holds into kicks on the flow field, and the composite bends the picture by it. Off kicks nothing,
 // on kicks once per moving finger, the bend is the strength slider's, fades after the last kick, holds in
 // silence and is scaled by reduced motion.
@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include "viz/TouchField.hpp"
-#include "viz/TouchSmear.hpp"
+#include "viz/input/TouchField.hpp"
+#include "viz/input/TouchSmear.hpp"
 
 using namespace geode::viz;
 

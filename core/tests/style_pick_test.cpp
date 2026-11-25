@@ -1,4 +1,4 @@
-// Host-side checks for Visuals › Styles' Random and list order (core/viz/StylePick, geode_styles_*). No GL, no
+// Host-side checks for Visuals › Styles' Random and list order (core/viz/styles/catalogue/StylePick, geode_styles_*). No GL, no
 // device.
 //
 // What is pinned (owner, 2026-11-12: "at style selection screen current playing must be on top listed. All style
@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/StylePick.hpp"
+#include "viz/styles/catalogue/StylePick.hpp"
 
 namespace pick = geode::viz::style_pick;
 namespace auto_draw = geode::viz::auto_draw;

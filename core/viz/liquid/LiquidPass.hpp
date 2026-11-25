@@ -3,8 +3,8 @@
 
 #include <string>
 
-#include "viz/Program.hpp"
-#include "viz/ShaderSource.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/glsl/ShaderSource.hpp"
 #include "viz/liquid/FeedbackMotion.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 
@@ -49,7 +49,7 @@ public:
 
     LiquidPass() = default;
     ~LiquidPass() { release(); }
-    // Owns its program and targets: neither copied nor moved (viz/GlHandle.hpp).
+    // Owns its program and targets: neither copied nor moved (viz/gl/GlHandle.hpp).
     LiquidPass(const LiquidPass&) = delete;
     LiquidPass& operator=(const LiquidPass&) = delete;
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& vert, bool halfFloat, std::string* error);

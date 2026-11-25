@@ -1,4 +1,4 @@
-// Life's births (viz/Births): nothing is born at Life 0, the same clock always gives the same births, every
+// Life's births (viz/passes/Births): nothing is born at Life 0, the same clock always gives the same births, every
 // collapse kind comes round, Life brings the births in and pushes their drift, and the clock is the only input.
 #include <array>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <string>
 #include <type_traits>
 
-#include "viz/Births.hpp"
+#include "viz/passes/Births.hpp"
 
 using namespace geode::viz;
 

@@ -2,7 +2,7 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/ParamHistory.hpp"
+#include "viz/panel/ParamHistory.hpp"
 
 namespace history = geode::viz::param_history;
 

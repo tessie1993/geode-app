@@ -1,5 +1,5 @@
-// Host-side checks for Customize's undo history (core/viz/ParamHistory, geode_param_history_*) and its dice's
-// rules (core/viz/PanelRoll), as the Kotlin panel behaved before they moved here. No GL, no device.
+// Host-side checks for Customize's undo history (core/viz/panel/ParamHistory, geode_param_history_*) and its dice's
+// rules (core/viz/panel/PanelRoll), as the Kotlin panel behaved before they moved here. No GL, no device.
 //
 // What is pinned:
 // - edits within 700 ms fold into one entry, a gap starts a new one, a discrete write is always its own and the
@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/PanelRoll.hpp"
-#include "viz/ParamHistory.hpp"
+#include "viz/panel/PanelRoll.hpp"
+#include "viz/panel/ParamHistory.hpp"
 
 namespace history = geode::viz::param_history;
 namespace roll = geode::viz::panel_roll;

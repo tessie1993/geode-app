@@ -44,7 +44,7 @@ class Pass {
 public:
     Pass() = default;
     virtual ~Pass() = default;
-    // A pass owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    // A pass owns GL names: neither copied nor moved (viz/gl/GlHandle.hpp).
     Pass(const Pass&) = delete;
     Pass& operator=(const Pass&) = delete;
     virtual bool wants(const FrameCtx&) const = 0;                // false: skipped

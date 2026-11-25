@@ -1,4 +1,4 @@
-// Host-side checks for Auto's style timer (core/viz/AutoTimer, geode_auto_timer_*). No GL, no device.
+// Host-side checks for Auto's style timer (core/viz/director/AutoTimer, geode_auto_timer_*). No GL, no device.
 //
 // What is pinned:
 // - the wait is the user's interval plus a spread drawn per look: never shorter than the interval, never
@@ -6,7 +6,7 @@
 // - a timer that is not running (off, paused, nothing to step to) is never due and holds nothing;
 // - the interval is read on every poll, and a restart's new wait is the hold at once, so a look put up
 //   right after the step is held for the wait that will really pass;
-// - Auto's random draw (core/viz/AutoDraw) never brings back the entry on screen while there is another, so the
+// - Auto's random draw (core/viz/director/AutoDraw) never brings back the entry on screen while there is another, so the
 //   same style (or look) cannot come up twice running, and it still reaches every other entry.
 #include <algorithm>
 #include <cmath>
@@ -16,8 +16,8 @@
 #include <set>
 
 #include "api/geode_api.h"
-#include "viz/AutoDraw.hpp"
-#include "viz/AutoTimer.hpp"
+#include "viz/director/AutoDraw.hpp"
+#include "viz/director/AutoTimer.hpp"
 
 namespace auto_timer = geode::viz::auto_timer;
 namespace auto_draw = geode::viz::auto_draw;

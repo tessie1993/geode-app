@@ -1,4 +1,4 @@
-// Host-side checks for core/viz/CacheSentinels (#381): the program-binary cache's crash sentinel,
+// Host-side checks for core/viz/gl/CacheSentinels (#381): the program-binary cache's crash sentinel,
 // shared by every Renderer in the process. Built and run by CI ("Native host tests" in
 // .github/workflows/android.yml) with the system compiler; no GL, no files.
 //
@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-#include "viz/CacheSentinels.hpp"
+#include "viz/gl/CacheSentinels.hpp"
 
 using geode::viz::CacheSentinels;
 

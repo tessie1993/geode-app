@@ -181,11 +181,11 @@ void aRouteSnapsOnItsFirstFrame() {
     check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "a route switched back on snaps again");
 }
 
-// The same sound through the same route at 30, 60 and 120 fps reads the same at equal times (the steps sit on frame boundaries).
+// The same sound through the same route at 30, 60, 90 and 144 fps reads the same at equal times (the steps sit on frame boundaries).
 void aRouteSmoothsTheSameAtAnyFrameRate() {
-    float at[3] = {0.0f, 0.0f, 0.0f};
+    float at[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     int n = 0;
-    for (int fps : {30, 60, 120}) {
+    for (int fps : {30, 60, 90, 144}) {
         ReactionEngine e;
         e.routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.25f, 0.5f};
         GeodeSoundFrame f = silence();
@@ -195,7 +195,8 @@ void aRouteSmoothsTheSameAtAnyFrameRate() {
         }
         at[n++] = e.output(0);
     }
-    check(std::fabs(at[0] - at[1]) < 1e-3f && std::fabs(at[1] - at[2]) < 1e-3f, "a smoothed route agrees at 30, 60 and 120 fps");
+    check(std::fabs(at[0] - at[1]) < 1e-3f && std::fabs(at[0] - at[2]) < 1e-3f && std::fabs(at[0] - at[3]) < 1e-3f,
+          "a smoothed route agrees at 30, 60, 90 and 144 fps");
 }
 
 void triggersHoldAndSilenceIsQuiet() {

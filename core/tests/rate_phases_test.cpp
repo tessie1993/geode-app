@@ -56,9 +56,9 @@ void aChangeOfSpeedNeverJumpsThePhase() {
     check(slow > 0.0 && std::fabs(slow - 0.05 * dt) < 1e-6, "a lower speed slows the phase and never runs it back");
 }
 
-// A ramp 0 -> 2 over 4 s has the integral 2, at 30, 60 and 120 fps.
+// A ramp 0 -> 2 over 4 s (slope 0.5) has the integral 0.25 * 4^2 = 4, at 30, 60, 90 and 144 fps.
 void aRampsPhaseIsItsIntegral() {
-    for (int fps : {30, 60, 120}) {
+    for (int fps : {30, 60, 90, 144}) {
         RatePhases r;
         SceneParams p;
         const float dt = 1.0f / static_cast<float>(fps);
@@ -69,7 +69,7 @@ void aRampsPhaseIsItsIntegral() {
             p.rotation = static_cast<float>(0.5 * t);
             r.step(p, dt);
         }
-        check(std::fabs(r.phase(ParamSlot::rotation) - 2.0) < 1e-3, "the ramp's phase is its integral at " + std::to_string(fps) + " fps");
+        check(std::fabs(r.phase(ParamSlot::rotation) - 4.0) < 1e-3, "the ramp's phase is its integral at " + std::to_string(fps) + " fps");
     }
 }
 

@@ -1,5 +1,5 @@
 // Host checks for the modulation cable's smoothing step (core/viz/modulation/Slew.hpp): the same input gives the same
-// value at equal times at 30, 60 and 120 fps, no smoothing follows the target, and a huge dt lands on it without overshoot.
+// value at equal times at 30, 60, 90 and 144 fps, no smoothing follows the target, and a huge dt lands on it without overshoot.
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -33,14 +33,15 @@ float run(int fps, float seconds, float tau) {
 }
 
 void theSameInputGivesTheSameValueAtAnyFrameRate() {
-    for (float at : {0.75f, 1.0f, 1.5f, 2.0f}) {
+    // Read times that are whole frames at every rate below (1.0 s, 1.5 s, 2.0 s).
+    for (float at : {1.0f, 1.5f, 2.0f}) {
         const float a = run(30, at, 0.2f);
-        const float b = run(60, at, 0.2f);
-        const float c = run(120, at, 0.2f);
-        check(std::fabs(a - b) < 1e-4f && std::fabs(b - c) < 1e-4f, "30, 60 and 120 fps agree at " + std::to_string(at) + " s");
+        for (int fps : {60, 90, 144}) {
+            check(std::fabs(a - run(fps, at, 0.2f)) < 1e-4f, std::to_string(fps) + " fps agrees with 30 fps at " + std::to_string(at) + " s");
+        }
     }
-    // One time constant of a held target covers 1 - 1/e of the gap, at any rate.
-    for (int fps : {30, 60, 120}) {
+    // One time constant of a held target covers 1 - 1/e of the gap, at any rate (0.2 s is a whole number of frames at these).
+    for (int fps : {30, 60, 90, 150}) {
         float y = 0.0f;
         for (int i = 0; i < fps / 5; ++i) y = slew::step(y, 1.0f, 1.0f / static_cast<float>(fps), 0.2f);
         check(std::fabs(y - (1.0f - std::exp(-1.0f))) < 1e-4f, "one tau covers 63% of the gap at " + std::to_string(fps) + " fps");

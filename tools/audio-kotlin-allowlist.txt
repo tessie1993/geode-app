@@ -25,5 +25,4 @@ permanent app/src/main/java/dev/geode/audio/AiffExtractor.kt native-call:aiffSca
 permanent app/src/main/java/dev/geode/engine/bridge/IngestNative.kt external:aiffScanStep the scan's JNI declaration (ExtractorInput hands the JVM a byte array)
 
 # ---- debt: viz feed ----
-debt app/src/main/java/dev/geode/viz/NativeViz.kt native-call:vizWriteAudio passes an interleaved FloatArray to a renderer's sound engine
-debt app/src/main/java/dev/geode/engine/bridge/VizNative.kt external:vizWriteAudio JNI declaration taking a FloatArray of samples
+debt app/src/main/java/dev/geode/engine/bridge/VizNative.kt external:vizWriteAudio JNI declaration taking a FloatArray of samples; its one caller is the render tests' NativeViz (androidTest)

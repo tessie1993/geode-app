@@ -102,11 +102,6 @@ object TestTourRules : Tour.Rules {
         }
     }
 
-    override fun offersPro(
-        run: TourRun,
-        skipped: Boolean,
-    ): Boolean = !run.replay && (run.chapter == TourChapter.VISUALS || (skipped && run.chapter == TourChapter.START))
-
     override fun placeCard(
         hole: TourRect?,
         cardWidth: Int,

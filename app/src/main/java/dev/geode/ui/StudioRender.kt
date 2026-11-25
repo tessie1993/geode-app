@@ -78,7 +78,6 @@ import dev.geode.geodeContainer
 import dev.geode.model.LoudnessTarget
 import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
-import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.stage.StageView
@@ -92,8 +91,8 @@ import kotlinx.coroutines.launch
  * The Studio destination: two tabs, in the order a first visit meets them.
  *
  * - Render makes a video of what is playing: one scrolling stack (Source, Look, Format, Save) over
- *   the sticky [RenderBar]. It stays open to free and trial users, whose limits are enforced where
- *   each render starts, in `PlayerViewModel`, by the same `FeatureGate` as before.
+ *   the sticky [RenderBar]. Free users can set it up, and Render opens the paywall (exporting is Pro);
+ *   the trial renders within its limits, enforced where each render starts, in `PlayerViewModel`.
  * - My videos ([MyVideosTab]) lists everything Studio made: finished renders and recorded takes.
  *
  * There is no Edit tab: the owner dropped video editing from the launch (#227). A take still
@@ -286,7 +285,6 @@ internal fun StudioRenderTab(
     var length by rememberSaveable(stateSaver = RenderLengthSaver) { mutableStateOf(RenderLength()) }
     var askWhere by rememberSaveable { mutableStateOf(false) }
     var loopOpen by rememberSaveable { mutableStateOf(false) }
-    var proBlock by remember { mutableStateOf<ProFeature?>(null) }
     var keepAsk by remember { mutableStateOf<ExportDefaults?>(null) }
     val startExport = rememberVisualizerExport(viewModel, visualizerView, studioViewModel::renderStartTried)
 
@@ -453,26 +451,15 @@ internal fun StudioRenderTab(
                 }
                 val aspect = ExportAspect.of(options.quality, options.ratio)
                 val blocking = gate.blockingExportFeature(minOf(aspect.width, aspect.height), options.fps)
-                if (blocking != null) proBlock = blocking else askKeepThenRender(options)
+                // No free version to offer: without Pro or the trial nothing renders, and the trial
+                // renders at any size.
+                if (blocking != null) paywall.open(PaywallTrigger.Feature(blocking)) else askKeepThenRender(options)
             },
             onCancel = studioViewModel::cancelExport,
             onClearResult = studioViewModel::resetExportState,
         )
     }
     if (loopOpen) ExportHost(viewModel, visualizerView) { loopOpen = false }
-    proBlock?.let { feature ->
-        RenderProChoiceDialog(
-            onUnlock = {
-                proBlock = null
-                paywall.open(PaywallTrigger.Feature(feature))
-            },
-            onFreeVersion = {
-                proBlock = null
-                askKeepThenRender(options.freeVersion())
-            },
-            onDismiss = { proBlock = null },
-        )
-    }
     keepAsk?.let { chosen ->
         RenderKeepProjectDialog(
             onAnswer = { keep, dontAskAgain ->
@@ -505,32 +492,6 @@ internal fun StudioRenderTab(
             )
         null -> Unit
     }
-}
-
-/** The same video inside the free limits: 4K drops to 1080p and the frame rate to the free cap. */
-private fun ExportDefaults.freeVersion(): ExportDefaults =
-    copy(
-        quality = if (quality.shortSide > FreeTier.FREE_MAX_SHORT_SIDE) ExportQuality.FHD1080 else quality,
-        fps = fps.coerceAtMost(FreeTier.FREE_MAX_FPS),
-    )
-
-/**
- * A free user pressed Render with a Pro choice (4K or 60 fps). Never a dead end: unlock Pro, or
- * render the same video at the free limits now (1080p, 30 fps, the first minute, the watermark).
- */
-@Composable
-private fun RenderProChoiceDialog(
-    onUnlock: () -> Unit,
-    onFreeVersion: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.render_pro_title)) },
-        text = { Text(stringResource(R.string.render_pro_body)) },
-        confirmButton = { TextButton(onClick = onUnlock) { Text(stringResource(R.string.render_pro_unlock)) } },
-        dismissButton = { TextButton(onClick = onFreeVersion) { Text(stringResource(R.string.render_pro_free)) } },
-    )
 }
 
 /**

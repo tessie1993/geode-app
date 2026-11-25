@@ -1,5 +1,6 @@
 package dev.geode.billing
 
+import dev.geode.pro.BillingError
 import dev.geode.pro.PurchaseStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -8,6 +9,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -31,4 +33,27 @@ class FakeBillingRepositoryTest {
             assertEquals(PurchaseStatus.Purchased, billing.getPurchaseStatusStream().first())
             assertTrue(billing.isProStream().first())
         }
+
+    @Test
+    fun `with the tester code required, a purchase fails as billing unavailable until the code is entered`() =
+        runTest {
+            val billing = FakeBillingRepository(requiresTesterCode = true, isTesterCode = { it == "open sesame" })
+            billing.launchPurchase()
+            assertEquals(PurchaseStatus.Failed(BillingError.BILLING_UNAVAILABLE), billing.getPurchaseStatusStream().first())
+            assertFalse(billing.isProStream().first())
+
+            assertFalse(billing.unlockWithCode("not the code"))
+            assertFalse(billing.testerUnlocked.value)
+
+            assertTrue(billing.unlockWithCode("open sesame"))
+            assertTrue(billing.testerUnlocked.value)
+            assertTrue(billing.isProStream().first())
+        }
+
+    @Test
+    fun `a cached Pro, as the device tests seed it, needs no code`() {
+        val store = InMemoryEntitlementStore()
+        store.save(CachedEntitlement(owned = true, verifiedAtMs = 1L))
+        assertTrue(FakeBillingRepository(store, requiresTesterCode = true).testerUnlocked.value)
+    }
 }

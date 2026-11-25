@@ -90,6 +90,8 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.roundToIntRect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.NavigationEventTransitionState
@@ -112,6 +114,7 @@ import dev.geode.stage.StageView
 import dev.geode.ui.cast.CastHost
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.pro.ProNoticeChip
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -284,6 +287,12 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
     val playing = external.driven?.playing ?: state.isPlaying
+    PaywallTasteSignals(
+        paywallViewModel,
+        onVisuals = appState.dest == GeodeDestination.VISUALS,
+        playing = playing,
+        trackUri = state.trackUri,
+    )
     // While another app is the source, the mini player names its track (its session's), not the paused player's.
     val foreign = external.active
     val foreignArt = external.driven?.art
@@ -563,7 +572,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                     onDone = {
                         settingsViewModel.updateAppState { s -> s.copy(setupDone = true) }
                         appState.navigateTo(GeodeDestination.PLAYER)
-                        // No Pro offer here: the tour makes it, after the first look at Visuals.
+                        // No Pro offer here: it waits for a taste of the app (pro/PaywallPrompts).
                     },
                 )
             }
@@ -582,8 +591,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
                         pip = inPip,
                     ),
                 onNavigate = { showTourScreen(it, appState) },
-                onOfferPro = { paywallViewModel.open(PaywallTrigger.Onboarding) },
             )
+            AutoModeProChip(paywallViewModel, onVisuals = appState.dest == GeodeDestination.VISUALS)
             // Drawn while the pref is still loading too (null): BootIntro opens on the splash's
             // last frame, so it covers that gap instead of letting the app flash through. If the
             // pref then lands false, it ends there, just as the splash would have.
@@ -1070,3 +1079,72 @@ private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
 }
 
 private const val NOTICE_VISIBLE_MS = 8_000L
+
+/**
+ * What the taste milestone counts and waits for (`pro/PaywallPrompts`): time with Visuals on screen
+ * and music playing while the app is in front, and the breaks in the music (a pause, the track
+ * changing), where the one-time offer may open instead of mid-song.
+ */
+@Composable
+private fun PaywallTasteSignals(
+    viewModel: PaywallViewModel,
+    onVisuals: Boolean,
+    playing: Boolean,
+    trackUri: String?,
+) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val counting = onVisuals && playing
+    LaunchedEffect(viewModel, counting) {
+        while (counting) {
+            delay(VISUALS_TICK_MS)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) viewModel.onVisualsTime(VISUALS_TICK_MS)
+        }
+    }
+    val playingNow by rememberUpdatedState(playing)
+    val trackNow by rememberUpdatedState(trackUri)
+    LaunchedEffect(viewModel) {
+        var before: Pair<Boolean, String?>? = null
+        snapshotFlow { playingNow to trackNow }.collect { now ->
+            val prev = before
+            before = now
+            val paused = prev != null && prev.first && !now.first
+            val changed = prev?.second != null && prev.second != now.second
+            if (paused || changed) viewModel.onMusicBreak()
+        }
+    }
+}
+
+private const val VISUALS_TICK_MS = 1_000L
+
+/**
+ * Auto mode's free minute ran out on this song (`AutoDirectorStore.freeTasteEnded`): a chip on Visuals
+ * says it goes on with Pro, and fades after [PRO_CHIP_MS] unless tapped, which opens the paywall.
+ */
+@Composable
+private fun AutoModeProChip(
+    paywallViewModel: PaywallViewModel,
+    onVisuals: Boolean,
+) {
+    val context = LocalContext.current
+    val director = remember { context.geodeContainer.autoDirector }
+    val tasteEnded by director.freeTasteEnded.collectAsStateWithLifecycle()
+    var shown by remember { mutableStateOf(false) }
+    // Once per song: on the rise, not again on every visit to Visuals while it stays ended.
+    LaunchedEffect(tasteEnded) {
+        shown = tasteEnded
+        if (shown) {
+            delay(PRO_CHIP_MS)
+            shown = false
+        }
+    }
+    ProNoticeChip(
+        visible = shown && onVisuals,
+        text = stringResource(R.string.pro_chip_auto_mode),
+        onClick = {
+            shown = false
+            paywallViewModel.open(PaywallTrigger.Feature(ProFeature.AUTO_DIRECTOR))
+        },
+    )
+}
+
+private const val PRO_CHIP_MS = 6_000L

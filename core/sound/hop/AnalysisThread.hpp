@@ -195,7 +195,8 @@ private:
     std::array<Control, kControls> applying_{};
     std::array<uint32_t, kWords> staging_{};
 
-    // Shared with the control senders.
+    // Shared with the control senders. The analysis thread only try-locks it (applyControls); senders may block.
+    friend struct AnalysisThreadTestAccess;
     std::mutex controlLock_;
     std::array<Control, kControls> controls_{};
     int controlCount_ = 0;

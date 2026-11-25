@@ -18,6 +18,7 @@
 #include <cstring>
 #include <filesystem>
 #include <limits>
+#include <mutex>
 #include <numbers>
 #include <thread>
 #include <vector>
@@ -32,6 +33,18 @@ using geode::sound::Emotion;
 using geode::sound::Rhythm;
 using geode::sound::SoundEngine;
 using Heard = AnalysisThread::Heard;
+
+namespace geode::sound {
+// The test's way to the control queue: hold its lock from another thread, count what waits.
+struct AnalysisThreadTestAccess {
+    static std::mutex& lock(AnalysisThread& at) { return at.controlLock_; }
+    static int waiting(AnalysisThread& at) {
+        std::lock_guard<std::mutex> l(at.controlLock_);
+        return at.controlCount_;
+    }
+};
+}  // namespace geode::sound
+using geode::sound::AnalysisThreadTestAccess;
 using Clock = std::chrono::steady_clock;
 
 namespace {
@@ -531,6 +544,41 @@ void heldBackSleepsThroughWrites() {
     at.stop();
 }
 
+// A sender holding the control lock never stalls a pass: the pass runs, the controls stay queued, and the next pass
+// after the lock is free applies them, in the order sent.
+static void controlLockNeverBlocksAPass() {
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    check(at.setTuning(SoundEngine::defaultTuning()) && at.trackBoundary() && at.reset(), "controls queue");
+    check(AnalysisThreadTestAccess::waiting(at) == 3, "three wait");
+
+    std::atomic<bool> held{false};
+    std::atomic<bool> release{false};
+    std::thread sender([&] {
+        std::lock_guard<std::mutex> lock(AnalysisThreadTestAccess::lock(at));
+        held.store(true);
+        while (!release.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    });
+    while (!held.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+    std::atomic<bool> passed{false};
+    std::thread pass([&] {
+        at.pump(0.01f);
+        passed.store(true);
+    });
+    const auto deadline = Clock::now() + std::chrono::seconds(10);
+    while (!passed.load() && Clock::now() < deadline) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    check(passed.load(), "a pass completes while another thread holds the control lock");
+    release.store(true);
+    sender.join();
+    pass.join();
+    check(AnalysisThreadTestAccess::waiting(at) == 3, "the held pass applied nothing and dropped nothing");
+
+    at.pump(0.01f);
+    check(AnalysisThreadTestAccess::waiting(at) == 0, "the next pass applies all three");
+    check(at.setTuning(SoundEngine::defaultTuning()), "and the queue takes more");
+}
+
 int main() {
     std::printf("analysis thread: one engine off the draw thread, hops by ring position\n");
     for (int rate : {48000, 96000}) inlineMatchesBare(rate, false);
@@ -540,6 +588,7 @@ int main() {
     startStop();
     writerStops();
     heldBackSleepsThroughWrites();
+    controlLockNeverBlocksAPass();
     if (failures.load() == 0) std::printf("analysis_thread_test: all checks passed\n");
     return failures.load() == 0 ? 0 : 1;
 }

@@ -276,12 +276,16 @@ void AnalysisThread::setFadeGain(float gain) { fade_.store(gain, std::memory_ord
 void AnalysisThread::setPlayerSource(bool on) { player_.store(on, std::memory_order_relaxed); }
 
 void AnalysisThread::applyControls() {
+    // Never waits: a sender holding the lock leaves the queue as it is (nothing dropped, count untouched), and its
+    // notify() after unlocking brings the next pass, which applies it. A control is late by one hop, never lost.
     int count = 0;
     {
-        std::lock_guard<std::mutex> lock(controlLock_);
-        count = controlCount_;
-        std::copy_n(controls_.begin(), count, applying_.begin());
-        controlCount_ = 0;
+        std::unique_lock<std::mutex> lock(controlLock_, std::try_to_lock);
+        if (lock.owns_lock()) {
+            count = controlCount_;
+            std::copy_n(controls_.begin(), count, applying_.begin());
+            controlCount_ = 0;
+        }
     }
     for (int i = 0; i < count; ++i) {
         const Control& c = applying_[static_cast<size_t>(i)];

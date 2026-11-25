@@ -72,6 +72,8 @@ fun GoProSettingsRow(modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     stringResource(R.string.pro_settings_title),
+                    // Weighted so the badge is measured first and keeps its one line; the title gives way.
+                    Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White,

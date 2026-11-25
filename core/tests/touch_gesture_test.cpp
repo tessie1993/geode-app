@@ -1,7 +1,7 @@
-// Host-side checks for core/viz/TouchGesture (was VisualGestures.kt): touch play's fingers into y-up NDC, the
+// Host-side checks for core/viz/input/TouchGesture (was VisualGestures.kt): touch play's fingers into y-up NDC, the
 // two-finger reading the pinch and twist come from, and touch play's stir. Then the gesture reader
-// (core/viz/GestureRead: the strips, tap, double tap, hold, swipe, swirl, two fingers) and the gesture map
-// (core/viz/GestureMap: the owner's defaults, what Settings offers each gesture, the remote's keys), the
+// (core/viz/input/GestureRead: the strips, tap, double tap, hold, swipe, swirl, two fingers) and the gesture map
+// (core/viz/input/GestureMap: the owner's defaults, what Settings offers each gesture, the remote's keys), the
 // assertions the JVM's VisualGesturesTest and StageKeysTest held, through the C ABI where the shell calls it.
 // Built and run by CI (.github/workflows/native-host-tests.yml) with the system compiler; no GL.
 #include <cmath>
@@ -9,9 +9,9 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/GestureMap.hpp"
-#include "viz/GestureRead.hpp"
-#include "viz/TouchGesture.hpp"
+#include "viz/input/GestureMap.hpp"
+#include "viz/input/GestureRead.hpp"
+#include "viz/input/TouchGesture.hpp"
 
 using namespace geode::viz;
 

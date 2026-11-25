@@ -29,7 +29,7 @@ Geode's visuals are only as good as what they hear. Two separate paths carry sou
 - No bias on BPM, ever (owner's rule; `tools/no-bpm-bias-gate.sh` and `musical_test` fail the PR). `Rhythm` scores every lag in its search range alike and takes the most periodic peak, then among its multiples and divisors about as periodic the one whose onsets fall most on one phase (the envelope's Fourier coefficient at that period), never the faster or slower of near-equal levels by position; nothing prefers, weights or centres on a tempo, and until one is heard there is none (`bpm` 0, no beats, no ticks; consumers run in seconds). Do not port a tempo weighting curve or a start tempo from Ellis, librosa, aubio or any paper, however standard: that is how the bias came back four times.
 - Export must equal live: the export job (`core/output/ExportFrame`) steps its own engine at 1/fps from `core/audio/ingest/TrackPump`. Analysis runs per hop with the hop's dt, never the frame's; `core/tests/sound_rate_test.cpp` fails if 30 or 120 fps differ from 60 at a shared sample.
 - Never edit `ScaleTable.inc` or `EmotionTable.inc` by hand: change the CSV or the generator and regenerate.
-- A new `GeodeSoundFrame` value is also a new `ReactSource`. Update the reaction DNA (`core/viz/ReactionDna`) and the wire layouts `core/tests/mod_document_test.cpp` checks.
+- A new `GeodeSoundFrame` value is also a new `ReactSource`. Update the reaction DNA (`core/viz/modulation/ReactionDna`) and the wire layouts `core/tests/mod_document_test.cpp` checks.
 
 ## Prove it on the host (no device, no Gradle)
 

@@ -1,6 +1,6 @@
 # BeatRealms 3D — Privacy Policy
 
-*Last updated: 12 November 2026*
+*Last updated: 25 November 2026*
 
 BeatRealms 3D ("BeatRealms", "the app") is a music player, music visualizer and music
 video studio for Android. This policy describes what the app does with your
@@ -149,8 +149,9 @@ policies, and only when you tap the button.
 ## Video export
 
 Exported videos are MP4 files saved where you choose. They stay on your device unless
-*you* share them; the app you share to handles them under its own policy. Exports made
-without Pro are limited to one minute and carry a "BeatRealms 3D" watermark.
+*you* share them; the app you share to handles them under its own policy. Making videos
+needs Pro. Videos made during the one-hour Pro trial are limited to one minute and carry a
+"BeatRealms 3D" watermark.
 
 ## Record and screenshots
 

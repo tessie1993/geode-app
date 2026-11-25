@@ -1,4 +1,4 @@
-// Host-side checks for the fluid engine's pure maths (core/viz/fluid/FluidMath, FluidQuality).
+// Host-side checks for the fluid engine's pure maths (core/viz/styles/fluid/FluidMath, FluidQuality).
 // Built and run by CI ("Native host tests" in .github/workflows/android.yml) with the system
 // compiler; no GL, no device.
 //
@@ -13,8 +13,8 @@
 #include <random>
 #include <vector>
 
-#include "viz/fluid/FluidMath.hpp"
-#include "viz/fluid/FluidQuality.hpp"
+#include "viz/styles/fluid/FluidMath.hpp"
+#include "viz/styles/fluid/FluidQuality.hpp"
 
 using namespace geode::viz::fluid;
 

@@ -303,6 +303,9 @@ void prefs() {
     check(decodePrefs("{\"a\": {\"type\": \"string\", \"value\": 5}}", back).ok() && back[0].value.text == "5",
           "getString coerces a number");
     check(decodePrefs("{}", back).ok() && back.empty(), "empty object");
+    check(decodePrefs("{\"gui_safety_acknowledged\\u0000x\": {\"type\": \"boolean\", \"value\": true}}", back).problem ==
+              Problem::Damaged,
+          "a key holding a NUL is refused, so it cannot pass the filters as one key and be written as another");
 }
 
 }  // namespace

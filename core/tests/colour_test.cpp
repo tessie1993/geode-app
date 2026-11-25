@@ -1,4 +1,4 @@
-// Your colours (Customize › Look, viz/Colour.hpp): the picker's HSV and hex, the eyedropper's average,
+// Your colours (Customize › Look, viz/colour/Colour.hpp): the picker's HSV and hex, the eyedropper's average,
 // the stops' loop the shader and the swatches draw, and the stops as scene params (the wire, the base
 // hue the simulation styles read, the Palette roll that clears them).
 #include <cmath>
@@ -6,9 +6,9 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
-#include "viz/ParamRandomizer.hpp"
-#include "viz/Params.hpp"
+#include "viz/colour/Colour.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode::viz;
 

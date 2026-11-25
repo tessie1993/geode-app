@@ -107,7 +107,12 @@ class PlaybackTileService : TileService() {
                     return@addListener
                 }
                 pending = null
-                val built = runCatching { future.get() }.getOrNull() ?: return@addListener
+                val built = runCatching { future.get() }.getOrNull()
+                if (built == null) {
+                    // The tap dies with the connection it waited for; kept, it would fire on a later one.
+                    clickQueued = false
+                    return@addListener
+                }
                 controller = built
                 built.addListener(redraw)
                 if (clickQueued) {

@@ -4,7 +4,7 @@
 #include <cmath>
 
 #include "sound/DriveGain.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {
 
@@ -158,7 +158,7 @@ float CameraRig::flatDive(const SceneParams& p) {
 
 void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool reducedMotion, bool bankFlat,
                      const GeodeSoundFrame* sound) {
-    // Same frame-time rule as viz/Reactions: non-finite is no time at all.
+    // Same frame-time rule as viz/modulation/Reactions: non-finite is no time at all.
     dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;
     // Every float read from p and look goes through finiteOr: a move reads as none, the lens as plain (1),

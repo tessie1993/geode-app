@@ -1,4 +1,4 @@
-// Host-side checks for what Customize draws (core/viz/CustomizeRows, PanelText, StyleNames): every control the
+// Host-side checks for what Customize draws (core/viz/panel/CustomizeRows, PanelText, StyleNames): every control the
 // map places draws as one widget over a live param its meta row names, hides where the panel hid it, and carries
 // the words, range, default, unit and steps the shell used to hold. Built and run by CI
 // (.github/workflows/native-host-tests.yml, "Customize rows host tests"); no GL.
@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
-#include "viz/CustomizeRows.hpp"
-#include "viz/PanelText.hpp"
-#include "viz/StyleNames.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/panel/CustomizeRows.hpp"
+#include "viz/panel/PanelText.hpp"
+#include "viz/styles/catalogue/StyleNames.hpp"
 
 using namespace geode::viz;
 

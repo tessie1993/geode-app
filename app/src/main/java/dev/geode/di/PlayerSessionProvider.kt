@@ -91,7 +91,9 @@ class PlayerSessionProvider
         fun get(): PlayerSession =
             instance ?: PlayerSession(application).also { session ->
                 session.allowsStyle = { gate.allowsStyle(it) }
-                session.onStyleLocked = { paywall.open(PaywallTrigger.Feature(ProFeature.PREMIUM_STYLES)) }
+                session.onStyleLocked = {
+                    paywall.open(PaywallTrigger.Feature(ProFeature.PREMIUM_STYLES, styleId = session.pendingUnlockSceneId))
+                }
                 session.allowsRecording = { gate.allows(ProFeature.STUDIO) }
                 session.renderLimits = { gate.renderLimits.withMark(session.watermarkPrefs.value.value) }
                 session.onRecordingLocked = { paywall.open(PaywallTrigger.Feature(ProFeature.STUDIO)) }

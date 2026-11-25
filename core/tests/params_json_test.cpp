@@ -1,4 +1,4 @@
-// Host checks for the scene params object (core/viz/ParamsJson, util/Json's org.json rules): the number text
+// Host checks for the scene params object (core/viz/params/ParamsJson, util/Json's org.json rules): the number text
 // org.json wrote, its coercions, the round trip, and the preset fixtures the app's JVM tests used, read in
 // place. Built and run by CI (.github/workflows/native-host-tests.yml) with the fixtures' folder as argv[1].
 #include <array>
@@ -19,8 +19,8 @@
 
 #include "api/geode_api.h"
 #include "util/Json.hpp"
-#include "viz/ParamsJson.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/ParamsJson.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode;
 using viz::ParamKind;

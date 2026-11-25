@@ -1,6 +1,6 @@
-// The artwork palette's C ABI (viz/ArtPalette.hpp). Pure, any thread; marshalled by geode_viz_jni.cpp.
+// The artwork palette's C ABI (viz/colour/ArtPalette.hpp). Pure, any thread; marshalled by geode_viz_jni.cpp.
 #include "api/geode_api.h"
-#include "viz/ArtPalette.hpp"
+#include "viz/colour/ArtPalette.hpp"
 
 extern "C" {
 

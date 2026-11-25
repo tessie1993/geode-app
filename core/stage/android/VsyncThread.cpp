@@ -29,14 +29,29 @@ enum VsyncCommand : uint16_t {
 // A command waits at most this long for room; the queue only fills under a burst of stages.
 constexpr std::chrono::milliseconds kPushWithin{200};
 
-// Nanoseconds from the vsync's frame time to the frame's expected presentation on the timeline the system prefers; 0
-// when the callback names none or it is not ahead (a time that has passed asks for nothing).
-int32_t presentAfterNs(const AChoreographerFrameCallbackData* callbackData, int64_t frameTimeNanos) {
-    if (AChoreographerFrameCallbackData_getFrameTimelinesLength(callbackData) == 0) return 0;
+int32_t positiveInt32(int64_t ns) { return ns > 0 && ns <= INT32_MAX ? static_cast<int32_t>(ns) : 0; }
+
+// The timeline the system prefers for this vsync. afterNs: from the vsync's frame time to the frame's expected
+// presentation; 0 when the callback names none or it is not ahead (a time that has passed asks for nothing).
+// intervalNs: between that presentation and the timeline next to it; 0 when the callback names only one.
+struct Present {
+    int32_t afterNs = 0;
+    int32_t intervalNs = 0;
+};
+
+Present presentOf(const AChoreographerFrameCallbackData* callbackData, int64_t frameTimeNanos) {
+    const size_t count = AChoreographerFrameCallbackData_getFrameTimelinesLength(callbackData);
+    if (count == 0) return {};
     const size_t preferred = AChoreographerFrameCallbackData_getPreferredFrameTimelineIndex(callbackData);
     const int64_t present = AChoreographerFrameCallbackData_getFrameTimelineExpectedPresentationTimeNanos(callbackData, preferred);
-    const int64_t after = present - frameTimeNanos;
-    return after > 0 && after <= INT32_MAX ? static_cast<int32_t>(after) : 0;
+    Present p;
+    p.afterNs = positiveInt32(present - frameTimeNanos);
+    if (count > 1) {
+        const size_t beside = preferred + 1 < count ? preferred + 1 : preferred - 1;
+        const int64_t other = AChoreographerFrameCallbackData_getFrameTimelineExpectedPresentationTimeNanos(callbackData, beside);
+        p.intervalNs = positiveInt32(other > present ? other - present : present - other);
+    }
+    return p;
 }
 
 }  // namespace
@@ -169,9 +184,11 @@ void VsyncThread::onFrame(const AChoreographerFrameCallbackData* callbackData, v
         c.kind = kStageFrameDue;
         c.f = sink->pacing.fps();
         c.g = sink->pacing.capFps();
-        // The vsync's own time, for the frame's step, and how far ahead of it the preferred timeline presents.
+        // The vsync's own time, for the frame's step; the rest places the swap's stamp (frame::latchStampNs).
         c.t = frameTimeNanos;
-        c.b = presentAfterNs(callbackData, frameTimeNanos);
+        const Present present = presentOf(callbackData, frameTimeNanos);
+        c.b = present.afterNs;
+        c.a = present.intervalNs;
         // Busy before the push, so a stage that finishes at once clears it after, never before.
         sink->stageBusy.store(true, std::memory_order_release);
         if (sink->stage->queue.push(c, Merge::LastWins) == Pushed::Full) sink->stageBusy.store(false, std::memory_order_release);

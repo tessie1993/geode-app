@@ -1,5 +1,5 @@
-// Host-side checks for the uniform value cache (core/viz/UniformMemo.hpp and UniformCache::set1f ... setFloats in
-// core/viz/Program.hpp): an upload of a value the program already holds is skipped, a changed one is sent, and a
+// Host-side checks for the uniform value cache (core/viz/gl/UniformMemo.hpp and UniformCache::set1f ... setFloats in
+// core/viz/gl/Program.hpp): an upload of a value the program already holds is skipped, a changed one is sent, and a
 // rebuilt program (a new UniformCache), a forgetValues() and a location of -1 behave. GL is faked as call counters;
 // UniformCache's name lookup is a link seam here (Program.cpp builds shaders and needs the whole stager).
 #include <cmath>
@@ -9,8 +9,8 @@
 #include <map>
 #include <string_view>
 
-#include "viz/Program.hpp"
-#include "viz/UniformMemo.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/UniformMemo.hpp"
 
 using namespace geode::viz;
 

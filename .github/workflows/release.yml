@@ -6,8 +6,9 @@ name: Play release bundle
 # Runs only on request (Actions > Play release bundle > Run workflow): pull requests and
 # tags don't build it. It signs with the upload key; without the key it fails, unless the run
 # asks for an unsigned bundle (a dry run, never for Play). It also fails when a check on the
-# commit is red. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) also run
-# on every PR in build-lint.yml (tools/check-manifest.sh), against the debug build.
+# commit is red. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) are
+# tools/check-manifest.sh, which build-lint.yml runs on every PR against the debug manifest; here
+# it reads the release manifest and adds the permission list.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
 #   MUZVIZ_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore (.jks):
@@ -110,16 +111,23 @@ jobs:
       # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
       # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
       # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
-      # A commit that never shipped has no number and fails here: borrowing the latest one could
-      # repeat a versionCode already uploaded to Play.
+      # A commit that never shipped has no number and a signed build fails here: borrowing the
+      # latest one could repeat a versionCode already uploaded to Play.
       - name: Release number
         id: number
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.keystore.outputs.signed }}
         run: |
           set -euo pipefail
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
-          N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)")
+          # Without a number, an unsigned dry run builds as <base>-dev: it cannot go to Play.
+          if ! N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)" 2>"$RUNNER_TEMP/number.err"); then
+            cat "$RUNNER_TEMP/number.err" >&2
+            [ "$SIGNED" != "true" ] || exit 1
+            echo "::warning::No release number for this commit: the dry-run bundle is version $BASE-dev."
+            exit 0
+          fi
           case "$N" in
             ''|*[!0-9]*) echo "::error::No release number for this commit (got '$N')."; exit 1 ;;
           esac
@@ -133,13 +141,14 @@ jobs:
           GEODE_KEY_ALIAS: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_ALIAS || '' }}
           GEODE_KEY_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.MUZVIZ_UPLOAD_KEY_PASSWORD || '' }}
           PLAY_LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+          N: ${{ steps.number.outputs.n }}
         run: |
           set -euo pipefail
           # Empty values must read as unset, or the build tries to sign with "".
           for v in GEODE_KEYSTORE GEODE_KEYSTORE_PASSWORD GEODE_KEY_ALIAS GEODE_KEY_PASSWORD; do
             [ -n "${!v}" ] || unset "$v"
           done
-          ./gradlew :app:bundleRelease -PreleaseNumber=${{ steps.number.outputs.n }} --stacktrace --no-daemon
+          ./gradlew :app:bundleRelease ${N:+-PreleaseNumber=$N} --stacktrace --no-daemon
 
       - name: Check the bundle against Play and the app's promises
         env:
@@ -150,50 +159,8 @@ jobs:
           test -f "$aab" || { echo "::error::$aab was not produced"; exit 1; }
           ls -l "$aab"
 
-          manifest=$(find app/build/intermediates -path '*release*' -name AndroidManifest.xml \
-            -path '*merged_manifest*' | head -n 1)
-          test -n "$manifest" || { echo "::error::merged release manifest not found"; exit 1; }
-          echo "Merged manifest: $manifest"
-
-          # The privacy policy and Data safety answers say Cast to TV is the only internet use.
-          if grep -q 'android.permission.INTERNET"' "$manifest" && ! grep -q 'dev.geode.cast.CastService' "$manifest"; then
-            echo "::error::The merged release manifest requests INTERNET without Cast; Cast to TV is the only internet use."
-            exit 1
-          fi
-          # The console's Advertising ID declaration says "not used".
-          if grep -q 'com.google.android.gms.permission.AD_ID' "$manifest"; then
-            echo "::error::The merged release manifest carries AD_ID; the Advertising ID declaration says it is unused."
-            exit 1
-          fi
-          grep -q 'com.android.vending.BILLING' "$manifest" \
-            || { echo "::error::Play Billing's BILLING permission is missing from the merged manifest"; exit 1; }
-
-          # Every permission the store build asks for is one somebody approved: a library update
-          # must not add one unseen. tools/release-permissions.txt is the list and says how to
-          # update it. The names are read as XML, since the merger may put android:name on its
-          # own line.
-          requested=$(python3 - "$manifest" <<'PY' | LC_ALL=C sort -u
-          import sys
-          import xml.etree.ElementTree as ET
-
-          NAME = "{http://schemas.android.com/apk/res/android}name"
-          for element in ET.parse(sys.argv[1]).getroot():
-              if element.tag.startswith("uses-permission") and element.get(NAME):
-                  print(element.get(NAME))
-          PY
-          )
-          test -n "$requested" || { echo "::error::No <uses-permission> read from the merged manifest"; exit 1; }
-          echo "Permissions requested:"; echo "$requested" | sed 's/^/  /'
-          unexpected=$(comm -23 <(echo "$requested") <(grep -v '^#' tools/release-permissions.txt | sed '/^$/d' | LC_ALL=C sort -u))
-          if [ -n "$unexpected" ]; then
-            echo "::error::The merged release manifest requests permissions that are not in tools/release-permissions.txt: $(echo $unexpected). See that file's header."
-            exit 1
-          fi
-
-          # Play's target API requirement (API 36 for new apps and updates since 31 Aug 2026).
-          target=$(sed -n 's/.*android:targetSdkVersion="\([0-9]*\)".*/\1/p' "$manifest" | head -n 1)
-          echo "targetSdkVersion=$target"
-          [ "${target:-0}" -ge 36 ] || { echo "::error::targetSdkVersion $target is below Play's requirement (36)"; exit 1; }
+          # The manifest promises build-lint.yml checks on every pull request, and the permission list.
+          tools/check-manifest.sh release
 
           # R8 full mode is AGP's default; it is only off if gradle.properties turns it off.
           if grep -Eq '^\s*android\.enableR8\.fullMode\s*=\s*false' gradle.properties; then
@@ -204,10 +171,17 @@ jobs:
           grep -Eq 'isShrinkResources\s*=\s*true' app/build.gradle.kts \
             || { echo "::error::Resource shrinking is off for release"; exit 1; }
 
-          # The baseline profile ships inside the bundle.
-          unzip -l "$aab" | grep -q 'BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof' \
-            && echo "Baseline profile: present" \
-            || echo "::warning::No baseline profile in the bundle"
+          # What Play reads from the bundle beside the code: the baseline profile it installs with
+          # the app, and libgeode.so's symbols for both ABIs, which name the frames of native
+          # crashes and ANRs in Play Console.
+          entries=$(unzip -Z1 "$aab")
+          for entry in \
+            BUNDLE-METADATA/com.android.tools.build.profiles/baseline.prof \
+            BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libgeode.so.sym \
+            BUNDLE-METADATA/com.android.tools.build.debugsymbols/x86_64/libgeode.so.sym; do
+            grep -qxF "$entry" <<<"$entries" || { echo "::error::The bundle lacks $entry"; exit 1; }
+          done
+          echo "Baseline profile and native symbols: present"
 
           if [ "$SIGNED" = "true" ]; then
             # jarsigner exits 0 on an UNSIGNED jar ("jar is unsigned"), so the verdict is read

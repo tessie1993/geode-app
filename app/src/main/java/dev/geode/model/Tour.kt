@@ -181,11 +181,6 @@ object Tour {
             skipped: Boolean,
         ): TourProgress
 
-        fun offersPro(
-            run: TourRun,
-            skipped: Boolean,
-        ): Boolean
-
         fun placeCard(
             hole: TourRect?,
             cardWidth: Int,
@@ -290,15 +285,6 @@ object Tour {
     ): TourProgress = rules.ended(progress, run, skipped)
 
     /**
-     * Whether the one-time Pro offer follows this ending: after the first look at Visuals, or at
-     * once when the tour was skipped. Never after a replay.
-     */
-    fun offersPro(
-        run: TourRun,
-        skipped: Boolean,
-    ): Boolean = rules.offersPro(run, skipped)
-
-    /**
      * Where the card goes: the side of the lit control with the most room that fits it, a [gap]
      * away and centred on it; over the control only when no side fits. Always inside [safe].
      * With no control it is centred. Returns the card's left and top.
@@ -365,11 +351,6 @@ object Tour {
             run: TourRun,
             skipped: Boolean,
         ) = ShellNative.tourEnded(progress.wire(), run.wire(), skipped).toProgress()
-
-        override fun offersPro(
-            run: TourRun,
-            skipped: Boolean,
-        ) = ShellNative.tourOffersPro(run.wire(), skipped)
 
         override fun placeCard(
             hole: TourRect?,

@@ -1,4 +1,4 @@
-// Host-side checks for which wave and envelope controls Customize shows (core/viz/ModControls through
+// Host-side checks for which wave and envelope controls Customize shows (core/viz/panel/ModControls through
 // geode_mod_lfo_shows and geode_mod_adsr_shows): a control shows while the engine reads it in the slot's state.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Modulation document host tests"); no GL.
 #include <cstdio>

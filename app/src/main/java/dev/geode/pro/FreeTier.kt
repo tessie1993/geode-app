@@ -1,6 +1,5 @@
 package dev.geode.pro
 
-import dev.geode.engine.bridge.CatalogueNative
 import dev.geode.model.StyleCatalogue
 
 /**
@@ -13,35 +12,35 @@ import dev.geode.model.StyleCatalogue
  */
 object FreeTier {
     /**
-     * Every style-family style but its opener. The native catalogue says which style opens a family
-     * (core/viz/Catalogue); this file is what makes the opener the free one.
-     */
-    val familyProIds: Set<String> by lazy { StyleCatalogue.ids(CatalogueNative.STYLE_FAMILY_FOLLOWER).toSet() }
-
-    /**
-     * The neon showcase styles (Glow Vortex, Neon Chrome Sea, Black Hole, Hex Hive, Mandelbox
-     * Cathedral) follow the families' rule even though they are loose styles: one opener is free,
-     * the other four are Pro. The owner picked that split, and then the opener: Neon Chrome Sea, the
-     * app's first style for everyone ([FIRST_STYLE_ID]), so the first thing a new listener sees is a
-     * showpiece they keep. Hex Hive, the opener before it, went Pro in the swap.
+     * The one loose shader style that is free: Neon Chrome Sea, the app's first style for everyone
+     * ([FIRST_STYLE_ID]), so the first thing a new listener sees is a showpiece they keep.
      */
     const val NEON_OPENER: String = "neon_chrome_sea"
 
-    /** The four neon showcase styles behind Pro: every one but [NEON_OPENER]. */
-    val neonProIds: Set<String> =
-        setOf("glow_vortex", "hex_hive", "black_hole", "mandelbox_cathedral")
-
     /**
-     * Styles a free user can select and keep: the fragment-shader styles (julia, tunnel, bars,
-     * ring, scope, plasma, nebula and the rest of the catalogue's shader styles), so a loose
-     * shader style added later is free too, minus [familyProIds]. A style family gives away its
-     * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
-     * family, and buying Pro is what opens the range. Everything else (silk, fluid,
-     * cymatics and the other dedicated renderers) is Pro, as are [neonProIds], shows a Pro badge and opens the paywall
-     * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
-     * than crashing.
+     * Styles a free user can select and keep, the owner's ten: [NEON_OPENER] and the opener of the
+     * first nine shader families in the picker's order (arbor, bulb, chrysanthemum, lucid, dive, glass,
+     * nebula, terrain, truchet). Every dedicated renderer (silk, life, mycelium, morphing, fluid,
+     * cymatics) and every other style is Pro: it shows a Pro badge, plays as a preview under the paywall
+     * when picked, and is never kept, except the one a share earns ([ShareBonusRepository]). A renamed
+     * or removed id simply stops matching, which makes that style Pro rather than crashing.
      */
-    val freeStyleIds: Set<String> by lazy { StyleCatalogue.ids(CatalogueNative.STYLE_SHADER).toSet() - familyProIds - neonProIds }
+    val freeStyleIds: Set<String> =
+        setOf(
+            NEON_OPENER,
+            "arbor_grove",
+            "bulb_classic",
+            "chrys_bloom",
+            "lucid_weave",
+            "dive_lattice",
+            "glass_orb",
+            "nebula_dust",
+            "terra_ridge",
+            "truchet_arcs",
+        )
+
+    /** How many styles there are in all, for the paywall's comparison ("10 of 333"). */
+    val styleCount: Int by lazy { StyleCatalogue.picker.values.sumOf { it.size } }
 
     /**
      * The style a fresh install opens on, for everyone: one free showpiece, not a Pro default that a
@@ -79,6 +78,12 @@ object FreeTier {
 
     /** The longest a non-Pro export may be: one minute, the rest of the track is cut. */
     const val FREE_MAX_EXPORT_MS: Long = 60_000L
+
+    /** Visuals time (playing, on screen) after which a free user gets the one-time offer ([PaywallPrompts]). */
+    const val TASTE_VISUALS_MS: Long = 30L * 60L * 1000L
+
+    /** How long a free user must be away for the return to open the paywall ([PaywallPrompts]). */
+    const val RETURN_AWAY_MS: Long = 5L * 60L * 1000L
 
     /** One hour, once per install, measured on the wall clock from the moment it is started. */
     const val TRIAL_DURATION_MS: Long = 60L * 60L * 1000L

@@ -1,5 +1,5 @@
-// Host-side checks for the scene params schema (core/viz/ParamTable.inc, expanded by core/viz/Params and
-// core/viz/ParamsFields): one row per field gives its name, kind, default, range and wire slot, and the
+// Host-side checks for the scene params schema (core/viz/params/ParamTable.inc, expanded by core/viz/params/Params and
+// core/viz/params/ParamsFields): one row per field gives its name, kind, default, range and wire slot, and the
 // struct, the wire, get/set, lerpParams, the LFO clamps and the shell's text table all come from it.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
 //
@@ -23,12 +23,12 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ParamRandomizer.hpp"
-#include "viz/Params.hpp"
-#include "viz/fluid/FluidQuality.hpp"
-#include "viz/scenes/CymaticsMath.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
+#include "viz/params/Params.hpp"
+#include "viz/styles/fluid/FluidQuality.hpp"
+#include "viz/styles/cymatics/CymaticsMath.hpp"
 
 using namespace geode::viz;
 
@@ -663,7 +663,7 @@ void everyLiveRowHasOneMeta() {
     check(std::string(escape.label) == "Escape colour" && escape.scope == catalogue::Scope::Escape && (escape.flags & kMod) != 0 &&
               escape.rollLo == 0.0f && escape.rollHi == 0.0f && SceneParams::spec(ParamSlot::escapeColor).defaultValue == 0.5f,
           "Escape colour: a target on its own scope, 0.5 by default, never dealt by the param roll");
-    // Births (viz/Births): every style has Life, off by default, never rolled.
+    // Births (viz/passes/Births): every style has Life, off by default, never rolled.
     const ParamMeta& life = SceneParams::meta(ParamSlot::life);
     check(std::string(life.label) == "Life" && life.scope == catalogue::Scope::Universal && (life.flags & kMod) != 0 &&
               life.rollLo == 0.0f && life.rollHi == 0.0f && SceneParams::spec(ParamSlot::life).defaultValue == 0.0f,

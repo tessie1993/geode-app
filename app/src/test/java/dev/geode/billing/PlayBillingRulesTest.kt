@@ -4,6 +4,7 @@ import com.android.billingclient.api.BillingClient.BillingResponseCode
 import dev.geode.pro.BillingError
 import dev.geode.pro.PurchaseStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** The decisions [PlayBillingRepository] makes on Play's answers, apart from the client itself. */
@@ -62,6 +63,15 @@ class PlayBillingRulesTest {
         val results = mutableListOf<Int>()
         setupListener(results::add).onBillingServiceDisconnected()
         assertEquals(listOf(BillingResponseCode.SERVICE_DISCONNECTED), results)
+    }
+
+    @Test
+    fun `a failed acknowledgement is retried with a doubling wait, three tries in all`() {
+        assertEquals(2_000L, acknowledgeRetryDelayMs(BillingResponseCode.SERVICE_UNAVAILABLE, tries = 1))
+        assertEquals(4_000L, acknowledgeRetryDelayMs(BillingResponseCode.NETWORK_ERROR, tries = 2))
+        assertNull("the third failure waits for the next refresh", acknowledgeRetryDelayMs(BillingResponseCode.ERROR, tries = 3))
+        assertNull("a misuse is not retried", acknowledgeRetryDelayMs(BillingResponseCode.DEVELOPER_ERROR, tries = 1))
+        assertNull("nor a purchase Play no longer lists", acknowledgeRetryDelayMs(BillingResponseCode.ITEM_NOT_OWNED, tries = 1))
     }
 
     @Test

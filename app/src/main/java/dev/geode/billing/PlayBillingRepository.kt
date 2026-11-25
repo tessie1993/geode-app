@@ -25,6 +25,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +43,7 @@ import kotlin.coroutines.resume
  * the Play Store app, which does the networking. That shapes three things here:
  * - Purchases are verified on the device ([PurchaseVerifier]) and acknowledged from the device.
  *   An unacknowledged purchase is refunded by Play after three days, so acknowledgement is retried
- *   on every [refresh] until it sticks.
+ *   with backoff, and again on every [refresh] until it sticks.
  * - The entitlement is cached ([EntitlementStore]) with the signed purchase, and outlives an
  *   unreachable Play Store indefinitely: only a successful purchase query that no longer lists
  *   Pro as purchased takes it away ([CachedEntitlement.after]).
@@ -61,6 +62,9 @@ class PlayBillingRepository(
     PurchasesUpdatedListener {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val connectLock = Mutex()
+
+    /** Purchase tokens with an acknowledgement under way; main thread only, like all state here. */
+    private val acknowledging = mutableSetOf<String>()
 
     private val client: BillingClient =
         BillingClient
@@ -229,11 +233,32 @@ class PlayBillingRepository(
         isPro.value = next.vouchesForPro(verifier::isGenuine)
     }
 
-    private suspend fun acknowledge(purchase: Purchase) {
-        val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
-        val result = suspendCancellableCoroutine { cont -> client.acknowledgePurchase(params) { if (cont.isActive) cont.resume(it) } }
-        // Not fatal: the next refresh sees isAcknowledged == false and tries again.
-        if (result.responseCode != BillingResponseCode.OK) RingLog.note(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
+    /**
+     * Acknowledges [purchase] off the caller's path, so a slow Play never holds up the paywall,
+     * retrying as [acknowledgeRetryDelayMs] says. Not fatal when every try fails: the next
+     * refresh sees isAcknowledged == false and starts again.
+     */
+    private fun acknowledge(purchase: Purchase) {
+        val token = purchase.purchaseToken
+        if (!acknowledging.add(token)) return
+        scope.launch {
+            try {
+                var tries = 1
+                while (true) {
+                    val result = acknowledgeOnce(token)
+                    if (result.responseCode == BillingResponseCode.OK) break
+                    RingLog.note(TAG, "acknowledge: ${result.responseCode} ${result.debugMessage}")
+                    delay(acknowledgeRetryDelayMs(result.responseCode, tries++) ?: break)
+                }
+            } finally {
+                acknowledging.remove(token)
+            }
+        }
+    }
+
+    private suspend fun acknowledgeOnce(token: String): BillingResult {
+        val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(token).build()
+        return suspendCancellableCoroutine { cont -> client.acknowledgePurchase(params) { if (cont.isActive) cont.resume(it) } }
     }
 
     private suspend fun loadProduct(): ProductDetails? {
@@ -328,6 +353,32 @@ internal fun PurchaseStatus.settled(isPro: Boolean): PurchaseStatus =
         isPro -> PurchaseStatus.Purchased
         else -> PurchaseStatus.Failed(BillingError.UNKNOWN)
     }
+
+/**
+ * How long to wait before acknowledging again after try number [tries] (from 1) failed with
+ * [responseCode], or null to stop. The tries, the first wait and the doubling are the billing
+ * errors guide's backoff for acknowledgement, for the responses it lists as retriable.
+ */
+internal fun acknowledgeRetryDelayMs(
+    responseCode: Int,
+    tries: Int,
+): Long? =
+    when {
+        tries >= ACKNOWLEDGE_MAX_TRIES -> null
+        responseCode in ACKNOWLEDGE_RETRIABLE -> ACKNOWLEDGE_RETRY_MS shl (tries - 1)
+        else -> null
+    }
+
+private const val ACKNOWLEDGE_MAX_TRIES = 3
+private const val ACKNOWLEDGE_RETRY_MS = 2_000L
+private val ACKNOWLEDGE_RETRIABLE =
+    setOf(
+        BillingResponseCode.NETWORK_ERROR,
+        BillingResponseCode.SERVICE_TIMEOUT,
+        BillingResponseCode.SERVICE_DISCONNECTED,
+        BillingResponseCode.SERVICE_UNAVAILABLE,
+        BillingResponseCode.ERROR,
+    )
 
 /** The paywall's wording for a failed `BillingResponseCode`. */
 internal fun billingErrorFor(responseCode: Int): BillingError =

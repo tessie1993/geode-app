@@ -7,10 +7,10 @@ namespace geode::viz::config {
 
 // The config params schema (#423): the values the data stores hold beside the scene params (LFO and
 // envelope slots, the palette maker's gradient, the look's envelope, the preset morph), one row each in
-// viz/ConfigTable.inc. Everything here is constexpr and header-only, so viz/Lfo and viz/Adsr read their
+// viz/params/ConfigTable.inc. Everything here is constexpr and header-only, so viz/Lfo and viz/Adsr read their
 // defaults and ranges from the rows without a new translation unit to link; only the shell's text table
-// (geode_config_schema_text) lives in viz/ConfigFields.cpp. The conversions the stores run on old saves
-// are in viz/ConfigMath.hpp.
+// (geode_config_schema_text) lives in viz/params/ConfigFields.cpp. The conversions the stores run on old saves
+// are in viz/params/ConfigMath.hpp.
 
 enum class Kind { Float, Int, Bool };
 enum class Unit { None, Seconds, Fraction, Turns, Degrees, Points, Times };
@@ -18,7 +18,7 @@ enum class Unit { None, Seconds, Fraction, Turns, Degrees, Points, Times };
 // Every row's slot, as <group>_<name>: Slot::lfo_rateSeconds is the LFO period's row.
 enum class Slot : int {
 #define GEODE_CONFIG(group, name, kind, def, lo, hi, unit) group##_##name,
-#include "viz/ConfigTable.inc"
+#include "viz/params/ConfigTable.inc"
 #undef GEODE_CONFIG
     kCount
 };
@@ -38,7 +38,7 @@ inline constexpr std::array<Spec, kCount> kTable = {{
 #define GEODE_CONFIG(group, name, kind, def, lo, hi, unit)                                                      \
     {#group, #name, Kind::kind, static_cast<float>(def), static_cast<float>(lo), static_cast<float>(hi), \
      Unit::unit},
-#include "viz/ConfigTable.inc"
+#include "viz/params/ConfigTable.inc"
 #undef GEODE_CONFIG
 }};
 

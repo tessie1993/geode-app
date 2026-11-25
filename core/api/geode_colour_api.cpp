@@ -6,7 +6,7 @@
 
 #include "api/geode_api.h"
 #include "viz/colour/Colour.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 using geode::viz::SceneParams;
 namespace colour = geode::viz::colour;

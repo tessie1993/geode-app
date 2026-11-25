@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/fluid/FluidEmitters.hpp"
 #include "viz/fluid/FluidSim.hpp"
 

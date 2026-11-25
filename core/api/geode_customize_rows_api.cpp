@@ -9,7 +9,7 @@
 #include "viz/CustomizeRows.hpp"
 #include "viz/PalettePanel.hpp"
 #include "viz/PanelText.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/StyleNames.hpp"
 
 namespace customize = geode::viz::customize;

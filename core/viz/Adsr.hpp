@@ -4,14 +4,14 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Config.hpp"
+#include "viz/params/Config.hpp"
 #include "viz/Lfo.hpp"
 
 namespace geode::viz {
 
 enum class EnvBand { Bass, Mid, Treble, Rms, Brightness, Width };
 
-// One envelope. Defaults are the adsr rows of viz/ConfigTable.inc
+// One envelope. Defaults are the adsr rows of viz/params/ConfigTable.inc
 // (#423), the same numbers the stores and the sliders read.
 struct AdsrConfig {
     bool enabled = false;

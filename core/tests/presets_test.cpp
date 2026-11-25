@@ -18,7 +18,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/CataloguePresets.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode::viz;
 

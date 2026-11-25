@@ -8,7 +8,7 @@
 #include "sound/SoundFrame.h"
 #include "viz/CameraRig.hpp"
 #include "viz/DirectorTuning.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz {
 

@@ -39,7 +39,7 @@
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/gl/ProgramStager.hpp"

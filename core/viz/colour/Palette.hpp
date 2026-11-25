@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "viz/colour/Colour.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // Customize › Look's palettes: the one colour source every style kind will draw from (owner rule: once
 // the user picks palettes, no other colours appear). A Palette is up to 16 colours with its gradient

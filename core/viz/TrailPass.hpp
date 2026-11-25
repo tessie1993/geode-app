@@ -4,7 +4,7 @@
 #include <string>
 
 #include "viz/gl/Framebuffer.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/gl/Program.hpp"
 #include "viz/ShaderSource.hpp"
 

@@ -11,7 +11,7 @@
 #include "viz/colour/Colour.hpp"
 #include "viz/colour/Palette.hpp"
 #include "viz/PalettePanel.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode::viz;
 namespace pp = geode::viz::palettepanel;

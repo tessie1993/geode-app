@@ -1,10 +1,10 @@
 #pragma once
 #include <array>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The modulation targets as data. A scene field a wave, an envelope, a route or a knob can move is one with a
-// GEODE_PARAM_MOD row in viz/ParamTable.inc: its scale (how far one unit of modulation moves it) and its flags (kModLight)
+// GEODE_PARAM_MOD row in viz/params/ParamTable.inc: its scale (how far one unit of modulation moves it) and its flags (kModLight)
 // are that row, so a field becomes a target by gaining one, and no list here names what it does.
 //
 // A target's ordinal is its wire value (LfoTarget, the lfo_target config row, the routes' and the envelopes' floats). The

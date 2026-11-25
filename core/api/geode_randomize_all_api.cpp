@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/RandomizeAll.hpp"
 
 using geode::viz::SceneParams;

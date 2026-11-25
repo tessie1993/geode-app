@@ -1,5 +1,5 @@
 // The config params schema (#423): every value the data stores hold beside the scene params, written
-// once. The scene params are viz/ParamTable.inc; these are the modulation slots, the palette maker,
+// once. The scene params are viz/params/ParamTable.inc; these are the modulation slots, the palette maker,
 // the look's envelope and the preset morph. Not a header: it holds
 // only GEODE_CONFIG rows, and each includer defines GEODE_CONFIG, includes this file and #undefs it.
 //

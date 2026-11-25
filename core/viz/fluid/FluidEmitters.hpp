@@ -5,7 +5,7 @@
 
 #include "api/geode_api.h"
 #include "viz/LiveSignal.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/fluid/FluidChoreography.hpp"
 
 namespace geode::viz::fluid {

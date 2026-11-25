@@ -8,7 +8,7 @@
 namespace geode::viz {
 
 // The scene params schema (#346): every field's name, kind, default, control range and wire slot is
-// one row of viz/ParamTable.inc, and everything below expands from those rows: the struct's members
+// one row of viz/params/ParamTable.inc, and everything below expands from those rows: the struct's members
 // and defaults, the wire order, get/set by name, what lerpParams glides and the LFO clamps. The shell keeps no
 // copy and no table: its SceneParams holds the wire frame and asks for a value by name (geode_params_get, _set).
 
@@ -26,7 +26,7 @@ enum class ParamFade { Fade, Hold };
 // Every field's wire slot, by its own name: ParamSlot::flowCurl is the slot of SceneParams::flowCurl.
 enum class ParamSlot : int {
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) name,
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM
     kCount
 };
@@ -74,7 +74,7 @@ constexpr int choiceCount(ParamSlot slot) {
     int n = 0;
 #define GEODE_PARAM_CHOICES(name, ...) \
     if (slot == ParamSlot::name) n = static_cast<int>(std::initializer_list<const char*>{__VA_ARGS__}.size());
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM_CHOICES
     return n;
 }
@@ -101,7 +101,7 @@ struct ParamMod {
 inline constexpr std::array<ParamMod, static_cast<size_t>(ParamSlot::kCount)> kParamMods = [] {
     std::array<ParamMod, static_cast<size_t>(ParamSlot::kCount)> out{};
 #define GEODE_PARAM_MOD(name, scale, flags) out[static_cast<size_t>(ParamSlot::name)] = ParamMod{true, scale, flags};
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM_MOD
     return out;
 }();
@@ -161,7 +161,7 @@ struct SceneParams {
     }
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM
 
     struct Palette {

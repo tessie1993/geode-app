@@ -4,7 +4,7 @@
 #include <string>
 
 #include "viz/Lfo.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // Randomize for the waves (Customize › Expert › Waves): a whole set of LFO slots rolled at once. Pure:
 // no GL, no JNI, so the host tests build it (core/tests/lfo_random_test.cpp).
@@ -42,7 +42,7 @@ constexpr int kKinds = 5;
 constexpr int kCameraKind = 3;
 int kindOf(LfoTarget target);
 
-// The slots as floats (the lfo rows of viz/ConfigTable.inc), one after another.
+// The slots as floats (the lfo rows of viz/params/ConfigTable.inc), one after another.
 constexpr int kWireFloats = LfoEngine::kSlots * GEODE_LFO_CONFIG_FLOATS;
 Set fromWire(const float* values);
 void toWire(const Set& set, float* out);

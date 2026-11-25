@@ -10,7 +10,7 @@
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
 

@@ -1,7 +1,7 @@
 // The built-in palettes (viz/colour/Palette library()), in library order. Define the two row macros, include, undef.
 //
 // GEODE_CLASSIC(id, name, base, range): rows 0..20, the old cosine hue ramps in the `palette` index order
-// looks were saved by; viz/Params' SceneParams::palettes() reads these rows too, so there is one table.
+// looks were saved by; viz/params/Params' SceneParams::palettes() reads these rows too, so there is one table.
 // The library samples each to kMaxStops stops: a ramp round the whole wheel (range 1) Loops, the others run
 // once and Mirror, like a new palette. Rows 12..20 (Royal .. Yellow) are retired (SceneParams::kListedPalettes):
 // kept, never moved, so a saved index still draws, but no picker lists them and no roll deals them.

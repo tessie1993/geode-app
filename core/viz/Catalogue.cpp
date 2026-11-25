@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdio>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/input/TouchField.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"

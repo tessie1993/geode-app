@@ -4,7 +4,7 @@
 #include <optional>
 
 #include "api/geode_api.h"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/fluid/FlowField.hpp"
 #include "viz/gl/ProgramLoader.hpp"
 

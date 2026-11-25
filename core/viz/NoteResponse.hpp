@@ -4,7 +4,7 @@
 
 #include "sound/Emotion.hpp"
 #include "sound/SoundFrame.h"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz {
 

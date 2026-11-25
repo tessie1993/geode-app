@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The Customize panel's Randomize and Reset-tab buttons: what each control rolls to, which tab owns
 // it, and which fields it writes. Pure: no GL, no JNI, so the host tests build it.
@@ -32,7 +32,7 @@ struct RolledKey {
     Tab tab;
     const char* key;
     // The SceneParams fields the roll writes (Kotlin property names), in wire order; nullptr past the
-    // last. They are the live rows whose meta row is labelled `key` (viz/ParamTable.inc), at most
+    // last. They are the live rows whose meta row is labelled `key` (viz/params/ParamTable.inc), at most
     // kMaxRollFields of them (params_schema_test holds every label to it).
     std::array<const char*, kMaxRollFields> fields;
 };

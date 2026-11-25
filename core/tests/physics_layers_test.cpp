@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "viz/Lfo.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/physics/PhysicsPlan.hpp"
 

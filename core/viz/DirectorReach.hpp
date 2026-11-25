@@ -10,7 +10,7 @@
 #include "sound/SoundFrame.h"
 #include "viz/Director.hpp"
 #include "viz/Lfo.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/Reactions.hpp"
 
 namespace geode::viz {

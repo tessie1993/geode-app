@@ -1,5 +1,5 @@
 // Host-side checks for the Customize randomizer, Reset tab and the params wire
-// (core/viz/ParamRandomizer, core/viz/Params). Built and run by CI
+// (core/viz/ParamRandomizer, core/viz/params/Params). Built and run by CI
 // (.github/workflows/android.yml, "Params host tests") with the system compiler; no GL.
 #include <algorithm>
 #include <cmath>
@@ -13,7 +13,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/ParamRandomizer.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode::viz;
 using randomizer::Tab;
@@ -170,7 +170,7 @@ void rollsStayUnderTheFlashClamp() {
     }
 }
 
-// Every roll lands inside the field's own range in the schema (core/viz/ParamTable.inc), so a rolled
+// Every roll lands inside the field's own range in the schema (core/viz/params/ParamTable.inc), so a rolled
 // look is one the controls can show and set back.
 void rollsStayInsideTheSchemasRanges() {
     for (uint64_t seed = 0; seed < 300; ++seed) {

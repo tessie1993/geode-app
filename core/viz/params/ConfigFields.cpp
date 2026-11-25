@@ -1,11 +1,11 @@
-// The config params schema's rows (viz/ConfigTable.inc) as the text table the shell reads through
-// geode_config_schema_text. The rows themselves are constexpr in viz/Config.hpp; this file only writes
+// The config params schema's rows (viz/params/ConfigTable.inc) as the text table the shell reads through
+// geode_config_schema_text. The rows themselves are constexpr in viz/params/Config.hpp; this file only writes
 // them out, so the engine code that reads them needs nothing more to link.
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 
-#include "viz/Config.hpp"
+#include "viz/params/Config.hpp"
 
 namespace geode::viz::config {
 
@@ -34,7 +34,7 @@ const char* unitName(Unit unit) {
 }
 
 // The shortest %g form that reads back to exactly v, as the scene params text writes its numbers
-// (viz/ParamsFields.cpp): "0.005", not "0.00499999989".
+// (viz/params/ParamsFields.cpp): "0.005", not "0.00499999989".
 std::string number(float v) {
     char buf[32];
     for (int digits = 6; digits <= 9; ++digits) {

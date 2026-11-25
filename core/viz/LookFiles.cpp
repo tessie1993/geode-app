@@ -11,8 +11,8 @@
 #include "util/Json.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/colour/Colour.hpp"
-#include "viz/ParamsJson.hpp"
-#include "viz/ParamsPalette.hpp"
+#include "viz/params/ParamsJson.hpp"
+#include "viz/params/ParamsPalette.hpp"
 #include "viz/Sha256.hpp"
 
 namespace geode::viz::files {

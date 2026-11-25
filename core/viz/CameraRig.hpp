@@ -2,7 +2,7 @@
 #include <array>
 
 #include "api/geode_api.h"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz {
 

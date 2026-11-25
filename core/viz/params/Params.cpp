@@ -1,4 +1,4 @@
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 #include "viz/colour/Colour.hpp"
 
@@ -46,7 +46,7 @@ float SceneParams::paletteRange() const {
 
 // The wire's float count. The shell's SceneParams reads the slots from the schema text, so it follows on its own,
 // but core/tests/params_schema.txt, the JVM tests' copy, needs rewriting (params_schema_test --write):
-// a row added to viz/ParamTable.inc fails here first, on purpose.
+// a row added to viz/params/ParamTable.inc fails here first, on purpose.
 static_assert(SceneParams::kFieldCount == 203, "a ParamTable.inc row was added or removed: update params_schema.txt too");
 
 namespace {
@@ -83,7 +83,7 @@ const std::array<Access, SceneParams::kFieldCount> kAccess = {{
 #define GEODE_PARAM(kind, name, def, lo, hi, fade)                                      \
     {[](const SceneParams& p) { return toFloat(p.name); },                               \
      [](SceneParams& p, float v) { p.name = fromFloat<GEODE_PARAM_TYPE_##kind>(v); }},
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM
 }};
 
@@ -166,7 +166,7 @@ void SceneParams::toWire(float* out) const {
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k) {
     SceneParams out = to;
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) glide<ParamFade::fade>(out.name, from.name, to.name, k);
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM
     return out;
 }

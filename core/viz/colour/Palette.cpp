@@ -243,7 +243,7 @@ float amountOf(const Amounts& amounts, size_t i) {
 
 }  // namespace
 
-static_assert(kMaxLayers == 8, "one paletteAmount row per layer (viz/ParamTable.inc)");
+static_assert(kMaxLayers == 8, "one paletteAmount row per layer (viz/params/ParamTable.inc)");
 
 Amounts amountsOf(const SceneParams& p) {
     return {p.paletteAmount0, p.paletteAmount1, p.paletteAmount2, p.paletteAmount3,

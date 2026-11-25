@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The bundled looks (#648): the catalogue's presets section. Per-style content, so it lives beside the
 // style catalogue (core/viz/Catalogue) rather than in the shell. Two kinds of row:

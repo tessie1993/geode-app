@@ -11,7 +11,7 @@
 #include "util/Json.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/LookFiles.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/TemplateFile.hpp"
 
 using namespace geode;

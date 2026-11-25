@@ -51,8 +51,8 @@ add_library(geode_core STATIC
     api/geode_params_api.cpp
     api/geode_gesture_api.cpp
     api/geode_params_json_api.cpp
-    viz/ParamsJson.cpp
-    viz/ParamsPalette.cpp
+    viz/params/ParamsJson.cpp
+    viz/params/ParamsPalette.cpp
     api/geode_looks_api.cpp
     viz/LookFiles.cpp
     viz/TemplateFile.cpp
@@ -206,11 +206,11 @@ add_library(geode_core STATIC
     viz/gl/Texture.cpp
     viz/gl/Framebuffer.cpp
     viz/gl/Quad.cpp
-    viz/Params.cpp
+    viz/params/Params.cpp
     viz/ParamText.cpp
     viz/colour/Palette.cpp
-    viz/ParamsFields.cpp
-    viz/ConfigFields.cpp
+    viz/params/ParamsFields.cpp
+    viz/params/ConfigFields.cpp
     viz/Lfo.cpp
     viz/ModTargets.cpp
     viz/MacroBank.cpp

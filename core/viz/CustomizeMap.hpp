@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The Customize panel's map: eleven categories grouped by what their controls do, each split into a
 // free Basics section and Pro sections below it, and which control lives where. Pure: no GL, no JNI.

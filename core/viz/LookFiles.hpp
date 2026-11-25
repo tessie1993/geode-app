@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The files the shell keeps a user's looks in: saved palettes (files/palettes/<id>.json), presets
 // (files/presets/**/<name>.json, also a geode://preset link's body and the saved live look) and the template
@@ -60,7 +60,7 @@ std::optional<SavedPalette> readPalette(std::string_view text);
 // The file text, as org.json's toString(2) wrote it: id, name, baseHue, hueSpan, stops.
 std::string writePalette(const SavedPalette& p);
 
-// The palette made the look's own: its colours when it has any, else its gradient (viz/ParamsPalette).
+// The palette made the look's own: its colours when it has any, else its gradient (viz/params/ParamsPalette).
 SceneParams applyPalette(const SceneParams& params, const SavedPalette& p);
 
 // The saved palette id a look keeps once palette `deletedId` is deleted: "" if it was that one.
@@ -100,7 +100,7 @@ struct Preset {
 
 // As org.json read it: "name", "sceneId", "attack" and "decay" required (any value as its text or number; a retired
 // style id opens on the style that replaced it), the envelope through finiteIn, "customShader" when
-// present, and the params object's keys beside them (viz/ParamsJson, which reads old looks as they were). nullopt
+// present, and the params object's keys beside them (viz/params/ParamsJson, which reads old looks as they were). nullopt
 // when the text is no object or misses a required key.
 std::optional<Preset> readPreset(std::string_view text);
 

@@ -1,8 +1,8 @@
-// Host-side checks for the config params schema (core/viz/ConfigTable.inc, expanded by core/viz/Config.hpp
-// and written out by core/viz/ConfigFields.cpp, #423): the LFO and envelope slots, the palette maker's
+// Host-side checks for the config params schema (core/viz/params/ConfigTable.inc, expanded by core/viz/params/Config.hpp
+// and written out by core/viz/params/ConfigFields.cpp, #423): the LFO and envelope slots, the palette maker's
 // gradient, the look's envelope and the preset morph. The rows are well formed,
 // viz/Lfo and viz/Adsr clamp exactly as their old literals did, the store
-// conversions in viz/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
+// conversions in viz/params/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
 #include <cmath>
 #include <cstdio>
@@ -15,8 +15,8 @@
 
 #include "api/geode_api.h"
 #include "viz/Adsr.hpp"
-#include "viz/Config.hpp"
-#include "viz/ConfigMath.hpp"
+#include "viz/params/Config.hpp"
+#include "viz/params/ConfigMath.hpp"
 #include "viz/Lfo.hpp"
 
 using namespace geode::viz;

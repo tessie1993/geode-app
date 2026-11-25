@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "util/Json.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The template file (<name>--<id>.geode.json, a geode://template link's body, a bundled starter): one look plus the
 // layout, text and export a video is made with, as the text org.json wrote before the codec moved here. The shell

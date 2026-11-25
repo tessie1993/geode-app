@@ -1,5 +1,5 @@
-// Host-side checks for the scene params schema (core/viz/ParamTable.inc, expanded by core/viz/Params and
-// core/viz/ParamsFields): one row per field gives its name, kind, default, range and wire slot, and the
+// Host-side checks for the scene params schema (core/viz/params/ParamTable.inc, expanded by core/viz/params/Params and
+// core/viz/params/ParamsFields): one row per field gives its name, kind, default, range and wire slot, and the
 // struct, the wire, get/set, lerpParams, the LFO clamps and the shell's text table all come from it.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
 //
@@ -26,7 +26,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/ParamRandomizer.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 

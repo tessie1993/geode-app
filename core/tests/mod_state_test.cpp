@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "api/geode_modulation_api.h"
-#include "viz/Config.hpp"
+#include "viz/params/Config.hpp"
 #include "viz/ModDocument.hpp"
 #include "viz/ModState.hpp"
 #include "viz/ParamRandomizer.hpp"

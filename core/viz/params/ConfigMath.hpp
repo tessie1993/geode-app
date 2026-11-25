@@ -1,12 +1,12 @@
 #pragma once
 #include <cmath>
 
-#include "viz/Config.hpp"
+#include "viz/params/Config.hpp"
 
 namespace geode::viz::config {
 
 // The conversions the data stores run on old saves and the palette maker's preview hue, as pure
-// functions over the rows in viz/ConfigTable.inc (#423). Each is the Kotlin formula it replaces, to the
+// functions over the rows in viz/params/ConfigTable.inc (#423). Each is the Kotlin formula it replaces, to the
 // float, on every finite input; core/tests/config_schema_test.cpp holds them to sample values. Kotlin
 // still runs its own copies until the shell calls these (the ABI does not carry them yet).
 

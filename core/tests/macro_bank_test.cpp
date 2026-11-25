@@ -30,7 +30,7 @@
 #include "viz/Lfo.hpp"
 #include "viz/MacroBank.hpp"
 #include "viz/ModTargets.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/VisualSafety.hpp"
 
 using namespace geode::viz;

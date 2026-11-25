@@ -1,4 +1,4 @@
-#include "viz/ParamsPalette.hpp"
+#include "viz/params/ParamsPalette.hpp"
 
 #include <algorithm>
 #include <cmath>

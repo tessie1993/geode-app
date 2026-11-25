@@ -13,7 +13,7 @@
 #include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/Reactions.hpp"
 
 namespace geode::signal {

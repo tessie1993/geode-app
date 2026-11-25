@@ -1,11 +1,11 @@
-// The scene params schema's rows (viz/ParamTable.inc) as data: the wire names, one ParamSpec per slot,
+// The scene params schema's rows (viz/params/ParamTable.inc) as data: the wire names, one ParamSpec per slot,
 // and the text table the shell reads through geode_params_schema_text. The ranges some rows quote
 // from their owners (the catalogue's touch and Detail ranges, the cymatics plate, the fluid tiers) are
 // why this file includes those headers; the struct itself (Params.hpp) needs none of them.
 #include <string>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/TableNumber.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
@@ -15,7 +15,7 @@ namespace geode::viz {
 const std::array<const char*, SceneParams::kFieldCount>& SceneParams::fieldNames() {
     static const std::array<const char*, kFieldCount> kNames = {{
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) #name,
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM
     }};
     return kNames;
@@ -26,7 +26,7 @@ const std::array<ParamSpec, SceneParams::kFieldCount>& SceneParams::schema() {
 #define GEODE_PARAM(kind, name, def, lo, hi, fade)                                                      \
     {#name, ParamKind::kind, static_cast<float>(def), static_cast<float>(lo), static_cast<float>(hi), \
      ParamFade::fade},
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM
     }};
     return kSchema;
@@ -49,7 +49,7 @@ const char* kindName(ParamKind kind) {
 constexpr std::array<int, SceneParams::kFieldCount> metaRowCounts() {
     std::array<int, SceneParams::kFieldCount> n{};
 #define GEODE_PARAM_META(name, label, scope, flags, lo, hi) ++n[static_cast<size_t>(ParamSlot::name)];
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM_META
     return n;
 }
@@ -79,7 +79,7 @@ constexpr bool modRowsOnContinuousFields() {
     labelled[static_cast<size_t>(ParamSlot::name)] = (label)[0] != '\0' && (label)[0] != '@'; \
     modFlag[static_cast<size_t>(ParamSlot::name)] = ((flags) & kMod) != 0;
 #define GEODE_PARAM_MOD(name, scale, flags) ++mods[static_cast<size_t>(ParamSlot::name)];
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM_MOD
 #undef GEODE_PARAM_META
 #undef GEODE_PARAM
@@ -102,7 +102,7 @@ const std::vector<std::string_view>& SceneParams::choices(ParamSlot slot) {
     static const std::array<std::vector<std::string_view>, kFieldCount> kChoices = [] {
         std::array<std::vector<std::string_view>, kFieldCount> out{};
 #define GEODE_PARAM_CHOICES(name, ...) out[static_cast<size_t>(ParamSlot::name)] = {__VA_ARGS__};
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM_CHOICES
         return out;
     }();
@@ -119,7 +119,7 @@ const std::array<ParamMeta, SceneParams::kFieldCount>& SceneParams::metaTable() 
     out[static_cast<size_t>(ParamSlot::name)] =                                                                    \
         ParamMeta{true, label, catalogue::Scope::scope, static_cast<unsigned>(flags), static_cast<float>(lo), \
                   static_cast<float>(hi)};
-#include "viz/ParamTable.inc"
+#include "viz/params/ParamTable.inc"
 #undef GEODE_PARAM_META
         return out;
     }();

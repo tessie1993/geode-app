@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // Randomize everything: the two-circle gesture's action (Settings › Behaviour › Gestures). A new
 // style, a look for it, and every Customize category rolled on top. Pure: no GL, no JNI, so the host

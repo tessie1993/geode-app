@@ -1,4 +1,4 @@
-#include "viz/ParamsJson.hpp"
+#include "viz/params/ParamsJson.hpp"
 
 #include <algorithm>
 #include <cmath>

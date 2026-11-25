@@ -3,7 +3,7 @@
 #include <string_view>
 #include <vector>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // What each Customize control draws as, on this look and this style: the widget, the scene param it writes,
 // the words on it, its value, range, default, unit and steps, and whether it draws at all. Pure: no GL, no JNI.

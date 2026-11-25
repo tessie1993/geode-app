@@ -3,7 +3,7 @@
 #include <cmath>
 
 #include "viz/Catalogue.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz::touch {
 

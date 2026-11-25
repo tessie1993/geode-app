@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "viz/Lfo.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The macro bank: the user's knobs, each a named value that moves a set of scene params the user
 // picked. A knob decides nothing by itself: its only effect is a weighted offset on the fields its

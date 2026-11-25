@@ -3,9 +3,9 @@
 #include <cstdint>
 
 #include "api/geode_api.h"
-#include "viz/Config.hpp"
+#include "viz/params/Config.hpp"
 #include "viz/ModTable.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz {
 
@@ -43,20 +43,20 @@ enum class LfoTarget {
     // Appended: the physics layers (viz/physics): the fluid's mix, the particles' mix, the force that stirs them
     // and where the fluid sits (the simFluid, simParticles, simForce and simLayerOrder params).
     SimFluid, SimParticles, SimForce, SimLayerOrder,
-    // Appended: Grow and layers (viz/ParamTable.inc), drawn by the family libraries (ordinals 74..77).
+    // Appended: Grow and layers (viz/params/ParamTable.inc), drawn by the family libraries (ordinals 74..77).
     Spawn, Fractal, FrontLayer, BackLayer,
-    // Appended: which of a style's own distance formulas draws it (viz/ParamTable.inc formula), ordinal 78.
+    // Appended: which of a style's own distance formulas draws it (viz/params/ParamTable.inc formula), ordinal 78.
     Formula,
-    // Appended: how far a raymarched style takes in the shape graph (viz/ParamTable.inc shapes), ordinal 79.
+    // Appended: how far a raymarched style takes in the shape graph (viz/params/ParamTable.inc shapes), ordinal 79.
     Shapes,
-    // Appended: the soft shadows' darkness and the escape colour's reach (viz/ParamTable.inc shadow, escapeColor),
+    // Appended: the soft shadows' darkness and the escape colour's reach (viz/params/ParamTable.inc shadow, escapeColor),
     // ordinals 80 and 81.
     Shadow, EscapeColor,
-    // Appended: how much the picture is born and dies (viz/ParamTable.inc life, viz/Births), ordinal 82.
+    // Appended: how much the picture is born and dies (viz/params/ParamTable.inc life, viz/Births), ordinal 82.
     Life,
 };
 // The names above are the targets as first shipped (viz/ModTable.hpp kLegacy). Every later ordinal is a field with a mod
-// row in viz/ParamTable.inc, in slot order, with no name here: a target is data, not an enumerator.
+// row in viz/params/ParamTable.inc, in slot order, with no name here: a target is data, not an enumerator.
 static_assert(static_cast<int>(LfoTarget::Life) == modtable::kLegacyCount - 1, "the named targets are the legacy table's");
 // The last ordinal: the wire's range for a target.
 inline constexpr LfoTarget kLastLfoTarget = static_cast<LfoTarget>(modtable::kCount - 1);
@@ -75,7 +75,7 @@ bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
 
 // One slot. Defaults and the period's range are the lfo rows of
-// viz/ConfigTable.inc (#423), the same numbers the stores and the sliders read.
+// viz/params/ConfigTable.inc (#423), the same numbers the stores and the sliders read.
 struct LfoConfig {
     static constexpr float kDefaultRateSeconds = config::spec(config::Slot::lfo_rateSeconds).defaultValue;
     static constexpr float kMinRateSeconds = config::spec(config::Slot::lfo_rateSeconds).min;

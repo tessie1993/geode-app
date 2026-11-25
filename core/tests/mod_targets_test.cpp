@@ -157,7 +157,7 @@ void everyTargetKeepsItsNameAndScope() {
     }
 }
 
-// The targets as data (viz/ModTable.hpp, the mod rows of viz/ParamTable.inc) keep what the hand-written tables said:
+// The targets as data (viz/ModTable.hpp, the mod rows of viz/params/ParamTable.inc) keep what the hand-written tables said:
 // the luminance set (held to the flash rate and the route floors) and every target's scale, as first shipped.
 void legacyTargetsKeepTheirLightAndScale() {
     using T = LfoTarget;
@@ -200,7 +200,7 @@ void onlyTheRetiredSlotsAreHidden() {
     }
 }
 
-// A target's scope and whether it is offered are its field's meta row (viz/ParamTable.inc): kMod is set on
+// A target's scope and whether it is offered are its field's meta row (viz/params/ParamTable.inc): kMod is set on
 // exactly the rows a target writes, a target's scope is its Customize control's, and a retired field's
 // target is offered nowhere.
 void targetsFollowTheirMetaRow() {

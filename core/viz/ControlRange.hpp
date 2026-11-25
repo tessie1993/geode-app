@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <string_view>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz::control {

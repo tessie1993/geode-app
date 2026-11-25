@@ -9,7 +9,7 @@
 #include "api/geode_api.h"
 #include "viz/colour/Colour.hpp"
 #include "viz/colour/Palette.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace palette = geode::viz::palette;
 namespace colour = geode::viz::colour;

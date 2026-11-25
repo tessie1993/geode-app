@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "viz/Births.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/gl/Texture.hpp"
 #include "viz/Transition.hpp"
 

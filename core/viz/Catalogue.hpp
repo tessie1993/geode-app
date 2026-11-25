@@ -173,7 +173,7 @@ std::optional<float> overrideOf(const std::string& styleId, const std::string& p
 std::optional<float> valueOf(const std::string& name);
 
 // The scope of a Customize control, named by its Customize key: the scope column of its fields'
-// meta rows in viz/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
+// meta rows in viz/params/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
 Scope scopeOf(const std::string& paramKey);
 bool reaches(Scope scope, const std::string& styleId);
 

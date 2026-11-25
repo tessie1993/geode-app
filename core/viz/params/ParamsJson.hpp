@@ -2,12 +2,12 @@
 #include <string>
 #include <string_view>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz {
 
 // The scene params object of a preset, a shared link, a template's look and the saved live look (#1150): every
-// live row of viz/ParamTable.inc under its name, then the two saved palette slots' ids. The text is what the
+// live row of viz/params/ParamTable.inc under its name, then the two saved palette slots' ids. The text is what the
 // shell's org.json wrote before it moved here, byte for byte: a Bool as true/false, an Int as Kotlin's
 // roundToInt, a Float or Circular as org.json writes the float widened to a double (json::numberText), in slot
 // order, compact. A non-finite float or int, which org.json refused to write, is written as its row's default.

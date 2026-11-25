@@ -3,7 +3,7 @@
 #include <string_view>
 #include <vector>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // Customize › Look's palette pages as the shell draws them: the stack card (Palettes), the palette list on
 // a style the stack does not draw, and Your colours' stop editor. Pure: no GL, no JNI.

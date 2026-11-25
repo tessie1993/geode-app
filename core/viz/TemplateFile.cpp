@@ -10,7 +10,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/LookFiles.hpp"
-#include "viz/ParamsJson.hpp"
+#include "viz/params/ParamsJson.hpp"
 
 namespace geode::viz::files {
 

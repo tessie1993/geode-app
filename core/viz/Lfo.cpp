@@ -7,7 +7,7 @@
 
 namespace geode::viz {
 
-// The lfo rows' enum ranges are these enums' ordinals (viz/ConfigTable.inc): a value appended to one
+// The lfo rows' enum ranges are these enums' ordinals (viz/params/ConfigTable.inc): a value appended to one
 // moves its row's max in the same change.
 static_assert(config::spec(config::Slot::lfo_source).max == static_cast<float>(ModSource::StereoPan), "lfo source row");
 static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(kLastLfoTarget), "lfo target row");

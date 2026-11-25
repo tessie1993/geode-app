@@ -8,7 +8,7 @@
 #include <string_view>
 
 #include "viz/ControlRange.hpp"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 using namespace geode::viz;
 

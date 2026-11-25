@@ -1,5 +1,5 @@
 #pragma once
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 // The look's own palette inside its scene params: the two hue overrides (paletteBaseOverride, paletteRangeOverride)
 // and your colours' stops (paletteStop0..7). Customize › Look's palette chips, your-colours editor, the artwork

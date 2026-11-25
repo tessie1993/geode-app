@@ -3,7 +3,7 @@
 #include <string_view>
 
 #include "api/geode_api.h"
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/SpeedClock.hpp"
 
 namespace geode::viz {

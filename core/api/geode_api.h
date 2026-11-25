@@ -767,15 +767,15 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
-/* A frame read from a saved look or a shared link, made safe (viz/Params SceneParams::sanitized): a non-finite
+/* A frame read from a saved look or a shared link, made safe (viz/params/Params SceneParams::sanitized): a non-finite
  * value or a retired slot reads as the row's default, an int is held to its range and rounds, a flag is
  * value > 0.5, a float is held to its range and a circular one is left to wrap. Same wire; in and out may alias. */
 GEODE_API void        geode_params_sanitize(const float* in, float* out);
 /* A look's frame `in` (a preset, a template, Reset all) as it replaces the live frame `current`: every slot whose
- * meta row has kInput (viz/ParamTable.inc: an input preference such as Tilt phone to look, not part of a look) keeps
- * current's value, every other slot is in's (viz/Params SceneParams::keepInputs). Same wire; out may alias either. */
+ * meta row has kInput (viz/params/ParamTable.inc: an input preference such as Tilt phone to look, not part of a look) keeps
+ * current's value, every other slot is in's (viz/params/Params SceneParams::keepInputs). Same wire; out may alias either. */
 GEODE_API void        geode_params_keep_inputs(const float* current, const float* in, float* out);
-/* The scene params object of a preset, shared link, template look or saved live look (viz/ParamsJson), the
+/* The scene params object of a preset, shared link, template look or saved live look (viz/params/ParamsJson), the
  * text the shell's org.json wrote and read. write_json: the n-float geode_viz_set_params frame (n at least
  * geode_viz_param_count) and the two palette slot ids (NULL as "") as compact JSON, valid until the calling
  * thread's next write_json; NULL for a short frame. read_json: the object at `path` (nested keys, newline-separated,
@@ -787,7 +787,7 @@ GEODE_API void        geode_params_keep_inputs(const float* current, const float
 GEODE_API const char* geode_params_write_json(const float* frame, int n, const char* id_a, const char* id_b);
 GEODE_API int         geode_params_read_json(const char* document, const char* path, const char* fallback,
                                              float* out_frame, int n, const char** id_a, const char** id_b);
-/* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
+/* The scene params schema (core/viz/params/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
  *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
@@ -803,11 +803,11 @@ GEODE_API const char* geode_params_schema_text(void);
  * length the whole text needs. Pure, any thread. */
 GEODE_API int         geode_param_text(const char* key, int unit, float value, float lo, float hi, float def,
                                        char* out, int capacity);
-/* The hue base and span a palette slot draws (viz/Params paletteBase, paletteRange): the override when it is
+/* The hue base and span a palette slot draws (viz/params/Params paletteBase, paletteRange): the override when it is
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
-/* The look's own palette in a geode_viz_set_params frame (viz/ParamsPalette): its hue overrides and your colours'
+/* The look's own palette in a geode_viz_set_params frame (viz/params/ParamsPalette): its hue overrides and your colours'
  * stops. uses_custom_palette: 1 when an override or the first stop is set (a saved palette's id means something only
  * then). palette_stops: how many stops are set from the first, into out (room for geode_saved_palette_max_stops()). clear_custom_palette: both overrides
  * and every stop unset. apply_stops: cleared, then the first `count` (at most geode_saved_palette_max_stops()) of `stops`. apply_gradient: no
@@ -1003,12 +1003,12 @@ GEODE_API void        geode_palette_stack_ramp(const char* stack, const float* a
 GEODE_API const char* geode_palette_stack_from_params(const float* params, float* amounts_out);
 GEODE_API const char* geode_colour_recent_push(const char* recent, int rgb);
 GEODE_API int         geode_colour_recent_read(const char* recent, int* out, int max);
-/* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
+/* The config params schema (core/viz/params/ConfigTable.inc): the values the data stores hold beside the scene params
  * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:
  *   configs|<version>|<count>
  *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
- * index = the row's place in its group (for lfo and adsr the field's place in the slot's wire, viz/Config.hpp). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+ * index = the row's place in its group (for lfo and adsr the field's place in the slot's wire, viz/params/Config.hpp). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
 /* The two-finger transform on the visual (core/viz/input/TouchTransform): a pinch's scale factor times Zoom, a twist in
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
@@ -1018,7 +1018,7 @@ GEODE_API float       geode_touch_rotation(float current, float degrees);
  * short where the control stops early (Brightness and Intensity at 1 + the flash clamp's depth, Bloom at the
  * depth, Fly at -2..2). Writes min and max to out[2] and returns 1; 0, out untouched, for an unknown name. Pure. */
 GEODE_API int         geode_params_control_range(const char* name, float* out);
-/* One scene param by its name in a geode_viz_set_params frame (viz/Params SceneParams::get and ::set), so the shell
+/* One scene param by its name in a geode_viz_set_params frame (viz/params/Params SceneParams::get and ::set), so the shell
  * keeps no slot, kind or default of its own. defaults: every row at its default, geode_viz_param_count floats into
  * out. get: the param's value, an int or a flag as a float; NaN for a NULL frame or a name with no live row (unknown
  * or retired). set: `in` with the param at `value` (an int rounds, a flag is value > 0.5) into out and 1; 0, out

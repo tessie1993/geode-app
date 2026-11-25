@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "util/Json.hpp"
-#include "viz/ConfigMath.hpp"
+#include "viz/params/ConfigMath.hpp"
 #include "viz/ModCatalog.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionText.hpp"

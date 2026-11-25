@@ -58,6 +58,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -316,6 +317,7 @@ private fun LibraryContent(
         PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
             tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { pickedTab = i }, text = { Text(t) }) }
         }
+        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         // Measured below the tabs, where the lists live: the pane's own width decides the split.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = landscapeOrExpanded && maxWidth >= LIBRARY_SPLIT_WIDTH
@@ -330,7 +332,7 @@ private fun LibraryContent(
                 // Grouping walks the whole library, so the ViewModel does it off the main thread
                 // (LibraryBrowse.browse); the tabs only draw the groups.
                 when (tab) {
-                    0 -> TrackList(shown, playerViewModel, libraryViewModel, columns)
+                    0 -> TrackList(shown, playerViewModel, libraryViewModel, columns, loading = state.loading)
                     1 -> GroupList(state.browse.albums, playerViewModel, libraryViewModel, columns)
                     2 -> GroupList(state.browse.artists, playerViewModel, libraryViewModel, columns)
                     3 -> FoldersTab(state.browse.folders, playerViewModel, wide)
@@ -448,6 +450,7 @@ private fun TrackList(
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
     columns: Int = 1,
+    loading: Boolean = false,
 ) {
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
     // Collected once for the list: per row it was a ViewModel lookup and a collector per item.
@@ -458,7 +461,7 @@ private fun TrackList(
         items(tracks, key = { it.uri }, contentType = { "track" }) { t ->
             TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], t.uri in favourites, queue = queue)
         }
-        if (tracks.isEmpty()) {
+        if (tracks.isEmpty() && !loading) {
             item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
                 Text(stringResource(R.string.library_no_music), Modifier.padding(16.dp))
             }

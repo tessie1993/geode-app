@@ -82,7 +82,7 @@ object StageNative {
     /** The `FRAME_*` events of the frames since the last call, OR-ed. */
     external fun stageTakeEvents(stage: Long): Int
 
-    /** The ring frames hear (a `pcmRing*` handle), or 0. Returns once no frame reads the ring it replaced. */
+    /** The ring frames hear (a `pcmRing*` handle), or 0. Never waits for a frame; a frame in flight keeps the ring it began with. */
     external fun stageSetSound(
         stage: Long,
         ring: Long,

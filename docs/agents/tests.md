@@ -65,7 +65,6 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against the formula, 30/60/120 fps, silence, the fold.
 - `field_present_test.cpp`: a simulation presented in 3D (`core/viz/present/FieldGeometry`): each surface's size and eye, where a finger's ray lands on the field, and the composite gate that leaves a rig scene's picture to it.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
-- `frame_governor_test.cpp`: `core/viz/frame/FrameGovernor`, Settings › Performance's "Adapt to frame time": the ladder (render scale, march scale, post FX, the frame rate last) and its climb in reverse, a step only after a sustained miss against the paced rate and back only after the dwell, never above the user's settings, settling frames not counted, a new style back on the user's settings, off, export and recording passing through, Follow device, the "Now" read-back.
 - `fx_ranges_test.cpp`: the sound effects' ranges and clamps (`core/audio/dsp/FxRanges`) and the band levels a session starts on, through `geode_dsp_fx_*` and `geode_dsp_restore_bands`, and the saved band-levels text (`geode_dsp_restore_bands_text`, `geode_dsp_encode_bands`).
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
 - `gltf_import_test.cpp`: glTF import: every limit, the fit and its counts, refusals and the low-detail copy.
@@ -117,7 +116,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `output_test.cpp` also pins the frame grid and audio cut drift-free over 3 h at every offered rate, loops, the encode budget and chapters.
 - `render_plan_test.cpp`: a render's range and free-tier cap (`core/output/ExportRange`) and a batch's track order and progress (`RenderBatch`), with their C ABI.
 - `loudness_scan_test.cpp`: a finished render's loudness scan on a fake decoder (`core/output/LoudnessScan`) and the advice sentence (`LoudnessAdvice` `readingOf`).
-- `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
+- `pacer_test.cpp`: `core/viz/frame/Pacer`, the times a frame is read and shown at: the dt clamp, the cap a surface runs at, where the sound is read, the swap's stamp.
 - `palette_panel_test.cpp`: Your colours' stop editor and its limits, the stack card's rows and the palette list's pick (`core/viz/PalettePanel`).
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
 - `params_json_test.cpp`: the params object (`core/viz/ParamsJson`, `util/Json`'s org.json rules): org.json's number and string text, its opt* coercions, round trips, retired and unknown keys, sanitize, and `app/src/test/resources/presets/*.json` read in place.
@@ -166,7 +165,8 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
 - `live_client_test.cpp`: `core/stage/LiveClient`, a live stage's client: the ring a frame hears, events kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed on release.
 - `stage_lifecycle_test.cpp`: `core/stage/StageLifecycle`, when a stage makes, uses and frees its EGL context and surface: the common paths action by action, then every four-event sequence and long random ones (no GL without a context, every create destroyed, one release).
-- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap, start and stop, the frame-rate hint.
+- `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's vsync callback on the vsync thread: start and stop, one callback posted, a lapse once stopped.
+- `vsync_rule_test.cpp`: `core/stage/VsyncRule`, the stage's whole vsync rule: draw every vsync unless the last frame is in flight (CPU or GPU fence), the frame-rate hint, the presentation rate from its interval.
 - `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk.
 - `style_pick_test.cpp`: Styles' Random: every family or the on-screen family, never the style on screen, a kept style first, a family of one rolling inside its style; each list led by what is on screen.
 - `style_reads_test.cpp`: shader truth: each shader style's camera rig (`catalogue::fliesCamera`, which Customize's Camera framing and feel follow) and its march against the `uCamBasis` and `uSteps` its assembled shader reads.

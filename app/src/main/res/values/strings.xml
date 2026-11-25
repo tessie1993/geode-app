@@ -55,14 +55,6 @@
     <string name="perf_level_high">High</string>
     <string name="perf_post_fx">Extra effects</string>
     <string name="perf_post_fx_hint">Flow distortion, the touch smear and fluid bloom.</string>
-    <string name="perf_adaptive">Adapt to frame time</string>
-    <string name="perf_adaptive_hint">When frames come late, lowers resolution, then 3D detail, then extra effects, and only then the frame rate, never above what you set here. It goes back up once frames are on time again, and starts from your settings with each new style. Recording and exports are never lowered.</string>
-    <string name="perf_adaptive_now">Now: %1$d fps, %2$s</string>
-    <string name="perf_adaptive_now_fps">Now: %1$d fps</string>
-    <string name="perf_adaptive_now_full">full quality</string>
-    <string name="perf_adaptive_now_scale">resolution %1$s</string>
-    <string name="perf_adaptive_now_march">3D detail %1$s</string>
-    <string name="perf_adaptive_now_no_fx">no extra effects</string>
     <string name="perf_export_note">Applies at once to the visualizer, the wallpaper and the screen saver. The frame rate cap is the visualizer\'s alone: the wallpaper and the screen saver keep their own rate. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->

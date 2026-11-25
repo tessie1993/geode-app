@@ -37,16 +37,12 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this] { return pacedFps(); },
-                          // The user's march scale under the governor's steps (frame::FrameGovernor).
-                          [this] { return governor_.governed().marchScale; },
+                          [this] { return marchScale_.load(std::memory_order_relaxed); },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
-                          [this] { return settling(); },
                           [this] { return paletteRamp_.active() ? paletteRampTex_.get() : GLuint{0}; },
-                          [this] { return &shapeGraph_.packed(); },
-                          [this] { return governor_.enabled(); }}),
+                          [this] { return &shapeGraph_.packed(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
@@ -521,8 +517,8 @@ void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
 }
 
 void Renderer::applyRenderScale() {
-    // The user's scale under the governor's steps (frame::FrameGovernor), as of this frame.
-    appliedUserScale_ = governor_.governed().renderScale;
+    // The user's scale, as of this frame.
+    appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
     // The scene target is the surface's pixels times that scale and never more: a scale of 1 draws
     // each pixel once.
     renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);

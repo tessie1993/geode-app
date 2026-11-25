@@ -145,11 +145,6 @@ Java_dev_geode_engine_bridge_StageNative_stageSetQuality(JNIEnv*, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetAdaptive(JNIEnv*, jobject, jlong stage, jboolean on) {
-    geode_viz_set_adaptive(StageViz(stage), on == JNI_TRUE ? 1 : 0);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageBeginParamMorph(JNIEnv*, jobject, jlong stage, jfloat seconds) {
     geode_viz_begin_param_morph(StageViz(stage), seconds);
 }

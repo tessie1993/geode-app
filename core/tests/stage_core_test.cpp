@@ -121,7 +121,6 @@ struct Client final : StageClient {
     int created = 0, changed = 0, frames = 0, trims = 0, losses = 0, releases = 0, services = 0;
     int width = 0, height = 0;
     float paced = -1.0f, cap = -1.0f;
-    float governed = 0.0f;  // the cap the governor asks for after each frame, 0 for none
     uint32_t nextEvents = 0;
     std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
     std::vector<int64_t> presentTimes;  // the presentation time each frame was told, 0 for none
@@ -150,7 +149,6 @@ struct Client final : StageClient {
         cap = capFps;
         return nextEvents;
     }
-    float governedCapFps() override { return governed; }
     void trimSpares() override { trims++; }
     void contextLost() override {
         losses++;

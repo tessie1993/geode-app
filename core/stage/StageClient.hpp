@@ -26,9 +26,6 @@ public:
     // Called just before each frame, after frameTime: when the display is expected to show it (CLOCK_MONOTONIC ns),
     // 0 when no time was given. The sound is read where the viewer sees the frame.
     virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
-    // After each frame: the cap "Adapt to frame time" (viz/frame/FrameGovernor) wants the stage paced to instead of
-    // its own, 0 for none. The stage hands it to the pacer and the window's hint the way it hands its own cap.
-    virtual float governedCapFps() { return 0.0f; }
     // Shed the spare scenes before the surface pauses, context current.
     virtual void trimSpares() = 0;
     // The context is gone with every GL name in it: forget them, delete none. No context is current.

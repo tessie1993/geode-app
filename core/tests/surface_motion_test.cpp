@@ -1,10 +1,10 @@
 // Host-side checks for what #509 (#441, #389) adds to the wallpaper's and the dream's run rule
 // (core/viz/SurfaceRun), through the C ABI the shells call: reduced motion holds a still frame, the still
-// frame's native settle, and each surface's own fps choice as the frame pacer (core/viz/frame/Pacer)
-// caps to it. Built and run by CI ("Native host tests" in .github/workflows/android.yml); no GL, no device.
+// frame's native settle, and each surface's own fps choice as the frame-rate hint.
+// Built and run by CI ("Native host tests" in .github/workflows/android.yml); no GL, no device.
 //
 // surface_run_test.cpp pins the rule's spot cases; this file walks every flag combination with the new
-// bit, every pair of run modes, the fps snap over its whole input range, and the pacer at each choice.
+// bit, every pair of run modes, the fps snap over its whole input range.
 // Expected values come from the PR's stated rule ("reduced motion holds a still frame, stopped still beats
 // still"; "the 2 s settle on the way into a still frame"; "15, 30 or 60, the nearest, the lower on a
 // tie, <= 0 the default 30"), never from the code's own arithmetic.
@@ -15,7 +15,6 @@
 #include <random>
 
 #include "api/geode_api.h"
-#include "viz/frame/Pacer.hpp"
 
 namespace {
 
@@ -202,58 +201,6 @@ void fpsChoicesRespectsTheBuffer() {
           "more room than rates: three written, the rest untouched");
 }
 
-// ---- The fps choice as the pacer's cap ------------------------------------------------------------
-
-// Draws per second the pacer gives a surface whose stored choice is `stored`, on a steady `hz` panel:
-// warm the period estimate up, then count the draws in two seconds of vsyncs and keep the last dt.
-struct Paced {
-    int perSecond = 0;
-    double dt = 0.0;
-};
-
-Paced paceStored(int stored, int hz) {
-    using geode::viz::frame::Pacer;
-    using geode::viz::frame::PacerState;
-    PacerState s;
-    const auto cap = static_cast<float>(geode_surface_fps_choice(stored));
-    const double period = 1e9 / hz;
-    const int64_t t0 = 1'000'000'000;
-    const int warm = 32;
-    int drawn = 0;
-    double dt = 0.0;
-    for (int i = 0; i < warm + 2 * hz; ++i) {
-        const auto t = t0 + static_cast<int64_t>(std::llround(period * i));
-        const double d = Pacer::onVsync(s, t, cap);
-        if (i >= warm && d > 0.0) {
-            ++drawn;
-            dt = d;
-        }
-    }
-    return Paced{drawn / 2, dt};
-}
-
-// Each listed rate is one the pacer reaches exactly on 60 and 120 Hz panels (the PR's reason for the
-// list), and 15 and 30 on 90 Hz, each frame stepping the engine by 1/rate; an unset choice paces at
-// 30. Expected rates are the owner's 15, 30 and 60. Kills: a choice the pacer cannot divide
-// down to (24 or 45 in the list), the snap handing the pacer the raw request instead of a listed rate
-// (a stored 0 or -1 would cap to nothing and draw every vsync, 20 would draw
-// at 20 on 120 Hz, 40 at 60 on 60 Hz), the default not 30.
-void everyChoiceIsWhatThePacerDraws() {
-    struct Case {
-        int stored;
-        int hz;
-        int fps;
-    };
-    const Case cases[] = {{15, 60, 15},  {30, 60, 30},  {60, 60, 60},  {15, 120, 15}, {30, 120, 30},
-                          {60, 120, 60}, {15, 90, 15},  {30, 90, 30},  {0, 60, 30},   {0, 120, 30},
-                          {59, 120, 60}, {-1, 90, 30},  {20, 120, 15}, {40, 60, 30}};
-    for (const Case& c : cases) {
-        const Paced p = paceStored(c.stored, c.hz);
-        checkAt(p.perSecond == c.fps, "the pacer draws at the chosen rate", c.stored, c.hz);
-        checkAt(std::fabs(p.dt - 1.0 / c.fps) < 1e-6, "each drawn frame steps by 1/rate", c.stored, c.hz);
-    }
-}
-
 }  // namespace
 
 int main() {
@@ -264,7 +211,6 @@ int main() {
     fpsSnapsToTheNearestRate();
     fpsChoiceIsListedStableAndMonotone();
     fpsChoicesRespectsTheBuffer();
-    everyChoiceIsWhatThePacerDraws();
     if (failures == 0) std::printf("surface_motion_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

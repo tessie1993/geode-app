@@ -14,8 +14,8 @@ namespace geode::sound {
 //   gain = floor + (1 - floor) * min(1, drive / full)
 //
 // `floor` keeps quiet music breathing; `full` is where the reach is all spent. A hit is weighed by the drive
-// once already, in the engine (its strength and worth, SoundEngine's kHitDriveFloor), and every route, the
-// motion field and the camera scale by this gain on top, so the drive counts twice on a hit: `full` sits at
+// once already, in the engine (its strength and worth, SoundEngine's kHitDriveFloor), and every route
+// and the camera scale by this gain on top, so the drive counts twice on a hit: `full` sits at
 // 0.5, an ordinary well-mastered song (a loud, dense one at about -9 LUFS reads 0.75), so music of everyday
 // loudness reaches the whole picture instead of a fraction of a fraction of it.
 // The user's own settings (a set LFO depth, a base value, the Motion dial) are never scaled by it.

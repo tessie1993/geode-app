@@ -16,7 +16,7 @@
 #include "viz/passes/CompositeGrade.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
-#include "viz/modulation/MotionField.hpp"
+#include "viz/passes/TwistShape.hpp"
 #include "viz/panel/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
 #include "viz/gl/SceneTarget.hpp"
@@ -63,17 +63,6 @@ float Renderer::beginFrame(double timeSeconds) {
     const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     if (settleHoldSeconds_ > 0.0f) settleHoldSeconds_ -= dt;
-    // "Adapt to frame time" (frame::FrameGovernor): this frame's step against the rate the pacer really paces to.
-    // An export (offscreen, a fixed step) and a recording pass the user's settings through.
-    {
-        const bool held = offscreen_.load(std::memory_order_relaxed) || fixedFps_.load(std::memory_order_relaxed) > 0 ||
-                          governorHeld_.load(std::memory_order_relaxed);
-        frame::GovernorUser user;
-        user.renderScale = userScale_.load(std::memory_order_relaxed);
-        user.marchScale = marchScale_.load(std::memory_order_relaxed);
-        user.postFx = userPostFx_.load(std::memory_order_relaxed);
-        governor_.onFrame(dt, pacedFps(), ownCapFps_.load(std::memory_order_relaxed), user, settling(), held);
-    }
     {
         // Before anything reads it this frame. No analysis yet (nothing heard) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
@@ -194,7 +183,8 @@ Scene* Renderer::resolveActiveScene() {
     requestedPending_ = requested == nullptr;
     sceneJustSwitched_ = false;
     if (requested && requested != activeScene_) {
-        lastTimeS_ = frameNowS_;
+        // The build ran inside this frame: the next one steps by 0, not by the build.
+        restartClock();
         const bool cuts = TransitionCatalog::builtIn(frameTransitionId_) == TransitionStyle::Cut;
         if (!cuts && activeScene_) {
             outgoingScene_ = activeScene_;
@@ -215,11 +205,6 @@ Scene* Renderer::resolveActiveScene() {
         sceneJustSwitched_ = true;
         // A new style gets about a second of draws even in silence: its build and first load span frames.
         redrawSeconds_ = kRedrawSeconds;
-        // The resolver's motion field takes the new style's variant at its next step.
-        styleSwitchPending_ = true;
-        // A new style costs what it costs: "Adapt to frame time" starts again from the user's own settings, its
-        // backoff cleared (frame::FrameGovernor). The build and the blend are settling frames it does not count.
-        governor_.reset();
     }
     return activeScene_;
 }
@@ -261,8 +246,6 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     signal::StyleContext style;
     style.id = activeScene_ ? &activeScene_->id() : nullptr;
     style.spin = sceneSpin_.load(std::memory_order_relaxed);
-    style.switched = styleSwitchPending_;
-    styleSwitchPending_ = false;
     // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
     // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
     const sound::Emotion::State* heard = nullptr;
@@ -277,8 +260,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
         heard = &soundEmotion_;
     }
     // The chain itself, param fade to safety clamp (viz/resolver/Resolver).
-    // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
-    // the motion field and the director hear the bass the user turned up.
+    // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions
+    // and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
         resolver_.step(requested, trimmedSound(requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) {
@@ -292,8 +275,8 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // The knobs' live modulation for the shell's second arc: an on-screen surface's, never an export's.
     if (!offscreen_.load(std::memory_order_relaxed)) macrobank::publishLive(out.knobMods);
     SceneParams p = out.params;
-    // Settings › Performance's extra effects, under the governor's steps.
-    const bool userPostFx = governor_.governed().postFx;
+    // Settings › Performance's extra effects.
+    const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
     // Liquid mode is a mode the user switched on, not an optional pass.
     liveLiquid_ = p.flowEnabled ? liquid::Mode::Full : liquid::Mode::Off;
     liquidMode_.store(static_cast<int>(liveLiquid_), std::memory_order_relaxed);
@@ -301,8 +284,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     uploadPaletteRamp(p);
     stepShapeGraph(p, dt, wallDt);
     lastFinalParams_ = p;
-    postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
-    lifeClock_ = std::fmod(lifeClock_ + p.speed * dt, static_cast<double>(kTimeWrapSeconds));
+    ratePhases_.step(p, dt);
     return p;
 }
 
@@ -535,9 +517,10 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = static_cast<float>(timeSeconds_);
     const SceneParams& fx = lastFinalParams_;
-    in.postRotationAngle = postRotationAngle_;
+    in.postRotationAngle = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
     in.twistSeed = styleVariantSeed(activeScene_->id());
-    in.postBirths = births::compute(static_cast<float>(lifeClock_), fx.life);
+    const double birthsWrap = static_cast<double>(kTimeWrapSeconds);
+    in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, birthsWrap)), fx.life);
     in.quadVao = quadVao_.get();
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
@@ -572,7 +555,7 @@ void Renderer::stepSmear(float dt) {
     // Never in an export, never beside Liquid mode, and, as flow distortion, one of the optional passes: off
     // without Performance's extra effects. The field is built only once smear can run.
     const bool wanted = s.on && !offscreen_.load(std::memory_order_relaxed) && liveLiquid_ == liquid::Mode::Off &&
-                        governor_.governed().postFx;
+                        userPostFx_.load(std::memory_order_relaxed);
     fluid::FlowField* ff = wanted ? overlays_.useFlow() : nullptr;
     const bool can = ff != nullptr && ff->available();
     if (!can) {
@@ -613,11 +596,17 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     repeated_ = false;
     const float wallDt = beginFrame(timeSeconds);
     const float dt = wallDt * musicRate_;
-    if (governor_.governed().renderScale != appliedUserScale_) applyRenderScale();
+    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
+        applyRenderScale();
+        restartClock();
+    }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
-    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
+    if (SceneResidency::trimSignal().poll(seenTrim_)) {
+        trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
+        restartClock();
+    }
     Scene* scene = resolveActiveScene();
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.

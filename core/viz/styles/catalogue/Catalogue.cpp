@@ -8,6 +8,7 @@
 #include "viz/input/TouchField.hpp"
 #include "viz/styles/fluid/FluidQuality.hpp"
 #include "viz/styles/cymatics/CymaticsMath.hpp"
+#include "viz/styles/catalogue/StyleBandReads.inc"
 #include "viz/styles/catalogue/StyleCatalog.hpp"
 
 namespace geode::viz::catalogue {
@@ -167,6 +168,39 @@ bool readsMid(Kind k) {
     return k == Kind::Shader || k == Kind::Silk || k == Kind::Acid || k == Kind::Fluid || k == Kind::CurlFlow || presentsIn3d(k);
 }
 bool readsTreble(Kind) { return true; }
+
+// The styles inside a kind that read no bass or no treble envelope (StyleBandReads.inc), sorted once. This is
+// about what a row shows, never about what a link, a route or a roll may write: reaches() ignores it.
+bool inList(const std::vector<std::string>& sorted, const std::string& id) {
+    return std::binary_search(sorted.begin(), sorted.end(), id);
+}
+const std::vector<std::string>& noBassStyles() {
+    static const std::vector<std::string> kList = [] {
+        std::vector<std::string> v = {
+#define X(id) id,
+            GEODE_NO_BASS_STYLES(X)
+#undef X
+        };
+        std::sort(v.begin(), v.end());
+        return v;
+    }();
+    return kList;
+}
+const std::vector<std::string>& noTrebleStyles() {
+    static const std::vector<std::string> kList = [] {
+        std::vector<std::string> v = {
+#define X(id) id,
+            GEODE_NO_TREBLE_STYLES(X)
+#undef X
+        };
+        std::sort(v.begin(), v.end());
+        return v;
+    }();
+    return kList;
+}
+bool showsBass(const std::string& id) { return readsBass(kindOf(id)) && !inList(noBassStyles(), id); }
+bool showsMid(const std::string& id) { return readsMid(kindOf(id)); }
+bool showsTreble(const std::string& id) { return readsTreble(kindOf(id)) && !inList(noTrebleStyles(), id); }
 
 // Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula, Shapes, Shadow and Escape
 // are per style, so no kind has them.
@@ -481,6 +515,16 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::Shadow) return castsShadows(styleId);
     if (scope == Scope::Escape) return colorsByEscape(styleId);
     return reachesKind(scope, kindOf(styleId));
+}
+
+bool shows(Scope scope, const std::string& styleId) {
+    switch (scope) {
+        case Scope::BassBand: return showsBass(styleId);
+        case Scope::MidBand: return showsMid(styleId);
+        case Scope::TrebleBand: return showsTreble(styleId);
+        case Scope::BandGains: return showsBass(styleId) || showsMid(styleId) || showsTreble(styleId);
+        default: return reaches(scope, styleId);
+    }
 }
 
 const char* name(Kind kind) { return kKindNames[static_cast<int>(kind)]; }

@@ -11,8 +11,6 @@
 #include "viz/director/DirectorReach.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/MacroBank.hpp"
-#include "viz/modulation/MotionField.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/modulation/Reactions.hpp"
 
@@ -24,15 +22,15 @@ namespace geode::signal {
 //   param fade (the style's own paramFadeSec, or a preset morph)
 //   → the director's shuffle (rolled offsets over the user's params, when its reach asks)
 //   → auto-director (its look lies under everything after it)
-//   → Note & key reactions (the six style knobs only; they write no param)
 //   → the director's axes (its behaviour offsets; never a colour) → the director's own modulators (its reach)
 //   → the macro bank (the user's knobs, an offset added to whatever the director left)
 //   → LFOs → envelopes
 //   → reaction routes (the user's or the style's DNA; the director plays no route)
-//   → motion field → safety::apply, last, so nothing before it can pass the flash and motion limits
+//   → Spin (a steady turn on a style that turns)
+//   → safety::apply, last, so nothing before it can pass the flash and motion limits
 //
 // WHY a module of its own (#344): the chain used to sit inside the GL renderer, behind its mutex and
-// atomics, reading the process-wide knobs, Note & key switch and hand mask live. The order was only
+// atomics, reading the process-wide knobs and hand mask live. The order was only
 // visible on a device, and an export heard live edits. Here it knows nothing of GL or threads: everything
 // it reads arrives as a plain value (EngineSettings, StyleContext, the sound frame, dt), so the order is
 // host-tested in one place (core/tests/resolver_test.cpp), two resolvers given the same inputs give the
@@ -43,7 +41,7 @@ namespace geode::signal {
 // and the post pass's integrators stay in the renderer, after the step.
 //
 // It depends on core/sound (the frame) and on the GL-free stage code still in core/viz (Director,
-// NoteResponse, Lfo, Adsr, Reactions, MacroBank, MotionField, VisualSafety, Catalogue); never on a GL header.
+// Lfo, Adsr, Reactions, MacroBank, VisualSafety, Catalogue); never on a GL header.
 // Later steps (route producers, base plus modulation, one clamp) rebuild behind this interface.
 
 // The chain reads one EngineSettings value a frame (viz/resolver/EngineSettings.hpp): the renderer's SettingsLatch
@@ -52,10 +50,12 @@ namespace geode::signal {
 // The style on screen this frame.
 struct StyleContext {
     const std::string* id = nullptr;  // null when no style is on screen
-    float spin = 0.0f;                // SceneRegistry::spinRate of the requested style
-    // A new style came on screen since the last step: the motion field takes that style's variant.
-    bool switched = false;
+    float spin = 0.0f;                // SceneRegistry::spinRate of the style: 0 holds still
 };
+
+// What a style that turns (spinRate 1, the Spin dial at 1, Speed 1) adds to Rotation, in radians a second: a steady
+// turn, never set by the sound.
+inline constexpr float kSpinRadPerSecond = 0.5f;
 
 class Resolver {
 public:
@@ -87,14 +87,9 @@ public:
 
     // The last step's result.
     const Frame& frame() const { return frame_; }
-    // The note knobs the last step published; the scenes read them.
-    // The reference stays valid for the resolver's life.
-    const viz::NoteUniforms& noteUniforms() const { return notes_.uniforms(); }
 
     const viz::Director& director() const { return director_; }
     const viz::DirectorReach& directorReach() const { return directorReach_; }
-    const viz::NoteResponse& notes() const { return notes_; }
-    const viz::MotionField& motionField() const { return motionField_; }
 
 private:
     // What the slots on LfoTarget::Macro add to their knobs this step.
@@ -109,9 +104,6 @@ private:
     viz::Director director_;
     int directorCommitsSeen_ = 0;
     viz::DirectorReach directorReach_;
-    viz::NoteResponse notes_;
-    // The one stage every family's parameters pass through, fed the sound frame.
-    viz::MotionField motionField_;
 
     // The faded params, before the director; what the next frame fades from.
     viz::SceneParams displayed_;

@@ -57,12 +57,12 @@ const std::vector<Section>& table() {
          {"Hit pattern", "Hit splats", "Fluid splat radius", "Radius on hit", "Fluid splat force", "Bass pump",
           "Treble sparkle"}},
         {C::Shape, "stirrers", false, S::Always, {"Stirrers", "Stirrer speed"}},
-        {C::Shape, "fluid_quality", false, S::Always, {"Fluid quality", "Lower the quality when the phone struggles"}},
+        {C::Shape, "fluid_quality", false, S::Always, {"Fluid quality"}},
 
         {C::Motion, "basics", true, S::Always, {"Speed", "Zoom", "Rotation"}},
         {C::Motion, "drift", false, S::Always, {"Sway", "Drift X", "Drift Y"}},
         // Spin shows only on the styles that turn (catalogue::Scope::Spin); 0 holds them still.
-        {C::Motion, "inner_motion", false, S::Always, {"Motion amount", "Breath", "Spin"}},
+        {C::Motion, "inner_motion", false, S::Always, {"Camera shake", "Spin"}},
 
         // The endless zoom (viz/passes/EndlessZoom.hpp): on, and how fast, then the tunnel it draws.
         {C::Dive, "basics", true, S::Always, {"Endless zoom", "Dive speed"}},
@@ -79,7 +79,6 @@ const std::vector<Section>& table() {
         {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "Reaction DNA"}},
         {C::Music, "moments", false, S::Always, {"@moments"}},
         {C::Music, "listening", false, S::Always, {"Bass gain", "Mid gain", "Treble gain", "@rise_fall"}},
-        {C::Music, "notes_key", false, S::Always, {"Key colour", "@notes_key"}},
         // What reacts to what stays with the music; the waves and envelopes, slot editors for the deep
         // end, are Expert's (owner, 2026-11-12).
         {C::Music, "reactions", false, S::Always, {"@reactions"}},
@@ -165,17 +164,14 @@ const std::vector<HeldControl>& held() {
         {"Life", {"life"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
-        {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},
         {"Particle layer", {"fluidParticlesEnabled"}, Scope::FluidSim},
         {"Ink layer", {"fluidDyeEnabled"}, Scope::FluidSim},
-        // Panel pieces that are not one parameter. Notes & key's amounts are SceneParams values the
-        // page draws as a block, so its Reset puts them back.
+        // Panel pieces that are not one parameter.
         {"@macros", {}, std::nullopt},
         {"@macro_editor", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
         {"@moments", {}, std::nullopt},
         {"@rise_fall", {}, Scope::BandGains},
-        {"@notes_key", {"noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums"}, std::nullopt},
         {"@transition_style", {}, std::nullopt},
         {"@transition_length", {}, std::nullopt},
         {"@reactions", {}, std::nullopt},
@@ -225,7 +221,6 @@ constexpr SectionTitle kSectionTitles[] = {
     {"feel", "Feel"},
     {"moments", "Moments"},
     {"listening", "Listening"},
-    {"notes_key", "Notes & key"},
     {"trail_detail", "Trail detail"},
     {"lens", "Lens"},
     {"film", "Film"},
@@ -386,8 +381,8 @@ std::set<std::string> expandKeeps(const std::set<std::string>& locked) {
 
 bool reaches(std::string_view key, const std::string& styleId) {
     if (styleId.empty()) return true;
-    if (const auto* h = heldNamed(key); h && h->scope) return catalogue::reaches(*h->scope, styleId);
-    return catalogue::reaches(catalogue::scopeOf(std::string(key)), styleId);
+    if (const auto* h = heldNamed(key); h && h->scope) return catalogue::shows(*h->scope, styleId);
+    return catalogue::shows(catalogue::scopeOf(std::string(key)), styleId);
 }
 
 bool shows(const Section& section, const std::string& styleId) {

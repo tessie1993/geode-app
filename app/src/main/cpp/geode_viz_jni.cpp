@@ -441,11 +441,6 @@ Java_dev_geode_engine_bridge_DirectorNative_directorTuningWith(JNIEnv* env, jobj
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_DirectorNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
-    geode_note_response_set(enabled ? 1 : 0);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_shaderOverrideSet(JNIEnv* env, jobject, jstring styleId,
                                                            jstring fragmentSource) {
     Utf8Chars id(env, styleId);
@@ -1260,15 +1255,6 @@ JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_PerfNative_perfModeOf(JNIEnv*, jobject, jfloat renderScale, jint fpsCap, jfloat marchScale,
                                                    jboolean postFx) {
     return geode_perf_mode_of(renderScale, fpsCap, marchScale, postFx ? 1 : 0);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_PerfNative_perfAdaptNow(JNIEnv* env, jobject, jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < GEODE_PERF_ADAPT_NOW_FLOATS) return JNI_FALSE;
-    float values[GEODE_PERF_ADAPT_NOW_FLOATS];
-    if (geode_perf_adapt_now(values, GEODE_PERF_ADAPT_NOW_FLOATS) != GEODE_PERF_ADAPT_NOW_FLOATS) return JNI_FALSE;
-    env->SetFloatArrayRegion(out, 0, GEODE_PERF_ADAPT_NOW_FLOATS, values);
-    return JNI_TRUE;
 }
 
 JNIEXPORT jfloatArray JNICALL

@@ -175,7 +175,7 @@ struct Seed {
 // geometry, the clocks and the camera, a hue turn, zoom and the lens), not on the ones the safety clamp
 // keeps small (Intensity stops at 0.25 over neutral and Bloom at 0.6, so a knob made of them shows less), and
 // most of each param's range, so a full turn is a different picture on every style. Weights are
-// fractions of rangeOf, which already stops at the safety maxima; the motion fields are the ones
+// fractions of rangeOf, which already stops at the safety maxima; the motion params are the ones
 // safety::apply scales under reduced motion. core/tests/macro_bank_test.cpp pins their strength.
 const std::vector<Seed>& seeds() {
     static const std::vector<Seed> kSeeds = {

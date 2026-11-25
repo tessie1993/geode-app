@@ -85,7 +85,7 @@ int geode_catalogue_reaches(const char* scope_name, const char* style_id) {
     try {
         const auto scope = catalogue::scopeNamed(scope_name ? scope_name : "");
         // A name the catalogue does not have hides nothing, like a control no scope names.
-        return catalogue::reaches(scope.value_or(catalogue::Scope::Universal), style_id ? style_id : "") ? 1 : 0;
+        return catalogue::shows(scope.value_or(catalogue::Scope::Universal), style_id ? style_id : "") ? 1 : 0;
     } catch (...) {
         return 1;
     }

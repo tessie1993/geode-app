@@ -9,7 +9,6 @@
 
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/styles/shared/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
@@ -72,13 +71,8 @@ public:
 struct SceneHost {
     // "" clears the last error, as a successful compile does.
     std::function<void(const std::string&)> onShaderError;
-    // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
-    std::function<float()> pacedFps;
     // Settings › Performance's march-step multiplier (0..1); unset means full budget.
     std::function<float()> marchScale;
-    // Note & key reactions (viz/modulation/NoteResponse): this frame's style knobs (uKnob). Unset (or the layer off)
-    // leaves every knob at 0.5, the midpoint each style was tuned around.
-    std::function<const NoteUniforms*()> notes;
     // The play's seed: the auto-director's (viz/director/Director), or the one an export pinned, so a scene
     // that draws its own choices from it (Morph World's worlds) replays the film the screen showed.
     // Unset reads as 0.
@@ -86,8 +80,6 @@ struct SceneHost {
     // Whether this renderer draws an export (geode_viz_set_offscreen): its frames are on the render clock,
     // so nothing in a scene may wait on the wall clock. Unset reads as live.
     std::function<bool()> offscreen;
-    // A style is being built or blended in (Renderer::settling): slow frames are not this scene's.
-    std::function<bool()> settling;
     // The look's palette stack as a kRampSize × 1 texture (viz/colour/Palette), 0 while the look keeps none and
     // its old colour params draw.
     std::function<GLuint()> paletteRamp;
@@ -95,8 +87,6 @@ struct SceneHost {
     // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
     // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
     std::function<const shapes::Packed*()> shapeGraph;
-    // "Adapt to frame time" is on (frame::FrameGovernor): it alone gives quality up for frame time. Unset reads as off.
-    std::function<bool()> adaptive;
 };
 
 }  // namespace geode::viz

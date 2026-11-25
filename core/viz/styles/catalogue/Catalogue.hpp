@@ -113,7 +113,7 @@ bool isMarched(const std::string& id);
 // Its shader reads the camera rig (uCamBasis), so ShaderScene::drawsCamera() will be true and the
 // Camera framing and feel controls move it. style_reads_test pins both facts to the shaders.
 bool fliesCamera(const std::string& id);
-// How the style turns by default: a signed multiplier on the motion field's drift spin, 0 for a
+// How the style turns by default: a signed multiplier on the style's turn, 0 for a
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll). The
 // user's Spin control (Scope::Spin) scales it, and shows only where it is not 0.
 float spinRate(const std::string& id);
@@ -176,6 +176,10 @@ std::optional<float> valueOf(const std::string& name);
 // meta rows in viz/params/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
 Scope scopeOf(const std::string& paramKey);
 bool reaches(Scope scope, const std::string& styleId);
+// Whether a control of this scope is SHOWN for the style: reaches(), except that the band scopes also hide where
+// the style reads no such band (StyleBandReads.inc), so a gain on screen moves something. Display only: a macro
+// link, a reaction route or a roll to such a param is still applied, so those ask reaches().
+bool shows(Scope scope, const std::string& styleId);
 
 const char* name(Kind kind);
 const char* name(Scope scope);

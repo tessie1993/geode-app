@@ -84,7 +84,6 @@ const std::vector<Control>& table() {
         {"Bass pump", W::Check, "fluidBassPump", nullptr, kOwn, R::Always, false},
         {"Treble sparkle", W::Check, "fluidSparkle", nullptr, kOwn, R::Always, false},
         {"Fluid quality", W::Pick, "fluidQuality", nullptr, kOwn, R::Always, false},
-        {"Lower the quality when the phone struggles", W::Check, "fluidAutoQuality", nullptr, kOwn, R::Always, false},
         // Motion
         {"Speed", W::Slider, "speed", nullptr, kOwn, R::Always, false},
         {"Zoom", W::Slider, "zoom", nullptr, kOwn, R::Always, false},
@@ -92,8 +91,7 @@ const std::vector<Control>& table() {
         {"Sway", W::Slider, "sway", nullptr, kOwn, R::Always, false},
         {"Drift X", W::Slider, "driftX", "Drift sideways", kOwn, R::Always, false},
         {"Drift Y", W::Slider, "driftY", "Drift up and down", kOwn, R::Always, false},
-        {"Motion amount", W::Slider, "motionAmount", nullptr, kOwn, R::Always, false},
-        {"Breath", W::Slider, "motionBreath", nullptr, kOwn, R::Always, false},
+        {"Camera shake", W::Slider, "motionAmount", nullptr, kOwn, R::Always, false},
         {"Spin", W::Slider, "motionDrift", nullptr, kOwn, R::Always, false},
         // Dive
         {"Endless zoom", W::Check, "endlessZoom", nullptr, kOwn, R::Always, false},
@@ -129,7 +127,6 @@ const std::vector<Control>& table() {
         {"Bass gain", W::Slider, "bassGain", "Bass", kOwn, R::Always, false},
         {"Mid gain", W::Slider, "midGain", "Mids", kOwn, R::Always, false},
         {"Treble gain", W::Slider, "trebGain", "Highs", kOwn, R::Always, false},
-        {"Key colour", W::Slider, "motionHue", nullptr, kOwn, R::Always, false},
         // Effects
         {"Trails", W::Check, "trails", nullptr, kOwn, R::Always, false},
         {"Vignette", W::Slider, "vignette", "Dark edges", kOwn, R::Always, false},
@@ -192,7 +189,6 @@ const std::vector<Control>& table() {
         {"@palette_maker", W::Piece, "", "customize_your_colours", kOwn, R::Unsearched, false},
         {"@moments", W::Piece, "", "customize_moments", kOwn, R::Always, false},
         {"@rise_fall", W::Piece, "", "", kOwn, R::Always, false},
-        {"@notes_key", W::Piece, "", "", kOwn, R::Always, false},
         {"@transition_style", W::Piece, "", "", kOwn, R::Always, false},
         {"@transition_length", W::Piece, "", "customize_transition_length", kSeconds, R::Transition, false},
         {"@reactions", W::Piece, "", "customize_reactions", kOwn, R::Always, false},

@@ -36,10 +36,9 @@
 #include "viz/LayerState.hpp"
 #include "viz/looks/LookSnapshot.hpp"
 #include "viz/modulation/Lfo.hpp"
-#include "viz/modulation/MotionField.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/passes/Overlays.hpp"
 #include "viz/params/Params.hpp"
+#include "viz/params/RatePhases.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/gl/ProgramStager.hpp"
@@ -54,7 +53,9 @@
 #include "viz/input/TouchField.hpp"
 #include "viz/input/TouchSmear.hpp"
 #include "viz/passes/TrailPass.hpp"
-#include "viz/frame/FrameGovernor.hpp"
+#include "viz/frame/LiveFps.hpp"
+#include "viz/frame/PresentTime.hpp"
+#include "viz/frame/Quality.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/passes/UiBlurPass.hpp"
 #include "viz/modulation/VisualSafety.hpp"
@@ -71,8 +72,8 @@ class Renderer {
 public:
     // The scene clocks accumulate in double and wrap here, about every two hours. The wrap stays: what reaches
     // the GPU is a highp float, whose step at 7100 s is already 0.0005 s, so a longer period would only coarsen
-    // uTime; a sin(uTime * k) jumps at the wrap unless k * 7100 is a whole number of turns (Births and uDrift
-    // are built to land on one). Moving the wrap needs a two-float uTime in the shaders, which changes them.
+    // uTime; a sin(uTime * k) jumps at the wrap unless k * 7100 is a whole number of turns (Births is
+    // built to land on one). Moving the wrap needs a two-float uTime in the shaders, which changes them.
     static constexpr float kTimeWrapSeconds = 7100.0f;
 
     Renderer(AAssetManager* assets, std::string cacheDir);
@@ -85,16 +86,7 @@ public:
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
     // optional passes and fluid bloom.
     void setUserQuality(float renderScale, float marchScale, bool postFx);
-    // Settings › Performance's "Adapt to frame time" (frame::FrameGovernor): the user's quality, then the frame
-    // rate, stepped down while frames miss their budget. Off until the shell says. Any thread.
-    void setAdaptive(bool on) { governor_.setEnabled(on); }
-    // A recording copies this surface's frames into a fixed-rate video: the governor passes the user's settings
-    // through while it runs. Any thread.
-    void setGovernorHeld(bool held) { governorHeld_.store(held, std::memory_order_relaxed); }
-    // The cap the stage paces to instead of the user's while the governor has stepped the frame rate down; 0 for
-    // none. Any thread.
-    float governedCapFps() const { return governor_.capFps(); }
-    // The rate the surface's pacer last drew at and the surface's own cap (Settings › Performance, the
+    // The rate the display last presented at and the surface's own cap (Settings › Performance, the
     // wallpaper's, the dream's, Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
         pacedFps_.store(pacedFps, std::memory_order_relaxed);
@@ -128,9 +120,9 @@ public:
         return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
     }
     // An export's engine settings (signal::SettingsLatch, #350): pinned once at prepare, after which this
-    // renderer never reads the process-wide macro bank, Note & key switch, hand mask or director again, so live
+    // renderer never reads the process-wide macro bank, hand mask or director again, so live
     // edits and the player moving on never reach a render in progress. The director comes from the user's
-    // switch, `entitled` and `durationMs` (director::forExport); the note entropy is 0. Any thread.
+    // switch, `entitled` and `durationMs` (director::forExport). Any thread.
     // Returns the pinned hand mask.
     uint32_t pinEngineSettings(bool entitled, long long durationMs) { return settingsLatch_.pinForExport(entitled, durationMs); }
     // Customize › Layers is process-wide (viz/LayerState, geode_layer_set): every renderer follows it.
@@ -226,9 +218,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
-    // The first frame on a new surface (geode_viz_frame, frame::kEventClearOnly): black, and nothing
-    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
-    void clearToBlack(GLuint targetFbo);
+    // The next live frame steps by 0: the time since the last one did not pass on screen (a start or a resume after
+    // a pause, a frame no vsync asked for). GL thread.
+    void restartClock() { lastTimeS_ = -1.0; }
     void releaseScenes();
     // The surface is about to stop drawing (the host's pause, an in-app hide, a hidden wallpaper): the spares,
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
@@ -316,9 +308,8 @@ private:
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
     GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
-    // This frame builds or blends a style (a staged build, a transition): its frame time
-    // says nothing about what the phone can draw, so the fluid quality monitor and the governor sit out until a moment after
-    // the last such frame. GL thread.
+    // This frame builds or blends a style (a staged build, a transition), until a moment after the last such frame.
+    // GL thread.
     void noteSettling() { settleHoldSeconds_ = kSettleHoldSeconds; }
     bool settling() const { return settleHoldSeconds_ > 0.0f; }
     void applyPendingFluidInjection();
@@ -369,17 +360,12 @@ private:
     float settleHoldSeconds_ = 0.0f;
     std::atomic<float> pacedFps_{0.0f};
     std::atomic<float> ownCapFps_{0.0f};
-    // "Adapt to frame time": fed each live frame in beginFrame; its governed() is what the frame draws with.
-    frame::FrameGovernor governor_;
-    std::atomic<bool> governorHeld_{false};
     // The scene params resolver (viz/resolver/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;
     // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,
     // the camera and the liquid all read this one copy.
     signal::EngineSettings frameSettings_{};
-    // A new style came on screen and the resolver has not stepped since (its motion field's variant).
-    bool styleSwitchPending_ = false;
     // The globals live, or an export's settings pinned at prepare (pinEngineSettings); latched once a frame.
     signal::SettingsLatch settingsLatch_;
     std::atomic<int> directorStyleMoments_{0};
@@ -433,7 +419,7 @@ private:
     // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
     // at the current one: an engine built after a boundary is already fresh. Live renderers only.
     uint64_t boundarySeen_ = sound::player::boundary().epoch;
-    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // The engine's feeling, copied with the frame (the director reads it), and the play it
     // belongs to: a new director seed is a new play, and the feeling starts over with it.
     sound::Emotion::State soundEmotion_{};
     bool soundHeard_ = false;
@@ -566,9 +552,10 @@ private:
     std::atomic<int> liquidModeTaken_{-1};
 
     SceneParams lastFinalParams_;
-    float postRotationAngle_ = 0.0f;
-    // Life's births in the composite run on this clock: Speed-integrated like a scene's uTime, wrapping with it.
-    double lifeClock_ = 0.0;  // double: a float clock stalls at a slow Speed late in a session
+    // The rate params' phases (viz/params/RatePhases), stepped once a frame on the drawn params: the post pass's
+    // rotation angle reads Rotation's, and Life's births (a clock Speed-integrated like a scene's uTime, wrapping
+    // with it) read Speed's.
+    RatePhases ratePhases_;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

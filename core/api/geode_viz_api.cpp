@@ -33,7 +33,6 @@
 #include "viz/director/DirectorStyle.hpp"
 #include "viz/input/GyroLook.hpp"
 #include "viz/input/TapAlong.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/looks/LookSnapshot.hpp"
@@ -53,7 +52,7 @@
 #include "viz/modulation/VisualSafety.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
-#include "viz/frame/Pacer.hpp"
+#include "viz/frame/PresentTime.hpp"
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/glsl/ShaderOverrides.hpp"
@@ -145,7 +144,7 @@ struct geode_viz {
     // (Renderer::onSurfaceCreated forgets GL objects and the stages' motion, never what the shell set), so the
     // shell never sends the look again for a new surface.
     geode::viz::frame::LiveFrame live;
-    // The time the last live frame was drawn at (seconds, CLOCK_BOOTTIME), so the next never runs back. GL thread only.
+    // The time the last live frame was drawn at (seconds, CLOCK_MONOTONIC), so the next never runs back. GL thread only.
     double liveSeconds = 0.0;
     // The shell's whole look as set last (geode_viz_set_look), so only the parts that differ reach the renderer; a new
     // handle starts with none, so it gets the whole look. lookLock: the compare and its sets never interleave.
@@ -215,7 +214,6 @@ static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
 static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
-static_assert(frame::kEventClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
@@ -233,11 +231,10 @@ static_assert(static_cast<int>(layer_state::Source::Director) == GEODE_LAYER_SOU
 static_assert(static_cast<int>(layer_state::Source::Macro) == GEODE_LAYER_SOURCE_MACRO);
 static_assert(layer_state::kSources == 3);
 
-// A live frame's time: CLOCK_BOOTTIME, since boot with deep sleep counted, the clock SystemClock.elapsedRealtimeNanos
-// reads, so the picture's clock runs on as it did when the shell stamped each frame.
-double bootSeconds() {
+// The picture's clock: CLOCK_MONOTONIC, the clock the vsync's frame time and expected presentation time are on.
+double monotonicSeconds() {
     timespec ts{};
-    clock_gettime(CLOCK_BOOTTIME, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) * 1e-9;
 }
 
@@ -317,10 +314,6 @@ const char* geode_viz_param_name(int index) {
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     if (!v || !values || count != SceneParams::kFieldCount) return;
     SceneParams p = SceneParams::fromWire(values);
-    // Quality never adapts downward in an export: its wall-clock frame time is the encoder's pace.
-    // The renderer takes this one value: a second setParams of the raw wire used to follow and put
-    // the user's switch back, so an export's fluid lowered its quality whenever the encoder was slow.
-    if (v->offline.load(std::memory_order_relaxed)) p.fluidAutoQuality = false;
     {
         std::lock_guard<std::mutex> lock(v->reactLock);
         v->reactions.setSeed(p.reactSeed);
@@ -506,34 +499,11 @@ int geode_live_fps_cap(int stored_fps, const float* rates, int count) {
     return geode::viz::frame::liveFpsCap(stored_fps, rates, std::max(count, 0));
 }
 
-double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
-    namespace frame = geode::viz::frame;
-    static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
-    static_assert(sizeof(long long) == sizeof(int64_t));
-    auto* wire = reinterpret_cast<int64_t*>(state);
-    static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
-    static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
-    frame::PacerState s = frame::unpack(wire);
-    // Follow device takes its cap from the panel the state has measured (frame::followCapFps).
-    const float cap = frame::pacerCapFps(s, cap_fps);
-    const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap);
-    frame::pack(s, wire);
-    return dt;
-}
-
 void geode_memory_trim(int android_level) {
     const auto trim = geode::viz::SceneResidency::trimForAndroidLevel(android_level);
     geode::viz::SceneResidency::trimSignal().request(trim);
     // The signal is read inside a frame; a stage that draws none is told on its own thread.
     if (trim != geode::viz::MemoryTrim::None) geode::api::trimStages();
-}
-
-void geode_pacer_resume(long long* state) {
-    namespace frame = geode::viz::frame;
-    auto* wire = reinterpret_cast<int64_t*>(state);
-    frame::PacerState s = frame::unpack(wire);
-    frame::Pacer::resume(s);
-    frame::pack(s, wire);
 }
 
 }  // extern "C"
@@ -563,8 +533,8 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, float pacedFps, bool mayRepeat)
-        : v_(v), ring_(ring), vsyncNs_(vsyncNs), pacedFps_(pacedFps) {
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, bool mayRepeat)
+        : v_(v), ring_(ring), vsyncNs_(vsyncNs) {
         v_.presentNs = presentNs;
         v_.mayRepeat = mayRepeat;
     }
@@ -573,7 +543,6 @@ public:
     void applyQuality(const frame::UserQuality& q) override {
         v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx);
     }
-    void clearToBlack() override { v_.renderer.clearToBlack(0); }
     int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
     void gyroReset() override {
         const GyroLook::Look look = v_.gyro.reset();
@@ -592,19 +561,15 @@ public:
     bool frameRepeated() override { return v_.renderer.frameRepeated(); }
 
 private:
-    // The frame's time: the vsync it was asked for at, on the boot clock, so the step is the vsyncs' own spacing and
-    // not the thread hop's jitter; with no vsync (the cast's fallback) the clock at the draw. Never earlier than the
-    // last frame's, and never later than now. A vsync older than 1.5 draw intervals is stale (the stage was behind):
-    // the step is then the clock at the draw, the time that really passed (frame::freshAgoSeconds).
+    // The frame's time: when the display is expected to show it (the vsync's expected presentation), so the picture's
+    // step is the presentations' own spacing and not the thread hop's jitter. Without one, the vsync it was asked for
+    // at, and without that (the cast's fallback) the clock at the draw. Never earlier than the last frame's.
     double frameSeconds() {
-        const double boot = bootSeconds();
-        double seconds = boot;
-        if (vsyncNs_ > 0) {
-            timespec mono{};
-            clock_gettime(CLOCK_MONOTONIC, &mono);
-            const double ago = static_cast<double>(mono.tv_sec) + static_cast<double>(mono.tv_nsec) * 1e-9 -
-                               static_cast<double>(vsyncNs_) * 1e-9;
-            seconds = boot - frame::freshAgoSeconds(ago, pacedFps_);
+        double seconds = monotonicSeconds();
+        if (v_.presentNs > 0) {
+            seconds = static_cast<double>(v_.presentNs) * 1e-9;
+        } else if (vsyncNs_ > 0) {
+            seconds = static_cast<double>(vsyncNs_) * 1e-9;
         }
         seconds = std::max(seconds, v_.liveSeconds);
         v_.liveSeconds = seconds;
@@ -614,7 +579,6 @@ private:
     geode_viz& v_;
     const geode_pcm_ring* ring_;
     int64_t vsyncNs_;
-    float pacedFps_;
 };
 
 static_assert(kMomentCount == GEODE_MUSIC_MOMENTS);
@@ -632,7 +596,7 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs, bool mayRepeat) {
     if (!v) return 0;
     try {
-        VizStages stages(*v, ring, vsyncNs, presentNs, pacedFps, mayRepeat);
+        VizStages stages(*v, ring, vsyncNs, presentNs, mayRepeat);
         return static_cast<int>(v->live.run(stages, pacedFps, capFps));
     } catch (...) {
         // Nothing to tell the shell this frame; the next one starts over.
@@ -640,9 +604,9 @@ int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float paced
     }
 }
 
-// The cap "Adapt to frame time" paces the stage to instead of the user's, 0 for none (declared in
-// api/geode_viz_internal.hpp). Not part of the C ABI.
-float geode::api::vizGovernedCapFps(const geode_viz* v) { return v ? v->renderer.governedCapFps() : 0.0f; }
+void geode::api::vizRestartClock(geode_viz* v) {
+    if (v) v->renderer.restartClock();
+}
 
 // geode_viz_still_read without the copy (declared in api/geode_viz_internal.hpp): the still's buffer itself is
 // handed over. False, nothing touched, when none is ready. Render thread. Not part of the C ABI.
@@ -814,8 +778,6 @@ const char* geode_auto_draw(const char* locked_styles, const char* current_style
     return picked.c_str();
 }
 
-void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
-
 void geode_layer_set(const char* layer) { layer_state::set(layer_state::decode(text(layer))); }
 
 const char* geode_layer_edit(int field, float value, const char* style_id) {
@@ -952,9 +914,6 @@ void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, 
     if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0});
 }
 
-void geode_viz_set_adaptive(geode_viz* v, int on) {
-    if (v) v->renderer.setAdaptive(on != 0);
-}
 
 int geode_viz_frame(geode_viz* v, const geode_pcm_ring* ring, float paced_fps, float cap_fps) {
     return geode::api::vizFrameAt(v, ring, paced_fps, cap_fps, 0);
@@ -1106,8 +1065,6 @@ void geode_viz_cut(geode_viz* v) {
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (!v) return;
     syncReactions(v);
-    // A recording copies these frames into a fixed-rate video: "Adapt to frame time" leaves them as the user set.
-    v->renderer.setGovernorHeld(v->recorder != nullptr);
     v->recordPtsNs = v->recorder
         ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height())
         : -1;

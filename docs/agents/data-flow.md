@@ -69,7 +69,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
 - The ring (`AudioBus.heard`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every 10 ms of samples; `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
 - The ring (`AudioBus.soundInput`, handed to the stage with `geode_stage_set_sound`; no Kotlin array) is analysed by `AnalysisThread` on its own thread, every hop of samples (fftSize / overlap, `sound/AnalysisSettings`); `Renderer::beginFrame` only reads the published hop (`readSound`, `core/viz/RendererFrame.cpp`).
-- So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
+- So every value, and the feeling the director reads from `SoundEngine::emotion`, depends on the samples, not the frame rate.
 - Styles read the sound through `lib_sound` (`uSound`, `uSoundTex`, `sndChroma`).
 - Auto is one mode: each new section or drop the director commits a look at is counted natively (`geode_viz_take_director_style_moments`).
 - `Stage.onDirectorStyleMoment`, polled on the main thread, hands the moment to `AutoVisualsController.onDirectorMoment`, which steps the visual playlist or draws a new style from Auto's sources.
@@ -82,7 +82,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 
 - `VideoExporter` and `LoopRender` run on Default inside `ExportRun.scope`.
 - They draw one `LookSnapshot` pinned when the render starts (`ExportController.Host.look`) to the native export job (`core/output/ExportFrame`).
-- The export job pins its engine settings once at prepare (`geode_viz_pin_engine_settings`, #350): the macro bank, the Note & key switch, the hand mask and the director, no note entropy.
+- The export job pins its engine settings once at prepare (`geode_viz_pin_engine_settings`, #350): the macro bank, the hand mask and the director.
 - So live edits never reach a render in progress.
 - Its own sound engine hears the track frame by frame (`core/audio/ingest/TrackPump`, decoded natively, stepped at 1/fps), so export equals live.
 - Before frame 0 the engine hears a pre-roll (`core/output/PreRoll`): up to 8 s before the range, or the track's opening and then a track boundary, so the first frame is as warm as live playing on.

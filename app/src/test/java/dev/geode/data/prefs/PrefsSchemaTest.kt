@@ -38,7 +38,6 @@ import dev.geode.data.LookStore
 import dev.geode.data.MEDIA_ROOTS_PREF_KEYS
 import dev.geode.data.MacroBankCodec
 import dev.geode.data.MacroStore
-import dev.geode.data.NoteResponseCodec
 import dev.geode.data.PaletteStackCodec
 import dev.geode.data.PaletteStackStore
 import dev.geode.data.PerformanceStore
@@ -146,7 +145,6 @@ class PrefsSchemaTest {
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))
             },
-            Owner("$DATA/NoteResponseStore.kt", NoteResponseCodec.keys) { NoteResponseCodec.save(it[general], false) },
             Owner("$DATA/AutoVisualsPrefsStore.kt", AutoVisualsPrefsStore.PREF_KEYS) {
                 AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ], EmptyPlaylistRules).save(VizUiState())
             },

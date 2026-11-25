@@ -25,7 +25,7 @@ float smooth(float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-// splitmix64, the house RNG (NoteResponse, ReactionDna): one stream per decision.
+// splitmix64, the house RNG (ReactionDna): one stream per decision.
 struct Rng {
     uint64_t x;
     float next() {
@@ -59,7 +59,7 @@ struct AxisField {
 // reaches it (#1181); a Speed axis scaling it set every turning style spinning faster under Auto.
 // Nor is the reaction matrix's amount (reactAmount): a calm look turned it toward 0, so Auto muted every
 // route the user sees, and its Energy reading once leaned on the tempo. The matrix is the user's to turn.
-constexpr std::array<AxisField, 20> kAxisFields = {{
+constexpr std::array<AxisField, 19> kAxisFields = {{
     {Axis::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Axis::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
     {Axis::Energy, &SceneParams::bloom, 0.0f, 0.25f, false},
@@ -72,7 +72,6 @@ constexpr std::array<AxisField, 20> kAxisFields = {{
     {Axis::Space, &SceneParams::camFov, 0.5f, 2.0f, false},
     {Axis::Space, &SceneParams::zoom, 0.3f, 3.0f, true},
     {Axis::Space, &SceneParams::camOrbit, 0.0f, 1.0f, false},
-    {Axis::Space, &SceneParams::motionBreath, 0.0f, 1.0f, false},
     {Axis::Space, &SceneParams::vignette, 0.0f, 1.0f, true},
     {Axis::Space, &SceneParams::fisheye, -1.0f, 1.0f, false},
     {Axis::Chaos, &SceneParams::turbulence, 0.0f, 1.5f, false},
@@ -114,7 +113,6 @@ void eachDial(Director::Look& o, const Director::Look& a, const Director::Look& 
     for (int i = 0; i < Director::kAxes; ++i) o.axes[i] = f(a.axes[i], b.axes[i]);
     o.energy = f(a.energy, b.energy);
     o.camSmooth = f(a.camSmooth, b.camSmooth);
-    o.motionBreath = f(a.motionBreath, b.motionBreath);
     o.moves.orbit = f(a.moves.orbit, b.moves.orbit);
     o.moves.lean = f(a.moves.lean, b.moves.lean);
     o.moves.dolly = f(a.moves.dolly, b.moves.dolly);
@@ -129,7 +127,6 @@ Director::Look heldLook(Director::Look o) {
     for (float& v : o.axes) v = std::clamp(v, -1.0f, 1.0f);
     o.energy = clamp01(o.energy);
     o.camSmooth = std::clamp(o.camSmooth, 0.1f, 0.9f);
-    o.motionBreath = clamp01(o.motionBreath);
     for (float* m : {&o.moves.orbit, &o.moves.lean, &o.moves.dolly, &o.moves.breath, &o.moves.shake, &o.moves.reframe, &o.moves.cut}) {
         *m = std::clamp(*m, 0.0f, 2.5f);
     }
@@ -233,7 +230,7 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
 
     Look L;
     L.energy = e;
-    // Behaviour: the axes, the camera, the motion field. Each gets a little seeded variety.
+    // Behaviour: the axes and the camera. Each gets a little seeded variety.
     auto knob = [&](float x) { return std::clamp(0.8f * x + 0.15f * rng.signedUnit(), -1.0f, 1.0f); };
     axisOf(L.axes, Axis::Energy) = knob(2.0f * e - 1.0f + 0.3f * (g[Emotion::kPower] + g[Emotion::kJoy]) - 0.3f * g[Emotion::kPeace]);
     axisOf(L.axes, Axis::Speed) = knob(1.6f * e - 0.8f - 0.4f * (g[Emotion::kPeace] + g[Emotion::kTranscendence]) + 0.3f * g[Emotion::kJoy]);
@@ -244,7 +241,6 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     axisOf(L.axes, Axis::Chaos) =
         knob(1.4f * t - 0.7f + 0.4f * g[Emotion::kPower] - 0.5f * (g[Emotion::kTenderness] + g[Emotion::kPeace]));
     L.camSmooth = std::clamp(0.5f + 0.5f * calm - 0.6f * hard + 0.1f * rng.signedUnit(), 0.1f, 0.9f);
-    L.motionBreath = clamp01(0.3f + 0.9f * (g[Emotion::kTenderness] + g[Emotion::kPeace] + g[Emotion::kSadness]));
     // No Spin (motionDrift): the look turned it up for nostalgia, peace and transcendence, which set every
     // turning style spinning faster under Auto after #1181 made Spin the user's alone.
     auto move = [](float x) { return std::clamp(x, 0.0f, 2.5f); };
@@ -570,13 +566,6 @@ SceneParams Director::apply(const SceneParams& p) const {
     // of an untouched style, added as its distance from the default, so a slider the user moved keeps
     // its whole offset.
     o.camSmooth = std::clamp(p.camSmooth + a * (L.camSmooth - kDefaults.camSmooth), std::min(0.0f, p.camSmooth), std::max(1.0f, p.camSmooth));
-    // The motion dials scale how far the music moves the picture (viz/modulation/MotionField), so the look turns
-    // them by a factor, never an offset: a dial the user set to 0 stays off, and the director cannot
-    // switch on a reaction to the sound the user switched off.
-    const auto turned = [a](float user, float look, float base) {
-        return std::clamp(user * (1.0f + 2.0f * a * (look - base)), 0.0f, std::max(1.0f, user));
-    };
-    o.motionBreath = turned(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
     // Spin (motionDrift) is not here, on purpose: whether a turning style spins, and how fast, is the
     // user's (#1181).
     // The song's arc on Detail, Fractal and Formula (applyArc, the one seam that names them).
@@ -607,11 +596,9 @@ Director::Axes Director::axes() const {
 
 SceneParams Director::applyAxes(const SceneParams& p) const {
     SceneParams o = director::applyAxes(p, axes());
-    // Energy and Space turn the Motion dials too, but a dial held at 0 is the music's push switched
-    // off, and stays off: the director never switches on a reaction the user switched off.
-    for (float SceneParams::*dial : {&SceneParams::motionAmount, &SceneParams::motionBreath}) {
-        if (p.*dial <= 0.0f) o.*dial = 0.0f;
-    }
+    // Energy turns Camera shake too, but a dial held at 0 is the shake switched off, and stays off: the
+    // director never switches on a motion the user switched off.
+    if (p.motionAmount <= 0.0f) o.motionAmount = 0.0f;
     return o;
 }
 

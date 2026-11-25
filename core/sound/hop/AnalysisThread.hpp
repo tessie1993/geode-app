@@ -159,6 +159,7 @@ private:
     Next pass(float dtSeconds);
     bool send(const Control& control);
     void applyControls();
+    Next waitUnlessDeferred() const;
     bool ensureEngine(int sampleRateHz);
     void restartEngine();
     void write(const float* interleaved, int frames, int channels);
@@ -193,9 +194,11 @@ private:
     bool flowing_ = false;       // audio came, and the engine has not reported silence since
     float quietSeconds_ = 0.0f;  // since audio last came, while flowing
     std::array<Control, kControls> applying_{};
+    bool controlsDeferred_ = false;  // the last applyControls() could not take the lock
     std::array<uint32_t, kWords> staging_{};
 
-    // Shared with the control senders.
+    // Shared with the control senders. The analysis thread only try-locks it (applyControls); senders may block.
+    friend struct AnalysisThreadTestAccess;
     std::mutex controlLock_;
     std::array<Control, kControls> controls_{};
     int controlCount_ = 0;

@@ -146,10 +146,8 @@ target|cymaticsIridescence|0|Iridescence
 target|cymaticsCaustic|0|Caustic sheen
 target|cymaticsFlow|0|Wave flow
 target|cymaticsSwirl|0|Field swirl
-target|motionAmount|1|Motion amount
-target|motionBreath|1|Breath
+target|motionAmount|1|Camera shake
 target|motionDrift|0|Spin
-target|motionHue|1|Key colour
 target|camSmooth|1|Camera smoothing
 target|reactAmount|1|Reaction strength
 target|camFlat|1|Travel zoom

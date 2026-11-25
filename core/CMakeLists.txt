@@ -89,7 +89,6 @@ add_library(geode_core STATIC
     stage/LiveClient.cpp
     stage/StageCore.cpp
     stage/StageLifecycle.cpp
-    stage/StagePacing.cpp
     api/geode_auto_api.cpp
     api/geode_param_history_api.cpp
     api/geode_stage_step_api.cpp
@@ -220,7 +219,6 @@ add_library(geode_core STATIC
     viz/director/DirectorTuning.cpp
     viz/LayerPick.cpp
     viz/LayerState.cpp
-    viz/modulation/NoteResponse.cpp
     viz/passes/UiBlurPass.cpp
     viz/passes/DivePass.cpp
     viz/passes/Underlay.cpp
@@ -230,7 +228,6 @@ add_library(geode_core STATIC
     viz/frame/CastTee.cpp
     api/geode_cast_tee_api.cpp
     viz/modulation/Adsr.cpp
-    viz/modulation/MotionField.cpp
     viz/styles/shared/ShapeGraph.cpp
     viz/modulation/ReactionDna.cpp
     viz/modulation/Reactions.cpp
@@ -238,7 +235,6 @@ add_library(geode_core STATIC
     viz/modulation/VisualSafety.cpp
     viz/input/TouchField.cpp
     viz/passes/Transition.cpp
-    viz/passes/CompositeGrade.cpp
     viz/passes/CompositePass.cpp
     viz/passes/TrailPass.cpp
     viz/styles/catalogue/Catalogue.cpp

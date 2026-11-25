@@ -54,6 +54,15 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::rippleOverlaySpecular,
                                                ParamSlot::formDrive,
                                                ParamSlot::motionOrbit,
+                                               // Breath, Key colour and the Note & key amounts: the motion field and the note layer are gone.
+                                               ParamSlot::motionBreath,
+                                               ParamSlot::motionHue,
+                                               ParamSlot::noteColor,
+                                               ParamSlot::notePitch,
+                                               ParamSlot::noteIntervals,
+                                               ParamSlot::noteTension,
+                                               ParamSlot::noteChords,
+                                               ParamSlot::noteDrums,
                                                // The Kaleidoscope switch and its count: kaleidoFolds replaced both.
                                                ParamSlot::symmetry,
                                                ParamSlot::kaleidoscope,
@@ -66,7 +75,9 @@ inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,
                                                ParamSlot::colorCycle,
                                                ParamSlot::cycleSpeed,
                                                // Colour map: the colour maps are palettes of the stack.
-                                               ParamSlot::paletteLut};
+                                               ParamSlot::paletteLut,
+                                               // Lower the quality when the phone struggles: nothing steps the fluid tier down.
+                                               ParamSlot::fluidAutoQuality};
 
 // How many labels a picker's GEODE_PARAM_CHOICES row gives it; 0 for a field with no row. Compile time, so
 // an owner of the values (CameraRig's paths, the fluid tiers) can assert its count against the labels.
@@ -87,6 +98,8 @@ enum class Scope;
 inline constexpr unsigned kMod = 1u << 0;
 // kInput, an input preference, not part of a look: a look that replaces the live params keeps it (SceneParams::keepInputs).
 inline constexpr unsigned kInput = 1u << 1;
+// kRate, the field is a rate per second: the engine keeps its running phase (viz/params/RatePhases) beside its value.
+inline constexpr unsigned kRate = 1u << 2;
 
 // A mod row's flags (ParamTable.inc GEODE_PARAM_MOD): kModLight, the field changes the picture's light or colour.
 inline constexpr unsigned kModLight = 1u << 0;

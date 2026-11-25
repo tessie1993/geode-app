@@ -12,9 +12,8 @@
 namespace geode::viz {
 
 // The reaction matrix: many audio features routed to many targets, each route
-// with its own amount, curve, mode and smoothing. MotionField is one fixed
-// table every style shares; this is the data-driven layer on top of it, and
-// viz/modulation/ReactionDna seeds it per style, so two
+// with its own amount, curve, mode and smoothing. The matrix is
+// the one place music moves a picture, the user's to see and edit; viz/modulation/ReactionDna seeds it per style, so two
 // styles hear the same bar of music differently.
 //
 // Pure: no GL, no allocation, no locks. tick() runs on the render thread once
@@ -285,6 +284,10 @@ private:
     ReactSignals signals_;
     std::array<float, kRoutes> acc_{};
     std::array<float, kRoutes> out_{};
+    // Whether the route has resolved a frame since it was enabled (or since reset): the first one snaps out_ to its target.
+    std::array<bool, kRoutes> primed_{};
+    // The (target, source, mode) the route resolved last: a route re-pointed in place is a new cable and snaps again.
+    std::array<int, kRoutes> cableKey_{};
     // The music's absolute reach (core/sound/DriveGain) of the frame last ticked: apply() scales what the audio
     // adds by it, never the params' base values.
     float gain_ = 1.0f;

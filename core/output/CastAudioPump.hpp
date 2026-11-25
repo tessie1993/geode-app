@@ -27,7 +27,8 @@ public:
     // music: the player's ring, null for none (silence throughout). rateHz and channels: the stream's.
     CastAudioPump(std::shared_ptr<const audio::ingest::PcmRing> music, int rateHz, int channels);
 
-    // One frame: fromMusic says the player's ring is what the visuals hear now; untilUs is the frame
+    // One frame: fromMusic says the player's ring is what the visuals hear now, and nothing is taken while a
+    // capture of another app writes that ring (sound::player::playerIsSource false); untilUs is the frame
     // clock's cut. Returns the frames of the block to queue, held frames first and silence after them
     // (0: the cut has not moved past what was queued).
     int pump(bool fromMusic, int64_t untilUs);

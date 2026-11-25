@@ -70,7 +70,8 @@ inline bool heardAsPlayer(bool playersRing, bool playerWrites, bool layerAlone) 
     return playersRing && playerWrites && !layerAlone;
 }
 
-inline void setPlayerIsSource(bool on) { detail::gPlayerIsSource.store(on, std::memory_order_relaxed); }
-inline bool playerIsSource() { return detail::gPlayerIsSource.load(std::memory_order_relaxed); }
+// Release and acquire: a reader that sees the flag also sees the ring epoch begun before it was set.
+inline void setPlayerIsSource(bool on) { detail::gPlayerIsSource.store(on, std::memory_order_release); }
+inline bool playerIsSource() { return detail::gPlayerIsSource.load(std::memory_order_acquire); }
 
 }  // namespace geode::sound::player

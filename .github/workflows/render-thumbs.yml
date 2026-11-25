@@ -60,7 +60,7 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
           # The write token stays out of .git/config for the hours of build and emulator below;
-          # only the push step gets it.
+          # only the push step gets it (tools/ci-git-auth.sh).
           persist-credentials: false
 
       # The ids reach the Gradle command line unquoted, so nothing but style-id characters.
@@ -74,12 +74,14 @@ jobs:
           done
 
       # libgeode.so is compiled from source, with the same packages as every other build.
-      # The setup action comes from this workflow's own commit, not from the ref being rendered,
-      # which may be older than the action.
+      # The setup action and tools/ci-git-auth.sh come from this workflow's own commit, not from the
+      # ref being rendered, which may be older than either.
       - name: Check out this workflow's actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            tools/ci-git-auth.sh
           sparse-checkout-cone-mode: false
           path: .ci
           persist-credentials: false
@@ -193,9 +195,7 @@ jobs:
             exit 0
           fi
           git commit -m "Style thumbnails: render $COUNT on the emulator" -m "Rendered by $RUN_URL"
-          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          export GIT_CONFIG_VALUE_0
+          source .ci/tools/ci-git-auth.sh
           git push -u origin "$branch"
           {
             echo "Style thumbnails rendered on the CI emulator by [render-thumbs]($RUN_URL) from \`$BASE\`."

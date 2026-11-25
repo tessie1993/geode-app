@@ -117,15 +117,17 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
           # The write token stays out of .git/config, where the Gradle and native build could read it.
-          # Only the steps that push a tag get it, through GIT_CONFIG_* for that step alone.
+          # Only the steps that push a tag get it (tools/ci-git-auth.sh), for that step alone.
           persist-credentials: false
 
-      # The setup action comes from this workflow's own commit, not from the ref being shipped,
-      # which may be older than the action.
+      # The setup action and tools/ci-git-auth.sh come from this workflow's own commit, not from the
+      # ref being shipped, which may be older than either.
       - name: Check out this workflow's actions
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: .github/actions
+          sparse-checkout: |
+            .github/actions
+            tools/ci-git-auth.sh
           sparse-checkout-cone-mode: false
           path: .ci
           persist-credentials: false
@@ -147,9 +149,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          export GIT_CONFIG_VALUE_0
+          source .ci/tools/ci-git-auth.sh
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
           # The base becomes a tag, a file name and shell text in later steps.
           [[ "$BASE" =~ ^[0-9A-Za-z.]+$ ]] || { echo "::error::geode.versionBase '$BASE' is not [0-9A-Za-z.]+"; exit 1; }
@@ -295,10 +295,8 @@ jobs:
           elif [ "$DRAFT" = true ]; then
             gh release delete "$TAG" --yes --cleanup-tag || true
           else
-            export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
-            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-            export GIT_CONFIG_VALUE_0
-            git push origin --delete "refs/tags/$TAG" || true
+            source .ci/tools/ci-git-auth.sh
+            git push origin --delete "refs/tags/$TAG" || echo "::warning::Could not delete the reserved tag $TAG; delete it by hand so its number is reused."
           fi
 
       - name: Upload reports when the build fails

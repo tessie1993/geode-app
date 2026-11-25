@@ -396,22 +396,21 @@ GEODE_PARAM(Float, rippleOverlaySpecular, 0.3f, 0.0f, 1.0f, Fade)
 // Retired: the superformula driver (viz/FormDrive) it scaled is gone since wave three.
 GEODE_PARAM(Float, formDrive, 0.7f, 0.0f, 1.0f, Fade)
 
-// Wave three: the continuous motion system (viz/modulation/MotionField), which replaced formDrive, flash, strobe,
-// pulse and shake as the way the music moves a scene. Appended after the older fields so every existing wire
-// index survives.
+// Motion amount: how far the camera shakes (CameraRig); the director's Energy axis moves it. It once scaled
+// the motion field's terms too; that field is gone.
 GEODE_PARAM(Float, motionAmount, 0.7f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(motionAmount, "Motion amount", Universal, 0, 0.3f, 1.0f)
+GEODE_PARAM_META(motionAmount, "Camera shake", Universal, 0, 0.3f, 1.0f)
+// Retired: Breath, a scale wobble of the motion field that is gone.
 GEODE_PARAM(Float, motionBreath, 0.5f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(motionBreath, "Breath", Universal, 0, 0.2f, 0.9f)
 // Retired: never had a reader or a control.
 GEODE_PARAM(Float, motionOrbit, 0.5f, 0.0f, 1.0f, Fade)
-// Spin: how far a turning style (catalogue::spinRate) turns with the mids; 0 holds it still. The old Spin
-// drift control under its wire name, so a saved look keeps its value. Shown only where a style turns, and
-// never rolled: whether a style spins is the user's choice (owner, 2026-11-12).
+// Spin: how fast a turning style (catalogue::spinRate) turns, at a constant rate; 0 holds it still. The old
+// Spin drift control under its wire name, so a saved look keeps its value. Shown only where a style turns, and
+// never rolled: whether a style spins is the user's choice (owner, 2026-11-12). Nothing in the sound sets it.
 GEODE_PARAM(Float, motionDrift, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(motionDrift, "Spin", Spin, 0, 0, 0)
+// Retired: Key colour, a hue drift of the motion field that is gone.
 GEODE_PARAM(Float, motionHue, 0.4f, 0.0f, 1.0f, Fade)
-GEODE_PARAM_META(motionHue, "Key colour", Universal, 0, 0.1f, 0.8f)
 
 // The shared camera rig (viz/CameraRig) and the reaction matrix (viz/modulation/Reactions). Appended after wave
 // three so every wire index survives. The cam* offsets (push, yaw, pitch, roll) are what reaction
@@ -469,30 +468,13 @@ GEODE_PARAM_META(reactAmount, "Reaction strength", Universal, 0, 0, 0)
 GEODE_PARAM(Int, reactSeed, 0, 0, 16777215, Hold)
 GEODE_PARAM_META(reactSeed, "Reaction DNA", Universal, 0, 1, 16777215)
 
-// Note & key reactions (viz/modulation/NoteResponse), per style like every Customize control, so a preset, a
-// template and an export carry them. Appended so every existing wire index survives. Inert while
-// Settings › Behaviour › Note & key reactions is off: the layer then does nothing at all.
-// Customize › Music › Notes & key (Pro): how much each part feeds the style knobs, 0 none .. 1 as
-// designed .. 2.
-// Read by nothing: it was the tint toward the notes' colour, which is gone. Kept so the wire indices
-// and saved looks survive.
+// Retired: the Note & key amounts (and the tint toward the notes' colour). The layer they scaled is gone.
 GEODE_PARAM(Float, noteColor, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(noteColor, "@notes_key", Universal, 0, 0, 0)
-// Pitch height: the TONE knob.
 GEODE_PARAM(Float, notePitch, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(notePitch, "@notes_key", Universal, 0, 0, 0)
-// Leaps and steps: the swing and glide behind the SPACE knob.
 GEODE_PARAM(Float, noteIntervals, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(noteIntervals, "@notes_key", Universal, 0, 0, 0)
-// Harmonic tension and builds: the BUILD knob.
 GEODE_PARAM(Float, noteTension, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(noteTension, "@notes_key", Universal, 0, 0, 0)
-// A chord change turns the swing behind the SPACE knob.
 GEODE_PARAM(Float, noteChords, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(noteChords, "@notes_key", Universal, 0, 0, 0)
-// The drums' push on the PULSE knob, on top of how percussive the track is.
 GEODE_PARAM(Float, noteDrums, 1.0f, 0.0f, 2.0f, Fade)
-GEODE_PARAM_META(noteDrums, "@notes_key", Universal, 0, 0, 0)
 
 // Liquid mode's pickers (viz/liquid). Appended so every existing wire index survives.
 // What forms at the vanishing point: liquid::Born (0 live, 1 re-rolled, 2 next style, 3 ink forms).

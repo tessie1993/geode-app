@@ -1638,6 +1638,28 @@ void speedClockAdvancesAtASlowRateLateInASession() {
           "the follower keeps moving at a slow Speed late in a session");
 }
 
+// The flow clocks run at one fixed base rate with no sound at all, and uFlowTime follows Speed.
+void flowClockAdvancesInSilenceAndScalesWithSpeed() {
+    speedclock::FlowClock one;
+    speedclock::FlowClock two;
+    speedclock::FlowClock still;
+    const float dt = 1.0f / 60.0f;
+    for (int k = 0; k < 600; ++k) {  // ten seconds, no sound frame anywhere
+        one.step(1.0f, dt);
+        two.step(2.0f, dt);
+        still.step(0.0f, dt);
+    }
+    check(one.phase > 0.0 && std::fabs(one.phase - 10.0 * speedclock::FlowClock::kBaseHz) < 1e-3, "the flow phase runs at its base rate in silence");
+    check(one.time == one.phase, "uFlowTime equals uFlowPhase at Speed 1, bit for bit");
+    check(std::fabs(two.time - 2.0 * one.time) < 1e-3 && std::fabs(two.phase - one.phase) < 1e-9, "uFlowTime runs at Speed's rate, the phase does not");
+    check(still.time == 0.0 && still.phase > 0.0, "at Speed 0 the time clock holds while the phase runs");
+    const double before = one.time;
+    one.step(1.05f, dt);
+    check(one.time > before && one.time - before < 0.01, "a Speed change moves the clock by one frame of flow, never a jump");
+    one.reset();
+    check(one.phase == 0.0 && one.time == 0.0, "a scene's reset starts the clocks over");
+}
+
 void followerScalesASoundClockWithoutJumps() {
     using speedclock::Follower;
     Follower one;
@@ -2757,6 +2779,7 @@ int main() {
     hardCutsJumpWithoutATweenAndKeepTheirGap();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();
+    flowClockAdvancesInSilenceAndScalesWithSpeed();
     followerScalesASoundClockWithoutJumps();
     speedClockAdvancesAtASlowRateLateInASession();
     sourceCatalogueIsCompleteAndUnique();

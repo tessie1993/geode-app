@@ -169,27 +169,38 @@ bool readsMid(Kind k) {
 }
 bool readsTreble(Kind) { return true; }
 
-// The styles inside a kind that read no bass or no treble envelope (StyleBandReads.inc).
-bool listedIn(const std::vector<std::string>& ids, const std::string& id) {
-    return std::find(ids.begin(), ids.end(), id) != ids.end();
+// The styles inside a kind that read no bass or no treble envelope (StyleBandReads.inc), sorted once. This is
+// about what a row shows, never about what a link, a route or a roll may write: reaches() ignores it.
+bool inList(const std::vector<std::string>& sorted, const std::string& id) {
+    return std::binary_search(sorted.begin(), sorted.end(), id);
 }
-bool styleReadsBass(const std::string& id) {
-    static const std::vector<std::string> kNone = {
+const std::vector<std::string>& noBassStyles() {
+    static const std::vector<std::string> kList = [] {
+        std::vector<std::string> v = {
 #define X(id) id,
-        GEODE_NO_BASS_STYLES(X)
+            GEODE_NO_BASS_STYLES(X)
 #undef X
-    };
-    return readsBass(kindOf(id)) && !listedIn(kNone, id);
+        };
+        std::sort(v.begin(), v.end());
+        return v;
+    }();
+    return kList;
 }
-bool styleReadsMid(const std::string& id) { return readsMid(kindOf(id)); }
-bool styleReadsTreble(const std::string& id) {
-    static const std::vector<std::string> kNone = {
+const std::vector<std::string>& noTrebleStyles() {
+    static const std::vector<std::string> kList = [] {
+        std::vector<std::string> v = {
 #define X(id) id,
-        GEODE_NO_TREBLE_STYLES(X)
+            GEODE_NO_TREBLE_STYLES(X)
 #undef X
-    };
-    return readsTreble(kindOf(id)) && !listedIn(kNone, id);
+        };
+        std::sort(v.begin(), v.end());
+        return v;
+    }();
+    return kList;
 }
+bool showsBass(const std::string& id) { return readsBass(kindOf(id)) && !inList(noBassStyles(), id); }
+bool showsMid(const std::string& id) { return readsMid(kindOf(id)); }
+bool showsTreble(const std::string& id) { return readsTreble(kindOf(id)) && !inList(noTrebleStyles(), id); }
 
 // Whether a scope reaches every style of a kind. MarchDetail, Spin, FamilyForm, Formula, Shapes, Shadow and Escape
 // are per style, so no kind has them.
@@ -503,11 +514,17 @@ bool reaches(Scope scope, const std::string& styleId) {
     if (scope == Scope::Shapes) return drawsShapes(styleId);
     if (scope == Scope::Shadow) return castsShadows(styleId);
     if (scope == Scope::Escape) return colorsByEscape(styleId);
-    if (scope == Scope::BassBand) return styleReadsBass(styleId);
-    if (scope == Scope::MidBand) return styleReadsMid(styleId);
-    if (scope == Scope::TrebleBand) return styleReadsTreble(styleId);
-    if (scope == Scope::BandGains) return styleReadsBass(styleId) || styleReadsMid(styleId) || styleReadsTreble(styleId);
     return reachesKind(scope, kindOf(styleId));
+}
+
+bool shows(Scope scope, const std::string& styleId) {
+    switch (scope) {
+        case Scope::BassBand: return showsBass(styleId);
+        case Scope::MidBand: return showsMid(styleId);
+        case Scope::TrebleBand: return showsTreble(styleId);
+        case Scope::BandGains: return showsBass(styleId) || showsMid(styleId) || showsTreble(styleId);
+        default: return reaches(scope, styleId);
+    }
 }
 
 const char* name(Kind kind) { return kKindNames[static_cast<int>(kind)]; }

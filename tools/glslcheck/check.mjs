@@ -196,12 +196,12 @@ const SHADER_VALUES = {
   uPalLutMix: 0, uPalLutRow: 0.5,
   // Your colours (lib_palette): none picked, so the cosine ramp draws.
   uPalStops: new Array(15).fill(0), uPalStopCount: 0,
-  // The audio-motion uniforms (lib_scene_motion) at the neutral constants ShaderScene::uploadMotion holds them at,
-  // and the legacy four at theirs: nothing computes any of them any more.
-  uMoveDir: [1, 0], uSpawnSeed: 0, uSpawnAge: 1000, uFormPhase: 0, uFlowPhase: 0,
-  uEnergyRel: 1, uBassRel: 1, uMidRel: 1, uTrebRel: 1, uMotionBright: 0, uHarmony: 0.5,
+  // The audio-motion uniforms (lib_scene_motion) at what ShaderScene::uploadMotion holds them at (the flow clocks run at 0.08 a second, below),
+  // and the legacy four at theirs: nothing computes any of them from the music any more.
+  uMoveDir: [1, 0], uSpawnSeed: 0, uSpawnAge: 1000, uFormPhase: 0, uFlowPhase: 1,
+  uEnergyRel: 1, uMotionBright: 0, uHarmony: 0.5,
   uKeyHue: 0, uKeyStrength: 0, uBarOsc: 0.5, uOrbit: [0, 0], uDrift: 0,
-  uBreath: 1, uFlowTime: 0,
+  uBreath: 1, uFlowTime: 1,
   // The Speed-integrated sound clocks (core/viz/modulation/SpeedClock.hpp) at Speed 1, where they equal the
   // unscaled ones: the BASS_TIME MID_TIME TREBLE_TIME scalars below.
   uSoundTimeSped: [37, 35, 33],
@@ -552,6 +552,7 @@ function songValues(row) {
   const t = TIME_OFFSET + row.t;
   return {
     ...SHADER_VALUES,
+    uFlowPhase: 0.08 * t, uFlowTime: 0.08 * t,
     uTime: t, uSound: row.sound, uSoundEvents: row.events, uSoundCounts: row.counts,
     uSoundTimeSped: [row.snd('bassTime'), row.snd('midTime'), row.snd('trebleTime')],
     uCamPos: [0, 0, t], uCamTravel: t,
@@ -767,7 +768,7 @@ async function main() {
     const dt = 1, fly = 0.8;
     const later = args.all
       ? plan(parseUniforms(frag), {
-          ...values, uTime: values.uTime + dt,
+          ...values, uTime: values.uTime + dt, uFlowPhase: values.uFlowPhase + 0.08 * dt, uFlowTime: values.uFlowTime + 0.08 * dt,
           uSoundTimeSped: values.uSoundTimeSped.map((v) => v + dt), uSound: soundLater(values.uSound, dt),
           uCamPos: [values.uCamPos[0], values.uCamPos[1], values.uCamPos[2] + fly], uCamTravel: values.uCamTravel + fly,
         }, SHADER_TEXTURES, args.size, args.height ?? args.size).filter((u) => !u.texture)

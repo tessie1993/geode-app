@@ -1,10 +1,10 @@
-// The audio-motion uniforms every style may still name, all CONSTANT.
+// The motion uniforms every style may still name. All are CONSTANT but the two flow clocks.
 //
 // The CPU-side motion field that used to compute them (relative band levels, brightness, a hue driver, a bar
 // wave, an orbit, a drift angle, a breath and the flow clocks) is gone, and so is the Note & key layer behind
-// the uKnob array: the music no longer moves a picture through them. ShaderScene::uploadMotion sets every
-// uniform below to the value the field started from in silence, so a style that still reads one draws a
-// steady, finite number, never garbage. A style moves on the sound only through what it reads from lib_sound
+// the uKnob array: the music no longer moves a picture through them. ShaderScene::uploadMotion holds each
+// uniform below at a fixed value, except uFlowPhase and uFlowTime, which advance at one fixed base rate
+// (never for loudness), so a style that still reads one draws a steady, finite number, never garbage. A style moves on the sound only through what it reads from lib_sound
 // (SND_*, sndShaped(SND_LOW) and its siblings, the SND_*_PRESENCE trends) and through the reaction routes
 // the user can see and edit.
 //
@@ -16,12 +16,6 @@
 
 /** Held at 1: the typical loudness the relative level used to be measured against. */
 uniform float uEnergyRel;
-/** Held at 1. */
-uniform float uBassRel;
-/** Held at 1. */
-uniform float uMidRel;
-/** Held at 1. */
-uniform float uTrebRel;
 /** Held at 0. */
 uniform float uMotionBright;
 /** Held at 0.5. */
@@ -43,14 +37,15 @@ uniform float uDrift;
 uniform float uBreath;
 
 /**
- * Held at 0: no style is carried along by the music's loudness. What used to travel on this phase
- * now holds still, and uTime alone moves it where a style adds the two.
+ * A steady travel phase in seconds, advancing at one fixed base rate (0.08 a second) whether the music plays
+ * or not; no loudness term. It never runs backwards or stalls.
  */
 uniform float uFlowPhase;
 
 /**
- * Held at 0, like uFlowPhase. Never multiply an accumulated clock by the live Speed dial: it jumps by
- * phase * delta-speed whenever Speed moves (tools/check_shaders.py fails the build on it).
+ * uFlowPhase at Speed's rate: the same base rate times Speed, integrated (core/viz/modulation/SpeedClock.hpp),
+ * so it equals uFlowPhase at Speed 1. Read this, never uFlowPhase times Speed: an accumulated phase times the
+ * live dial jumps by phase * delta-speed whenever Speed moves (tools/check_shaders.py fails the build on it).
  */
 uniform float uFlowTime;
 
@@ -61,11 +56,11 @@ uniform float uFlowTime;
  */
 uniform vec3 uSoundTimeSped;
 
-// ---- legacy: constant since wave three; removed in R08 --------------------
+// ---- legacy: constant; delete the readers, then these --------------------
 //
 // The spike-triggered reaction this uniform group used to carry. Nothing
 // writes these any more; ShaderScene uploads the neutral constant every
-// frame so a style that has not yet been migrated (R02-R07) still compiles
+// frame so a style that still reads them compiles
 // and draws exactly the picture it did with a silent, un-spiking input.
 
 /**

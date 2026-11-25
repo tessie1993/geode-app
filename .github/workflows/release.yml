@@ -6,9 +6,9 @@ name: Play release bundle
 # Runs only on request (Actions > Play release bundle > Run workflow): pull requests and
 # tags don't build it. It signs with the upload key; without the key it fails, unless the run
 # asks for an unsigned bundle (a dry run, never for Play). It also fails when a check on the
-# commit is red. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk, the
-# permission list) are tools/check-manifest.sh, which every PR runs: build-lint.yml against the
-# debug manifest, minified-launch.yml against the release one.
+# commit is red. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) are
+# tools/check-manifest.sh, which build-lint.yml runs on every PR against the debug manifest; here
+# it reads the release manifest and adds the permission list.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
 #   MUZVIZ_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore (.jks):
@@ -158,7 +158,7 @@ jobs:
           test -f "$aab" || { echo "::error::$aab was not produced"; exit 1; }
           ls -l "$aab"
 
-          # The manifest promises and the permission list: the script every pull request runs.
+          # The manifest promises build-lint.yml checks on every pull request, and the permission list.
           tools/check-manifest.sh release
 
           # R8 full mode is AGP's default; it is only off if gradle.properties turns it off.

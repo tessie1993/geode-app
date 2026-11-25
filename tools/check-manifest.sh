@@ -6,8 +6,7 @@
 #
 # Usage: tools/check-manifest.sh [debug|release]
 #   debug    after :app:assembleDebug, by build-lint.yml (every pull request)
-#   release  after :app:processReleaseMainManifest, by minified-launch.yml (every pull request),
-#            and after :app:bundleRelease, by release.yml
+#   release  after :app:bundleRelease, by release.yml
 set -euo pipefail
 variant=${1:-debug}
 manifest=$(find app/build/intermediates -path "*merged_manifest*/$variant/*" -name AndroidManifest.xml | head -n 1)

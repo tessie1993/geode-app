@@ -105,9 +105,37 @@
     "code-refactoring@claude-code-workflows": true,
     "mattpocock-skills@mattpocock": true,
     "superpowers@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true
+    "clangd-lsp@claude-plugins-official": true,
+    "android-cli@android-cli-plugin": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh release view:*)",
+      "Bash(android --version)",
+      "Bash(android docs:*)",
+      "Bash(android describe:*)",
+      "Bash(android analyze:*)",
+      "Bash(android info)",
+      "Bash(adb devices:*)",
+      "Bash(tools/ktlint-changed.sh)"
+    ]
   },
   "extraKnownMarketplaces": {
+    "android-cli-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "android/android-cli-plugin"
+      }
+    },
     "claude-code-workflows": {
       "source": {
         "source": "github",

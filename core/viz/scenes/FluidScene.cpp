@@ -4,7 +4,7 @@
 #include <cmath>
 
 #include "viz/LiveSignal.hpp"
-#include "viz/Quad.hpp"
+#include "viz/gl/Quad.hpp"
 #include "viz/fluid/FluidMath.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 

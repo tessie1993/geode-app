@@ -8,7 +8,7 @@
 #include "viz/Circular.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/PcmHandoff.hpp"
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/input/TouchField.hpp"
 
 namespace geode::viz {

@@ -23,7 +23,7 @@ class Scene {
 public:
     Scene() = default;
     virtual ~Scene() = default;
-    // A scene owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    // A scene owns GL names: neither copied nor moved (viz/gl/GlHandle.hpp).
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
     virtual const std::string& id() const = 0;

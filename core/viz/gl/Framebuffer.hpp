@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "viz/GlHandle.hpp"
+#include "viz/gl/GlHandle.hpp"
 
 namespace geode::viz {
 

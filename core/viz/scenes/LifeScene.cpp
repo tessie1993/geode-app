@@ -5,9 +5,9 @@
 #include <cstring>
 #include <limits>
 
-#include "viz/Quad.hpp"
+#include "viz/gl/Quad.hpp"
 #include "viz/Reactions.hpp"
-#include "viz/SceneTarget.hpp"
+#include "viz/gl/SceneTarget.hpp"
 
 namespace geode::viz {
 

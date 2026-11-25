@@ -14,7 +14,7 @@
 #include <string_view>
 
 #include "viz/BandTrim.hpp"
-#include "viz/BuildReport.hpp"
+#include "viz/gl/BuildReport.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/Circular.hpp"
@@ -24,7 +24,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Reactions.hpp"
-#include "viz/ScenePrep.hpp"
+#include "viz/gl/ScenePrep.hpp"
 #include "viz/SpeedClock.hpp"
 #include "viz/TwistShape.hpp"
 

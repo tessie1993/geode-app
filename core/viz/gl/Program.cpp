@@ -1,9 +1,9 @@
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 
 #include <algorithm>
 #include <vector>
 
-#include "viz/ProgramStager.hpp"
+#include "viz/gl/ProgramStager.hpp"
 
 namespace geode::viz {
 

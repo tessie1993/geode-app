@@ -1,4 +1,4 @@
-#include "viz/BlueNoise.hpp"
+#include "viz/gl/BlueNoise.hpp"
 
 namespace geode::viz::blue_noise {
 

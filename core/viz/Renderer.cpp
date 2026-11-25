@@ -9,10 +9,10 @@
 #include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
-#include "viz/BuildReport.hpp"
+#include "viz/gl/BuildReport.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/DirectorStyle.hpp"
-#include "viz/GlProber.hpp"
+#include "viz/gl/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"
 #include "util/WorkHint.hpp"
@@ -768,7 +768,7 @@ Scene* Renderer::sceneFor(const std::string& id) {
 }
 
 // A build's held errors: a scene that built says them as they came, one that did not gets one
-// report naming the style and the stage (viz/BuildReport), which the stage shows.
+// report naming the style and the stage (viz/gl/BuildReport), which the stage shows.
 Scene* Renderer::admitReported(const std::string& id, std::unique_ptr<Scene> scene, const std::vector<std::string>& errors) {
     if (!scene || scene->buildFailed()) {
         failBuild(id, build_report::of(id, errors));

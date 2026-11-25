@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/ProgramBinaryCache.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
 
 namespace geode::viz {
 

@@ -4,12 +4,12 @@
 #include <memory>
 #include <string>
 
-#include "viz/GlProfile.hpp"
-#include "viz/Program.hpp"
+#include "viz/gl/GlProfile.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/compute/SimPass.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
 

@@ -1,4 +1,4 @@
-#include "viz/GlCaps.hpp"
+#include "viz/gl/GlCaps.hpp"
 
 #include <array>
 #include <cctype>

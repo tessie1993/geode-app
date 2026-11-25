@@ -1,11 +1,11 @@
-#include "viz/GlProfile.hpp"
+#include "viz/gl/GlProfile.hpp"
 
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 
 #include "util/Log.hpp"
-#include "viz/GlProber.hpp"
+#include "viz/gl/GlProber.hpp"
 
 namespace geode::viz {
 

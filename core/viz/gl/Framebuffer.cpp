@@ -1,4 +1,4 @@
-#include "viz/Framebuffer.hpp"
+#include "viz/gl/Framebuffer.hpp"
 
 #include <utility>
 

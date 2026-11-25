@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-#include "viz/Compute.hpp"
+#include "viz/gl/Compute.hpp"
 
 namespace geode::viz::sim {
 

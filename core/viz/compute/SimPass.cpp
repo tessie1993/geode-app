@@ -4,7 +4,7 @@
 #include <array>
 
 #include "util/Log.hpp"
-#include "viz/SceneTarget.hpp"
+#include "viz/gl/SceneTarget.hpp"
 
 namespace geode::viz::sim {
 

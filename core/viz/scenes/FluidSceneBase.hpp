@@ -8,7 +8,7 @@
 #include "viz/fluid/FluidChoreography.hpp"
 #include "viz/fluid/FluidParticles.hpp"
 #include "viz/fluid/FluidQuality.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {

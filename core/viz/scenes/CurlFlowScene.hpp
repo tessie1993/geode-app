@@ -1,8 +1,8 @@
 #pragma once
 #include <optional>
 
-#include "viz/Quad.hpp"
-#include "viz/fluid/FluidBuffers.hpp"
+#include "viz/gl/Quad.hpp"
+#include "viz/gl/FluidBuffers.hpp"
 #include "viz/fluid/FluidParticles.hpp"
 #include "viz/scenes/FluidSceneBase.hpp"
 

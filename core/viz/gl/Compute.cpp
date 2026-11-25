@@ -1,12 +1,12 @@
-#include "viz/Compute.hpp"
+#include "viz/gl/Compute.hpp"
 
 #include <algorithm>
 #include <array>
 #include <sstream>
 
 #include "util/Log.hpp"
-#include "viz/GlProber.hpp"
-#include "viz/ProgramStager.hpp"
+#include "viz/gl/GlProber.hpp"
+#include "viz/gl/ProgramStager.hpp"
 
 namespace geode::viz {
 

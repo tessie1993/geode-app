@@ -6,7 +6,7 @@
 #include "viz/fluid/FluidMath.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/LiveSignal.hpp"
-#include "viz/SceneTarget.hpp"
+#include "viz/gl/SceneTarget.hpp"
 
 namespace geode::viz {
 

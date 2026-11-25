@@ -5,10 +5,10 @@
 #include <optional>
 #include <vector>
 
-#include "viz/Program.hpp"
-#include "viz/Quad.hpp"
-#include "viz/fluid/FluidBuffers.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/Quad.hpp"
+#include "viz/gl/FluidBuffers.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 
 namespace geode::viz::fluid {
 

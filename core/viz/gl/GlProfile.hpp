@@ -2,7 +2,7 @@
 #include <optional>
 #include <string>
 
-#include "viz/GlCaps.hpp"
+#include "viz/gl/GlCaps.hpp"
 
 namespace geode::viz {
 

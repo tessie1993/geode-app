@@ -29,9 +29,9 @@
 #include "viz/Director.hpp"
 #include "viz/DivePass.hpp"
 #include "viz/EndlessZoom.hpp"
-#include "viz/Framebuffer.hpp"
-#include "viz/GlHandle.hpp"
-#include "viz/GlProfile.hpp"
+#include "viz/gl/Framebuffer.hpp"
+#include "viz/gl/GlHandle.hpp"
+#include "viz/gl/GlProfile.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/LookSnapshot.hpp"
@@ -41,11 +41,11 @@
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/PcmHandoff.hpp"
-#include "viz/ProgramBinaryCache.hpp"
-#include "viz/ProgramStager.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
+#include "viz/gl/ProgramStager.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
-#include "viz/ScenePrep.hpp"
+#include "viz/gl/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
@@ -62,7 +62,7 @@
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/physics/PhysicsLayers.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 
 namespace geode::viz {
 
@@ -447,7 +447,7 @@ private:
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.
     Framebuffer fboL_{"sceneLayer"};
-    // Handles (viz/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
+    // Handles (viz/gl/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
     // made again during a cast) deletes them, as its targets and passes do; onSurfaceCreated resets them.
     GlVertexArray quadVao_;
     GlTexture paletteLutTex_;

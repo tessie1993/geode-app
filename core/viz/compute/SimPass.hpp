@@ -6,10 +6,10 @@
 #include <string>
 #include <variant>
 
-#include "viz/Compute.hpp"
-#include "viz/GlProfile.hpp"
-#include "viz/Program.hpp"
-#include "viz/ProgramBinaryCache.hpp"
+#include "viz/gl/Compute.hpp"
+#include "viz/gl/GlProfile.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/compute/SimField.hpp"
 #include "viz/compute/SimGlsl.hpp"
 
@@ -51,7 +51,7 @@ class SimPass {
 public:
     SimPass() = default;
     virtual ~SimPass() = default;
-    // A simulation pass owns GL names: neither copied nor moved (viz/GlHandle.hpp).
+    // A simulation pass owns GL names: neither copied nor moved (viz/gl/GlHandle.hpp).
     SimPass(const SimPass&) = delete;
     SimPass& operator=(const SimPass&) = delete;
     virtual const std::string& label() const = 0;

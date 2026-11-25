@@ -1,7 +1,7 @@
 #pragma once
 #include <GLES3/gl3.h>
 
-#include "viz/GlHandle.hpp"
+#include "viz/gl/GlHandle.hpp"
 
 namespace geode::viz {
 

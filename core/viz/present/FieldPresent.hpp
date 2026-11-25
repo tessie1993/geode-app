@@ -6,11 +6,11 @@
 #include <optional>
 #include <string>
 
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
-#include "viz/fluid/FluidBuffers.hpp"
+#include "viz/gl/FluidBuffers.hpp"
 #include "viz/present/FieldGeometry.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 #include "viz/scenes/ShaderScene.hpp"
 
 namespace geode::viz::present {

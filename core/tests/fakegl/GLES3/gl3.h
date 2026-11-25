@@ -1,8 +1,8 @@
 /* Host-test stand-in for <GLES3/gl3.h>: the GL system boundary, faked (core/tests/edge_glow_pass_test.cpp).
  *
- * Only the types, enums and entry points that core/viz/frame/EdgeGlowPass.cpp, core/viz/Program.cpp and
- * core/viz/Transition.cpp (core/tests/transition_programs_test.cpp), core/viz/Quad.cpp and core/viz/GlHandle.hpp
- * (core/tests/gl_ownership_test.cpp, with core/viz/Framebuffer.cpp and core/viz/Texture.cpp) and the headers they include name. Declarations only; the test defines every function as a small
+ * Only the types, enums and entry points that core/viz/frame/EdgeGlowPass.cpp, core/viz/gl/Program.cpp and
+ * core/viz/Transition.cpp (core/tests/transition_programs_test.cpp), core/viz/gl/Quad.cpp and core/viz/gl/GlHandle.hpp
+ * (core/tests/gl_ownership_test.cpp, with core/viz/gl/Framebuffer.cpp and core/viz/gl/Texture.cpp) and the headers they include name. Declarations only; the test defines every function as a small
  * model of a GL context: names that are generated, live and deleted, a bound program, VAO and framebuffer,
  * the blend state, and one probe pixel per framebuffer that a draw blends into. Enum values are the real
  * ones from the Khronos header, so a mixed-up enum still reads as the wrong one.

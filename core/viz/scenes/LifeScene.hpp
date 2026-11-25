@@ -6,12 +6,12 @@
 #include <optional>
 #include <string>
 
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
-#include "viz/fluid/FluidBuffers.hpp"
+#include "viz/gl/FluidBuffers.hpp"
 #include "viz/present/FieldPresent.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
 

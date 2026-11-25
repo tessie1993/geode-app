@@ -18,8 +18,8 @@
 #include "viz/FrameStep.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/ParamRandomizer.hpp"
-#include "viz/Quad.hpp"
-#include "viz/SceneTarget.hpp"
+#include "viz/gl/Quad.hpp"
+#include "viz/gl/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {

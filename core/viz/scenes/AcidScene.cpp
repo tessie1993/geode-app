@@ -5,8 +5,8 @@
 #include <cmath>
 
 #include "viz/LiveSignal.hpp"
-#include "viz/Quad.hpp"
-#include "viz/SceneTarget.hpp"
+#include "viz/gl/Quad.hpp"
+#include "viz/gl/SceneTarget.hpp"
 
 namespace geode::viz {
 

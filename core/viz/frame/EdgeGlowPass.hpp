@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/frame/EdgeGlowMath.hpp"
 #include "viz/frame/Pass.hpp"

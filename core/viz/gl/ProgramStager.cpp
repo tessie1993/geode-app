@@ -1,12 +1,12 @@
-#include "viz/ProgramStager.hpp"
+#include "viz/gl/ProgramStager.hpp"
 
 #include <GLES3/gl31.h>
 
 #include <chrono>
 
-#include "viz/GlProber.hpp"
-#include "viz/Program.hpp"
-#include "viz/ScenePrep.hpp"
+#include "viz/gl/GlProber.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/ScenePrep.hpp"
 #include "viz/Sha256.hpp"
 
 #ifndef GL_COMPLETION_STATUS_KHR

@@ -4,9 +4,9 @@
 #include <array>
 
 #include "api/geode_api.h"
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/Reactions.hpp"
-#include "viz/Texture.hpp"
+#include "viz/gl/Texture.hpp"
 
 namespace geode::viz {
 

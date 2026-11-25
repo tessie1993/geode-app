@@ -1,4 +1,4 @@
-#include "viz/ProgramBinaryCache.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -7,9 +7,9 @@
 #include <fstream>
 
 #include "util/Log.hpp"
-#include "viz/CacheSentinels.hpp"
-#include "viz/CacheTouchPolicy.hpp"
-#include "viz/GlProber.hpp"
+#include "viz/gl/CacheSentinels.hpp"
+#include "viz/gl/CacheTouchPolicy.hpp"
+#include "viz/gl/GlProber.hpp"
 #include "viz/Sha256.hpp"
 
 namespace geode::viz {

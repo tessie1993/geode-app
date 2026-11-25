@@ -3,8 +3,8 @@
 
 #include <string>
 
-#include "viz/Program.hpp"
-#include "viz/ProgramBinaryCache.hpp"
+#include "viz/gl/Program.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/ShaderSource.hpp"
 
 namespace geode::viz {

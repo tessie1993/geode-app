@@ -8,7 +8,7 @@
 
 #include "viz/Births.hpp"
 #include "viz/Params.hpp"
-#include "viz/Texture.hpp"
+#include "viz/gl/Texture.hpp"
 #include "viz/Transition.hpp"
 
 namespace geode::viz {

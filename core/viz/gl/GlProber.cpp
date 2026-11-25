@@ -1,4 +1,4 @@
-#include "viz/GlProber.hpp"
+#include "viz/gl/GlProber.hpp"
 
 #include <GLES3/gl31.h>
 
@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "util/Log.hpp"
-#include "viz/Half.hpp"
+#include "viz/gl/Half.hpp"
 
 namespace geode::viz {
 
@@ -146,7 +146,7 @@ class GlArena {
 public:
     GlArena() = default;
     ~GlArena() { releaseAll(); }
-    // Owns every name it made: neither copied nor moved (viz/GlHandle.hpp).
+    // Owns every name it made: neither copied nor moved (viz/gl/GlHandle.hpp).
     GlArena(const GlArena&) = delete;
     GlArena& operator=(const GlArena&) = delete;
 

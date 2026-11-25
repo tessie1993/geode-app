@@ -193,19 +193,19 @@ add_library(geode_core STATIC
     output/LoudnessScan.cpp
     api/geode_export_audio_api.cpp
     viz/ShaderSource.cpp
-    viz/GlCaps.cpp
-    viz/GlProber.cpp
-    viz/GlProfile.cpp
-    viz/Compute.cpp
+    viz/gl/GlCaps.cpp
+    viz/gl/GlProber.cpp
+    viz/gl/GlProfile.cpp
+    viz/gl/Compute.cpp
     viz/Sha256.cpp
-    viz/ProgramBinaryCache.cpp
-    viz/Program.cpp
-    viz/ProgramStager.cpp
+    viz/gl/ProgramBinaryCache.cpp
+    viz/gl/Program.cpp
+    viz/gl/ProgramStager.cpp
     viz/StyleSchedule.cpp
     viz/ShaderOverrides.cpp
-    viz/Texture.cpp
-    viz/Framebuffer.cpp
-    viz/Quad.cpp
+    viz/gl/Texture.cpp
+    viz/gl/Framebuffer.cpp
+    viz/gl/Quad.cpp
     viz/Params.cpp
     viz/ParamText.cpp
     viz/Palette.cpp
@@ -257,12 +257,12 @@ add_library(geode_core STATIC
     viz/RendererFrame.cpp
     viz/scenes/ShaderScene.cpp
     viz/SoundUniforms.cpp
-    viz/BlueNoise.cpp
+    viz/gl/BlueNoise.cpp
     viz/Overlays.cpp
     viz/compute/SimField.cpp
     viz/compute/SimGlsl.cpp
     viz/compute/SimPass.cpp
-    viz/fluid/FluidBuffers.cpp
+    viz/gl/FluidBuffers.cpp
     viz/fluid/FluidMath.cpp
     viz/fluid/FluidChoreography.cpp
     viz/fluid/FluidEmitters.cpp

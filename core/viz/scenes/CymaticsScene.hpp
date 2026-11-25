@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
 

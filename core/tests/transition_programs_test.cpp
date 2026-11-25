@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/ProgramStager.hpp"
+#include "viz/gl/ProgramStager.hpp"
 #include "viz/Transition.hpp"
 
 using namespace geode::viz;

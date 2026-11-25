@@ -1,4 +1,4 @@
-#include "viz/Quad.hpp"
+#include "viz/gl/Quad.hpp"
 
 namespace geode::viz {
 

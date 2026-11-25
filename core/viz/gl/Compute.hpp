@@ -4,8 +4,8 @@
 #include <optional>
 #include <string>
 
-#include "viz/GlHandle.hpp"
-#include "viz/GlProfile.hpp"
+#include "viz/gl/GlHandle.hpp"
+#include "viz/gl/GlProfile.hpp"
 
 namespace geode::viz {
 

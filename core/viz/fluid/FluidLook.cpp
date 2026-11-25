@@ -4,7 +4,7 @@
 #include <string>
 
 #include "util/Log.hpp"
-#include "viz/BlueNoise.hpp"
+#include "viz/gl/BlueNoise.hpp"
 
 namespace geode::viz::fluid {
 

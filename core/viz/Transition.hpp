@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Program.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/TransitionLibrary.hpp"
 #include "viz/VisualSafety.hpp"
@@ -58,7 +58,7 @@ class TransitionPrograms {
 public:
     TransitionPrograms(const ShaderSource& assets, ProgramBinaryCache* cache) : catalog_(assets), assets_(assets), cache_(cache) {}
     ~TransitionPrograms() { release(); }
-    // Owns the programs it builds: neither copied nor moved (viz/GlHandle.hpp).
+    // Owns the programs it builds: neither copied nor moved (viz/gl/GlHandle.hpp).
     TransitionPrograms(const TransitionPrograms&) = delete;
     TransitionPrograms& operator=(const TransitionPrograms&) = delete;
 

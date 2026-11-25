@@ -8,10 +8,10 @@
 #include <string_view>
 #include <unordered_map>
 
-#include "viz/GlHandle.hpp"
-#include "viz/ProgramBinaryCache.hpp"
-#include "viz/UniformId.hpp"
-#include "viz/UniformMemo.hpp"
+#include "viz/gl/GlHandle.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
+#include "viz/gl/UniformId.hpp"
+#include "viz/gl/UniformMemo.hpp"
 
 namespace geode::viz {
 
@@ -30,7 +30,7 @@ public:
     GLuint program() const { return program_; }
     GLint loc(std::string_view name);
     GLsizei arrayCount(std::string_view name, GLsizei declared);
-    // The per-frame path: an interned name (viz/UniformId.hpp) is looked up in this program once, then read from
+    // The per-frame path: an interned name (viz/gl/UniformId.hpp) is looked up in this program once, then read from
     // a slot. A rebuilt program is a new UniformCache, so its slots start empty.
     GLint loc(Uniform id) {
         GLint& slot = slots_[static_cast<size_t>(id)];
@@ -101,7 +101,7 @@ private:
 
 // A program its holder built and deletes, with the uniform locations read from it (a UniformCache that owns
 // its program). Moves, never copies; the moved-from one holds 0. reset() deletes the program held and takes
-// another, release() deletes it, forget() drops it without a GL call after context loss (viz/GlHandle.hpp).
+// another, release() deletes it, forget() drops it without a GL call after context loss (viz/gl/GlHandle.hpp).
 class OwnedProgram : public UniformCache {
 public:
     OwnedProgram() = default;

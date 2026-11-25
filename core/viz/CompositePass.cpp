@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "util/Log.hpp"
-#include "viz/BlueNoise.hpp"
+#include "viz/gl/BlueNoise.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/TwistShape.hpp"
 

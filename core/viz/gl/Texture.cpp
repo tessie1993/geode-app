@@ -1,4 +1,4 @@
-#include "viz/Texture.hpp"
+#include "viz/gl/Texture.hpp"
 
 namespace geode::viz {
 

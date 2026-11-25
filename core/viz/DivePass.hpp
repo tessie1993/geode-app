@@ -4,8 +4,8 @@
 #include <string>
 
 #include "viz/EndlessZoom.hpp"
-#include "viz/Framebuffer.hpp"
-#include "viz/Program.hpp"
+#include "viz/gl/Framebuffer.hpp"
+#include "viz/gl/Program.hpp"
 #include "viz/ShaderSource.hpp"
 
 namespace geode::viz {

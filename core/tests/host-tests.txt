@@ -228,17 +228,17 @@ edge_glow_test | core | core/tests/edge_glow_test.cpp |
 wallpaper_window_test | core | core/tests/wallpaper_window_test.cpp |
 # The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its
 # lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
-edge_glow_pass_test | fakegl | core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/Program.cpp \
+edge_glow_pass_test | fakegl | core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/gl/Program.cpp \
     core/viz/ShaderSource.cpp |
-# Who deletes a GL name (core/viz/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
+# Who deletes a GL name (core/viz/gl/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
 # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
-gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/Compute.cpp core/viz/Quad.cpp \
-    core/viz/Framebuffer.cpp core/viz/Texture.cpp |
+gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Compute.cpp core/viz/gl/Quad.cpp \
+    core/viz/gl/Framebuffer.cpp core/viz/gl/Texture.cpp |
 # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
 transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
 # The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
 transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core/viz/Transition.cpp \
-    core/viz/Program.cpp core/viz/ShaderSource.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp \
+    core/viz/gl/Program.cpp core/viz/ShaderSource.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp \
     core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp |
 # The uniform value cache: an unchanged upload is skipped, a changed one sent, a rebuilt program starts empty.
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |

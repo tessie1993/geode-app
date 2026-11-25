@@ -1,10 +1,10 @@
-#include "viz/fluid/FluidBuffers.hpp"
+#include "viz/gl/FluidBuffers.hpp"
 
 #include <algorithm>
 #include <cmath>
 
 #include "util/Log.hpp"
-#include "viz/Framebuffer.hpp"
+#include "viz/gl/Framebuffer.hpp"
 
 namespace geode::viz::fluid {
 

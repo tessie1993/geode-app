@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/SceneTarget.hpp"
+#include "viz/gl/SceneTarget.hpp"
 
 namespace geode::viz::present {
 

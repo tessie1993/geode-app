@@ -3,11 +3,11 @@
 #include <string>
 #include <vector>
 
-#include "viz/GlProfile.hpp"
-#include "viz/ProgramBinaryCache.hpp"
+#include "viz/gl/GlProfile.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/Scene.hpp"
 #include "viz/ShaderSource.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 
 namespace geode::viz {
 

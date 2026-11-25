@@ -549,6 +549,38 @@ void theFlowClocksFollowTheSceneStep() {
     check(zero.time > 0.0 && zero.time < speedclock::FlowClock::kWrapSeconds && zero.phase > 0.0, "a step back past the start wraps round, never negative");
 }
 
+// The flow clock is the scene clock's value at the flow rate, whatever the clock does: reversed it runs back, in a
+// stutter it loops with it, and at the stutter's end it takes the same jump.
+void theFlowClockTracksReverseAndStutter() {
+    const double rate = speedclock::FlowClock::kBaseHz;
+    {
+        SceneClock sc;
+        speedclock::FlowClock c;
+        for (int i = 0; i < 120; ++i) c.step(1.0f, sc.step(kDt));
+        const double before = c.time;
+        sc.reverse(1.0f, 0.0f, -1.0f, 0.0f);
+        for (int i = 0; i < 60; ++i) c.step(1.0f, sc.step(kDt));
+        check(c.time < before - 0.5 * rate && near(c.time, sc.value() * rate, 1e-6), "a reversed clock runs the flow clock back with it");
+    }
+    {
+        SceneClock sc;
+        speedclock::FlowClock c;
+        for (int i = 0; i < 120; ++i) c.step(1.0f, sc.step(kDt));
+        sc.stutter(0.5f, 3);
+        bool looped = false;
+        bool tracked = true;
+        double high = c.time;
+        for (int i = 0; i < 240; ++i) {
+            c.step(1.0f, sc.step(kDt));
+            looped = looped || c.time < high - 0.1 * rate;
+            high = std::max(high, c.time);
+            tracked = tracked && near(c.time, sc.value() * rate, 1e-6);
+        }
+        check(looped, "a stutter loops the flow clock back");
+        check(tracked, "and it stays with the scene clock through the loops and the jump at their end");
+    }
+}
+
 // ── Collisions ───────────────────────────────────────────────────────────────────────────────────────────
 
 void collideIsTheLastMomentAndTheSoundNeverRaisesIt() {
@@ -694,6 +726,7 @@ int main() {
     aFreezeHoldsThingsFrontsAndFields();
     aReverseNeverRunsThemBackwards();
     theFlowClocksFollowTheSceneStep();
+    theFlowClockTracksReverseAndStutter();
     collideIsTheLastMomentAndTheSoundNeverRaisesIt();
     aCollisionReachesTheBankAsTheMoment();
     collisionsBecomeASongEventThatSpawnsAResponse();

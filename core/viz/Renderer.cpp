@@ -396,6 +396,7 @@ void Renderer::onSurfaceCreated() {
     uiBlurPass_.release();
     liquidPass_.release();
     divePass_.release();
+    frontPass_.release();
     physicsLayers_.release();
     overlays_.release();
     paletteLutTex_.reset();
@@ -443,6 +444,8 @@ void Renderer::onSurfaceCreated() {
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
     // Endless zoom is an extra: without its pass the picture shows undived.
     if (!divePass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "endless zoom off: %s", error.c_str());
+    // Fronts are an extra: without the pass the picture shows without them.
+    if (!frontPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "fronts off: %s", error.c_str());
 
     // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -624,6 +627,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
         // sides and their display alone are five screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
         divePass_.releaseTarget();
+        frontPass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
         physicsLayers_.releaseTargets();

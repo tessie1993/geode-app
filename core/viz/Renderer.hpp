@@ -28,6 +28,8 @@
 #include "viz/passes/CompositePass.hpp"
 #include "viz/director/Director.hpp"
 #include "viz/passes/DivePass.hpp"
+#include "viz/passes/FrontPass.hpp"
+#include "viz/fronts/FrontField.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/GlHandle.hpp"
@@ -300,8 +302,15 @@ private:
     // A shader style's Trails with Liquid off (length, echo zoom, warp), run through the liquid pass on
     // the wall clock. 0 when its targets are not there.
     GLuint drawTrails(const SceneParams& p, float dt, float wallDt);
+    // Fronts over the style's finished picture, before the trails: when any is alive, steps and draws them into the
+    // pass's own target and points sceneShown_ at it (fboA_ keeps the scene's own drawing). Nothing alive: nothing
+    // runs, and the pass's target is freed once it has stood idle.
+    void drawFronts(const SceneParams& p, float dt, float wallDt);
+    // `count` palette positions (0..1) as the colours the style draws at them, three floats each into `out`: the ramp
+    // of the look's palette stack when one draws, else the old stops or cosine ramp.
+    void paletteTints(const SceneParams& p, const float* positions, int count, float* out) const;
     // Endless zoom (EndlessZoom.hpp, viz/passes/DivePass): the same stage over every style's finished picture.
-    // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
+    // Returns `shown` (0 = the scene picture, sceneShown_) when the dive is off, else the dived picture.
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
@@ -538,6 +547,13 @@ private:
     bool liquidWasOn_ = false;
     bool trailsWereOn_ = false;
     DivePass divePass_;
+    FrontPass frontPass_;
+    fronts::FrontField fronts_;
+    // The scene's picture as the later passes read it: fboA_'s texture, or the last effect pass's (fronts) result
+    // over it. fboA_ itself holds only what the scene drew, so the trails' feedback never sees an effect.
+    GLuint sceneShown_ = 0;
+    // fronts_.spawns() as the last frame saw it.
+    unsigned frontsSeen_ = 0;
     // The physics layers (viz/physics): nothing made until a layer's param turns it on.
     physics::PhysicsLayers physicsLayers_{loader_};
     // The outgoing style with this frame's physics layers over it; 0 when the composite reads fboB_ as it is.

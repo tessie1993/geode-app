@@ -31,7 +31,7 @@ public:
     void releaseCurrent();
     // EGL_SUCCESS, or the error eglSwapBuffers left.
     EGLint swap();
-    // The next swap's presentation time, CLOCK_MONOTONIC ns, for the system to hold the frame to; 0: none. Used by
+    // The next swap's stamp, CLOCK_MONOTONIC ns: the system shows the frame at the first vsync after it; 0: none. Used by
     // that swap alone. Does nothing where EGL_ANDROID_presentation_time is missing.
     void presentAt(int64_t presentNs) { presentNs_ = presentNs; }
     void destroySurface();

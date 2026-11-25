@@ -58,13 +58,12 @@ inline int64_t listenAtNs(int64_t nowNs, int64_t presentNs) {
     return nowNs + std::min(presentNs - nowNs, maxAhead);
 }
 
-// The time a swap is stamped with (EGL_ANDROID_presentation_time) for a frame meant for the vsync at `presentNs`:
-// half an interval before it. The compositor shows a buffer at the first vsync after its stamp, so a stamp on the
-// vsync itself leaves which side it falls to the two clocks' rounding; the midpoint is as far from this vsync and
-// the one before as a time can be. 0 (no stamp, shown as soon as it can be) when either is unknown.
-inline int64_t latchStampNs(int64_t presentNs, int64_t vsyncPeriodNs) {
-    if (presentNs <= 0 || vsyncPeriodNs <= 0) return 0;
-    return presentNs - vsyncPeriodNs / 2;
+// The stamp (EGL_ANDROID_presentation_time) of a frame meant for the presentation at `presentNs`, `intervalNs` after
+// the one before it: the midpoint of the two. The compositor shows a buffer at the first presentation after its
+// stamp, so a stamp on `presentNs` itself can fall either side. 0 (no stamp) when either is unknown.
+inline int64_t latchStampNs(int64_t presentNs, int64_t intervalNs) {
+    if (presentNs <= 0 || intervalNs <= 0) return 0;
+    return presentNs - intervalNs / 2;
 }
 
 struct PacerState {
@@ -151,9 +150,6 @@ public:
         const double ratio = panelHz / static_cast<double>(capFps) - kDivisorEpsilon;
         return static_cast<int64_t>(std::clamp(std::ceil(ratio), 1.0, static_cast<double>(kMaxDivisor)));
     }
-
-    // The interval between vsyncs once the estimate has settled, 0 until then.
-    static int64_t settledPeriodNs(const PacerState& s) { return s.samples >= kSettleFrames ? std::max<int64_t>(s.periodNs, 0) : 0; }
 
     static double panelHz(const PacerState& s) { return s.periodNs > 0 ? 1e9 / static_cast<double>(s.periodNs) : 0.0; }
 

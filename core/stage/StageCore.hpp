@@ -13,7 +13,7 @@
 // (core/tests/stage_core_test.cpp); core/stage/android carries out the port's calls and nothing else.
 namespace geode::stage {
 
-// What a stage thread is told. a, b: sizes or a mode; f, g: rates; t: a window hand-over's sequence number;
+// What a stage thread is told. a, b: sizes, a mode or a frame's times; f, g: rates; t: a window hand-over's sequence number;
 // target: a window the sender acquired for the stage.
 enum StageCommand : uint16_t {
     kStageWindow = 1,      // Ordered: target = the window, a = width, b = height, t = sequence
@@ -23,7 +23,7 @@ enum StageCommand : uint16_t {
     kStagePause = 5,       // LastWins: a = 1 paused, 0 resumed
     kStageRedraw = 6,      // LastWins
     kStageCap = 7,         // LastWins: f = cap fps
-    kStageFrameDue = 8,    // LastWins, from the vsync thread: f = paced fps, g = cap fps, t = the vsync's frame time (CLOCK_MONOTONIC ns), b = ns from it to the frame's expected presentation (0: none given)
+    kStageFrameDue = 8,    // LastWins, from the vsync thread: f = paced fps, g = cap fps, t = the vsync's frame time (CLOCK_MONOTONIC ns), b = ns from it to the frame's expected presentation (0: none given), a = ns between presentations (0: not known)
     kStageFrameRate = 9,   // LastWins, from the vsync thread: f = the window's hint
     kStageQuit = 10,       // Ordered
     kStageService = 11,    // LastWins: the client has work for the stage thread (StageClient::service)
@@ -53,7 +53,7 @@ public:
     virtual void windowApplied(int64_t sequence) = 0;
     // The next swap's stamp, CLOCK_MONOTONIC ns: the display shows it at the first vsync after this time (0: none, the
     // swap presents when it can). Set just before each swap, so it never outlives the frame it was given for.
-    virtual void presentAt(int64_t presentNs) { static_cast<void>(presentNs); }
+    virtual void presentAt(int64_t stampNs) { static_cast<void>(stampNs); }
     // The frame the vsync asked for is finished (drawn, or dropped unseen): the pacer may ask for the next at its
     // first vsync from now. Called once per kStageFrameDue taken, after the swap.
     virtual void frameDone() {}

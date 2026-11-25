@@ -256,7 +256,7 @@ void StageThread::vsyncCap(float capFps) { VsyncThread::process().setCap(sink_, 
 
 void StageThread::frameDone() { VsyncThread::frameDone(sink_); }
 
-void StageThread::presentAt(int64_t presentNs) { egl_.presentAt(presentNs); }
+void StageThread::presentAt(int64_t stampNs) { egl_.presentAt(stampNs); }
 
 void StageThread::windowApplied(int64_t sequence) {
     std::lock_guard<std::mutex> lock(ackLock_);

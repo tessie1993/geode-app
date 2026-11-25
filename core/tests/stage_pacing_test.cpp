@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 
 #include "stage/StagePacing.hpp"
 
@@ -146,27 +145,6 @@ void pacedRate() {
     check(uncapped.fps() == 0.0f, "a free-running surface is told 0, every vsync");
 }
 
-// Red against: an interval handed out before the estimate settles (the first vsyncs, a panel changing mode), which
-// would stamp a frame half a wrong interval before its vsync.
-void vsyncInterval() {
-    StagePacing p(60.0f);
-    p.start();
-    check(p.vsyncPeriodNs() == 0, "no interval before a vsync");
-    for (int i = 0; i < frame::Pacer::kSettleFrames; ++i) {
-        p.vsyncArrived();
-        p.step(at(120, i));
-    }
-    check(p.vsyncPeriodNs() == 0, "nor while the estimate settles");
-    for (int i = frame::Pacer::kSettleFrames; i < 300; ++i) {
-        p.vsyncArrived();
-        p.step(at(120, i));
-    }
-    check(std::llabs(p.vsyncPeriodNs() - 1'000'000'000 / 120) < 1000, "then the panel's own, whatever the cap divides it to");
-    check(frame::latchStampNs(1'020'000'000, 8'000'000) == 1'016'000'000, "a stamp is half an interval before its vsync");
-    check(frame::latchStampNs(1'020'000'000, 0) == 0 && frame::latchStampNs(0, 8'000'000) == 0,
-          "no interval or no presentation time: no stamp");
-}
-
 void frameRateHint() {
     StagePacing p(60.0f);
     p.start();
@@ -193,7 +171,6 @@ int main() {
     startAndStop();
     resumeForgetsTheGap();
     pacedRate();
-    vsyncInterval();
     frameRateHint();
     if (failures) {
         std::fprintf(stderr, "%d stage pacing check(s) failed\n", failures);

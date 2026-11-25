@@ -661,7 +661,18 @@ void soundIsReadWhereTheFrameIsShown() {
     check(listenAtNs(now, now + 900'000'000) == now + 100'000'000, "a lead is held to the dt clamp");
 }
 
+// Red against: a swap stamped on its vsync (the compositor shows a buffer at the first vsync after its stamp, so
+// the frame slips one on some frames), and a stamp made from an interval nobody gave.
+void aSwapIsStampedBetweenItsVsyncAndTheOneBefore() {
+    check(latchStampNs(1'020'000'000, 8'000'000) == 1'016'000'000, "a stamp is half an interval before its presentation");
+    check(latchStampNs(1'020'000'000, 8'333'333) > 1'020'000'000 - 8'333'333 && latchStampNs(1'020'000'000, 8'333'333) < 1'020'000'000,
+          "an odd interval still lands strictly between the two");
+    check(latchStampNs(1'020'000'000, 0) == 0 && latchStampNs(1'020'000'000, -5) == 0, "no interval, no stamp");
+    check(latchStampNs(0, 8'000'000) == 0, "no presentation time, no stamp");
+}
+
 int main() {
+    aSwapIsStampedBetweenItsVsyncAndTheOneBefore();
     aLateFrameDrawsOnTheFirstVsyncTheStageIsFreeNotTheNextDivideSlot();
     aStaleVsyncStampStepsByTheClockAtTheDraw();
     soundIsReadWhereTheFrameIsShown();

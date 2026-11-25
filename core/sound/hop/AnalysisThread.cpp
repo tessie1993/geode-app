@@ -5,8 +5,6 @@
 #include <cstring>
 #include <limits>
 
-#include "util/WorkHint.hpp"
-
 #ifdef __ANDROID__
 #include <pthread.h>
 #include <sys/resource.h>
@@ -108,7 +106,7 @@ void AnalysisThread::setWorkReporter(WorkReporter reporter) { gWorkReporter.stor
 void AnalysisThread::reportWork(std::chrono::steady_clock::time_point started) {
     const WorkReporter reporter = gWorkReporter.load(std::memory_order_relaxed);
     if (!reporter || workFrames_ <= 0 || workRateHz_ <= 0) return;
-    const int64_t hopNs = util::WorkHint::audioNs(settings_.hopSamples(), workRateHz_);
+    const int64_t hopNs = static_cast<int64_t>(settings_.hopSamples()) * 1000000000 / workRateHz_;
     const int64_t passNs = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - started).count();
     reporter(hopNs, passNs * settings_.hopSamples() / workFrames_);
 }

@@ -31,12 +31,6 @@ public:
         return std::isfinite(fps) && fps > 0.0f ? static_cast<int64_t>(1.0e9 / static_cast<double>(fps)) : 0;
     }
 
-    // The time `frames` of audio at `rateHz` last, in nanoseconds; 0 when either is not positive. For a fixed unit of
-    // audio (one hop), so the target handed to report() stays the same until the format changes.
-    static int64_t audioNs(int64_t frames, int rateHz) {
-        return frames > 0 && rateHz > 0 ? frames * 1000000000 / rateHz : 0;
-    }
-
     // One unit of work took `actualNs` of the `targetNs` it was allowed. Ignored unless both are positive.
     void report(int64_t targetNs, int64_t actualNs) {
         if (targetNs <= 0 || actualNs <= 0) return;

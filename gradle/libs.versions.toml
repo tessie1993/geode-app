@@ -63,6 +63,9 @@ lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-com
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+# The SDK 36 jar Robolectric 4.18 asks for (DefaultSdkProvider: BAKLAVA "16", "13921718-2", i7).
+# Bump with robolectric; a mismatch fails every Robolectric test with "Path is not a file".
+robolectric-android-all = { module = "org.robolectric:android-all-instrumented", version = "16-robolectric-13921718-2-i7" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 # The real org.json for JVM unit tests: android.jar's copy is a stub that returns defaults.
 org-json = { module = "org.json:json", version = "20260814" }

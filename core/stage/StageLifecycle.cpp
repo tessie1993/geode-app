@@ -86,7 +86,7 @@ void Lifecycle::setMode(RunMode mode, int64_t nowMs) {
         if (settle > 0) {
             settling_ = true;
             settleUntilMs_ = nowMs + settle;
-        } else if (!settling_) {
+        } else {
             drawOnce_ = true;
         }
     } else {
@@ -113,8 +113,10 @@ void Lifecycle::resume() {
     noteDrawing(before);
 }
 
+// While the stage paces for good the next vsync draws it. During a still frame's settle the vsync is about to
+// stop: the request is kept until a frame is drawn, so one asked for after the settle's last frame still draws.
 void Lifecycle::redrawNeeded() {
-    if (quit_ || vsync_) return;
+    if (quit_ || (vsync_ && !settling_)) return;
     drawOnce_ = true;
 }
 
@@ -133,7 +135,10 @@ void Lifecycle::surfaceBad() {
     surfaceBad_ = true;
 }
 
-void Lifecycle::frameDrawn() { lostInARow_ = 0; }
+void Lifecycle::frameDrawn() {
+    lostInARow_ = 0;
+    drawOnce_ = false;
+}
 
 void Lifecycle::surfacelessSupported(bool supported) { surfacelessOk_ = supported; }
 

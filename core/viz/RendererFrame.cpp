@@ -11,6 +11,7 @@
 #include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/BandTrim.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/passes/Births.hpp"
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/passes/CompositeGrade.hpp"
@@ -468,7 +469,8 @@ bool Renderer::holds(const Scene& scene, const Scene* held) const {
 }
 
 void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
-    if (!sceneJustSwitched_ && holds(scene, heldScene_)) {
+    // A held picture is redrawn while a front is alive: the fronts were drawn into it last frame.
+    if (!sceneJustSwitched_ && !fronts_.live() && holds(scene, heldScene_)) {
         // The field holds, but a scene that draws the rig owes a moved eye a new picture of it.
         if (!scene.drawsCamera() || camera_.pose() == heldPose_) return;
         heldPose_ = camera_.pose();
@@ -668,6 +670,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         return;
     }
     drawSceneTarget(*scene, p, dt);
+    drawFronts(p, dt);
     // The scene target's trail echo (TrailPass) frees its own target on the same idle window.
     trailPass_.releaseIdle(wallDt, kFeedbackIdleSeconds - kStepSumSlack);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
@@ -713,7 +716,7 @@ bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wall
                        layerScene_ == nullptr && outgoingScene_ == nullptr && !trails && !liquidOn() &&
                        diveMix_ == 0.0f && !p.endlessZoom && CameraRig::flatDive(p) == 0.0f &&
                        !physics::planFor(p).any() && smearWarp_ == 0.0f && !smearLinger_.live() &&
-                       !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
+                       !fronts_.live() && !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
                        !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
     stillSeconds_ = quiet ? stillSeconds_ + wallDt : 0.0f;
     return repeatAllowed_ && quiet && stillSeconds_ >= kRepeatAfterSeconds;
@@ -914,6 +917,32 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     f.time = static_cast<float>(timeSeconds_);
     f.quadVao = quadVao_.get();
     return liquidPass_.run(f);
+}
+
+void Renderer::drawFronts(const SceneParams& p, float dt) {
+    fronts_.step(dt);
+    if (!fronts_.live()) return;
+    const fronts::Packed packed = fronts_.pack();
+    // Each front's palette position on the palette the style draws with (lib_palette's palProcedural / palStops).
+    const auto stops = p.paletteStops();
+    const int stopCount = p.paletteStopCount();
+    std::array<float, 3 * fronts::kMaxFronts> tint{};
+    for (int i = 0; i < packed.count; ++i) {
+        const float t = packed.palettePos[static_cast<size_t>(i)];
+        const colour::Rgb c = stopCount > 0
+                                  ? colour::ramp(stops.data(), stopCount, t * p.hueRange + p.colorShift + p.paletteShift)
+                                  : colour::procedural(p.paletteBase() + p.colorShift + p.paletteShift,
+                                                       p.paletteRange() * p.hueRange, t);
+        tint[static_cast<size_t>(3 * i)] = c.r;
+        tint[static_cast<size_t>(3 * i + 1)] = c.g;
+        tint[static_cast<size_t>(3 * i + 2)] = c.b;
+    }
+    const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
+    // A Reveal shows the layer behind the front, when the look has one.
+    const GLuint other = layerScene_ ? fboL_.tex() : 0;
+    if (frontPass_.run(fboA_.tex(), other, renderWidth_, renderHeight_, aspect, packed, tint, quadVao_.get())) {
+        fboA_.swap(frontPass_.target());
+    }
 }
 
 GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown) {

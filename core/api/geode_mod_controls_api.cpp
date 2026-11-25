@@ -1,9 +1,9 @@
-// C ABI over which wave and envelope controls apply (viz/ModControls). See geode_api.h.
+// C ABI over which wave and envelope controls apply (viz/panel/ModControls). See geode_api.h.
 #include <cstddef>
 #include <string_view>
 
 #include "api/geode_api.h"
-#include "viz/ModControls.hpp"
+#include "viz/panel/ModControls.hpp"
 #include "viz/modulation/ModDocument.hpp"
 
 namespace viz = geode::viz;

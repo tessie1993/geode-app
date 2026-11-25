@@ -172,7 +172,7 @@ GEODE_API void geode_mod_state_adsr_set(int slot, int field, float value);
 GEODE_API void geode_mod_state_reactions_edit(const char* style_id, int seed, int op, int a, int b, float value);
 /* Randomize for the waves held, as geode_mod_waves_roll with the keep set held. */
 GEODE_API void geode_mod_state_waves_roll(const char* style_id, int all, const float* params);
-/* Customize's keep set as saved (one key a line): normalised (core/viz/CustomizeMap keepNormalize: every key it
+/* Customize's keep set as saved (one key a line): normalised (core/viz/panel/CustomizeMap keepNormalize: every key it
    may not hold dropped, each kept key once, sorted), held and handed to the director (geode_director_keep_set). */
 GEODE_API void geode_mod_state_keep_load(const char* document);
 /* One Keep tap (keepToggle: the key out when kept, in when not) on the set held; the director gets the new set. */

@@ -1,12 +1,12 @@
-#include "viz/PalettePanel.hpp"
+#include "viz/panel/PalettePanel.hpp"
 
 #include <algorithm>
 #include <cmath>
 
 #include "viz/colour/Colour.hpp"
-#include "viz/ControlRange.hpp"
+#include "viz/panel/ControlRange.hpp"
 #include "viz/colour/Palette.hpp"
-#include "viz/PanelText.hpp"
+#include "viz/panel/PanelText.hpp"
 #include "viz/TableNumber.hpp"
 
 namespace geode::viz::palettepanel {

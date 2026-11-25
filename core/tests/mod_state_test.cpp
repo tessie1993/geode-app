@@ -12,7 +12,7 @@
 #include "viz/params/Config.hpp"
 #include "viz/modulation/ModDocument.hpp"
 #include "viz/modulation/ModState.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/modulation/Reactions.hpp"
 
 using namespace geode::viz;

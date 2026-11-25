@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 
 // Customize's dice (geode_panel_roll*, geode_mod_waves_roll): the lock set a roll keeps, whether the steady
 // waves roll with it, and the seed of each roll. The rolls themselves are ParamRandomizer, CustomizeMap,

@@ -1,4 +1,4 @@
-// Host-side checks for Randomize everything (core/viz/RandomizeAll), the two-circle gesture's "Randomize
+// Host-side checks for Randomize everything (core/viz/panel/RandomizeAll), the two-circle gesture's "Randomize
 // everything": the style and look it picks, and the roll of every Customize category on top. Built and
 // run by CI (.github/workflows/native-host-tests.yml, "Randomize everything host tests") with the system compiler; no GL.
 #include <cstdio>
@@ -9,9 +9,9 @@
 
 #include "api/geode_api.h"
 #include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
-#include "viz/ParamRandomizer.hpp"
-#include "viz/RandomizeAll.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
+#include "viz/panel/RandomizeAll.hpp"
 
 using namespace geode::viz;
 

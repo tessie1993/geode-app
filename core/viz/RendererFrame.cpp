@@ -17,7 +17,7 @@
 #include "viz/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
 #include "viz/modulation/MotionField.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
 #include "viz/gl/SceneTarget.hpp"
 #include "viz/TransitionChoice.hpp"

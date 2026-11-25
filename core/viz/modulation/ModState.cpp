@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/modulation/ModDocument.hpp"
 
 namespace geode::viz::modstate {

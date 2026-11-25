@@ -7,7 +7,7 @@
 
 #include "api/geode_api.h"
 #include "viz/colour/Colour.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/params/Params.hpp"
 
 using namespace geode::viz;

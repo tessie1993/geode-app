@@ -1,4 +1,4 @@
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 
 #include <cstring>
 #include <iterator>

@@ -1,10 +1,10 @@
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 
 #include <algorithm>
 #include <iterator>
 #include <mutex>
 
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 
 namespace geode::viz::customize {
 

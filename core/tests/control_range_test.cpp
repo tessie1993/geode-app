@@ -1,4 +1,4 @@
-// Host-side checks for core/viz/ControlRange: the range a Customize slider offers for a scene param is the
+// Host-side checks for core/viz/panel/ControlRange: the range a Customize slider offers for a scene param is the
 // schema's, cut short only where the control stops early (the flash clamp's limits and Fly's stop).
 // The cases of the shell's old ControlRangeTest. Built and run by CI (native-host-tests.yml); no GL.
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-#include "viz/ControlRange.hpp"
+#include "viz/panel/ControlRange.hpp"
 #include "viz/params/Params.hpp"
 
 using namespace geode::viz;

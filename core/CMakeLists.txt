@@ -67,7 +67,7 @@ add_library(geode_core STATIC
     api/geode_mod_state_api.cpp
     viz/modulation/ModState.cpp
     api/geode_mod_controls_api.cpp
-    viz/ModControls.cpp
+    viz/panel/ModControls.cpp
     api/geode_studio_api.cpp
     studio/StudioEdit.cpp
     viz/modulation/ReactionText.cpp
@@ -207,7 +207,7 @@ add_library(geode_core STATIC
     viz/gl/Framebuffer.cpp
     viz/gl/Quad.cpp
     viz/params/Params.cpp
-    viz/ParamText.cpp
+    viz/panel/ParamText.cpp
     viz/colour/Palette.cpp
     viz/params/ParamsFields.cpp
     viz/params/ConfigFields.cpp
@@ -244,13 +244,13 @@ add_library(geode_core STATIC
     viz/TrailPass.cpp
     viz/Catalogue.cpp
     viz/CataloguePresets.cpp
-    viz/ParamRandomizer.cpp
-    viz/CustomizeMap.cpp
-    viz/CustomizeRows.cpp
-    viz/PanelText.cpp
-    viz/PalettePanel.cpp
+    viz/panel/ParamRandomizer.cpp
+    viz/panel/CustomizeMap.cpp
+    viz/panel/CustomizeRows.cpp
+    viz/panel/PanelText.cpp
+    viz/panel/PalettePanel.cpp
     viz/StyleNames.cpp
-    viz/RandomizeAll.cpp
+    viz/panel/RandomizeAll.cpp
     viz/modulation/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp

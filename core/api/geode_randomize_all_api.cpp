@@ -1,4 +1,4 @@
-// Randomize everything (core/viz/RandomizeAll) behind the C ABI: the two-circle gesture's style, look and roll.
+// Randomize everything (core/viz/panel/RandomizeAll) behind the C ABI: the two-circle gesture's style, look and roll.
 #include <algorithm>
 #include <cstring>
 #include <set>
@@ -8,7 +8,7 @@
 
 #include "api/geode_api.h"
 #include "viz/params/Params.hpp"
-#include "viz/RandomizeAll.hpp"
+#include "viz/panel/RandomizeAll.hpp"
 
 using geode::viz::SceneParams;
 namespace randomize_all = geode::viz::randomize_all;

@@ -1,4 +1,4 @@
-// Host-side checks for Customize › Look's palette pages (core/viz/PalettePanel): Your colours' stop editor and its
+// Host-side checks for Customize › Look's palette pages (core/viz/panel/PalettePanel): Your colours' stop editor and its
 // limits, the stack card's rows, the palette list's choice, and the C ABI over them. Built and run by CI
 // (.github/workflows/native-host-tests.yml, "Customize rows host tests"); no GL.
 #include <cstdio>
@@ -10,7 +10,7 @@
 #include "api/geode_api.h"
 #include "viz/colour/Colour.hpp"
 #include "viz/colour/Palette.hpp"
-#include "viz/PalettePanel.hpp"
+#include "viz/panel/PalettePanel.hpp"
 #include "viz/params/Params.hpp"
 
 using namespace geode::viz;

@@ -25,7 +25,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/modulation/Lfo.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"

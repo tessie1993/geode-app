@@ -1,7 +1,7 @@
 // Shader truth: what the catalogue says about a shader style against what its shader reads.
 // ShaderScene treats a program with an active uCamBasis as flying the camera rig and spends the
 // Detail budget through uSteps, so the catalogue's two per-style facts must follow the source.
-// And every Customize control a style is shown (core/viz/CustomizeMap) moves it, but for the known
+// And every Customize control a style is shown (core/viz/panel/CustomizeMap) moves it, but for the known
 // gaps in core/tests/style_param_gaps.txt, which may only shrink.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Style reads host tests").
 //
@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/ShaderSource.hpp"
 
 using namespace geode::viz;

@@ -48,7 +48,7 @@ struct Control {
     Widget widget;
     const char* field;  // the scene param it writes ("" for none)
     const char* label;  // the words on it; nullptr reads the key
-    int unit;           // ParamUnit's wire (viz/ParamText.hpp) to name, or -1 for the control's own
+    int unit;           // ParamUnit's wire (viz/panel/ParamText.hpp) to name, or -1 for the control's own
     Rule rule;
     bool noDefault;     // no Reset and no "Default" on the value
 };

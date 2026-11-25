@@ -1,4 +1,4 @@
-#include "viz/ParamText.hpp"
+#include "viz/panel/ParamText.hpp"
 
 #include <algorithm>
 #include <array>

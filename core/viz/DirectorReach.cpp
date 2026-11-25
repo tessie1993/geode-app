@@ -7,9 +7,9 @@
 #include <optional>
 #include <vector>
 
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/modulation/ModTargets.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::viz {

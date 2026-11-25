@@ -1,7 +1,7 @@
-#include "viz/RandomizeAll.hpp"
+#include "viz/panel/RandomizeAll.hpp"
 
 #include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 
 namespace geode::viz::randomize_all {
 namespace {

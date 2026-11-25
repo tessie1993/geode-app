@@ -35,9 +35,9 @@ EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/outpu
     core/output/LoudnessAdvice.cpp core/output/EncodePlan.cpp core/output/RecordPlan.cpp core/output/Chapters.cpp \
     core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
 EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
-ROWS_SRC="core/viz/CustomizeRows.cpp core/viz/CustomizeMap.cpp core/viz/PanelText.cpp core/viz/StyleNames.cpp \
-    core/viz/PalettePanel.cpp core/viz/colour/Palette.cpp core/api/geode_customize_rows_api.cpp \
-    core/api/geode_palette_api.cpp core/viz/ParamRandomizer.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
+ROWS_SRC="core/viz/panel/CustomizeRows.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/PanelText.cpp core/viz/StyleNames.cpp \
+    core/viz/panel/PalettePanel.cpp core/viz/colour/Palette.cpp core/api/geode_customize_rows_api.cpp \
+    core/api/geode_palette_api.cpp core/viz/panel/ParamRandomizer.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp"
 
 # --- Native host tests
@@ -48,7 +48,7 @@ viz_math_test | stub | core/tests/viz_math_test.cpp core/viz/modulation/Reaction
 params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # Your colours (Customize › Look): HSV and hex, the eyedropper's average, the stops' seamless loop, the stops as params.
-colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp \
+colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/panel/ParamRandomizer.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # The palette stack (Customize › Look): each gradient option, the 16-colour and 8-palette caps, Share and Mix, one colour's drawings, the codec and edits, old looks as they drew, recent colours, the library text.
 palette_test | stub | core/tests/palette_test.cpp core/viz/colour/Palette.cpp core/api/geode_palette_api.cpp \
@@ -56,7 +56,7 @@ palette_test | stub | core/tests/palette_test.cpp core/viz/colour/Palette.cpp co
 # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
 touch_transform_test | stub | core/tests/touch_transform_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
-# A Customize slider's range (core/viz/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
+# A Customize slider's range (core/viz/panel/ControlRange): the schema's, cut short by the flash clamp's depth and Fly's stop.
 control_range_test | stub | core/tests/control_range_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The fingers on the visual: touch play's points in NDC, the two-finger pan, zoom, twist and pinch step, the stir,
@@ -84,7 +84,7 @@ feedback_motion_test | stub | core/tests/feedback_motion_test.cpp core/viz/param
 # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
 resolver_test | stub | core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp \
     core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp \
-    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp core/viz/modulation/Lfo.cpp \
+    core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp core/viz/modulation/Lfo.cpp \
     core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/modulation/MotionField.cpp core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
@@ -92,7 +92,7 @@ resolver_test | stub | core/tests/resolver_test.cpp core/signal/Resolver.cpp cor
 # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
 director_reach_test | stub | core/tests/director_reach_test.cpp core/signal/Resolver.cpp \
     core/signal/EngineSettings.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
-    core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp \
+    core/viz/DirectorReach.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp \
     core/viz/modulation/ModTargets.cpp core/viz/modulation/MotionField.cpp core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
@@ -393,7 +393,7 @@ catalogue_test | core | core/tests/catalogue_test.cpp core/viz/Catalogue.cpp cor
 # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads,
 # and every Customize control a style shows moves it (known gaps: core/tests/style_param_gaps.txt, only shrinks).
 style_reads_test | fakegl | core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
-    core/viz/scenes/StyleCatalog.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/params/Params.cpp \
+    core/viz/scenes/StyleCatalog.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp | app/src/main/assets/ --gaps core/tests/style_param_gaps.txt --core core/
 # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
 visual_gate | core | core/tests/visual_gate.cpp | -
@@ -422,8 +422,8 @@ mod_document_test | stub | core/tests/mod_document_test.cpp core/viz/modulation/
     core/api/geode_modulation_api.cpp core/util/Json.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
     core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp | core/tests/mod_catalog_music.txt
-# Which wave and envelope controls Customize shows (core/viz/ModControls).
-mod_controls_test | stub | core/tests/mod_controls_test.cpp core/viz/ModControls.cpp \
+# Which wave and envelope controls Customize shows (core/viz/panel/ModControls).
+mod_controls_test | stub | core/tests/mod_controls_test.cpp core/viz/panel/ModControls.cpp \
     core/api/geode_mod_controls_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp core/util/Json.cpp \
     core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
     core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
@@ -433,7 +433,7 @@ mod_controls_test | stub | core/tests/mod_controls_test.cpp core/viz/ModControls
 # keep set reach their process-wide setters.
 mod_state_test | stub-mt | core/tests/mod_state_test.cpp core/viz/modulation/ModState.cpp core/api/geode_mod_state_api.cpp \
     core/api/geode_modulation_api.cpp core/viz/modulation/ModDocument.cpp core/viz/modulation/ModCatalog.cpp core/util/Json.cpp \
-    core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
+    core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/ReactionText.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
     core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 
@@ -451,7 +451,7 @@ lfo_random_test | stub | core/tests/lfo_random_test.cpp core/viz/modulation/Wave
 macro_bank_test | stub | core/tests/macro_bank_test.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/MacroControls.cpp \
     core/api/geode_macro_bank_api.cpp core/viz/modulation/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
     core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
-    core/viz/modulation/VisualSafety.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp |
+    core/viz/modulation/VisualSafety.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp |
 
 # --- Native export DSP tests
 # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin, the playback DSP's hand-off and its gain.
@@ -542,8 +542,8 @@ video_export_test | stub | core/tests/video_export_test.cpp core/output/VideoExp
 loop_mux_test | stub | core/tests/loop_mux_test.cpp core/output/LoopMux.cpp core/output/LoopExtend.cpp     core/output/LoopPlan.cpp |
 
 # --- Params host tests
-# The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/params/Params).
-params_test | core | core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/params/Params.cpp \
+# The Customize randomizer, Reset tab and params wire (core/viz/panel/ParamRandomizer, core/viz/params/Params).
+params_test | core | core/tests/params_test.cpp core/viz/panel/ParamRandomizer.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # The params object of a preset, link, template look and saved look (core/viz/params/ParamsJson), with the app's preset fixtures.
 params_json_test | stub | core/tests/params_json_test.cpp core/viz/params/ParamsJson.cpp core/api/geode_params_json_api.cpp \
@@ -557,26 +557,26 @@ template_file_test | stub | core/tests/template_file_test.cpp core/viz/TemplateF
     core/viz/LookFiles.cpp core/viz/params/ParamsPalette.cpp core/viz/params/ParamsJson.cpp core/viz/Sha256.cpp core/util/Json.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp |
-# The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
-param_text_test | stub | core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp |
-# A Customize slider's Reset offer, whole-number snap and log track (core/viz/SliderMap).
+# The text a Customize control shows for its value and the unit it reads in (core/viz/panel/ParamText).
+param_text_test | stub | core/tests/param_text_test.cpp core/viz/panel/ParamText.cpp core/api/geode_param_text_api.cpp |
+# A Customize slider's Reset offer, whole-number snap and log track (core/viz/panel/SliderMap).
 slider_map_test | stub | core/tests/slider_map_test.cpp core/api/geode_slider_api.cpp |
 
 # --- Customize map host tests
-# The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
-customize_test | core | core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+# The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/panel/CustomizeMap).
+customize_test | core | core/tests/customize_test.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp | core/tests/customize.txt
 
 # --- Customize rows host tests
-# What Customize draws (core/viz/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
+# What Customize draws (core/viz/panel/CustomizeRows, PanelText, StyleNames, PalettePanel): each control's widget, words,
 # range and when it hides, the panel's words, the style names, Your colours' editor, the stack card and the palette list.
 customize_rows_test | stub | core/tests/customize_rows_test.cpp $ROWS_SRC |
 palette_panel_test | stub | core/tests/palette_panel_test.cpp $ROWS_SRC |
 
 # --- Randomize everything host tests
-# The two-circle gesture's Randomize everything (core/viz/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
-randomize_all_test | stub | core/tests/randomize_all_test.cpp core/viz/RandomizeAll.cpp \
-    core/api/geode_randomize_all_api.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/params/Params.cpp \
+# The two-circle gesture's Randomize everything (core/viz/panel/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
+randomize_all_test | stub | core/tests/randomize_all_test.cpp core/viz/panel/RandomizeAll.cpp \
+    core/api/geode_randomize_all_api.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/params/Params.cpp \
     core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 
 # --- Easter egg host tests

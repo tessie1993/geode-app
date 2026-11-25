@@ -758,7 +758,7 @@ GEODE_API float       geode_catalogue_value(const char* name);
  * '|'-separated line table (see CataloguePresets.hpp for the rows). Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_catalogue_presets_text(void);
 
-/* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
+/* Customize randomizer and Reset tab (core/viz/panel/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
  * handle; the same arguments always give the same result. Controls are named by their Customize keys, tabs
  * by their CustomizeTab names (a tab the engine does not know rolls and resets nothing). in and out may alias.
@@ -796,7 +796,7 @@ GEODE_API int         geode_params_read_json(const char* document, const char* p
  * process. The shell does not read it (it asks geode_params_get and _set by name); its JVM tests read the
  * checked-in copy, core/tests/params_schema.txt. */
 GEODE_API const char* geode_params_schema_text(void);
-/* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
+/* The text a Customize control shows for `value` (viz/panel/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
  * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,
  * 2 seconds, 3 hertz, 4 turn degrees, 5 plain; any other value takes the control's own, by its `key` and then
  * its range lo..hi. A range below zero signs a percentage. UTF-8 into `out`, NUL-terminated; returns the
@@ -1014,7 +1014,7 @@ GEODE_API const char* geode_config_schema_text(void);
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
-/* The range Customize's slider offers for the scene param `name` (core/viz/ControlRange): its schema range, cut
+/* The range Customize's slider offers for the scene param `name` (core/viz/panel/ControlRange): its schema range, cut
  * short where the control stops early (Brightness and Intensity at 1 + the flash clamp's depth, Bloom at the
  * depth, Fly at -2..2). Writes min and max to out[2] and returns 1; 0, out untouched, for an unknown name. Pure. */
 GEODE_API int         geode_params_control_range(const char* name, float* out);
@@ -1093,7 +1093,7 @@ GEODE_API int         geode_gesture_end(geode_gesture*, float split_y, int* out)
 GEODE_API int         geode_gesture_second_down(geode_gesture*, float x, float y, long long t_ms);
 GEODE_API int         geode_gesture_second_move(geode_gesture*, int present, float x, float y, int pressed);
 
-/* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
+/* Customize panel map (core/viz/panel/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
  * CustomizeMap.hpp). Static: the pointer stays valid for the process. geode_customize_shown lists what the panel
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines, plus "CATEGORY:roll" where the category's roll has
@@ -1118,14 +1118,14 @@ GEODE_API int         geode_customize_changed_count(const float* in);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
-/* Customize's rows (core/viz/CustomizeRows): what each control in keys (one CustomizeMap key a line, a section's order)
+/* Customize's rows (core/viz/panel/CustomizeRows): what each control in keys (one CustomizeMap key a line, a section's order)
  * draws as on the look params (the geode_viz_set_params wire) and style_id: the widget, field, words, value, range,
  * default, unit, steps, or nothing where it does not draw. query is the panel's search text, transition 1 while a style
  * transition is chosen, liquid_mode the renderer's Liquid mode. Rows in CustomizeRows.hpp. Valid until this thread's
  * next customize rows call. */
 GEODE_API const char* geode_customize_rows(const char* style_id, const char* keys, const char* query, int transition, int liquid_mode,
                                            const float* params);
-/* 1 when the panel search query matches text (core/viz/CustomizeRows matches): blank matches all, else a case-blind substring
+/* 1 when the panel search query matches text (core/viz/panel/CustomizeRows matches): blank matches all, else a case-blind substring
  * of the trimmed query. */
 GEODE_API int geode_customize_matches(const char* query, const char* text);
 /* 1 when the panel search query has nothing in it (only spaces and tabs), so whole sections show. */
@@ -1133,12 +1133,12 @@ GEODE_API int geode_customize_query_blank(const char* query);
 /* A word or sentence of the panel's with its placeholders filled by the count texts of args (geode_panel_text's table,
  * "%1$s" the first); "" for an unknown id. Valid until this thread's next call into core/api/geode_customize_rows_api.cpp. */
 GEODE_API const char* geode_panel_format(const char* id, const char* const* args, int count);
-/* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
+/* A word or sentence the Customize panel draws, by its id (core/viz/panel/PanelText); "" for an unknown id. Static. */
 GEODE_API const char* geode_panel_text(const char* id);
 /* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */
 GEODE_API const char* geode_style_label(const char* style_id);
 GEODE_API const char* geode_style_family_label(const char* family);
-/* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
+/* Your colours' editor (core/viz/panel/PalettePanel): the editor's text state in, text state out. _start opens the look
  * params' own colours (its stops, else its hue ramp), _from_look the same, for the editor to start over from them, _open a saved palette's stops
  * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
  * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
@@ -1157,10 +1157,10 @@ GEODE_API const char* geode_palette_saved_swatch(const int* stops, int count, fl
 /* Look's palette list on a style the stack does not draw: saved_ids and saved_names one a line, the shell's order. */
 GEODE_API const char* geode_palette_list_view(const float* params, const char* custom_id, const char* saved_ids,
                                               const char* saved_names);
-/* The palette stack card on the look params: its rows (core/viz/PalettePanel.hpp). saved_count is how many palettes
+/* The palette stack card on the look params: its rows (core/viz/panel/PalettePanel.hpp). saved_count is how many palettes
  * the user has saved. */
 GEODE_API const char* geode_palette_stack_card(const char* stack, const float* params, int saved_count);
-/* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
+/* Randomize everything (core/viz/panel/RandomizeAll): the two-circle gesture's new style, look and every Customize category
  * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
  * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement
  * locks), not current_style while another is open; then a look for it:
@@ -1177,7 +1177,7 @@ GEODE_API int         geode_randomize_all_pick(uint64_t seed, const char* curren
                                                int* look_out);
 GEODE_API int         geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories,
                                                const float* before, const float* base, float* out);
-/* Customize's dice (core/viz/PanelRoll), seeded natively per roll. kept is the user's lock set (keys and "#CATEGORY"
+/* Customize's dice (core/viz/panel/PanelRoll), seeded natively per roll. kept is the user's lock set (keys and "#CATEGORY"
  * lines); basics_only is the roll without Pro. geode_panel_roll rolls category (a CustomizeMap name), or with NULL
  * everything, as geode_customize_randomize / geode_params_randomize. geode_panel_roll_all is geode_randomize_all_roll
  * with roll_categories 1 and the gesture's seed. Both return GEODE_PANEL_ROLL_* bits: CHANGED when out differs from
@@ -1190,7 +1190,7 @@ GEODE_API int         geode_panel_roll_all(const char* style_id, const char* kep
                                            const float* before, const float* base, float* out);
 /* Music's "new personality": in with the reaction DNA's seed one further, into out. */
 GEODE_API void        geode_params_reroll_reactions(const float* in, float* out);
-/* Customize's undo and redo (core/viz/ParamHistory), process-wide. record: the look before (count floats of the
+/* Customize's undo and redo (core/viz/panel/ParamHistory), process-wide. record: the look before (count floats of the
  * params wire and its saved palette id, NULL as "") is about to be replaced at now_ms (the shell's monotonic clock);
  * edits within 700 ms fold into one entry, discrete 1 (a preset, a roll, a reset) is always its own. step: the look to
  * put up instead of current (redo 1: the last undone; entries recorded on another style_id are dropped, never applied), its frame into out (count floats) and its palette id returned,
@@ -2458,7 +2458,7 @@ GEODE_API void            geode_cast_render_set_device_ring(const geode_pcm_ring
 #define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
 GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
 
-/* A Customize slider's maths (viz/SliderMap). Pure, any thread.
+/* A Customize slider's maths (viz/panel/SliderMap). Pure, any thread.
  * off_default: 1 when value is more than 1e-4 from def (NaN: no default, 0), so Reset would move it.
  * int_steps: the ticks between first and last of a whole-number slider. int_value: the whole number a
  * stepped position means, rounded to the nearest and clamped into first..last.
@@ -2470,7 +2470,7 @@ GEODE_API int             geode_slider_int_value(float position, int first, int 
 GEODE_API float           geode_slider_log_position(float value, float lo, float hi);
 GEODE_API float           geode_slider_log_value(float position, float lo, float hi);
 
-/* Which controls of one wave or envelope slot do anything as it stands (viz/ModControls), so Customize shows only
+/* Which controls of one wave or envelope slot do anything as it stands (viz/panel/ModControls), so Customize shows only
  * those: GEODE_MOD_SHOWS_* bits. lfos and adsrs are the saved texts (api/geode_modulation_api.h); 0 for a slot
  * outside them. Pure, any thread. */
 #define GEODE_MOD_SHOWS_WAVE 1u /* wave shape, timing and moment: the source is the steady wave */

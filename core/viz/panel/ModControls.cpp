@@ -1,4 +1,4 @@
-#include "viz/ModControls.hpp"
+#include "viz/panel/ModControls.hpp"
 
 #include <algorithm>
 

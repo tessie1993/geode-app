@@ -1,15 +1,15 @@
-#include "viz/CustomizeRows.hpp"
+#include "viz/panel/CustomizeRows.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 
 #include "viz/Catalogue.hpp"
-#include "viz/ControlRange.hpp"
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/ControlRange.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/LookSnapshot.hpp"
-#include "viz/PanelText.hpp"
-#include "viz/SliderMap.hpp"
+#include "viz/panel/PanelText.hpp"
+#include "viz/panel/SliderMap.hpp"
 #include "viz/TableNumber.hpp"
 
 namespace geode::viz::customize {

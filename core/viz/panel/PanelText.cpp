@@ -1,4 +1,4 @@
-#include "viz/PanelText.hpp"
+#include "viz/panel/PanelText.hpp"
 
 #include <vector>
 

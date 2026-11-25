@@ -26,7 +26,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Catalogue.hpp"
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/MacroBank.hpp"
 #include "viz/modulation/ModTargets.hpp"

@@ -1,5 +1,5 @@
 // Host-side checks for the Customize randomizer, Reset tab and the params wire
-// (core/viz/ParamRandomizer, core/viz/params/Params). Built and run by CI
+// (core/viz/panel/ParamRandomizer, core/viz/params/Params). Built and run by CI
 // (.github/workflows/android.yml, "Params host tests") with the system compiler; no GL.
 #include <algorithm>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/params/Params.hpp"
 
 using namespace geode::viz;

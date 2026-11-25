@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/modulation/MacroBank.hpp"
 #include "viz/modulation/ModTargets.hpp"
 

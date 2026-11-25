@@ -15,10 +15,10 @@
 #include <vector>
 
 #include "signal/Resolver.hpp"
-#include "viz/CustomizeMap.hpp"
+#include "viz/panel/CustomizeMap.hpp"
 #include "viz/DirectorReach.hpp"
 #include "viz/modulation/ModTargets.hpp"
-#include "viz/ParamRandomizer.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 
 using geode::signal::EngineSettings;

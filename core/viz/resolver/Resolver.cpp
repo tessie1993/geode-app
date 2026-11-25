@@ -48,6 +48,11 @@ void Resolver::reset() {
     momentWatch_.reset();
 }
 
+void Resolver::newPlay() {
+    reactions_.reset();
+    momentWatch_.reset();
+}
+
 const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
                                       const EngineSettings& settings, const StyleContext& style,
                                       const sound::Emotion::State* heard, float fadeDt) {

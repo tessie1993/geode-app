@@ -8,8 +8,8 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
-#include "viz/Palette.hpp"
+#include "viz/colour/Colour.hpp"
+#include "viz/colour/Palette.hpp"
 #include "viz/PalettePanel.hpp"
 #include "viz/Params.hpp"
 

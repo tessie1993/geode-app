@@ -1,6 +1,6 @@
 #include "viz/Params.hpp"
 
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -9,11 +9,11 @@
 namespace geode::viz {
 
 const std::array<SceneParams::Palette, 21>& SceneParams::palettes() {
-    // The classic rows of the palette library (viz/PaletteTable.inc), so the two cannot drift.
+    // The classic rows of the palette library (viz/colour/PaletteTable.inc), so the two cannot drift.
     static const std::array<Palette, 21> kPalettes = {{
 #define GEODE_CLASSIC(id, name, base, range) {name, base, range},
 #define GEODE_COLOURS(...)
-#include "viz/PaletteTable.inc"
+#include "viz/colour/PaletteTable.inc"
 #undef GEODE_COLOURS
 #undef GEODE_CLASSIC
     }};

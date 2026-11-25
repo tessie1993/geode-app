@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 
 namespace geode::viz::palette_params {
 

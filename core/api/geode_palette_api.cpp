@@ -1,4 +1,4 @@
-// The palette stack's C ABI (viz/Palette.hpp): the library, every edit of a stack or a palette as text in,
+// The palette stack's C ABI (viz/colour/Palette.hpp): the library, every edit of a stack or a palette as text in,
 // text out, the ramp the swatches draw, an old look's colours as a stack, and the picker's recent colours.
 // Pure, any thread; marshalled by geode_viz_jni.cpp.
 #include <algorithm>
@@ -7,8 +7,8 @@
 #include <utility>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
-#include "viz/Palette.hpp"
+#include "viz/colour/Colour.hpp"
+#include "viz/colour/Palette.hpp"
 #include "viz/Params.hpp"
 
 namespace palette = geode::viz::palette;

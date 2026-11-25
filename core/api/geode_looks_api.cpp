@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/LookFiles.hpp"
 #include "viz/TemplateFile.hpp"
 

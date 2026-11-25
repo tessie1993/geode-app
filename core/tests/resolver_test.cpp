@@ -34,7 +34,7 @@
 #include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/Palette.hpp"
+#include "viz/colour/Palette.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/VisualSafety.hpp"
 

@@ -1,11 +1,11 @@
-// Your colours' C ABI (viz/Colour.hpp): the picker's conversions, the eyedropper's average and the
+// Your colours' C ABI (viz/colour/Colour.hpp): the picker's conversions, the eyedropper's average and the
 // palette swatches the shell draws. Pure, any thread; marshalled by geode_viz_jni.cpp.
 #include <algorithm>
 #include <cmath>
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/Params.hpp"
 
 using geode::viz::SceneParams;

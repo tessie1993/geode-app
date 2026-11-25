@@ -916,7 +916,7 @@ GEODE_API const char* geode_template_new_copy(const char* text, const char* name
 GEODE_API const char* geode_template_link_in(const char* text);
 GEODE_API const char* geode_template_link_of(const char* preset_link, int max_length);
 GEODE_API const char* geode_template_share_name(const char* name);
-/* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
+/* Your colours (viz/colour/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
  * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper).
@@ -928,7 +928,7 @@ GEODE_API int         geode_colour_parse_hex(const char* text);
 GEODE_API const char* geode_colour_hex(int rgb);
 GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
 GEODE_API int         geode_colour_palette_accent(float base, float range);
-/* The artwork palette (viz/ArtPalette): a cover's n 0xAARRGGBB pixels (alpha ignored) read as a hue gradient.
+/* The artwork palette (viz/colour/ArtPalette): a cover's n 0xAARRGGBB pixels (alpha ignored) read as a hue gradient.
  * Returns 1 and writes out[3] = base hue (0..1), span (0.06..1 of a turn) and confidence (the share of coloured
  * pixels); 0, out untouched, when no pixel is coloured (greys, near-blacks, blown highlights) or n <= 0. */
 GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, float* out);
@@ -940,7 +940,7 @@ GEODE_API int         geode_art_palette_extract(const int32_t* argb, int n, floa
 GEODE_API void        geode_palette_ramp(const int* stops, int count, int samples, int* out);
 GEODE_API void        geode_palette_stops_from_hues(float base, float range, int count, int* out);
 GEODE_API void        geode_params_palette_preview(const float* params, int samples, int* out);
-/* The palette stack (viz/Palette.hpp, Customize › Look): the look's palettes, the primary first, up to 8, each
+/* The palette stack (viz/colour/Palette.hpp, Customize › Look): the look's palettes, the primary first, up to 8, each
  * up to 16 colours with its options (SMOOTH|STEPS, MIRROR|LOOP, RGB|HUE|OKLAB, a position per stop, and for one
  * colour SHADES|FLAT|TO_BLACK), shared by blend SHARE (each its amount's part of the ramp) or MIX, meeting at a
  * SOFT edge (a bounded cross-fade; the default) or a HARD one under SHARE, and fullRange (0: colour moves stay

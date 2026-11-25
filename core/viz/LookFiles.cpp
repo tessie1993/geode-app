@@ -10,7 +10,7 @@
 
 #include "util/Json.hpp"
 #include "viz/Catalogue.hpp"
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/ParamsJson.hpp"
 #include "viz/ParamsPalette.hpp"
 #include "viz/Sha256.hpp"

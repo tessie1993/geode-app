@@ -1,4 +1,4 @@
-#include "viz/ArtPalette.hpp"
+#include "viz/colour/ArtPalette.hpp"
 
 #include <algorithm>
 #include <array>

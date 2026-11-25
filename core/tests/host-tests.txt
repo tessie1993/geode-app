@@ -36,7 +36,7 @@ EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/outpu
     core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
 EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
 ROWS_SRC="core/viz/CustomizeRows.cpp core/viz/CustomizeMap.cpp core/viz/PanelText.cpp core/viz/StyleNames.cpp \
-    core/viz/PalettePanel.cpp core/viz/Palette.cpp core/api/geode_customize_rows_api.cpp \
+    core/viz/PalettePanel.cpp core/viz/colour/Palette.cpp core/api/geode_customize_rows_api.cpp \
     core/api/geode_palette_api.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp"
 
@@ -51,7 +51,7 @@ params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/Params.cp
 colour_test | stub | core/tests/colour_test.cpp core/api/geode_colour_api.cpp core/viz/ParamRandomizer.cpp \
     core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
 # The palette stack (Customize › Look): each gradient option, the 16-colour and 8-palette caps, Share and Mix, one colour's drawings, the codec and edits, old looks as they drew, recent colours, the library text.
-palette_test | stub | core/tests/palette_test.cpp core/viz/Palette.cpp core/api/geode_palette_api.cpp \
+palette_test | stub | core/tests/palette_test.cpp core/viz/colour/Palette.cpp core/api/geode_palette_api.cpp \
     core/viz/Params.cpp core/viz/ParamsFields.cpp | core/tests/palettes.txt
 # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
 touch_transform_test | stub | core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
@@ -584,8 +584,8 @@ randomize_all_test | stub | core/tests/randomize_all_test.cpp core/viz/Randomize
 easter_eggs_test | stub | core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp |
 
 # --- Artwork palette
-# The artwork palette (core/viz/ArtPalette): a cover's base hue, span and confidence, pinned to the Kotlin it replaced.
-art_palette_test | stub | core/tests/art_palette_test.cpp core/viz/ArtPalette.cpp core/api/geode_art_palette_api.cpp |
+# The artwork palette (core/viz/colour/ArtPalette): a cover's base hue, span and confidence, pinned to the Kotlin it replaced.
+art_palette_test | stub | core/tests/art_palette_test.cpp core/viz/colour/ArtPalette.cpp core/api/geode_art_palette_api.cpp |
 
 # --- Births
 # Life's births (core/viz/Births): nothing at Life 0, deterministic, every collapse kind, the clock the only input.

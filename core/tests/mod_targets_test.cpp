@@ -62,7 +62,7 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
     // A macro knob (#owner 2026-11-12): a wave or an envelope turns the knob, which moves what it links.
     {"MACRO", "UNIVERSAL"},
-    // The palette stack's amounts and position (viz/Palette.hpp), on their Look controls' scope.
+    // The palette stack's amounts and position (viz/colour/Palette.hpp), on their Look controls' scope.
     {"PALETTE_AMOUNT_1", "UNIVERSAL"}, {"PALETTE_AMOUNT_3", "UNIVERSAL"}, {"PALETTE_AMOUNT_4", "UNIVERSAL"},
     {"PALETTE_AMOUNT_5", "UNIVERSAL"}, {"PALETTE_AMOUNT_6", "UNIVERSAL"}, {"PALETTE_AMOUNT_7", "UNIVERSAL"},
     {"PALETTE_AMOUNT_8", "UNIVERSAL"}, {"PALETTE_SHIFT", "UNIVERSAL"},

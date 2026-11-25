@@ -33,7 +33,7 @@ enum class LfoTarget {
     // the resolver adds the wave or the envelope to the knob's turn, and the knob moves what it links.
     Macro,
     // Appended: the palette stack's amounts (Palette 1, 3..8; Palette 2's is PaletteMix's) and where along it
-    // the colours sit (viz/Palette.hpp).
+    // the colours sit (viz/colour/Palette.hpp).
     PaletteAmount1, PaletteAmount3, PaletteAmount4, PaletteAmount5, PaletteAmount6, PaletteAmount7, PaletteAmount8,
     PaletteShift,
     // Appended: the kaleidoscope's folds (1 off .. 16), the one slider that replaced its switch and count.

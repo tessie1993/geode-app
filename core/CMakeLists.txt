@@ -101,7 +101,7 @@ add_library(geode_core STATIC
     api/geode_capture_java_api.cpp
     api/geode_audio_out_api.cpp
     api/geode_art_palette_api.cpp
-    viz/ArtPalette.cpp
+    viz/colour/ArtPalette.cpp
     viz/Births.cpp
     api/geode_widget_glow_api.cpp
     viz/WidgetGlow.cpp
@@ -208,7 +208,7 @@ add_library(geode_core STATIC
     viz/gl/Quad.cpp
     viz/Params.cpp
     viz/ParamText.cpp
-    viz/Palette.cpp
+    viz/colour/Palette.cpp
     viz/ParamsFields.cpp
     viz/ConfigFields.cpp
     viz/Lfo.cpp

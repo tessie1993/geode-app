@@ -7,7 +7,7 @@
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
 #include "viz/MacroBank.hpp"
-#include "viz/Palette.hpp"
+#include "viz/colour/Palette.hpp"
 
 namespace geode::signal {
 
@@ -24,7 +24,7 @@ struct EngineSettings {
     std::shared_ptr<const viz::director::Tuning> directorTuning;
     viz::director::Reach reach = viz::director::Reach::Look;  // how far the director reaches past its look
     std::shared_ptr<const viz::director::Kept> kept;          // Customize's keep set; null keeps nothing
-    // Customize › Look's palette stack (viz/Palette). Null: the look keeps none and its old colour params draw.
+    // Customize › Look's palette stack (viz/colour/Palette). Null: the look keeps none and its old colour params draw.
     std::shared_ptr<const viz::palette::Stack> palettes;
     bool notesOn = false;             // Settings › Behaviour › Note & key reactions
     std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand); an export pins it for its route merge

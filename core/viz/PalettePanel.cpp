@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/ControlRange.hpp"
-#include "viz/Palette.hpp"
+#include "viz/colour/Palette.hpp"
 #include "viz/PanelText.hpp"
 #include "viz/TableNumber.hpp"
 

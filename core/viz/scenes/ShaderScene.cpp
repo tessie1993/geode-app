@@ -7,7 +7,7 @@
 #include "util/Log.hpp"
 #include "viz/Births.hpp"
 #include "viz/Catalogue.hpp"
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/TwistShape.hpp"
 #include "viz/scenes/SceneCommon.hpp"

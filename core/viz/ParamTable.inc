@@ -165,7 +165,7 @@ GEODE_PARAM_MOD(twist, 1.0f, 0)
 GEODE_PARAM(Int, palette, 0, 0, static_cast<float>(SceneParams::palettes().size() - 1), Hold)
 GEODE_PARAM_META(palette, "Palette", Universal, 0, 0, 0)
 // Retired (SceneParams::retired): Palette 2 and Palette blend, the old second palette mixed over the first.
-// The palette stack (viz/Palette.hpp) is the one way to draw more than one palette.
+// The palette stack (viz/colour/Palette.hpp) is the one way to draw more than one palette.
 GEODE_PARAM(Int, palette2, 1, 0, static_cast<float>(SceneParams::palettes().size() - 1), Hold)
 GEODE_PARAM(Float, paletteMix, 0.0f, 0.0f, 1.0f, Fade)
 // A custom palette's hue base and span, 0..1; kUnsetOverride (-1) = use the palette's own. Never
@@ -512,7 +512,7 @@ GEODE_PARAM(Float, camFlat, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camFlat, "Travel zoom", Universal, 0, 0, 0)
 
 // Your colours (Customize › Look): the first palette's own colour stops, each a packed 0xRRGGBB
-// (viz/Colour.hpp), kNoStop (-1) unset. Set from paletteStop0 on, they replace that slot's ramp: the
+// (viz/colour/Colour.hpp), kNoStop (-1) unset. Set from paletteStop0 on, they replace that slot's ramp: the
 // stops evenly round a loop (lib_palette's palStops), the first stop's hue for the styles that colour by
 // one hue. Appended so every wire index survives; a float carries 0xFFFFFF exactly, as reactSeed's max.
 // They belong to the Palette control: its roll and Reset clear them, Keep holds them, borrow copies them.
@@ -561,7 +561,7 @@ GEODE_PARAM_META(diveLens, "Dive lens", EndlessZoom, 0, -0.3f, 0.8f)
 GEODE_PARAM(Float, diveFollow, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM_META(diveFollow, "Music follow", EndlessZoom, 0, 0, 0)
 
-// The palette stack's amounts (viz/Palette.hpp, Customize › Look): how much each layer is used, the primary
+// The palette stack's amounts (viz/colour/Palette.hpp, Customize › Look): how much each layer is used, the primary
 // first, beside the stack the look keeps as text. The defaults are palette::defaultAmounts(). Appended so
 // every wire index survives. The stack's own roll deals them, never the param roll. Palette 2's amount is
 // what LfoTarget::PaletteMix writes (the old Palette blend's slot), on shader styles.

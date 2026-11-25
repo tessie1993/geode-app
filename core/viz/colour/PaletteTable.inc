@@ -1,4 +1,4 @@
-// The built-in palettes (viz/Palette library()), in library order. Define the two row macros, include, undef.
+// The built-in palettes (viz/colour/Palette library()), in library order. Define the two row macros, include, undef.
 //
 // GEODE_CLASSIC(id, name, base, range): rows 0..20, the old cosine hue ramps in the `palette` index order
 // looks were saved by; viz/Params' SceneParams::palettes() reads these rows too, so there is one table.

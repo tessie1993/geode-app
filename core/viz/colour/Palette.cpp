@@ -1,4 +1,4 @@
-#include "viz/Palette.hpp"
+#include "viz/colour/Palette.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -203,7 +203,7 @@ std::vector<Entry> buildLibrary() {
 #define GEODE_CLASSIC(id, name, base, range) out.push_back({id, classicEntry(id, name, base, range)});
 #define GEODE_COLOURS(id, name, source, wrap, space, ...) \
     out.push_back({id, listed(id, name, Source::source, Wrap::wrap, Space::space, {__VA_ARGS__})});
-#include "viz/PaletteTable.inc"
+#include "viz/colour/PaletteTable.inc"
 #undef GEODE_COLOURS
 #undef GEODE_CLASSIC
     return out;

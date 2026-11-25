@@ -11,7 +11,7 @@
 // WHY native (owner 2026-11-12): how many stops a palette may hold, which stop a tap selects, what
 // a new stop copies, how many stops an old hue gradient opens as, which rows a stack shows (Blend with two
 // layers or more, Add while there is room), which amount param a layer reads and what the list selects are
-// decisions about the engine's palettes, so they sit beside them (viz/Palette, viz/Colour) and the shell
+// decisions about the engine's palettes, so they sit beside them (viz/colour/Palette, viz/colour/Colour) and the shell
 // only draws the rows. Host-tested in core/tests/palette_panel_test.cpp.
 namespace geode::viz::palettepanel {
 
@@ -59,7 +59,7 @@ std::string savedSwatch(const int* stops, int count, float base, float span);
 // savedNames is one name a line, in savedIds' order. The swatch is what the look's own palette paints.
 std::string listView(const SceneParams& p, std::string_view customId, std::string_view savedIds, std::string_view savedNames);
 
-// The stack card (viz/Palette's stack text) on a look:
+// The stack card (viz/colour/Palette's stack text) on a look:
 //   card|<kTextVersion>|<heading>|<tip>
 //   layer|<index>|<name>|<amount param>|<amount>|<min>|<max>|<movable up 0/1>|<up label>|<remove label>|<amount label>|<swatch>
 //   blend|<label>|<selected>                      with two layers or more

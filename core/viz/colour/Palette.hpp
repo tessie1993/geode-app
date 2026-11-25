@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include "viz/Colour.hpp"
+#include "viz/colour/Colour.hpp"
 #include "viz/Params.hpp"
 
 // Customize › Look's palettes: the one colour source every style kind will draw from (owner rule: once

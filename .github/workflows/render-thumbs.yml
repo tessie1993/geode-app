@@ -59,6 +59,19 @@ jobs:
           ref: ${{ inputs.base }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
+          # The write token stays out of .git/config for the hours of build and emulator below;
+          # only the push step gets it.
+          persist-credentials: false
+
+      # The ids reach the Gradle command line unquoted, so nothing but style-id characters.
+      - name: Check the style id inputs
+        env:
+          THUMBS_ONLY: ${{ inputs.ids }}
+          THUMBS_SKIP: ${{ inputs.skip }}
+        run: |
+          for v in "$THUMBS_ONLY" "$THUMBS_SKIP"; do
+            [[ "$v" =~ ^[a-z0-9_,]*$ ]] || { echo "::error::ids and skip take comma-separated style ids only: '$v'"; exit 1; }
+          done
 
       # libgeode.so is compiled from source, with the same packages as every other build.
       # The setup action comes from this workflow's own commit, not from the ref being rendered,
@@ -180,6 +193,9 @@ jobs:
             exit 0
           fi
           git commit -m "Style thumbnails: render $COUNT on the emulator" -m "Rendered by $RUN_URL"
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          export GIT_CONFIG_VALUE_0
           git push -u origin "$branch"
           {
             echo "Style thumbnails rendered on the CI emulator by [render-thumbs]($RUN_URL) from \`$BASE\`."

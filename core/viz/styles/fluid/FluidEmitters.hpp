@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/fields/FieldSet.hpp"
 #include "viz/styles/shared/LiveSignal.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/styles/fluid/FluidChoreography.hpp"
@@ -44,6 +45,8 @@ public:
     float paletteCycleSpeed = 0.5f;
     float forceScale = 1.0f;
     float catchSuction = 1.0f;
+    // The live Fields (viz/fields/FieldSet), or null: each gives one splat a frame that pushes the flow its way.
+    const fields::FieldSet* fieldSet = nullptr;
 
     void applyParams(const SceneParams& p);
     void tick(const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, std::vector<Splat>& out);
@@ -57,6 +60,7 @@ private:
     void stirrerSplats(std::vector<Splat>& out, const GeodeSoundFrame& f, float dt, float aspect, float baseHue, float hueSpan, float radius);
     void beatSplatsFor(std::vector<Splat>& out, const GeodeSoundFrame& f, float aspect, float baseHue, float hueSpan, float radius, float speed);
     void suctionSplats(std::vector<Splat>& out, float radius);
+    void fieldSplats(std::vector<Splat>& out, float aspect, float radius);
     void sparkleSplats(std::vector<Splat>& out, float aspect, float baseHue, float hueSpan, float radius);
     void pumpSplats(std::vector<Splat>& out, float baseHue, float hueSpan, float radius);
     float nextFloat() { return uniform_(rng_); }

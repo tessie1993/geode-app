@@ -225,6 +225,9 @@ add_library(geode_core STATIC
     viz/LayerState.cpp
     viz/passes/UiBlurPass.cpp
     viz/passes/DivePass.cpp
+    viz/passes/FrontPass.cpp
+    viz/passes/ThingPass.cpp
+    viz/passes/FieldPass.cpp
     viz/passes/Underlay.cpp
     viz/frame/ExportPasses.cpp
     viz/frame/EdgeGlowPass.cpp

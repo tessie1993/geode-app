@@ -47,6 +47,7 @@ void Emitters::tick(const GeodeSoundFrame& f, float dt, float aspect, float base
     if (beatEdge && beatSplats > 0) beatSplatsFor(out, f, aspect, baseHue, hueSpan, radius, speed);
     stirrerSplats(out, f, dt, aspect, baseHue, hueSpan, radius);
     suctionSplats(out, radius);
+    fieldSplats(out, aspect, radius);
     if (sparkle && live::treble(f) > trebleMean_ * 1.6f && live::treble(f) > 0.08f) sparkleSplats(out, aspect, baseHue, hueSpan, radius);
     if (bassPump && bassEnv_ > 0.15f) pumpSplats(out, baseHue, hueSpan, radius);
     if (out.size() > static_cast<size_t>(kMaxSplatsPerFrame)) out.resize(static_cast<size_t>(kMaxSplatsPerFrame));
@@ -163,6 +164,35 @@ void Emitters::suctionSplats(std::vector<Splat>& out, float radius) {
     const float oy = std::sin(ang) * 0.18f;
     const float len = std::max(std::sqrt(ox * ox + oy * oy), 1e-4f);
     out.push_back({a.x + ox, a.y + oy, a.x, a.y, radius * 0.8f, -ox / len * strength, -oy / len * strength, 0.0f, 0.0f, 0.0f});
+}
+
+// Each live Field puts one splat of velocity a frame, on a ring round its place, that goes the way the Field pushes:
+// in for Attract, out for Repel, round for Swirl (its sign the turning). It is the same path as the suction splat
+// above (the splats the sim takes), with no dye; the push is the Field's strength times its envelope.
+void Emitters::fieldSplats(std::vector<Splat>& out, float aspect, float radius) {
+    if (fieldSet == nullptr) return;
+    for (int i = 0; i < fields::kMaxFields; ++i) {
+        const fields::View v = fieldSet->view(i);
+        if (!v.alive || v.strength == 0.0f) continue;
+        // Sim space: x runs -aspect..aspect, y -1..1.
+        const float cx = (v.x * 2.0f - 1.0f) * aspect;
+        const float cy = v.y * 2.0f - 1.0f;
+        const float ang = suctionPhase_ * 2.7f + static_cast<float>(i) * 2.1f;
+        const float ox = std::cos(ang) * 0.18f;
+        const float oy = std::sin(ang) * 0.18f;
+        const float len = std::max(std::sqrt(ox * ox + oy * oy), 1e-4f);
+        const float speed = kBaseSpeed * 0.7f * v.strength;
+        float dx = -ox / len;
+        float dy = -oy / len;
+        if (v.kind == fields::Kind::Repel) {
+            dx = -dx;
+            dy = -dy;
+        } else if (v.kind == fields::Kind::Swirl) {
+            dx = -oy / len;
+            dy = ox / len;
+        }
+        out.push_back({cx + ox, cy + oy, cx, cy, radius * 0.8f, dx * speed, dy * speed, 0.0f, 0.0f, 0.0f});
+    }
 }
 
 void Emitters::sparkleSplats(std::vector<Splat>& out, float aspect, float baseHue, float hueSpan, float radius) {

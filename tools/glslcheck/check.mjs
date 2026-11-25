@@ -52,9 +52,9 @@ import { launch } from './cdp.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
-const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc');
+const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'glsl', 'ShaderIncludes.inc');
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
-const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
+const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'styles', 'fluid', 'FluidLook.hpp');
 // Written on demand by core/tests/sound_rate_test --write; nothing is committed.
 const GOLDEN_SONG = process.env.GEODE_SOUND_FRAMES || path.join(HERE, 'out', 'sound_frames.tsv');
 const VISUAL_GATE_CPP = path.join(ROOT, 'core', 'tests', 'visual_gate.cpp');

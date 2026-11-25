@@ -82,7 +82,7 @@ private:
     void releaseWindow(void* window) override;
     void setFrameRate(void* window, float fps) override;
     void vsyncRun(bool on) override;
-    void vsyncCap(float capFps) override;
+    bool gpuBusy() override;
     void frameDone() override;
     void presentAt(int64_t stampNs) override;
     void windowApplied(int64_t sequence) override;
@@ -90,7 +90,6 @@ private:
     std::shared_ptr<Inbox> inbox_;
     EglWindow egl_;                      // stage thread only
     VsyncThread::Sink* sink_ = nullptr;  // stage thread only
-    float startCap_;
     StageCore core_;
 
     // Readable while frame events wait; written by the stage thread after a step, drained by takeEvents. -1: none.

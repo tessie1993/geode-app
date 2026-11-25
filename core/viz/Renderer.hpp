@@ -63,7 +63,9 @@
 #include "viz/input/TouchField.hpp"
 #include "viz/input/TouchSmear.hpp"
 #include "viz/passes/TrailPass.hpp"
-#include "viz/frame/FrameGovernor.hpp"
+#include "viz/frame/LiveFps.hpp"
+#include "viz/frame/PresentTime.hpp"
+#include "viz/frame/Quality.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/passes/UiBlurPass.hpp"
 #include "viz/modulation/VisualSafety.hpp"
@@ -94,16 +96,7 @@ public:
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
     // optional passes and fluid bloom.
     void setUserQuality(float renderScale, float marchScale, bool postFx);
-    // Settings › Performance's "Adapt to frame time" (frame::FrameGovernor): the user's quality, then the frame
-    // rate, stepped down while frames miss their budget. Off until the shell says. Any thread.
-    void setAdaptive(bool on) { governor_.setEnabled(on); }
-    // A recording copies this surface's frames into a fixed-rate video: the governor passes the user's settings
-    // through while it runs. Any thread.
-    void setGovernorHeld(bool held) { governorHeld_.store(held, std::memory_order_relaxed); }
-    // The cap the stage paces to instead of the user's while the governor has stepped the frame rate down; 0 for
-    // none. Any thread.
-    float governedCapFps() const { return governor_.capFps(); }
-    // The rate the surface's pacer last drew at and the surface's own cap (Settings › Performance, the
+    // The rate the display last presented at and the surface's own cap (Settings › Performance, the
     // wallpaper's, the dream's, Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
         pacedFps_.store(pacedFps, std::memory_order_relaxed);
@@ -241,9 +234,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
-    // The first frame on a new surface (geode_viz_frame, frame::kEventClearOnly): black, and nothing
-    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
-    void clearToBlack(GLuint targetFbo);
+    // The next live frame steps by 0: the time since the last one did not pass on screen (a start or a resume after
+    // a pause, a frame no vsync asked for). GL thread.
+    void restartClock() { lastTimeS_ = -1.0; }
     void releaseScenes();
     // The surface is about to stop drawing (the host's pause, an in-app hide, a hidden wallpaper): the spares,
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
@@ -345,9 +338,8 @@ private:
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
     GLuint drawPhysics(const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off; }
-    // This frame builds or blends a style (a staged build, a transition): its frame time
-    // says nothing about what the phone can draw, so the fluid quality monitor and the governor sit out until a moment after
-    // the last such frame. GL thread.
+    // This frame builds or blends a style (a staged build, a transition), until a moment after the last such frame.
+    // GL thread.
     void noteSettling() { settleHoldSeconds_ = kSettleHoldSeconds; }
     bool settling() const { return settleHoldSeconds_ > 0.0f; }
     void applyPendingFluidInjection();
@@ -398,9 +390,6 @@ private:
     float settleHoldSeconds_ = 0.0f;
     std::atomic<float> pacedFps_{0.0f};
     std::atomic<float> ownCapFps_{0.0f};
-    // "Adapt to frame time": fed each live frame in beginFrame; its governed() is what the frame draws with.
-    frame::FrameGovernor governor_;
-    std::atomic<bool> governorHeld_{false};
     // The scene params resolver (viz/resolver/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;

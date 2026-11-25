@@ -19,13 +19,14 @@ a partial reconstruction, rebuilt from the references in these entries, is at
   change. Beat and Bar come only when a beat is heard, and envelopes set in
   beats stay idle while no tempo is. Every row starts off on a new style; saved
   routes and presets read as before. The page that draws it comes later.
-- **Adapt to frame time is back, on frame time alone.** Settings ›
-  Performance has the switch again, on by default. When frames come late it
-  lowers resolution, then 3D detail, then extra effects, and only then the
-  frame rate, never above your own settings, and climbs back once frames are
-  on time. Each new style starts from your settings. No temperature is read,
-  nothing pops up, and recording and exports are never lowered; the tab says
-  what it is running now.
+- **Frames follow the display, and nothing lowers your quality for you.**
+  The visual draws once on every refresh the display delivers and only skips
+  one while the last frame is still being drawn. Your frame-rate setting is
+  asked of the display, and kept as a cap if the display ignores it. The
+  "Adapt to frame time" switch and the "Lower the quality when the phone
+  struggles" fluid option are gone: resolution, 3D detail, extra effects,
+  frame rate and fluid quality stay exactly what you set. Motion no longer
+  slows on a long frame, and a resume or a new style does not jump.
 - **Six new style families, ten styles each (334 styles).** Prism
   (`prism_*`, `lib_prism`): kaleidoscope portals in liquid chrome. Fluor
   (`fluor_*`, `lib_fluor`): carved ornament under blacklight, its raised

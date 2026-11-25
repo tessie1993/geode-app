@@ -1,10 +1,11 @@
 version: 2
 updates:
-  # The workflows, and the composite action they share (a `uses:` there is pinned like any other).
+  # The workflows, and the composite actions they share (a `uses:` there is pinned like any other).
   - package-ecosystem: "github-actions"
     directories:
       - "/"
       - "/.github/actions/android-build-setup"
+      - "/.github/actions/android-emulator"
     schedule:
       interval: "weekly"
 

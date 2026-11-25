@@ -24,7 +24,7 @@ section|SHAPE|particles|PRO|PARTICLES|Particle shape,Particle size,Density,Parti
 section|SHAPE|journey|PRO|ALWAYS|Path,Spawn points,Progression,Catch points,Catch pull,Catch radius|Journey
 section|SHAPE|emitters|PRO|ALWAYS|Hit pattern,Hit splats,Fluid splat radius,Radius on hit,Fluid splat force,Bass pump,Treble sparkle|Emitters
 section|SHAPE|stirrers|PRO|ALWAYS|Stirrers,Stirrer speed|Stirrers
-section|SHAPE|fluid_quality|PRO|ALWAYS|Fluid quality,Lower the quality when the phone struggles|Quality
+section|SHAPE|fluid_quality|PRO|ALWAYS|Fluid quality|Quality
 section|MOTION|basics|BASICS|ALWAYS|Speed,Zoom,Rotation|Basics
 section|MOTION|drift|PRO|ALWAYS|Sway,Drift X,Drift Y|Drift
 section|MOTION|inner_motion|PRO|ALWAYS|Camera shake,Spin|Inner motion

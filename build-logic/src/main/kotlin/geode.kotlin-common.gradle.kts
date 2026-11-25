@@ -65,4 +65,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("geode.macroEditor", rootProject.file("core/tests/macro_editor.txt").absolutePath)
     // Customize › Music's moment and action rows of the modulation catalog, proven by core/tests/mod_document_test.
     systemProperty("geode.modCatalog", rootProject.file("core/tests/mod_catalog_music.txt").absolutePath)
+    // The ids of the Customize panel's words (core/viz/panel/PanelText), proven by core/tests/customize_rows_test.
+    systemProperty("geode.panelWords", rootProject.file("core/tests/panel_words.txt").absolutePath)
 }

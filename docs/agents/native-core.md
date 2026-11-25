@@ -190,7 +190,7 @@ The renderer runs these in order each frame.
 
 - The renderer notes settling frames (a staged build, a fresh switch, a transition, a secondary's compiles).
 - `Renderer::settling()` stays true until 1.5 s after the last settling frame (`Renderer::noteSettling`), so quick style changes do not read as a slow phone. There is no thermal step anywhere.
-- Settings › Performance's "Adapt to frame time" (`core/viz/frame/FrameGovernor`, one per renderer, fed in `Renderer::beginFrame`): frames that miss the paced rate for 2.5 s step render scale, then march scale, then post FX, then the frame rate down under the user's values (`fluid::quality::FrameMonitor` and `AutoDowngrade`); 45 s on time steps back one, in reverse. Settling frames are not counted, a new style resets it, and an export or a recording is never stepped. Its frame-rate step reaches the stage as `StageClient::governedCapFps`.
+- Nothing lowers quality or the frame rate for frame time or load: render scale, march scale, post FX and the frame rate are the user's own settings (owner, 2026-11-25). `Renderer::settling()` is kept for the log only.
 
 ## `core/audio`
 

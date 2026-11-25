@@ -208,11 +208,6 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetCrossfeed(JNIEnv*, jobject, jlong
     geode_dsp_set_crossfeed(dspOf(handle), enabled == JNI_TRUE);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspSetLimiter(JNIEnv*, jobject, jlong handle, jboolean enabled) {
-    geode_dsp_set_limiter(dspOf(handle), enabled == JNI_TRUE);
-}
-
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_playbackPitchRatio(JNIEnv*, jobject, jfloat semitones) {
     return geode_playback_pitch_ratio(semitones);

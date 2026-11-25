@@ -302,6 +302,48 @@ void trimReachesIdleStages() {
     same(settle(lc, m), {}, "a trim after quit does nothing");
 }
 
+// Red against: a redraw (or a restated still frame) asked for while a still frame settles being dropped because the
+// vsync was still on. One that lands after the settle's last drawn frame then never draws: the vsync stops, the
+// frame request in flight is dropped, and the surface keeps a stale picture.
+void aRedrawDuringTheSettleIsNotLost() {
+    const auto settling = [](Lifecycle& lc, Model& m) {
+        m.window = 1;
+        lc.windowSet(1440, 3120);
+        lc.setMode(RunMode::Animated, 0);
+        settle(lc, m);
+        lc.setMode(RunMode::Stopped, 100);
+        settle(lc, m);
+        lc.setMode(RunMode::Still, 1000);
+        settle(lc, m);
+    };
+    {
+        Lifecycle lc(Kind::Surface);
+        Model m;
+        settling(lc, m);
+        lc.redrawNeeded();
+        same(settle(lc, m), {}, "a redraw while the settle paces waits for a frame");
+        lc.tick(3000);
+        same(settle(lc, m), {Act::StopVsync, Act::DrawOnce}, "with no frame drawn since, it draws once the settle ends");
+    }
+    {
+        Lifecycle lc(Kind::Surface);
+        Model m;
+        settling(lc, m);
+        lc.redrawNeeded();
+        lc.frameDrawn();
+        lc.tick(3000);
+        same(settle(lc, m), {Act::StopVsync}, "a frame drawn after the request answers it");
+    }
+    {
+        Lifecycle lc(Kind::Surface);
+        Model m;
+        settling(lc, m);
+        lc.setMode(RunMode::Still, 1500);
+        lc.tick(3000);
+        same(settle(lc, m), {Act::StopVsync, Act::DrawOnce}, "a still frame restated during the settle draws once it ends");
+    }
+}
+
 void surfacePaths() {
     Lifecycle lc(Kind::Surface);
     Model m;
@@ -563,6 +605,7 @@ int main() {
     viewPaths();
     trimReachesIdleStages();
     surfacePaths();
+    aRedrawDuringTheSettleIsNotLost();
     refusedAndLost();
     eventsBeforeTheWindow();
     exhaustive();

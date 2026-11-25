@@ -132,8 +132,14 @@ class TourSetup : TestRule {
     private fun seedBeyondOnboarding(case: TourCase) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (case.onboarded && !case.tutorialSeen) {
+            // The tour reads its chapters, not the legacy flag: Onboarded's flag is folded into
+            // "every chapter done" on the app's first write, and the cases share this file.
             context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE).edit(commit = true) {
                 putBoolean(AppStateCodec.KEY_TUTORIAL_SEEN, false)
+                remove(AppStateCodec.KEY_TUTORIAL_DONE)
+                remove(AppStateCodec.KEY_TUTORIAL_RESUME)
+                remove(AppStateCodec.KEY_TUTORIAL_TIPS)
+                putBoolean(AppStateCodec.KEY_TUTORIAL_OFF, false)
             }
             // After Onboarded's own hand-over, so the repository holds the unseen tour too.
             publishSeededAppState(context)

@@ -19,7 +19,6 @@
 namespace geode::stage {
 
 // The frame's event bits. Values are the ABI (GEODE_FRAME_* in geode_api.h).
-inline constexpr uint32_t kFrameClearOnly = 0x1;
 inline constexpr uint32_t kFrameLiquidChanged = 0x4;
 inline constexpr uint32_t kFrameErrorChanged = 0x8;
 inline constexpr uint32_t kFrameDirectorMoment = 0x20;
@@ -53,8 +52,8 @@ public:
     virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
     // The frame's expected presentation time, 0: none (StageClient::framePresent).
     virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
-    // The cap the renderer's governor wants the stage paced to, 0 for none (StageClient::governedCapFps).
-    virtual float governedCapFps() { return 0.0f; }
+    // The next frame steps by 0 (StageClient::restartClock).
+    virtual void restartClock() {}
     virtual void trimSpares() = 0;
     // Drawing stopped: the renderer stops listening to its ring, so the ring's analysis thread runs only while a
     // surface still draws from it. The next frame listens again.
@@ -84,7 +83,7 @@ public:
     uint32_t frame(float pacedFps, float capFps) override;
     void frameTime(int64_t vsyncNs) override;
     void framePresent(int64_t presentNs) override;
-    float governedCapFps() override { return viz_ ? viz_->governedCapFps() : 0.0f; }
+    void restartClock() override;
     void trimSpares() override;
     void contextLost() override;
     void service(bool ready) override;

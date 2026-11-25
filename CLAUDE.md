@@ -4,7 +4,7 @@
 
 ## After every change
 
-- Add one new file to `docs/edit-log/`, named `<date>-<your branch, slashes as dashes>.md`, holding one line: the date, what changed, where. Never edit another change's file: two changes then never touch the same lines.
+- Add one new file to `docs/edit-log/`, named `<date>-<your branch, slashes as dashes>-<a few words for the change>.md`, holding one line: the date, what changed, where. Never edit another change's file: two changes then never touch the same lines.
 - If the change made a line in `AGENTS.md` untrue, correct that line in the same change.
 - Never write a rule into `AGENTS.md`.
 

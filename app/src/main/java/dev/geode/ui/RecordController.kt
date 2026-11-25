@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 data class RecordUiState(
     val recording: Boolean = false,
-    val recordedMs: Long = 0L,
     val note: String? = null,
     /** A finished recording with nowhere to go yet (the first one): its title, until `RecordSaveSheet` is answered. */
     val pendingSave: String? = null,
@@ -116,7 +115,7 @@ internal class RecordController(
         val height = view.surfaceHeight
         if (width <= 0 || height <= 0) return
         stopRequested = false
-        _state.update { it.copy(recording = true, recordedMs = 0L, note = null) }
+        _state.update { it.copy(recording = true, note = null) }
         scope.launch {
             val started = open(view, width, height)
             if (started == null) {
@@ -135,9 +134,6 @@ internal class RecordController(
                         if (phase >= RecorderNative.RECORD_SESSION_SAVED) {
                             scope.launch { finished(started, phase == RecorderNative.RECORD_SESSION_SAVED) }
                             break
-                        }
-                        _state.update {
-                            it.copy(recordedMs = RecorderNative.recorderRecordedMs(started.recorder, RecorderNative.recordNowNs()))
                         }
                         delay(TICK_MS)
                     }
@@ -202,7 +198,7 @@ internal class RecordController(
             RecorderNative.recorderDestroy(a.recorder)
         }
         if (active === a) active = null
-        _state.update { it.copy(recording = false, recordedMs = 0L) }
+        _state.update { it.copy(recording = false) }
         val keep = saved && RecorderNative.recordWorthKeeping(recordedMs)
         val uri = withContext(Dispatchers.IO) { a.output.finish(keep) }
         val title = a.track?.title?.takeIf { it.isNotBlank() } ?: application.getString(R.string.record_default_name)

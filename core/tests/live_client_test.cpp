@@ -9,6 +9,7 @@
 // threads. A look's parts: core/tests/look_snapshot_test.cpp.
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,6 +41,7 @@ struct Seen {
     bool teeOpens = true;
     int starts = 0, fails = 0, stops = 0;
     bool freed = false;
+    std::function<void()> during;  // runs inside a frame, as another thread's call would
 };
 
 class Viz final : public LiveViz {
@@ -50,6 +52,7 @@ public:
     void surfaceChanged(int width, int height) override { s_.log.push_back("size " + std::to_string(width) + "x" + std::to_string(height)); }
     uint32_t frame(const void* ring, float, float) override {
         s_.rings.push_back(ring);
+        if (s_.during) s_.during();
         return s_.nextEvents;
     }
     void trimSpares() override { s_.log.push_back("trim"); }
@@ -107,6 +110,25 @@ void soundAndSurface() {
     r.client.setSound(&ringA);
     r.client.frame(60.0f, 60.0f);
     check(r.seen.rings.back() == &ringA, "the next frame hears its ring again");
+}
+
+void soundSetDuringFrame() {
+    Rig r;
+    int ringA = 0, ringB = 0;
+    r.client.setSound(&ringA);
+    bool releasedInFrame = true;
+    r.seen.during = [&] {
+        r.client.setSound(&ringB);  // would wait for this very frame if the frame held the sound lock
+        releasedInFrame = r.client.soundReleased(&ringA);
+    };
+    r.client.frame(60.0f, 60.0f);
+    r.seen.during = nullptr;
+    check(r.seen.rings == std::vector<const void*>({&ringA}), "a frame keeps the ring it began with");
+    check(!releasedInFrame, "the ring in use is not released while its frame runs");
+    check(r.client.soundReleased(&ringA), "it is released once that frame ends");
+    check(!r.client.soundReleased(&ringB), "the ring set during the frame is the one now held");
+    r.client.frame(60.0f, 60.0f);
+    check(r.seen.rings.back() == &ringB, "the next frame hears the ring set during the last");
 }
 
 void frameReports() {
@@ -230,6 +252,7 @@ void releases() {
 
 int main() {
     soundAndSurface();
+    soundSetDuringFrame();
     frameReports();
     warmUps();
     recordTee();

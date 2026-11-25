@@ -59,6 +59,7 @@ class Stage(
     @Volatile
     var look: LookSnapshot = LookSnapshot()
         set(value) {
+            if (value == field) return
             field = value
             pushLook(value)
         }

@@ -213,9 +213,9 @@ void resetStartsOver() {
     check(c.holds(), "frozen before the reset");
     c.reset();
     check(c.rate() == 1.0f && !c.holds() && !c.active() && c.value() == 0.0, "a reset is a clock at rest at 0");
-    check(c.step(0.02f) == 0.02f, "and it steps by the frame's own");
     c.stutter(0.2f, 2);
     check(!c.active(), "and holds no history to loop");
+    check(c.step(0.02f) == 0.02f, "and it steps by the frame's own");
 }
 
 std::vector<double> aRun(int fps) {
@@ -390,7 +390,8 @@ void aSecondsStutterLoopsTheKindParams() {
     rig.run(120);
     const double anchor = rig.clock.value();
     rig.step(true);
-    int jumps = 0;
+    // The fire's own step is the first jump back.
+    int jumps = rig.delta < 0.0f ? 1 : 0;
     for (int i = 0; i < 40; ++i) {
         rig.step(false);
         if (rig.delta < 0.0f) ++jumps;

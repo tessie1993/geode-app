@@ -83,7 +83,7 @@ void everyPlacedControlHasOneWidget() {
 }
 
 void slidersCarryTheirRangeDefaultUnitAndSteps() {
-    SceneParams p;
+    const SceneParams p;
     const auto rows = rowsOf("Kaleidoscope\nGlide time\nFundamental (Hz)\nBloom\nSpawn points", p, on(""));
     check(rows.size() == 6 && rows[0][0] == "rows" && rows[0][1] == std::to_string(customize::kRowsVersion), "header and five rows");
     const auto* k = rowFor(rows, "SLIDER", "Kaleidoscope");
@@ -101,7 +101,7 @@ void slidersCarryTheirRangeDefaultUnitAndSteps() {
 }
 
 void switchesHideWhatTheyGate() {
-    SceneParams p;
+    const SceneParams p;
     const std::string catches = "Catch points\nCatch pull\nCatch radius";
     p.fluidCatchPoints = 0;
     check(!rowFor(rowsOf(catches, p, on("fluid")), "SLIDER", "Catch pull"), "no Catch pull without catch points");
@@ -129,7 +129,7 @@ void switchesHideWhatTheyGate() {
 }
 
 void theStyleDecidesWhatShows() {
-    SceneParams p;
+    const SceneParams p;
     check(rowFor(rowsOf("Fluid curl", p, on("fluid")), "SLIDER", "Fluid curl") != nullptr, "Fluid curl on Fluid");
     check(!rowFor(rowsOf("Fluid curl", p, on("julia")), "SLIDER", "Fluid curl"), "no Fluid curl on a shader style");
     check(rowsOf("Geometry", p, on("julia")).size() == 1, "no plate on a shader style");
@@ -148,7 +148,7 @@ void theStyleDecidesWhatShows() {
 }
 
 void searchHidesWholePagesAndMatchesWords() {
-    SceneParams p;
+    const SceneParams p;
     customize::RowContext ctx = on("julia");
     const std::string keys = "Palette\n@waves\n@palette_maker\nReaction DNA";
     auto rows = rowsOf(keys, p, ctx);
@@ -170,7 +170,7 @@ void searchHidesWholePagesAndMatchesWords() {
 }
 
 void shellSlidersAndNotes() {
-    SceneParams p;
+    const SceneParams p;
     customize::RowContext ctx = on("");
     check(!rowFor(rowsOf("@transition_length", p, ctx), "SHELL", "Transition length"), "no length without a transition");
     ctx.transition = true;
@@ -257,7 +257,7 @@ void theOwnersLayoutHolds() {
 
 // The panel's one read: each section's rows after its SECTION line, the same rows a read of that section alone gives.
 void sectionsReadInOneCall() {
-    SceneParams p;
+    const SceneParams p;
     const auto ctx = on("");
     const std::string first = "Brightness\nSaturation";
     const std::string second = "Speed\nZoom";

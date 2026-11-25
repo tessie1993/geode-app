@@ -677,8 +677,8 @@ void testLongStretchStepsTheStyle() {
     check(d.commits() == 2 && d.lastReason() == Director::Reason::Long && d.styleMoment(), "75 s with no section steps the style");
 }
 
-// With Auto off the director still steps (Note & key reactions read its feeling) and still commits, but
-// none of those commits may step the user's style: that is what claimed the style with Note & key on.
+// With Auto off the director still steps (its feeling is still read) and still commits, but
+// none of those commits may step the user's style: that is what once claimed the style.
 void testNoStyleMomentWhenOff() {
     for (const float amount : {0.0f, 1.0f}) {
         Director d;

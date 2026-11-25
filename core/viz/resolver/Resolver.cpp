@@ -7,7 +7,7 @@
 namespace geode::signal {
 
 namespace {
-// The id the motion field's variant is seeded from when no style is on screen.
+// The id used when no style is on screen.
 const std::string kNoStyle;
 }  // namespace
 
@@ -42,11 +42,9 @@ viz::macrobank::KnobMods Resolver::knobModsOf(const std::array<float, viz::LfoEn
 void Resolver::reset() {
     // Exactly what a new surface has always reset; the LFO and envelope phases, the fade and the director's
     // commit count carry on (a reset director counts from 0, so the next commit is a new moment again).
-    motionField_.reset();
     reactions_.reset();
     director_.reset();
     directorReach_.reset();
-    notes_.reset();
     momentWatch_.reset();
 }
 
@@ -55,7 +53,6 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
                                       const sound::Emotion::State* heard, float fadeDt) {
     using viz::SceneParams;
     const std::string& styleId = style.id != nullptr ? *style.id : kNoStyle;
-    if (style.switched) motionField_.setVariant(viz::styleVariantSeed(styleId));
 
     // The glide to what the user asked for runs on the caller's own step when it gives one: the renderer's
     // dt stops in silence, and a slider moved then must still arrive.
@@ -71,7 +68,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, std::clamp(glide / fade, 0.0f, 1.0f));
 
     // The auto-director hears the frame first: its look lies under the user's knobs, so the macro bank,
-    // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
+    // the LFOs, the reactions and the safety clamp all still act on top of it.
     // With its settings and the style on screen, which a section remembers and a style moment steps on from.
     director_.configure(settings.director, settings.directorTuning, styleId);
     // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
@@ -102,20 +99,6 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         in.wallDt = glide;
         directorReach_.step(requested, sound, dt, in);
     }
-    // Note & key reactions hear the frame next, with the feeling the director heard (stepped whether or
-    // not it drives). They publish the style knobs only and write no param. Their tuning is the style's
-    // own (Customize).
-    notes_.configure({settings.notesOn, settings.director.seed ^ settings.noteEntropy});
-    {
-        const SceneParams& own = displayed_;
-        viz::NoteResponse::Inputs in;
-        in.pitch = own.notePitch;
-        in.intervals = own.noteIntervals;
-        in.tension = own.noteTension;
-        in.chords = own.noteChords;
-        in.drums = own.noteDrums;
-        notes_.step(sound, director_.emotion(), in, dt);
-    }
     // The reaction matrix hears the frame before the waves and envelopes, so a slot set "On a moment" restarts or
     // fires on this frame's moment (MomentWatch, the matrix's Step rule); its routes still land after them. It hears
     // the feeling the director heard too (the degree accent, the mood and its tension are sources like any other).
@@ -140,15 +123,10 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_, &frame_.knobMods);
     lfo_.apply(p, lfoValues);
     viz::AdsrEngine::apply(p, adsr_.configs, envValues);
-    // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
-    // field and the safety clamp, like the LFOs.
+    // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the
+    // safety clamp, like the LFOs.
     reactions_.apply(p);
     // No stage follows the matrix with routes of its own: the director plays none (owner's rule).
-    // The continuous motion system: the one stage every family's parameters pass through, fed the sound
-    // frame (never a single drum hit or PCM impulse), ahead of the safety clamp so nothing it adds can
-    // exceed the flash and motion limits.
-    motionField_.step(sound, dt);
-    p = motionField_.apply(p, settings.reducedMotion, style.spin);
     p = viz::safety::apply(p, settings.reducedMotion);
     frame_.params = p;
     frame_.cameraMoves = director_.moves();

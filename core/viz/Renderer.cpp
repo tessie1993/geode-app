@@ -40,7 +40,6 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return pacedFps(); },
                           // The user's march scale under the governor's steps (frame::FrameGovernor).
                           [this] { return governor_.governed().marchScale; },
-                          [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
                           [this] { return offscreen_.load(std::memory_order_relaxed); },
                           [this] { return settling(); },

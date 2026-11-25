@@ -20,7 +20,8 @@
 #include "util/Circular.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 #include "viz/passes/EndlessZoom.hpp"
-#include "viz/modulation/MotionField.hpp"
+#include "sound/DriveGain.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/modulation/ReactionDna.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/Reactions.hpp"
@@ -1549,84 +1550,7 @@ void traumaShakeIsBoundedAndFinite() {
     check(std::isfinite(rig.pose().yaw) && std::isfinite(rig.pose().focal), "a wild frame leaves the camera finite");
 }
 
-void motionFieldVariantsDiffer() {
-    std::set<int> hues;
-    GeodeSoundFrame f = playing();
-    f.pitchClass = 0.25f;
-    f.pitchConfidence = 1.0f;
-    f.centroid = 0.75f;
-    f.noteRandom = 0.5f;
-    f.kickRandom = 0.0f;
-    for (int i = 0; i < kStyleCount; ++i) {
-        MotionField m;
-        m.setVariant(styleVariantSeed(kStyleIds[i]));
-        for (int k = 0; k < 600; ++k) m.step(f, 1.0f / 30.0f);
-        hues.insert(static_cast<int>(std::lround(m.state().hue * 100.0f)));
-    }
-    check(hues.size() >= 3, "styles follow different hue drivers");
-}
-
-// The bar wave rides the music's own bar while the beat is sure, the style's clock while it is not, and eases
-// between them without a jump. The clocks stand still here, so the clock's wave reads 0.
-void motionFieldBarWaveFollowsTheHeardBar() {
-    MotionField m;
-    GeodeSoundFrame f = playing();
-    f.beatConf = 0.9f;
-    f.barPhase = 0.25f;  // a quarter into the bar: the wave's crest
-    for (int k = 0; k < 300; ++k) m.step(f, 1.0f / 60.0f);
-    check(m.state().barOsc > 0.95f, "a sure beat puts the bar wave on the heard bar");
-    float last = m.state().barOsc;
-    float jump = 0.0f;
-    f.beatConf = 0.0f;
-    for (int k = 0; k < 300; ++k) {
-        m.step(f, 1.0f / 60.0f);
-        jump = std::max(jump, std::fabs(m.state().barOsc - last));
-        last = m.state().barOsc;
-    }
-    check(std::fabs(m.state().barOsc - 0.5f) < 0.02f, "with no beat heard the wave is the clock's again, not a stand-in bar");
-    check(jump < 0.05f, "losing the beat eases the wave over, never jumps it");
-}
-// ---- Speed-integrated clocks (viz/modulation/SpeedClock, MotionField::State::flowTime) ----
-
-// A frame whose loudness wanders, so the flow rate is not a constant.
-GeodeSoundFrame wandering(int k) {
-    GeodeSoundFrame f = playing();
-    f.volAtt = 1.0f + 0.8f * std::sin(0.013f * static_cast<float>(k));
-    return f;
-}
-
-void flowTimeIsFlowPhaseAtSpeedOne() {
-    MotionField m;
-    bool same = true;
-    for (int k = 0; k < 30 * 600; ++k) {
-        // Hitches past MotionField's 0.1 s dt clamp too: both clocks see the clamped dt.
-        m.step(wandering(k), k % 997 == 0 ? 0.4f : 1.0f / 30.0f);
-        same = same && m.state().flowTime == m.state().flowPhase;
-    }
-    check(same, "uFlowTime equals uFlowPhase at Speed 1, bit for bit, so no Speed-1 look changes");
-}
-
-void flowTimeRunsAtSpeedAndNeverJumps() {
-    // Ten minutes at Speed 1, then nudge Speed to 1.05 and step once.
-    MotionField m;
-    const float dt = 1.0f / 30.0f;
-    for (int k = 0; k < 30 * 600; ++k) m.step(wandering(k), dt, 1.0f);
-    const float phase = m.state().flowPhase;
-    const float before = m.state().flowTime;
-    m.step(wandering(30 * 600), dt, 1.05f);
-    const float step = m.state().flowTime - before;
-    // The old uFlowPhase * uSpeed moved by phase * 0.05 in that one frame: many seconds of flow.
-    check(phase * 0.05f > 1.0f, "the old flowPhase * speed would have jumped by over a second of flow");
-    check(step > 0.0f && step < 0.05f, "uFlowTime moves by one frame of flow when Speed changes, never a jump");
-    // Rate follows Speed: at 2, two seconds of clock take one second.
-    MotionField a;
-    MotionField b;
-    for (int k = 0; k < 300; ++k) {
-        a.step(playing(), dt, 1.0f);
-        b.step(playing(), dt, 2.0f);
-    }
-    check(std::fabs(b.state().flowTime - 2.0f * a.state().flowTime) < 1e-3f, "uFlowTime runs at Speed's rate");
-}
+// ---- Speed-integrated clocks (viz/modulation/SpeedClock) ----
 
 // A clock that has run for hours must still advance at a slow rate: one float ulp past 4096 s is
 // 0.000488 s, which swallows a frame's 0.0002 s step whole. The accumulators are doubles.
@@ -1674,85 +1598,6 @@ void followerScalesASoundClockWithoutJumps() {
     const double at = one.value;
     one.step(source, 1.5f, 7100.0f);
     check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
-}
-
-// #359: the drift's spin is a rate, so it must stay bounded and never jump. It used to add the
-// wrapped drift angle itself: the spin climbed to the clamp, then reversed in one frame at the wrap.
-void motionFieldDriftSpinIsBoundedAndContinuous() {
-    GeodeSoundFrame f = playing();
-    f.midAtt = 2.0f;  // the loudest mids, which no longer speed the drift
-    SceneParams p;
-    p.rotation = 0.0f;
-    p.motionDrift = 1.0f;
-    const float spin = 1.4f;  // bead_vortex, the fastest turning style
-    const float bound = 0.9f * spin + 1e-3f;
-    MotionField m;
-    float prev = 0.0f;
-    float peak = 0.0f;
-    bool bounded = true;
-    bool smooth = true;
-    for (int k = 0; k < 60 * 300; ++k) {   // five minutes at 60 fps: past two old wrap cycles
-        f.hardCut = (k % (60 * 20) == 0) ? 1.0f : 0.0f;  // big moments, which no longer re-aim the drift
-        m.step(f, 1.0f / 60.0f);
-        const float r = m.apply(p, false, spin).rotation;
-        if (!(std::fabs(r) <= bound)) bounded = false;
-        if (k > 0 && std::fabs(r - prev) > 0.05f) smooth = false;
-        peak = std::max(peak, std::fabs(r));
-        prev = r;
-    }
-    check(bounded, "the drift spin stays under its bound, far from the rotation clamp");
-    check(smooth, "the drift spin never jumps between frames");
-    check(peak > 0.1f, "the drift still spins a turning style");
-    check(m.apply(p, false, 0.0f).rotation == 0.0f, "a style that does not turn gets no drift spin");
-}
-
-// Reduced motion scales a rate once: MotionField leaves rotation, sway and turbulence to
-// safety::apply, which scales them right after it, so the pair lands at 0.4 of full, not 0.16.
-void motionFieldReducedMotionScalesRatesOnce() {
-    GeodeSoundFrame f = playing();
-    f.midAtt = 1.0f;
-    f.trebleAtt = 2.0f;
-    f.hitTime = 0.3f;  // a bar phase off zero
-    SceneParams p;
-    p.rotation = 0.0f;
-    p.sway = 0.3f;  // the user's sway: the bar wave no longer adds to it (no sound turns a style)
-    p.turbulence = 0.2f;
-    p.motionAmount = 1.0f;
-    p.motionDrift = 1.0f;
-    MotionField m;
-    for (int k = 0; k < 120; ++k) m.step(f, 1.0f / 60.0f);
-    const SceneParams full = safety::apply(m.apply(p, false, 1.0f), false);
-    const SceneParams calm = safety::apply(m.apply(p, true, 1.0f), true);
-    const float s = safety::kReducedMotionScale;
-    check(std::fabs(full.rotation) > 1e-3f && std::fabs(calm.rotation - s * full.rotation) < 1e-5f,
-          "reduced motion scales the drift spin once");
-    check(full.sway > 1e-3f && std::fabs(calm.sway - s * full.sway) < 1e-5f, "reduced motion scales the sway once");
-    check(std::fabs(calm.turbulence - s * full.turbulence) < 1e-5f, "reduced motion scales the turbulence once");
-}
-
-// uDrift is an angle the styles turn by, times a fixed multiplier (bulb_prism 0.3 and 0.07,
-// chrys_* 0.08 to 0.25, lucid_mandala 0.35, bulb_hybrid 0.5). Its wrap must land each of those on a
-// whole turn, or the style pops at the wrap; the old 4 pi wrap popped 0.3 * uDrift by 3.8 rad.
-void motionFieldDriftWrapNeverPopsAStyle() {
-    const float multipliers[] = {0.07f, 0.08f, 0.1f, 0.12f, 0.15f, 0.25f, 0.3f, 0.35f, 0.5f};
-    GeodeSoundFrame f = playing();
-    f.midAtt = 2.0f;  // loud mids, which no longer change the drift's one rate
-    MotionField m;
-    float prev = m.state().drift;
-    bool wrapped = false;
-    bool seamless = true;
-    for (int k = 0; k < 70000; ++k) {  // 7000 s at dt 0.1: past one wrap at the drift's one rate (6283 s)
-        m.step(f, 0.1f);
-        const float d = m.state().drift;
-        if (d < prev - 1.0f) wrapped = true;
-        for (const float mul : multipliers) {
-            const float step = std::remainder(mul * d - mul * prev, 6.2831853f);
-            if (std::fabs(step) > 0.02f) seamless = false;
-        }
-        prev = d;
-    }
-    check(wrapped, "the drift angle wraps on a long session");
-    check(seamless, "every style's turn is seamless across the wrap");
 }
 
 void sourceCatalogueIsCompleteAndUnique() {
@@ -2154,40 +1999,6 @@ void driveScalesTheMagnitudeOfMotion() {
     const float loudMove = loudMoved.zoom - base;
     const float quietMove = quietMoved.zoom - base;
     check(loudMove > 0.0f && quietMove > 0.0f && quietMove < 0.4f * loudMove, "a route's audio part follows the drive");
-
-    MotionField loud;
-    MotionField quiet;
-    for (int k = 0; k < 600; ++k) {
-        loud.step(fat, 1.0f / 60.0f);
-        quiet.step(pad, 1.0f / 60.0f);
-    }
-    check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
-    check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the mid level");
-    check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
-    // Speed used to follow the loudness whatever the dial said. It is under the Motion dial like every
-    // other term: at 0 the music leaves the user's Speed alone.
-    SceneParams undriven;
-    undriven.motionAmount = 0.0f;
-    undriven.speed = 1.3f;
-    check(loud.apply(undriven, false, 1.0f).speed == 1.3f && quiet.apply(undriven, false, 1.0f).speed == 1.3f, "Motion at 0: the music does not touch Speed");
-    // A steady passage sits on the song's own average: its size, density and trails stay the user's.
-    GeodeSoundFrame steady = pad;
-    steady.volAtt = steady.bassAtt = steady.midAtt = steady.trebleAtt = 1.0f;
-    SceneParams dial;
-    dial.motionAmount = 1.0f;
-    MotionField level;
-    for (int k = 0; k < 600; ++k) level.step(steady, 1.0f / 60.0f);
-    const SceneParams held = level.apply(dial, false, 1.0f);
-    check(std::fabs(level.state().energySwing) < 1e-3f && std::fabs(level.state().midSwing) < 1e-3f, "a steady quiet passage has no swing");
-    check(std::fabs(held.particleSize - dial.particleSize) < 1e-3f && std::fabs(held.density - dial.density) < 1e-3f &&
-              std::fabs(held.fluidStirrerSpeed - dial.fluidStirrerSpeed) < 1e-3f,
-          "so quiet music does not shrink the particles, the density or the stirrer");
-    GeodeSoundFrame swell = steady;
-    swell.volAtt = 1.8f;
-    MotionField rising;
-    for (int k = 0; k < 600; ++k) rising.step(swell, 1.0f / 60.0f);
-    check(rising.state().energySwing > 0.0f && rising.apply(dial, false, 1.0f).particleSize > held.particleSize,
-          "and a swell above the average still grows them");
 
     SceneParams p;
     p.camFly = 1.0f;
@@ -2881,15 +2692,8 @@ int main() {
     hardCutsJumpWithoutATweenAndKeepTheirGap();
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();
-    motionFieldVariantsDiffer();
-    motionFieldBarWaveFollowsTheHeardBar();
-    flowTimeIsFlowPhaseAtSpeedOne();
-    flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();
     speedClockAdvancesAtASlowRateLateInASession();
-    motionFieldDriftSpinIsBoundedAndContinuous();
-    motionFieldReducedMotionScalesRatesOnce();
-    motionFieldDriftWrapNeverPopsAStyle();
     sourceCatalogueIsCompleteAndUnique();
     endlessZoomIsOneSeamlessTunnel();
     endlessZoomDrawsNoRidges();

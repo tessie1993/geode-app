@@ -53,8 +53,6 @@ const std::map<std::string, const char*> kAllowed = {
     {"modulation/Reactions.cpp", "the reaction matrix itself: the user's routes and the style DNA under the hand mask"},
     {"modulation/Lfo.cpp", "an LFO the user set on the Transient source (the transient envelope)"},
     {"modulation/Adsr.cpp", "an envelope the user set, triggered on the onset"},
-    {"modulation/NoteResponse.cpp", "Note & key reactions, the user's switch (Settings > Behaviour) and drum amount"},
-    {"modulation/MotionField.cpp", "the Motion dials the user sets; at 0 nothing hears the sound (resolver_test)"},
     {"CameraRig.cpp", "the camera's music moves (Shake), the user's dials"},
     {"styles/fluid/FluidEmitters.cpp", "Customize > Hit splats and Radius on hit, the user's (0 is off)"},
     {"styles/fluid/FluidEmitters.hpp", "Customize > Hit splats: its hit edge"},

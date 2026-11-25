@@ -12,9 +12,8 @@
 namespace geode::viz {
 
 // The reaction matrix: many audio features routed to many targets, each route
-// with its own amount, curve, mode and smoothing. MotionField is one fixed
-// table every style shares; this is the data-driven layer on top of it, and
-// viz/modulation/ReactionDna seeds it per style, so two
+// with its own amount, curve, mode and smoothing. The matrix is
+// the one place music moves a picture, the user's to see and edit; viz/modulation/ReactionDna seeds it per style, so two
 // styles hear the same bar of music differently.
 //
 // Pure: no GL, no allocation, no locks. tick() runs on the render thread once

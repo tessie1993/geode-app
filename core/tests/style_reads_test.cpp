@@ -411,24 +411,11 @@ const std::vector<Carrier>& shaderCarriers() {
         {"solarize", {"uSolarize"}},
         {"invert", {"uInvert"}},
         // Audio drive is lib_sound's uSoundDrive (SoundUniforms::upload). The band trims scale the frame's
-        // band fields (viz/BandTrim) before the style, its MotionField (uBassRel ..) and the
-        // resolver's MotionField hear them: bass breathes Zoom, treble stirs Turbulence. The mids no longer
-        // turn the drift (owner 2026-11-12, no style spins to the music).
+        // band fields (viz/BandTrim) before the style, which reads them as SND_* fields.
         {"audioDrive", {"uSoundDrive"}},
-        {"bassGain", {"SND_BASS", "SND_BASS_ATT", "SND_LOW", "SND_BASS_PRESENCE", "SND_FLUX_LOW", "uBassRel", "uZoom"}},
-        {"midGain", {"SND_MID", "SND_MID_ATT", "SND_MIDDLE", "SND_MID_PRESENCE", "SND_FLUX_MID", "uMidRel"}},
-        {"trebGain", {"SND_TREBLE", "SND_TREBLE_ATT", "SND_HIGH", "SND_TREBLE_PRESENCE", "SND_FLUX_HIGH", "uTrebRel", "uTurbulence"}},
-        // MotionField's dials land on other fields (MotionField::apply).
-        {"motionAmount", {"uWarp", "uMorph", "uTurbulence", "uTime"}},
-        {"motionBreath", {"uZoom"}},
-        {"motionDrift", {"uRotation"}},
-        {"motionHue", {"uColorShift"}},
-        // Note & key's amounts drive the style knobs (NoteResponse).
-        {"notePitch", {"uKnob"}},
-        {"noteIntervals", {"uKnob"}},
-        {"noteTension", {"uKnob"}},
-        {"noteChords", {"uKnob"}},
-        {"noteDrums", {"uKnob"}},
+        {"bassGain", {"SND_BASS", "SND_BASS_ATT", "SND_LOW", "SND_BASS_PRESENCE", "SND_FLUX_LOW"}},
+        {"midGain", {"SND_MID", "SND_MID_ATT", "SND_MIDDLE", "SND_MID_PRESENCE", "SND_FLUX_MID"}},
+        {"trebGain", {"SND_TREBLE", "SND_TREBLE_ATT", "SND_HIGH", "SND_TREBLE_PRESENCE", "SND_FLUX_HIGH"}},
     };
     return kCarriers;
 }
@@ -448,8 +435,12 @@ const std::set<std::string>& sharedStageFields() {
         "camPath", "camFly", "camOrbit", "camFov", "camShake", "camPush", "camYaw", "camPitch", "camRoll", "camSmooth",
         "camTouch", "camGyro",
         "reactAmount", "reactSeed", "paramFadeSec",
-        // Read by nothing and drawn by no control (ParamTable.inc); kept in @notes_key's Reset only.
-        "noteColor",
+        // The motion field and the note layer were cut (owner decision 48), so these dials move no style:
+        // Motion amount now only scales the camera's shake (CameraRig) and the director's Energy axis, and the
+        // rest (Breath, Spin, Key colour and the five Notes & key amounts) are read by nothing. They stay on the
+        // wire until they are retired (ParamTable.inc); delete them from here then.
+        "motionAmount", "motionBreath", "motionDrift", "motionHue",
+        "noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums",
     };
     return kShared;
 }
@@ -497,12 +488,10 @@ const std::set<std::string> kViews = {"view", "arbView"};
 
 bool soundName(const std::string& name) { return name.rfind("SND_", 0) == 0 || name.rfind("uSound", 0) == 0; }
 
-// Morph World spends Morph, Warp, Turbulence, the sound (Audio drive and the band trims through the frame
-// and the resolver's Turbulence) and the style knobs through its World Genome driver (ShaderScene feeds
-// world::DriverInput), which reaches the shader as uWorld.
+// Morph World spends Morph, Warp, Turbulence, the sound (Audio drive and the band trims through the frame)
+// through its World Genome driver (ShaderScene feeds world::DriverInput), which reaches the shader as uWorld.
 bool worldCarries(const std::string& styleId, const std::string& field) {
-    static const std::set<std::string> kWorld = {"morph",    "warp",         "turbulence",    "audioDrive", "bassGain", "trebGain",
-                                                 "noteDrums", "noteIntervals", "noteTension", "noteChords", "notePitch"};
+    static const std::set<std::string> kWorld = {"morph", "warp", "turbulence", "audioDrive", "bassGain", "trebGain"};
     return styleId == catalogue::kMorphWorld && kWorld.count(field) != 0;
 }
 
@@ -515,9 +504,6 @@ bool poolCarries(const std::string& styleId, const std::string& field) {
 
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
-    // MotionField's spin only turns a style the catalogue gives a spin rate; no sound turns it.
-    const bool spins = catalogue::spinRate(styleId) != 0.0f;
-    if (field == "motionDrift") return spins && words.count("uRotation") != 0;
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
     if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);
@@ -573,8 +559,8 @@ bool compositeApplies(catalogue::Kind, const std::string& field) {
 
 // The words a dedicated renderer's sources name that carry each field it is shown, where the field's own
 // name is not one: the palette through SceneParams::paletteBase/Range, the band trims through the frame's
-// band fields, the motion dials through the fields MotionField moves.
-bool kindReads(catalogue::Kind kind, const std::string& styleId, const std::string& field, const std::set<std::string>& words) {
+// band fields.
+bool kindReads(catalogue::Kind kind, const std::string& field, const std::set<std::string>& words) {
     static const std::map<std::string, std::vector<const char*>> kVia = {
         {"palette", {"paletteBase"}},
         {"paletteBaseOverride", {"paletteBase"}},
@@ -590,16 +576,7 @@ bool kindReads(catalogue::Kind kind, const std::string& styleId, const std::stri
         {"bassGain", {"bass", "bassAtt", "low", "bassPresence", "fluxLow"}},
         {"midGain", {"mid", "midAtt", "middle", "midPresence", "fluxMid"}},
         {"trebGain", {"treble", "trebleAtt", "high", "treblePresence", "fluxHigh"}},
-        {"motionAmount", {"speed", "warp", "turbulence"}},
-        {"motionBreath", {"zoom"}},
-        {"motionHue", {"colorShift"}},
-        {"notePitch", {"knobs"}},
-        {"noteIntervals", {"knobs"}},
-        {"noteTension", {"knobs"}},
-        {"noteChords", {"knobs"}},
-        {"noteDrums", {"knobs"}},
     };
-    if (field == "motionDrift") return catalogue::spinRate(styleId) != 0.0f;
     // TrailPass echoes (zooms and warps) the kept frame of any scene that keeps one (Scene::trailRetention).
     if (field == "trailZoom" || field == "trailWarp") return words.count("trailRetention") != 0;
     if (compositeApplies(kind, field)) return true;
@@ -653,7 +630,7 @@ void everyShownControlReachesItsStyle(const std::string& assetsRoot, const std::
             if (sharedStageFields().count(field) != 0 && (shader || kTrailFields.count(field) == 0)) continue;
             if (shader) check(carrierOf(field) != nullptr, id + ": " + field + " (" + control + ") has no carrier; classify it in style_reads_test");
             ++cells;
-            if (shader ? readsField(id, field, words, heard) : kindReads(kind, id, field, words)) continue;
+            if (shader ? readsField(id, field, words, heard) : kindReads(kind, field, words)) continue;
             ++gaps;
             ++missingByField[field];
             missing += " " + field;

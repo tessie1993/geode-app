@@ -36,8 +36,6 @@
 #include "viz/LayerState.hpp"
 #include "viz/looks/LookSnapshot.hpp"
 #include "viz/modulation/Lfo.hpp"
-#include "viz/modulation/MotionField.hpp"
-#include "viz/modulation/NoteResponse.hpp"
 #include "viz/passes/Overlays.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/PcmHandoff.hpp"
@@ -128,9 +126,9 @@ public:
         return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
     }
     // An export's engine settings (signal::SettingsLatch, #350): pinned once at prepare, after which this
-    // renderer never reads the process-wide macro bank, Note & key switch, hand mask or director again, so live
+    // renderer never reads the process-wide macro bank, hand mask or director again, so live
     // edits and the player moving on never reach a render in progress. The director comes from the user's
-    // switch, `entitled` and `durationMs` (director::forExport); the note entropy is 0. Any thread.
+    // switch, `entitled` and `durationMs` (director::forExport). Any thread.
     // Returns the pinned hand mask.
     uint32_t pinEngineSettings(bool entitled, long long durationMs) { return settingsLatch_.pinForExport(entitled, durationMs); }
     // Customize › Layers is process-wide (viz/LayerState, geode_layer_set): every renderer follows it.
@@ -378,8 +376,6 @@ private:
     // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,
     // the camera and the liquid all read this one copy.
     signal::EngineSettings frameSettings_{};
-    // A new style came on screen and the resolver has not stepped since (its motion field's variant).
-    bool styleSwitchPending_ = false;
     // The globals live, or an export's settings pinned at prepare (pinEngineSettings); latched once a frame.
     signal::SettingsLatch settingsLatch_;
     std::atomic<int> directorStyleMoments_{0};
@@ -433,7 +429,7 @@ private:
     // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
     // at the current one: an engine built after a boundary is already fresh. Live renderers only.
     uint64_t boundarySeen_ = sound::player::boundary().epoch;
-    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // The engine's feeling, copied with the frame (the director reads it), and the play it
     // belongs to: a new director seed is a new play, and the feeling starts over with it.
     sound::Emotion::State soundEmotion_{};
     bool soundHeard_ = false;

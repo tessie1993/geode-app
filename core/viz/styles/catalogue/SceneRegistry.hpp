@@ -19,7 +19,7 @@ public:
 
     bool knows(const std::string& id) const;
     // How the style turns by default (catalogue::spinRate): a
-    // signed multiplier on the motion field's drift spin, 0 for a style that
+    // signed multiplier on the style's turn, 0 for a style that
     // holds still (no drift spin, no sway, no bank of the flat picture).
     static float spinRate(const std::string& id);
     // A fragment style (ShaderScene): it reads morph and the second palette.

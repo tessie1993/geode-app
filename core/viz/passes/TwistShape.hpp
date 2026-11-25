@@ -1,8 +1,19 @@
 #pragma once
 #include <cmath>
 #include <cstdint>
+#include <string_view>
 
 namespace geode::viz {
+
+// FNV-1a of a style id: the seed every per-style variation here starts from, the same wherever the style is drawn.
+inline std::uint32_t styleVariantSeed(std::string_view id) {
+    std::uint32_t h = 2166136261u;
+    for (const char c : id) {
+        h ^= static_cast<std::uint8_t>(c);
+        h *= 16777619u;
+    }
+    return h;
+}
 
 // Where the radial Twist turns the picture from, and how its angle grows with distance. One centred twist, the
 // same on every style, winds a line through the middle into the same S, so each style (its variant seed, the

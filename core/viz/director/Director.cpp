@@ -25,7 +25,7 @@ float smooth(float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-// splitmix64, the house RNG (NoteResponse, ReactionDna): one stream per decision.
+// splitmix64, the house RNG (ReactionDna): one stream per decision.
 struct Rng {
     uint64_t x;
     float next() {
@@ -233,7 +233,7 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
 
     Look L;
     L.energy = e;
-    // Behaviour: the axes, the camera, the motion field. Each gets a little seeded variety.
+    // Behaviour: the axes and the camera. Each gets a little seeded variety.
     auto knob = [&](float x) { return std::clamp(0.8f * x + 0.15f * rng.signedUnit(), -1.0f, 1.0f); };
     axisOf(L.axes, Axis::Energy) = knob(2.0f * e - 1.0f + 0.3f * (g[Emotion::kPower] + g[Emotion::kJoy]) - 0.3f * g[Emotion::kPeace]);
     axisOf(L.axes, Axis::Speed) = knob(1.6f * e - 0.8f - 0.4f * (g[Emotion::kPeace] + g[Emotion::kTranscendence]) + 0.3f * g[Emotion::kJoy]);
@@ -570,7 +570,7 @@ SceneParams Director::apply(const SceneParams& p) const {
     // of an untouched style, added as its distance from the default, so a slider the user moved keeps
     // its whole offset.
     o.camSmooth = std::clamp(p.camSmooth + a * (L.camSmooth - kDefaults.camSmooth), std::min(0.0f, p.camSmooth), std::max(1.0f, p.camSmooth));
-    // The motion dials scale how far the music moves the picture (viz/modulation/MotionField), so the look turns
+    // The motion dials scale how far the music moves the picture, so the look turns
     // them by a factor, never an offset: a dial the user set to 0 stays off, and the director cannot
     // switch on a reaction to the sound the user switched off.
     const auto turned = [a](float user, float look, float base) {

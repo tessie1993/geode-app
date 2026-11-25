@@ -19,7 +19,7 @@ namespace geode::viz {
 // every scene reading the frame the same way, so a style and a simulation pass that both say
 // SND_KICK_ENV see the same number on the same frame.
 //
-// Each scene owns its own instance, like its MotionField: the ReactSignals stepped here are a pure
+// Each scene owns its own instance: the ReactSignals stepped here are a pure
 // function of the frames step() receives, so live and export (which steps the same frame sequence
 // offscreen) hold the same events without a channel back to the renderer's own copy.
 class SoundUniforms {

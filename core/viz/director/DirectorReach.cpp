@@ -34,7 +34,7 @@ constexpr std::array<Category, 7> kShuffled{Category::Look,   Category::Shape,  
 // flips, which a section change must not fire.
 constexpr const char* kLooksOwn[] = {
     "Palette",  "Hue shift", "Hue range", "Temperature", "Saturation", "Brightness",
-    "Contrast", "Gamma",     "Breath",    "Invert",      "Solarize",
+    "Contrast", "Gamma",     "Invert",      "Solarize",
 };
 
 // What a modulator may move: sliders with a visible, continuous effect. Colour is the look's.

@@ -376,10 +376,6 @@ _Avoid_: Auto level, auto-randomize, shuffle mode
 Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `core/viz/LookSnapshot`.
 _Avoid_: Live state, look (that is the auto-director's)
 
-**Note & key reactions**:
-Settings › Behaviour's switch that reads notes, chords, key and mood into the six style knobs each style spends on its own geometry (drums weighted by how percussive the track is). It writes no scene param and no colour. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style.
-_Avoid_: Note mode, melody mode
-
 **Bloom (note bloom)**:
 Removed. The fractal flower each note once grew over every style was dropped by the owner; presets that still carry `bloomLook` or `noteBloom` load and ignore them. "Bloom" now means only the `bloom` glow parameter and the fluid glow.
 
@@ -392,7 +388,7 @@ How much of the track is drums, measured as it plays (hit and onset rate, noise,
 _Avoid_: Drum mode, genre
 
 **Style knobs**:
-The six per-style controls every style may read (`uKnob`): PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE. Driven by Note & key reactions, else 0.5. Not the macro bank's knobs.
+The six per-style controls every style may read (`uKnob`): PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE. Nothing drives them: every knob is exactly 0.5. Not the macro bank's knobs.
 _Avoid_: Macros (those are the user's bank)
 
 **Scale mood**:
@@ -414,11 +410,11 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (the user's quality tier and post-FX) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam later steps rebuild behind (#344).
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, the director's axes, the macro bank, LFOs, envelopes, reaction routes, Spin on a style that turns, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (the user's quality tier and post-FX) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam later steps rebuild behind (#344).
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:
-The process-wide values the scene params resolver reads: the macro bank, the auto-director's amount, seed, reach and keep set, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
+The process-wide values the scene params resolver reads: the macro bank, the auto-director's amount, seed, reach and keep set, the hand mask and reduced motion. The renderer latches one copy per frame. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
 _Avoid_: Globals, settings (alone), scene params
 
 **Gain ramp**:

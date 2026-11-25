@@ -132,6 +132,11 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // safety clamp, like the LFOs.
     reactions_.apply(p);
     // No stage follows the matrix with routes of its own: the director plays none (owner's rule).
+    // Spin: Rotation is a rate the scenes integrate, so a style that turns gets a constant one added, scaled by
+    // its own rate, the user's Spin dial and Speed. Nothing in the sound sets it. Reduced motion scales it next.
+    if (style.spin != 0.0f) {
+        p.rotation = std::clamp(p.rotation + kSpinRadPerSecond * style.spin * std::clamp(p.motionDrift, 0.0f, 1.0f) * p.speed, -3.0f, 3.0f);
+    }
     p = viz::safety::apply(p, settings.reducedMotion);
     frame_.params = p;
     frame_.cameraMoves = director_.moves();

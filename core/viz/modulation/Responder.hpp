@@ -176,7 +176,26 @@ bool setField(Config& c, int row, int nth, int field, float value);
 void setRowOn(Config& c, int row, bool on);
 // Switches a style route off (or on again) by its source and target ordinals. False for a pair that is no route
 // or when the list of mutes is full.
-bool setMuted(Config& c, int source, int target, bool muted);
+// Inline: the reaction text decoder calls it without linking Responder.cpp.
+inline bool setMuted(Config& c, int source, int target, bool muted) {
+    if (source < 0 || source >= kReactSourceCount || target <= static_cast<int>(LfoTarget::None) || target > static_cast<int>(kLastLfoTarget)) {
+        return false;
+    }
+    for (int i = 0; i < c.muteCount; ++i) {
+        Mute& m = c.mutes[static_cast<size_t>(i)];
+        if (m.source != source || m.target != target) continue;
+        if (!muted) {
+            for (int j = i; j + 1 < c.muteCount; ++j) c.mutes[static_cast<size_t>(j)] = c.mutes[static_cast<size_t>(j + 1)];
+            --c.muteCount;
+            c.mutes[static_cast<size_t>(c.muteCount)] = Mute{};
+        }
+        return true;
+    }
+    if (!muted) return true;
+    if (c.muteCount >= kMaxMutes) return false;
+    c.mutes[static_cast<size_t>(c.muteCount++)] = Mute{source, target};
+    return true;
+}
 // The wire values of a response (kFieldCount of them, the order of Field).
 void fieldValues(const Response& r, float* out);
 

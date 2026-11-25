@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "viz/fields/FieldSet.hpp"
+
 // Things: up to 32 short-lived shapes (dots, rings, shards, blobs) that spawn, live and disappear on the
 // picture. This is the state and the maths; ThingPass (viz/passes) draws it. Pure and header-only, so it runs
 // on the host (core/tests/things_test.cpp).
@@ -187,14 +189,20 @@ public:
     }
 
     // Moves every Thing by `dt` seconds, runs the interactions, ages them and ends the ones past their life.
-    // A non-finite or non-positive dt changes nothing.
-    void step(float dt) {
+    // A non-finite or non-positive dt changes nothing. `pulls` (optional, read only, not stepped here): its force
+    // is added to every Drift Thing, from a copy that ages with each substep, so the pull does not depend on the
+    // frame rate. The caller steps the real set after this call.
+    void step(float dt, const fields::FieldSet* pulls = nullptr) {
         if (!std::isfinite(dt) || dt <= 0.0f) return;
         const double d = static_cast<double>(dt);
         if (live()) {
+            fields::FieldSet local;
+            const bool pulled = pulls != nullptr && pulls->live();
+            if (pulled) local = *pulls;
             carry_ += std::min(d, kMaxCatchUp);
             while (carry_ >= kSubstep - 1e-6) {
-                substep(static_cast<float>(kSubstep));
+                substep(static_cast<float>(kSubstep), pulled ? &local : nullptr);
+                if (pulled) local.step(static_cast<float>(kSubstep));
                 carry_ -= kSubstep;
             }
             if (carry_ < 0.0) carry_ = 0.0;
@@ -406,7 +414,7 @@ private:
 
     static bool drifts(const Slot& s) { return s.alive && (s.sp.behaviour & Drift) != 0u; }
 
-    void substep(float h) {
+    void substep(float h, const fields::FieldSet* pulls) {
         // Gravity: each Thing with it pulls every drifting one, inverse square, softened; the sum is clamped.
         std::array<float, kMaxThings> ax{};
         std::array<float, kMaxThings> ay{};
@@ -429,6 +437,11 @@ private:
             if (!drifts(t)) continue;
             float gx = ax[static_cast<size_t>(j)];
             float gy = ay[static_cast<size_t>(j)];
+            if (pulls != nullptr) {
+                const fields::Force f = pulls->forceAt(t.x, t.y, aspect_);
+                gx += f.x;
+                gy += f.y;
+            }
             const float mag = std::hypot(gx, gy);
             if (mag > kMaxAccel) {
                 gx *= kMaxAccel / mag;

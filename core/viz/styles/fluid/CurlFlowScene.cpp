@@ -111,7 +111,7 @@ void CurlFlowScene::draw(float timeSeconds) {
         glDrawArrays(GL_TRIANGLES, 0, 3);
         quad_.unbind();
 
-        applyChoreographyTo(particles_);
+        applyChoreographyTo(particles_, aspect_);
         particles_.step(lastDt_, fld.tex(), aspect_, 1.0f, wallTime_);
         hasPending_ = false;
     }

@@ -31,6 +31,8 @@
 #include "viz/passes/FrontPass.hpp"
 #include "viz/fronts/FrontField.hpp"
 #include "viz/passes/ThingPass.hpp"
+#include "viz/passes/FieldPass.hpp"
+#include "viz/fields/FieldSet.hpp"
 #include "viz/things/ThingPool.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
@@ -318,6 +320,9 @@ private:
     void drawFronts(const SceneParams& p, float dt);
     // Things (viz/things/ThingPool.hpp) laid over the picture right after the fronts: same shape, same skip.
     void drawThings(const SceneParams& p, float dt);
+    // Fields (viz/fields/FieldSet.hpp) bend the whole picture after the Things and before the trails, then age.
+    // Nothing alive: nothing runs.
+    void drawFields(float dt);
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
@@ -562,6 +567,8 @@ private:
     fronts::FrontField fronts_;
     ThingPass thingPass_;
     things::ThingPool things_;
+    FieldPass fieldPass_;
+    fields::FieldSet fields_;
     // The physics layers (viz/physics): nothing made until a layer's param turns it on.
     physics::PhysicsLayers physicsLayers_{loader_};
     // The outgoing style with this frame's physics layers over it; 0 when the composite reads fboB_ as it is.

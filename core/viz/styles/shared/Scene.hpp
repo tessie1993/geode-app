@@ -9,6 +9,7 @@
 
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
+#include "viz/fields/FieldSet.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/styles/shared/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
@@ -93,6 +94,9 @@ struct SceneHost {
     std::function<const shapes::Packed*()> shapeGraph;
     // "Adapt to frame time" is on (frame::FrameGovernor): it alone gives quality up for frame time. Unset reads as off.
     std::function<bool()> adaptive;
+    // The live Fields (viz/fields/FieldSet), read only: the fluid takes each as a force on its flow and its
+    // particles. Unset reads as none.
+    std::function<const fields::FieldSet*()> fieldSet;
 };
 
 }  // namespace geode::viz

@@ -48,6 +48,9 @@ void measure(vec2 uv, int i, out float d, out vec2 n, out float sector) {
 
 void main() {
     // Bends first: every front moves where the picture is read from, then the colour effects apply to that.
+    // TODO(fields): a Bend front could also read where it bends from toward or around the live Fields (viz/fields/FieldSet.hpp).
+    // Not done here: it needs the packed Fields as uniforms in FrontPass and a second copy of fields_frag.glsl's lens, and
+    // FieldPass already bends the whole picture, fronts included, so the two would bend it twice.
     vec2 uv = vUv;
     for (int i = 0; i < 8; ++i) {
         if (i >= uCount) break;

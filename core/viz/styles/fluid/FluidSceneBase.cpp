@@ -82,13 +82,26 @@ void FluidSceneBase::configureChoreography() {
     choreography_.speed = fluid::Choreography::sceneSpeed(p.speed);
 }
 
-void FluidSceneBase::applyChoreographyTo(fluid::Particles& particles) {
+void FluidSceneBase::applyChoreographyTo(fluid::Particles& particles, float aspect) {
     const SceneParams& p = params_;
     particles.drag = std::clamp(p.fluidParticleDrag, 0.02f, 1.0f);
     particles.life = std::clamp(p.fluidParticleLife, 1.0f, 20.0f);
     choreography_.packSpawns(spawnPack_.data());
     choreography_.packCatches(catchPack_.data(), std::clamp(p.fluidCatchPull, 0.0f, 3.0f), std::clamp(p.fluidCatchRadius, 0.03f, 0.3f));
-    particles.setChoreography(spawnPack_.data(), choreography_.spawnCount, catchPack_.data(), choreography_.catchCount);
+    int catches = std::clamp(choreography_.catchCount, 0, fluid::Choreography::kMaxCatch);
+    const fields::FieldSet* live = host_.fieldSet ? host_.fieldSet() : nullptr;
+    for (int i = 0; live != nullptr && i < fields::kMaxFields && catches < fluid::Choreography::kMaxCatch; ++i) {
+        const fields::View v = live->view(i);
+        if (!v.alive || v.kind != fields::Kind::Attract || !(v.strength > 0.0f)) continue;
+        // Sim space: x runs -aspect..aspect, y -1..1.
+        float* o = catchPack_.data() + catches * 4;
+        o[0] = (v.x * 2.0f - 1.0f) * aspect;
+        o[1] = v.y * 2.0f - 1.0f;
+        o[2] = std::clamp(v.strength, 0.0f, 3.0f);
+        o[3] = std::clamp(p.fluidCatchRadius, 0.03f, 0.3f);
+        ++catches;
+    }
+    particles.setChoreography(spawnPack_.data(), choreography_.spawnCount, catchPack_.data(), catches);
 }
 
 void FluidSceneBase::saveFramebufferAndViewport() {

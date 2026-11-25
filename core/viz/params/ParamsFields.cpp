@@ -4,11 +4,11 @@
 // why this file includes those headers; the struct itself (Params.hpp) needs none of them.
 #include <string>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/params/Params.hpp"
 #include "util/TableNumber.hpp"
-#include "viz/fluid/FluidQuality.hpp"
-#include "viz/scenes/CymaticsMath.hpp"
+#include "viz/styles/fluid/FluidQuality.hpp"
+#include "viz/styles/cymatics/CymaticsMath.hpp"
 
 namespace geode::viz {
 

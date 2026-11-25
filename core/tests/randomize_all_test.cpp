@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/panel/CustomizeMap.hpp"
 #include "viz/panel/ParamRandomizer.hpp"
 #include "viz/panel/RandomizeAll.hpp"

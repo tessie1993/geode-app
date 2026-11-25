@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/modulation/ModTargets.hpp"
 #include "viz/modulation/VisualSafety.hpp"

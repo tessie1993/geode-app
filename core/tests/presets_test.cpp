@@ -1,4 +1,4 @@
-// Host-side checks for the bundled looks (core/viz/CataloguePresets, #648): the twelve generic looks
+// Host-side checks for the bundled looks (core/viz/styles/catalogue/CataloguePresets, #648): the twelve generic looks
 // every loose shader style offers and the hand-tuned variants, as the shell reads them through
 // geode_catalogue_presets_text. Built and run by CI (.github/workflows/android.yml, "Catalogue host
 // tests") with the system compiler; no GL.
@@ -16,8 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
-#include "viz/CataloguePresets.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/styles/catalogue/CataloguePresets.hpp"
 #include "viz/params/Params.hpp"
 
 using namespace geode::viz;

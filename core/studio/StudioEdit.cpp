@@ -12,7 +12,7 @@
 #include <utility>
 
 #include "util/Json.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 
 namespace geode::studio {
 

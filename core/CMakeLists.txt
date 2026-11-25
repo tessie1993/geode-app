@@ -201,7 +201,7 @@ add_library(geode_core STATIC
     viz/gl/ProgramBinaryCache.cpp
     viz/gl/Program.cpp
     viz/gl/ProgramStager.cpp
-    viz/StyleSchedule.cpp
+    viz/styles/catalogue/StyleSchedule.cpp
     viz/glsl/ShaderOverrides.cpp
     viz/gl/Texture.cpp
     viz/gl/Framebuffer.cpp
@@ -232,7 +232,7 @@ add_library(geode_core STATIC
     api/geode_cast_tee_api.cpp
     viz/modulation/Adsr.cpp
     viz/modulation/MotionField.cpp
-    viz/ShapeGraph.cpp
+    viz/styles/shared/ShapeGraph.cpp
     viz/modulation/ReactionDna.cpp
     viz/modulation/Reactions.cpp
     viz/CameraRig.cpp
@@ -242,54 +242,54 @@ add_library(geode_core STATIC
     viz/passes/CompositeGrade.cpp
     viz/passes/CompositePass.cpp
     viz/passes/TrailPass.cpp
-    viz/Catalogue.cpp
-    viz/CataloguePresets.cpp
+    viz/styles/catalogue/Catalogue.cpp
+    viz/styles/catalogue/CataloguePresets.cpp
     viz/panel/ParamRandomizer.cpp
     viz/panel/CustomizeMap.cpp
     viz/panel/CustomizeRows.cpp
     viz/panel/PanelText.cpp
     viz/panel/PalettePanel.cpp
-    viz/StyleNames.cpp
+    viz/styles/catalogue/StyleNames.cpp
     viz/panel/RandomizeAll.cpp
     viz/modulation/WaveRandomizer.cpp
-    viz/SceneRegistry.cpp
+    viz/styles/catalogue/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
-    viz/scenes/ShaderScene.cpp
+    viz/styles/shader/ShaderScene.cpp
     viz/glsl/SoundUniforms.cpp
     viz/gl/BlueNoise.cpp
     viz/passes/Overlays.cpp
-    viz/compute/SimField.cpp
-    viz/compute/SimGlsl.cpp
-    viz/compute/SimPass.cpp
+    viz/styles/silk/SimField.cpp
+    viz/styles/silk/SimGlsl.cpp
+    viz/styles/silk/SimPass.cpp
     viz/gl/FluidBuffers.cpp
-    viz/fluid/FluidMath.cpp
-    viz/fluid/FluidChoreography.cpp
-    viz/fluid/FluidEmitters.cpp
-    viz/fluid/FluidSim.cpp
-    viz/fluid/FluidParticles.cpp
-    viz/fluid/FluidLook.cpp
-    viz/fluid/FlowField.cpp
-    viz/pool/PoolMath.cpp
+    viz/styles/fluid/FluidMath.cpp
+    viz/styles/fluid/FluidChoreography.cpp
+    viz/styles/fluid/FluidEmitters.cpp
+    viz/styles/fluid/FluidSim.cpp
+    viz/styles/shared/FluidParticles.cpp
+    viz/styles/fluid/FluidLook.cpp
+    viz/styles/shared/FlowField.cpp
+    viz/styles/shader/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
     viz/physics/PhysicsLayers.cpp
     viz/physics/PhysicsPlan.cpp
-    viz/world/WorldGenome.cpp
-    viz/world/MorphDriver.cpp
-    viz/world/WorldAssets.cpp
-    viz/scenes/StyleCatalog.cpp
-    viz/scenes/CymaticsMath.cpp
-    viz/scenes/CymaticsScene.cpp
-    viz/scenes/SilkScene.cpp
-    viz/scenes/LifeScene.cpp
-    viz/present/FieldGeometry.cpp
-    viz/present/FieldPresent.cpp
-    viz/scenes/MycoScene.cpp
-    viz/scenes/AcidScene.cpp
-    viz/scenes/FluidSceneBase.cpp
-    viz/scenes/FluidScene.cpp
-    viz/scenes/CurlFlowScene.cpp
+    viz/styles/shader/WorldGenome.cpp
+    viz/styles/shader/MorphDriver.cpp
+    viz/styles/shader/WorldAssets.cpp
+    viz/styles/catalogue/StyleCatalog.cpp
+    viz/styles/cymatics/CymaticsMath.cpp
+    viz/styles/cymatics/CymaticsScene.cpp
+    viz/styles/silk/SilkScene.cpp
+    viz/styles/life/LifeScene.cpp
+    viz/styles/life/FieldGeometry.cpp
+    viz/styles/life/FieldPresent.cpp
+    viz/styles/mycelium/MycoScene.cpp
+    viz/styles/acid/AcidScene.cpp
+    viz/styles/fluid/FluidSceneBase.cpp
+    viz/styles/fluid/FluidScene.cpp
+    viz/styles/fluid/CurlFlowScene.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

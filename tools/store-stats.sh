@@ -13,8 +13,8 @@ family_styles=$(grep '^family|' "$cat" | cut -d'|' -f5 | tr ',' '\n' | grep -c .
 neon_pro=$(grep -A2 'val neonProIds' app/src/main/java/dev/geode/pro/FreeTier.kt | grep -o '"[a-z_]*"' | wc -l)
 free=$((shader - (family_styles - families) - neon_pro))
 loose=$((shader - family_styles))
-generic=$(awk '/genericLooks\(\) \{/,/return kLooks/' core/viz/CataloguePresets.cpp | grep -c '^        {"')
-variants=$(awk '/variants\(\) \{/,/return kVariants/' core/viz/CataloguePresets.cpp | grep -c '^        {"')
+generic=$(awk '/genericLooks\(\) \{/,/return kLooks/' core/viz/styles/catalogue/CataloguePresets.cpp | grep -c '^        {"')
+variants=$(awk '/variants\(\) \{/,/return kVariants/' core/viz/styles/catalogue/CataloguePresets.cpp | grep -c '^        {"')
 val() { grep -E "^\s*$1\s*=" "$2" | head -1 | sed -E 's/.*=\s*//'; }
 
 echo "styles                      $styles"

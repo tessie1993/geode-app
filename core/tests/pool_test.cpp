@@ -1,4 +1,4 @@
-// Host checks for the Pool style's surface (core/viz/pool/PoolMath), the sums pool_frag draws. Built and
+// Host checks for the Pool style's surface (core/viz/styles/shader/PoolMath), the sums pool_frag draws. Built and
 // run by CI ("Native host tests" in .github/workflows/native-host-tests.yml); no GL.
 //
 // Pinned: the caustics' whole swing fits one safety step and nothing on the surface repeats faster than
@@ -15,7 +15,7 @@
 #include <random>
 
 #include "viz/modulation/VisualSafety.hpp"
-#include "viz/pool/PoolMath.hpp"
+#include "viz/styles/shader/PoolMath.hpp"
 
 using namespace geode::viz::pool;
 namespace safety = geode::viz::safety;

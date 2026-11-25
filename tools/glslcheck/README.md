@@ -26,7 +26,7 @@ value).
 ## How it stays honest
 
 - The style ids are the `SHADER`-kind `style|` lines of
-  `core/tests/catalogue.txt`, the text table of `core/viz/Catalogue.cpp`
+  `core/tests/catalogue.txt`, the text table of `core/viz/styles/catalogue/Catalogue.cpp`
   (`catalogue::text()`). `catalogue_test` checks that file against the
   catalogue, so `--all` covers what the app ships: the loose styles and every
   style family.

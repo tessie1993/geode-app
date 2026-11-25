@@ -7,7 +7,7 @@
 //
 // The fragment style ids are the SHADER-kind `style|` lines of
 // core/tests/catalogue.txt, the catalogue's text table (catalogue::text()).
-// catalogue_test checks that file against core/viz/Catalogue.cpp, so the list
+// catalogue_test checks that file against core/viz/styles/catalogue/Catalogue.cpp, so the list
 // here is the list the app ships.
 //
 // Includes are resolved the way core/viz/glsl/ShaderSource.cpp resolves them: the
@@ -222,7 +222,7 @@ const SHADER_VALUES = {
 
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
 
-// Morph World's baked assets (core/viz/world/WorldAssets), handed to the page as the app uploads them:
+// Morph World's baked assets (core/viz/styles/shader/WorldAssets), handed to the page as the app uploads them:
 // the shape volumes repacked as ShaderScene does (WorldAssets::packAtlas: the file's 32^3 slabs, stacked
 // in z, laid out as a 6 x 4 tile atlas, one 192 x 128 x 32 R8 TEXTURE_3D), the detail maps as an
 // 8-layer R8 TEXTURE_2D_ARRAY.

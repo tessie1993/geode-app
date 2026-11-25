@@ -4,7 +4,7 @@ Resolves the `//#include lib_x` lines the way core/viz/glsl/ShaderSource.cpp doe
 against the same allow-list (core/viz/glsl/ShaderIncludes.inc: an unknown or
 missing include fails here as it fails on the phone), then compiles for an
 OpenGL target. The Silk simulation bodies (silk_step, silk_show) are not whole
-shaders; they are compiled inside the preamble core/viz/compute/SimGlsl.cpp
+shaders; they are compiled inside the preamble core/viz/styles/silk/SimGlsl.cpp
 wraps them in. Before compiling it lints every shader and lib for the time
 rule (see speed_twice). glslc will not take `#version 300 es`
 for SPIR-V, so the check bumps it to 310 es: it catches syntax, type and
@@ -83,7 +83,7 @@ def speed_twice(text):
     """Line numbers of statements that put an accumulated clock and uSpeed together.
 
     The time rule: uTime is ShaderScene's speed-INTEGRATED clock
-    (shaderTime_ += speed * dt, core/viz/scenes/ShaderScene.cpp), so a shader
+    (shaderTime_ += speed * dt, core/viz/styles/shader/ShaderScene.cpp), so a shader
     never multiplies it by uSpeed again. `uTime * uSpeed` squares Speed and,
     because it is elapsed time times the live slider, any Speed change (the
     slider, an LFO, a macro, a reaction route) jumps the picture by

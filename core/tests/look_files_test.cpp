@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "util/Json.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/looks/LookFiles.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/params/ParamsJson.hpp"

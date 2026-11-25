@@ -44,13 +44,13 @@
 #include "viz/gl/ProgramBinaryCache.hpp"
 #include "viz/gl/ProgramStager.hpp"
 #include "viz/modulation/Reactions.hpp"
-#include "viz/Scene.hpp"
+#include "viz/styles/shared/Scene.hpp"
 #include "viz/gl/ScenePrep.hpp"
-#include "viz/SceneRegistry.hpp"
+#include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
-#include "viz/StyleSchedule.hpp"
+#include "viz/styles/catalogue/StyleSchedule.hpp"
 #include "viz/glsl/ShaderSource.hpp"
-#include "viz/ShapeGraph.hpp"
+#include "viz/styles/shared/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
 #include "viz/input/TouchSmear.hpp"
 #include "viz/passes/TrailPass.hpp"
@@ -454,7 +454,7 @@ private:
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
     GlTexture paletteRampTex_;
-    // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
+    // The shape graph the Scope::Shapes styles melt into their form (viz/styles/shared/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
     // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
     // export, the wallpaper and the dream each tick their own on their own clock, and an export's fresh

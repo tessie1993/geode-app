@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/director/DirectorStyle.hpp"
 
 namespace catalogue = geode::viz::catalogue;

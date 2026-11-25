@@ -21,9 +21,9 @@
 #include <vector>
 
 #include "viz/CameraRig.hpp"
-#include "viz/world/MorphDriver.hpp"
-#include "viz/world/WorldAssets.hpp"
-#include "viz/world/WorldGenome.hpp"
+#include "viz/styles/shader/MorphDriver.hpp"
+#include "viz/styles/shader/WorldAssets.hpp"
+#include "viz/styles/shader/WorldGenome.hpp"
 
 using namespace geode::viz;
 using namespace geode::viz::world;

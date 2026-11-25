@@ -1,0 +1,38 @@
+#pragma once
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "viz/gl/GlProfile.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
+#include "viz/styles/shared/Scene.hpp"
+#include "viz/glsl/ShaderSource.hpp"
+#include "viz/gl/ProgramLoader.hpp"
+
+namespace geode::viz {
+
+// An id is known when a native scene class can build it.
+class SceneRegistry {
+public:
+    SceneRegistry(const ShaderSource& assets, ProgramBinaryCache* cache, const GlProfile* profile, SceneHost host)
+        : loader_{assets, cache}, profile_(profile), host_(std::move(host)) {}
+
+    bool knows(const std::string& id) const;
+    // How the style turns by default (catalogue::spinRate): a
+    // signed multiplier on the motion field's drift spin, 0 for a style that
+    // holds still (no drift spin, no sway, no bank of the flat picture).
+    static float spinRate(const std::string& id);
+    // A fragment style (ShaderScene): it reads morph and the second palette.
+    static bool isShaderStyle(const std::string& id);
+    // Every id in picker order (catalogue::allIds).
+    std::vector<std::string> availableIds() const;
+    // Builds an uninitialised scene; nullptr for an id native code cannot draw.
+    std::unique_ptr<Scene> create(const std::string& id, const std::string& quadVert) const;
+
+private:
+    ProgramLoader loader_;
+    const GlProfile* profile_;
+    SceneHost host_;
+};
+
+}  // namespace geode::viz

@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "util/Json.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/colour/Colour.hpp"
 #include "viz/params/ParamsJson.hpp"
 #include "viz/params/ParamsPalette.hpp"

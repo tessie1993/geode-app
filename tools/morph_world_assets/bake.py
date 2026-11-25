@@ -23,7 +23,7 @@ Writes into <out-dir> (the app's is app/src/main/assets/shaders):
                       Every model wears a SKIN of 0.04, so parts thinner than a voxel still draw.
                       Only LOD0 of a file that stacks levels of detail is baked.
 
-The counts and sizes match core/viz/world/WorldAssets.hpp; world_genome_test checks the file sizes.
+The counts and sizes match core/viz/styles/shader/WorldAssets.hpp; world_genome_test checks the file sizes.
 """
 import json
 import pathlib

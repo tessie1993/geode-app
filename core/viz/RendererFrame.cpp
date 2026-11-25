@@ -12,7 +12,7 @@
 #include "sound/Form.hpp"
 #include "viz/BandTrim.hpp"
 #include "viz/passes/Births.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/passes/CompositeGrade.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"

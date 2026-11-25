@@ -1,11 +1,11 @@
-// Host-side checks for the scene and style catalogue (core/viz/Catalogue). Built and run by CI
+// Host-side checks for the scene and style catalogue (core/viz/styles/catalogue/Catalogue). Built and run by CI
 // (.github/workflows/android.yml, "Catalogue host tests") with the system compiler; no GL.
 //
 //   catalogue_test core/tests/catalogue.txt           checks, including text() against the fixture
 //   catalogue_test --update [core/tests/catalogue.txt]   rewrites the fixture from catalogue::text() after a
 //                                                        deliberate change (run from the repo root, built as in CI)
 //
-// The ids, counts and per-style flags are written once, in core/viz/styles/StyleTable.inc; the fixture is
+// The ids, counts and per-style flags are written once, in core/viz/styles/catalogue/StyleTable.inc; the fixture is
 // what pins them, so a style added there is one --update away from a passing run, and the test lists none of
 // them by hand.
 // The fixture is the catalogue as one table, which the tools read (tools/store-stats.sh, tools/glslcheck).
@@ -23,10 +23,10 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/input/TouchField.hpp"
-#include "viz/fluid/FluidQuality.hpp"
-#include "viz/scenes/StyleCatalog.hpp"
+#include "viz/styles/fluid/FluidQuality.hpp"
+#include "viz/styles/catalogue/StyleCatalog.hpp"
 
 using namespace geode::viz;
 using catalogue::Kind;

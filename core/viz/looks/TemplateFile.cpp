@@ -8,7 +8,7 @@
 #include <map>
 #include <random>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/looks/LookFiles.hpp"
 #include "viz/params/ParamsJson.hpp"
 

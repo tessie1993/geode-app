@@ -10,7 +10,7 @@
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/gl/BuildReport.hpp"
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/director/DirectorStyle.hpp"
 #include "viz/gl/GlProber.hpp"
 #include "viz/glsl/ShaderOverrides.hpp"

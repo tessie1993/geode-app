@@ -4,7 +4,7 @@
 #include <cctype>
 #include <cmath>
 
-#include "viz/Catalogue.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/panel/ControlRange.hpp"
 #include "viz/panel/CustomizeMap.hpp"
 #include "viz/looks/LookSnapshot.hpp"

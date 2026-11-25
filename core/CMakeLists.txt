@@ -215,10 +215,10 @@ add_library(geode_core STATIC
     viz/modulation/ModTargets.cpp
     viz/modulation/MacroBank.cpp
     viz/modulation/MacroControls.cpp
-    viz/Director.cpp
-    viz/DirectorReach.cpp
-    viz/DirectorStyle.cpp
-    viz/DirectorTuning.cpp
+    viz/director/Director.cpp
+    viz/director/DirectorReach.cpp
+    viz/director/DirectorStyle.cpp
+    viz/director/DirectorTuning.cpp
     viz/LayerPick.cpp
     viz/LayerState.cpp
     viz/modulation/NoteResponse.cpp

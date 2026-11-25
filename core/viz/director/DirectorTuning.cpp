@@ -1,4 +1,4 @@
-#include "viz/DirectorTuning.hpp"
+#include "viz/director/DirectorTuning.hpp"
 
 #include <algorithm>
 #include <cmath>

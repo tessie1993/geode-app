@@ -1,4 +1,4 @@
-// Host test of Auto's style at a director moment (viz/DirectorStyle): the owner's "make it morph and
+// Host test of Auto's style at a director moment (viz/director/DirectorStyle): the owner's "make it morph and
 // progress, but nothing hardcoded". A returning section brings back a style of its own family stepped on by
 // its returns; a new section steps to the next style along the catalogue; a drop that opens a new section
 // leaps to the next family; with Styles progress off a return brings back its own style and anything else
@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
-#include "viz/DirectorStyle.hpp"
+#include "viz/director/DirectorStyle.hpp"
 
 namespace catalogue = geode::viz::catalogue;
 namespace director = geode::viz::director;

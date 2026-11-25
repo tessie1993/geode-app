@@ -11,7 +11,7 @@
 #include "util/Log.hpp"
 #include "viz/gl/BuildReport.hpp"
 #include "viz/Catalogue.hpp"
-#include "viz/DirectorStyle.hpp"
+#include "viz/director/DirectorStyle.hpp"
 #include "viz/gl/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/Underlay.hpp"

@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "viz/AutoDraw.hpp"
+#include "viz/director/AutoDraw.hpp"
 
 // Visuals › Styles: what its Random draws and the order its lists show (owner, 2026-11-12: "at style selection
 // screen current playing must be on top listed. All style from all families are in random unless family only

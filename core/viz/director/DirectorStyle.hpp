@@ -1,7 +1,7 @@
 #pragma once
 #include <string_view>
 
-#include "viz/Director.hpp"
+#include "viz/director/Director.hpp"
 
 // Which style Auto steps to at a director moment (owner: "make it morph and progress"): never a random jump.
 // A returning section brings back a style of its own family, stepped on by its returns; a new section or a

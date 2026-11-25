@@ -7,7 +7,7 @@
 #include "sound/Emotion.hpp"
 #include "sound/SoundFrame.h"
 #include "viz/CameraRig.hpp"
-#include "viz/DirectorTuning.hpp"
+#include "viz/director/DirectorTuning.hpp"
 #include "viz/params/Params.hpp"
 
 namespace geode::viz {
@@ -55,7 +55,7 @@ namespace geode::viz {
 //
 // At a style moment it also says which style should come next (styleIntent): a returning section's
 // style family stepped on by its returns, or the next style along the catalogue, never a random jump.
-// Auto's pick (viz/DirectorStyle) reads it when the shell takes the moment, and the switch morphs through
+// Auto's pick (viz/director/DirectorStyle) reads it when the shell takes the moment, and the switch morphs through
 // Auto's own transition.
 //
 // The seed is set per play (setGlobal), so a replay is new and an export that uses the play's seed is
@@ -91,7 +91,7 @@ DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long 
 // a taste with and get none. A pure function, so it is host-tested (resolver_test).
 float liveAmount(bool switchOn, bool entitled, long long positionMs, bool playerPlaying);
 
-// What a style moment asks of Auto's pick (viz/DirectorStyle).
+// What a style moment asks of Auto's pick (viz/director/DirectorStyle).
 struct StyleIntent {
     enum class Kind {
         None,      // no moment yet: Auto draws as it always has

@@ -83,7 +83,7 @@ feedback_motion_test | stub | core/tests/feedback_motion_test.cpp core/viz/param
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |
 # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
 resolver_test | stub | core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp \
-    core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp core/viz/DirectorReach.cpp \
+    core/sound/*.cpp core/viz/director/Director.cpp core/viz/director/DirectorTuning.cpp core/viz/director/DirectorReach.cpp \
     core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp core/viz/modulation/Lfo.cpp \
     core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp core/viz/modulation/ModTargets.cpp \
     core/viz/modulation/MotionField.cpp core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
@@ -91,8 +91,8 @@ resolver_test | stub | core/tests/resolver_test.cpp core/signal/Resolver.cpp cor
 # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
 # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
 director_reach_test | stub | core/tests/director_reach_test.cpp core/signal/Resolver.cpp \
-    core/signal/EngineSettings.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
-    core/viz/DirectorReach.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp \
+    core/signal/EngineSettings.cpp core/sound/*.cpp core/viz/director/Director.cpp core/viz/director/DirectorTuning.cpp \
+    core/viz/director/DirectorReach.cpp core/viz/panel/CustomizeMap.cpp core/viz/panel/ParamRandomizer.cpp core/viz/modulation/NoteResponse.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/Adsr.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp core/viz/modulation/MacroBank.cpp \
     core/viz/modulation/ModTargets.cpp core/viz/modulation/MotionField.cpp core/viz/CameraRig.cpp core/viz/modulation/VisualSafety.cpp \
     core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp |
@@ -109,7 +109,7 @@ musical_test | core | core/tests/musical_test.cpp core/sound/*.cpp |
 # The meter: 3/4 and 4/4 accents at 93 and 141 BPM each read as themselves; a backbeat and an even pulse never become 3.
 meter_test | core | core/tests/meter_test.cpp core/sound/*.cpp |
 # The auto-director: the emotion table, the live feeling and the director's decisions.
-director_test | stub | core/tests/director_test.cpp core/sound/*.cpp core/viz/Director.cpp core/viz/DirectorTuning.cpp \
+director_test | stub | core/tests/director_test.cpp core/sound/*.cpp core/viz/director/Director.cpp core/viz/director/DirectorTuning.cpp \
     core/viz/modulation/Reactions.cpp core/viz/modulation/Lfo.cpp core/viz/CameraRig.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/VisualSafety.cpp |
 # Note & key reactions: knobs by meaning, the drum weight, no param written, off = today.
@@ -203,7 +203,7 @@ layer_blend_test | stub | core/tests/layer_blend_test.cpp core/viz/modulation/Vi
 layer_pick_test | core | core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp core/viz/LayerState.cpp \
     core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp |
 # Auto Director's style at its moments: a return's own family stepped on, the next along the catalogue, a drop's leap, stay; never random.
-director_style_test | stub | core/tests/director_style_test.cpp core/viz/DirectorStyle.cpp core/viz/Catalogue.cpp \
+director_style_test | stub | core/tests/director_style_test.cpp core/viz/director/DirectorStyle.cpp core/viz/Catalogue.cpp \
     core/viz/scenes/StyleCatalog.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp |
 # Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
 sound_source_test | stub | core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |

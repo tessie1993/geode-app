@@ -43,26 +43,26 @@ GEODE_API void        geode_viz_set_touch_smear(geode_viz*, int on, float streng
 GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
 /* Section changes and drops the auto-director committed a look at since the last call; handed out once. */
 GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
-/* The auto-director (core/viz/Director): the music's feeling deciding behaviour (its axes, camera moves,
+/* The auto-director (core/viz/director/Director): the music's feeling deciding behaviour (its axes, camera moves,
  * motion dials) over every style; never a colour, never a route. on is the user's switch as set (1/0), which
  * an export directs by (geode_viz_pin_engine_settings);
  * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
  * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
  * makes the same film. */
 GEODE_API void        geode_director_set(int on, float amount, long long seed);
-/* What live surfaces drive with (core/viz/Director, director::liveAmount): 0 or 1 from the user's switch (on),
+/* What live surfaces drive with (core/viz/director/Director, director::liveAmount): 0 or 1 from the user's switch (on),
  * the entitlement (entitled: Pro or the trial, 1/0), the song's position and whether the app's own player is
  * playing. Free gets the first minute of a song while the player plays; the mic and other apps' audio get none.
  * Pass the result to geode_director_set. */
 GEODE_API float       geode_director_live_amount(int on, int entitled, long long position_ms, int playing);
-/* The director's reach past its look (core/viz/DirectorReach), process-wide like geode_director_set and pinned
+/* The director's reach past its look (core/viz/director/DirectorReach), process-wide like geode_director_set and pinned
  * with it by an export. level: 0 the look alone, 1 + it shuffles Customize categories at a new section or a
  * drop, 2 + its own slow modulators on sliders; anything else is 0. Nothing happens while the director is off. */
 GEODE_API void        geode_director_reach_set(int level);
 /* Customize's keep set, which the reach never moves: one control key or "#CATEGORY" per line (the lock set
  * geode_params_randomize takes). Null or "" keeps nothing. */
 GEODE_API void        geode_director_keep_set(const char* keys);
-/* The Auto Director's settings (core/viz/DirectorTuning): every number it tunes itself by, as a table native
+/* The Auto Director's settings (core/viz/director/DirectorTuning): every number it tunes itself by, as a table native
  * lists. The shell stores the text native gives it and draws the rows as given. set: process-wide like
  * geode_director_set and pinned with it by an export (null or "" is every default). count: the rows; label,
  * help: row i's, static ("" outside the table); range: writes min, max, step (0 continuous) and 1 for a
@@ -77,7 +77,7 @@ GEODE_API int         geode_director_tuning_range(int index, float* out4);
 GEODE_API float       geode_director_tuning_value(const char* text, int index);
 GEODE_API const char* geode_director_tuning_value_text(const char* text, int index);
 GEODE_API const char* geode_director_tuning_with(const char* text, int index, float value);
-/* Auto's pick at a director moment or a timer tick (core/viz/DirectorStyle, core/viz/AutoDraw): ids is the
+/* Auto's pick at a director moment or a timer tick (core/viz/director/DirectorStyle, core/viz/director/AutoDraw): ids is the
  * shell's pool, one style id a line in its order (a saved look by its style's id);
  * on_screen the entry showing (-1 none). With director_moment, the style the moment's director asks for: a
  * returning section's family stepped on by its returns, else the next style along the catalogue; -1 to
@@ -1538,7 +1538,7 @@ GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
 GEODE_API int             geode_surface_zoom_covers(float zoom);
 GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
 
-/* Auto's style timer (core/viz/AutoTimer), one per source, process-wide: the wait before the next look is the
+/* Auto's style timer (core/viz/director/AutoTimer), one per source, process-wide: the wait before the next look is the
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the
  * interval. now_ms is the shell's monotonic clock. restart: a look just went up. due: 1 once the wait is over
  * (it restarts itself); running = 0 (off, paused, nothing to step to) is never due. hold_s: how long the look
@@ -1548,12 +1548,12 @@ GEODE_API int             geode_surface_proximity_near(float distance_cm, float 
 GEODE_API void            geode_auto_timer_restart(int timer, long long now_ms);
 GEODE_API int             geode_auto_timer_due(int timer, long long now_ms, int interval_s, int running);
 GEODE_API double          geode_auto_timer_hold_s(void);
-/* Auto is about to bring `key` on (a style id): the renderer that switches to it within a few seconds plays Auto's longer fade (core/viz/TransitionChoice). */
+/* Auto is about to bring `key` on (a style id): the renderer that switches to it within a few seconds plays Auto's longer fade (core/viz/director/TransitionChoice). */
 GEODE_API void            geode_auto_mark_change(const char* key);
-/* Auto's random draw (core/viz/AutoDraw): an index in 0..count-1 into the shell's pool of styles and saved looks,
+/* Auto's random draw (core/viz/director/AutoDraw): an index in 0..count-1 into the shell's pool of styles and saved looks,
  * never on_screen (the entry on screen, -1 for none) while count > 1. -1 for an empty pool. */
 GEODE_API int             geode_auto_pick(int count, int on_screen);
-/* Auto visuals' decisions (core/viz/AutoPlan), process-wide over the two timers above. now_ms as above; playing 0
+/* Auto visuals' decisions (core/viz/director/AutoPlan), process-wide over the two timers above. now_ms as above; playing 0
  * (nothing plays) and Customize open (editing_set 1) hold every change.
  * interval_s: a timer interval held to its range. editing_set: Customize opened (1) or closed (0, both waits start
  * over). hand_pick: a style or a look picked by hand (both waits start over). playlist_tick: the playlist

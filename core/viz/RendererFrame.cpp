@@ -20,7 +20,7 @@
 #include "viz/panel/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
 #include "viz/gl/SceneTarget.hpp"
-#include "viz/TransitionChoice.hpp"
+#include "viz/director/TransitionChoice.hpp"
 
 namespace geode::viz {
 

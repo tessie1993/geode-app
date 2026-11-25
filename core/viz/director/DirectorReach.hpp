@@ -8,7 +8,7 @@
 #include <string_view>
 
 #include "sound/SoundFrame.h"
-#include "viz/Director.hpp"
+#include "viz/director/Director.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/modulation/Reactions.hpp"

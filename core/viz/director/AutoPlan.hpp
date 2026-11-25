@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "viz/AutoTimer.hpp"
+#include "viz/director/AutoTimer.hpp"
 
 // Auto visuals' decisions (geode_auto_*): when the playlist steps and to which entry, when the timed draw is
 // due, whether a director moment is the user's (they changed the look since Auto's last change) or Auto's,

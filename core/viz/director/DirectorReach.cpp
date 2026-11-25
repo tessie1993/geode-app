@@ -1,4 +1,4 @@
-#include "viz/DirectorReach.hpp"
+#include "viz/director/DirectorReach.hpp"
 
 #include <algorithm>
 #include <atomic>

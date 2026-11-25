@@ -26,7 +26,7 @@
 #include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
-#include "viz/Director.hpp"
+#include "viz/director/Director.hpp"
 #include "viz/DivePass.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
@@ -173,7 +173,7 @@ public:
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     // How many times the director committed a look at a new section or a drop since the last take.
     // The shell's Auto changes style on each (one Auto mode: the director picks the moments). Taking them
-    // publishes the director's style intent for Auto's pick (viz/DirectorStyle), so the renderer whose
+    // publishes the director's style intent for Auto's pick (viz/director/DirectorStyle), so the renderer whose
     // moments the shell takes is the one whose director names the next style. Any thread.
     int takeDirectorStyleMoments();
     // Whether a take would find any, without taking: the live frame's event (geode_viz_frame).
@@ -625,7 +625,7 @@ private:
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);
     std::string frameTransitionId_ = kFirstTransitionId;
     int64_t frameTransitionDurationMs_ = kFirstTransitionMs;
-    // The transition in flight, fixed when its switch happens (core/viz/TransitionChoice): the id "random"
+    // The transition in flight, fixed when its switch happens (core/viz/director/TransitionChoice): the id "random"
     // draws one per change, warmed ahead as nextRandomTransition_, and an automatic change fades longer.
     std::string switchTransitionId_ = kFirstTransitionId;
     int64_t switchTransitionMs_ = kFirstTransitionMs;

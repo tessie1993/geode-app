@@ -1,4 +1,4 @@
-#include "viz/DirectorStyle.hpp"
+#include "viz/director/DirectorStyle.hpp"
 
 #include <algorithm>
 #include <cstdint>

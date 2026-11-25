@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-#include "viz/TransitionChoice.hpp"
+#include "viz/director/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
 
 using namespace geode::viz;

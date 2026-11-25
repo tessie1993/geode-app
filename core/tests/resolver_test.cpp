@@ -30,7 +30,7 @@
 #include "signal/Resolver.hpp"
 #include "sound/Harmony.hpp"
 #include "viz/panel/CustomizeMap.hpp"
-#include "viz/Director.hpp"
+#include "viz/director/Director.hpp"
 #include "viz/modulation/MacroBank.hpp"
 #include "viz/modulation/MotionField.hpp"
 #include "viz/modulation/NoteResponse.hpp"

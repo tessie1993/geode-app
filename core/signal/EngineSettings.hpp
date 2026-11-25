@@ -4,8 +4,8 @@
 #include <mutex>
 #include <optional>
 
-#include "viz/Director.hpp"
-#include "viz/DirectorReach.hpp"
+#include "viz/director/Director.hpp"
+#include "viz/director/DirectorReach.hpp"
 #include "viz/modulation/MacroBank.hpp"
 #include "viz/colour/Palette.hpp"
 
@@ -19,7 +19,7 @@ struct EngineSettings {
     // not the knobs. Null moves nothing.
     std::shared_ptr<const viz::macrobank::Bank> bank;
     viz::DirectorConfig director{};   // the auto-director's amount and play seed
-    // The Auto Director's settings (viz/DirectorTuning), shared and never edited in place. Null directs by
+    // The Auto Director's settings (viz/director/DirectorTuning), shared and never edited in place. Null directs by
     // the defaults.
     std::shared_ptr<const viz::director::Tuning> directorTuning;
     viz::director::Reach reach = viz::director::Reach::Look;  // how far the director reaches past its look

@@ -82,12 +82,15 @@ internal fun MacrosTab(
     store: MacroStore,
     sceneId: String,
     lock: ProLock,
+    strip: Boolean = false,
 ) {
     var editing by rememberSaveable { mutableIntStateOf(NO_KNOB) }
     val editAllowed = lock.allows(EDITOR_KEY)
     val settings: SettingsViewModel = geodeViewModel()
     val general by settings.general.collectAsStateWithLifecycle()
-    val dial = dialOf(general.knobSize)
+    // In the Adjust strip the knobs are four to a row at the touch-target size, whatever the size setting:
+    // the strip is one row high, and Add macro stays in the full list.
+    val dial = if (strip) STRIP_DIAL else dialOf(general.knobSize)
     val editor = remember(state, sceneId) { store.editor(sceneId) }
     val draftId = state.draft?.id
     // The knobs' live modulation, polled while they are on screen; under reduced motion read once, for the still range.
@@ -123,7 +126,7 @@ internal fun MacrosTab(
                 repeat(dial.perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        AddMacroButton(state, editor, store, sceneId, allowed = editAllowed, onLocked = lock.onLocked)
+        if (!strip) AddMacroButton(state, editor, store, sceneId, allowed = editAllowed, onLocked = lock.onLocked)
     }
     if (editing != NO_KNOB) KnobEditorDialog(editing, state, store, sceneId) { editing = NO_KNOB }
 }
@@ -140,6 +143,9 @@ private class Dial(
     val stroke: Dp,
     val perRow: Int,
 )
+
+/** The Adjust strip's dial: 48 dp, four to a row. A getter: the sizes it reads are declared further down the file. */
+private val STRIP_DIAL: Dial get() = Dial(KNOB_SIZE * STRIP_SCALE, KNOB_STROKE * STRIP_SCALE, KNOBS_PER_ROW_SMALL)
 
 private fun dialOf(size: KnobSize): Dial =
     when (size) {
@@ -315,6 +321,7 @@ private const val KNOBS_PER_ROW = 2
 private const val KNOBS_PER_ROW_MEDIUM = 3
 private const val KNOBS_PER_ROW_SMALL = 4
 private const val MEDIUM_SCALE = 0.75f
+private const val STRIP_SCALE = 2f / 3f
 private val KNOB_SIZE = 72.dp
 private val KNOB_STROKE = 6.dp
 private val KNOB_DRAG_PER_UNIT = 110.dp

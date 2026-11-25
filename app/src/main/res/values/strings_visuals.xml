@@ -12,4 +12,10 @@
     <string name="visuals_panel_narrower">Make the options narrower</string>
 
     <string name="stage_style_failed">This style did not load</string>
+    <string name="adjust_more">More</string>
+    <string name="adjust_done">Done</string>
+    <string name="adjust_all_settings">All settings</string>
+    <string name="adjust_back_to_knobs">Back to the quick knobs</string>
+    <string name="adjust_page_of">%1$d of %2$d</string>
+    <string name="adjust_open_in_list">Open %1$s in all settings</string>
 </resources>

@@ -10,8 +10,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -20,12 +23,15 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -51,6 +57,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -176,7 +184,12 @@ private fun VisualsHubContent(
             nav.showSheet()
         }
     }
-    val customizing = !pip && nav.sheetShown && nav.top == VisualsPage.CUSTOMIZE
+    // Customize as a low strip over the visual (AdjustStrip.kt): a drop-in like the Macros drawer.
+    var adjust by rememberSaveable { mutableStateOf(false) }
+    val adjusting = adjust && !pip
+    // A PiP window shows the visual alone; the strip does not come back when it ends.
+    LaunchedEffect(pip) { if (pip) adjust = false }
+    val customizing = adjusting || (!pip && nav.sheetShown && nav.top == VisualsPage.CUSTOMIZE)
     DisposableEffect(customizing) {
         viewModel.setCustomizing(customizing)
         onDispose { viewModel.setCustomizing(false) }
@@ -212,7 +225,7 @@ private fun VisualsHubContent(
     var macros by rememberSaveable { mutableStateOf(false) }
     // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
     // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.
-    val dropInOpen = macros
+    val dropInOpen = macros || adjusting
     val fadeSpec = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val optionsFade = animateFloatAsState(if (dropInOpen) 0f else 1f, fadeSpec, label = "dropIn")
     val actions =
@@ -294,6 +307,19 @@ private fun VisualsHubContent(
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)
         }
         val reservePx = with(density) { (bottomReserve + dockGap + dockedHeight).toPx() }
+        // With the options hidden the docked player carries the three tasks as buttons (VisualsTaskRow).
+        val taskRow = docked != null && !pip && !nav.sheetShown
+        val taskRowPx = with(density) { if (taskRow) TASK_ROW_HEIGHT.toPx() else 0f }
+        // The Adjust strip's drawn height, and how much of the visual's bottom is under glass: the
+        // strip while it is up, else the sheet with what stands under it (nothing beside the panel).
+        var stripPx by remember { mutableIntStateOf(0) }
+        val coveredPx = {
+            when {
+                adjusting -> stripPx.toFloat()
+                side -> 0f
+                else -> heightPx.value + reservePx + taskRowPx
+            }
+        }
         // The docked player stays while the options are up and holds the tab bar with it
         // (ShellChromeState.docked); with the options hidden it is a pill that sleeps with the
         // chrome, on the same fade as the tab bar under it.
@@ -314,12 +340,12 @@ private fun VisualsHubContent(
         val insetPx = with(density) { GeodeSpacing.EdgeInset.toPx() }
         val topInsetPx = WindowInsets.safeDrawing.getTop(density).toFloat()
         // Which stage icons the sheet or the panel leaves room for; flips only when one changes.
-        val iconRoom by remember(side, fullWidthPx, fullPx, reservePx, topInsetPx, density) {
+        val iconRoom by remember(side, fullWidthPx, fullPx, reservePx, taskRowPx, adjusting, topInsetPx, density) {
             derivedStateOf {
                 stageIconRoom(
                     stageWidthPx = fullWidthPx,
                     stageHeightPx = fullPx,
-                    sheetPx = if (side) 0f else heightPx.value + reservePx,
+                    sheetPx = coveredPx(),
                     panelPx = if (panelPx.value > 0f) panelPx.value + insetPx else 0f,
                     topInsetPx = topInsetPx,
                     iconPx = with(density) { GeodeSpacing.TouchTarget.toPx() },
@@ -334,7 +360,7 @@ private fun VisualsHubContent(
             actions = actions,
             recording = record.recording,
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
-            tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
+            tapSplitPx = { (fullPx - coveredPx()) / 2f },
             onTapDown = tapAlong,
             onPinch = viewModel::nudgeTransform.takeIf { visualsSettings.touchTransform },
             styleStepLabels = styleStepLabels,
@@ -364,7 +390,7 @@ private fun VisualsHubContent(
                 room = iconRoom,
                 showArrows = general.stageArrows,
                 showRecord = general.stageRecord,
-                sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
+                sheetTopPx = coveredPx,
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
                 onFullScreen = { actions.run(GestureAction.TOGGLE_SHEET, 0) },
@@ -394,10 +420,19 @@ private fun VisualsHubContent(
                 opacity = sheetOpacity,
                 visualizerView = visualizerView,
                 // Native blur under the glass while the options or the player's pill are up; off in PiP.
-                blurActive = (nav.sheetShown || playerOn) && !pip,
+                // Not under the Adjust strip: the options are faded out there, and the picture must stay sharp.
+                blurActive = (nav.sheetShown || playerOn) && !pip && !adjusting,
                 bottomBar =
                     if (docked != null && playerComposed) {
                         {
+                            if (taskRow) {
+                                VisualsTaskRow(
+                                    onStyles = { nav.openTab(VisualsPage.STYLES) },
+                                    onCustomize = { adjust = true },
+                                    onPresets = { nav.openTab(VisualsPage.PRESETS) },
+                                    modifier = Modifier.restartsSleepTimer(chrome),
+                                )
+                            }
                             docked(Modifier.restartsSleepTimer(chrome))
                             // The tab bar's place: the shell draws the bar over this glass.
                             Spacer(Modifier.height(barUnder))
@@ -494,8 +529,58 @@ private fun VisualsHubContent(
             },
             modifier = Modifier.fillMaxSize(),
         )
+        AdjustStrip(
+            visible = adjusting,
+            viewModel = viewModel,
+            visualizerView = visualizerView,
+            onDone = { adjust = false },
+            onOpenFull = {
+                adjust = false
+                nav.openTab(VisualsPage.CUSTOMIZE)
+            },
+            onHeight = { stripPx = it },
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
+
+/**
+ * The three things a person comes to the options for, as buttons over the docked mini player while
+ * the options are hidden: Styles and Presets open the options on their page, Customize opens the
+ * Adjust strip. WHY buttons: the options were only reachable by a second tap on the visual or a
+ * double tap, which nothing on screen said; a named button is found without being taught.
+ */
+@Composable
+private fun VisualsTaskRow(
+    onStyles: () -> Unit,
+    onCustomize: () -> Unit,
+    onPresets: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier.fillMaxWidth().heightIn(min = TASK_ROW_HEIGHT).padding(horizontal = GeodeSpacing.S),
+        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TaskButton(VisualsPage.STYLES, onStyles, Modifier.weight(1f))
+        TaskButton(VisualsPage.CUSTOMIZE, onCustomize, Modifier.weight(1f))
+        TaskButton(VisualsPage.PRESETS, onPresets, Modifier.weight(1f))
+    }
+}
+
+/** One task: a tonal button, so the three read as buttons and not as labels over the player. */
+@Composable
+private fun TaskButton(
+    page: VisualsPage,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FilledTonalButton(onClick = onClick, modifier = modifier, contentPadding = PaddingValues(horizontal = GeodeSpacing.S)) {
+        Text(stringResource(page.titleRes), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private val TASK_ROW_HEIGHT = 48.dp
 
 /**
  * How the sheet's pages replace one another, forward, back and through a predictive back gesture:

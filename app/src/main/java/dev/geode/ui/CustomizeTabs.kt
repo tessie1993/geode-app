@@ -228,29 +228,38 @@ private val lockableKeys: Set<String> by lazy {
  * values, not icons; the overflow is where Android users look for a row's actions.
  */
 @Composable
-private fun RowMenu(
+internal fun RowMenu(
     name: String,
     lockKey: String,
     onReset: (() -> Unit)?,
     about: String? = null,
+    anchor: (@Composable (onOpen: (() -> Unit)?) -> Unit)? = null,
 ) {
     val (kept, toggle) = LocalParamLocks.current
     // The engine says which controls a roll can move (core/viz/ParamRandomizer); only those can be kept.
     val lockable = lockKey in lockableKeys
     val reactTo = LocalReactTo.current
     val hasActions = lockable || onReset != null
-    if (!hasActions && reactTo == null && about == null) return
+    if (!hasActions && reactTo == null && about == null) {
+        // Nothing to offer: a caller's own anchor (the Adjust strip's name) is still drawn, without a menu.
+        anchor?.invoke(null)
+        return
+    }
     var open by remember { mutableStateOf(false) }
     var explaining by remember { mutableStateOf(false) }
     Box {
         // Material's own size: a 40 dp state layer inside a laid-out 48 dp target. A size()
         // modifier here clamped the layout to 40 dp, below the minimum touch target.
-        IconButton(onClick = { open = true }) {
-            Icon(
-                Icons.Filled.MoreVert,
-                contentDescription = stringResource(R.string.customize_a11y_more_for, name),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        if (anchor != null) {
+            anchor { open = true }
+        } else {
+            IconButton(onClick = { open = true }) {
+                Icon(
+                    Icons.Filled.MoreVert,
+                    contentDescription = stringResource(R.string.customize_a11y_more_for, name),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (about != null) {
@@ -306,7 +315,7 @@ internal fun AboutDialog(
 
 /** The small pin beside a name that Randomize leaves alone; the switch for it is in the row's ⋮. */
 @Composable
-private fun KeptMark(lockKey: String) {
+internal fun KeptMark(lockKey: String) {
     if (lockKey !in LocalParamLocks.current.first) return
     Icon(
         Icons.Filled.PushPin,

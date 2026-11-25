@@ -9,7 +9,7 @@ inputs:
     description: The commands to run once the emulator is up (each line on its own; a failing line ends it).
     required: true
   profile:
-    description: The hardware profile (avdmanager list device); empty keeps the runner's default.
+    description: The hardware profile (avdmanager list device); empty is avdmanager's default device.
     default: ""
 
 runs:

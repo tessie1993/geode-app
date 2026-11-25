@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/fields/FieldSet.hpp"
 #include "viz/styles/fluid/FluidMath.hpp"
 #include "viz/styles/fluid/FluidQuality.hpp"
 #include "viz/styles/shared/LiveSignal.hpp"

@@ -3,6 +3,8 @@
 #include <array>
 #include <cmath>
 
+#include "viz/fx/Envelope.hpp"
+
 // Fields: up to eight force points that pull, push or swirl whatever is near them, for as long as they live.
 // This is the state and the maths; three things read it: Drift Things (ThingPool::step), the fluid (catch points
 // and splats, FluidSceneBase / Emitters) and FieldPass (viz/passes), which bends the whole picture. Pure and
@@ -27,13 +29,15 @@ namespace geode::viz::fields {
 inline constexpr int kMaxFields = 8;
 // Floats a Field takes in the packed uniform array: two vec4.
 inline constexpr int kFloatsPerField = 8;
-inline constexpr float kSoftening = 0.05f;  // frame heights; keeps the force finite up close
+using fx::kSoftening;  // frame heights; keeps the force finite up close (shared with Things)
 inline constexpr float kMaxStrength = 2.0f;
 // The most the summed force of every Field gives at one point, uv per second squared. The same as the most
 // gravity gives a Thing (things::kMaxAccel), so a Field alone can use all of it.
 inline constexpr float kMaxForce = 2.0f;
 inline constexpr float kMinRadius = 0.02f;
 inline constexpr float kMaxRadius = 2.0f;
+// The longest a Field may live; a longer ask is cut to it.
+inline constexpr float kMaxLifeSeconds = 60.0f;
 
 enum class Kind : int { Attract = 0, Repel = 1, Swirl = 2 };
 
@@ -71,19 +75,12 @@ struct View {
 };
 
 // How much of its strength a Field has at `age`, fading in over `attack` and out over `release` before `end`.
-inline float envelope(double age, double end, float attack, float release) {
-    if (!(age >= 0.0) || age >= end) return 0.0f;
-    float in = 1.0f;
-    float out = 1.0f;
-    if (attack > 0.0f) in = static_cast<float>(std::min(1.0, age / static_cast<double>(attack)));
-    if (release > 0.0f) out = static_cast<float>(std::min(1.0, (end - age) / static_cast<double>(release)));
-    const float k = std::min(in, out);
-    return k * k * (3.0f - 2.0f * k);
-}
+using fx::envelope;
 
 class FieldSet {
 public:
     // Starts a Field and returns its slot, or -1 when the request is unusable. Every slot taken: the oldest is reused.
+    // A life over kMaxLifeSeconds is cut to it.
     int spawn(const Spawn& in) {
         if (!usable(in)) return -1;
         int slot = -1;
@@ -109,12 +106,14 @@ public:
         q.strength = in.kind == Kind::Swirl ? std::clamp(in.strength, -kMaxStrength, kMaxStrength)
                                             : std::clamp(in.strength, 0.0f, kMaxStrength);
         q.radius = std::clamp(in.radius, kMinRadius, kMaxRadius);
-        q.attack_s = std::clamp(in.attack_s, 0.0f, in.life_s);
-        q.release_s = std::clamp(in.release_s, 0.0f, in.life_s);
+        q.life_s = std::min(in.life_s, kMaxLifeSeconds);
+        q.attack_s = std::clamp(in.attack_s, 0.0f, q.life_s);
+        q.release_s = std::clamp(in.release_s, 0.0f, q.life_s);
         q.vx = std::clamp(in.vx, -4.0f, 4.0f);
         q.vy = std::clamp(in.vy, -4.0f, 4.0f);
         s.x = static_cast<double>(q.x);
         s.y = static_cast<double>(q.y);
+        ++revision_;
         return slot;
     }
 
@@ -171,7 +170,13 @@ public:
         return out;
     }
 
-    void clear() { slots_ = {}; }
+    void clear() {
+        slots_ = {};
+        ++revision_;
+    }
+    // Counts the calls that changed what pack() would return (a spawn, a clear), so a frame that is held while
+    // the clock is stopped can see it owes a redraw.
+    unsigned revision() const { return revision_; }
 
     int count() const {
         int n = 0;
@@ -234,6 +239,7 @@ private:
     }
 
     std::array<Slot, kMaxFields> slots_{};
+    unsigned revision_ = 0;
 };
 
 }  // namespace geode::viz::fields

@@ -25,7 +25,9 @@ float sdfShape(int shape, vec2 p, float r, float seed) {
         vec2 q = abs(p) / r;
         return (q.x * 1.6 + q.y * 0.8 - 1.0) * r * 0.56;
     }
-    float a = atan(p.y, p.x);
+    // Not at the centre, where atan(0, 0) is undefined.
+    vec2 q = length(p) > 1e-6 ? p : vec2(1e-6, 0.0);
+    float a = atan(q.y, q.x);
     float wob = 0.16 * sin(3.0 * a + seed) + 0.08 * sin(5.0 * a - 2.0 * seed);
     return (length(p) - r * (1.0 + wob)) * 0.8;
 }

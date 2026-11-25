@@ -277,6 +277,24 @@ void idleAsksForNoPass() {
     check(none.x == 0.0f && none.y == 0.0f, "an idle set pushes nothing");
 }
 
+void lifeIsCappedAndCallsAreCounted() {
+    FieldSet f;
+    check(f.revision() == 0, "a new set has had no calls");
+    const int slot = f.spawn(field(Kind::Swirl, 1.0f, 1.0e6f));
+    f.step(kMaxLifeSeconds + 1.0f);
+    check(slot == 0 && !f.alive(slot), "a long life is cut to the longest");
+    check(f.revision() == 1, "a spawn is counted");
+    f.spawn(field(Kind::Attract, NAN));
+    check(f.revision() == 1, "a refused spawn is not");
+    f.clear();
+    check(f.revision() == 2, "a clear is");
+}
+
+void thingsAndFieldsShareOneEnvelope() {
+    check(envelope(0.3, 2.0, 0.5f, 0.5f) == th::envelope(0.3, 2.0, 0.5f, 0.5f), "one fade for both");
+    check(kSoftening == th::kSoftening, "and one softening");
+}
+
 }  // namespace
 
 int main() {
@@ -292,6 +310,8 @@ int main() {
     pullsAThingTheSameAtAnyFrameRate();
     packsAndCompacts();
     idleAsksForNoPass();
+    lifeIsCappedAndCallsAreCounted();
+    thingsAndFieldsShareOneEnvelope();
     if (failures == 0) std::printf("fields_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

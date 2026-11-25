@@ -26,15 +26,19 @@ public:
     // The context is gone: drops the program and target without a GL call.
     void forget();
     void releaseTarget() { target_.release(); }
+    // Once a frame with no Field alive, on the wall step: frees the target once `idleSeconds` pass unused.
+    void releaseIdle(float wallDt, float idleSeconds);
 
     // Draws `sceneTex` bent by the Fields into the pass's own target, and returns false when it cannot. On true,
-    // the caller trades its scene target for target() (Framebuffer::swap), so everything after reads the result.
+    // target().tex() is the bent picture, for everything after to read; `sceneTex` itself is left as it was.
     bool run(GLuint sceneTex, int width, int height, float aspect, const fields::Packed& packed, GLuint quadVao);
     Framebuffer& target() { return target_; }
 
 private:
     OwnedProgram uniforms_;
     Framebuffer target_{"fields"};
+    // Wall seconds since the pass last drew (releaseIdle).
+    float idleSeconds_ = 0.0f;
 };
 
 }  // namespace geode::viz

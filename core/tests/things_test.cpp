@@ -339,6 +339,99 @@ void burstMakesARing() {
     check(p.events().count == 0, "a burst's own Things are not born touching");
 }
 
+// Six parents that die in the same step each leave children, the rest follow on the next steps, and the same
+// number are made at any frame rate.
+void parentsDyingTogetherShareTheChainBudget() {
+    ThingPool p;
+    Spawn s = drifter(0.0f, 0.5f, 0.0f, 0.0f, 0.5f);
+    s.chain = 1;
+    s.chainCount = 3;
+    for (int i = 0; i < 6; ++i) {
+        s.x = 0.1f + 0.15f * static_cast<float>(i);
+        p.spawn(s);
+    }
+    p.step(0.6f);
+    check(p.count() == kMaxChainPerStep, "one step's children are capped");
+    for (int i = 0; i < 6; ++i) {
+        const float px = 0.1f + 0.15f * static_cast<float>(i);
+        bool has = false;
+        for (int k = 0; k < kMaxThings; ++k) has = has || (p.alive(k) && std::fabs(p.view(k).x - px) < 0.05f);
+        check(has, "each of six parents dying together has a child in the first step");
+    }
+    for (int i = 0; i < 3; ++i) p.step(0.01f);
+    check(p.count() == 18, "the children not yet made are owed to the next steps, none lost");
+    const int rates[] = {30, 60, 144};
+    for (const int fps : rates) {
+        ThingPool q;
+        for (int i = 0; i < 6; ++i) {
+            s.x = 0.1f + 0.15f * static_cast<float>(i);
+            q.spawn(s);
+        }
+        stepFor(q, 0.7f, fps);
+        check(q.count() == 18, "the same children come at " + std::to_string(fps) + " fps");
+    }
+}
+
+void bounceInAPortraitFrame() {
+    ThingPool p;
+    p.setAspect(0.46f);
+    Spawn big = drifter(0.5f, 0.5f, 0.3f, 0.1f, 10.0f);
+    big.size = 0.4f;
+    big.behaviour = Drift | Bounce;
+    p.spawn(big);
+    for (int i = 0; i < 120; ++i) {
+        p.step(1.0f / 60.0f);
+        const View v = p.view(0);
+        check(std::isfinite(v.x) && std::isfinite(v.y) && v.x >= 0.0f && v.x <= 1.0f && v.y >= 0.0f && v.y <= 1.0f,
+              "a Thing wider than half the frame stays on it");
+    }
+    ThingPool q;
+    q.setAspect(0.46f);
+    Spawn small = drifter(0.7f, 0.5f, 0.5f, 0.0f, 10.0f);
+    small.size = 0.05f;
+    small.behaviour = Drift | Bounce;
+    q.spawn(small);
+    float most = 0.0f;
+    for (int i = 0; i < 60; ++i) {
+        q.step(1.0f / 60.0f);
+        most = std::fmax(most, q.view(0).x);
+    }
+    check(most <= 1.0f - 0.05f / 0.46f + 0.01f && q.view(0).vx < 0.0f, "a small one turns back at its own width from the edge");
+}
+
+void aThingWithoutStrengthDoesNotCollide() {
+    ThingPool p;
+    Spawn a = drifter(0.5f, 0.5f, 0.0f, 0.0f, 3.0f);
+    a.attack_s = 0.5f;
+    p.spawn(a);
+    p.spawn(a);
+    p.step(1.0f / 240.0f);
+    check(p.events().count == 0, "two Things not yet faded in do not touch");
+    p.step(1.0f / 60.0f);
+    check(p.events().count == 1, "they do once they have some strength");
+}
+
+void meltShorterThanTheReleaseDoesNotPop() {
+    ThingPool p;
+    Spawn s = drifter(0.5f, 0.5f, 0.0f, 0.0f, 5.0f);
+    s.attack_s = 0.0f;
+    s.release_s = 0.3f;
+    const int slot = p.spawn(s);
+    stepFor(p, 1.0f, 60);
+    check(near(p.pack().data[8], 1.0f), "full strength before the melt");
+    check(p.melt(slot, 0.1f), "a melt starts");
+    check(p.pack().data[8] > 0.99f, "a melt shorter than the release does not make it jump");
+    stepFor(p, 0.05f, 60);
+    check(p.pack().data[8] < 0.99f, "it fades over the melt");
+}
+
+void lifeIsCapped() {
+    ThingPool p;
+    const int slot = p.spawn(drifter(0.5f, 0.5f, 0.0f, 0.0f, 1.0e6f));
+    check(slot >= 0 && p.remaining(slot) <= kMaxLifeSeconds + 1e-3f, "a long life is cut to the longest");
+    check(p.revision() == 1, "a spawn is counted");
+}
+
 }  // namespace
 
 int main() {
@@ -356,6 +449,11 @@ int main() {
     packsAndCompacts();
     idleAsksForNoPass();
     burstMakesARing();
+    parentsDyingTogetherShareTheChainBudget();
+    bounceInAPortraitFrame();
+    aThingWithoutStrengthDoesNotCollide();
+    meltShorterThanTheReleaseDoesNotPop();
+    lifeIsCapped();
     if (failures == 0) std::printf("things_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

@@ -9,10 +9,13 @@
 
 #include "api/geode_api.h"
 #include "viz/CameraRig.hpp"
-#include "viz/fields/FieldSet.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/styles/shared/ShapeGraph.hpp"
 #include "viz/input/TouchField.hpp"
+
+namespace geode::viz::fields {
+class FieldSet;
+}
 
 namespace geode::viz {
 

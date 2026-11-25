@@ -23,7 +23,6 @@ void check(bool ok, const char* what) {
     }
 }
 
-bool near(double a, double b, double eps) { return std::fabs(a - b) <= eps; }
 
 // Kills: `std::isfinite` -> `!std::isnan` on either cap, and a negative surface cap taken as a cap.
 void aCapThatIsNotANumberIsNoCap() {

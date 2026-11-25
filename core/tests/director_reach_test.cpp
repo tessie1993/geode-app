@@ -1,4 +1,4 @@
-// Host test of the director's reach (viz/DirectorReach): the shuffle and the modulators it adds over the
+// Host test of the director's reach (viz/director/DirectorReach): the shuffle and the modulators it adds over the
 // user's params when Auto's reach asks. Behaviour, by the rules the owner set: the same play gives the
 // same picture; kept controls and categories, the style's scope and the schema ranges hold; nothing jumps,
 // at 30, 60 and 120 fps alike; a modulator is an offset (the base moved by d moves the result by d); Look
@@ -14,12 +14,12 @@
 #include <string>
 #include <vector>
 
-#include "signal/Resolver.hpp"
-#include "viz/CustomizeMap.hpp"
-#include "viz/DirectorReach.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/ParamRandomizer.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/resolver/Resolver.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/director/DirectorReach.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/panel/ParamRandomizer.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 using geode::signal::EngineSettings;
 using geode::signal::Resolver;

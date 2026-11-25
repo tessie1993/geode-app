@@ -16,53 +16,53 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "signal/Resolver.hpp"
+#include "viz/resolver/Resolver.hpp"
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "sound/hop/SharedAnalysis.hpp"
 #include "sound/interp/FrameBlend.hpp"
 #include "sound/interp/Hits.hpp"
 #include "sound/interp/Waveform.hpp"
-#include "viz/Adsr.hpp"
+#include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
-#include "viz/CompositePass.hpp"
-#include "viz/Director.hpp"
-#include "viz/DivePass.hpp"
-#include "viz/EndlessZoom.hpp"
-#include "viz/Framebuffer.hpp"
-#include "viz/GlHandle.hpp"
-#include "viz/GlProfile.hpp"
+#include "viz/passes/CompositePass.hpp"
+#include "viz/director/Director.hpp"
+#include "viz/passes/DivePass.hpp"
+#include "viz/passes/EndlessZoom.hpp"
+#include "viz/gl/Framebuffer.hpp"
+#include "viz/gl/GlHandle.hpp"
+#include "viz/gl/GlProfile.hpp"
 #include "viz/LayerPick.hpp"
 #include "viz/LayerState.hpp"
-#include "viz/LookSnapshot.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/NoteResponse.hpp"
-#include "viz/Overlays.hpp"
-#include "viz/Params.hpp"
+#include "viz/looks/LookSnapshot.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/NoteResponse.hpp"
+#include "viz/passes/Overlays.hpp"
+#include "viz/params/Params.hpp"
 #include "viz/PcmHandoff.hpp"
-#include "viz/ProgramBinaryCache.hpp"
-#include "viz/ProgramStager.hpp"
-#include "viz/Reactions.hpp"
-#include "viz/Scene.hpp"
-#include "viz/ScenePrep.hpp"
-#include "viz/SceneRegistry.hpp"
+#include "viz/gl/ProgramBinaryCache.hpp"
+#include "viz/gl/ProgramStager.hpp"
+#include "viz/modulation/Reactions.hpp"
+#include "viz/styles/shared/Scene.hpp"
+#include "viz/gl/ScenePrep.hpp"
+#include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
-#include "viz/StyleSchedule.hpp"
-#include "viz/ShaderSource.hpp"
-#include "viz/ShapeGraph.hpp"
-#include "viz/TouchField.hpp"
-#include "viz/TouchSmear.hpp"
-#include "viz/TrailPass.hpp"
+#include "viz/styles/catalogue/StyleSchedule.hpp"
+#include "viz/glsl/ShaderSource.hpp"
+#include "viz/styles/shared/ShapeGraph.hpp"
+#include "viz/input/TouchField.hpp"
+#include "viz/input/TouchSmear.hpp"
+#include "viz/passes/TrailPass.hpp"
 #include "viz/frame/FrameGovernor.hpp"
 #include "viz/frame/LiveFps.hpp"
-#include "viz/UiBlurPass.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/passes/UiBlurPass.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 #include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/physics/PhysicsLayers.hpp"
-#include "viz/scenes/ProgramLoader.hpp"
+#include "viz/gl/ProgramLoader.hpp"
 
 namespace geode::viz {
 
@@ -140,7 +140,7 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
-    // Settings › Gestures & controls › Touch › Smear (viz/TouchSmear): any thread; the GL thread reads it per frame.
+    // Settings › Gestures & controls › Touch › Smear (viz/input/TouchSmear): any thread; the GL thread reads it per frame.
     void setTouchSmear(bool on, float strength) {
         smearOn_.store(on, std::memory_order_relaxed);
         smearStrength_.store(touch::smearStrength(strength), std::memory_order_relaxed);
@@ -173,7 +173,7 @@ public:
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     // How many times the director committed a look at a new section or a drop since the last take.
     // The shell's Auto changes style on each (one Auto mode: the director picks the moments). Taking them
-    // publishes the director's style intent for Auto's pick (viz/DirectorStyle), so the renderer whose
+    // publishes the director's style intent for Auto's pick (viz/director/DirectorStyle), so the renderer whose
     // moments the shell takes is the one whose director names the next style. Any thread.
     int takeDirectorStyleMoments();
     // Whether a take would find any, without taking: the live frame's event (geode_viz_frame).
@@ -273,7 +273,7 @@ private:
     void applyStyleSchedule(float dt);
     void applyRenderScale();
     Scene* resolveActiveScene();
-    // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
+    // This frame's engine settings (viz/resolver/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
@@ -308,7 +308,7 @@ private:
     // A shader style's Trails with Liquid off (length, echo zoom, warp), run through the liquid pass on
     // the wall clock. 0 when its targets are not there.
     GLuint drawTrails(const SceneParams& p, float dt, float wallDt);
-    // Endless zoom (EndlessZoom.hpp, viz/DivePass): the same stage over every style's finished picture.
+    // Endless zoom (EndlessZoom.hpp, viz/passes/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
@@ -325,7 +325,7 @@ private:
     void applyUnderlayUpload();
     static double monotonicSeconds();
     void fail(const std::string& message);
-    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
+    // Re-applies the process-wide shader overrides (viz/glsl/ShaderOverrides) to resident scenes when they change.
     void syncShaderOverrides();
 
     ShaderSource assets_;
@@ -372,7 +372,7 @@ private:
     // "Adapt to frame time": fed each live frame in beginFrame; its governed() is what the frame draws with.
     frame::FrameGovernor governor_;
     std::atomic<bool> governorHeld_{false};
-    // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
+    // The scene params resolver (viz/resolver/Resolver): the per-frame chain from the requested params to the
     // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
     signal::Resolver resolver_;
     // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,
@@ -447,14 +447,14 @@ private:
     // The layer's own target, so a style transition (fboB_) and the layer both draw in one frame. Made while
     // a layer draws, released when none does.
     Framebuffer fboL_{"sceneLayer"};
-    // Handles (viz/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
+    // Handles (viz/gl/GlHandle), so a renderer destroyed while its context lives (the cast's fallback, freed and
     // made again during a cast) deletes them, as its targets and passes do; onSurfaceCreated resets them.
     GlVertexArray quadVao_;
     GlTexture paletteLutTex_;
     // The look's palette stack, composed for this frame's amounts (resolveParams).
     palette::Ramp paletteRamp_;
     GlTexture paletteRampTex_;
-    // The shape graph the Scope::Shapes styles melt into their form (viz/ShapeGraph, lib_shapes), ticked once a
+    // The shape graph the Scope::Shapes styles melt into their form (viz/styles/shared/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
     // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
     // export, the wallpaper and the dream each tick their own on their own clock, and an export's fresh
@@ -625,7 +625,7 @@ private:
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);
     std::string frameTransitionId_ = kFirstTransitionId;
     int64_t frameTransitionDurationMs_ = kFirstTransitionMs;
-    // The transition in flight, fixed when its switch happens (core/viz/TransitionChoice): the id "random"
+    // The transition in flight, fixed when its switch happens (core/viz/director/TransitionChoice): the id "random"
     // draws one per change, warmed ahead as nextRandomTransition_, and an automatic change fades longer.
     std::string switchTransitionId_ = kFirstTransitionId;
     int64_t switchTransitionMs_ = kFirstTransitionMs;

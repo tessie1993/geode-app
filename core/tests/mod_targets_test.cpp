@@ -1,4 +1,4 @@
-// Host-side checks for the modulation-target table (core/viz/ModTargets, #642): which style each LFO,
+// Host-side checks for the modulation-target table (core/viz/modulation/ModTargets, #642): which style each LFO,
 // envelope and reaction target reaches, which slot a chained target steers, the config defaults and
 // ranges, the polarity a source starts on, and the text table the shell reads instead of keeping its own.
 // Built and run by CI (.github/workflows/android.yml, "Modulation target host tests"); no GL.
@@ -20,10 +20,10 @@
 #include <utility>
 #include <vector>
 
-#include "viz/Catalogue.hpp"
-#include "viz/Lfo.hpp"
-#include "viz/ModTargets.hpp"
-#include "viz/ReactionDna.hpp"
+#include "viz/styles/catalogue/Catalogue.hpp"
+#include "viz/modulation/Lfo.hpp"
+#include "viz/modulation/ModTargets.hpp"
+#include "viz/modulation/ReactionDna.hpp"
 
 using namespace geode::viz;
 using catalogue::Scope;
@@ -62,7 +62,7 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
     // A macro knob (#owner 2026-11-12): a wave or an envelope turns the knob, which moves what it links.
     {"MACRO", "UNIVERSAL"},
-    // The palette stack's amounts and position (viz/Palette.hpp), on their Look controls' scope.
+    // The palette stack's amounts and position (viz/colour/Palette.hpp), on their Look controls' scope.
     {"PALETTE_AMOUNT_1", "UNIVERSAL"}, {"PALETTE_AMOUNT_3", "UNIVERSAL"}, {"PALETTE_AMOUNT_4", "UNIVERSAL"},
     {"PALETTE_AMOUNT_5", "UNIVERSAL"}, {"PALETTE_AMOUNT_6", "UNIVERSAL"}, {"PALETTE_AMOUNT_7", "UNIVERSAL"},
     {"PALETTE_AMOUNT_8", "UNIVERSAL"}, {"PALETTE_SHIFT", "UNIVERSAL"},
@@ -81,7 +81,7 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     // The shading pass (lib_shade): the soft shadows on the styles with a lit surface, the escape colour on the
     // families whose folds feed it.
     {"SHADOW", "SHADOW"}, {"ESCAPE_COLOR", "ESCAPE"},
-    // Births (viz/Births): every style has Life.
+    // Births (viz/passes/Births): every style has Life.
     {"LIFE", "UNIVERSAL"},
 };
 
@@ -157,7 +157,7 @@ void everyTargetKeepsItsNameAndScope() {
     }
 }
 
-// The targets as data (viz/ModTable.hpp, the mod rows of viz/ParamTable.inc) keep what the hand-written tables said:
+// The targets as data (viz/modulation/ModTable.hpp, the mod rows of viz/params/ParamTable.inc) keep what the hand-written tables said:
 // the luminance set (held to the flash rate and the route floors) and every target's scale, as first shipped.
 void legacyTargetsKeepTheirLightAndScale() {
     using T = LfoTarget;
@@ -200,7 +200,7 @@ void onlyTheRetiredSlotsAreHidden() {
     }
 }
 
-// A target's scope and whether it is offered are its field's meta row (viz/ParamTable.inc): kMod is set on
+// A target's scope and whether it is offered are its field's meta row (viz/params/ParamTable.inc): kMod is set on
 // exactly the rows a target writes, a target's scope is its Customize control's, and a retired field's
 // target is offered nowhere.
 void targetsFollowTheirMetaRow() {

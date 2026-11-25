@@ -1,8 +1,8 @@
-// Host-side checks for the config params schema (core/viz/ConfigTable.inc, expanded by core/viz/Config.hpp
-// and written out by core/viz/ConfigFields.cpp, #423): the LFO and envelope slots, the palette maker's
+// Host-side checks for the config params schema (core/viz/params/ConfigTable.inc, expanded by core/viz/params/Config.hpp
+// and written out by core/viz/params/ConfigFields.cpp, #423): the LFO and envelope slots, the palette maker's
 // gradient, the look's envelope and the preset morph. The rows are well formed,
-// viz/Lfo and viz/Adsr clamp exactly as their old literals did, the store
-// conversions in viz/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
+// viz/modulation/Lfo and viz/modulation/Adsr clamp exactly as their old literals did, the store
+// conversions in viz/params/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
 #include <cmath>
 #include <cstdio>
@@ -14,10 +14,10 @@
 #include <vector>
 
 #include "api/geode_api.h"
-#include "viz/Adsr.hpp"
-#include "viz/Config.hpp"
-#include "viz/ConfigMath.hpp"
-#include "viz/Lfo.hpp"
+#include "viz/modulation/Adsr.hpp"
+#include "viz/params/Config.hpp"
+#include "viz/params/ConfigMath.hpp"
+#include "viz/modulation/Lfo.hpp"
 
 using namespace geode::viz;
 using config::Kind;
@@ -73,7 +73,7 @@ void everyRowIsWellFormed() {
 void theGroupsAreTheWires() {
     check(rowsIn("lfo") == GEODE_LFO_CONFIG_FLOATS, "one lfo row per wire float");
     check(rowsIn("adsr") == GEODE_ADSR_CONFIG_FLOATS, "one adsr row per wire float before the targets");
-    // The six macro rows went with the old knobs: the macro bank (viz/MacroBank) keeps its own text.
+    // The six macro rows went with the old knobs: the macro bank (viz/modulation/MacroBank) keeps its own text.
     check(rowsIn("macro") == 0, "no macro rows");
     // A wave: enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats, knob, moment.
     check(config::indexInGroup(Slot::lfo_enabled) == 0, "lfo enabled is float 0");

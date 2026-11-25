@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -206,7 +207,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
                 detail = { (if (it == YOURS) mine else families[it].orEmpty()).size.toString() },
             )
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.XS)) {
+        FlowRow(Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.XS)) {
             TextButton(onClick = shuffleStyle) {
                 StoneIconArt(StoneIcon.SHUFFLE, contentDescription = null, tint = accentTextColor())
                 Text(stringResource(R.string.styles_random), Modifier.padding(start = GeodeSpacing.XS), color = accentTextColor())

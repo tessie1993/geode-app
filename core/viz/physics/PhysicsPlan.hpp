@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 
-#include "viz/Params.hpp"
+#include "viz/params/Params.hpp"
 
 namespace geode::viz::physics {
 

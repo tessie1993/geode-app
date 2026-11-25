@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -64,12 +65,16 @@ internal fun CrystalMaterialTheme(
     content: @Composable () -> Unit,
 ) {
     val fontColor = general.fontColorArgb?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
+    // ColorScheme has no equals and sits in a static local: a new one recomposes everything under the theme.
+    val schemeAccent = accentSource.takeIf { general.accentFollowsVisual }
     val scheme =
-        geodeColorScheme(
-            accentIntensity = general.accentIntensity,
-            fontColorOverride = fontColor,
-            accentSource = accentSource.takeIf { general.accentFollowsVisual },
-        )
+        remember(general.accentIntensity, fontColor, schemeAccent) {
+            geodeColorScheme(
+                accentIntensity = general.accentIntensity,
+                fontColorOverride = fontColor,
+                accentSource = schemeAccent,
+            )
+        }
     // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
     val reducedMotion = rememberSystemReducedMotion()
     val textScale = general.textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX)

@@ -1,4 +1,4 @@
-/* Host-test stand-in for <GLES3/gl31.h>: the ES 3.1 additions core/viz/Compute.cpp and core/viz/Compute.hpp name
+/* Host-test stand-in for <GLES3/gl31.h>: the ES 3.1 additions core/viz/gl/Compute.cpp and core/viz/gl/Compute.hpp name
  * (core/tests/gl_ownership_test.cpp), over the ES 3.0 fake beside it. Declarations only, real enum values;
  * the test that links Compute.cpp defines every function. Use it with -Icore/tests/fakegl. */
 #pragma once

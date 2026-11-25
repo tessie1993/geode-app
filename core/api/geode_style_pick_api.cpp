@@ -1,6 +1,6 @@
 #include "api/geode_api.h"
-#include "viz/AutoDraw.hpp"
-#include "viz/StylePick.hpp"
+#include "viz/director/AutoDraw.hpp"
+#include "viz/styles/catalogue/StylePick.hpp"
 
 namespace style_pick = geode::viz::style_pick;
 namespace auto_draw = geode::viz::auto_draw;

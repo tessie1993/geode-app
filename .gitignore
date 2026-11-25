@@ -21,7 +21,7 @@ secrets.properties
 google-services.json
 
 # Agent tooling is local-only and is not tracked in this repository. The exceptions:
-# AGENTS.md, the architecture map kept current by .github/workflows/arch-map.yml;
+# AGENTS.md, the approach, rules and way of working;
 # .claude/settings.json, the plugins and skill listing every agent session here gets;
 # and .claude/skills/, the repo's own skills. Personal overrides stay in
 # .claude/settings.local.json.

@@ -1,7 +1,7 @@
-// Host test of the scene params resolver (signal/Resolver), the chain as a whole rather than each stage
+// Host test of the scene params resolver (viz/resolver/Resolver), the chain as a whole rather than each stage
 // alone: that the director's look lies under the macro bank and an LFO moves on top of both, that reduced
 // motion is applied exactly once, that a resolver given explicit engine settings never hears the process
-// globals, that an export's settings latch (signal/EngineSettings, #350) holds its pin while the globals flip
+// globals, that an export's settings latch (viz/resolver/EngineSettings, #350) holds its pin while the globals flip
 // and decides the export's director as the free-taste rule says, that two resolvers given the same inputs
 // give the same bits over 600 frames, and that no stage can push the luminance past safety::apply, which
 // runs last. Behaviour, not golden numbers: the stages' own maths is pinned by viz_math_test, director_test
@@ -9,13 +9,13 @@
 // Then, for #528's mutants: parity with the old chain (main's Renderer::resolveParams before #344) bit for
 // bit over seeded random setups, the preset morph and param fade by hand-worked frames, the motion field
 // before the clamp, the style moments, disabled stages as exact identity, and live beside export.
-// Then the macro bank (viz/MacroBank, process-wide through geode_macro_bank_set): its offset reaches the
+// Then the macro bank (viz/modulation/MacroBank, process-wide through geode_macro_bank_set): its offset reaches the
 // resolved params, an export's pin keeps the bank it was pinned with, and the director never touches it.
 // Then a wave and an envelope on a macro knob (LfoTarget::Macro): they turn the knob where the bank runs, so the
 // knob's links move, the user's turn is never rewritten, safety stays last, 30/60/120 fps agree, silence holds still;
 // and "On a moment" (MomentWatch): a moment restarts a wave's cycle and fires an envelope, the same at any frame rate.
-// Built by CI (.github/workflows/android.yml, "Native host tests") with core/signal/Resolver.cpp,
-// core/signal/EngineSettings.cpp, core/sound/*.cpp and the GL-free stage sources it links (no GL header anywhere).
+// Built by CI (.github/workflows/android.yml, "Native host tests") with core/viz/resolver/Resolver.cpp,
+// core/viz/resolver/EngineSettings.cpp, core/sound/*.cpp and the GL-free stage sources it links (no GL header anywhere).
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -27,16 +27,16 @@
 #include <string>
 #include <vector>
 
-#include "signal/Resolver.hpp"
+#include "viz/resolver/Resolver.hpp"
 #include "sound/Harmony.hpp"
-#include "viz/CustomizeMap.hpp"
-#include "viz/Director.hpp"
-#include "viz/MacroBank.hpp"
-#include "viz/MotionField.hpp"
-#include "viz/NoteResponse.hpp"
-#include "viz/Palette.hpp"
-#include "viz/Reactions.hpp"
-#include "viz/VisualSafety.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/director/Director.hpp"
+#include "viz/modulation/MacroBank.hpp"
+#include "viz/modulation/MotionField.hpp"
+#include "viz/modulation/NoteResponse.hpp"
+#include "viz/colour/Palette.hpp"
+#include "viz/modulation/Reactions.hpp"
+#include "viz/modulation/VisualSafety.hpp"
 
 using geode::signal::EngineSettings;
 using geode::signal::Resolver;
@@ -601,7 +601,7 @@ void testSafetyLast() {
 }
 
 // ---- The chain against its own spec (tests for #528) ------------------------------------------------------
-// Each case below names the mutants of signal/Resolver.cpp it kills. Expected values come from hand-worked
+// Each case below names the mutants of viz/resolver/Resolver.cpp it kills. Expected values come from hand-worked
 // literals, the safety module's published caps, or the old chain as it stood in Renderer::resolveParams
 // on main before #344 (the move this PR makes); never from the resolver itself.
 

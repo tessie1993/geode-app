@@ -82,8 +82,8 @@ class PlaybackService : MediaLibraryService() {
                 // The app plays through PlaybackEngine directly, so no MediaController ever
                 // connects to fetch the session through onGetSession. Until a session is added,
                 // MediaSessionService neither posts the playback notification nor calls
-                // startForeground, and the startForegroundService() from ensureRunning() ends in
-                // ForegroundServiceDidNotStartInTimeException a few seconds into every track.
+                // startForeground, and a startForegroundService() from ensureRunning() ends in
+                // ForegroundServiceDidNotStartInTimeException a few seconds into the track.
                 .also { addSession(it) }
         session?.let(notificationButtons::attach)
         player.addListener(notificationButtons)
@@ -307,7 +307,7 @@ class PlaybackService : MediaLibraryService() {
                 java.util.concurrent.Callable {
                     val items =
                         fromCaller(controller, mediaItems).flatMap { item ->
-                            VoiceSearch.of(item)?.let { searched(it) } ?: listOf(resolve(item))
+                            VoiceSearch.of(item)?.let { searched(it) } ?: listOf(resolve(controller, item))
                         }
                     playableOrRefuse(items)
                 },
@@ -337,7 +337,7 @@ class PlaybackService : MediaLibraryService() {
                             MediaSession.MediaItemsWithStartPosition(queued.first, queued.second, startPositionMs)
                         else ->
                             MediaSession.MediaItemsWithStartPosition(
-                                playableOrRefuse(items.map { resolve(it) }),
+                                playableOrRefuse(items.map { resolve(controller, it) }),
                                 startIndex,
                                 startPositionMs,
                             )
@@ -380,7 +380,10 @@ class PlaybackService : MediaLibraryService() {
             return items
         }
 
-        private fun resolve(item: MediaItem): MediaItem = if (item.localConfiguration != null) item else tree.playable(item.mediaId) ?: item
+        private fun resolve(
+            controller: MediaSession.ControllerInfo,
+            item: MediaItem,
+        ): MediaItem = requestedItem(item, controller.uid == android.os.Process.myUid(), tree::playable)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
@@ -499,17 +502,22 @@ class PlaybackService : MediaLibraryService() {
         }
 
         fun ensureRunning(context: Context) {
-            // startService() throws IllegalStateException on API 26+ when called while the app is
-            // backgrounded (this is invoked from onIsPlayingChanged, which can fire off-screen), so this
-            // asks for a foreground service: MediaSessionService (which PlaybackService extends) promotes
-            // itself and posts the playback notification as soon as its session's player reports
-            // isPlaying, inside the 5 s window. From the background that start is refused too on API 31+
-            // (ForegroundServiceStartNotAllowedException) unless an exemption holds, such as a visible
-            // activity or a media button, so a refusal is noted and the user is told.
+            // A plain start first: it promises nothing, and Media3 starts itself into the foreground
+            // once its notification controller sees the player playing. startForegroundService would
+            // promise a startForeground that never comes when playback stops before that (a pause, a
+            // track that fails or ends at once): ForegroundServiceDidNotStartInTimeException. The
+            // platform can refuse the plain start once the app is in the background (this runs from
+            // onIsPlayingChanged, which can fire off-screen); only then is the promise made. From the
+            // background that start is refused too on API 31+ (ForegroundServiceStartNotAllowedException)
+            // unless an exemption holds, such as a media button, so a refusal is noted and the user is told.
+            val intent = Intent(context, PlaybackService::class.java)
             runCatching {
-                ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java))
+                startPromisingOnlyWhenRefused(
+                    plain = { context.startService(intent) },
+                    promised = { ContextCompat.startForegroundService(context, intent) },
+                )
             }.onFailure {
-                RingLog.note("PlaybackService.ensureRunning", "startForegroundService failed", it)
+                RingLog.note("PlaybackService.ensureRunning", "service start failed", it)
                 if (it is ForegroundServiceStartNotAllowedException) tellForegroundRefused(context)
             }
         }
@@ -572,6 +580,22 @@ internal data class CallerFacts(
 )
 
 /**
+ * A queued item as the player gets it. Media3 hands a controller's own uri across processes, and the player
+ * opens it with this app's access, so only this app's own controller ([fromThisApp]) keeps the uri it sent; any
+ * other caller gets the row its media id names in the browse tree ([rowOf]), or an item with no uri, which
+ * [PlaybackService]'s queue callbacks refuse.
+ */
+internal fun requestedItem(
+    item: MediaItem,
+    fromThisApp: Boolean,
+    rowOf: (String) -> MediaItem?,
+): MediaItem =
+    when {
+        fromThisApp && item.localConfiguration != null -> item
+        else -> rowOf(item.mediaId) ?: MediaItem.Builder().setMediaId(item.mediaId).build()
+    }
+
+/**
  * Who may browse the library, and who may only press play.
  *
  * [PlaybackService] is exported because System UI, Bluetooth, watches and Android Auto all
@@ -606,4 +630,20 @@ internal object LibraryAccess {
         caller.trusted ||
             (caller.packageVerified && caller.systemApp) ||
             (caller.packageVerified && caller.packageName in GOOGLE_BROWSERS && caller.installer == PLAY_STORE)
+}
+
+/**
+ * Starts a service with [plain] (`startService`: no foreground promise) and falls back to [promised]
+ * (`startForegroundService`) only when the platform refuses the plain start, which it does with an
+ * IllegalStateException while the app is in the background.
+ */
+internal inline fun startPromisingOnlyWhenRefused(
+    plain: () -> Unit,
+    promised: () -> Unit,
+) {
+    try {
+        plain()
+    } catch (_: IllegalStateException) {
+        promised()
+    }
 }

@@ -384,6 +384,9 @@ Failure decodePrefs(const std::string& text, std::vector<PrefEntry>& out) {
     const auto root = js::parseLeading(text);
     if (!root || root->kind() != js::Value::Kind::Object) return fail(Problem::Damaged, "prefs file is not valid JSON");
     for (const std::string& key : root->keys()) {
+        // The shell reads a key up to its first NUL, so "a\u0000b" would be checked here as one key and
+        // written there as another, past the device-local and section filters.
+        if (key.find('\0') != std::string::npos) return fail(Problem::Damaged, "prefs key holds a NUL");
         const js::Value* typed = getObject(*root, key);
         std::string type;
         if (!typed || !getString(*typed, "type", type)) return fail(Problem::Damaged, "prefs file is not valid JSON");

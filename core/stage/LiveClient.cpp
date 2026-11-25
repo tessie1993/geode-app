@@ -82,6 +82,15 @@ void LiveClient::trimSpares() {
     viz_->letSoundGo();
 }
 
+// Every GL name is gone and the next context hands the same numbers to other objects: a tee and its mark left open
+// would draw with, and at their stop delete, names that are then the renderer's. The recording ends as failed and
+// the tee closes here, with no context current, so nothing of the new context is touched.
+void LiveClient::contextLost() {
+    if (!viz_ || !record_) return;
+    viz_->recordFailed(*record_);
+    closeRecord();
+}
+
 void LiveClient::service(bool ready) { runJobs(ready); }
 
 void LiveClient::release(bool glCurrent) {

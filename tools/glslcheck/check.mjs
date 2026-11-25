@@ -7,11 +7,11 @@
 //
 // The fragment style ids are the SHADER-kind `style|` lines of
 // core/tests/catalogue.txt, the catalogue's text table (catalogue::text()).
-// catalogue_test checks that file against core/viz/Catalogue.cpp, so the list
+// catalogue_test checks that file against core/viz/styles/catalogue/Catalogue.cpp, so the list
 // here is the list the app ships.
 //
-// Includes are resolved the way core/viz/ShaderSource.cpp resolves them: the
-// registered names are read from core/viz/ShaderIncludes.inc, the allow-list
+// Includes are resolved the way core/viz/glsl/ShaderSource.cpp resolves them: the
+// registered names are read from core/viz/glsl/ShaderIncludes.inc, the allow-list
 // ShaderSource.cpp compiles in (kIncludes), the line pattern
 // is the same anchored `//#include <name>`, and an unknown name is a hard
 // error - so a library added to the app without registering it fails here
@@ -52,9 +52,9 @@ import { launch } from './cdp.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
-const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc');
+const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'glsl', 'ShaderIncludes.inc');
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
-const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
+const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'styles', 'fluid', 'FluidLook.hpp');
 // Written on demand by core/tests/sound_rate_test --write; nothing is committed.
 const GOLDEN_SONG = process.env.GEODE_SOUND_FRAMES || path.join(HERE, 'out', 'sound_frames.tsv');
 const VISUAL_GATE_CPP = path.join(ROOT, 'core', 'tests', 'visual_gate.cpp');
@@ -200,7 +200,7 @@ const SHADER_VALUES = {
   uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
   uKeyHue: 0.3, uKeyStrength: 0.5, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
   uBreath: 0.5,
-  // The Speed-integrated clocks (core/viz/SpeedClock.hpp) at Speed 1, where they equal the unscaled
+  // The Speed-integrated clocks (core/viz/modulation/SpeedClock.hpp) at Speed 1, where they equal the unscaled
   // ones: uFlowTime is uFlowPhase, uSoundTimeSped the BASS_TIME MID_TIME TREBLE_TIME scalars below.
   uFlowTime: 12.5, uSoundTimeSped: [37, 35, 33],
   // SoundUniforms::upload: the frame, the Audio drive slider at its default, held events, counts.
@@ -211,7 +211,7 @@ const SHADER_VALUES = {
   // Morph World's genome (lib_world): seed 0, Bubble Nave, as `world_genome_test --dump 0` prints it.
   // Every seed: `--set uWorld=$(world_genome_test --dump <i>)`.
   uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1, 0.0, -3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.5, 0.15, 0.0, 0.0, 0.0, 0.0, -0.2, 0.6, 0, 0, 1, 2, 0, 1.47569, 5, 0, 0, 0, 1.9, 1, 0, 1, 0, 0],
-  // Pool's surface (core/viz/pool): 7 s into a song with a finger down for the last 0.4 s, as
+  // Pool's surface (core/viz/styles/shader/PoolMath): 7 s into a song with a finger down for the last 0.4 s, as
   // `pool_test --dump` prints it.
   uPoolWaves: [0.503715, 2.24416, 0.0864489, 0.0105, -2.06546, 2.31169, 1.11166, 0.00735, 3.75111, 2.29982, 2.52679, 0.00525, -4.283, -4.05782, 3.91859, 0.00315, 6.83771, 8.6166, 1.36347, 0.0011475, -14.1333, 5.02482, 3.70015, 0.000945, -4.92838, -18.3497, 5.74104, 0.0007425, 22.6801, -7.84932, 1.72615, 0.00054],
   uPoolRings: [-0.306354, 1.757, 5.63365, 0.0036, 0.645344, 1.786, 7.73365, 0.00315, -0.309969, 2.70161, 9.93365, 0.00225],
@@ -222,7 +222,7 @@ const SHADER_VALUES = {
 
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
 
-// Morph World's baked assets (core/viz/world/WorldAssets), handed to the page as the app uploads them:
+// Morph World's baked assets (core/viz/styles/shader/WorldAssets), handed to the page as the app uploads them:
 // the shape volumes repacked as ShaderScene does (WorldAssets::packAtlas: the file's 32^3 slabs, stacked
 // in z, laid out as a 6 x 4 tile atlas, one 192 x 128 x 32 R8 TEXTURE_3D), the detail maps as an
 // 8-layer R8 TEXTURE_2D_ARRAY.
@@ -391,7 +391,7 @@ function liquidJobs(args, registry) {
 
 // ---- Endless zoom (--dive <style>) ------------------------------------------
 //
-// The style, then dive_frag.glsl over its picture (core/viz/DivePass): --frames snapshots spread over
+// The style, then dive_frag.glsl over its picture (core/viz/passes/DivePass): --frames snapshots spread over
 // one step of travel at --speed octaves a second (negative rises out), so the first and the one
 // after the last are the same picture. --look <name>=<value> sets a Dive control (spacing, twist, aimX,
 // aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.

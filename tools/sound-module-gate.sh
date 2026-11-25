@@ -21,7 +21,7 @@ if [ "${1:-}" = "--self-test" ]; then
         if bash "$self" "$t" >/dev/null; then echo "::error::sound module gate self-test: passed: $1"; exit 1; fi
         rm "$t/core/sound/Leak.hpp"
     }
-    plant '#include "viz/Reactions.hpp"'
+    plant '#include "viz/modulation/Reactions.hpp"'
     plant '#include "api/geode_api.h"'
     plant '#include "audio/dsp/GainStage.hpp"'
     plant '#include "stage/StageCore.hpp"'

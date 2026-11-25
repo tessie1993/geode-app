@@ -2,10 +2,10 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "viz/AutoDraw.hpp"
-#include "viz/AutoPlan.hpp"
-#include "viz/AutoTimer.hpp"
-#include "viz/TransitionChoice.hpp"
+#include "viz/director/AutoDraw.hpp"
+#include "viz/director/AutoPlan.hpp"
+#include "viz/director/AutoTimer.hpp"
+#include "viz/director/TransitionChoice.hpp"
 
 namespace auto_timer = geode::viz::auto_timer;
 

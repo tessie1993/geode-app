@@ -3,8 +3,8 @@
 #include <utility>
 
 #include "api/geode_api.h"
-#include "viz/CustomizeMap.hpp"
-#include "viz/MacroBank.hpp"
+#include "viz/panel/CustomizeMap.hpp"
+#include "viz/modulation/MacroBank.hpp"
 
 namespace macrobank = geode::viz::macrobank;
 

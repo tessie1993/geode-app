@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -133,7 +135,7 @@ private fun FontColorRow(
     Column {
         Text(stringResource(R.string.look_font_color), style = MaterialTheme.typography.labelMedium)
         LazyRow(
-            Modifier.padding(top = 6.dp),
+            Modifier.padding(top = 6.dp).selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(FontColorChoice.CHOICES) { choice ->
@@ -171,7 +173,7 @@ private fun FontColorSwatch(
         Modifier
             .minimumInteractiveComponentSize()
             .graphicsLayer { alpha = if (usable) 1f else 0.35f }
-            .clickable(enabled = usable, onClick = onSelect)
+            .selectable(selected = selected, enabled = usable, role = Role.RadioButton, onClick = onSelect)
             .padding(2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),

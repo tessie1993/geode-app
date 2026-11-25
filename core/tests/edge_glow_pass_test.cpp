@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/ProgramStager.hpp"
+#include "viz/gl/ProgramStager.hpp"
 #include "viz/frame/EdgeGlowPass.hpp"
 
 namespace frame = geode::viz::frame;

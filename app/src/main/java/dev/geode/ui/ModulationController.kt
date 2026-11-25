@@ -6,6 +6,7 @@ import dev.geode.data.LfoStore
 import dev.geode.engine.bridge.CustomizeNative
 import dev.geode.engine.bridge.ModulationNative
 import dev.geode.engine.bridge.PanelNative
+import dev.geode.engine.bridge.ResponderNative
 import dev.geode.model.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -228,6 +229,53 @@ internal class ModulationController(
         _reactions.value = routes
         _handMask.value = mask
         lfoStore.saveReactions(routes, mask)
+    }
+
+    /**
+     * One edit of the Event Responder's rows and responses ([ResponderNative.RESP_EDIT_ROW_ON] and the rest): an event.
+     * Native edits the saved text and hands the new one back; it goes where an edit of the routes goes.
+     */
+    fun editResponder(
+        op: Int,
+        row: Int,
+        index: Int = 0,
+        field: Int = 0,
+        value: Float = 0f,
+    ) {
+        ResponderNative.responderEdit(_reactions.value, op, row, index, field, value)?.let(::takeReactions)
+    }
+
+    /** One edit of the Song events catalogue ([ResponderNative.RESP_CATALOG_ADD] and the rest), as [editResponder]. */
+    fun editResponderCatalog(
+        op: Int,
+        row: Int,
+        index: Int = 0,
+        value: Float = 0f,
+    ) = takeReactions(ResponderNative.responderCatalogEdit(_reactions.value, op, row, index, value))
+
+    /** Puts back the text the reactions had (a row's Undo): the same path as an edit. Null is the style's own. */
+    fun restoreReactions(text: String?) = takeReactions(text)
+
+    /**
+     * Keeps [text] as the user's reactions: native reads the hand mask it holds, holds the text with the waves and
+     * envelopes, and what it holds is what the editors, the renderer's look and the prefs get. A text that is no
+     * list (native says -1) changes nothing.
+     */
+    private fun takeReactions(text: String?) {
+        if (text != null && text.isEmpty()) return
+        val mask = if (text == null) 0 else ModulationNative.modHandLoad(text, true, _handMask.value)
+        if (mask < 0) return
+        ModulationNative.modStateLoad(
+            held(ModulationNative.MOD_STATE_LFOS).orEmpty(),
+            held(ModulationNative.MOD_STATE_ADSRS).orEmpty(),
+            text,
+            mask,
+        )
+        val routes = held(ModulationNative.MOD_STATE_REACTIONS)
+        val held = ModulationNative.modStateHandMask()
+        _reactions.value = routes
+        _handMask.value = held
+        lfoStore.saveReactions(routes, held)
     }
 
     /** A new personality for this style: the next DNA variant, and back to DNA if it was custom. */

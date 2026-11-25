@@ -132,9 +132,11 @@ void badInputsAddNothing() {
     SceneParams p;
     p.speed = 1.0f;
     r.step(p, 0.0f);
-    r.step(p, -1.0f);
     r.step(p, NAN);
-    check(r.phase(ParamSlot::speed) == 0.0, "a zero, negative or non-finite dt adds nothing");
+    check(r.phase(ParamSlot::speed) == 0.0, "a zero or non-finite dt adds nothing");
+    r.step(p, -0.5f);
+    check(std::fabs(r.phase(ParamSlot::speed) + 0.5) < 1e-9, "a negative dt (Clock control's reverse) runs the phase back");
+    r.reset();
     p.speed = NAN;
     r.step(p, 0.1f);
     check(r.phase(ParamSlot::speed) == 0.0, "a non-finite rate adds nothing");

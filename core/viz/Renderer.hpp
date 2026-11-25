@@ -25,15 +25,19 @@
 #include "sound/interp/Waveform.hpp"
 #include "viz/modulation/Adsr.hpp"
 #include "viz/CameraRig.hpp"
+#include "viz/clock/ClockResponse.hpp"
 #include "viz/passes/CompositePass.hpp"
 #include "viz/director/Director.hpp"
 #include "viz/passes/DivePass.hpp"
 #include "viz/passes/FrontPass.hpp"
 #include "viz/fronts/FrontField.hpp"
+#include "viz/fronts/FrontResponse.hpp"
 #include "viz/passes/ThingPass.hpp"
 #include "viz/passes/FieldPass.hpp"
+#include "viz/fields/FieldResponse.hpp"
 #include "viz/fields/FieldSet.hpp"
 #include "viz/things/ThingPool.hpp"
+#include "viz/things/ThingResponse.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/gl/Framebuffer.hpp"
 #include "viz/gl/GlHandle.hpp"
@@ -282,6 +286,7 @@ private:
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt, float wallDt);
     const GeodeSoundFrame& trimmedSound(const SceneParams& p);
+    const GeodeSoundFrame& sceneSound(const SceneParams& p);
     void uploadPaletteRamp(const SceneParams& p);
     void stepShapeGraph(const SceneParams& p, float dt, float wallDt);
     bool holds(const Scene& scene, const Scene* held) const;
@@ -299,10 +304,11 @@ private:
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
-    void stepOverlays(Scene& scene, const SceneParams& p, float dt);
+    // dt: the scene clock's step; inputDt: the picture's own (touch, smear, the liquid's gestures).
+    void stepOverlays(Scene& scene, const SceneParams& p, float dt, float inputDt);
     void stepCamera(const SceneParams& p, float dt);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
-    void stepLiquid(Scene& scene, const SceneParams& p, float dt);
+    void stepLiquid(Scene& scene, const SceneParams& p, float dt, float inputDt);
     // The smear: the fingers' kicks into the flow field and this frame's bend (smearWarp_), Liquid off only.
     void stepSmear(float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
@@ -326,7 +332,7 @@ private:
     void drawFields(float dt, float wallDt);
     // Endless zoom (EndlessZoom.hpp, viz/passes/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene picture, sceneShown_) when the dive is off, else the dived picture.
-    GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
+    GLuint drawDive(const Scene& scene, const SceneParams& p, float wallDt, GLuint shown);
     // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
     // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
     // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
@@ -619,6 +625,20 @@ private:
     double timeSeconds_ = 0.0;  // double, wrapped as one; cast to float where a scene or uniform takes it
     // The music's rate on the picture's clock this frame (sound::motionRate): 0 in silence.
     float musicRate_ = 0.0f;
+    // Clock control (viz/clock): the one scale the scene's clocks run at, which responses of kind Clock drive; its
+    // signed move this frame (stepped in beginFrame, so a response fired in a frame takes hold on the next).
+    sceneclock::SceneClock sceneClock_;
+    sceneclock::ClockKind clockKind_{sceneClock_};
+    // The picture kinds of the Event Responder (viz/fronts, viz/things, viz/fields: FrontResponse and its siblings),
+    // over the three systems above; registered with the resolver in the constructor.
+    fronts::FrontKind frontKind_{fronts_};
+    things::ThingKind thingKind_{things_};
+    fields::FieldKind fieldKind_{fields_};
+    float sceneStep_ = 0.0f;
+    // While a freeze holds the last frame, the sound the scenes hear (sceneSound).
+    bool soundHeld_ = false;
+    GeodeSoundFrame heldSound_{};
+    GeodeSoundFrame heldTrimmed_{};
     // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
     // they were drawn at. redrawFrames_ lets a request the params do not carry through.
     bool frameStill_ = false;
@@ -641,6 +661,8 @@ private:
     float stillYaw_ = 0.0f;
     float stillPitch_ = 0.0f;
     std::remove_cvref_t<decltype(std::declval<const TouchField&>().points())> stillTouch_{};
+    // Hands the scene this frame's clock step and scale, then steps it.
+    void updateScene(Scene& scene, const GeodeSoundFrame& sound, float dt);
     bool stillRepeats(const Scene& scene, const SceneParams& p, float wallDt, bool trails, GLuint targetFbo);
     void noteStillDrawn();
     // Seconds (the wall step) a request the params do not carry keeps drawing a stopped clock: a new style's

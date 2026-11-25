@@ -17,6 +17,7 @@ internal object PanelWords {
             "customize_palette_from_artwork" to R.string.customize_palette_from_artwork,
             "customize_personality" to R.string.customize_personality,
             "customize_new_personality" to R.string.customize_new_personality,
+            "customize_song_events" to R.string.customize_song_events,
             "customize_moments" to R.string.customize_moments,
             "customize_reactions" to R.string.customize_reactions,
             "customize_envelopes" to R.string.customize_envelopes,

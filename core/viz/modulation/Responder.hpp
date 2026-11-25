@@ -91,7 +91,7 @@ constexpr int kListValues = kFieldCount + 4;
 // The rows' saved names, in Moment order.
 constexpr std::array<std::string_view, kRows> kRowNames = {
     "KICK", "SNARE", "HAT", "BASS", "DROP", "BUILD_UP", "CHORD_CHANGE", "NEW_SECTION", "NOTE", "LOUDNESS",
-    "BEAT", "BAR", "ONSET", "LOUDNESS_PEAK", "KEY_CHANGE",
+    "BEAT", "BAR", "ONSET", "LOUDNESS_PEAK", "KEY_CHANGE", "COLLIDE",
 };
 static_assert(kRowNames.size() == static_cast<size_t>(kMomentCount), "one name per Moment");
 
@@ -214,8 +214,13 @@ public:
         float holdSeconds = 0.0f;
         float fadeOutSeconds = 0.0f;
         std::uint32_t seed = 1;           // a seeded draw for the kind's own randomness
+        float beatSeconds = 0.0f;         // a beat in seconds while a tempo is heard, else 0 (never a stand-in tempo)
     };
     virtual ~ResponseKindHandler() = default;
+    // Once a frame, before any fire or follow of it: the frame's step (seconds), the two places the sound gives a
+    // kind to put things at, each 0..1 across the picture (the pitch heard as a height, the middle while no pitch
+    // is heard; the stereo pan as a place across, 0 left .. 1 right), and a beat in seconds (0 while no tempo is heard).
+    virtual void tick(float, float, float, float) {}
     // A response of this kind plays (drive Once, Long, or While as its event begins).
     virtual void fire(const Play& play) = 0;
     // Drive Follow: every frame, the event's level through the strength curve.
@@ -269,6 +274,11 @@ public:
     // from that point gives the same fires.
     void reset();
 
+    // An event the picture itself made (a row with no sound behind it: Collide) came, with `strength` 0..1: on the
+    // next step the row's responses hear it as they hear a moment of the music, through the same gates. Several
+    // in one frame are one (the loudest counts).
+    void hear(Moment moment, float strength);
+
     // One frame. `moments` is the bit per Moment that came (MomentWatch), `signals` the frame's sources; the
     // levels of the compiled routes go to `engine`. `previewDt` is the wall step the preview plays on (the frame's dt
     // stops in silence, and a preview tapped then must still play); negative means `dt`.
@@ -296,6 +306,8 @@ private:
     // The preview is the last of the runtimes.
     static constexpr int kPreview = kMaxResponses;
 
+    // Lets a While response that is still held let go (its handler's release), when it is dropped or the bank restarts.
+    void releaseHeld(int index);
     void advance(int index, const Response& r, bool live, bool candidate, bool previewing, float strength, float level, float bpm,
                  float dt, ReactionEngine& engine);
 
@@ -308,6 +320,9 @@ private:
     std::array<ResponseKindHandler*, kKindCount> handlers_{};
     Status status_;
     int activeNow_ = 0;
+    // The picture's own events heard since the last step (hear): which rows, and how strongly.
+    std::uint32_t heardMask_ = 0;
+    std::array<float, kRows> heardStrength_{};
 };
 
 }  // namespace geode::viz::responder

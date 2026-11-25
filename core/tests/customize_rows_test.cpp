@@ -161,6 +161,9 @@ void searchHidesWholePagesAndMatchesWords() {
           "every piece with no search");
     const auto* waves = rowFor(rows, "PIECE", "@waves");
     check(waves && (*waves)[3] == "id:customize_waves" && (*waves)[4] == "id:customize_randomize_waves", "Waves and its button, by word id");
+    const auto song = rowsOf("@song_events", p, ctx);
+    const auto* events = rowFor(song, "PIECE", "@song_events");
+    check(events && (*events)[2] == "@song_events" && (*events)[3] == "id:customize_song_events", "Song events is a piece, worded");
     ctx.query = "pers";
     rows = rowsOf(keys, p, ctx);
     check(!rowFor(rows, "PIECE", "@art_palette") && !rowFor(rows, "PIECE", "@waves") && !rowFor(rows, "PIECE", "@palette_maker"),

@@ -10,6 +10,7 @@
 
 namespace {
 
+using geode::jni::FloatElements;
 using geode::jni::Utf8Chars;
 using geode::jni::utf8String;
 
@@ -79,6 +80,44 @@ Java_dev_geode_engine_bridge_ResponderNative_responderEdit(JNIEnv* env, jobject,
     Utf8Chars saved(env, reactions);
     if (reactions && !saved.get()) return nullptr;
     return textOf(env, [&](char* out, int capacity) { return geode_resp_edit(saved.get(), op, row, index, field, value, out, capacity); });
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderCatalogText(JNIEnv* env, jobject) {
+    return textOf(env, [&](char* out, int capacity) { return geode_resp_catalog_text(out, capacity); });
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderCatalogEdit(JNIEnv* env, jobject, jstring reactions, jint op, jint row,
+                                                                  jint index, jfloat value) {
+    Utf8Chars saved(env, reactions);
+    return textOf(env, [&](char* out, int capacity) {
+        return geode_resp_catalog_edit(saved.get(), op, row, index, value, out, capacity);
+    });
+}
+
+// `look` is the params wire; a short or null one reads as the defaults.
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderFieldText(JNIEnv* env, jobject, jfloatArray values, jint field,
+                                                                jfloatArray look) {
+    FloatElements response(env, values);
+    FloatElements params(env, look);
+    const float* wire = params.length() >= geode_viz_param_count() ? params.get() : nullptr;
+    return textOf(env, [&](char* out, int capacity) {
+        return geode_resp_field_text(response.get(), response.length(), field, wire, out, capacity);
+    });
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderTitle(JNIEnv* env, jobject, jfloatArray values) {
+    FloatElements response(env, values);
+    return textOf(env, [&](char* out, int capacity) { return geode_resp_title(response.get(), response.length(), out, capacity); });
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_ResponderNative_responderPresetOf(JNIEnv* env, jobject, jfloatArray values) {
+    FloatElements response(env, values);
+    return geode_resp_preset_of(response.get(), response.length());
 }
 
 }  // extern "C"

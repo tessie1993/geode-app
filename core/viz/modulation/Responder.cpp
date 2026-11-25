@@ -32,6 +32,7 @@ bool needsTempo(int row) { return row == static_cast<int>(Moment::Beat) || row =
 // The event's strength on the frame it comes.
 float triggerValue(int row, const ReactSignals& signals) {
     if (row == static_cast<int>(Moment::KeyChange)) return signals.keyChange();
+    if (row == static_cast<int>(Moment::Collide)) return 0.0f;  // the picture's event: Bank::hear gives its strength
     return signals.value(hand::trigger(static_cast<Moment>(row)));
 }
 
@@ -54,6 +55,7 @@ float levelOf(int row, const ReactSignals& signals) {
         case Moment::Onset: return signals.value(S::OnsetEnv);
         case Moment::LoudnessPeak: return signals.value(S::Surge);
         case Moment::KeyChange: return signals.keyChange();
+        case Moment::Collide: return 0.0f;
     }
     return 0.0f;
 }
@@ -66,10 +68,12 @@ struct Times {
     bool ok = false;
 };
 
+float beatSeconds(float bpm) { return bpm > 0.0f ? 60.0f / bpm : 0.0f; }
+
 Times timesOf(const Response& r, float bpm) {
     if (r.unit == TimeUnit::Seconds) return {r.fadeIn, r.hold, r.fadeOut, true};
     if (!(bpm > 0.0f)) return {};
-    const float beat = 60.0f / bpm;
+    const float beat = beatSeconds(bpm);
     return {r.fadeIn * beat, r.hold * beat, r.fadeOut * beat, true};
 }
 
@@ -223,12 +227,25 @@ bool Bank::registerKind(KindId kind, ResponseKindHandler* handler) {
     return true;
 }
 
+void Bank::releaseHeld(int index) {
+    Runtime& rs = runtime_[static_cast<size_t>(index)];
+    const Response& r = config_.responses[static_cast<size_t>(index)];
+    if (rs.running && r.kind != kParam && r.drive == DriveMode::While && handlers_[static_cast<size_t>(r.kind)] != nullptr) {
+        handlers_[static_cast<size_t>(r.kind)]->release(index);
+    }
+    rs.running = false;
+}
+
 void Bank::configure(const Config& config) {
     std::array<bool, kMaxResponses> same{};
     for (int i = 0; i < kMaxResponses && i < config_.count && i < config.count; ++i) {
         const Response& was = config_.responses[static_cast<size_t>(i)];
         const Response& now = config.responses[static_cast<size_t>(i)];
         same[static_cast<size_t>(i)] = was.row == now.row && was.kind == now.kind && was.target == now.target && was.drive == now.drive;
+    }
+    // A While response that is gone, or is no longer the same one, lets go of what it holds.
+    for (int i = 0; i < std::clamp(config_.count, 0, kMaxResponses); ++i) {
+        if (!same[static_cast<size_t>(i)]) releaseHeld(i);
     }
     config_ = config;
     config_.count = std::clamp(config_.count, 0, kMaxResponses);
@@ -299,6 +316,7 @@ void Bank::compile(std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
 }
 
 void Bank::reset() {
+    for (int i = 0; i < std::clamp(config_.count, 0, kMaxResponses); ++i) releaseHeld(i);
     for (int i = 0; i <= kMaxResponses; ++i) {
         Runtime& rs = runtime_[static_cast<size_t>(i)];
         const int slot = rs.slot;
@@ -311,6 +329,16 @@ void Bank::reset() {
     status_.lit.fill(0.0f);
     status_.active = 0;
     activeNow_ = 0;
+    heardMask_ = 0;
+    heardStrength_.fill(0.0f);
+}
+
+void Bank::hear(Moment moment, float strength) {
+    const int row = static_cast<int>(moment);
+    if (row < 0 || row >= kRows) return;
+    const size_t k = static_cast<size_t>(row);
+    heardMask_ |= 1u << row;
+    heardStrength_[k] = std::max(heardStrength_[k], std::clamp(finiteOr(strength, 0.0f), 0.0f, 1.0f));
 }
 
 void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals, std::uint32_t moments, ReactionEngine& engine,
@@ -329,8 +357,25 @@ void Bank::step(const GeodeSoundFrame& f, float dt, const ReactSignals& signals,
         came[k] = c;
         strength[k] = std::clamp(finiteOr(triggerValue(row, signals), 0.0f), 0.0f, 1.0f);
         level[k] = std::clamp(finiteOr(levelOf(row, signals), 0.0f), 0.0f, 1.0f);
+        // An event the picture made since the last step comes like a moment of the music; its level is its strength.
+        if (((heardMask_ >> row) & 1u) != 0u) {
+            c = true;
+            strength[k] = std::max(strength[k], heardStrength_[k]);
+            level[k] = std::max(level[k], heardStrength_[k]);
+            came[k] = true;
+        }
         status_.lit[k] *= fall;
         if (c) status_.lit[k] = 1.0f;
+    }
+    heardMask_ = 0;
+    heardStrength_.fill(0.0f);
+    // Where the sound puts things: the pitch heard as a height, the pan as a place across (the middle when none).
+    const float pitch = signals.value(ReactSource::PitchConfidence) > 0.0f
+                            ? std::clamp(finiteOr(signals.value(ReactSource::PitchHeight), 0.5f), 0.0f, 1.0f)
+                            : 0.5f;
+    const float pan = std::clamp(0.5f + 0.5f * finiteOr(signals.value(ReactSource::StereoPan), 0.0f), 0.0f, 1.0f);
+    for (ResponseKindHandler* handler : handlers_) {
+        if (handler != nullptr) handler->tick(dt, pitch, pan, beatSeconds(bpm));
     }
     activeNow_ = 0;
     for (int i = 0; i < config_.count; ++i) {
@@ -443,7 +488,7 @@ void Bank::advance(int index, const Response& r, bool live, bool candidate, bool
             s.running = false;
             s.gate = false;
         } else {
-            if (fire) handler->fire(ResponseKindHandler::Play{index, &r, shaped, t.in, t.hold, t.out, s.rng});
+            if (fire) handler->fire(ResponseKindHandler::Play{index, &r, shaped, t.in, t.hold, t.out, s.rng, beatSeconds(bpm)});
             if (follows) {
                 handler->follow(index, r, std::clamp(shape(level, r.strength), 0.0f, 1.0f));
                 s.running = true;

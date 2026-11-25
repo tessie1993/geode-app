@@ -14,7 +14,7 @@ object ResponderNative {
     /** The saved text of a new style: every row off. */
     external fun responderDefaultText(): String?
 
-    /** A row's saved name (KICK … KEY_CHANGE), or null for a row there is none of. */
+    /** A row's saved name (KICK … KEY_CHANGE, COLLIDE), or null for a row there is none of. */
     external fun responderRowName(row: Int): String?
 
     /**
@@ -48,6 +48,34 @@ object ResponderNative {
         value: Float,
     ): String?
 
+    /** The Song events page's catalogue (core/viz/modulation/ResponseCatalog): its lines are listed in ResponseCatalog.hpp. */
+    external fun responderCatalogText(): String
+
+    /**
+     * One catalogue edit ([RESP_CATALOG_ADD] and the rest) on the saved text (null: a new style's): the new reactions
+     * text. [value] is the tile or preset ordinal.
+     */
+    external fun responderCatalogEdit(
+        reactions: String?,
+        op: Int,
+        row: Int,
+        index: Int,
+        value: Float,
+    ): String
+
+    /** A response's [field] ([RESP_AMOUNT] and the rest) as words; [look] is the params frame an amount is a percentage of. */
+    external fun responderFieldText(
+        values: FloatArray,
+        field: Int,
+        look: FloatArray?,
+    ): String
+
+    /** What a response's chip says. [values] are its [RESP_FIELDS] fields (a listed response's first ones). */
+    external fun responderTitle(values: FloatArray): String
+
+    /** The envelope preset (a catalogue `preset` line's ordinal) a response's envelope is, or -1. */
+    external fun responderPresetOf(values: FloatArray): Int
+
     /** Plays a response once now on a renderer, as its event would (the picker's preview): its [RESP_FIELDS] fields. Any thread. */
     external fun responderPreview(
         handle: Long,
@@ -58,7 +86,7 @@ object ResponderNative {
     external fun responderStatus(handle: Long): FloatArray?
 
     // Mirrors of GEODE_RESP_*.
-    const val RESP_ROWS: Int = 15
+    const val RESP_ROWS: Int = 16
     const val RESP_FIELDS: Int = 20
     const val RESP_LIST_VALUES: Int = 24
     const val RESP_ROW_VALUES: Int = 4
@@ -82,6 +110,11 @@ object ResponderNative {
     const val RESP_COOLDOWN: Int = 13
     const val RESP_P0: Int = 14
 
+    // The catalogue edit ops.
+    const val RESP_CATALOG_ADD: Int = 0
+    const val RESP_CATALOG_PRESET: Int = 1
+    const val RESP_CATALOG_RESET_ROW: Int = 2
+
     // The edit ops.
     const val RESP_EDIT_ROW_ON: Int = 0
     const val RESP_EDIT_ADD: Int = 1
@@ -91,11 +124,25 @@ object ResponderNative {
     const val RESP_EDIT_STYLE_MUTE: Int = 5
 
     // The status values after the rows' lights.
-    const val RESP_STATUS_COST: Int = 15
-    const val RESP_STATUS_BUDGET: Int = 16
-    const val RESP_STATUS_LEVEL: Int = 17
-    const val RESP_STATUS_ACTIVE: Int = 18
-    const val RESP_STATUS_DROPPED: Int = 19
-    const val RESP_STATUS_ROUTES: Int = 20
-    const val RESP_STATUS_VALUES: Int = 21
+    const val RESP_STATUS_COST: Int = 16
+    const val RESP_STATUS_BUDGET: Int = 17
+    const val RESP_STATUS_LEVEL: Int = 18
+    const val RESP_STATUS_ACTIVE: Int = 19
+    const val RESP_STATUS_DROPPED: Int = 20
+    const val RESP_STATUS_ROUTES: Int = 21
+    const val RESP_STATUS_VALUES: Int = 22
+}
+
+/**
+ * How a style's own reaction on a Song event row is muted and unmuted (its chip's own switch). A row that is off never
+ * mutes the style's reactions, and there is no master switch: each chip has its own. A route is named by what it
+ * listens to ([source], a `ReactSource` ordinal) and what it moves ([target], an `LfoTarget` ordinal), which a listed
+ * style response carries; native keeps the mute in the reactions text (`GEODE_RESP_EDIT_STYLE_MUTE`).
+ */
+fun interface StyleChipSwitch {
+    fun mute(
+        source: Int,
+        target: Int,
+        muted: Boolean,
+    )
 }

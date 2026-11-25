@@ -238,12 +238,14 @@ private:
 // The first ten are Customize › Music's rows (kPageMoments, GEODE_MUSIC_MOMENTS): they claim sources and take the
 // hand mask's bits. The five after them are the Event Responder's (viz/modulation/Responder): events with no sources
 // of their own to claim, so no saved route or mask changes owner. Beat and Bar come only when a beat is heard.
+// Collide is the picture's own event, not the music's: two Things touched (Responder Bank::hear, fed from
+// ThingPool::drainEvents). It has no source and no trigger, so MomentWatch never raises it.
 enum class Moment {
     Kick, Snare, Hat, Bass, Drop, BuildUp, ChordChange, NewSection, Note, Loudness,
-    Beat, Bar, Onset, LoudnessPeak, KeyChange,
+    Beat, Bar, Onset, LoudnessPeak, KeyChange, Collide,
 };
 constexpr int kPageMoments = static_cast<int>(Moment::Loudness) + 1;
-constexpr int kMomentCount = static_cast<int>(Moment::KeyChange) + 1;
+constexpr int kMomentCount = static_cast<int>(Moment::Collide) + 1;
 
 using ReactSourceMask = std::bitset<kReactSourceCount>;
 

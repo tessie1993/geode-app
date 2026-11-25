@@ -91,6 +91,12 @@ public:
         recompile();
     }
     const viz::responder::Bank& responder() const { return responder_; }
+    // Hands a response kind (Things, Fronts, Fields, Clock control) to the bank that plays it.
+    bool registerResponseKind(viz::responder::KindId kind, viz::responder::ResponseKindHandler* handler) {
+        return responder_.registerKind(kind, handler);
+    }
+    // An event the picture made (Moment::Collide) came: the responder's row for it hears it on the next step.
+    void hearMoment(viz::Moment moment, float strength) { responder_.hear(moment, strength); }
     // The song starts over (a new play: track change, seek, an export's start): the responses' counters, cooldowns,
     // envelopes and seeded chance start again, so the same song from here gives the same fires.
     void restartPlay() { responder_.reset(); }

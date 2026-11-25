@@ -18,8 +18,8 @@ extern "C" {
    on a new style (geode_resp_default_text), and a row that is off also holds back the style's own routes on
    its events, which are listed on the row as "style default" responses and edited with the route calls. */
 
-#define GEODE_RESP_ROWS 15
-#define GEODE_RESP_KINDS 16 /* a response's kind: 0 moves a parameter, 1..4 are reserved for Things, Fronts, Fields and Clock control */
+#define GEODE_RESP_ROWS 16
+#define GEODE_RESP_KINDS 16 /* a response's kind: 0 moves a parameter, 1 Things, 2 Fronts, 3 Fields, 4 Clock control (their kind-params are P0..P5, see viz/things/ThingResponse.hpp and its siblings) */
 
 /* A response's fields, in geode_resp_values' order and as geode_resp_edit's `field`. Enums travel as ordinals:
    strength is the curve (0 linear, 1 exponential, 2 logarithmic, 3 smooth), unit 0 seconds / 1 beats, drive
@@ -76,7 +76,7 @@ extern "C" {
 
 /* The saved text of a new style: every row off, nothing muted; that is no text at all, so the style's own routes play. */
 GEODE_API int geode_resp_default_text(char* out, int capacity);
-/* A row's saved name (KICK, SNARE, … KEY_CHANGE), static; NULL for a row there is none of. */
+/* A row's saved name (KICK, SNARE, … KEY_CHANGE, COLLIDE), static; NULL for a row there is none of. */
 GEODE_API const char* geode_resp_row_name(int row);
 
 /* Every row's GEODE_RESP_ROW_VALUES, in row order, for the text (NULL: a new style's), the style and the hand mask. */
@@ -87,6 +87,26 @@ GEODE_API int geode_resp_values(const char* reactions, const char* style_id, int
 /* One edit (GEODE_RESP_EDIT_*). The new reactions text, routes and all; an edit that names nothing hands back what
    came in. NULL reactions edits a new style's. */
 GEODE_API int geode_resp_edit(const char* reactions, int op, int row, int index, int field, float value, char* out, int capacity);
+
+/* The Song events page's catalogue (core/viz/modulation/ResponseCatalog): the families and tiles of "+ Add response",
+   each kind's own controls with their words, units and ranges, the envelope presets, the strength curves, the drive
+   modes and the rows' names, as the lines ResponseCatalog.hpp lists. Pure, any thread. */
+GEODE_API int geode_resp_catalog_text(char* out, int capacity);
+
+/* geode_resp_catalog_edit's `op`. */
+#define GEODE_RESP_CATALOG_ADD 0    /* row, value = the tile's ordinal (an `entry` line); the row comes on */
+#define GEODE_RESP_CATALOG_PRESET 1 /* row, index = the nth user response of the row, value = the preset's ordinal */
+#define GEODE_RESP_CATALOG_RESET_ROW 2 /* row: its user responses removed and the row off again and its style chips unmuted (the page offers Undo with the text it had) */
+/* One of those edits, as geode_resp_edit: the new reactions text, routes and all (NULL reactions: a new style's). */
+GEODE_API int geode_resp_catalog_edit(const char* reactions, int op, int row, int index, float value, char* out, int capacity);
+
+/* A response's field as words (`values` are its GEODE_RESP_FIELDS fields, `field` a GEODE_RESP_*). A parameter response's
+   amount reads as a percentage of the style's own value on `look` (the params wire; NULL: the defaults). */
+GEODE_API int geode_resp_field_text(const float* values, int count, int field, const float* look, char* out, int capacity);
+/* What a response's chip says: the parameter it moves, or the kind and what it draws or does. */
+GEODE_API int geode_resp_title(const float* values, int count, char* out, int capacity);
+/* The envelope preset (an ordinal of the catalogue's `preset` lines) a response's fade in, hold and fade out make; -1 for none. */
+GEODE_API int geode_resp_preset_of(const float* values, int count);
 
 /* Plays a response once now on the renderer, as its event would (the picker's live preview): `values` are its
    GEODE_RESP_FIELDS fields. Any thread; latched for the next frame. */

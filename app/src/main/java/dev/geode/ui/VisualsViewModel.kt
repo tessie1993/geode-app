@@ -20,8 +20,11 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.engine.bridge.ResponderNative
+import dev.geode.engine.bridge.StyleChipSwitch
 import dev.geode.model.PresetLink
 import dev.geode.model.SceneParams
+import dev.geode.stage.Stage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -189,6 +192,45 @@ class VisualsViewModel
         ) = session.modulation.editReactions(op, a, b, value)
 
         fun rerollReactions() = session.modulation.rerollReactions()
+
+        fun editResponder(
+            op: Int,
+            row: Int,
+            index: Int = 0,
+            field: Int = 0,
+            value: Float = 0f,
+        ) = session.modulation.editResponder(op, row, index, field, value)
+
+        fun editResponderCatalog(
+            op: Int,
+            row: Int,
+            index: Int = 0,
+            value: Float = 0f,
+        ) = session.modulation.editResponderCatalog(op, row, index, value)
+
+        fun restoreReactions(text: String?) = session.modulation.restoreReactions(text)
+
+        /** A style's own reaction's chip switch (see [StyleChipSwitch]). */
+        val styleChipSwitch =
+            StyleChipSwitch { source, target, muted ->
+                editResponder(ResponderNative.RESP_EDIT_STYLE_MUTE, source, target, value = if (muted) 1f else 0f)
+            }
+
+        // The stage that is drawing, for the Song events page's preview and event lights; set while the visualizer is on screen.
+        @Volatile
+        private var responderStage: Stage? = null
+
+        fun attachResponderStage(stage: Stage?) {
+            responderStage = stage
+        }
+
+        /** The rows' event lights, then the cost budget (`ResponderNative.RESP_STATUS_*`); empty with no stage drawing. */
+        fun responderStatus(): FloatArray = responderStage?.responderStatus() ?: FloatArray(0)
+
+        /** Plays a response once on the picture, as its event would. */
+        fun previewResponse(values: FloatArray) {
+            responderStage?.previewResponse(values)
+        }
 
         fun applyPreset(preset: Preset) = session.applyPreset(preset)
 

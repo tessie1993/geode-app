@@ -137,7 +137,7 @@ void runPlain(Rig& rig, float seconds, float period) {
 // ── The shape ────────────────────────────────────────────────────────────────────────────────────────────
 
 void everyRowStartsOff() {
-    static_assert(kMomentCount == 15 && kPageMoments == 10, "five events appended to the ten of the page");
+    static_assert(kMomentCount == 16 && kPageMoments == 10, "six events appended to the ten of the page");
     static_assert(ReactionEngine::kRoutes >= 200, "a few hundred routes");
     static_assert(StyleDna::kMaxRoutes == 13, "the DNA is dealt for sixteen slots whatever the matrix holds");
     resp::Config c = resp::newStyleConfig();
@@ -779,7 +779,7 @@ void theNativeInterfaceEditsTheText() {
     bool any = false;
     for (const bool on : fresh.rowOn) any = any || on;
     check(!any && fresh.count == 0 && fresh.muteCount == 0 && text[0] == '\0', "a new style's text is no text: every row off, the style plays");
-    check(std::string(geode_resp_row_name(0)) == "KICK" && std::string(geode_resp_row_name(GEODE_RESP_ROWS - 1)) == "KEY_CHANGE" &&
+    check(std::string(geode_resp_row_name(0)) == "KICK" && std::string(geode_resp_row_name(GEODE_RESP_ROWS - 1)) == "COLLIDE" &&
               geode_resp_row_name(GEODE_RESP_ROWS) == nullptr && geode_resp_row_name(-1) == nullptr,
           "rows are named");
 

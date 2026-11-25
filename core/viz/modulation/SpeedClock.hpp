@@ -37,10 +37,17 @@ struct FlowClock {
     double time = 0.0;
 
     void reset() { phase = time = 0.0; }
+    // The most one step moves forward: a stall must not fling the clock, but a stutter's exit jump (up to its longest
+    // loop, SceneClock::kMaxLoopSeconds) is the scene clock's own and must reach it whole.
+    static constexpr float kMaxStepSeconds = 4.0f;
+    // `dt` is the scene clock's signed step (Clock control): 0 on a freeze, negative on a reverse or a stutter's loop
+    // back, a jump when a stutter ends. Both clocks follow it, wrapping into 0..kWrapSeconds either way.
     void step(float speed, float dt) {
-        const float d = dt < 0.0f ? 0.0f : (dt > 0.1f ? 0.1f : dt);
+        const float d = std::isfinite(dt) ? (dt > kMaxStepSeconds ? kMaxStepSeconds : dt) : 0.0f;
         phase = std::fmod(phase + d * kBaseHz, static_cast<double>(kWrapSeconds));
         time = advance(time, speed, kBaseHz, d, kWrapSeconds);
+        if (phase < 0.0) phase += static_cast<double>(kWrapSeconds);
+        if (time < 0.0) time += static_cast<double>(kWrapSeconds);
     }
 };
 

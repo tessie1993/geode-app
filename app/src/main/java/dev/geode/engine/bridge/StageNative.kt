@@ -199,6 +199,15 @@ object StageNative {
     /** The scene ids the renderer has, newline-joined. */
     external fun stageSceneIds(stage: Long): String
 
+    /** The Song events page's picker plays a response (its `ResponderNative.RESP_FIELDS` fields) once on the stage's renderer. */
+    external fun stageResponsePreview(
+        stage: Long,
+        values: FloatArray,
+    )
+
+    /** The stage renderer's rows' event lights, then its cost budget (`ResponderNative.RESP_STATUS_*`); empty when it is gone. */
+    external fun stageResponderStatus(stage: Long): FloatArray
+
     /** Builds a transition's program on the stage thread, once it has a context. */
     external fun stageWarmTransition(
         stage: Long,

@@ -95,6 +95,11 @@ fun VisualizerEngineBindings(
             liveLook(v, m.first, m.second, m.third, t, reducedMotion, u)
         }.collect { visualizerView.stage.look = it }
     }
+    // The Song events page previews on this stage and reads its event lights.
+    DisposableEffect(visualizerView) {
+        visualsViewModel.attachResponderStage(visualizerView.stage)
+        onDispose { visualsViewModel.attachResponderStage(null) }
+    }
     // Record copies this stage's frames; one leaving the screen ends a recording it was making.
     DisposableEffect(visualizerView) {
         studioViewModel.attachRecordStage(visualizerView.stage)

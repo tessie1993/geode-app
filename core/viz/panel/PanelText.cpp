@@ -17,6 +17,7 @@ constexpr Word kWords[] = {
     {"customize_palette_from_artwork", 0},
     {"customize_personality", 0},
     {"customize_new_personality", 0},
+    {"customize_song_events", 0},
     {"customize_moments", 0},
     {"customize_reactions", 0},
     {"customize_envelopes", 0},

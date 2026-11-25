@@ -163,6 +163,12 @@ class Stage(
 
     fun warmTransition(id: String) = StageNative.stageWarmTransition(handle, id)
 
+    /** Plays a response once on this stage's picture (the Song events picker's preview). */
+    fun previewResponse(values: FloatArray) = StageNative.stageResponsePreview(handle, values)
+
+    /** The Song event rows' lights and the cost budget as the last frame left them. */
+    fun responderStatus(): FloatArray = StageNative.stageResponderStatus(handle)
+
     /** The pointers that are down right now, in y-up NDC; `n = 0` says every finger has lifted. */
     fun submitTouchPoints(
         xy: FloatArray,

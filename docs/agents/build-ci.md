@@ -37,6 +37,7 @@ One fact per line. Add a fact as a new bullet in its group.
 ## Shipping and versions
 
 - `ship-apk.yml` (pushes to `main`, or by hand with a ref) publishes a debug APK as pre-release N, "BeatRealms 3D <base>.N".
+- It first runs `build-lint.yml`, `native-host-tests.yml` and `arch-map.yml` on that commit (`workflow_call`) and publishes only when all three are green.
 - N = releases so far + 1, reserved as tag `apk-v<base>.N` by `tools/release-number.sh`.
 - The version is set only in `gradle.properties` (`geode.versionBase`, `geode.versionCodeBase`).
 - The root `build.gradle.kts` makes versionName `<base>.N` and versionCode `codeBase + N` from `-PreleaseNumber=N`, else `<base>-dev`.

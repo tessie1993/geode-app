@@ -5,16 +5,24 @@ name: Architecture gates
 # Also the store listing text (tools/store-check.sh).
 # Also the self-test of the docs-only check the other pull-request workflows skip on.
 # No path filter, so the check reports on every PR.
+# ship-apk.yml calls it on the commit it ships; the two diff checks against the base run on pull requests only.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit to check; empty checks the run's own commit.
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
+# A newer push to a pull request replaces its older run; a commit ship-apk.yml ships has a group of its own.
 concurrency:
-  group: arch-map-${{ github.ref }}
+  group: arch-map-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -26,6 +34,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
 
       # Pins the layer gate the same way: a planted reverse dependency must fail it.
@@ -287,21 +296,24 @@ jobs:
           echo "engine Kotlin gate self-test passed"
 
       - name: Engine Kotlin only shrinks
+        if: github.event_name == 'pull_request'
         shell: bash
-        run: |
-          git diff --numstat -M \
-            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
-            | bash tools/engine-kotlin-gate.sh
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: git diff --numstat -M "$BASE...$HEAD" | bash tools/engine-kotlin-gate.sh
 
       # Every Kotlin file left in the engine modules is on the gate's list, and the list never gains an entry
-      # (checked once the base has the list).
+      # (checked on a pull request, once the base has the list).
       - name: Engine modules hold only the listed Kotlin
         shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           bash tools/engine-kotlin-gate.sh --files
-          base="${{ github.event.pull_request.base.sha }}"
-          git show "$base:tools/engine-kotlin-gate.sh" > "$RUNNER_TEMP/base-gate.sh"
+          [ "$GITHUB_EVENT_NAME" = pull_request ] || exit 0
+          git show "$BASE:tools/engine-kotlin-gate.sh" > "$RUNNER_TEMP/base-gate.sh"
           if grep -q '^allowed=(' "$RUNNER_TEMP/base-gate.sh"; then
-            git diff "$base...${{ github.event.pull_request.head.sha }}" -- tools/engine-kotlin-gate.sh \
-              | bash tools/engine-kotlin-gate.sh --list-grew
+            git diff "$BASE...$HEAD" -- tools/engine-kotlin-gate.sh | bash tools/engine-kotlin-gate.sh --list-grew
           fi

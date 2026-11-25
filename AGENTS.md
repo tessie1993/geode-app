@@ -45,6 +45,15 @@ This file changes only when one of those changes. It holds no map of the code an
 - Bring a branch up to date by merging `main` into it; never rebase or force-push someone else's branch.
 - When something is unclear, ask the owner.
 
+## Agent protocols, issues and pull requests
+
+- Every piece of work starts from a GitHub issue and lands through a pull request that closes it (`Closes #N`). The issue holds the why and the checklist; the commits and the PR hold what changed.
+- Work in a fresh worktree cut from `origin/main`; remove it once its PR is merged or closed.
+- Follow the agent-protocols loop: `/agent-protocols:spec` or `/agent-protocols:plan` for anything new, `/agent-protocols:build` and `/agent-protocols:test` to implement, `/agent-protocols:review` (or the `code-review` skill) before pushing, `/agent-protocols:ship` for the pre-launch checklist.
+- `/ship` commits, pushes, opens the PR and watches CI; `/steward` watches an open PR. Neither merges: the owner does.
+- Play Store release work carries the `release:play` label and hangs off the release-readiness tracking issue.
+- Android tooling on a workstation: the `android` CLI for SDK, docs and artifact inspection (`android analyze` on an AAB), `adb` and the adb MCP for devices. `gh` for everything GitHub.
+
 ## The owner's preferences
 
 - Be curious about the why.

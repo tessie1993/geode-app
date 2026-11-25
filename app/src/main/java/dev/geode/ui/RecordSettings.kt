@@ -58,7 +58,7 @@ internal fun RecordSection() {
     val prefs = loaded ?: return
     // Keeps a choice the gate allows; offers Pro for one it does not, leaving the row as it was.
     val choose: (RecordPrefs) -> Unit = { next ->
-        val blocking = gate.blockingExportFeature(next.quality.shortSide, next.fps)
+        val blocking = gate.blockingSizeFeature(next.quality.shortSide, next.fps)
         if (blocking != null) {
             paywall.open(PaywallTrigger.Feature(blocking))
         } else {
@@ -71,14 +71,14 @@ internal fun RecordSection() {
         title = stringResource(R.string.record_resolution),
         options = ExportQuality.entries,
         selected = prefs.quality,
-        label = { proMarked(exportQualityLabel(it), gate.blockingExportFeature(it.shortSide, prefs.fps) != null) },
+        label = { proMarked(exportQualityLabel(it), gate.blockingSizeFeature(it.shortSide, prefs.fps) != null) },
         onSelect = { choose(prefs.copy(quality = it)) },
     )
     SettingsChoiceRow(
         title = stringResource(R.string.export_frame_rate),
         options = ExportFps.options,
         selected = prefs.fps,
-        label = { proMarked(stringResource(R.string.record_fps, it), gate.blockingExportFeature(prefs.quality.shortSide, it) != null) },
+        label = { proMarked(stringResource(R.string.record_fps, it), gate.blockingSizeFeature(prefs.quality.shortSide, it) != null) },
         onSelect = { choose(prefs.copy(fps = it)) },
     )
     SettingsChoiceRow(

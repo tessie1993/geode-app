@@ -34,7 +34,8 @@ class BaselineProfileGenerator {
             startActivityAndWait()
             passFirstRun()
             awaitShell().click()
-            device.wait(Until.hasObject(By.text("Visuals").selected(true)), STEP_WAIT_MS) // nav_visuals
+            // nav_visuals
+            check(device.wait(Until.hasObject(By.text("Visuals").selected(true)), STEP_WAIT_MS)) { "Visuals was not selected" }
             SystemClock.sleep(VISUALS_SETTLE_MS)
         }
 }
@@ -46,10 +47,12 @@ private fun targetPackage(): String =
     }
 
 /**
- * The order AppLaunchSmokeTest walks: safety notice, tour, Pro offer. Data persists between
- * iterations, so only the first one meets them; later ones see the shell and return.
+ * The boot intro, then the order AppLaunchSmokeTest walks: safety notice, tour, Pro offer. Data
+ * persists between iterations, so only the first one meets those; later ones see the shell and return.
  */
 private fun MacrobenchmarkScope.passFirstRun() {
+    // The intro plays on every launch, over a shell whose tabs are already findable; it is the only TextureView.
+    check(device.wait(Until.gone(By.clazz("android.view.TextureView")), SHELL_WAIT_MS)) { "The boot intro did not end" }
     val deadline = SystemClock.uptimeMillis() + SHELL_WAIT_MS
     while (SystemClock.uptimeMillis() < deadline) {
         val notice = device.findObject(By.text("I understand")) // safety_acknowledge
@@ -61,10 +64,11 @@ private fun MacrobenchmarkScope.passFirstRun() {
         SystemClock.sleep(POLL_MS)
     }
     device.wait(Until.findObject(By.text("Skip tour")), STEP_WAIT_MS)?.click() // tour_skip_tour
-    device.wait(Until.gone(By.text("Skip tour")), STEP_WAIT_MS) // tour_skip_tour
+    check(device.wait(Until.gone(By.text("Skip tour")), STEP_WAIT_MS)) { "The tour stayed up" } // tour_skip_tour
     if (device.wait(Until.hasObject(By.text("Make your music come to life")), STEP_WAIT_MS)) { // pro_title_onboarding
         (device.findObject(By.desc("Close")) ?: device.findObject(By.text("Close")))?.click() // pro_close
-        device.wait(Until.gone(By.text("Make your music come to life")), STEP_WAIT_MS) // pro_title_onboarding
+        // pro_title_onboarding
+        check(device.wait(Until.gone(By.text("Make your music come to life")), STEP_WAIT_MS)) { "The Pro offer stayed up" }
     }
 }
 

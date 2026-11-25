@@ -401,7 +401,8 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
                                            "waterLiquid", "waterLiquidFlow", "waterLiquidFade", "rippleOverlayEnabled",
                                            "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive", "motionOrbit",
                                            "symmetry", "kaleidoscope", "palette2", "paletteMix", "palette2BaseOverride",
-                                           "palette2RangeOverride", "colorCycle", "cycleSpeed", "paletteLut", "fluidAutoQuality"};
+                                           "palette2RangeOverride", "colorCycle", "cycleSpeed", "paletteLut",
+                                           "fluidAutoQuality"};
     std::set<std::string> retiredNow;
     const auto legacyWire = wire(legacy);
     for (ParamSlot r : viz::kRetiredParams) {

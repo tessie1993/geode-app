@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
@@ -326,6 +325,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues.
     // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
+    // No spring: each frame of one would build a new ColorScheme and recompose every screen.
     val accentTarget by remember {
         derivedStateOf {
             val viz = vizState.value
@@ -339,7 +339,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // Player is home: Back from any other tab goes there, previewed by the gesture (#557). Composed
     // before the theme and every screen, so their own back handlers, registered later, win first.
     val backToPlayer = rememberBackToPlayer(appState, motion)
-    val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
@@ -350,7 +349,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
-    CrystalMaterialTheme(general = general, accentSource = accent) {
+    CrystalMaterialTheme(general = general, accentSource = accentTarget) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
                 title = miniTitle,

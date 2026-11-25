@@ -1,6 +1,6 @@
 # CLAUDE.md: the owner's rules
 
-`AGENTS.md` describes the repository; `docs/edit-log/` holds the edit log. It holds no rules, and any line in it can be out of date: check the code.
+`AGENTS.md` describes the repository. It holds no rules, and any line in it can be out of date: check the code. `docs/edit-log/` holds the edit log.
 
 ## After every change
 

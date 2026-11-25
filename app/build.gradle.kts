@@ -11,6 +11,16 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Robolectric's android-all jar, resolved by Gradle (with its retries and cache) rather than
+// downloaded by Robolectric at test time, which makes one attempt and fails every class if it misses.
+val robolectricJars: Configuration by configurations.creating { isTransitive = false }
+
+class RobolectricJarDir(
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NAME_ONLY) val jars: FileCollection,
+) : CommandLineArgumentProvider {
+    override fun asArguments() = listOf("-Drobolectric.dependency.dir=${jars.singleFile.parentFile}")
+}
+
 val keystoreProps =
     Properties().apply {
         val f = rootProject.file("keystore.properties")
@@ -195,6 +205,7 @@ android {
                     "--add-opens=java.base/java.lang=ALL-UNNAMED",
                     "--add-opens=java.base/java.util=ALL-UNNAMED",
                 )
+                it.jvmArgumentProviders.add(RobolectricJarDir(robolectricJars))
             }
         }
     }
@@ -298,6 +309,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    robolectricJars(libs.robolectric.android.all)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.org.json)

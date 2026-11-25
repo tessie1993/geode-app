@@ -133,10 +133,6 @@ void soundSetDuringFrame() {
 
 void frameReports() {
     Rig r;
-    r.seen.nextEvents = kFrameClearOnly | kFrameErrorChanged;
-    r.seen.error = "broken";
-    check(r.client.frame(0.0f, 0.0f) == (kFrameClearOnly | kFrameErrorChanged) && r.client.error().empty(),
-          "a cleared first frame reports nothing else");
 
     r.seen.nextEvents = kFrameErrorChanged;
     r.seen.error = "";

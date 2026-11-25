@@ -93,7 +93,6 @@ add_library(geode_core STATIC
     stage/LiveClient.cpp
     stage/StageCore.cpp
     stage/StageLifecycle.cpp
-    stage/StagePacing.cpp
     api/geode_auto_api.cpp
     api/geode_param_history_api.cpp
     api/geode_stage_step_api.cpp

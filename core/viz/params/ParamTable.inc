@@ -253,7 +253,8 @@ GEODE_PARAM(Int, fluidQuality, 2, 0, static_cast<float>(fluid::quality::kTierCou
 GEODE_PARAM_META(fluidQuality, "Fluid quality", Emitters, 0, 0, 0)
 GEODE_PARAM_CHOICES(fluidQuality, "Ultra", "High", "Medium", "Low", "Min")
 GEODE_PARAM(Bool, fluidAutoQuality, true, 0, 1, Hold)
-GEODE_PARAM_META(fluidAutoQuality, "Lower the quality when the phone struggles", Emitters, 0, 0, 0)
+// Retired (SceneParams::retired): "Lower the quality when the phone struggles". Nothing steps the fluid tier down for
+// frame time any more (owner, 2026-11-25); the fluid quality is the user's alone.
 GEODE_PARAM(Int, fluidIterations, 20, 8, 40, Hold)
 GEODE_PARAM_META(fluidIterations, "Solver iterations", FluidSim, 0, 12, 28)
 GEODE_PARAM(Float, fluidPressure, 0.8f, 0.0f, 1.0f, Fade)

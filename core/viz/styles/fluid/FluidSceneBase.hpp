@@ -13,7 +13,7 @@
 
 namespace geode::viz {
 
-// The shared clock, idle synthesis, quality ladder and GL state guard.
+// The shared clock, idle synthesis, quality tier and GL state guard.
 class FluidSceneBase : public Scene {
 public:
     FluidSceneBase(std::string id, float timeWrapSeconds, ProgramLoader loader, SceneHost host)
@@ -36,7 +36,6 @@ protected:
     virtual bool tierApplied() const { return true; }
     virtual void onApplyQualityTier(int index, bool userChanged) = 0;
     void applyQualityTier();
-    void autoQualityTick();
     void configureChoreography();
     // `aspect` is the sim's width / height. Live Attract Fields take the catch points the choreography leaves free
     // (kMaxCatch less its own count; none free, none taken), so the particles are drawn to them too.
@@ -54,7 +53,6 @@ protected:
     ProgramLoader loader_;
     SceneHost host_;
     fluid::Choreography choreography_;
-    fluid::quality::FrameMonitor monitor_;
     float pcmStrike_ = 0.0f;
     SceneParams params_;
     float time_ = 0.0f;
@@ -64,7 +62,6 @@ protected:
     bool hasLast_ = false;
     GeodeSoundFrame last_{};
     float featuresAgeSec_ = 0.0f;
-    fluid::quality::AutoDowngrade autoDowngrade_;
     int lastUserQuality_ = -1;
     int appliedTier_ = -1;
 

@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstring>
 
+#include "sound/OutputPolicy.hpp"
+
 namespace geode::sound::tuning {
 
 namespace {
@@ -13,8 +15,8 @@ namespace {
 constexpr Slot kGain{1.0f, 0.0f, 4.0f};
 constexpr Slot kThreshold{0.0f, 0.0f, 1.0f};
 constexpr Slot kOffset{0.0f, -1.0f, 1.0f};
-constexpr Slot kAttack{0.03f, 0.0f, 1.0f};
-constexpr Slot kRelease{0.15f, 0.0f, 2.0f};
+constexpr Slot kAttack{policy::kShaped.attack, 0.0f, 1.0f};
+constexpr Slot kRelease{policy::kShaped.release, 0.0f, 2.0f};
 constexpr float kDrumLo = 0.1f;
 constexpr float kDrumHi = 3.0f;
 constexpr float kDecayLo = 0.02f;

@@ -20,8 +20,6 @@
 // The bits mirror GEODE_FRAME_* in core/api/geode_api.h.
 namespace geode::viz::frame {
 
-// The first frame on a new surface, cleared to black: present it, nothing else ran (Cadence.hpp says why).
-inline constexpr uint32_t kEventClearOnly = kFrameClearOnly;
 // What Liquid mode ran changed since the last frame that said so: LiveFrame::liquidMode() holds it.
 inline constexpr uint32_t kEventLiquidChanged = kFrameLiquidChanged;
 // The renderer's error text changed (a handle's first drawing frame always says so): read it.
@@ -114,7 +112,6 @@ public:
     virtual void setPacedFps(float pacedFps, float capFps) = 0;
     // Settings › Performance, only when it changed (or on a new surface).
     virtual void applyQuality(const UserQuality& q) = 0;
-    virtual void clearToBlack() = 0;
     // The Liquid mode when it changed since the last take, else -1.
     virtual int takeLiquidMode() = 0;
     virtual void gyroReset() = 0;
@@ -140,7 +137,7 @@ public:
     void gyroPush(const GyroReading& r) { gyro_.push(r); }
     void gyroOff() { gyro_.off(); }
 
-    // A new surface: its first frame is a clear, and the quality is applied again.
+    // A new surface: the quality is applied again.
     void surfaceCreated() {
         cadence_.surfaceCreated();
         qualitySeen_ = 0;
@@ -157,10 +154,6 @@ public:
             if (cadence_.offerQuality(q)) s.applyQuality(q);
         }
         const uint32_t due = cadence_.step([&s] { return s.takeLiquidMode(); });
-        if (due & kFrameClearOnly) {
-            s.clearToBlack();
-            return kEventClearOnly;
-        }
         uint32_t events = 0;
         if (due & kFrameLiquidChanged) {
             liquidMode_.store(FrameCadence::liquidModeOf(due), std::memory_order_relaxed);

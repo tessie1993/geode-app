@@ -57,7 +57,7 @@ const std::vector<Section>& table() {
          {"Hit pattern", "Hit splats", "Fluid splat radius", "Radius on hit", "Fluid splat force", "Bass pump",
           "Treble sparkle"}},
         {C::Shape, "stirrers", false, S::Always, {"Stirrers", "Stirrer speed"}},
-        {C::Shape, "fluid_quality", false, S::Always, {"Fluid quality", "Lower the quality when the phone struggles"}},
+        {C::Shape, "fluid_quality", false, S::Always, {"Fluid quality"}},
 
         {C::Motion, "basics", true, S::Always, {"Speed", "Zoom", "Rotation"}},
         {C::Motion, "drift", false, S::Always, {"Sway", "Drift X", "Drift Y"}},
@@ -166,7 +166,6 @@ const std::vector<HeldControl>& held() {
         {"Life", {"life"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
-        {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},
         {"Particle layer", {"fluidParticlesEnabled"}, Scope::FluidSim},
         {"Ink layer", {"fluidDyeEnabled"}, Scope::FluidSim},
         // Panel pieces that are not one parameter.

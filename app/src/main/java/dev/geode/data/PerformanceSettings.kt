@@ -12,17 +12,12 @@ import dev.geode.engine.bridge.PerfNative
 data class PerformanceSettings(
     /** Fraction of the surface's pixels the scene is drawn at, then upscaled. */
     val renderScale: Float,
-    /** The live frame-rate cap handed to the pacer: 30 to 120, or Follow device (`PerfNative.LIVE_FPS_FOLLOW`). */
+    /** The live frame-rate cap handed to the stage as the window's frame-rate hint: 30 to 120, or Follow device (`PerfNative.LIVE_FPS_FOLLOW`). */
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,
     /** Flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
-    /**
-     * "Adapt to frame time": while frames miss their budget, native steps render scale, march scale, post FX and
-     * only then the frame rate down under these values, and back up once they keep up. Not part of a preset.
-     */
-    val adaptive: Boolean = true,
 ) {
     /** The preset these values match natively, or null when the user has customised them. */
     val mode: PerformanceMode?

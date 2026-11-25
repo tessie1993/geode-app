@@ -1,8 +1,7 @@
 // Host-side checks for core/viz/frame/Cadence (#604): what a live surface's frame owes the shell. Built and
 // run by CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
 //
-// What is pinned: a new surface's first frame is a clear and nothing else (no Liquid take), once; a
-// repeated Settings › Performance push is applied once, a change again, a NaN once, and a new surface
+// What is pinned: a repeated Settings › Performance push is applied once, a change again, a NaN once, and a new surface
 // applies it again; the Liquid field carries the mode only when it changed; the error text is told once per
 // change and once per handle; and the bits the shell sees match the ABI.
 #include <cmath>
@@ -27,7 +26,6 @@ void check(bool ok, const char* what) {
     }
 }
 
-static_assert(kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 
@@ -41,21 +39,6 @@ uint32_t frame(FrameCadence& c, Asked& asked, int liquid) {
         asked.liquid++;
         return liquid;
     });
-}
-
-void firstFrameIsClearOnly() {
-    FrameCadence c;
-    Asked asked;
-    // A cadence that never saw a surface draws (a handle's first surface always calls surfaceCreated).
-    check(frame(c, asked, -1) == 0, "no surface yet: an ordinary frame");
-    c.surfaceCreated();
-    check(frame(c, asked, 1) == kFrameClearOnly, "the first frame on a new surface is a clear, nothing else");
-    check(asked.liquid == 1, "the clear frame does not ask for the label");
-    const uint32_t second = frame(c, asked, 1);
-    check((second & kFrameClearOnly) == 0, "only the first frame is a clear");
-    check((second & kFrameLiquidChanged) != 0 && FrameCadence::liquidModeOf(second) == 1, "the next frame takes the label");
-    c.surfaceCreated();
-    check(frame(c, asked, -1) == kFrameClearOnly, "every new surface clears its first frame");
 }
 
 void qualityDedupes() {
@@ -104,14 +87,13 @@ void errorIsToldOncePerChange() {
     check(c.offerError(""), "and so is its clearing");
     c.surfaceCreated();
     check(!c.offerError(""), "a new surface on the same handle has nothing new to say");
-    const uint32_t others = kFrameClearOnly | kFrameLiquidChanged | (kFrameLiquidMask << kFrameLiquidShift);
+    const uint32_t others = kFrameLiquidChanged | (kFrameLiquidMask << kFrameLiquidShift);
     check((kFrameErrorChanged & others) == 0 && (kFrameErrorChanged & 0xF0u) == 0, "the bit is its own");
 }
 
 }  // namespace
 
 int main() {
-    firstFrameIsClearOnly();
     qualityDedupes();
     liquidField();
     errorIsToldOncePerChange();

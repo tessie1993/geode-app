@@ -31,7 +31,7 @@ import dev.geode.ui.theme.GeodeSpacing
 
 /**
  * Customize › Look › Palettes: the stack every shader style takes its colours from, and Look's one palette
- * list on those styles. The card is native's (core/viz/PalettePanel `stackCard`): its words, each layer's
+ * list on those styles. The card is native's (core/viz/PalettePanel `stackCard`): each layer's
  * row, swatch and amount param, and whether Blend and Add show; this draws the rows and sends each edit to
  * the store, which hands it to native.
  */
@@ -51,18 +51,20 @@ internal fun PaletteStackCard(
         rows.forEach { f ->
             when (f[0]) {
                 "card" -> {
-                    Text(f[2], style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
-                    ControlHint(f[3])
+                    Text(cellText(f[2]), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
+                    ControlHint(cellText(f[3]))
                 }
                 "layer" -> StackLayerRow(store, f, p, onChange)
                 "blend" ->
-                    DropdownRow(name = f[1], options = blends.map { it[2] }, selectedIndex = f[2].toInt()) { store.setBlend(blends[it][1]) }
+                    DropdownRow(name = cellText(f[1]), options = blends.map { cellText(it[2]) }, selectedIndex = f[2].toInt()) {
+                        store.setBlend(blends[it][1])
+                    }
                 "add" ->
-                    DropdownRow(name = f[1], options = picks.map { it[2] }, selectedIndex = -1, placeholder = f[2]) {
+                    DropdownRow(name = cellText(f[1]), options = picks.map { it[2] }, selectedIndex = -1, placeholder = cellText(f[2])) {
                         store.add(picks[it][1].toInt())
                     }
                 "yours" ->
-                    DropdownRow(name = f[1], options = yours.map { it.name }, selectedIndex = -1, placeholder = f[2]) {
+                    DropdownRow(name = cellText(f[1]), options = yours.map { it.name }, selectedIndex = -1, placeholder = cellText(f[2])) {
                         val palette = yours[it]
                         val colours = CustomizeNative.paletteSavedColours(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan)
                         store.addColours(palette.name, colours.toList())
@@ -83,16 +85,17 @@ private fun StackLayerRow(
 ) {
     val layer = f[1].toInt()
     val swatch = remember(f[11]) { swatchColours(f[11]) }
+    val amountHeard = cellText(f[10])
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(f[2], style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             if (f[7] == "1") {
                 IconButton(onClick = { store.move(layer, -1) }) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = f[8])
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = cellText(f[8]))
                 }
             }
             IconButton(onClick = { store.remove(layer) }) {
-                Icon(Icons.Filled.Remove, contentDescription = f[9])
+                Icon(Icons.Filled.Remove, contentDescription = cellText(f[9]))
             }
         }
         PaletteSwatch(swatch, Modifier.fillMaxWidth())
@@ -100,7 +103,7 @@ private fun StackLayerRow(
             value = f[4].toFloat(),
             onValueChange = { onChange(p.with(f[3], it)) },
             valueRange = f[5].toFloat()..f[6].toFloat(),
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = f[10] },
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = amountHeard },
         )
     }
 }

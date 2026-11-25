@@ -1,10 +1,11 @@
 // Host-side checks for what Customize draws (core/viz/panel/CustomizeRows, PanelText, StyleNames): every control the
 // map places draws as one widget over a live param its meta row names, hides where the panel hid it, and carries
-// the words, range, default, unit and steps the shell used to hold. Built and run by CI
+// the range, default, unit and steps the shell used to hold; the panel's own words cross as ids. Built and run by CI
 // (.github/workflows/native-host-tests.yml, "Customize rows host tests"); no GL.
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <set>
 #include <sstream>
 #include <string>
@@ -22,6 +23,9 @@ using namespace geode::viz;
 namespace {
 
 int failures = 0;
+
+// What parts a word's id from what fills it (viz/panel/PanelText `ref`).
+const std::string kUnit = "\x1f";
 
 void check(bool ok, const std::string& what) {
     if (!ok) {
@@ -68,8 +72,8 @@ void everyPlacedControlHasOneWidget() {
         check(drawn.insert(c.key).second, std::string("one widget per control: ") + c.key);
         check(placed.count(c.key) == 1, std::string("a drawn control is placed: ") + c.key);
         if (c.widget == customize::Widget::Piece) {
-            check(c.label != nullptr && (std::strlen(c.label) == 0 || std::strlen(panel::text(c.label)) > 0),
-                  std::string("a piece's words are in PanelText: ") + c.key);
+            check(c.label != nullptr && (std::strlen(c.label) == 0 || panel::has(c.label)),
+                  std::string("a piece's words are a PanelText id: ") + c.key);
             continue;
         }
         const int slot = SceneParams::slotOf(c.field);
@@ -141,7 +145,7 @@ void theStyleDecidesWhatShows() {
     }
     const auto plate = rowsOf("Geometry", p, on("chladni_sand"));
     const auto* hint = rowFor(plate, "HINT", "Geometry");
-    check(hint && (*hint)[2] == "Shape set by this style: Chladni plate.", "the tip names the plate");
+    check(hint && (*hint)[2] == std::string("id:customize_shape_held") + kUnit + "Chladni plate", "the tip names its word and the plate");
     // The stack draws on the shader styles; elsewhere the look's palette is one list.
     check(rowFor(rowsOf("Palette", p, on("julia")), "PIECE", "@palette_stack") != nullptr, "the stack on a shader style");
     check(rowFor(rowsOf("Palette", p, on("fluid")), "PIECE", "@palette_list") != nullptr, "the palette list on Fluid");
@@ -156,12 +160,18 @@ void searchHidesWholePagesAndMatchesWords() {
               rowFor(rows, "PIECE", "@personality"),
           "every piece with no search");
     const auto* waves = rowFor(rows, "PIECE", "@waves");
-    check(waves && (*waves)[3] == "Waves" && (*waves)[4] == "Randomize waves", "Waves and its button, worded");
+    check(waves && (*waves)[3] == "id:customize_waves" && (*waves)[4] == "id:customize_randomize_waves", "Waves and its button, by word id");
     ctx.query = "pers";
     rows = rowsOf(keys, p, ctx);
     check(!rowFor(rows, "PIECE", "@art_palette") && !rowFor(rows, "PIECE", "@waves") && !rowFor(rows, "PIECE", "@palette_maker"),
           "a search hides the whole pages");
-    check(rowFor(rows, "PIECE", "@personality") != nullptr, "Personality is found by its words");
+    // The words are the shell's, so the shell matches a search to them: the row is there under any search.
+    const auto* personality = rowFor(rows, "PIECE", "@personality");
+    check(personality && (*personality)[2] == "Reaction DNA" && (*personality)[3] == "id:customize_personality",
+          "Personality stays in the rows, with its lock key and its word");
+    ctx.query = "zoom";
+    check(rowFor(rowsOf(keys, p, ctx), "PIECE", "@personality") != nullptr, "and under a search that is not its own");
+    ctx.query = "pers";
     check(!rowFor(rows, "PIECE", "@palette_stack"), "Palette is not found by 'pers'");
     check(customize::matches("\tpal\t", "Palette") && customize::matches("  ", "") && !customize::matches("Palettes", "Palette") &&
               customize::matches("Look", "Look") && customize::matches(" a b ", "Make a b"),
@@ -184,32 +194,23 @@ void shellSlidersAndNotes() {
 }
 
 void wordsAndNames() {
-    check(panel::format("palette_stop", {"2", "5", "#FF8800"}) == "Colour 2 of 5, #FF8800", "a placeholder row fills");
-    check(panel::format("palette_stack_remove", {}) == "Remove ", "a placeholder past the arguments drops");
-    check(std::string(panel::text("no_such_id")).empty(), "an unknown id is empty");
+    check(panel::ref("palette_stop", {"2", "5", "#FF8800"}) == std::string("id:palette_stop") + kUnit + "2" + kUnit + "5" + kUnit + "#FF8800",
+          "a word and what fills it");
+    check(panel::ref("palette_save") == "id:palette_save" && panel::ref("").empty(), "a word alone, and none");
+    check(panel::ref("palette_stack_remove", {std::string("a") + kUnit + "b"}) == std::string("id:palette_stack_remove") + kUnit + "a b",
+          "an argument cannot split the cell");
+    check(panel::has("palette_save") && !panel::has("no_such_id") && !panel::has(""), "the ids the panel has");
     std::istringstream ids(panel::ids());
     std::set<std::string> seen;
     for (std::string id; std::getline(ids, id);) {
         check(seen.insert(id).second, "a word listed once: " + id);
-        check(std::strlen(panel::text(id)) > 0 && !std::strchr(panel::text(id), '|'), "a word that crosses a row: " + id);
+        check(!id.empty() && id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_") == std::string::npos,
+              "an id a string resource can be named: " + id);
     }
     check(catalogue::styleLabel("silk_web") == "Halvorsen Web", "a named style");
     check(catalogue::styleLabel("neon_city") == "Neon City", "an id in words");
     check(catalogue::familyLabel("foam") == "Sphere Foam" && catalogue::familyLabel("arbor") == "Arbor", "family names");
     check(std::string(geode_style_label("fluid")) == "Original · Dye", "the C ABI's style name");
-    check(std::strcmp(geode_panel_text("palette_save"), "Save palette") == 0, "the C ABI's words");
-    const char* reaction[] = {"Beat", "Zoom", "Add", "+25%"};
-    check(std::string(geode_panel_format("customize_reaction_summary", reaction, 4)) == "When Beat \xe2\x86\x92 Zoom \xc2\xb7 Add +25%",
-          "a reaction's summary line");
-    const char* target[] = {"Zoom"};
-    check(std::string(geode_panel_format("customize_target_inert", target, 1)) == "Zoom does nothing on this style.",
-          "a target the style ignores");
-    check(std::string(geode_panel_format("customize_target_inert_pick", target, 1)) ==
-              "Zoom does nothing on this style - pick another.",
-          "a wave's target the style ignores");
-    const char* labelled[] = {"Speed", "3"};
-    check(std::string(geode_panel_format("customize_label_value", labelled, 2)) == "Speed \xc2\xb7 3", "a label and its value");
-    check(std::string(geode_panel_format("no_such_id", labelled, 2)).empty(), "an unknown id formats to nothing");
     check(geode_customize_query_blank(nullptr) == 1 && geode_customize_query_blank("") == 1 && geode_customize_query_blank(" \t ") == 1,
           "a blank search");
     check(geode_customize_query_blank(" x ") == 0, "a search with something in it");
@@ -257,7 +258,22 @@ void theOwnersLayoutHolds() {
 
 }  // namespace
 
-int main() {
+// The ids as the shell's tests read them (PanelWordsTest holds a string resource for each).
+void wordIdsEqualTheFixture(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    std::stringstream fixture;
+    fixture << in.rdbuf();
+    check(in.good() || in.eof(), std::string("the fixture opens: ") + path);
+    check(fixture.str() == panel::ids(),
+          std::string("PanelText's ids differ from ") + path + "; after a deliberate change run customize_rows_test --write " + path);
+}
+
+int main(int argc, char** argv) {
+    if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
+        std::ofstream(argv[2], std::ios::binary) << panel::ids();
+        return 0;
+    }
+    wordIdsEqualTheFixture(argc > 1 ? argv[1] : "core/tests/panel_words.txt");
     theOwnersLayoutHolds();
     everyPlacedControlHasOneWidget();
     slidersCarryTheirRangeDefaultUnitAndSteps();

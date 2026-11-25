@@ -45,7 +45,12 @@ jobs:
 
       # Before the emulator exists, as in android.yml: the native build needs the runner's vCPUs.
       - name: Assemble the minified APK
-        run: ./gradlew :app:assembleSideload :app:analyzeSideloadR8Config --stacktrace --no-daemon
+        run: ./gradlew :app:assembleSideload :app:processReleaseMainManifest :app:analyzeSideloadR8Config --stacktrace --no-daemon
+
+      # The Play build's merged manifest, so a permission a library adds fails the pull request
+      # that brings it, not the next release.
+      - name: Check the release manifest against the app's promises
+        run: tools/check-manifest.sh release
 
       # Emulator settings are android.yml's instrumented-tests job's (see the comments there).
       - name: Launch it on the emulator

@@ -142,7 +142,6 @@ add_library(geode_core STATIC
     audio/dsp/GainStage.cpp
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
-    audio/dsp/Limiter.cpp
     audio/dsp/PlaybackControls.cpp
     api/geode_playback_api.cpp
     audio/dsp/TrackBookmark.cpp

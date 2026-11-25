@@ -32,10 +32,9 @@ constexpr float kLevel = 0.5f;
 constexpr double kSilence = static_cast<double>(GEODE_DSP_SILENCE_DB);
 constexpr double kNoGain = -1000.0;  // what level() reports for a frame multiplied by exactly 0
 
-// A mono chain that changes nothing but the gain: equalizer off (its default), limiter off.
+// A mono chain that changes nothing but the gain: equalizer off (its default).
 geode_dsp* fresh() {
     geode_dsp* d = geode_dsp_create();
-    geode_dsp_set_limiter(d, 0);
     geode_dsp_configure(d, kRate, 1);
     geode_dsp_flush(d);
     return d;

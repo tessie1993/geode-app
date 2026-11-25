@@ -33,7 +33,7 @@ import dev.geode.util.bestEffort
  *   the port that was just configured.
  * - [onActive] tells the native DSP whether the platform took the track bit-perfect. Native then
  *   passes every sample through untouched (`core/audio/dsp/DspProcessor`): no ReplayGain, fades,
- *   crossfade, equalizer, crossfeed or limiter, since any of them would change the samples the DAC
+ *   crossfade, equalizer or crossfeed, since any of them would change the samples the DAC
  *   is meant to get as they are in the file. Native latches it at the pipeline flush that follows
  *   each new AudioTrack, so the chain and the platform switch together.
  *

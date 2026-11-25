@@ -17,7 +17,6 @@ data class DspSettings(
     val bassBoost: Int = 0,
     val loudnessMb: Int = 0,
     val crossfeed: Boolean = false,
-    val limiter: Boolean = true,
 )
 
 /**
@@ -140,7 +139,6 @@ class NativeDspProcessor : BaseAudioProcessor() {
         GeodeNative.dspSetBassBoost(h, s.bassBoost)
         GeodeNative.dspSetLoudnessMb(h, s.loudnessMb)
         GeodeNative.dspSetCrossfeed(h, s.crossfeed)
-        GeodeNative.dspSetLimiter(h, s.limiter)
         GeodeNative.dspSetBitPerfect(h, bitPerfect)
     }
 

@@ -105,6 +105,9 @@ struct ReactSourceInfo {
     Circle circle = Circle::None;
 };
 const ReactSourceInfo& reactSourceInfo(ReactSource s);
+// Which float of GeodeSoundFrame a source reads (its place in the frame, scalars first), or -1 for a source
+// ReactSignals works out from other fields. core/tests/sound_sources_test.cpp holds every analysis output to one.
+int reactSourceField(ReactSource s);
 
 // Follow: target += amount * curve(source).
 // Step: each rising edge of the source adds amount to an accumulator (a hue

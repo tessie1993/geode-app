@@ -44,6 +44,9 @@ ROWS_SRC="core/viz/panel/CustomizeRows.cpp core/viz/panel/CustomizeMap.cpp core/
 viz_math_test | stub | core/tests/viz_math_test.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/ReactionDna.cpp \
     core/viz/CameraRig.cpp core/viz/modulation/MotionField.cpp core/viz/modulation/Lfo.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/VisualSafety.cpp core/viz/styles/catalogue/Catalogue.cpp core/viz/styles/catalogue/StyleCatalog.cpp |
+# Every analysis output (GeodeSoundFrame) is a reaction source the user can route, or is listed with the reason it is not.
+sound_sources_test | stub | core/tests/sound_sources_test.cpp core/viz/modulation/Reactions.cpp core/viz/modulation/Lfo.cpp \
+    core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/VisualSafety.cpp |
 # The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
 params_schema_test | stub | core/tests/params_schema_test.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp \
     core/viz/modulation/Lfo.cpp core/viz/modulation/VisualSafety.cpp |

@@ -82,6 +82,13 @@ runs:
         emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
         disable-animations: true
         working-directory: .
+        # No soft keyboard: a focused field raised Gboard, whose first draw on the shared SwiftShader core held
+        # the app's next frame for 22-27 s, past Espresso's idling timeout (VisualsJourneyTest.savingTheCurrentLookAddsAPresetRow).
+        # show_ime_with_hard_keyboard does nothing without a hardware keyboard, so every listed IME package is
+        # disabled instead (the google_apis image ships Gboard, com.google.android.inputmethod.latin). Each line
+        # runs on its own `sh -c`; a failure here leaves the keyboard on and the run going.
         script: |
           ${{ steps.screen.outputs.wm }}
+          for p in $(adb shell ime list -s -a | cut -d/ -f1 | sort -u); do adb shell pm disable-user --user 0 "$p"; done || true
+          adb shell ime list -s || true
           ${{ inputs.script }}

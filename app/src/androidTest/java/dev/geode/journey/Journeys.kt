@@ -2,11 +2,13 @@ package dev.geode.journey
 
 import android.content.Context
 import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -17,9 +19,13 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.printToLog
+import androidx.compose.ui.text.AnnotatedString
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.espresso.IdlingPolicies
+import androidx.test.espresso.IdlingResourceTimeoutException
 import dev.geode.data.AppStateCodec
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceSettings
@@ -28,6 +34,7 @@ import dev.geode.data.StartScreen
 import dev.geode.geodeContainer
 import kotlinx.coroutines.runBlocking
 import org.junit.rules.ExternalResource
+import java.util.concurrent.TimeUnit
 
 /**
  * Shared plumbing for the end-to-end journeys in this package.
@@ -45,12 +52,10 @@ import org.junit.rules.ExternalResource
  * it the shell draws the fresh install's safety notice over every journey.
  *
  * It also pins Settings › Performance to [PerformanceSettings.SAVER]. Left unset, the app picks
- * a mode from the device's RAM on first run, so the same journey rendered at half scale on the
- * 2 GB CI emulator and would render at 0.75 on a 4 GB one. On swiftshader every GL frame is drawn
- * on the CPU, and GLSurfaceView holds the main thread until the first frame of each new surface
- * is drawn: the heavier that frame, the longer the stall, and stalls of ~4.5 s per live-view
- * transition are what got the instrumented process killed in CI (see tools/connected-tests.sh).
- * Pinning keeps that cost fixed whatever AVD the workflow boots.
+ * a mode from the device's RAM on first run, so the same journey would render at a different
+ * scale on each AVD. On SwiftShader every frame is drawn on the CPU, so the stage's native
+ * render thread and every window's HWUI render thread queue on the same host core: the heavier the
+ * stage, the longer each app frame waits. Pinning keeps that cost fixed whatever AVD boots.
  */
 class Onboarded(
     private val skipOnboarding: Boolean = true,
@@ -72,8 +77,25 @@ class Onboarded(
         // app's own repository: it read the file when the application started, before this rule.
         runBlocking { context.geodeContainer.behaviour.update { it.copy(startScreen = StartScreen.PLAYER) } }
         if (skipOnboarding) publishSeededAppState(context)
+        // One HWUI frame took 22-27 s on the CI emulator's shared SwiftShader core, against Espresso's 26 s idling budget.
+        IdlingPolicies.setIdlingResourceTimeout(IDLING_RESOURCE_TIMEOUT_S, TimeUnit.SECONDS)
+        IdlingPolicies.setMasterPolicyTimeout(MASTER_POLICY_TIMEOUT_S, TimeUnit.SECONDS)
+    }
+
+    override fun after() {
+        // The policies are process-wide: tests outside the journeys keep Espresso's defaults.
+        IdlingPolicies.setIdlingResourceTimeout(DEFAULT_IDLING_RESOURCE_TIMEOUT_S, TimeUnit.SECONDS)
+        IdlingPolicies.setMasterPolicyTimeout(DEFAULT_MASTER_POLICY_TIMEOUT_S, TimeUnit.SECONDS)
     }
 }
+
+/** Espresso's idling budget in the journeys, well above the slowest frame CI has logged; the master policy stays above it. */
+private const val IDLING_RESOURCE_TIMEOUT_S = 60L
+private const val MASTER_POLICY_TIMEOUT_S = 90L
+
+/** Espresso's own defaults (IdlingPolicies), restored after each journey. */
+private const val DEFAULT_IDLING_RESOURCE_TIMEOUT_S = 26L
+private const val DEFAULT_MASTER_POLICY_TIMEOUT_S = 60L
 
 /**
  * Gives the app's live app-state repository the onboarding state a rule has just written to the prefs
@@ -87,10 +109,9 @@ internal fun publishSeededAppState(context: Context) {
 }
 
 /**
- * Generous: the first frame waits on the native core loading and the GL surface, and on the
- * swiftshader emulator each new GL surface stalls the main thread for ~4.5 s (logcat: "Skipped
- * 276 frames"). Two such stalls back to back left a 10 s wait with nothing in hand. A wait that
- * succeeds returns as soon as its node appears, so the ceiling costs nothing on a pass.
+ * Generous: the first frame waits on the native core loading, and on the SwiftShader emulator
+ * HWUI frames queue behind the stage on one host core for seconds (logcat: "Skipped 276 frames").
+ * A wait that succeeds returns as soon as its node appears, so the ceiling costs nothing on a pass.
  */
 const val JOURNEY_TIMEOUT_MS = 20_000L
 
@@ -133,13 +154,30 @@ private fun ComposeTestRule.awaitOrDump(
     try {
         waitUntil(timeoutMs, condition)
     } catch (e: ComposeTimeoutException) {
-        runCatching {
-            onAllNodes(isRoot()).fetchSemanticsNodes().indices.forEach { i ->
-                onAllNodes(isRoot())[i].printToLog(DUMP_TAG, maxDepth = Int.MAX_VALUE)
-            }
-        }
+        dumpTrees()
         throw AssertionError("Timed out after $timeoutMs ms waiting for $what", e)
+    } catch (e: IdlingResourceTimeoutException) {
+        // Espresso gave up on Compose going idle: a stall, not a missing node. Dump all the same.
+        dumpTrees()
+        throw AssertionError("Compose never went idle while waiting for $what", e)
     }
+}
+
+private fun ComposeTestRule.dumpTrees() {
+    runCatching {
+        onAllNodes(isRoot()).fetchSemanticsNodes().indices.forEach { i ->
+            onAllNodes(isRoot())[i].printToLog(DUMP_TAG, maxDepth = Int.MAX_VALUE)
+        }
+    }
+}
+
+/**
+ * Puts [text] in a text field through its SetText action, without focusing it: performTextInput
+ * focuses the field, which raises the soft keyboard, and on the CI emulator the keyboard's first
+ * draw held the app's next frame past Espresso's idling timeout.
+ */
+fun SemanticsNodeInteraction.setTextWithoutKeyboard(text: String) {
+    performSemanticsAction(SemanticsActions.SetText) { it(AnnotatedString(text)) }
 }
 
 private const val DUMP_TAG = "JourneyTree"

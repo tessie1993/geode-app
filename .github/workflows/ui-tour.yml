@@ -85,7 +85,6 @@ jobs:
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
           adb shell settings put secure long_press_timeout 1500
-          adb shell settings put secure show_ime_with_hard_keyboard 0
           # Gesture navigation: the edge strips become Android's back, home and shade gestures.
           adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
           sleep 10

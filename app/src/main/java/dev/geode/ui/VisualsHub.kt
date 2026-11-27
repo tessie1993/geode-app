@@ -246,9 +246,6 @@ private fun VisualsHubContent(
         // without glass then): it runs down behind the bar, so nothing shows between them.
         val dockGap = if (docked != null) 0.dp else GeodeSpacing.EdgeInset
         val barUnder = if (docked != null) with(density) { chrome.tabBarHeightPx.toDp() } else 0.dp
-        // [bottomReserve] moves on every frame of the wide shell's mini player, where the options are
-        // the side panel: there the room is not the sheet's and is not read, so nothing recomposes.
-        // The sheet's own room still follows it (a portrait tablet), one recomposition per change.
         val maxHeightNow = maxHeight
         val roomPx by remember(side, maxHeightNow, statusTop, dockGap, dockedHeight, density) {
             derivedStateOf {
@@ -298,7 +295,6 @@ private fun VisualsHubContent(
         LaunchedEffect(nav.sheetShown, settles, panelWidth, side) {
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)
         }
-        // Read only in derived state, layout and touch: never in composition.
         val reservePx = { with(density) { (bottomReserve() + dockGap + dockedHeight).toPx() } }
         // The docked player stays while the options are up and holds the tab bar with it
         // (ShellChromeState.docked); with the options hidden it is a pill that sleeps with the

@@ -368,9 +368,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // Its sleep timer waits while the boot intro or a first-run page covers the shell.
     val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !onboarding.safetyAcknowledged || !onboarding.setupDone
     val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
-    // The dock's height moves on every frame of the wide shell's mini player expand and shrink. It is
-    // never read here: the spring follows it from an effect and Visuals reads it in layout, so neither
-    // this root nor Visuals recomposes per frame.
     val dockHeight = remember { mutableStateOf(0.dp) }
     val visualsReserve = remember { Animatable(0.dp, Dp.VectorConverter) }
     LaunchedEffect(motion) {

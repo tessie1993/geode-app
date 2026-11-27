@@ -204,14 +204,6 @@ Java_dev_geode_engine_bridge_StageNative_stageSetUiBlurRegion(JNIEnv*, jobject, 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetEdgeGlow(JNIEnv* env, jobject, jlong stage, jfloatArray opts) {
-    const jsize count = opts ? std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS) : 0;
-    float values[GEODE_EDGE_GLOW_FLOATS] = {};
-    if (count > 0) env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
-    geode_viz_set_edge_glow(StageViz(stage), opts ? values : nullptr, static_cast<int>(count));
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageSetCastSource(JNIEnv*, jobject, jlong stage, jboolean on) {
     geode_viz_set_cast_source(StageViz(stage), on == JNI_TRUE ? 1 : 0);
 }

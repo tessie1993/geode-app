@@ -92,7 +92,7 @@ void FluidSceneBase::saveFramebufferAndViewport() {
 
 // The blend state is not asked of the driver (five queries a frame, each a possible pipeline sync): it is known.
 // Every pass and scene the renderer draws leaves blending off, and each one that blends turns it on with its own
-// function first (TrailPass, the fluid look and particles, EdgeGlowPass, UiBlurPass, the physics layers, ...).
+// function first (TrailPass, the fluid look and particles, UiBlurPass, the physics layers, ...).
 void FluidSceneBase::saveGlState() { saveFramebufferAndViewport(); }
 
 void FluidSceneBase::restoreFramebufferAndViewport() {

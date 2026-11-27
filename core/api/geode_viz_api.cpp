@@ -59,7 +59,6 @@
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/glsl/ShaderOverrides.hpp"
-#include "viz/frame/WallpaperWindow.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {
@@ -215,8 +214,6 @@ static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
-static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
-static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
 static_assert(frame::kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
@@ -1083,22 +1080,6 @@ void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float rig
     region.strength = strength;
     region.cornerPx = corner_px;
     v->renderer.setUiBlurRegion(region);
-}
-
-void geode_viz_set_edge_glow(geode_viz* v, const float* opts, int count) {
-    if (!v) return;
-    v->renderer.setEdgeGlow(geode::viz::frame::edge_glow::parse(opts, count));
-}
-
-void geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
-                            const float* offsets, int count, float* out) {
-    if (!out) return;
-    namespace wp = geode::viz::frame::wallpaper;
-    const wp::Window w = wp::window(surface_w, surface_h, display_w, display_h, wp::parseOffsets(offsets, count));
-    out[0] = w.left;
-    out[1] = w.top;
-    out[2] = w.width;
-    out[3] = w.height;
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

@@ -71,17 +71,7 @@ Java_dev_geode_engine_bridge_SoundNative_soundTuningResolve(JNIEnv* env, jobject
     return result;
 }
 
-// The live wallpaper's and the dream's run rule (viz/SurfaceRun), beside their silence rule.
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceRunMode(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
-    return geode_surface_run_mode(static_cast<unsigned>(flags), animateUntilMs, nowMs);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceReason(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
-    return geode_surface_reason(static_cast<unsigned>(flags), animateUntilMs, nowMs);
-}
+// The dream's run rule (viz/SurfaceRun), beside its silence rule.
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_SoundNative_stageRun(JNIEnv*, jobject, jint flags) {
@@ -167,11 +157,6 @@ Java_dev_geode_engine_bridge_SoundNative_surfaceRecheckInMs(JNIEnv*, jobject, jl
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_SoundNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
     return geode_surface_fps_choice(requestedFps);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceZoomCovers(JNIEnv*, jobject, jfloat zoom) {
-    return geode_surface_zoom_covers(zoom) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL

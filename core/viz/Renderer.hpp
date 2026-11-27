@@ -69,7 +69,6 @@
 #include "viz/frame/LiveFps.hpp"
 #include "viz/passes/UiBlurPass.hpp"
 #include "viz/modulation/VisualSafety.hpp"
-#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/physics/PhysicsLayers.hpp"
@@ -97,7 +96,7 @@ public:
     // optional passes and fluid bloom.
     void setUserQuality(float renderScale, float marchScale, bool postFx);
     // The rate the display last presented at and the surface's own cap (Settings › Performance, the
-    // wallpaper's, the dream's, Cast's fixed rate), 0 when free-running. Any thread.
+    // dream's, Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
         pacedFps_.store(pacedFps, std::memory_order_relaxed);
         ownCapFps_.store(ownCapFps, std::memory_order_relaxed);
@@ -120,8 +119,6 @@ public:
     void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
-    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
-    void setEdgeGlow(const frame::edge_glow::Options& options);
     // What Liquid mode ran last frame (liquid::Mode), or -1 when it has not changed since the last take.
     // Taken every live frame by geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on
     // a change. A new surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
@@ -167,7 +164,7 @@ public:
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
-    // The live feed is the player's ring (one a sink plays). Off for another ring (the wallpaper's output
+    // The live feed is the player's ring (one a sink plays). Off for another ring (the dream's output
     // mix): the player's source, fade and boundaries are not this engine's (PlayerSignals::heardAsPlayer).
     void setFedPlayersRing(bool on) { fedPlayersRing_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
@@ -238,7 +235,7 @@ public:
     // a pause, a frame no vsync asked for). GL thread.
     void restartClock() { lastTimeS_ = -1.0; }
     void releaseScenes();
-    // The surface is about to stop drawing (the host's pause, an in-app hide, a hidden wallpaper): the spares,
+    // The surface is about to stop drawing (the host's pause, an in-app hide, a stopped dream): the spares,
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
     // is only read by a frame and none follows. GL thread, with the context current.
     void trimSpares() { trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, false)); }
@@ -301,8 +298,6 @@ private:
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0. Its targets go after
     // a short spell without a draw (wallDt, the frame's wall step).
     bool uiBlurWanted(UiBlurRegion& region);
-    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
-    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     // dt: the scene clock's step; inputDt: the picture's own (touch, smear, the liquid's gestures).
     void stepOverlays(Scene& scene, const SceneParams& p, float dt, float inputDt);
@@ -407,13 +402,6 @@ private:
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
-    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
-    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
-    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
-    // shell turned it on (the wallpaper is its only caller), and never offscreen.
-    frame::EdgeGlowPass edgeGlowPass_;
-    frame::edge_glow::Options edgeGlowOptions_;
-    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<bool> layerAlone_{false};
     std::atomic<bool> fedPlayersRing_{true};
@@ -475,7 +463,7 @@ private:
     // The shape graph the Scope::Shapes styles melt into their form (viz/styles/shared/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
     // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
-    // export, the wallpaper and the dream each tick their own on their own clock, and an export's fresh
+    // export and the dream each tick their own on their own clock, and an export's fresh
     // renderer replays its film from the pinned seed.
     shapes::ShapeGraph shapeGraph_;
 

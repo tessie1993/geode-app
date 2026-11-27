@@ -53,7 +53,7 @@ object StageNative {
         viewFlags: Int,
     )
 
-    /** The wallpaper and the dream: the SURFACE_* bits through the surface run rule; answers the run mode applied. */
+    /** The dream: the SURFACE_* bits through the surface run rule; answers the run mode applied. */
     external fun stageSetSurface(
         stage: Long,
         surfaceFlags: Int,
@@ -178,12 +178,6 @@ object StageNative {
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    )
-
-    /** The edge glow's floats, or null for none. */
-    external fun stageSetEdgeGlow(
-        stage: Long,
-        opts: FloatArray?,
     )
 
     external fun stageSetCastSource(

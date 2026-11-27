@@ -22,10 +22,6 @@ int geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long
     return static_cast<int>(surface::mode(flags, animate_until_ms, now_ms));
 }
 
-int geode_surface_reason(unsigned flags, long long animate_until_ms, long long now_ms) {
-    return static_cast<int>(surface::reason(flags, animate_until_ms, now_ms));
-}
-
 int geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms) {
     return surface::listening(flags, animate_until_ms, now_ms) ? 1 : 0;
 }
@@ -43,8 +39,6 @@ long long geode_surface_settle_ms(int previous_mode, int mode) {
 }
 
 int geode_surface_fps_choice(int requested_fps) { return surface::fpsChoice(requested_fps); }
-
-int geode_surface_zoom_covers(float zoom) { return surface::zoomCovers(zoom) ? 1 : 0; }
 
 int geode_surface_proximity_near(float distance_cm, float maximum_range) {
     return surface::proximityNear(distance_cm, maximum_range) ? 1 : 0;

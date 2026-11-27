@@ -543,22 +543,6 @@ Java_dev_geode_engine_bridge_VizNative_vizSetOffscreen(JNIEnv*, jobject, jlong h
     geode_viz_set_offscreen(vizOf(handle), on == JNI_TRUE);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_wallpaperWindow(JNIEnv* env, jobject, jfloat surfaceW, jfloat surfaceH,
-                                                         jfloat displayW, jfloat displayH, jfloatArray offsets,
-                                                         jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < 4) return;
-    float raw[GEODE_WALLPAPER_OFFSETS] = {};
-    jsize count = 0;
-    if (offsets) {
-        count = std::min<jsize>(env->GetArrayLength(offsets), GEODE_WALLPAPER_OFFSETS);
-        env->GetFloatArrayRegion(offsets, 0, count, reinterpret_cast<jfloat*>(raw));
-    }
-    float window[4] = {};
-    geode_wallpaper_window(surfaceW, surfaceH, displayW, displayH, raw, static_cast<int>(count), window);
-    env->SetFloatArrayRegion(out, 0, 4, reinterpret_cast<const jfloat*>(window));
-}
-
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_VizNative_vizLastError(JNIEnv* env, jobject, jlong handle) {
     return geode::jni::utf8String(env, geode_viz_last_error(vizOf(handle)));

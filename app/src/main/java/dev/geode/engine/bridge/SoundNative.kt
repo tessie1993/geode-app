@@ -6,7 +6,7 @@ object SoundNative {
         GeodeNative.ensureLoaded()
     }
 
-    // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
+    // Rest when silent (core/sound/Silence): the dream's silence rule.
 
     /** Whether a surface may rest: nothing heard for 6 s. */
     external fun silenceResting(
@@ -30,7 +30,7 @@ object SoundNative {
      */
     external fun soundSetPlayerSource(on: Boolean)
 
-    // Which sound the wallpaper and the dream hear (core/sound/SoundSource): the app's ring while fed,
+    // Which sound the dream hears (core/sound/SoundSource): the app's ring while fed,
     // else the output-mix capture when permitted, with hysteresis so it never flaps.
 
     /** Longs in the caller-held state of [soundSourceStep]; a zeroed array is a fresh one. */
@@ -177,23 +177,9 @@ object SoundNative {
     const val STAGE_STEP_STYLES = 0
     const val STAGE_STEP_LOOKS = 1
 
-    // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
+    // The dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
-
-    /** 0 stopped, 1 a still frame, 2 moving, 3 dark (no visual). */
-    external fun surfaceRunMode(
-        flags: Int,
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Int
-
-    /** Why it is not moving: 0 moving, 1 hidden, 2 the entitlement, 3 reduced motion, 4 battery saver, 5 silence. */
-    external fun surfaceReason(
-        flags: Int,
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Int
 
     /** Whether the surface should be hearing sound (what wakes it from a silent rest). */
     external fun surfaceListening(
@@ -216,9 +202,6 @@ object SoundNative {
 
     /** A surface's stored fps choice as the frame-rate hint it states: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
-
-    /** Whether the wallpaper's [zoom] (0 none, 1 fully out behind the shade or recents) covers it ([SURFACE_COVERED]). */
-    external fun surfaceZoomCovers(zoom: Float): Boolean
 
     /** Whether the dream's proximity reading [distanceCm] is near, against the sensor's [maximumRange] ([SURFACE_COVERED]). */
     external fun surfaceProximityNear(
@@ -286,7 +269,6 @@ object SoundNative {
     const val AUTO_TIMER_RANDOM = 1
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1
-    const val SURFACE_PREVIEW = 1 shl 2
     const val SURFACE_COVERED = 1 shl 3
     const val SURFACE_BATTERY_SAVER = 1 shl 4
     const val SURFACE_PAUSE_IN_BATTERY_SAVER = 1 shl 5
@@ -300,6 +282,6 @@ object SoundNative {
     const val SURFACE_DARK_WHEN_SILENT = 1 shl 9
     const val SURFACE_FOREVER = Long.MAX_VALUE
 
-    /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
+    /** The dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
     const val SURFACE_DEFAULT_FPS = 30
 }

@@ -202,9 +202,6 @@ class Stage(
         cornerPx: Float,
     ) = StageNative.stageSetUiBlurRegion(handle, left, top, right, bottom, strength, cornerPx)
 
-    /** The wallpaper's edge glow options (`core/viz/frame/EdgeGlowPass`). */
-    fun setEdgeGlow(options: FloatArray) = StageNative.stageSetEdgeGlow(handle, options)
-
     /** Tap along: true on the tap that completes a streak on the beat this stage heard. */
     fun tapAlong(uptimeNs: Long): Boolean = StageNative.stageTapAlong(handle, uptimeNs)
 
@@ -242,7 +239,7 @@ class Stage(
         poll()
     }
 
-    /** The wallpaper's and the dream's `SURFACE_*` bits; answers the run mode native applied. */
+    /** The dream's `SURFACE_*` bits; answers the run mode native applied. */
     fun setSurface(
         flags: Int,
         animateUntilMs: Long,

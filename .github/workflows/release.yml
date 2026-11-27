@@ -194,6 +194,23 @@ jobs:
             echo "::warning::Unsigned dry-run bundle: do not upload it to Play."
           fi
 
+      # These classes are built by reflection from their names (WorkManager's Room database, the Cast
+      # options provider in the manifest, Glance's ActionCallbacks): without the no-argument
+      # constructor the app dies at launch or on the first tap. usage.txt lists what R8 removed.
+      - name: R8 kept the reflectively built constructors
+        run: |
+          set -euo pipefail
+          usage=app/build/outputs/mapping/release/usage.txt
+          test -f "$usage" || { echo "::error::No R8 usage.txt: the release build was not minified"; exit 1; }
+          if ! awk -v classes="androidx.work.impl.WorkDatabase_Impl dev.geode.cast.CastOptionsProvider dev.geode.widget.WidgetTransportAction dev.geode.widget.WidgetStyleAction" '
+            BEGIN { split(classes, c, " "); for (i in c) want[c[i]] = 1 }
+            /^[^ \t]/ { cls = $0; sub(/:$/, "", cls); if ($0 !~ /:$/ && cls in want) { print "::error::R8 removed " cls; bad = 1 } next }
+            cls in want && /[ \t]<init>\(\)$/ { print "::error::R8 removed " cls ".<init>()"; bad = 1 }
+            END { exit bad }' "$usage"; then
+            exit 1
+          fi
+          echo "R8 kept the constructors WorkManager, Cast and Glance build by name."
+
       - name: Upload AAB, R8 mapping and native symbols
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

@@ -290,6 +290,10 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     implementation(libs.activity.compose)
     implementation(libs.glance.appwidget)
+    constraints {
+        // Glance's WorkManager 2.7.1 brings Room 2.2.5, whose R8 rule lets full mode strip WorkDatabase_Impl.<init>().
+        implementation(libs.work.runtime)
+    }
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)

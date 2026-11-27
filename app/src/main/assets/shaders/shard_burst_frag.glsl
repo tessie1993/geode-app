@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -83,8 +84,8 @@ vec3 burstBall(vec3 p, float fling) {
 }
 
 vec3 shardMap(vec3 p) {
-    p.xz = shardRot(uTime * SHARD_RATE(60)) * p.xz;
-    p.yz = shardRot(uTime * SHARD_RATE(23)) * p.yz;
+    frameTurnXZ(gFrame.a, p);
+    frameTurnYZ(gFrame.b, p);
     vec3 a = vec3(1.0e3);
     vec3 b = a;
     vec3 c = a;

@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -73,7 +74,7 @@ vec3 stairWhorls(vec3 p) {
 }
 
 vec3 petalMap(vec3 p) {
-    p.xz = petalRot(uTime * PETAL_RATE(45)) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     vec3 m = vec3(0.0);
     if (gLayerPick.x > 0.0) m += gLayerPick.x * stairSpiral(p, PETAL_GOLD);
     if (gLayerPick.y > 0.0) m += gLayerPick.y * stairSpiral(p, 3.1415927 + 0.21);

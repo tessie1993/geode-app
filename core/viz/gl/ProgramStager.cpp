@@ -124,24 +124,30 @@ ProgramStager::Job ProgramStager::kick(const Entry& entry) const {
 void ProgramStager::finish(Entry& entry, Job job) {
     ++progress_;
     std::string error;
-    for (size_t i = 0; i < job.shaders.size() && error.empty(); ++i) {
+    // The status says it failed, not the log: a driver may leave a failed compile's log empty.
+    bool failed = false;
+    for (size_t i = 0; i < job.shaders.size() && !failed; ++i) {
         GLint status = 0;
         glGetShaderiv(job.shaders[i], GL_COMPILE_STATUS, &status);
         if (status == 0) {
+            failed = true;
             error = program::infoLog(job.shaders[i], false);
             if (entry.stages[i].type == GL_COMPUTE_SHADER) error = "compute compile failed: " + error;
         }
     }
-    if (error.empty()) {
+    if (!failed) {
         GLint status = 0;
         glGetProgramiv(job.program, GL_LINK_STATUS, &status);
-        if (status == 0) error = "Link failed: " + program::infoLog(job.program, true);
+        if (status == 0) {
+            failed = true;
+            error = "Link failed: " + program::infoLog(job.program, true);
+        }
     }
     for (const GLuint shader : job.shaders) {
         glDetachShader(job.program, shader);
         glDeleteShader(shader);
     }
-    if (!error.empty()) {
+    if (failed) {
         glDeleteProgram(job.program);
         entry.failed = true;
         entry.error = error;

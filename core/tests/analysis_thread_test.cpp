@@ -644,6 +644,79 @@ void failedPassWakesTheThread() {
     check(AnalysisThreadTestAccess::tuning(at).gain[0] == 2.5f, "and it applied the tuning queued");
 }
 
+// A gapless join as the player makes it: 90 BPM for 20 s, the next track at 128 BPM with no gap. The ring's new epoch
+// (the tap's flush at the join) marks its first sample, and the player names the boundary only once the speaker
+// plays it, a sink buffer after the analysis heard it. What one run read.
+struct Join {
+    int64_t join = 0;       // the ring position of the new track's first sample
+    int64_t relock = -1;    // the first locked hop at 128 BPM after the join, -1 for none
+    bool bpmCleared = false;  // a hop between the late boundary and 2 s after it read no tempo
+    std::vector<Heard> heard;  // every hop published after the join
+};
+Join gaplessJoin(bool epochAtJoin, bool lateBoundary, bool seekBefore) {
+    constexpr int rate = 48000;
+    constexpr double kOld = 20.0;
+    constexpr double kNew = 12.0;
+    constexpr int64_t kLate = rate;  // the speaker's lead: 1 s of audio
+    const std::vector<float> first = clicks(rate, 90.0, kOld);
+    const std::vector<float> second = clicks(rate, 128.0, kNew);
+    PcmRing ring(kRingFrames, 2, kRunway);
+    AnalysisThread at(ring, false);
+    Join out;
+    int64_t boundaryAt = -1;
+    int64_t checked = -1;
+    auto feed = [&](const std::vector<float>& pcm, bool joinSide) {
+        const int64_t total = static_cast<int64_t>(pcm.size() / 2);
+        for (int64_t done = 0; done < total;) {
+            if (!joinSide && seekBefore && done == 5 * rate) ring.beginEpoch();
+            if (joinSide && lateBoundary && boundaryAt < 0 && ring.headFrames() - out.join >= kLate) {
+                // The new play's seed reaches the analysis with the boundary (Renderer::newPlay).
+                check(at.trackBoundary() && at.resetEmotion(), "the late boundary and new play are queued");
+                boundaryAt = ring.headFrames();
+            }
+            const int size = static_cast<int>(std::min<int64_t>(total - done, 1024));
+            ring.writeFloat(pcm.data() + 2 * done, size, 2, rate);
+            done += size;
+            at.pump(0.01f);
+            at.hopsBetween(checked, kAll, [&](const Heard& h) {
+                checked = h.position;
+                if (!joinSide) return;
+                out.heard.push_back(h);
+                if (out.relock < 0 && h.clock.locked && std::fabs(h.frame.bpm / 128.0f - 1.0f) < 0.02f) out.relock = h.position;
+                if (boundaryAt >= 0 && h.position > boundaryAt && h.position < boundaryAt + 2 * rate && h.frame.bpm == 0.0f) {
+                    out.bpmCleared = true;
+                }
+            });
+        }
+    };
+    feed(first, false);
+    if (epochAtJoin) ring.beginEpoch();
+    out.join = ring.headFrames();
+    feed(second, true);
+    return out;
+}
+
+// The engine starts over on the join's own sample (the epoch), and the player's late boundary for that same join must
+// not start it over a second time: the new tempo locks as soon as it would with the epoch alone. With no epoch at the
+// join (a ring or player that does not flush there), the boundary is still what starts the new song over.
+void gaplessBoundaryOnTheJoin() {
+    constexpr double rate = 48000.0;
+    const Join epochOnly = gaplessJoin(true, false, false);
+    const Join both = gaplessJoin(true, true, false);
+    const Join named = gaplessJoin(false, true, true);
+    auto after = [&](const Join& j) { return j.relock < 0 ? -1.0 : static_cast<double>(j.relock - j.join) / rate; };
+    std::printf("  gapless join: 128 BPM locks %.2f s after the join with the epoch, %.2f s with the late boundary too, "
+                "%.2f s with only the boundary\n",
+                after(epochOnly), after(both), after(named));
+    check(epochOnly.relock >= 0 && after(epochOnly) <= 5.0, "the epoch alone relocks on the new tempo within 5 s");
+    check(both.relock == epochOnly.relock, "the late boundary for a join the epoch marked does not delay the relock");
+    check(both.heard.size() == epochOnly.heard.size() &&
+              std::equal(both.heard.begin(), both.heard.end(), epochOnly.heard.begin(),
+                         [](const Heard& a, const Heard& b) { return same(a, b); }),
+          "the late boundary and new play change no hop after a join the epoch marked: tempo, key, form, feeling");
+    check(named.bpmCleared && named.relock >= 0, "with no epoch at the join the boundary starts the tempo over");
+}
+
 int main() {
     std::printf("analysis thread: one engine off the draw thread, hops by ring position\n");
     for (int rate : {48000, 96000}) inlineMatchesBare(rate, false);
@@ -656,6 +729,7 @@ int main() {
     controlLockNeverBlocksAPass();
     orderSurvivesAFailedPass();
     failedPassWakesTheThread();
+    gaplessBoundaryOnTheJoin();
     if (failures.load() == 0) std::printf("analysis_thread_test: all checks passed\n");
     return failures.load() == 0 ? 0 : 1;
 }

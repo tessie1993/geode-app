@@ -534,6 +534,10 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     heldScene_ = &scene;
     heldPose_ = camera_.pose();
+    scene.setParams(p);
+    deliverPcm(scene);
+    updateScene(scene, sceneSound(p), dt);
+    scene.simulate();
     glBindFramebuffer(GL_FRAMEBUFFER, fboA_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
@@ -542,9 +546,6 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
-    scene.setParams(p);
-    deliverPcm(scene);
-    updateScene(scene, sceneSound(p), dt);
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(static_cast<float>(timeSeconds_));

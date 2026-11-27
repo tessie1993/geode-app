@@ -45,6 +45,10 @@ public:
     // Clock control (viz/clock): this frame's signed move of the scene clock (a jump when a stutter loops) and its
     // scale; set before every update().
     virtual void setClockStep(float step, float rate) { (void) step; (void) rate; }
+    // After update(), before the renderer binds the scene target: the scene's offscreen passes (a simulation's steps),
+    // so the target's own pass holds only the picture. A scene that overrides it keeps draw() able to run it when the
+    // renderer did not (a layer, an outgoing scene).
+    virtual void simulate() {}
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;
 

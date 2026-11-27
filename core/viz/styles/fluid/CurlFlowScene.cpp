@@ -72,19 +72,13 @@ void CurlFlowScene::update(const GeodeSoundFrame& features, float dt) {
     pcmKick_ = std::clamp(tickPcm(dt), 0.0f, 1.0f);
 }
 
-void CurlFlowScene::draw(float timeSeconds) {
-    (void) timeSeconds;
+void CurlFlowScene::simulate() {
     if (!available_ || !field_) return;
     const fluid::Fbo& fld = *field_;
-    saveFramebufferAndViewport();
     applyQualityTier();
-    if (!particles_.available()) {
-        // The tier's population and the shipped fallback were both refused: draw nothing, cleanly.
-        restoreFramebufferAndViewport();
-        return;
-    }
+    simulated_ = true;
 
-    if (hasPending_) {
+    if (particles_.available() && hasPending_) {
         const GeodeSoundFrame& f = pending_;
         wallTime_ = std::fmod(wallTime_ + lastDt_, kWallWrapSeconds);
         // No hit of its own: the field's swell and the particles' flare on every hit (the hit times the
@@ -115,8 +109,17 @@ void CurlFlowScene::draw(float timeSeconds) {
         particles_.step(lastDt_, fld.tex(), aspect_, 1.0f, wallTime_);
         hasPending_ = false;
     }
+}
 
+void CurlFlowScene::draw(float timeSeconds) {
+    (void) timeSeconds;
+    if (!available_ || !field_) return;
+    saveFramebufferAndViewport();
+    if (!simulated_) simulate();
+    simulated_ = false;
     restoreFramebufferAndViewport();
+    // The tier's population and the shipped fallback were both refused: draw nothing, cleanly.
+    if (!particles_.available()) return;
     particles_.draw(aspect_, savedViewportWidth(), savedViewportHeight(), std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
                     hue::span(params_.hueRange, params_.paletteRange()),
                     fluid::curl::kBaseBrightness * fluid::math::particleExposure(particleCount_, fluid::curl::kRefParticles),

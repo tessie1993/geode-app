@@ -55,13 +55,12 @@ GeodeSoundFrame FluidScene::idleFeatures(float dt) {
     return idleAudioFeatures(bass, mid, treble, 0.2f);
 }
 
-void FluidScene::draw(float timeSeconds) {
+void FluidScene::simulate() {
     if (!sim_.available()) return;
     resetFrameState();
     const SceneParams& p = params_;
     const GeodeSoundFrame f = scaledFeatures();
 
-    saveGlState();
     applyQualityTier();
 
     const float energy = std::clamp(f.rms, 0.0f, 1.0f);
@@ -119,6 +118,17 @@ void FluidScene::draw(float timeSeconds) {
     look_.sunraysWeight = std::clamp(p.fluidSunraysWeight, 0.3f, 1.0f);
     if (p.fluidDyeEnabled) look_.process(sim_.dyeTex(), p.fluidBloom, p.fluidSunrays);
     hasPending_ = false;
+    simulated_ = true;
+}
+
+void FluidScene::draw(float timeSeconds) {
+    if (!sim_.available()) return;
+    saveGlState();
+    if (!simulated_) simulate();
+    simulated_ = false;
+    const SceneParams& p = params_;
+    const float hueBase = hue::base(p.paletteBase()) + style_.hueOffset;
+    const float hueSpan = hue::span(p.hueRange, p.paletteRange());
 
     restoreFramebufferAndViewport();
     if (p.fluidDyeEnabled) {

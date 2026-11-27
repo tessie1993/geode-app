@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -128,17 +129,18 @@ public:
         swirls_ = startOurs_ && action(Gesture::Swirl) != Action::Off;
     }
 
-    // How long to wait for the next event with the hold timer running; -1 when no timer runs.
-    int64_t waitMs() const {
+    // How long from nowMs (the events' clock) to wait for the next event with the hold timer running; -1 when no
+    // timer runs. Counted from the caller's now, not the last event, so a late wake-up does not add its delay again.
+    int64_t waitMs(int64_t nowMs) const {
         if (!waitingOnHold()) return -1;
-        const int64_t left = holdDeadline() - now_;
+        const int64_t left = holdDeadline() - nowMs;
         return left < 1 ? 1 : left;
     }
 
     // The hold timer ran out: the ring shows, or, once shown, closes and the hold fires.
     uint32_t tick() {
         if (!waitingOnHold()) return ring();
-        now_ = holdDeadline();
+        now_ = std::max(now_, holdDeadline());
         if (!ringShown_) {
             ringShown_ = true;
             return ring();
@@ -152,6 +154,10 @@ public:
     // step goes to pinch[2] with kPinch.
     uint32_t event(int64_t tMs, const float* xy, int live, bool primaryDown, float* pinch) {
         if (tMs >= 0) now_ = tMs;
+        // A busy main thread can hand over an event from past a deadline before its timeout ran: what the timer
+        // would have done by then happened first, or a lift after the ring's close would never fire the hold.
+        uint32_t held = 0;
+        while (waitingOnHold() && now_ > holdDeadline()) held |= tick() & kHold;
         if (!xy) live = 0;
         if (!multi_ && live >= 2) {
             multi_ = true;
@@ -159,16 +165,16 @@ public:
             for (int i = 0; i < 4; ++i) pairStart_[i] = pairLast_[i] = xy[i];
         }
         if (!multi_) {
-            if (!primaryDown || live < 1) return kOver;
+            if (!primaryDown || live < 1) return held | kOver;
             const bool swirled = moveTo(xy[0], xy[1]);
-            return ring() | (swirled ? kSwirl : 0u);
+            return held | ring() | (swirled ? kSwirl : 0u);
         }
         if (live < 2) {
-            if (live == 0) return kOver;
+            if (live == 0) return held | kOver;
         } else if (pairInside_) {
             trackPair(xy);
         }
-        uint32_t answer = 0;
+        uint32_t answer = held;
         const float factor = stepFactor_;
         const float degrees = stepDegrees_;
         stepFactor_ = 1.0f;

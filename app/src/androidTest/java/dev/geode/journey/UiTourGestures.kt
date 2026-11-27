@@ -2,11 +2,13 @@ package dev.geode.journey
 
 import android.graphics.PointF
 import android.os.SystemClock
+import android.view.ViewConfiguration
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
+import dev.geode.engine.bridge.TouchNative
 import org.json.JSONObject
 import kotlin.math.max
 import kotlin.math.min
@@ -53,7 +55,10 @@ fun UiTour.visualGestures(): List<TourGesture> {
         swipe("swipe-right", CanvasGesture.SWIPE_SIDEWAYS, at(0.2f, 0.4f), at(0.8f, 0.4f)),
         swipe("swipe-up", CanvasGesture.SWIPE_UP, at(0.5f, 0.62f), at(0.5f, 0.28f)),
         swipe("swipe-down", CanvasGesture.SWIPE_DOWN, at(0.5f, 0.24f), at(0.5f, 0.6f)),
-        TourGesture("hold", CanvasGesture.LONG_PRESS, centre, centre) { UiTourTouch.hold(centre, HOLD_MS) },
+        TourGesture("hold", CanvasGesture.LONG_PRESS, centre, centre) {
+            // Past the ring's close on this device: its long-press timeout follows the touch & hold delay setting.
+            UiTourTouch.hold(centre, ViewConfiguration.getLongPressTimeout() + TouchNative.GESTURE_HOLD_FILL_MS + HOLD_MARGIN_MS)
+        },
         TourGesture("swirl", CanvasGesture.SWIRL, PointF(centre.x + r, centre.y), PointF(centre.x + r, centre.y)) {
             UiTourTouch.circles(centre, r, SWIRL_TURNS)
         },
@@ -249,7 +254,7 @@ fun UiTour.hideSheet() {
 const val LIVE_VISUAL = "Live visual"
 const val VISUALS = "Visuals"
 
-private const val HOLD_MS = 1_400L
+private const val HOLD_MARGIN_MS = 600L
 private const val SWIRL_TURNS = 2
 private const val SWIRL_RADIUS = 0.2f
 private const val PAIR_STEPS = 24

@@ -3,6 +3,8 @@
 #include <chrono>
 #include <utility>
 
+#include "util/ThreadNice.hpp"
+
 namespace geode::output::record {
 
 namespace {
@@ -83,6 +85,9 @@ Session::~Session() {
 }
 
 void Session::run() {
+    // Whatever thread opened it (the shell's IO pool): a drain that falls behind fills the codec, and the stage's swap
+    // into it waits. Ranked as the cast's drain is (cast/CastEncoder).
+    util::setThreadNice(util::kFeedNice);
     bool saved = false;
     try {
         while (!sink_->done()) {

@@ -3,7 +3,8 @@
 // and stops at the first that works; samples that come out before the muxer starts are held and written in
 // order after; a format change mid-stream keeps the track; codec-config buffers stay out of the file; the end
 // of stream drains everything; PTS never go backwards per track; a codec error stops with the failure; no
-// sample is written twice or dropped; and the session's stop waits for the stage's tee, or a second.
+// sample is written twice or dropped; the session's stop waits for the stage's tee, or a second; and the session's
+// drain thread names its own nice.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Encode sink host test"); no device.
 #include <algorithm>
 #include <atomic>
@@ -21,6 +22,7 @@
 #include "output/EncodeSink.hpp"
 #include "output/RecordSession.hpp"
 #include "output/Recorder.hpp"
+#include "util/ThreadNice.hpp"
 
 using namespace geode::output;
 using sink::BufferInfo;
@@ -87,6 +89,7 @@ struct EncState {
     int formatsGiven = 0;
     int releasedOutputs = 0;
     int id = 0;  // names its format
+    std::atomic<int> drainNice{geode::util::kNiceInherited};  // the nice of the thread that last drained it
 };
 
 struct FakeFormat final : sink::TrackFormat {
@@ -136,6 +139,7 @@ public:
         return true;
     }
     Out dequeueOutput(int* index, BufferInfo* info) override {
+        s_->drainNice = geode::util::threadNice();
         if (s_->errorNext) return Out::Error;
         if (s_->outputs.empty()) return Out::None;
         out_ = std::move(s_->outputs.front());
@@ -589,6 +593,8 @@ void session() {
               "session: the encoder's surface while it runs");
         std::this_thread::sleep_for(std::chrono::milliseconds(30));
         check(s->state() == record::Session::State::Running, "session: runs until the clock stops");
+        // Opened from any thread: the drain names its own nice rather than inherit the opener's.
+        check(r.video->drainNice == geode::util::kFeedNice, "session: the drain thread sets its own nice");
         r.recorder->stop(record::Stop::User, r.clock.load());
         check(waitFor(*s, record::Session::State::Closing, 500), "session: asks for the tee to close");
         check(r.video->endedInput == 0, "session: the video stream waits for the tee");

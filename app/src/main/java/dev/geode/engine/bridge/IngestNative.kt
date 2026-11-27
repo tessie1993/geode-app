@@ -211,15 +211,4 @@ object IngestNative {
         handle: Long,
         playout: Long,
     )
-
-    /**
-     * The rest-when-silent rule over the ring's newest [frames] frames: [nowMs] when any is above about
-     * -42 dBFS, else [heardAtMs] (also when the ring has not written that many).
-     */
-    external fun pcmRingHeardAt(
-        handle: Long,
-        frames: Int,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
 }

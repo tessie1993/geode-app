@@ -229,8 +229,6 @@ layer_pick_test | core | core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp c
 # Auto Director's style at its moments: a return's own family stepped on, the next along the catalogue, a drop's leap, stay; never random.
 director_style_test | stub | core/tests/director_style_test.cpp core/viz/director/DirectorStyle.cpp core/viz/styles/catalogue/Catalogue.cpp \
     core/viz/styles/catalogue/StyleCatalog.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp |
-# Which sound the dream hears (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
-sound_source_test | stub | core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |
 # Settings › Audio's saved tuning as the engine hears it: clamped, an older save without the trim, any other length the defaults.
 sound_tuning_test | stub | core/tests/sound_tuning_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |
 # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
@@ -266,13 +264,8 @@ transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
 # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
 quality_test | stub | core/tests/quality_test.cpp core/api/geode_perf_api.cpp core/viz/liquid/LiquidMath.cpp |
-# The dream's run rule: priority order, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
-surface_run_test | stub | core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp \
-    core/sound/Tuning.cpp |
 # The background image bake (#651): the crop rect and dim exact with the old Kotlin, the blur keeps a flat image, the clamps.
 underlay_test | stub | core/tests/underlay_test.cpp core/viz/passes/Underlay.cpp core/api/geode_underlay_api.cpp |
-# Reduced motion on the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
-surface_motion_test | stub | core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp |
 # A used program binary is stamped again only when its stamp is a day old (or it is on probation), not on every load.
 cache_touch_policy_test | core | core/tests/cache_touch_policy_test.cpp |
 # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the random draw never repeating what is on screen.

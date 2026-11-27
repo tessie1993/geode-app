@@ -53,14 +53,6 @@ object StageNative {
         viewFlags: Int,
     )
 
-    /** The dream: the SURFACE_* bits through the surface run rule; answers the run mode applied. */
-    external fun stageSetSurface(
-        stage: Long,
-        surfaceFlags: Int,
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Int
-
     external fun stagePause(stage: Long)
 
     external fun stageResume(stage: Long)
@@ -251,7 +243,6 @@ object StageNative {
     ): Boolean
 
     const val STAGE_KIND_VIEW = 0
-    const val STAGE_KIND_SURFACE = 1
     const val STAGE_VIEW_ATTACHED = 1 shl 0
     const val STAGE_VIEW_WINDOW_VISIBLE = 1 shl 1
     const val STAGE_VIEW_SHOWN = 1 shl 2

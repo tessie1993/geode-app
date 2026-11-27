@@ -9,11 +9,6 @@
 
 extern "C" {
 
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_SoundNative_silenceResting(JNIEnv*, jobject, jlong nowMs, jlong heardAtMs) {
-    return geode_silence_resting(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
-}
-
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_SoundNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
     return geode_sound_track_boundary(seed);
@@ -22,19 +17,6 @@ Java_dev_geode_engine_bridge_SoundNative_soundTrackBoundary(JNIEnv*, jobject, jl
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_SoundNative_soundSetPlayerSource(JNIEnv*, jobject, jboolean on) {
     geode_sound_set_player_source(on == JNI_TRUE ? 1 : 0);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_SoundNative_soundSourceStep(JNIEnv* env, jobject, jlongArray state, jlong nowMs,
-                                                         jboolean ringPresent, jlong ringId, jlong ringWritten,
-                                                         jboolean capturePermitted, jboolean captureRunning) {
-    if (!state || env->GetArrayLength(state) < GEODE_SOUND_SOURCE_STATE_LONGS) return 0;
-    long long s[GEODE_SOUND_SOURCE_STATE_LONGS];
-    env->GetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<jlong*>(s));
-    const int out = geode_sound_source_step(s, nowMs, ringPresent ? 1 : 0, ringId, ringWritten,
-                                            capturePermitted ? 1 : 0, captureRunning ? 1 : 0);
-    env->SetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<const jlong*>(s));
-    return out;
 }
 
 // The tuning schema in one array: every slot's default, then every minimum, then every maximum.
@@ -50,15 +32,6 @@ Java_dev_geode_engine_bridge_SoundNative_soundTuningSchema(JNIEnv* env, jobject)
     return out;
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_SoundNative_soundSourceStartFailed(JNIEnv* env, jobject, jlongArray state, jlong nowMs) {
-    if (!state || env->GetArrayLength(state) < GEODE_SOUND_SOURCE_STATE_LONGS) return;
-    long long s[GEODE_SOUND_SOURCE_STATE_LONGS];
-    env->GetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<jlong*>(s));
-    geode_sound_source_start_failed(s, nowMs);
-    env->SetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<const jlong*>(s));
-}
-
 JNIEXPORT jfloatArray JNICALL
 Java_dev_geode_engine_bridge_SoundNative_soundTuningResolve(JNIEnv* env, jobject, jfloatArray saved) {
     std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
@@ -70,8 +43,6 @@ Java_dev_geode_engine_bridge_SoundNative_soundTuningResolve(JNIEnv* env, jobject
     env->SetFloatArrayRegion(result, 0, GEODE_SOUND_TUNING_FLOATS, out);
     return result;
 }
-
-// The dream's run rule (viz/SurfaceRun), beside its silence rule.
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_SoundNative_stageRun(JNIEnv*, jobject, jint flags) {
@@ -136,32 +107,6 @@ Java_dev_geode_engine_bridge_SoundNative_stageStepIndex(JNIEnv* env, jobject, jb
     if (count > 0) env->GetBooleanArrayRegion(open, 0, count, raw.data());
     std::vector<unsigned char> flags(raw.begin(), raw.end());
     return geode_stage_step_index(flags.data(), count, here, step);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
-                                                          jlong nowMs) {
-    return geode_surface_listening(static_cast<unsigned>(flags), animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceEntitled(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
-    return geode_surface_entitled(animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceRecheckInMs(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
-    return geode_surface_recheck_in_ms(animateUntilMs, nowMs);
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
-    return geode_surface_fps_choice(requestedFps);
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_SoundNative_surfaceProximityNear(JNIEnv*, jobject, jfloat distanceCm, jfloat maximumRange) {
-    return geode_surface_proximity_near(distanceCm, maximumRange) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

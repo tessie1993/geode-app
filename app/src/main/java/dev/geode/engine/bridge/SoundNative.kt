@@ -6,14 +6,6 @@ object SoundNative {
         GeodeNative.ensureLoaded()
     }
 
-    // Rest when silent (core/sound/Silence): the dream's silence rule.
-
-    /** Whether a surface may rest: nothing heard for 6 s. */
-    external fun silenceResting(
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Boolean
-
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
     /**
@@ -29,42 +21,6 @@ object SoundNative {
      * re-warm, and read a fade gain of 1. Any thread.
      */
     external fun soundSetPlayerSource(on: Boolean)
-
-    // Which sound the dream hears (core/sound/SoundSource): the app's ring while fed,
-    // else the output-mix capture when permitted, with hysteresis so it never flaps.
-
-    /** Longs in the caller-held state of [soundSourceStep]; a zeroed array is a fresh one. */
-    const val SOUND_SOURCE_STATE_LONGS: Int = 8
-
-    /** Answer bit of [soundSourceStep]: read the capture (while it runs), not the ring. */
-    const val SOUND_SOURCE_USE_CAPTURE: Int = 1
-
-    /** Answer bit of [soundSourceStep]: try to start the capture now. */
-    const val SOUND_SOURCE_START_CAPTURE: Int = 2
-
-    /** Answer bit of [soundSourceStep]: stop the capture now. */
-    const val SOUND_SOURCE_STOP_CAPTURE: Int = 4
-
-    /**
-     * One poll of the source rule: updates [state] in place and answers in `SOUND_SOURCE_*` bits.
-     * [ringId] tells rings apart, [ringWritten] is its written-frame counter; [capturePermitted] is
-     * the user's option plus the permission (or a capture already running).
-     */
-    external fun soundSourceStep(
-        state: LongArray,
-        nowMs: Long,
-        ringPresent: Boolean,
-        ringId: Long,
-        ringWritten: Long,
-        capturePermitted: Boolean,
-        captureRunning: Boolean,
-    ): Int
-
-    /** Reports that a start [soundSourceStep] asked for failed, so the next try waits 10 s. */
-    external fun soundSourceStartFailed(
-        state: LongArray,
-        nowMs: Long,
-    )
 
     // Settings › Audio's listening tuning (core/sound/Tuning). The shell keeps only the saved floats, null for
     // the engine's defaults, so a reset follows the engine when they change.
@@ -177,38 +133,6 @@ object SoundNative {
     const val STAGE_STEP_STYLES = 0
     const val STAGE_STEP_LOOKS = 1
 
-    // The dream's run rule (core/viz/SurfaceRun). [flags] are the
-    // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
-    // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
-
-    /** Whether the surface should be hearing sound (what wakes it from a silent rest). */
-    external fun surfaceListening(
-        flags: Int,
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Boolean
-
-    /** Whether the entitlement lets the visual move at [nowMs]; the dream ends when it stops. */
-    external fun surfaceEntitled(
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Boolean
-
-    /** How long until the rule must be restated because a trial ends, or -1 for never. */
-    external fun surfaceRecheckInMs(
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Long
-
-    /** A surface's stored fps choice as the frame-rate hint it states: snapped to a listed rate, <= 0 the default. */
-    external fun surfaceFpsChoice(requestedFps: Int): Int
-
-    /** Whether the dream's proximity reading [distanceCm] is near, against the sensor's [maximumRange] ([SURFACE_COVERED]). */
-    external fun surfaceProximityNear(
-        distanceCm: Float,
-        maximumRange: Float,
-    ): Boolean
-
     /**
      * Auto's style timer ([AUTO_TIMER_PLAYLIST], [AUTO_TIMER_RANDOM]; native `core/viz/AutoTimer`): a look
      * just went up at [nowMs], so the wait starts over with a new random spread on top of the interval.
@@ -267,21 +191,4 @@ object SoundNative {
 
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1
-    const val SURFACE_HAS_SURFACE = 1 shl 0
-    const val SURFACE_VISIBLE = 1 shl 1
-    const val SURFACE_COVERED = 1 shl 3
-    const val SURFACE_BATTERY_SAVER = 1 shl 4
-    const val SURFACE_PAUSE_IN_BATTERY_SAVER = 1 shl 5
-    const val SURFACE_SILENT = 1 shl 6
-    const val SURFACE_REST_WHEN_SILENT = 1 shl 7
-
-    /** The system's Remove animations: a still frame. */
-    const val SURFACE_REDUCED_MOTION = 1 shl 8
-
-    /** The dream: a silent rest shows no visual rather than a still frame. */
-    const val SURFACE_DARK_WHEN_SILENT = 1 shl 9
-    const val SURFACE_FOREVER = Long.MAX_VALUE
-
-    /** The dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
-    const val SURFACE_DEFAULT_FPS = 30
 }

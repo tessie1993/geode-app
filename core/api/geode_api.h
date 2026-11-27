@@ -1357,13 +1357,6 @@ GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
 GEODE_API void                geode_export_seam_blend(geode_export_pass*, int index, int tail, int seam_frames);
 
-/* Rest when silent (sound/Silence): the dream's silence rule. A poll hands in the
- * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
- * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is
- * nothing heard for 6 s. Pure: the caller keeps the one timestamp. */
-GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
-                                                 long long now_ms, long long heard_at_ms);
-GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 /* A capture's digital silence (sound/Silence): heard_at moved to now when the peak of the block it just wrote
  * (the ring's write answer) is above digital zero; quiet is 4 s of none since then. Start heard_at at the
  * capture's start. Pure, any thread. */
@@ -1398,20 +1391,6 @@ GEODE_API int             geode_mic_active(void);
  * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
 GEODE_API long long       geode_sound_track_boundary(long long seed);
 GEODE_API void            geode_sound_set_player_source(int on);
-/* Which sound the dream hears (sound/SoundSource): the app's ring while it is fed, else the
- * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed
- * = fresh) and polls with now, whether the app has a ring, which ring and its written-frame counter, whether
- * capture is permitted (option on and permission granted, or already running) and whether it runs. The answer
- * is GEODE_SOUND_SOURCE_* bits; the ring falls back after 1 s without a write and takes over again after 0.5 s
- * fed, so it never flaps. A start the shell could not make is reported back and retried after 10 s. Pure. */
-#define GEODE_SOUND_SOURCE_STATE_LONGS 8
-#define GEODE_SOUND_SOURCE_USE_CAPTURE 1     /* read the capture's input (while it runs), not the ring */
-#define GEODE_SOUND_SOURCE_START_CAPTURE 2   /* try to start the capture now */
-#define GEODE_SOUND_SOURCE_STOP_CAPTURE 4    /* stop the capture now */
-GEODE_API int             geode_sound_source_step(long long* state, long long now_ms, int ring_present,
-                                                  long long ring_id, long long ring_written,
-                                                  int capture_permitted, int capture_running);
-GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
  * min(count, slots) and ignores the rest. The engine clamps each slot into its range, a NaN or an
@@ -1467,38 +1446,6 @@ GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
 GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);
 GEODE_API int             geode_live_fps_cap(int stored_fps, const float* rates, int count);
 GEODE_API float           geode_live_fps_refresh(int fps, const float* rates, int count);
-/* Surface run rule (viz/SurfaceRun): when the dream draws. flags are the GEODE_SURFACE_*
- * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
- * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
- * after geode_surface_recheck_in_ms (-1 = never), since nothing announces a trial's end. */
-#define GEODE_SURFACE_HAS_SURFACE            (1u << 0)
-#define GEODE_SURFACE_VISIBLE                (1u << 1)
-/* (1u << 2) was the live wallpaper picker's preview, retired with the wallpaper. */
-#define GEODE_SURFACE_COVERED                (1u << 3)
-#define GEODE_SURFACE_BATTERY_SAVER          (1u << 4)
-#define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
-#define GEODE_SURFACE_SILENT                 (1u << 6)
-#define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
-#define GEODE_SURFACE_REDUCED_MOTION         (1u << 8)   /* the system's Remove animations */
-#define GEODE_SURFACE_DARK_WHEN_SILENT       (1u << 9)   /* silence shows no visual (the dream), not a still frame */
-#define GEODE_SURFACE_FOREVER                9223372036854775807LL
-GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated, 3 dark */
-GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
-GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
-GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
-/* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
- * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
-GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
-/* A surface's own frame rate (Behaviour › Dream): the stored choice as the pacer caps to,
- * snapped to a listed rate; <= 0 gives the default. */
-#define GEODE_SURFACE_DEFAULT_FPS            30
-GEODE_API int             geode_surface_fps_choice(int requested_fps);
-/* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
-GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
-/* What sets GEODE_SURFACE_COVERED, 1 = covered: the dream's proximity reading, in cm, near against the sensor's maximum
- * range. */
-GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
-
 /* Auto's style timer (core/viz/director/AutoTimer), one per source, process-wide: the wait before the next look is the
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the
  * interval. now_ms is the shell's monotonic clock. restart: a look just went up. due: 1 once the wait is over
@@ -1945,10 +1892,6 @@ GEODE_API int64_t           geode_pcm_ring_head(const geode_pcm_ring*);      /* 
  * handle then reads up to the sample the speaker plays (geode_playout_listen_limit) instead of the newest.
  * The clock must outlive every reader of the handle; the app keeps one for the process. Any thread. */
 GEODE_API void              geode_pcm_ring_set_playout(geode_pcm_ring*, const geode_playout* clock);
-/* geode_silence_heard_at over the ring's newest `frames` frames: heard_at_ms unchanged when the epoch has
- * not written that many, else now_ms when any of them is audible. */
-GEODE_API long long         geode_pcm_ring_heard_at(const geode_pcm_ring*, int frames, long long now_ms,
-                                                    long long heard_at_ms);
 /* One reader's place in a ring: every frame once, in order. max_frames is the most one take hands out
  * (0 = the ring's runway). One thread per cursor. */
 GEODE_API geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring*, int max_frames);

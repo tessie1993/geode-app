@@ -196,12 +196,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingSetPlayo
     geode_pcm_ring_set_playout(ringOf(handle), reinterpret_cast<const geode_playout*>(playout));
 }
 
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_pcmRingHeardAt(JNIEnv*, jobject, jlong handle,
-                                                                                jint frames, jlong nowMs,
-                                                                                jlong heardAtMs) {
-    return geode_pcm_ring_heard_at(ringOf(handle), frames, nowMs, heardAtMs);
-}
-
 // The header scan (core/audio/ingest/AiffHeaderScan) for the player's extractor, which holds the file.
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_IngestNative_aiffScanCreate(JNIEnv*, jobject) {
     return reinterpret_cast<jlong>(geode_aiff_scan_create());

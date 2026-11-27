@@ -239,13 +239,6 @@ class Stage(
         poll()
     }
 
-    /** The dream's `SURFACE_*` bits; answers the run mode native applied. */
-    fun setSurface(
-        flags: Int,
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Int = StageNative.stageSetSurface(handle, flags, animateUntilMs, nowMs).also { poll() }
-
     fun pause() = StageNative.stagePause(handle)
 
     fun resume() {

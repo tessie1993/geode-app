@@ -18,7 +18,6 @@
 #include "stage/StageLifecycle.hpp"
 #include "stage/android/StageThread.hpp"
 #include "util/Log.hpp"
-#include "viz/SurfaceRun.hpp"
 
 namespace stage = geode::stage;
 using geode::stage::platform::StageThread;
@@ -282,12 +281,6 @@ int geode_stage_gyro_listens(geode_stage* s, int wanted) {
         }
     }
     return on ? 1 : 0;
-}
-
-int geode_stage_set_surface(geode_stage* s, unsigned surface_flags, long long animate_until_ms, long long now_ms) {
-    const geode::viz::surface::RunMode mode = geode::viz::surface::mode(surface_flags, animate_until_ms, now_ms);
-    onThread(s, "geode_stage_set_surface", [&](StageThread& t) { t.setMode(mode); });
-    return static_cast<int>(mode);
 }
 
 void geode_stage_pause(geode_stage* s) {

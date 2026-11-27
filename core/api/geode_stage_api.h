@@ -42,7 +42,7 @@ typedef struct geode_stage_client {
 #define GEODE_STAGE_VIEW_SHOWN               (1u << 2)
 #define GEODE_STAGE_VIEW_OPAQUE              (1u << 3)   /* alpha above 0 */
 
-/* The state word. The run mode (GEODE_SURFACE run modes: 0 stopped, 1 still, 2 animated, 3 dark) is in bits
+/* The state word. The run mode (0 stopped, 1 still, 2 animated, 3 dark) is in bits
    GEODE_STAGE_STATE_MODE_SHIFT and up, two bits. */
 #define GEODE_STAGE_STATE_WINDOW             (1u << 0)
 #define GEODE_STAGE_STATE_CONTEXT            (1u << 1)
@@ -68,9 +68,6 @@ GEODE_API void     geode_stage_set_window(geode_stage*, struct ANativeWindow* wi
 GEODE_API void     geode_stage_set_size(geode_stage*, int width, int height);
 /* The app's view: GEODE_STAGE_VIEW_* bits. */
 GEODE_API void     geode_stage_set_view(geode_stage*, unsigned view_flags);
-/* The dream: GEODE_SURFACE_* flags through the surface run rule (geode_surface_run_mode);
-   returns the run mode it applied, so the shell can lay its black cover over Dark. */
-GEODE_API int      geode_stage_set_surface(geode_stage*, unsigned surface_flags, long long animate_until_ms, long long now_ms);
 /* The host's pause and resume (the view's onPause and onResume). */
 GEODE_API void     geode_stage_pause(geode_stage*);
 GEODE_API void     geode_stage_resume(geode_stage*);

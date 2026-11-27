@@ -69,12 +69,6 @@ Java_dev_geode_engine_bridge_StageNative_stageSetView(JNIEnv*, jobject, jlong st
     geode_stage_set_view(stageOf(stage), static_cast<unsigned>(viewFlags));
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetSurface(JNIEnv*, jobject, jlong stage, jint surfaceFlags,
-                                                         jlong animateUntilMs, jlong nowMs) {
-    return geode_stage_set_surface(stageOf(stage), static_cast<unsigned>(surfaceFlags), animateUntilMs, nowMs);
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_StageNative_stagePause(JNIEnv*, jobject, jlong stage) {
     geode_stage_pause(stageOf(stage));

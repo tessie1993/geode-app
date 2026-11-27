@@ -604,25 +604,20 @@ void testAbi() {
     CHECK(geode_pcm_cursor_take_s16(cursor, pcm.data(), 256, &restarted, &rate) == 2, "abi s16 take");
     CHECK(restarted == 0 && rate == 48000, "abi s16 take: restarted %d, rate %d", restarted, rate);
     CHECK(pcm[0] == 32767 && pcm[1] == -32767 && pcm[2] == 16384 && pcm[3] == 0, "abi s16 values %d %d %d", pcm[0], pcm[1], pcm[2]);
-    CHECK(geode_pcm_ring_heard_at(ring, 4096, 500, 100) == 100, "abi heard more frames than the ring holds");
 
     const uint8_t bytes[2] = {255, 0};
     CHECK(geode_pcm_ring_write_bytes(ring, bytes, 2, GEODE_PCM_U8, 1, 48000, &peak) == 2, "abi u8 write");
     CHECK(peak == 1.0f, "abi u8 peak %g", peak);
     CHECK(geode_pcm_ring_write_bytes(ring, bytes, 2, 99, 1, 48000, &peak) == 0 && peak == 0.0f, "abi unknown encoding");
 
-    // Rest when silent: unchanged until the epoch holds that many frames, now once one is audible.
+    // A new epoch starts the count from zero.
     geode_pcm_ring_begin_epoch(ring);
     CHECK(geode_pcm_ring_written(ring) == 0, "abi epoch");
-    CHECK(geode_pcm_ring_heard_at(ring, 64, 500, 100) == 100, "abi heard an empty epoch");
     const std::vector<float> quiet(64 * 2, 0.001f);
     geode_pcm_ring_write_f32(ring, quiet.data(), 64, 2, 48000, nullptr);
-    CHECK(geode_pcm_ring_heard_at(ring, 64, 500, 100) == 100, "abi heard a quiet block");
     std::vector<float> loud(64 * 2, 0.0f);
     loud[77] = 0.5f;
     geode_pcm_ring_write_f32(ring, loud.data(), 64, 2, 48000, nullptr);
-    CHECK(geode_pcm_ring_heard_at(ring, 64, 500, 100) == 500, "abi missed a loud block");
-    CHECK(geode_pcm_ring_heard_at(ring, 0, 500, 100) == 100, "abi heard no frames");
     geode_pcm_cursor_reset(cursor);
     CHECK(geode_pcm_cursor_take(cursor, out.data(), 256, &restarted, &rate) == 128 && restarted == 1, "abi reset");
 
@@ -643,7 +638,6 @@ void testAbi() {
     CHECK(geode_pcm_ring_write_s16(nullptr, shorts, 2, 2, 48000, nullptr) == 0, "abi wrote s16 to null");
     CHECK(geode_pcm_ring_write_bytes(nullptr, bytes, 2, GEODE_PCM_U8, 1, 48000, nullptr) == 0, "abi wrote bytes to null");
     CHECK(geode_pcm_ring_written(nullptr) == 0, "abi null written");
-    CHECK(geode_pcm_ring_heard_at(nullptr, 64, 500, 100) == 100, "abi null heard");
     CHECK(geode_pcm_cursor_create(nullptr, 0) == nullptr, "abi cursor on null");
     CHECK(geode_pcm_cursor_max_frames(nullptr) == 0 && geode_pcm_cursor_channels(nullptr) == 0, "abi null cursor sizes");
     CHECK(geode_pcm_cursor_take(nullptr, out.data(), 256, nullptr, nullptr) == -1, "abi null take");

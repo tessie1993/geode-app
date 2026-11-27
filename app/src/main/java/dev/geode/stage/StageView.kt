@@ -27,9 +27,6 @@ class StageView(
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
     SensorEventListener {
-    /** A view with a stage of its own: the dream's. */
-    constructor(context: Context, kind: Int, capFps: Float) : this(context, Stage(context, kind, capFps))
-
     private val sensors = context.getSystemService(SensorManager::class.java)
 
     // The game rotation vector, not the plain one: no magnetometer, so a speaker cannot swing the view.
@@ -74,7 +71,7 @@ class StageView(
         cornerPx: Float,
     ) = stage.setUiBlurRegion(left, top, right, bottom, strength, cornerPx)
 
-    /** The host's pause and resume (the activity's, or the dream's). */
+    /** The host's pause and resume (the activity's). */
     fun onPause() {
         stage.pause()
         syncTilt()
@@ -134,9 +131,8 @@ class StageView(
         if (isAttachedToWindow) restate(attached = true)
     }
 
-    /** What the view sees of itself, as is; a surface stage's rule is its host's ([Stage.setSurface]). */
+    /** What the view sees of itself, as is. */
     private fun restate(attached: Boolean) {
-        if (stage.kind != StageNative.STAGE_KIND_VIEW) return
         val flags =
             (if (attached) StageNative.STAGE_VIEW_ATTACHED else 0) or
                 (if (windowVisibility == VISIBLE) StageNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or

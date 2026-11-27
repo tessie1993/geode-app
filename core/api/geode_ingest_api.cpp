@@ -14,7 +14,6 @@
 #include "audio/ingest/PcmRing.hpp"
 #include "audio/ingest/RingKinds.hpp"
 #include "audio/ingest/TrackFeed.hpp"
-#include "sound/Silence.hpp"
 
 namespace {
 
@@ -239,21 +238,6 @@ void geode_pcm_ring_set_playout(geode_pcm_ring* r, const geode_playout* clock) {
 
 int64_t geode_pcm_ring_written(const geode_pcm_ring* r) {
     return r ? r->ring->writtenFrames() : 0;
-}
-
-long long geode_pcm_ring_heard_at(const geode_pcm_ring* r, int frames, long long now_ms, long long heard_at_ms) {
-    // Checked against the ring before anything is allocated for it.
-    if (!r || frames <= 0 || frames > r->ring->capacityFrames()) return heard_at_ms;
-    try {
-        std::vector<float> latest(static_cast<size_t>(frames) * static_cast<size_t>(r->ring->channelCount()));
-        if (!r->ring->snapshotLatest(latest.data(), frames)) return heard_at_ms;
-        // Any sample above the rule's level counts, whichever channel it is in, so the interleaved block
-        // is judged as one run of samples.
-        const float* block = latest.data();
-        return geode::sound::silence::heardAt(&block, 1, static_cast<int>(latest.size()), now_ms, heard_at_ms);
-    } catch (...) {
-        return heard_at_ms;
-    }
 }
 
 geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring* r, int max_frames) {

@@ -138,6 +138,7 @@ void FieldPresent::draw(GLuint state, int stateW, int stateH, float fracX, float
     // The prep pass: the state into the field, once per frame at the state's own size.
     glDisable(GL_BLEND);
     glBindFramebuffer(GL_FRAMEBUFFER, fieldFbo_->fbo());
+    fieldFbo_->discardContents();
     glViewport(0, 0, longSide, shortSide);
     glUseProgram(prepProgram_);
     glActiveTexture(GL_TEXTURE0);

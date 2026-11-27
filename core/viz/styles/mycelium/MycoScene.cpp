@@ -112,6 +112,7 @@ void MycoScene::draw(float timeSeconds) {
 
     glUseProgram(agent_.program());
     glBindFramebuffer(GL_FRAMEBUFFER, colony.write().fbo());
+    colony.write().discardContents();
     glViewport(0, 0, colony.width(), colony.height());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, colony.read().tex());
@@ -154,6 +155,7 @@ void MycoScene::draw(float timeSeconds) {
 
     glUseProgram(blur_.program());
     glBindFramebuffer(GL_FRAMEBUFFER, field.write().fbo());
+    field.write().discardContents();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, field.read().tex());
     glUniform1i(blur_.loc("uTrail"), 0);

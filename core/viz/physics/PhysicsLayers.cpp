@@ -207,6 +207,7 @@ void PhysicsLayers::draw(GLuint pictureTex, Framebuffer& target) {
     const Frame& f = frame_;
     const GLuint ink = fluidShown_ ? fluid_->dyeTex() : f.zeroTex;
     glBindFramebuffer(GL_FRAMEBUFFER, target.fbo());
+    target.discardContents();
     glViewport(0, 0, target.width(), target.height());
     glDisable(GL_BLEND);
     // Back: the fluid behind or over the picture (PhysicsPlan layer()).

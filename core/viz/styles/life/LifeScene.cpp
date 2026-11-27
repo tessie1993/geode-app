@@ -397,6 +397,7 @@ void LifeScene::draw(float timeSeconds) {
     glUniform1f(stepLocs_.loc("uInk"), ink_);
     for (int pass = 0; pass < substeps; ++pass) {
         glBindFramebuffer(GL_FRAMEBUFFER, field->write().fbo());
+        field->write().discardContents();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, field->read().tex());
         glUniform1i(stepLocs_.loc("uPrev"), 0);

@@ -226,6 +226,7 @@ void AcidScene::draw(float timeSeconds) {
 
     glUseProgram(step_.program());
     glBindFramebuffer(GL_FRAMEBUFFER, loop->write().fbo());
+    loop->write().discardContents();
     glViewport(0, 0, loop->width(), loop->height());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, loop->read().tex());

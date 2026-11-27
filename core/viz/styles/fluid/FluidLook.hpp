@@ -55,7 +55,7 @@ private:
     void use(UniformCache& program, float invW, float invH);
     void blitDiscarding(const Fbo& target);
     void blit(const Fbo& target);
-    void bindTex(UniformCache& program, const char* name, GLuint tex, int unit);
+    void bindTex(UniformCache& program, Uniform name, GLuint tex, int unit);
 
     const ProgramLoader& loader_;
     Formats formats_;

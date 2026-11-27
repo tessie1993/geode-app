@@ -170,9 +170,87 @@ namespace geode::viz {
     X(uWorldTex) \
     X(uZoom)
 
+// The names the fluid passes upload (viz/styles/fluid, FluidParticles), interned the same way.
+#define GEODE_FLUID_UNIFORMS(X) \
+    X(uAmp) \
+    X(uAspect) \
+    X(uAudio) \
+    X(uBass) \
+    X(uBeat) \
+    X(uBrightness) \
+    X(uBuoyancy) \
+    X(uCatchCount) \
+    X(uCatches) \
+    X(uCeiling) \
+    X(uCount) \
+    X(uCur) \
+    X(uCurl) \
+    X(uCurlStrength) \
+    X(uCurve) \
+    X(uDecay) \
+    X(uDetail) \
+    X(uDirection) \
+    X(uDitherScale) \
+    X(uDrag) \
+    X(uDt) \
+    X(uDx) \
+    X(uDye) \
+    X(uE) \
+    X(uEnergy) \
+    X(uFlowScale) \
+    X(uForward) \
+    X(uFreq) \
+    X(uGlow) \
+    X(uH2) \
+    X(uHalfRdx) \
+    X(uHeat) \
+    X(uHueBase) \
+    X(uHueSpan) \
+    X(uInvRes) \
+    X(uLookHue) \
+    X(uMaxHeat) \
+    X(uMaxStretch) \
+    X(uMeta) \
+    X(uMid) \
+    X(uMode) \
+    X(uOmega) \
+    X(uP) \
+    X(uPeriod) \
+    X(uPointScale) \
+    X(uPressure) \
+    X(uPrev) \
+    X(uRadius) \
+    X(uRdx) \
+    X(uRhs) \
+    X(uSeg) \
+    X(uShape) \
+    X(uSource) \
+    X(uSpawnCount) \
+    X(uSpawns) \
+    X(uSrcInvRes) \
+    X(uState) \
+    X(uStir) \
+    X(uStirFreq) \
+    X(uStirTime) \
+    X(uStretchSeconds) \
+    X(uSunrays) \
+    X(uTarget) \
+    X(uTexelSize) \
+    X(uTexture) \
+    X(uThreshold) \
+    X(uTreble) \
+    X(uVal) \
+    X(uValue) \
+    X(uVelInvRes) \
+    X(uVelocity) \
+    X(uVelocityField) \
+    X(uViewport) \
+    X(uWeight)
+
 enum class Uniform : uint16_t {
 #define GEODE_UNIFORM_ENUM(name) name,
     GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_ENUM)
+    GEODE_FLUID_UNIFORMS(GEODE_UNIFORM_ENUM)
 #undef GEODE_UNIFORM_ENUM
     kCount
 };
@@ -180,6 +258,7 @@ enum class Uniform : uint16_t {
 inline constexpr const char* kUniformNames[] = {
 #define GEODE_UNIFORM_NAME(name) #name,
     GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_NAME)
+    GEODE_FLUID_UNIFORMS(GEODE_UNIFORM_NAME)
 #undef GEODE_UNIFORM_NAME
 };
 

@@ -97,13 +97,13 @@ void CurlFlowScene::draw(float timeSeconds) {
         glDisable(GL_BLEND);
         quad_.bind();
         glUseProgram(fieldUniforms_.program());
-        glUniform2f(fieldUniforms_.loc("uInvRes"), 1.0f / static_cast<float>(fld.width()), 1.0f / static_cast<float>(fld.height()));
-        glUniform1f(fieldUniforms_.loc("uAspect"), aspect_);
-        glUniform1f(fieldUniforms_.loc("uTime"), noiseTime_);
-        glUniform1f(fieldUniforms_.loc("uFreq"), 1.2f * (0.5f + std::clamp(params_.turbulence, 0.1f, 2.0f)));
-        glUniform1f(fieldUniforms_.loc("uDetail"), std::clamp(live::treble(f) * 3.0f + pcmKick_ * 0.8f, 0.0f, 1.5f));
-        glUniform1f(fieldUniforms_.loc("uAmp"), fluid::curl::fieldAmp(params_.audioDrive) * (1.0f + pcmKick_ * 0.35f));
-        glUniform2f(fieldUniforms_.loc("uPeriod"), 0.0f, 0.0f);
+        glUniform2f(fieldUniforms_.loc(Uniform::uInvRes), 1.0f / static_cast<float>(fld.width()), 1.0f / static_cast<float>(fld.height()));
+        glUniform1f(fieldUniforms_.loc(Uniform::uAspect), aspect_);
+        glUniform1f(fieldUniforms_.loc(Uniform::uTime), noiseTime_);
+        glUniform1f(fieldUniforms_.loc(Uniform::uFreq), 1.2f * (0.5f + std::clamp(params_.turbulence, 0.1f, 2.0f)));
+        glUniform1f(fieldUniforms_.loc(Uniform::uDetail), std::clamp(live::treble(f) * 3.0f + pcmKick_ * 0.8f, 0.0f, 1.5f));
+        glUniform1f(fieldUniforms_.loc(Uniform::uAmp), fluid::curl::fieldAmp(params_.audioDrive) * (1.0f + pcmKick_ * 0.35f));
+        glUniform2f(fieldUniforms_.loc(Uniform::uPeriod), 0.0f, 0.0f);
         glBindFramebuffer(GL_FRAMEBUFFER, fld.fbo());
         // The field is rebuilt from noise every audio frame, so nothing carries over: discard, then fill.
         fld.discardContents();

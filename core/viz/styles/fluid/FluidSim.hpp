@@ -136,11 +136,11 @@ private:
     void useProgram(int prog, int gridW, int gridH);
     void blitDiscarding(const Fbo& target);
     void blit(const Fbo& target);
-    GLint loc(int prog, const char* name) { return programs_[static_cast<size_t>(prog)].loc(name); }
-    void bindTex(const char* name, GLuint tex, int unit, int prog);
-    void set1f(int prog, const char* name, float v) { glUniform1f(loc(prog, name), v); }
-    void set2f(int prog, const char* name, float a, float b) { glUniform2f(loc(prog, name), a, b); }
-    void set3f(int prog, const char* name, float a, float b, float c) { glUniform3f(loc(prog, name), a, b, c); }
+    GLint loc(int prog, Uniform name) { return programs_[static_cast<size_t>(prog)].loc(name); }
+    void bindTex(Uniform name, GLuint tex, int unit, int prog);
+    void set1f(int prog, Uniform name, float v) { glUniform1f(loc(prog, name), v); }
+    void set2f(int prog, Uniform name, float a, float b) { glUniform2f(loc(prog, name), a, b); }
+    void set3f(int prog, Uniform name, float a, float b, float c) { glUniform3f(loc(prog, name), a, b, c); }
     void deleteCustom(std::optional<UniformCache>& custom);
 
     const ProgramLoader& loader_;

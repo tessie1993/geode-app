@@ -1,28 +1,15 @@
 name: Build and lint
 
-# The pull-request gate: the debug APK (Kotlin and the native core through CMake).
-# Then the manifest promise checks and the release build's banned-SDK scan.
-# Then the JVM unit tests of every module.
-# Then the linters: detekt, Android lint, ktlint.
-# The native host tests (native-host-tests.yml) and the gates (arch-map.yml) run beside it.
-# Only the emulator tests stay manual (android.yml): the emulator takes minutes to boot.
-# ship-apk.yml calls it on the commit it ships, with the host tests and the gates.
+# The only CI workflow: build the debug APK, run unit tests and linters.
 
 on:
   workflow_dispatch:
   pull_request:
-  workflow_call:
-    inputs:
-      ref:
-        description: Commit to check; empty checks the run's own commit.
-        type: string
-        default: ""
 
 permissions:
   contents: read
 
-# A newer push to a pull request replaces its older run. Any other run (a commit ship-apk.yml
-# ships) has a group of its own, so a later merge never cancels an earlier one's checks.
+# A newer push to a pull request replaces its older run.
 concurrency:
   group: build-lint-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -36,16 +23,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      # A push to main (through ship-apk.yml) writes the caches pull requests read. A manual run may
-      # check any ref, so it writes neither.
+      # Pull requests and manual runs read the shared cache but never replace it.
       - name: Set up the Android build
         uses: ./.github/actions/android-build-setup
         with:
-          gradle-cache-read-only: ${{ github.event_name != 'push' }}
+          gradle-cache-read-only: true
           ccache: true
 
       - name: Assemble debug APK
@@ -55,7 +40,7 @@ jobs:
         if: always()
         run: ccache -s || true
 
-      # A pull request's cache stays on its branch. On a push, ship-apk.yml's build restores this one.
+      # Keep the pull request's ccache entries under its run id.
       - name: Keep only the ccache entries this build used
         if: github.event_name != 'workflow_dispatch'
         run: ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
@@ -68,11 +53,9 @@ jobs:
           key: ccache-debug-${{ github.run_id }}
 
       # The APK this gate just built, downloadable from the run's Summary page, so every
-      # pull request has an installable debug build. A push to main publishes its own (ship-apk.yml).
-      # Uploaded before the linters, so a lint finding still leaves the APK to try.
-      # Debug-signed with app/debug.keystore, so it installs over the other CI builds.
+      # pull request has an installable debug build. Uploaded before the linters, so a lint
+      # finding still leaves the APK to try. Debug-signed with app/debug.keystore.
       - name: Upload debug APK
-        if: github.event_name != 'push'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: geode-debug-pr${{ github.event.pull_request.number || 'branch' }}-${{ github.run_number }}
@@ -80,12 +63,11 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # The promises Play and the privacy policy rest on, from one script, so the promise in release.yml holds.
+      # Check the merged manifest against the app's declared promises.
       - name: Check the merged manifest against the app's promises
         run: tools/check-manifest.sh
 
-      # Cast is the app's only internet use. tools/network-gate.sh (arch-map.yml) reads the code and the
-      # submodules; this reads what Gradle resolves for the release build.
+      # Cast is the app's only internet use. This reads what Gradle resolves for the release build.
       # Firebase by product: Cast's own logging (datatransport) brings firebase-encoders, which only
       # serialises its anonymous log records and opens no connection (Data safety declares it).
       # No WebRTC SDK from Maven: Show on a computer uses the native libdatachannel submodule.

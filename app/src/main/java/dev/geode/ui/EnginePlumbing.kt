@@ -70,7 +70,9 @@ fun VisualizerEngineBindings(
 
     LaunchedEffect(Unit) {
         visualizerView.stage.onShaderError = viewModel::reportShaderError
-        visualizerView.stage.soundInput = { dev.geode.audio.AudioBus.heard }
+    }
+    LaunchedEffect(visualizerView) {
+        dev.geode.audio.AudioBus.heard.collect { visualizerView.stage.hear(it) }
     }
     // W02: the background image is decoded to the surface's current pixel size, so a rotation
     // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires

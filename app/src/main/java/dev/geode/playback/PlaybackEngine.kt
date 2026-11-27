@@ -8,6 +8,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import dev.geode.audio.AudioBus
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.TapRenderersFactory
@@ -150,7 +151,7 @@ class PlaybackSession internal constructor(
         player.addListener(crossfade)
         player.addListener(recorder)
         IngestNative.pcmRingSetPlayout(sampleRing, PlaybackEngine.playout)
-        IngestNative.pcmRingSetLive(true)
+        AudioBus.sessionLive(true)
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
@@ -202,7 +203,7 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        IngestNative.pcmRingSetLive(false)
+        AudioBus.sessionLive(false)
         recorder.release()
         scope.cancel()
         player.removeListener(replayGain)

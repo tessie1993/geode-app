@@ -27,8 +27,7 @@ import java.nio.ByteBuffer
  * change restarts) is native.
  *
  * Native never calls up. The stage hands the main looper a descriptor that is readable while frame events wait, so
- * the main thread wakes for an event, never for a vsync that has none; the sound ring is looked at on a timer.
- * Every callback therefore runs on the main thread.
+ * the main thread wakes for an event, never for a vsync that has none. Every callback therefore runs on the main thread.
  */
 class Stage(
     context: Context,
@@ -97,8 +96,13 @@ class Stage(
     /** The view drawing this stage now: a late callback from one an Activity recreation replaced changes nothing. */
     internal var view = WeakReference<StageView>(null)
 
-    /** The ring handle the stage hears (0: none), asked every polled frame so a playback session that comes and goes is picked up. */
-    var soundInput: () -> Long = { 0L }
+    /** The ring handle the stage hears from now on (0: none); native holds it while a frame may read it. */
+    fun hear(ring: Long) {
+        val h = handle
+        if (h == 0L || ring == heard) return
+        StageNative.stageSetSound(h, ring)
+        heard = ring
+    }
 
     /** This stage is the one a cast carries: the app's stage view sets it. */
     var castSource = false
@@ -130,7 +134,7 @@ class Stage(
     private var posted = false
     private var pollUntilMs = 0L
     private var eventFd: ParcelFileDescriptor? = null
-    private val ringTick = Runnable { ringPoll() }
+    private val eventTick = Runnable { eventPoll() }
 
     init {
         CLEANER.register(this, owned)
@@ -143,7 +147,7 @@ class Stage(
     fun close() {
         val h = handle
         handle = 0L
-        main.removeCallbacks(ringTick)
+        main.removeCallbacks(eventTick)
         eventFd?.let {
             main.looper.queue.removeOnFileDescriptorEventListener(it.fileDescriptor)
             it.close()
@@ -314,8 +318,9 @@ class Stage(
         }
     }
 
-    /** Keeps the event poll going for a while: what a single frame of a stopped stage says is still read. */
+    /** Without the event descriptor, keeps the event poll going for a while: what a single frame of a stopped stage says is still read. */
     private fun poll() {
+        if (eventFd != null) return
         if (Looper.myLooper() != main.looper) {
             main.post { poll() }
             return
@@ -323,7 +328,7 @@ class Stage(
         pollUntilMs = SystemClock.uptimeMillis() + POLL_LINGER_MS
         if (posted || handle == 0L) return
         posted = true
-        ringPoll()
+        eventPoll()
     }
 
     /** Native's event descriptor on the main looper: [takeEvents] runs when a frame left events, and not otherwise. */
@@ -341,21 +346,16 @@ class Stage(
         }
     }
 
-    /** Hands native the ring the app hears now; goes on while the stage draws or just did. */
-    private fun ringPoll() {
+    /** The events of a stage with no descriptor; goes on while the stage draws or just did. */
+    private fun eventPoll() {
         val h = handle
         if (h == 0L) return
         posted = false
-        val ring = soundInput()
-        if (ring != heard) {
-            StageNative.stageSetSound(h, ring)
-            heard = ring
-        }
-        if (eventFd == null) takeEvents()
+        takeEvents()
         val draws = StageNative.stageState(h) and StageNative.STAGE_STATE_VSYNC != 0
         if (draws || SystemClock.uptimeMillis() < pollUntilMs) {
             posted = true
-            main.postDelayed(ringTick, RING_POLL_MS)
+            main.postDelayed(eventTick, EVENT_POLL_MS)
         }
     }
 
@@ -397,8 +397,8 @@ class Stage(
         /** Long enough for a stopped stage's one frame (a redraw, a still) to finish and be read. */
         const val POLL_LINGER_MS = 5_000L
 
-        /** How often the sound ring is looked at while the stage draws: a session that comes or goes is picked up within this. */
-        const val RING_POLL_MS = 50L
+        /** How often a stage with no event descriptor is asked for its events while it draws. */
+        const val EVENT_POLL_MS = 50L
 
         /** One daemon thread for every stage in the process. */
         val CLEANER: Cleaner = Cleaner.create()

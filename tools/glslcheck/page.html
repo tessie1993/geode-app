@@ -283,7 +283,7 @@ window.__liquid = async function (job) {
     const half = !!gl.getExtension('EXT_color_buffer_float');
     out.half = half;
     const styleProg = link(job.styleVert, job.styleFrag); progs.push(styleProg);
-    const bornProg = link(job.styleVert, job.bornFrag); progs.push(bornProg);
+    const bornProg = link(job.bornVert ?? job.styleVert, job.bornFrag); progs.push(bornProg);
     const liquidProg = link(job.liquidVert, job.liquidFrag); progs.push(liquidProg);
     const styleTex = target(W, H, false), bornTex = target(W, H, false);
     const styleFbo = fbo([styleTex]), bornFbo = fbo([bornTex]);
@@ -348,7 +348,7 @@ window.__dive = async function (job) {
   try {
     const W = job.width, H = job.height;
     canvas.width = W; canvas.height = H;
-    const styleProg = link(job.vert, job.styleFrag); progs.push(styleProg);
+    const styleProg = link(job.styleVert ?? job.vert, job.styleFrag); progs.push(styleProg);
     const diveProg = link(job.vert, job.diveFrag); progs.push(diveProg);
     const styleTex = target(W, H, false);
     const styleFbo = fbo([styleTex]);

@@ -94,6 +94,13 @@ function resolveIncludes(source, registry, chain = []) {
   return out.join('\n');
 }
 
+// The vertex stage a style draws with (SceneRegistry::create): its own <id>_vert.glsl when it has one, else quad_vert.glsl.
+function vertexFor(id, registry) {
+  const own = path.join(SHADERS, `${id}_vert.glsl`);
+  const file = fs.existsSync(own) ? own : path.join(SHADERS, 'quad_vert.glsl');
+  return resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+}
+
 // `style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
 // ShaderScene draws from shaders/<id>_frag.glsl (the loose styles and every
 // style family).
@@ -323,7 +330,7 @@ const ease = (v, t, tau, dt) => v + (t - v) * (1 - Math.exp(-dt / tau));
 function liquidJobs(args, registry) {
   const W = args.size, H = args.height ?? args.size;
   const aspect = W / H;
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = vertexFor('quad', registry);
   const styleFile = (id) => {
     const f = path.join(SHADERS, `${id}_frag.glsl`);
     if (!fs.existsSync(f)) throw new Error(`no such fragment style: ${id}`);
@@ -388,7 +395,7 @@ function liquidJobs(args, registry) {
       liquid: plan(liquidU, liquidValues, { uPrev: 'prev', uStyle: 'style', uBorn: 'born', uVel: 'vel' }, W, H),
     });
   }
-  return { styleVert: quadVert, styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
+  return { styleVert: vertexFor(args.liquid, registry), bornVert: vertexFor(bornId, registry), styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
 }
 
 // ---- Endless zoom (--dive <style>) ------------------------------------------
@@ -399,7 +406,7 @@ function liquidJobs(args, registry) {
 // aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.
 function diveJob(args, registry) {
   const W = args.size, H = args.height ?? args.size;
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = vertexFor('quad', registry);
   const file = path.join(SHADERS, `${args.dive}_frag.glsl`);
   if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${args.dive}`);
   const styleFrag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
@@ -436,7 +443,7 @@ function diveJob(args, registry) {
       dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1, ...look }, { uScene: 'style' }, W, H),
     });
   }
-  return { vert: quadVert, styleFrag, diveFrag, frames, width: W, height: H };
+  return { vert: quadVert, styleVert: vertexFor(args.dive, registry), styleFrag, diveFrag, frames, width: W, height: H };
 }
 
 // ---- driving the page ------------------------------------------------------
@@ -564,7 +571,6 @@ async function runStills(args, registry) {
   const side = probeGridSide();
   const at = (t) => song[Math.min(song.length - 1, Math.max(0, Math.round(t * 60) - 1))];
   const textures = { ...SHADER_TEXTURES, uSoundTex: 'soundLive' };
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
   let ids = args.shaders.length ? args.shaders : shaderIds();
   if (args.shard) {
     const [k, n] = args.shard.split('/').map(Number);
@@ -592,7 +598,7 @@ async function runStills(args, registry) {
       try {
         // A uniform missing from the table is this style's failure (render), not the whole shard's.
         r = await page.call('__stills', {
-          vert: quadVert, frag, side, png: !!args.out, stillSize: args.stillSize, runSize: args.runSize,
+          vert: vertexFor(id, registry), frag, side, png: !!args.out, stillSize: args.stillSize, runSize: args.runSize,
           stills: STILL_TIMES.map((t) => frame(at(t), args.stillSize)),
           frames: runRows.map((row) => frame(row, args.runSize)),
         });
@@ -753,7 +759,6 @@ async function main() {
     return;
   }
   const jobs = [];
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
   const targets = args.all ? ids : args.shaders;
   for (const id of targets) {
     const file = path.join(SHADERS, `${id}_frag.glsl`);
@@ -773,7 +778,7 @@ async function main() {
           uCamPos: [values.uCamPos[0], values.uCamPos[1], values.uCamPos[2] + fly], uCamTravel: values.uCamTravel + fly,
         }, SHADER_TEXTURES, args.size, args.height ?? args.size).filter((u) => !u.texture)
       : undefined;
-    jobs.push({ name: id, vert: quadVert, frag, uniforms, assets, later });
+    jobs.push({ name: id, vert: vertexFor(id, registry), frag, uniforms, assets, later });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');

@@ -8,6 +8,12 @@ name: Instrumented tests (emulator)
 
 on:
   workflow_dispatch:
+    inputs:
+      phone:
+        description: The emulator's screen. oppo-find-x9 is the owner's phone (1256x2760, 480 dpi); avd-default is avdmanager's own.
+        type: choice
+        options: [oppo-find-x9, avd-default]
+        default: oppo-find-x9
 
 permissions:
   contents: read
@@ -98,6 +104,7 @@ jobs:
       - name: Run instrumented tests
         uses: ./.github/actions/android-emulator
         with:
+          phone: ${{ inputs.phone || 'oppo-find-x9' }}
           script: |
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0

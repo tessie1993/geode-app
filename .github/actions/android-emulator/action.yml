@@ -11,6 +11,9 @@ inputs:
   profile:
     description: The hardware profile (avdmanager list device); empty is avdmanager's default device.
     default: ""
+  phone:
+    description: The phone whose screen the emulator takes (oppo-find-x9, the owner's) or avd-default.
+    default: avd-default
 
 runs:
   using: composite
@@ -52,4 +55,7 @@ runs:
         emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
         disable-animations: true
         working-directory: .
-        script: ${{ inputs.script }}
+        script: |
+          ${{ inputs.phone == 'oppo-find-x9' && 'adb shell wm size 1256x2760' || 'true' }}
+          ${{ inputs.phone == 'oppo-find-x9' && 'adb shell wm density 480' || 'true' }}
+          ${{ inputs.script }}

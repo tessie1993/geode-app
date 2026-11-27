@@ -1,23 +1,40 @@
-// What changes once a frame, worked out once a frame. A style's own <id>_vert.glsl includes this, computes its
-// per-frame values in main() from uniforms and uTime alone, and hands them to the fragment as `flat` varyings:
-// the vertex stage runs three times a draw, the fragment stage once a pixel (and, in a march, once a step).
-// Only values that hold for one frame belong here; a value that holds for a style's whole life is a GLSL const.
+// The per-frame state, owned by the vertex stage. A style tells the owner what it needs as a FrameIn (the
+// clock and its turns) once per draw, and the owner publishes one FrameOut that every fragment module reads
+// (lib_frame_frag). Nothing between the two is computed or handed back piecemeal: modules are void functions
+// that take a descriptor in and write their result through out or inout.
 
-out vec2 vUv;
+/** A turn's angle is start + time * rate; rate is FRAME_RATE(k), k whole cycles per uTime wrap (7100 s, ShaderScene). */
+struct FrameTurn {
+    float rate;
+    float start;
+};
 
-void quadVertex() {
-    vec2 pos = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
-    vUv = pos;
-    gl_Position = vec4(pos * 2.0 - 1.0, 0.0, 1.0);
+struct FrameIn {
+    float time;
+    FrameTurn a;
+    FrameTurn b;
+    FrameTurn c;
+};
+
+/** Each turn as the column-major mat2 that turns by its angle: mat2(a), with .x its cosine and .z its sine. */
+struct FrameOut {
+    vec4 a;
+    vec4 b;
+    vec4 c;
+};
+
+#define FRAME_RATE(k) (6.2831853 * float(k) / 7100.0)
+#define FRAME_NONE FrameTurn(0.0, 0.0)
+
+void frameTurnOf(in float time, in FrameTurn turn, out vec4 m) {
+    float angle = turn.start + time * turn.rate;
+    float c = cos(angle);
+    float s = sin(angle);
+    m = vec4(c, -s, s, c);
 }
 
-/** k whole cycles per uTime wrap (7100 s, ShaderScene): the rate every family's *_RATE(k) spells. */
-#define FRAME_RATE(k) (6.2831853 * float(k) / 7100.0)
-
-/** mat2(frameTurn(t, rate)) turns by t * rate; .x is its cosine and .z its sine. */
-vec4 frameTurn(float t, float rate) {
-    float a = t * rate;
-    float c = cos(a);
-    float s = sin(a);
-    return vec4(c, -s, s, c);
+void frameDerive(in FrameIn f, out FrameOut o) {
+    frameTurnOf(f.time, f.a, o.a);
+    frameTurnOf(f.time, f.b, o.b);
+    frameTurnOf(f.time, f.c, o.c);
 }

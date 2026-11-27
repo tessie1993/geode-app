@@ -1,12 +1,7 @@
 #version 300 es
-//#include lib_frame
-
-uniform float uTime;
-flat out vec4 vTurn;
-flat out vec4 vJulia;
+//#include lib_frame_vert
 
 void main() {
     quadVertex();
-    vTurn = frameTurn(uTime, FRAME_RATE(40));
-    vJulia = frameTurn(uTime, FRAME_RATE(90));
+    frameMain(FrameIn(uTime, FrameTurn(FRAME_RATE(40), 0.0), FrameTurn(FRAME_RATE(90), 0.0), FRAME_NONE));
 }

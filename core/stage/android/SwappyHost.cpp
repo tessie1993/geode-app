@@ -63,6 +63,7 @@ void SwappyHost::detach(JNIEnv* env, jobject activity) {
 }
 
 void SwappyHost::destroyLocked(JNIEnv* env) {
+    if (made_ && window_) SwappyGL_setWindow(nullptr);
     if (made_) SwappyGL_destroy();
     made_ = false;
     owner_ = nullptr;
@@ -85,7 +86,7 @@ SwappyHost::Swap SwappyHost::swap(const void* owner, ANativeWindow* window, int6
     // Swappy states a frame rate of its own on a new window, a new swap interval and a pacing toggle (1e9 / the interval, or
     // the display's starting rate); the owner's vote follows each of them so it is the one standing.
     if (window_ != window) {
-        SwappyGL_setWindow(window);
+        if (!SwappyGL_setWindow(window)) return Swap::Fallback;
         window_ = window;
         revote = true;
     }

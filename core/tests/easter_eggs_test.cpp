@@ -141,6 +141,16 @@ struct Song {
         if (tempo == 120.0) refuseTheOldCentre();
     }
     constexpr double period() const { return 60.0 / bpm; }
+    // A frame drawn at t (60 fps grid) that the display shows `lead` s later: its beat phase is the sound at the time it is
+    // shown (stage/SwapPace: the picture and the sound are read there), stamped at `stampedAt` (geode_viz_render); then the
+    // tap at tap.
+    bool tapAtShown(TapAlong& m, double tap, double lead, bool stampedAtShown) const {
+        const double drawn = std::floor(tap * 60.0) / 60.0;
+        const double shown = drawn + lead;
+        const double phase = shown / period() - std::floor(shown / period());
+        m.frame(stampedAtShown ? shown : drawn, static_cast<float>(phase), static_cast<float>(bpm), conf, presence);
+        return m.tap(tap);
+    }
     // One frame at t (60 fps grid), then the tap at tap.
     bool tapAt(TapAlong& m, double tap) const {
         const double frameT = std::floor(tap * 60.0) / 60.0;
@@ -176,6 +186,20 @@ void tapTests() {
         // Late by the speaker's latency, steadily: still the heard beat.
         const double late[] = {30 * p + 0.12, 31 * p + 0.11, 32 * p + 0.13, 33 * p + 0.12};
         check(taps(m, song, late, 4) == 1, "steadily late taps (output latency) fire");
+    }
+    {
+        // Late by 0.15 s, near the edge of the window, against a frame the display shows two frames (33 ms) after its draw.
+        // Red against: the frame stamped at its draw while its beat phase is the shown time's, which reads every tap 33 ms
+        // later than it was and drops them.
+        const double edge[] = {60 * p + 0.15, 61 * p + 0.15, 62 * p + 0.15, 63 * p + 0.15};
+        TapAlong shown, drawn;
+        int firedShown = 0, firedDrawn = 0;
+        for (const double tap : edge) {
+            firedShown += song.tapAtShown(shown, tap, 2.0 / 60.0, true) ? 1 : 0;
+            firedDrawn += song.tapAtShown(drawn, tap, 2.0 / 60.0, false) ? 1 : 0;
+        }
+        check(firedShown == 1, "a frame stamped when it is shown reads a tap against the beat the viewer heard");
+        check(firedDrawn == 0, "stamped at its draw it would read the same tap 33 ms later and drop it");
     }
     {
         TapAlong m;

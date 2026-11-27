@@ -88,8 +88,11 @@ struct geode_viz {
             castTee = std::move(now);
         }
         if (!castTee) return;
+        // Stamped when the viewer sees the frame, as the picture and the sound are: the copy cadence (one per cast frame) then
+        // counts the stage's presentations, which are evenly spaced, not its draws, which jitter. The cast's own clock sets
+        // the stream's PTS, so the stamp paces nothing downstream.
         const auto since = std::chrono::steady_clock::now().time_since_epoch();
-        castTee->publish(fbo, width, height, std::chrono::duration_cast<std::chrono::nanoseconds>(since).count());
+        castTee->publish(fbo, width, height, geode::viz::frame::listenAtNs(std::chrono::duration_cast<std::chrono::nanoseconds>(since).count(), presentNs));
     }
 
     // Shake to screenshot (geode_viz_still_request): the finished visual read back once, flipped to rows
@@ -607,8 +610,9 @@ public:
 
 private:
     // The frame's time: when the display is expected to show it (the stage's pacer, stage/SwapPace's PresentClock),
-    // so the picture's step is the presentations' own spacing and not the draw's jitter. Without one (a frame no pacer
-    // asked for) the clock at the draw. Never earlier than the last frame's.
+    // so the picture's step is the presentations' own spacing and not the draw's jitter. The stage gives every frame one
+    // (a still frame no pacer asked for included); only a caller outside the stage (geode_viz_frame) has none and draws at
+    // the clock now. Never earlier than the last frame's.
     double frameSeconds() {
         double seconds = monotonicSeconds();
         if (v_.presentNs > 0) seconds = static_cast<double>(v_.presentNs) * 1e-9;
@@ -1180,8 +1184,10 @@ void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     v->renderer.render(time_seconds, target_fbo);
     const GeodeSoundFrame& heard = v->renderer.soundFrame();
     std::lock_guard<std::mutex> lock(v->tapLock);
-    v->tapAlong.frame(static_cast<double>(geode_record_now_ns()) * 1e-9, heard.beatPhase, heard.bpm, heard.beatConf,
-                      heard.presence);
+    // The beat phase is the sound the viewer hears when the frame is shown (read at the present time), so it holds at that
+    // time, not at the draw's: a tap compares its own time with this one.
+    v->tapAlong.frame(static_cast<double>(geode::viz::frame::listenAtNs(geode_record_now_ns(), v->presentNs)) * 1e-9, heard.beatPhase,
+                      heard.bpm, heard.beatConf, heard.presence);
 }
 
 void geode_viz_still_request(geode_viz* v) {

@@ -56,7 +56,8 @@ struct Port final : StagePort {
     int64_t swapCost = 0;
     int64_t gpuNs = 0;
     PaceTimes times{0, kPeriod60, true};
-    std::vector<std::pair<int64_t, int64_t>> work;  // each frame's (target, actual) as reported for ADPF
+    std::vector<std::pair<int64_t, int64_t>> work;  // each frame's (target, cpu) as reported for ADPF
+    std::vector<int64_t> workGpu;                   // and the GPU time told with it
     std::vector<std::string> recorded;
 
     Outcome createContext(bool& surfaceless) override {
@@ -124,7 +125,11 @@ struct Port final : StagePort {
         applied = sequence;
         surfaceAtAck = surfaceOn != nullptr;
     }
-    void frameWork(int64_t targetNs, int64_t actualNs) override { work.emplace_back(targetNs, actualNs); }
+    void frameWork(int64_t targetNs, int64_t cpuNs, int64_t gpuTimeNs, int64_t startNs) override {
+        static_cast<void>(startNs);
+        work.emplace_back(targetNs, cpuNs);
+        workGpu.push_back(gpuTimeNs);
+    }
     void framesRecorded(const std::string& csv) override { recorded.push_back(csv); }
 };
 
@@ -390,6 +395,15 @@ void theFrameBudgetFollowsTheModeAndTheWorkIsTheDraw() {
     check(r.port.paceBudget.budgetNs == r.core.frameBudgetNs() && r.port.paceBudget.periodNs == kPeriod60, "and the mirror is the descriptor the pacer was handed, not a second working-out");
     check(r.port.work.size() == 1 && r.port.work[0].first == kPeriod60 && r.port.work[0].second == 3'000'000,
           "the work is reported against the budget as the draw alone, not the swap's wait");
+    r.port.gpuNs = 7'000'000;
+    r.turns(2);
+    check(r.port.workGpu.size() >= 3 && r.port.workGpu[0] == 0 && r.port.workGpu.back() == 7'000'000,
+          "the GPU time the pacer measured goes with the next frames' CPU time, apart from it");
+    r.client->nextEvents = kFrameNothingNew;
+    r.turns(1);
+    check(r.port.workGpu.back() == 0, "a frame that swapped nothing has no GPU time of its own to tell");
+    r.client->nextEvents = 0;
+    r.send(command(kStageVsync));
     const int hints = r.port.rateCalls;
     const float vote = r.port.rate;
     r.port.times.periodNs = kPeriod90;

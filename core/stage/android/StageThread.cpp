@@ -355,7 +355,7 @@ void StageThread::onRefreshRate(int64_t periodNs, void* self) { static_cast<Stag
 
 // ADPF (developer.android.com/games/optimize/adpf): the session's target is the frame budget, and each paced frame
 // reports its draw on this thread; the swap's wait is not work.
-void StageThread::frameWork(int64_t budgetNs, int64_t actualNs) { workHint_.report(budgetNs, actualNs); }
+void StageThread::frameWork(int64_t budgetNs, int64_t cpuNs, int64_t gpuNs, int64_t startNs) { workHint_.report(budgetNs, cpuNs, gpuNs, startNs); }
 
 // One log line per row: a chunk is too long for one logcat entry.
 void StageThread::framesRecorded(const std::string& csv) {

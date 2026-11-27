@@ -76,11 +76,14 @@ public:
     virtual int64_t nowNs() = 0;
     // Every hand-over up to this sequence number is applied: its sender may stop waiting.
     virtual void windowApplied(int64_t sequence) = 0;
-    // One paced frame's draw on the stage thread took `actualNs` of the `targetNs` frame (ADPF's target and actual
-    // work duration). The swap's wait is not work.
-    virtual void frameWork(int64_t targetNs, int64_t actualNs) {
+    // One paced frame's work against the `targetNs` budget (ADPF's target and actual work duration): the draw on the stage
+    // thread took `cpuNs`, never the swap's wait; `gpuNs` is the GPU time the pacer measured for the frame before (0: not
+    // known); `startNs` is when the draw began, CLOCK_MONOTONIC.
+    virtual void frameWork(int64_t targetNs, int64_t cpuNs, int64_t gpuNs, int64_t startNs) {
         static_cast<void>(targetNs);
-        static_cast<void>(actualNs);
+        static_cast<void>(cpuNs);
+        static_cast<void>(gpuNs);
+        static_cast<void>(startNs);
     }
     // A chunk of the frame recorder (stage/FrameRecorder), as its CSV: when the ring is full and when the pacing
     // stops. Only while a debug flag has it recording.

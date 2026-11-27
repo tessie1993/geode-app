@@ -90,7 +90,7 @@ private:
     int64_t lastGpuNs() override { return lastGpuNs_; }
     int64_t nowNs() override;
     void windowApplied(int64_t sequence) override;
-    void frameWork(int64_t budgetNs, int64_t actualNs) override;
+    void frameWork(int64_t budgetNs, int64_t cpuNs, int64_t gpuNs, int64_t startNs) override;
     void framesRecorded(const std::string& csv) override;
 
     static void onVsync(const AChoreographerFrameCallbackData* data, void* self);

@@ -1,10 +1,13 @@
 name: Build and lint
 
-# The only CI workflow: build the debug APK, run unit tests and linters.
+# The pull-request and merged-commit gate: native/network/shader checks, the debug APK,
+# the manifest and library promises, JVM unit tests, and the Kotlin/Android linters.
+# merge-release.yml calls this on the exact commit it is about to publish.
 
 on:
   workflow_dispatch:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -25,6 +28,22 @@ jobs:
         with:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
+
+      - name: Every action is pinned to a commit SHA
+        run: bash tools/actions-pin-gate.sh
+
+      - name: Release number regression test
+        run: bash tools/release-number-test.sh
+
+      - name: Only cast reaches the network
+        run: bash tools/network-gate.sh
+
+      # tools/hostcc/g++ compiles each source once per flag set, in parallel.
+      - name: Put the caching native compiler first on PATH
+        run: echo "$GITHUB_WORKSPACE/tools/hostcc" >> "$GITHUB_PATH"
+
+      - name: Native host tests
+        run: bash tools/host-tests.sh main
 
       # Pull requests and manual runs read the shared cache but never replace it.
       - name: Set up the Android build
@@ -63,7 +82,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # Check the merged manifest against the app's declared promises.
+      - name: Compile every shader and include
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+          GLSLC=$(find "$SDK_ROOT/ndk/28.0.13004108/shader-tools" -type f -name glslc -print -quit)
+          test -n "$GLSLC" || { echo "::error::NDK glslc not found"; exit 1; }
+          python3 tools/check_shaders.py "$GLSLC"
+
       - name: Check the merged manifest against the app's promises
         run: tools/check-manifest.sh
 

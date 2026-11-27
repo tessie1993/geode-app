@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
 # Prints the release number N for a commit: pre-release N is versionName <base>.N, tag apk-v<base>.N.
 #
-#   tools/release-number.sh <base> <sha> reserve   ship-apk.yml: N = releases so far + 1
-#   tools/release-number.sh <base> <sha>           release.yml: the N this commit shipped as;
-#                                                  fails when it never shipped, since any other
-#                                                  number could repeat a versionCode
+#   tools/release-number.sh <base> <sha> reserve   merge-release.yml: highest existing N + 1
+#   tools/release-number.sh <base> <sha>           the N this commit shipped as; fails when it never
+#                                                  shipped, since any other number could repeat a versionCode
 #
-# Reserving pushes the tag before the build, and a push onto an existing tag fails, so two runs
-# racing for the same N cannot both get it: the loser takes the next number. A re-run of the same
-# commit gets the N it already reserved. Needs gh (GH_TOKEN) and push access to origin.
+# Reserving pushes a lightweight tag before the build, and a push onto an existing tag fails, so two
+# runs racing for the same N cannot both get it: the loser takes the next number. A re-run of the same
+# commit gets the highest N already reserved for it. Needs push access to origin; authentication is
+# supplied by the caller (tools/ci-git-auth.sh).
 set -euo pipefail
 base=$1 sha=$2 mode=${3:-}
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::$sha is not a full commit SHA" >&2; exit 1; }
 
-git fetch --quiet --force origin "refs/tags/apk-v$base.*:refs/tags/apk-v$base.*"
-mine=$(git tag --points-at "$sha" --list "apk-v$base.*" | sed "s/^apk-v$base\.//" | grep -E '^[0-9]+$' | sort -n | tail -n 1 || true)
-if [ -n "$mine" ]; then
+# Read the remote, not the local tag cache or the release count: releases may be deleted, other
+# version bases may exist, and a failed run may have left a reserved tag without a release.
+prefix="refs/tags/apk-v$base."
+mine=0
+max=0
+while read -r object ref; do
+  [ -n "$ref" ] || continue
+  [[ "$ref" == "$prefix"* ]] || continue
+  suffix=${ref#"$prefix"}
+  [[ "$suffix" =~ ^[0-9]+$ ]] || continue
+  n=$((10#$suffix))
+  if [ "$n" -gt "$max" ]; then max=$n; fi
+  if [ "$object" = "$sha" ] && [ "$n" -gt "$mine" ]; then mine=$n; fi
+done < <(git ls-remote --tags origin "refs/tags/apk-v$base.*")
+
+if [ "$mine" -gt 0 ]; then
   echo "$mine"
   exit 0
 fi
@@ -22,12 +36,11 @@ fi
 if [ "$mode" != reserve ]; then
   # No guess: the latest number belongs to another commit, and Play refuses a versionCode it
   # has already been sent.
-  echo "::error::$sha has no apk-v$base.N tag, so it has no release number. Build the Play bundle from a commit ship-apk.yml shipped as a pre-release (run it on this commit first)." >&2
+  echo "::error::$sha has no apk-v$base.N tag, so it has no release number. Run merge-release.yml on this commit first." >&2
   exit 1
 fi
 
-count=$(gh release list --limit 10000 --json tagName --jq length)
-n=$((count + 1))
+n=$((max + 1))
 refusal=
 for _ in $(seq 50); do
   if refusal=$(git push --quiet origin "$sha:refs/tags/apk-v$base.$n" 2>&1); then

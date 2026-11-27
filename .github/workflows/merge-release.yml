@@ -1,0 +1,223 @@
+name: Merge release
+
+# Every merge to main is verified on its exact commit, then builds a versioned debug APK,
+# reserves the next pre-release number, and publishes the APK plus its checksum as a GitHub pre-release.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# Keyed by commit: a later merge never cancels an earlier commit's release.
+concurrency:
+  group: geode-merge-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  # The same gate every pull request runs, on the merge commit itself. Main is not protected,
+  # so a direct push must not be able to publish a red build.
+  checks:
+    name: Build and lint
+    uses: ./.github/workflows/build-lint.yml
+
+  release:
+    name: Build and publish debug APK
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+          # The write token is supplied only to the steps that push a tag or publish a release.
+          persist-credentials: false
+
+      - name: Set up the Android build
+        uses: ./.github/actions/android-build-setup
+        with:
+          gradle-cache-read-only: false
+          ccache: true
+
+      - name: Reserve release number
+        id: number
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source tools/ci-git-auth.sh
+          BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
+          CODE_BASE=$(sed -n 's/^geode\.versionCodeBase=//p' gradle.properties | tr -d '\r')
+          [[ "$BASE" =~ ^[0-9A-Za-z.]+$ ]] || { echo "::error::$BASE is not a safe version base"; exit 1; }
+          [[ "$CODE_BASE" =~ ^[0-9]+$ ]] || { echo "::error::$CODE_BASE is not a versionCode base"; exit 1; }
+          N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)" reserve)
+          {
+            echo "n=$N"
+            echo "base=$BASE"
+            echo "code_base=$CODE_BASE"
+          } >> "$GITHUB_OUTPUT"
+          CODE=$((CODE_BASE + N))
+          (( CODE > 0 && CODE <= 2100000000 )) || { echo "::error::versionCode $CODE is outside Android's supported range"; exit 1; }
+          echo "Release number $N (version $BASE.$N, versionCode $CODE)"
+
+      - name: Assemble debug APK
+        env:
+          N: ${{ steps.number.outputs.n }}
+        run: ./gradlew :app:assembleDebug -PreleaseNumber="$N" --stacktrace --no-daemon
+
+      - name: ccache statistics
+        if: always()
+        run: ccache -s || true
+
+      - name: Keep only the ccache entries this build used
+        if: always() && env.CCACHE_RESTORED_AT != ''
+        run: ccache --evict-older-than "$(( $(date +%s) - CCACHE_RESTORED_AT ))s"
+
+      - name: Save the ccache
+        if: always() && env.CCACHE_RESTORED_AT != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-debug-${{ github.run_id }}
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: geode-merge-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Package APK and checksum
+        id: package
+        shell: bash
+        env:
+          N: ${{ steps.number.outputs.n }}
+          CODE_BASE: ${{ steps.number.outputs.code_base }}
+          EXPECTED: ${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}
+        run: |
+          set -euo pipefail
+          AAPT2="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2"
+          BADGING=$("$AAPT2" dump badging app/build/outputs/apk/debug/app-debug.apk)
+          VERSION_NAME=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")
+          VERSION_CODE=$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")
+          EXPECTED_CODE=$((CODE_BASE + N))
+          if [ "$VERSION_NAME" != "$EXPECTED" ]; then
+            echo "::error::versionName '$VERSION_NAME' does not match reserved version '$EXPECTED'"
+            exit 1
+          fi
+          if [ "$VERSION_CODE" != "$EXPECTED_CODE" ]; then
+            echo "::error::versionCode '$VERSION_CODE' does not match expected versionCode '$EXPECTED_CODE'"
+            exit 1
+          fi
+          BUILT_SHA=$(git rev-parse HEAD)
+          FILE_NAME="BeatRealms3D-${VERSION_NAME}-debug.apk"
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$FILE_NAME"
+          (cd dist && sha256sum "$FILE_NAME" > "$FILE_NAME.sha256")
+          {
+            echo "file_name=$FILE_NAME"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "built_sha=$BUILT_SHA"
+            echo "tag=apk-v$EXPECTED"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish pre-release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FILE_NAME: ${{ steps.package.outputs.file_name }}
+          VERSION_NAME: ${{ steps.package.outputs.version_name }}
+          VERSION_CODE: ${{ steps.package.outputs.version_code }}
+          BUILT_SHA: ${{ steps.package.outputs.built_sha }}
+          TAG: ${{ steps.package.outputs.tag }}
+        run: |
+          set -euo pipefail
+          source tools/ci-git-auth.sh
+          TAG_SHA=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
+          if [ "$TAG_SHA" != "$BUILT_SHA" ]; then
+            echo "::error::Tag $TAG points at $TAG_SHA, not the built commit $BUILT_SHA"
+            exit 1
+          fi
+          NOTES=$(cat <<EOF
+          Debug-signed BeatRealms 3D APK built after merge to main.
+
+          | | |
+          | --- | --- |
+          | Version | \`$VERSION_NAME\` (versionCode $VERSION_CODE) |
+          | Commit | \`$BUILT_SHA\` |
+          | ABI | arm64-v8a and x86_64, minSdk 33 (Android 13) |
+          | Workflow run | [#$GITHUB_RUN_NUMBER]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) |
+
+          Download \`$FILE_NAME\` and open it on the device to install. Verify it
+          with \`sha256sum -c $FILE_NAME.sha256\`.
+
+          This build uses the debug signing key and application id
+          \`com.beatrealms3d.app.debug\`, so it installs beside a Play copy.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" --clobber
+          else
+            gh release create "$TAG" \
+              "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
+              --draft --prerelease \
+              --target "$BUILT_SHA" \
+              --title "BeatRealms 3D $VERSION_NAME" \
+              --notes "$NOTES"
+          fi
+          gh release edit "$TAG" --draft=false --prerelease
+          URL=$(gh release view "$TAG" --json url --jq .url)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize
+        shell: bash
+        env:
+          FILE_NAME: ${{ steps.package.outputs.file_name }}
+          URL: ${{ steps.release.outputs.url }}
+          BUILT_SHA: ${{ steps.package.outputs.built_sha }}
+        run: |
+          {
+            echo "### Published \`$FILE_NAME\`"
+            echo
+            echo "- Release: $URL"
+            echo "- Commit: \`$BUILT_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A failed or cancelled run hands its number back. A published release is never touched.
+      - name: Release the reserved number
+        if: (failure() || cancelled()) && steps.number.outputs.n != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: apk-v${{ steps.number.outputs.base }}.${{ steps.number.outputs.n }}
+        run: |
+          DRAFT=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo none)
+          if [ "$DRAFT" = false ]; then
+            echo "$TAG has a published release; keeping it."
+          elif [ "$DRAFT" = true ]; then
+            gh release delete "$TAG" --yes --cleanup-tag || true
+          else
+            source tools/ci-git-auth.sh
+            git push origin --delete "refs/tags/$TAG" || echo "::warning::Could not delete reserved tag $TAG."
+          fi
+
+      - name: Upload reports when the build fails
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: geode-merge-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -21,6 +21,7 @@ void check(bool ok, const char* what) {
 
 int main() {
     static_assert(util::kDisplayNice < util::kFeedNice && util::kFeedNice < util::kDefaultNice);
+    static_assert(util::kDisplayNice >= -8, "never above THREAD_PRIORITY_URGENT_DISPLAY, the UI thread's and RenderThread's rank");
     static_assert(util::kNiceInherited > 19, "the mark is no nice a thread can have");
     check(util::threadNice() == util::kNiceInherited, "a thread has set no nice until it does");
     check(util::setThreadNice(util::kDisplayNice), "off Android a nice is always taken");

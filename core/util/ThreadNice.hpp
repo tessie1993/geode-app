@@ -11,10 +11,11 @@ namespace geode::util {
 // thread would draw level with it and one started from the main thread would rank with app threads: every native
 // thread that loops names its own. core/sound sets the analysis thread's (-2) itself, being a module of its own.
 
-// android.os.Process.THREAD_PRIORITY_DISPLAY: the threads that draw a frame (the stage's, its vsync's, the cast's).
-inline constexpr int kDisplayNice = -4;
+// android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY: the threads that draw a frame (the stage's, the cast's). The docs warn
+// that a thread set too high interrupts the UI thread and RenderThread (about -10 here), so none of ours ranks above them.
+inline constexpr int kDisplayNice = -8;
 // One step below: threads a frame or a live stream waits on (an encoder's drain, the capture read).
-inline constexpr int kFeedNice = -2;
+inline constexpr int kFeedNice = -6;
 // A default app thread: work no frame waits on.
 inline constexpr int kDefaultNice = 0;
 // threadNice() before the thread set one.

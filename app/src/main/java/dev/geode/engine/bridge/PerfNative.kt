@@ -14,9 +14,6 @@ object PerfNative {
     /** Mirrors GEODE_PERF_NATIVE: the render resolution that is the panel's own. */
     const val PERF_NATIVE = 0
 
-    /** Mirrors GEODE_PERF_BUFFER_INTS: the ints [perfBufferSize] writes, width then height. */
-    const val PERF_BUFFER_INTS = 2
-
     /** Fills [out] with [mode]'s tier; false for an unknown mode. */
     external fun perfTier(
         mode: Int,
@@ -58,60 +55,22 @@ object PerfNative {
         refreshRates: FloatArray,
     ): Float
 
-    // A panel is the display's largest physical mode (Display.Mode.getPhysicalWidth/Height); 0 for unknown.
-
-    /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
+    /** The first-run mode for this phone on the panel last sent ([perfPanelSet]); [totalRamBytes] 0 = unknown. */
     external fun perfModeForDevice(
         totalRamBytes: Long,
         lowRam: Boolean,
         mediaPerformanceClass: Int,
-        panelWidth: Int,
-        panelHeight: Int,
     ): Int
 
-    /** The mode these values are on this panel, or -1 when none is ("Custom"). */
-    external fun perfModeOf(
-        resolution: Int,
-        fpsCap: Int,
-        marchScale: Float,
-        postFx: Boolean,
-        panelWidth: Int,
-        panelHeight: Int,
-    ): Int
-
-    /** The render resolutions Settings › Performance offers on this panel, ascending: short sides in pixels, then [PERF_NATIVE]. */
-    external fun perfResolutionChoices(
-        panelWidth: Int,
-        panelHeight: Int,
-    ): IntArray
-
-    /** The resolution an old install's stored render scale maps to on this panel. */
-    external fun perfResolutionForScale(
-        renderScale: Float,
-        panelWidth: Int,
-        panelHeight: Int,
-    ): Int
-
+    /** The resolution an old install's stored render scale maps to on the panel last sent. */
+    external fun perfResolutionForScale(renderScale: Float): Int
     /** The march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
 
-    /**
-     * The window buffer at [resolution] for a view of [viewWidth] x [viewHeight] pixels on a display in its
-     * [modeWidth] x [modeHeight] mode, width then height into [out] (2 ints): the size the stage's surface is fixed
-     * to, which the display scales up. With the mode as the view, what the resolution draws full screen. False for no view.
-     */
-    external fun perfBufferSize(
-        resolution: Int,
-        modeWidth: Int,
-        modeHeight: Int,
-        viewWidth: Int,
-        viewHeight: Int,
-        out: IntArray,
-    ): Boolean
+    // The resolution the app holds (core/viz/frame/ResolutionState): each event returns nothing, and
+    // [perfResolutionRead] reads what native derived.
 
-    // The resolution the app holds (core/viz/frame/ResolutionState): each event returns nothing, and [perfResolutionRead] reads what native derived.
-
-    /** The display's panel and its current mode, as [perfModeForDevice] takes the panel (0 for unknown). */
+    /** The display's largest physical mode (the panel) and its current one, 0 for unknown. */
     external fun perfPanelSet(
         panelWidth: Int,
         panelHeight: Int,
@@ -133,7 +92,7 @@ object PerfNative {
         postFx: Boolean,
     )
 
-    /** Fills [out] ([PERF_DESCRIPTOR_INTS]) with the descriptor native published, in the order of the `PERF_FIELD_*`; false for a short [out]. */
+    /** Fills [out] ([PERF_DESCRIPTOR_INTS]) with native's descriptor, in the order of `PERF_FIELD_*`; false if [out] is short. */
     external fun perfResolutionRead(out: IntArray): Boolean
 
     /** Mirrors GEODE_PERF_DESCRIPTOR_INTS and GEODE_PERF_FIELD_*: [perfResolutionRead]'s ints. */

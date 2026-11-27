@@ -9,7 +9,6 @@
 namespace frame = geode::viz::frame;
 
 static_assert(frame::kScaleChoices.size() == GEODE_PERF_SCALE_CHOICES);
-static_assert(frame::kMaxResolutionChoices == GEODE_PERF_RESOLUTION_CHOICES);
 static_assert(frame::kNativeResolution == GEODE_PERF_NATIVE);
 static_assert(frame::kDescriptorInts == GEODE_PERF_DESCRIPTOR_INTS);
 static_assert(frame::kFieldSteps == GEODE_PERF_FIELD_STEPS);
@@ -27,6 +26,7 @@ Shared& shared() {
 }
 
 }  // namespace
+
 extern "C" {
 
 int geode_perf_tier(int mode, float* out, int capacity) {
@@ -39,14 +39,12 @@ int geode_perf_tier(int mode, float* out, int capacity) {
     return GEODE_PERF_TIER_FLOATS;
 }
 
-int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class, int panel_width,
-                               int panel_height) {
+int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class) {
+    Shared& s = shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    const frame::Panel& panel = s.state.panel();
     return static_cast<int>(
-        frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class, panel_width, panel_height));
-}
-
-int geode_perf_mode_of(int resolution, int fps_cap, float march_scale, int post_fx, int panel_width, int panel_height) {
-    return frame::modeOf(resolution, fps_cap, march_scale, post_fx != 0, frame::shortSide(panel_width, panel_height));
+        frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class, panel.width, panel.height));
 }
 
 int geode_perf_scale_choices(float* out, int capacity) {
@@ -56,22 +54,11 @@ int geode_perf_scale_choices(float* out, int capacity) {
     return n;
 }
 
-int geode_perf_resolution_choices(int panel_width, int panel_height, int* out, int capacity) {
-    return frame::resolutionChoices(panel_width, panel_height, out, capacity);
-}
-
-int geode_perf_resolution_for_scale(float render_scale, int panel_width, int panel_height) {
-    return frame::resolutionForScale(render_scale, panel_width, panel_height);
-}
-
-int geode_perf_buffer_size(int resolution, int mode_width, int mode_height, int view_width, int view_height, int* out,
-                           int capacity) {
-    if (!out || capacity < GEODE_PERF_BUFFER_INTS) return 0;
-    const frame::BufferSize b = frame::bufferSize(resolution, mode_width, mode_height, view_width, view_height);
-    if (b.width <= 0) return 0;
-    out[0] = b.width;
-    out[1] = b.height;
-    return GEODE_PERF_BUFFER_INTS;
+int geode_perf_resolution_for_scale(float render_scale) {
+    Shared& s = shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    const frame::Panel& panel = s.state.panel();
+    return frame::resolutionForScale(render_scale, panel.width, panel.height);
 }
 
 void geode_perf_panel_set(int panel_width, int panel_height, int mode_width, int mode_height) {
@@ -100,4 +87,5 @@ int geode_perf_resolution_read(int* out, int capacity) {
     std::copy(d.begin(), d.end(), out);
     return GEODE_PERF_DESCRIPTOR_INTS;
 }
+
 }  // extern "C"

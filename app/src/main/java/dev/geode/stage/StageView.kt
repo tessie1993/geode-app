@@ -1,6 +1,7 @@
 package dev.geode.stage
 
 import android.content.Context
+import android.content.res.Configuration
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -12,9 +13,10 @@ import android.view.Display
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import dev.geode.data.DisplayPanel
 import dev.geode.data.PerformanceSettings
-import dev.geode.engine.bridge.PerfNative
 import dev.geode.engine.bridge.StageNative
+import dev.geode.geodeContainer
 import java.lang.ref.WeakReference
 
 /**
@@ -59,7 +61,6 @@ class StageView(
     private val current get() = stage.view.get() === this
 
     // The window buffer's size as last fixed (0: not yet), and the blur region as last set, in this view's terms.
-    private val buffer = IntArray(2)
     private var bufferWidth = 0
     private var bufferHeight = 0
     private val blur = FloatArray(BLUR_FIELDS)
@@ -87,24 +88,29 @@ class StageView(
         sizeBuffer()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        sizeBuffer()
+    }
+
     /**
-     * The render resolution the Android way: the window buffer is fixed to native's size for this view on its
-     * display's current mode, and the display's scaler fills the view, so every pass (scene, composite, UI blur)
-     * shades only the buffer's pixels. Full size follows the layout again. Restated on every layout size
+     * The render resolution the Android way: tells native the display's panel and modes and this view's size, then fixes the
+     * window buffer to the size native published, and the display's scaler fills the view, so every pass (scene, composite,
+     * UI blur) shades only the buffer's pixels. Full size follows the layout again. Restated on every layout size
      * (rotation, a multi-window resize, a fold) and setting; the holder keeps it across a surface's recreation.
      * Main thread, as `setFixedSize` asks.
      */
     private fun sizeBuffer() {
-        val mode = display?.mode
-        val resolution = stage.performance.resolution
-        if (!PerfNative.perfBufferSize(resolution, mode?.physicalWidth ?: 0, mode?.physicalHeight ?: 0, width, height, buffer)) return
-        if (buffer[0] == bufferWidth && buffer[1] == bufferHeight) return
-        bufferWidth = buffer[0]
-        bufferHeight = buffer[1]
+        val performance = context.geodeContainer.performance
+        performance.view(DisplayPanel.of(display), width, height)
+        val published = performance.resolution.value
+        if (published.bufferWidth <= 0) return
+        if (published.bufferWidth == bufferWidth && published.bufferHeight == bufferHeight) return
+        bufferWidth = published.bufferWidth
+        bufferHeight = published.bufferHeight
         if (bufferWidth == width && bufferHeight == height) holder.setSizeFromLayout() else holder.setFixedSize(bufferWidth, bufferHeight)
         if (blur[4] > 0f) sendBlur()
     }
-
     /**
      * Frosted glass for a Compose sheet floating over this visual. The sheet lives in another layer, so a
      * `RenderEffect` blur there never sees the visual's pixels; the visual blurs the region under the sheet

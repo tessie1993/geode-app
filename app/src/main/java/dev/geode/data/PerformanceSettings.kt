@@ -23,14 +23,6 @@ data class PerformanceSettings(
     /** Shader-style Trails, flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
 ) {
-    /** The preset these values match natively on [panel], or null when the user has customised them. */
-    fun modeOn(panel: DisplayPanel): PerformanceMode? =
-        PerformanceMode.entries.getOrNull(
-            runCatching {
-                PerfNative.perfModeOf(resolution, fpsCap, marchScale, postFx, panel.panelWidth, panel.panelHeight)
-            }.getOrDefault(-1),
-        )
-
     companion object {
         // Tiers, the choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps).
         val SAVER get() = PerformanceMode.SAVER.settings
@@ -48,22 +40,18 @@ data class PerformanceSettings(
             }
         }
 
-        /** The first-run pick (RAM, low-RAM flag, media performance class, the panel's native pixels). */
+        /** The first-run pick (RAM, low-RAM flag, media performance class; native has the panel). */
         fun modeForDevice(
             totalRamBytes: Long,
             lowRamDevice: Boolean,
             mediaPerformanceClass: Int,
-            panel: DisplayPanel,
         ): PerformanceMode =
-            PerformanceMode.entries.getOrElse(
-                PerfNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass, panel.panelWidth, panel.panelHeight),
-            ) { PerformanceMode.BALANCED }
+            PerformanceMode.entries.getOrElse(PerfNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
+                PerformanceMode.BALANCED
+            }
 
-        /** An old install's stored render scale as the resolution nearest it on [panel]. */
-        fun resolutionForScale(
-            renderScale: Float,
-            panel: DisplayPanel,
-        ): Int = PerfNative.perfResolutionForScale(renderScale, panel.panelWidth, panel.panelHeight)
+        /** An old install's stored render scale as the resolution nearest it on the panel native holds. */
+        fun resolutionForScale(renderScale: Float): Int = PerfNative.perfResolutionForScale(renderScale)
     }
 }
 

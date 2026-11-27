@@ -109,13 +109,6 @@ void bufferSizes() {
     check(odd.width == 901 && odd.height == 2001, "a side rounds to the nearest pixel");
     check(bufferSize(540, 1080, 2400, 0, 2400).width == 0, "no view, no buffer");
     check(bufferSize(540, 1080, 2400, 1, 1).width == 1, "at least one pixel");
-    int out[GEODE_PERF_BUFFER_INTS] = {};
-    check(geode_perf_buffer_size(720, 1080, 2400, 1080, 2400, out, GEODE_PERF_BUFFER_INTS) == GEODE_PERF_BUFFER_INTS &&
-              out[0] == 720 && out[1] == 1600,
-          "geode_perf_buffer_size");
-    check(geode_perf_buffer_size(720, 1080, 2400, 0, 0, out, GEODE_PERF_BUFFER_INTS) == 0 &&
-              geode_perf_buffer_size(720, 1080, 2400, 8, 8, out, 1) == 0,
-          "no view or a short out writes nothing");
 }
 
 // The first-run pick, a default the user may change (decision 44: nothing lowers it for load).
@@ -228,11 +221,11 @@ void resolutionStateThroughTheAbi() {
           "the buffer and the drawn size through the ABI");
 }
 void throughTheAbi() {
-    check(geode_perf_mode_of(900, 60, 0.75f, 1, 1080, 2400) == 1 && geode_perf_mode_of(720, 60, 0.75f, 1, 1080, 2400) == -1,
-          "geode_perf_mode_of");
-    check(geode_perf_mode_for_device(8 * gb, 0, 33, 1440, 3200) == 1 && geode_perf_mode_for_device(8 * gb, 0, 33, 1080, 2400) == 2,
-          "geode_perf_mode_for_device reads the panel");
-    float scales[GEODE_PERF_SCALE_CHOICES + 1] = {};
+    geode_perf_panel_set(1440, 3200, 1440, 3200);
+    check(geode_perf_mode_for_device(8 * gb, 0, 33) == 1, "geode_perf_mode_for_device reads the panel held: 1440p under class 34");
+    geode_perf_panel_set(1080, 2400, 1080, 2400);
+    check(geode_perf_mode_for_device(8 * gb, 0, 33) == 2, "and 1080p, High");
+    check(geode_perf_resolution_for_scale(0.75f) == 900, "geode_perf_resolution_for_scale reads the panel held");    float scales[GEODE_PERF_SCALE_CHOICES + 1] = {};
     check(geode_perf_scale_choices(scales, GEODE_PERF_SCALE_CHOICES + 1) == 3 && scales[0] == 0.5f && scales[1] == 0.75f &&
               scales[2] == 1.0f,
           "the march choices, ascending");
@@ -243,10 +236,6 @@ void throughTheAbi() {
           "geode_perf_tier writes Balanced");
     check(geode_perf_tier(2, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[0] == GEODE_PERF_NATIVE, "High is Native");
     check(geode_perf_tier(3, tier, GEODE_PERF_TIER_FLOATS) == 0, "no fourth tier");
-    int res[GEODE_PERF_RESOLUTION_CHOICES] = {};
-    check(geode_perf_resolution_choices(1440, 3200, res, GEODE_PERF_RESOLUTION_CHOICES) == 5 && res[4] == GEODE_PERF_NATIVE,
-          "geode_perf_resolution_choices");
-    check(geode_perf_resolution_for_scale(0.75f, 1440, 3200) == 1080, "geode_perf_resolution_for_scale");
 }
 
 }  // namespace

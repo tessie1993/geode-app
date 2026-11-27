@@ -24,10 +24,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.DisplayPanel
 import dev.geode.data.GeneralSettings
 import dev.geode.data.PerformanceMode
 import dev.geode.data.PerformanceSettings
+import dev.geode.data.ResolutionMirror
 import dev.geode.engine.bridge.PerfNative
 import dev.geode.geodeContainer
 
@@ -39,7 +39,8 @@ import dev.geode.geodeContainer
 internal fun PerformanceBasics() {
     val store = LocalContext.current.geodeContainer.performance
     val settings by store.settings.collectAsStateWithLifecycle()
-    PerformanceModeControls(settings, store::set)
+    val resolution by store.resolution.collectAsStateWithLifecycle()
+    PerformanceModeControls(settings, resolution, store::set)
 }
 
 /** Settings › Performance › Details: each setting the preset sets, one by one. */
@@ -47,7 +48,8 @@ internal fun PerformanceBasics() {
 internal fun PerformanceDetailsSection() {
     val store = LocalContext.current.geodeContainer.performance
     val settings by store.settings.collectAsStateWithLifecycle()
-    PerformanceDetailControls(settings, store::set)
+    val resolution by store.resolution.collectAsStateWithLifecycle()
+    PerformanceDetailControls(settings, resolution, store::set)
 }
 
 /** Both halves together, for the previews. */
@@ -55,20 +57,21 @@ internal fun PerformanceDetailsSection() {
 internal fun PerformanceSettingsContent(
     settings: PerformanceSettings,
     onChange: (PerformanceSettings) -> Unit,
+    resolution: ResolutionMirror = ResolutionMirror.EMPTY,
 ) {
     Column {
-        PerformanceModeControls(settings, onChange)
-        PerformanceDetailControls(settings, onChange)
+        PerformanceModeControls(settings, resolution, onChange)
+        PerformanceDetailControls(settings, resolution, onChange)
     }
 }
 
 @Composable
 private fun PerformanceModeControls(
     settings: PerformanceSettings,
+    resolution: ResolutionMirror,
     onChange: (PerformanceSettings) -> Unit,
 ) {
-    val panel = rememberDisplayPanel()
-    val mode = remember(settings, panel) { settings.modeOn(panel) }
+    val mode = resolution.mode
     CrystalSegmented(
         options =
             listOf(
@@ -94,9 +97,10 @@ private fun PerformanceModeControls(
 @Composable
 private fun PerformanceDetailControls(
     settings: PerformanceSettings,
+    resolution: ResolutionMirror,
     onChange: (PerformanceSettings) -> Unit,
 ) {
-    ResolutionControls(settings, onChange)
+    ResolutionControls(settings, resolution, onChange)
     val refreshRates = rememberDisplayRefreshRates()
     val fpsCaps = remember(refreshRates) { liveFpsCaps(refreshRates) }
     Column {
@@ -135,61 +139,39 @@ private fun PerformanceDetailControls(
     Hint(stringResource(R.string.perf_export_note))
 }
 
-/**
- * The render resolutions this panel offers (native: the steps under its short side, then Native) and, under them,
- * the real pixels the pick draws on the screen's current mode.
- */
+/** The render resolutions native offers on this panel, Native last, and under them what the pick draws on the screen's current mode. */
 @Composable
 private fun ResolutionControls(
     settings: PerformanceSettings,
+    resolution: ResolutionMirror,
     onChange: (PerformanceSettings) -> Unit,
 ) {
-    val panel = rememberDisplayPanel()
-    val choices = remember(panel) { PerfNative.perfResolutionChoices(panel.panelWidth, panel.panelHeight).toList() }
-    // Choices compare as the panel draws them: a stored 900 on a 720p panel is its Native.
-    val drawnOnPanel = { r: Int -> drawnSize(r, panel.panelWidth, panel.panelHeight)?.toList() }
-    val stored = drawnOnPanel(settings.resolution)
-    val selected =
-        choices.indexOfFirst { stored != null && drawnOnPanel(it) == stored }.takeIf { it >= 0 }
-            ?: choices.indexOf(settings.resolution)
     Column {
         Choice(
             stringResource(R.string.perf_render_scale),
-            choices.map {
+            resolution.steps.map {
                 if (it == PerfNative.PERF_NATIVE) {
                     stringResource(R.string.perf_resolution_native)
                 } else {
                     stringResource(R.string.perf_resolution_value, it)
                 }
             },
-            selected,
-        ) { onChange(settings.copy(resolution = choices[it])) }
-        val drawn = drawnSize(settings.resolution, panel.modeWidth, panel.modeHeight)
-        if (drawn != null) {
+            resolution.selected,
+        ) { onChange(settings.copy(resolution = resolution.steps[it])) }
+        if (resolution.drawnWidth > 0) {
             Spacer(Modifier.height(6.dp))
-            Hint(stringResource(R.string.perf_resolution_hint, drawn[0], drawn[1], panel.modeWidth, panel.modeHeight))
+            Hint(
+                stringResource(
+                    R.string.perf_resolution_hint,
+                    resolution.drawnWidth,
+                    resolution.drawnHeight,
+                    resolution.modeWidth,
+                    resolution.modeHeight,
+                ),
+            )
         }
     }
 }
-
-/** What [resolution] draws full screen on a [width] x [height] mode (native), or null for an unknown one. */
-private fun drawnSize(
-    resolution: Int,
-    width: Int,
-    height: Int,
-): IntArray? = IntArray(PerfNative.PERF_BUFFER_INTS).takeIf { PerfNative.perfBufferSize(resolution, width, height, width, height, it) }
-
-/**
- * The panel of the display under this window ([DisplayPanel.of]): read at start, again when the configuration
- * changes (a fold, a move to another display, a resolution change in the system settings).
- */
-@Composable
-internal fun rememberDisplayPanel(): DisplayPanel {
-    val view = LocalView.current
-    val configuration = LocalConfiguration.current
-    return remember(view, configuration) { DisplayPanel.of(view.display) }
-}
-
 /**
  * The refresh rates of the display under [view] at its current resolution (`Display.getSupportedModes`), ascending:
  * the same set from every mode, so the app's own mode switch never changes it. Empty before the view has a display.

@@ -188,7 +188,7 @@ GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look)
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
    changed, and again on a new surface): march_scale 0..1, post_fx 0 or 1. Never set, the renderer keeps full
-   quality (an export). The render resolution is the surface's own size (geode_perf_buffer_size). */
+   quality (an export). The render resolution is the surface's own size (the descriptor's buffer). */
 GEODE_API void        geode_viz_set_quality(geode_viz*, float march_scale, int post_fx);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
@@ -1422,41 +1422,23 @@ GEODE_API void            geode_cast_format(int* out);
 GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. A resolution is the
    picture's short side in pixels when it fills the screen (1080 is 1080 x 2400 on a 20:9 phone), or
-   GEODE_PERF_NATIVE for the panel's own. panel_width x panel_height is the display's largest physical mode
-   (Display.Mode.getPhysicalWidth/Height over getSupportedModes), mode_width x mode_height its current one;
-   0 for unknown. */
+   GEODE_PERF_NATIVE for the panel's own. The panel is what geode_perf_panel_set last said (below). */
 #define GEODE_PERF_NATIVE 0
 #define GEODE_PERF_TIER_FLOATS 4
 /* Writes resolution, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
-/* The first-run mode for this phone, a default the user may change. total_ram_bytes 0 = unknown. */
-GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class,
-                                                     int panel_width, int panel_height);
-/* The mode these values are on this panel (resolutions compared as drawn, the tier's fps cap as an int,
-   post_fx 0/1), or -1 for none: the tab reads "Custom". */
-GEODE_API int             geode_perf_mode_of(int resolution, int fps_cap, float march_scale, int post_fx, int panel_width,
-                                             int panel_height);
+/* The first-run mode for this phone on the panel held, a default the user may change. total_ram_bytes 0 = unknown. */
+GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
 /* The march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* The resolutions the tab offers on this panel, ascending into out (up to capacity): every step of 540, 720,
-   900, 1080, 1440, 2160 under the panel's short side, then GEODE_PERF_NATIVE. Returns how many. */
-#define GEODE_PERF_RESOLUTION_CHOICES 7
-GEODE_API int             geode_perf_resolution_choices(int panel_width, int panel_height, int* out, int capacity);
-/* The resolution an old install's stored render scale (0.25..1 of the screen) maps to on this panel: the
-   nearest choice, the higher on a tie. */
-GEODE_API int             geode_perf_resolution_for_scale(float render_scale, int panel_width, int panel_height);
-/* The window buffer a live surface renders into at `resolution` for a view of view_width x view_height pixels
-   on a display in mode_width x mode_height: out[0] width, out[1] height (GEODE_PERF_BUFFER_INTS). The shell
-   sizes the surface to it (SurfaceHolder.setFixedSize) and the display scales it up to the view; every pass,
-   the composite and the UI blur included, shades the buffer's pixels. With the mode as the view it is what
-   the resolution draws full screen. Returns the count, 0 for no view (a size <= 0) or a short out. */
-#define GEODE_PERF_BUFFER_INTS 2
-GEODE_API int             geode_perf_buffer_size(int resolution, int mode_width, int mode_height, int view_width,
-                                                 int view_height, int* out, int capacity);
+/* The resolution an old install's stored render scale (0.25..1 of the screen) maps to on the panel held: the
+   nearest step the tab offers, the higher on a tie. */
+GEODE_API int             geode_perf_resolution_for_scale(float render_scale);
 /* The render resolution the app holds (core/viz/frame/ResolutionState), process-wide. Each set is a void event and
    derives the descriptor once; the shell and the screen read it as published (geode_perf_resolution_read) and
-   compute nothing. panel_set: the display's panel and its current mode, as above (0 for unknown). view_set: the stage
+   compute nothing. panel_set: the display's largest physical mode (Display.Mode.getPhysicalWidth/Height over
+   getSupportedModes) and its current one, in the panel's natural orientation (0 for unknown). view_set: the stage
    view's size in pixels. settings_set: the user's resolution, fps cap, march scale and post FX (0/1). */
 GEODE_API void            geode_perf_panel_set(int panel_width, int panel_height, int mode_width, int mode_height);
 GEODE_API void            geode_perf_view_set(int view_width, int view_height);

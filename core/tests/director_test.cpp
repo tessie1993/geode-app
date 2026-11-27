@@ -1199,6 +1199,49 @@ void testSongArc() {
           "an arc set to nothing moves nothing");
 }
 
+// With no tempo heard there is no bar, and none is made up: the build's lean and the song's arc move over the
+// tuning's plain seconds instead, never in one frame (a step of dt over a bar of 0 snapped them, and every
+// param they drive jumped). A stale bpm under a beat the tracker does not trust changes nothing.
+void testLeanAndArcGlideWithNoTempo() {
+    float leanAt[2] = {};
+    float arcSteps[2] = {};
+    for (int n = 0; n < 2; ++n) {
+        const float stale = n == 0 ? 0.0f : 93.0f;
+        Director d;
+        d.configure({1.0f, 9});
+        Player p{d, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
+        float leanStep = 0.0f;
+        float arcStep = 0.0f;
+        const auto unbeaten = [&](float seconds) {
+            for (const float end = p.t + seconds; p.t < end;) {
+                GeodeSoundFrame f = p.next();
+                f.bpm = stale;
+                f.beatConf = 0.0f;
+                f.downbeat = 0.0f;
+                const float lean = d.lean();
+                const float arc = d.arc();
+                p.step(f);
+                leanStep = std::max(leanStep, std::fabs(d.lean() - lean));
+                arcStep = std::max(arcStep, std::fabs(d.arc() - arc));
+            }
+        };
+        unbeaten(13.0f);
+        p.state = GEODE_SECTION_BUILD;
+        unbeaten(1.0f);
+        leanAt[n] = d.lean();
+        check(d.lean() > 0.0f && d.lean() < 0.5f, "a second into a build with no tempo the lean is coming in, not in (" + std::to_string(d.lean()) + ")");
+        unbeaten(30.0f);
+        check(d.lean() == 1.0f, "and in, given time");
+        p.state = GEODE_SECTION_VERSE;
+        unbeaten(30.0f);
+        check(d.lean() == 0.0f, "a fading build lets go");
+        check(leanStep < 0.05f, "the lean never jumps in a frame (" + std::to_string(leanStep) + ")");
+        check(arcStep < 0.05f, "nor the arc (" + std::to_string(arcStep) + ")");
+        arcSteps[n] = arcStep;
+    }
+    check(leanAt[0] == leanAt[1] && arcSteps[0] == arcSteps[1], "a stale bpm under no beat changes nothing");
+}
+
 // The style each moment asks for (Director::styleIntent): a new section the next along from the style on
 // screen; a returning section its own first style, stepped on by its returns; a drop into a new section a
 // leap; Styles progress off says so.
@@ -1380,6 +1423,7 @@ int main() {
     testFeelingPicksTheGlide();
     testBuildLeansIn();
     testSongArc();
+    testLeanAndArcGlideWithNoTempo();
     testStyleIntents();
     testTuningTable();
     testLooksLandOnTheBar();

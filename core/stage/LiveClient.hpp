@@ -47,8 +47,6 @@ public:
     virtual void surfaceCreated() = 0;
     virtual void surfaceChanged(int width, int height) = 0;
     virtual uint32_t frame(const void* ring, float pacedFps, float capFps) = 0;
-    // The vsync time (CLOCK_MONOTONIC ns) of the frame that follows, 0: none (StageClient::frameTime).
-    virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
     // The frame's expected presentation time, 0: none (StageClient::framePresent).
     virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
     // The next frame steps by 0 (StageClient::restartClock).
@@ -80,7 +78,6 @@ public:
     void surfaceCreated() override;
     void surfaceChanged(int width, int height) override;
     uint32_t frame(float pacedFps, float capFps) override;
-    void frameTime(int64_t vsyncNs) override;
     void framePresent(int64_t presentNs) override;
     void restartClock() override;
     void trimSpares() override;

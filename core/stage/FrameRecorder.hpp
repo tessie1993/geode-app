@@ -4,29 +4,27 @@
 #include <string>
 #include <vector>
 
-// The stage's per-frame ring for measuring a phone the owner does not have: what each vsync the frame clock drew on
-// cost the stage thread, when its fence was seen signalled, and how far its presentation was from the last one's.
-// Off by default; only a debug flag turns it on (core/stage/android/StageThread), so a normal run neither allocates
-// nor records. Pure, so the host can test the ring and its CSV (core/tests/frame_recorder_test.cpp).
+// The stage's per-frame ring for measuring a phone the owner does not have: what each paced frame cost the stage
+// thread, what its GPU work took, and how far its presentation was from the last one's. Off by default; only a debug
+// flag turns it on (core/stage/android/StageThread), so a normal run neither allocates nor records. Pure, so the host
+// can test the ring and its CSV (core/tests/frame_recorder_test.cpp).
 namespace geode::stage {
 
 struct FrameRecord {
-    // The stage thread's work for the frame: the client's draw and the swap.
+    // The stage thread's work for the frame: the client's draw, not the swap's wait.
     int64_t cpuDrawNs = 0;
-    // From the frame's CPU start to the first poll that found its fence signalled: an upper bound on when the GPU
-    // finished, as fine as the vsyncs the stage polls on. 0: not seen (a skip, or the ring was handed over first).
-    int64_t gpuDoneNs = 0;
-    // The frame's expected presentation after the last drawn frame's; 0 for the first frame after a start.
+    // The frame's GPU work as the pacer measured it (Swappy's postWait: its fence's time), told one frame late.
+    // 0: not known (no pacer measure, or the next frame never came).
+    int64_t gpuNs = 0;
+    // The frame's presentation time after the last drawn frame's; 0 for the first frame after a start.
     int64_t presentIntervalNs = 0;
-    // A vsync the frame clock wanted that drew nothing: the GPU had not finished the last frame.
-    bool skipped = false;
 };
 
 class FrameRecorder {
 public:
     // About 4 s at 120 Hz: a chunk the stage hands over is a few hundred log lines.
     static constexpr size_t kCapacity = 512;
-    static constexpr const char* kCsvHeader = "frame,cpuDrawNs,gpuDoneNs,presentIntervalNs,skipped\n";
+    static constexpr const char* kCsvHeader = "frame,cpuDrawNs,gpuNs,presentIntervalNs\n";
 
     void setEnabled(bool on) {
         enabled_ = on;
@@ -40,32 +38,20 @@ public:
     }
     bool enabled() const { return enabled_; }
 
-    // A frame drawn and swapped: its CPU start and how long the stage thread took.
-    void drawn(int64_t startNs, int64_t cpuDrawNs, int64_t presentIntervalNs) {
+    // A frame drawn and swapped: how long the stage thread took to draw it.
+    void drawn(int64_t cpuDrawNs, int64_t presentIntervalNs) {
         if (!enabled_) return;
         FrameRecord record;
         record.cpuDrawNs = cpuDrawNs;
         record.presentIntervalNs = presentIntervalNs;
         push(record);
-        pendingFrame_ = next_ - 1;
-        pendingStartNs_ = startNs;
-        awaiting_ = true;
     }
-    void skipped() {
-        if (!enabled_) return;
-        FrameRecord record;
-        record.skipped = true;
-        push(record);
+    // The frame before the newest one took `gpuNs` on the GPU (a pacer reports it at the next frame's swap). Not a
+    // time (0 or less), or a frame the ring no longer holds: nothing.
+    void gpuOfPrevious(int64_t gpuNs) {
+        if (!enabled_ || gpuNs <= 0 || size_ < 2) return;
+        slot(size_ - 2).gpuNs = gpuNs;
     }
-    // A poll found the last swapped frame's fence signalled at `nowNs`.
-    void fenceSignalled(int64_t nowNs) {
-        if (!awaiting_) return;
-        awaiting_ = false;
-        if (pendingFrame_ < firstFrame()) return;
-        const int64_t done = nowNs - pendingStartNs_;
-        slot(static_cast<size_t>(pendingFrame_ - firstFrame())).gpuDoneNs = done > 0 ? done : 1;
-    }
-    bool awaitingFence() const { return awaiting_; }
 
     size_t size() const { return size_; }
     bool full() const { return size_ == kCapacity; }
@@ -74,11 +60,10 @@ public:
     // Oldest first.
     const FrameRecord& at(size_t i) const { return ring_[(head_ + i) % kCapacity]; }
 
-    // Hands the ring over: forgets its records and the fence it waited for, keeps the numbering.
+    // Hands the ring over: forgets its records, keeps the numbering.
     void clear() {
         head_ = 0;
         size_ = 0;
-        awaiting_ = false;
     }
 
     std::string csv() const {
@@ -89,10 +74,10 @@ public:
             out += ',';
             out += std::to_string(r.cpuDrawNs);
             out += ',';
-            out += std::to_string(r.gpuDoneNs);
+            out += std::to_string(r.gpuNs);
             out += ',';
             out += std::to_string(r.presentIntervalNs);
-            out += r.skipped ? ",1\n" : ",0\n";
+            out += '\n';
         }
         return out;
     }
@@ -114,9 +99,6 @@ private:
     size_t head_ = 0;
     size_t size_ = 0;
     uint64_t next_ = 0;  // the number the next record gets
-    bool awaiting_ = false;
-    uint64_t pendingFrame_ = 0;
-    int64_t pendingStartNs_ = 0;
 };
 
 }  // namespace geode::stage

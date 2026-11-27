@@ -71,9 +71,8 @@ public:
     void surfaceChanged(int width, int height) override { geode_viz_surface_changed(v_, width, height); }
     uint32_t frame(const void* ring, float pacedFps, float capFps) override {
         return static_cast<uint32_t>(
-            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_, presentNs_, true));
+            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, presentNs_, true));
     }
-    void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void framePresent(int64_t presentNs) override { presentNs_ = presentNs; }
     void restartClock() override { geode::api::vizRestartClock(v_); }
     void trimSpares() override { geode_viz_trim_spares(v_); }
@@ -127,7 +126,6 @@ private:
     AAssetManager* assets_;
     geode_export_pass* mark_ = nullptr;  // stage thread
     int64_t presentNs_ = 0;  // stage thread: the next frame's expected presentation time (framePresent), 0 for none
-    int64_t vsyncNs_ = 0;  // stage thread: the next frame's vsync time (frameTime), 0 for none
 };
 
 struct Stage {

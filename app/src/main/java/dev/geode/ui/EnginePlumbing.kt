@@ -53,7 +53,7 @@ private const val MS_PER_SECOND = 1000
 fun VisualizerEngineBindings(
     viewModel: PlayerViewModel,
     visualizerView: StageView,
-    liveRate: LiveFrameRate,
+    liveFps: Int,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -122,9 +122,9 @@ fun VisualizerEngineBindings(
         // The look carries the transition; this only compiles it ahead of the next style change.
         visualizerView.stage.warmTransition(activeTransitionId)
     }
-    // The app's one live rate (LiveFrameRate): the stored pick as this window's display runs it.
-    LaunchedEffect(performance, liveRate) {
-        visualizerView.applyPerformance(performance.copy(fpsCap = liveRate.fps))
+    // The app's one live rate (rememberLiveFps): the stored pick as this window's display runs it.
+    LaunchedEffect(performance, liveFps) {
+        visualizerView.applyPerformance(performance.copy(fpsCap = liveFps))
     }
     LaunchedEffect(Unit) {
         visualizerView.stage.liquidMode.collect { viewModel.reportLiquidMode(it) }

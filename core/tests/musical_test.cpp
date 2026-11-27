@@ -850,6 +850,78 @@ void testGrooveRegressions() {
     checkGroove(intro);
 }
 
+// The mic and another app's audio arrive at whatever level the room and the phone make: an unprocessed mic
+// reads 94 dB SPL as about -36 dBFS (CDD 5.11), so music at a quiet room level peaks around -55 dBFS, under
+// the -55 LUFS gate. A four-on-the-floor peaking at -55 dBFS from a source other than the player must still
+// lock within 8 s at its own tempo; the same groove from the player is heard as it is (its loudness is the
+// track's, no gain), and broadband noise peaking at -80 dBFS, a room with nothing playing, never opens the
+// gate or fires a beat.
+void testQuietSourceAutoGain() {
+    std::printf("quiet source auto gain:\n");
+    const std::vector<double> fours = {0, 1, 2, 3};
+    const std::vector<double> eighths = {0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5};
+    const Groove g{"four on the floor", 124.0, {{Voice::kKick, 0.8, fours}, {Voice::kSnare, 0.3, {1, 3}}, {Voice::kClosedHat, 0.15, eighths}}};
+    // The groove's own peak over four bars, to scale it to -55 dBFS.
+    double peak = 0.0;
+    {
+        GrooveSynth probe(g);
+        const int measured = static_cast<int>(4.0 * 4.0 * 60.0 / g.bpm * 44100.0);
+        for (int k = 0; k < measured; k++) peak = std::max(peak, std::fabs(static_cast<double>(probe.at(k / 44100.0))));
+    }
+    const double grooveScale = std::pow(10.0, -55.0 / 20.0) / peak;
+    const double noiseScale = std::pow(10.0, -80.0 / 20.0);  // Noise.next() peaks at 1
+    struct Heard {
+        double lockAt = -1.0;
+        int beats = 0;
+        bool gateOpened = false;
+        GeodeSoundFrame last{};
+    };
+    const auto hear = [](bool player, const std::function<float(double)>& signal, double seconds) {
+        SoundEngine e(44100);
+        // As the analysis thread sets them up for its source (AnalysisThread::applyControls).
+        e.setPlayerSource(player);
+        e.setAutoGain(!player);
+        Heard h;
+        const int rate = e.sampleRateHz();
+        std::vector<float> buf;
+        int64_t done = 0;
+        for (int i = 1; i <= static_cast<int>(seconds * 60.0); i++) {
+            const int64_t end = std::llround(i * rate / 60.0);
+            buf.resize(static_cast<size_t>(2 * (end - done)));
+            for (int64_t k = done; k < end; k++) buf[2 * (k - done)] = buf[2 * (k - done) + 1] = signal(static_cast<double>(k) / rate);
+            e.write(buf.data(), static_cast<int>(end - done), 2);
+            done = end;
+            e.step(1.0f / 60.0f, h.last);
+            if (h.last.beat > 0.0f) {
+                h.beats++;
+                if (h.lockAt < 0.0) h.lockAt = i / 60.0;
+            }
+            if (h.last.loudnessM > 0.0f) h.gateOpened = true;
+        }
+        std::printf("  %s: %.2f BPM, first beat %.2f s, %d beats, loudness M %.2f, auto gain %+.1f dB\n", player ? "player" : "other ",
+                    h.last.bpm, h.lockAt, h.beats, h.last.loudnessM, e.autoGainDb());
+        return h;
+    };
+    {
+        GrooveSynth synth(g);
+        const Heard h = hear(false, [&](double t) { return static_cast<float>(grooveScale * synth.at(t)); }, 20.0);
+        CHECK(h.lockAt > 0.0 && h.lockAt <= 8.0, "a quiet four-on-the-floor from the mic: first beat at %.2f s (by 8 s)", h.lockAt);
+        CHECK(std::fabs(h.last.bpm / g.bpm - 1.0) < 0.02, "a quiet four-on-the-floor from the mic: %.1f BPM read %.2f", g.bpm, h.last.bpm);
+    }
+    {
+        GrooveSynth synth(g);
+        const Heard h = hear(true, [&](double t) { return static_cast<float>(grooveScale * synth.at(t)); }, 20.0);
+        CHECK(h.beats == 0 && !h.gateOpened, "the player's quiet track is heard as it is: %d beats, the gate %s", h.beats,
+              h.gateOpened ? "opened" : "closed");
+    }
+    {
+        Noise noise;
+        const Heard h = hear(false, [&](double) { return static_cast<float>(noiseScale * noise.next()); }, 40.0);
+        CHECK(h.beats == 0 && h.last.bpm == 0.0f, "noise at -80 dBFS: %d beats, %.2f BPM", h.beats, h.last.bpm);
+        CHECK(!h.gateOpened, "noise at -80 dBFS opened the gate");
+    }
+}
+
 
 // Music without a beat never locks: a pad that swells slowly, steady noise, and noise bursts at random
 // times (an irregular texture on no grid). The tracker may guess a tempo; it must not fire beats.
@@ -953,6 +1025,7 @@ int main() {
     testDeterministic();
     testOffbeatGrooves();
     testGrooveRegressions();
+    testQuietSourceAutoGain();
     testBeatless();
     if (failures == 0) std::printf("musical_test: all passed\n");
     return failures == 0 ? 0 : 1;

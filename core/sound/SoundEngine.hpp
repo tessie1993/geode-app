@@ -144,6 +144,13 @@ public:
     // only for other sources, and fadeGain reads 1 for them. Off by default: a bare engine guesses at
     // boundaries the way it always has.
     void setPlayerSource(bool on) { playerSource_ = on; }
+    // An automatic input gain (SoundEngine.cpp: kAutoGain*), after the trim and before everything the engine
+    // hears, the loudness and the gate included: for the mic and another app's audio, which arrive at the level
+    // the room and the phone make (the analysis thread turns it on for every source but the player). Off by
+    // default, so a bare engine's loudness is absolute. Turning it on or off starts the gain over at 0 dB.
+    void setAutoGain(bool on);
+    // The automatic input gain applied now, dB; 0 while it is off.
+    float autoGainDb() const { return static_cast<float>(autoGainDb_); }
 
 private:
     struct BinRange {
@@ -232,6 +239,8 @@ private:
     static float sum(const std::vector<float>& mag, BinRange r);
     void readWindow(int count, float* mono, float* left, float* right, int oldest = -1) const;
     void feed(float l, float r);
+    void stepAutoGain();
+    void resetAutoGain();
     void analyse();
     void feedSilence(float dt);
     float nextRandom();
@@ -285,6 +294,14 @@ private:
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
     LufsMeter meter_;          // absolute loudness and the one silence gate
     float trimGain_ = 1.0f;    // the input trim, linear: analysis only
+    LufsMeter inputMeter_;     // the loudness before the automatic gain, other sources only
+    double autoGainDb_ = 0.0;
+    // Linear, ramped sample by sample to autoGainTo_ over each hop: a gain that stepped at the hop would be an
+    // attack in every band, and the transient detector hears it.
+    float autoGain_ = 1.0f;
+    float autoGainTo_ = 1.0f;  // autoGainDb_, linear
+    float autoGainSlope_ = 0.0f;
+    bool autoGainOn_ = false;
     std::array<std::array<HalfBand, 2>, 3> decimate_{};  // per halving, per channel
     float dcR_ = 0.0f;         // the DC blocker's pole, from the sample rate
     std::array<float, 2> dcX_{};  // its last input and output, per channel

@@ -159,6 +159,7 @@ void inlineMatchesBare(int rate, bool controls) {
     PcmRing ring(kRingFrames, 2, kRunway);
     AnalysisThread at(ring, false);
     SoundEngine bare(rate);
+    bare.setAutoGain(true);  // the thread's source is not the player until it is told otherwise
     GeodeSoundFrame none{};
     check(!at.frameAt(0, none) && at.newestPosition() == -1, "no hop before any audio");
     Lcg rng{0x5EEDF00Du + static_cast<uint32_t>(rate)};
@@ -188,6 +189,7 @@ void inlineMatchesBare(int rate, bool controls) {
                 at.setPlayerSource(true);
                 at.setFadeGain(0.4f);
                 bare.setPlayerSource(true);
+                bare.setAutoGain(false);
                 bare.setFadeGain(0.4f);
             } else if (block == 110) {
                 check(at.resetEmotion(), "an emotion reset is queued");
@@ -232,6 +234,7 @@ void inlineSkipAndRate() {
     PcmRing ring(kRingFrames, 2, kRunway);
     AnalysisThread at(ring, false);
     SoundEngine bare48(48000);
+    bare48.setAutoGain(true);  // the thread's source is not the player
     Compared c;
     Lcg rng{174u};
     int64_t base = 0;
@@ -255,6 +258,7 @@ void inlineSkipAndRate() {
     }
     const int before = c.hops;
     SoundEngine bare44(44100);
+    bare44.setAutoGain(true);
     base = ring.headFrames();
     const int64_t total44 = static_cast<int64_t>(second.size() / 2);
     for (int64_t done = 0; done < total44;) {
@@ -644,8 +648,37 @@ void failedPassWakesTheThread() {
     check(AnalysisThreadTestAccess::tuning(at).gain[0] == 2.5f, "and it applied the tuning queued");
 }
 
+// The mic and another app's audio are heard through the engine's automatic input gain, the player as it is: a
+// 220 Hz tone at -66 dBFS (under the -55 LUFS gate, over the gain's floor) opens the gate within 4 s when the
+// source is not the player, and never while it is.
+void quietSourceIsGained() {
+    for (bool player : {false, true}) {
+        const int rate = 48000;
+        PcmRing ring(kRingFrames, 2, kRunway);
+        AnalysisThread at(ring, false);
+        at.setPlayerSource(player);
+        std::vector<float> block(2 * 960);
+        int64_t written = 0;
+        bool opened = false;
+        for (int i = 0; i < 4 * 50; i++) {
+            for (size_t s = 0; s < block.size() / 2; s++) {
+                const double t = static_cast<double>(written + static_cast<int64_t>(s)) / rate;
+                block[2 * s] = block[2 * s + 1] = static_cast<float>(std::pow(10.0, -66.0 / 20.0) * std::sin(kTau * 220.0 * t));
+            }
+            ring.writeFloat(block.data(), static_cast<int>(block.size() / 2), 2, rate);
+            written += static_cast<int64_t>(block.size() / 2);
+            at.pump(0.02f);
+            GeodeSoundFrame f{};
+            if (at.frameAt(kAll, f) && f.loudnessM > 0.0f) opened = true;
+        }
+        std::printf("  a -66 dBFS tone from %s: the gate %s\n", player ? "the player" : "another source", opened ? "opened" : "stayed shut");
+        check(opened != player, player ? "the player's quiet track was gained" : "a quiet source other than the player was not gained");
+    }
+}
+
 int main() {
     std::printf("analysis thread: one engine off the draw thread, hops by ring position\n");
+    quietSourceIsGained();
     for (int rate : {48000, 96000}) inlineMatchesBare(rate, false);
     inlineMatchesBare(48000, true);
     inlineSkipAndRate();

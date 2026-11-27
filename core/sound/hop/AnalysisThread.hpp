@@ -97,6 +97,8 @@ public:
     bool setListenLimit(ListenLimit limit, void* context);
     // The latest value wins; applied at the next pass.
     void setFadeGain(float gain);
+    // Every source but the player (the mic, another app's audio) is heard through the engine's automatic input
+    // gain (SoundEngine::setAutoGain): its level is the room's and the phone's, not the track's.
     void setPlayerSource(bool on);
 
     // Readers, any thread. The hop at or before `position`, as SoundEngine::frameAt picks it (older than every

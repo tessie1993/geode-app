@@ -24,6 +24,18 @@ constexpr float kRewarmAfter = 2.0f;  // silence this long re-arms the warm-up (
 constexpr float kStarved = 0.25f;
 // The DC blocker's corner: under every band, over the drift of a mic or a capture's offset.
 constexpr float kDcCornerHz = 10.0f;
+// The automatic input gain (setAutoGain), for every source but the player. An unprocessed mic reads 94 dB SPL as
+// about -36 dBFS (Android CDD 5.11), so music at room level sits at or under the -55 LUFS gate. The gain lifts the
+// short-term loudness it hears toward the target and never cuts. While the gate is still closed nothing is heard
+// yet, so it seeks fast; once open it rises slowly, so a quiet passage stays quieter than the chorus. Under the
+// floor (about 50 dB SPL at that sensitivity) the input is a room with nothing playing: the gain returns to 0 dB,
+// so hiss is never lifted into the gate.
+constexpr double kAutoGainTargetLufs = -20.0;
+constexpr double kAutoGainMaxDb = 40.0;
+constexpr double kAutoGainSeekDbPerSecond = 10.0;
+constexpr double kAutoGainRiseDbPerSecond = 0.5;
+constexpr double kAutoGainFallDbPerSecond = 6.0;
+constexpr double kAutoGainFloorLufs = -76.0;
 // A band quieter than this holds nothing worth measuring. Absolute (about -74 dBFS), like everything that
 // says how loud the music is: a floor that followed the track's own peak made a quiet ambient master as
 // "loud" as a mastered one to every detector below it.
@@ -168,6 +180,7 @@ SoundEngine::SoundEngine(int sampleRateHz, AnalysisSettings settings)
     rhythm_.configure(sampleRateHz_, settings_.hopSamples());
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
     meter_.configure(sampleRateHz_, rhythm_.hopSamples());
+    inputMeter_.configure(sampleRateHz_, rhythm_.hopSamples());
     transient_.configure(sampleRateHz_, hopDt_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
@@ -241,7 +254,43 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
     }
 }
 
+void SoundEngine::setAutoGain(bool on) {
+    if (on == autoGainOn_) return;
+    autoGainOn_ = on;
+    resetAutoGain();
+}
+
+void SoundEngine::resetAutoGain() {
+    inputMeter_.reset();
+    autoGainDb_ = 0.0;
+    autoGain_ = 1.0f;
+    autoGainTo_ = 1.0f;
+    autoGainSlope_ = 0.0f;
+}
+
+// Once a hop, after both meters: the gain the next hop ramps to. A stall holds it, as it holds the song.
+void SoundEngine::stepAutoGain() {
+    autoGain_ = autoGainTo_;  // exactly where the last ramp was headed, so the ramps never drift
+    const double heard = inputMeter_.shortTermLufs();
+    const double want = heard < kAutoGainFloorLufs ? 0.0 : std::clamp(kAutoGainTargetLufs - heard, 0.0, kAutoGainMaxDb);
+    if (want > autoGainDb_) {
+        const double rate = meter_.open() ? kAutoGainRiseDbPerSecond : kAutoGainSeekDbPerSecond;
+        autoGainDb_ = std::min(want, autoGainDb_ + rate * hopDt_);
+    } else {
+        autoGainDb_ = std::max(want, autoGainDb_ - kAutoGainFallDbPerSecond * hopDt_);
+    }
+    autoGainTo_ = static_cast<float>(std::pow(10.0, autoGainDb_ / 20.0));
+    autoGainSlope_ = (autoGainTo_ - autoGain_) / static_cast<float>(rhythm_.hopSamples());
+}
+
 void SoundEngine::feed(float l, float r) {
+    const bool gained = autoGainOn_ && !starved_;
+    if (gained) {
+        inputMeter_.process(l, r);
+        l *= autoGain_;
+        r *= autoGain_;
+        autoGain_ += autoGainSlope_;
+    }
     const size_t cap = ringL_.size();
     ringL_[writePos_] = l;
     ringR_[writePos_] = r;
@@ -254,6 +303,10 @@ void SoundEngine::feed(float l, float r) {
     if (++hopFill_ >= rhythm_.hopSamples()) {
         hopFill_ = 0;
         meter_.hop();
+        if (gained) {
+            inputMeter_.hop();
+            stepAutoGain();
+        }
         std::array<float, Rhythm::kBands> power{};
         // Behind the closed gate the tracker hears nothing, so the beat does not hunt in the noise floor.
         const bool gateOpen = meter_.open();
@@ -1074,6 +1127,7 @@ void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
 
 void SoundEngine::reset() {
     meter_.reset();
+    resetAutoGain();
     rhythm_.reset();
     harmony_.reset();
     form_.reset();

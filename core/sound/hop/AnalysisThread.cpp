@@ -326,6 +326,7 @@ void AnalysisThread::applyControls() {
     if (engine_) {
         engine_->setFadeGain(fadeApplied_);
         engine_->setPlayerSource(playerApplied_);
+        engine_->setAutoGain(!playerApplied_);
     }
 }
 
@@ -350,6 +351,7 @@ bool AnalysisThread::ensureEngine(int sampleRateHz) {
     }
     if (tuned_) engine_->setTuning(tuning_);
     engine_->setPlayerSource(playerApplied_);
+    engine_->setAutoGain(!playerApplied_);
     engine_->setFadeGain(fadeApplied_);
     engineWritten_ = 0;
     hopsSeen_ = 0;

@@ -53,9 +53,11 @@ struct Run {
     float lastSharpness = 0.0f;
 };
 
-// Fed the way a live surface feeds the engine: each frame's samples, then step(1/fps).
-Run play(const Signal& signal, double seconds, int rate, double fps) {
+// Fed the way a live surface feeds the engine: each frame's samples, then step(1/fps). `autoGain` as the analysis
+// thread hears the mic or another app's audio (SoundEngine::setAutoGain).
+Run play(const Signal& signal, double seconds, int rate, double fps, bool autoGain = false) {
     SoundEngine engine(rate);
+    engine.setAutoGain(autoGain);
     const int64_t total = static_cast<int64_t>(seconds * rate);
     std::vector<float> block;
     GeodeSoundFrame f{};
@@ -160,16 +162,20 @@ void testHeldToneIsQuiet() {
     CHECK(late == 0, "%d transients in a held tone", static_cast<int>(late));
 }
 
-// A crescendo from -50 to -6 dBFS over four seconds: louder all the time, never sharply.
+// A crescendo from -50 to -6 dBFS over four seconds: louder all the time, never sharply. Heard through the
+// automatic input gain too, which climbs under it and then falls as it passes the target: the gain's own
+// moves are no attack either.
 void testCrescendoIsQuiet() {
-    const Run run = play(
-        [](double t) {
-            const double db = -50.0 + 44.0 * std::clamp((t - 0.5) / 4.0, 0.0, 1.0);
-            return rise(t, 0.5) * tone(220.0, t, std::pow(10.0, db / 20.0));
-        },
-        5.0, 48000, 60.0);
-    const auto late = std::count_if(run.fires.begin(), run.fires.end(), [](const Fire& f) { return f.t > 0.6; });
-    CHECK(late == 0, "%d transients in a crescendo", static_cast<int>(late));
+    for (bool autoGain : {false, true}) {
+        const Run run = play(
+            [](double t) {
+                const double db = -50.0 + 44.0 * std::clamp((t - 0.5) / 4.0, 0.0, 1.0);
+                return rise(t, 0.5) * tone(220.0, t, std::pow(10.0, db / 20.0));
+            },
+            5.0, 48000, 60.0, autoGain);
+        const auto late = std::count_if(run.fires.begin(), run.fires.end(), [](const Fire& f) { return f.t > 0.6; });
+        CHECK(late == 0, "%d transients in a crescendo%s", static_cast<int>(late), autoGain ? " under the auto gain" : "");
+    }
 }
 
 // Every pluck fires, once, soon after it; the swells between them and the bed under them never do.

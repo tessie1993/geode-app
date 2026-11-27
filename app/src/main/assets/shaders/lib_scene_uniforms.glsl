@@ -116,13 +116,13 @@ uniform vec4 uBirths[6];
 // k5 SPACE. They live here rather than in the style files because they are one
 // contract for every style that reads them: the engine fills one array, and a
 // second declaration in a style would be a redefinition error once pasted
-// beside this one. A style that never reads them links the array away, so it
-// costs the others nothing.
+// beside this one.
 //
 // Nothing drives them any more (the Note & key layer that did is gone): every knob is exactly
-// 0.5, the midpoint each style was tuned around, and ShaderScene uploads that constant. A style
+// 0.5, the midpoint each style was tuned around. They are a compile-time constant, not a uniform,
+// so the compiler folds every read and the paths behind it; ShaderScene uploads nothing. A style
 // that reads one still draws its tuned look; do not add a read of a knob.
-uniform float uKnob[6];
+const float uKnob[6] = float[6](0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
 
 // ---- where the fingers are ------------------------------------------------
 //

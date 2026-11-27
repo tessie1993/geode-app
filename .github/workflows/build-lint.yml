@@ -1,12 +1,15 @@
 name: Build and lint
 
-# The pull-request and merged-commit gate: native/network/shader checks, the debug APK,
+# The ready-PR and merged-commit gate: native/network/shader checks, the debug APK,
 # the manifest and library promises, JVM unit tests, and the Kotlin/Android linters.
-# merge-release.yml calls this on the exact commit it is about to publish.
+# Drafts use draft-preflight.yml; merge-release.yml calls this on the exact commit it publishes.
 
 on:
   workflow_dispatch:
   pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  merge_group:
+    types: [checks_requested]
   workflow_call:
 
 permissions:
@@ -20,6 +23,9 @@ concurrency:
 jobs:
   build-lint:
     name: Build and lint
+    # A draft gets the fast preflight only. Manual, merge-group and merge-release runs have no
+    # pull_request payload and always run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -37,6 +43,18 @@ jobs:
 
       - name: Only cast reaches the network
         run: bash tools/network-gate.sh
+
+      # The same architecture/policy gates draft-preflight runs, repeated here so a PR opened
+      # directly as ready (or a merge-group commit) cannot bypass them.
+      - name: Architecture and policy gates
+        run: |
+          bash tools/jni-parity-gate.sh
+          bash tools/hand-declaration-gate.sh
+          bash tools/layer-gate.sh
+          bash tools/sound-module-gate.sh
+          bash tools/audio-kotlin-gate.sh
+          bash tools/engine-kotlin-gate.sh --files
+          bash tools/no-bpm-bias-gate.sh
 
       # tools/hostcc/g++ compiles each source once per flag set, in parallel.
       - name: Put the caching native compiler first on PATH

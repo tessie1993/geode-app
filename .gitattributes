@@ -6,3 +6,8 @@
 *.bin binary
 *.jar binary
 *.keystore binary
+
+# ShellCheck reads the working-tree bytes; keep scripts LF on Windows as well as CI.
+*.sh text eol=lf
+gradlew text eol=lf
+tools/hostcc/g++ text eol=lf

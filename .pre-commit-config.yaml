@@ -1,0 +1,109 @@
+minimum_pre_commit_version: "4.4.0"
+default_stages: [pre-commit]
+
+exclude: >
+  (?x)(
+    (^|/)(build|\.cxx|\.gradle|\.idea|\.vscode)/|
+    ^third_party/|
+    \.(apk|aab|jar|keystore|png|jpe?g|webp|wav|mp4|bin)$
+  )
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-illegal-windows-names
+      - id: check-merge-conflict
+        types: [text]
+      - id: detect-private-key
+        types: [text]
+      - id: end-of-file-fixer
+        types: [text]
+      - id: trailing-whitespace
+        types: [text]
+      - id: check-yaml
+        files: '\.ya?ml$'
+        types: [yaml]
+      - id: check-json
+        files: '\.json$'
+        types: [json]
+      - id: check-toml
+        files: '\.toml$'
+        types: [toml]
+      - id: check-xml
+        files: '\.xml$'
+        types: [xml]
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: a76b92851fc9eede9f9bc4073eb55202f34eb0df # 0.39.0
+    hooks:
+      - id: check-github-workflows
+      - id: check-github-actions
+      - id: check-dependabot
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: a6564f5d57444e123433a5c9af733e3975c77229 # v0.11.0.1-1
+    hooks:
+      - id: shellcheck
+        files: '(\.sh$|(^|/)gradlew$|^tools/hostcc/g\+\+$)'
+        types: [shell]
+        args: [-S, warning]
+
+  - repo: local
+    hooks:
+      - id: actions-pin
+        name: GitHub Actions pinned to commit SHAs
+        entry: bash tools/actions-pin-gate.sh
+        language: unsupported
+        files: '^\.github/(workflows|actions)/.*\.ya?ml$'
+        pass_filenames: false
+
+      - id: network-policy
+        name: Network API and native dependency policy
+        entry: bash tools/network-gate.sh
+        language: unsupported
+        files: '(^\.gitmodules$|\.(kt|java|c|cc|cpp|h|hpp|inc)$)'
+        pass_filenames: false
+
+      - id: jni-parity
+        name: Kotlin/Java and JNI declaration parity
+        entry: bash tools/jni-parity-gate.sh
+        language: unsupported
+        files: '(\.(kt|java|c|cc|cpp|h|hpp|inc)$|(^|/)CMakeLists\.txt$)'
+        pass_filenames: false
+
+      - id: kotlin-layer
+        name: Kotlin layer dependency rule
+        entry: bash tools/layer-gate.sh
+        language: unsupported
+        files: '^(app/src/main|engine)/.*\.kt$'
+        pass_filenames: false
+
+      - id: hand-declarations
+        name: No hand-written cross-file C++ declarations
+        entry: bash tools/hand-declaration-gate.sh
+        language: unsupported
+        files: '^(core/api|app/src/main/cpp)/.*\.(cpp|h|hpp)$'
+        pass_filenames: false
+
+      - id: sound-module
+        name: Sound module include boundary
+        entry: bash tools/sound-module-gate.sh
+        language: unsupported
+        files: '^core/sound/.*\.(cpp|h|hpp|inc)$'
+        pass_filenames: false
+
+      - id: engine-kotlin
+        name: Engine Kotlin may only shrink
+        entry: bash tools/engine-kotlin-gate.sh --files
+        language: unsupported
+        files: '^(app/src/main|engine)/.*\.kt$'
+        pass_filenames: false
+
+      - id: no-bpm-bias
+        name: No tempo prior or fallback BPM
+        entry: bash tools/no-bpm-bias-gate.sh
+        language: unsupported
+        files: '^(core|app|engine|tools|\.github)/|^(AGENTS\.md|CLAUDE\.md|GLOSSARY\.md|README\.md|CHANGELOG\.md)$'
+        pass_filenames: false

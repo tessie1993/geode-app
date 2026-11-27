@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Regex fragments deliberately put a character class immediately after a variable; ShellCheck
+# otherwise reads $name[ as an array expansion.
+# shellcheck disable=SC1087
 # Fails when a tempo bias is written back into the app (owner's rule: no bias on BPM, ever).
 #
 # The tempo comes from the music alone. Nothing may prefer, weight toward, centre on or assume a

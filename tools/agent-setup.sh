@@ -9,7 +9,7 @@
 # check work on the host before pushing.
 set -uo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 step() { printf '\n== %s\n' "$1"; }
 

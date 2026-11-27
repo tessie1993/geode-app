@@ -34,7 +34,7 @@ runs:
     # sdkmanager is not on PATH on the ubuntu-24.04 runner image; it is resolved from the
     # preinstalled SDK. The NDK and CMake versions match ndkVersion and
     # externalNativeBuild.cmake.version in app/build.gradle.kts.
-    - name: Install Android SDK 36, NDK and CMake
+    - name: Install Android SDK 36/37, NDK and CMake
       shell: bash
       run: |
         SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
@@ -43,6 +43,7 @@ runs:
         "$SDKMANAGER" \
           "platform-tools" \
           "platforms;android-36" \
+          "platforms;android-37" \
           "build-tools;36.0.0" \
           "ndk;28.0.13004108" \
           "cmake;3.22.1"

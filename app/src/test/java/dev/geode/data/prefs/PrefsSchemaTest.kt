@@ -65,8 +65,6 @@ import dev.geode.model.TestTourRules
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.wallpaper.WallpaperPrefsStore
-import dev.geode.wallpaper.WallpaperSettings
 import dev.geode.widget.WidgetState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -183,10 +181,6 @@ class PrefsSchemaTest {
                 it[general].edit().also { editor -> WatermarkPrefsCodec.write(editor, WatermarkPrefsCodec.defaults) }.apply()
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
-            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) {
-                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).save(WallpaperSettings())
-                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).saveMixRefused(true)
-            },
             Owner("$APP/widget/WidgetState.kt", WidgetState.PREF_KEYS) {
                 WidgetState.save(it[GeodePrefsFiles.WIDGET], WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
             },
@@ -212,6 +206,7 @@ class PrefsSchemaTest {
             Owner("$DATA/PerformanceStore.kt", PerformanceStore.PREF_KEYS),
             Owner("$DATA/LookStore.kt", LookStore.PREF_KEYS),
             Owner("$DATA/MusicLibraryRepository.kt", MEDIA_ROOTS_PREF_KEYS),
+            Owner("$DATA/GeodePrefsFiles.kt", GeodePrefsFiles.RETIRED_WALLPAPER_KEYS),
         )
 
     /**
@@ -223,6 +218,7 @@ class PrefsSchemaTest {
             "$DATA/PerformanceStore.kt" to "its first load and its fallback read the native tier table",
             "$DATA/LookStore.kt" to "VizStateStore writes these, and builds on the native bundled presets",
             "$DATA/MusicLibraryRepository.kt" to "needs an Application, MediaStore and a folder scan",
+            "$DATA/GeodePrefsFiles.kt" to "the live wallpaper's retired file: nothing writes it any more",
         )
 
     /**
@@ -239,8 +235,7 @@ class PrefsSchemaTest {
             "$APP/di/DataModule.kt",
             "$APP/cast/CastStream.kt",
             "$APP/playback/NotificationButtons.kt",
-            "$APP/wallpaper/VisualizerWallpaperService.kt",
-            "$APP/wallpaper/VisualizerDreamService.kt",
+            "$APP/dream/VisualizerDreamService.kt",
         )
 
     /**

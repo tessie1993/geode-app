@@ -31,7 +31,6 @@ import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.prefs.PrefKey
 import dev.geode.data.prefs.PrefType
 import dev.geode.engine.bridge.BackupNative
-import dev.geode.wallpaper.WallpaperPrefsStore
 import java.time.LocalDate
 
 // What the shell keeps of a backup's rules. The rules themselves (sections, paths, caps, migration, manifest, plans)
@@ -87,7 +86,7 @@ object BackupFormat {
             WatermarkPrefsCodec.keys + PerformanceStore.PREF_KEYS + LookStore.PREF_KEYS + AutoVisualsPrefsStore.PREF_KEYS +
             StyleShelfCodec.keys + PlayerPrefsCodec.keys + BookmarkStore.PREF_KEYS +
             AudioFxController.PREF_KEYS + LibraryPrefsStore.PREF_KEYS + MEDIA_ROOTS_PREF_KEYS + BackgroundPrefsStore.PREF_KEYS +
-            WallpaperPrefsStore.PREF_KEYS + FavouritesStore.PREF_KEYS + KeepSetStore.PREF_KEYS
+            FavouritesStore.PREF_KEYS + KeepSetStore.PREF_KEYS
     }
 
     /**

@@ -59,8 +59,7 @@ enum class SettingsRowKey {
     CONNECTED_DISPLAY,
     PIP_AUTO_ENTER,
 
-    // Wallpaper & screen saver
-    LIVE_WALLPAPER,
+    // Screen saver
     DREAM_BRIGHT,
     DREAM_CLOCK,
     DREAM_NOW_PLAYING,

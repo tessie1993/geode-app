@@ -748,7 +748,8 @@ class UiTourTest {
         /**
          * Settings' fifteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
          * before them were regrouped, Tutorials & help and Backup & about becoming one tab, and
-         * Preferences added for small choices like the watermark.
+         * Preferences added for small choices like the watermark. Wallpaper & screen saver became Screen saver
+         * when the live wallpaper went.
          */
         val SETTINGS_TABS =
             listOf(
@@ -760,7 +761,7 @@ class UiTourTest {
                 "Sound reaction",
                 "Photosensitivity & motion",
                 "Displays & casting",
-                "Wallpaper & screen saver",
+                "Screen saver",
                 "Gestures & controls",
                 "Look",
                 "Performance",

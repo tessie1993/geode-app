@@ -46,7 +46,7 @@ class SettingsMapTest {
                 "SOUND_REACTION",
                 "SAFETY",
                 "DISPLAYS",
-                "WALLPAPER",
+                "SCREEN_SAVER",
                 "GESTURES",
                 "LOOK",
                 "PERFORMANCE",
@@ -69,6 +69,8 @@ class SettingsMapTest {
         assertEquals(SettingsGroupKey.SOUND_REACTION, SettingsGroupKey.fromName("SOUND_INPUT"))
         assertEquals(SettingsGroupKey.HELP_ABOUT, SettingsGroupKey.fromName("HELP"))
         assertEquals(SettingsGroupKey.HELP_ABOUT, SettingsGroupKey.fromName("BACKUP_ABOUT"))
+        // The live wallpaper's tab, now the screen saver's.
+        assertEquals(SettingsGroupKey.SCREEN_SAVER, SettingsGroupKey.fromName("WALLPAPER"))
     }
 
     @Test
@@ -100,7 +102,7 @@ class SettingsMapTest {
         assertEquals(SettingsGroupKey.OUTPUT, SettingsGroupKey.ofSection("NOTIFICATION"))
         assertEquals(SettingsGroupKey.GESTURES, SettingsGroupKey.ofSection("TOUCH"))
         assertEquals(SettingsGroupKey.DISPLAYS, SettingsGroupKey.ofSection("CONNECTED_DISPLAY"))
-        assertEquals(SettingsGroupKey.WALLPAPER, SettingsGroupKey.ofSection("WALLPAPER_DREAM"))
+        assertEquals(SettingsGroupKey.SCREEN_SAVER, SettingsGroupKey.ofSection("WALLPAPER_DREAM"))
     }
 
     @Test

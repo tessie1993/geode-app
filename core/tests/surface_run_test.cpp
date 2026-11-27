@@ -1,11 +1,9 @@
-// Host-side checks for the live wallpaper's and the dream's run rule (core/viz/SurfaceRun) through the C ABI
-// the shell calls. Built and run by CI ("Native host tests" in .github/workflows/android.yml); no GL, no device.
+// Host-side checks for the dream's run rule (core/viz/SurfaceRun) through the C ABI the shell calls. Built and run by CI ("Native host tests" in .github/workflows/android.yml); no GL, no device.
 //
-// What is pinned: the rule's priority order (stopped beats still beats moving), the preview's exemptions,
-// listening ignoring the cover and the silence, and the trial's end (#376): a trial that runs out turns a
+// What is pinned: the rule's priority order (stopped beats still beats moving), listening ignoring the cover and
+// the silence, and the trial's end (#376): a trial that runs out turns a
 // moving surface still, and the caller is told to restate just after that moment, never before. Then
-// reduced motion (#441): either switch holds a still frame on the wallpaper and on the dream, the
-// preview too, and never wakes a stopped surface; the still frame's settle; and the per-surface fps clamp.
+// reduced motion (#441): either switch holds a still frame and never wakes a stopped surface; the still frame's settle; and the per-surface fps clamp.
 // Also the whole decision table (all 256 flag combinations under every entitlement), the trial's end at the
 // exact millisecond on a real wall clock, the restate over seeded trials, and the 6 s silence clock
 // (core/sound/Silence, through geode_silence_*) feeding the rule.
@@ -52,13 +50,6 @@ void priorityOrder() {
     check(mode(kOnScreen | GEODE_SURFACE_SILENT) == kAnimated, "silent, rest option off: moving");
 }
 
-void preview() {
-    const unsigned p = kOnScreen | kDefaults | GEODE_SURFACE_PREVIEW;
-    check(mode(p | GEODE_SURFACE_COVERED) == kAnimated, "preview ignores the cover");
-    check(mode(p | GEODE_SURFACE_BATTERY_SAVER | GEODE_SURFACE_SILENT) == kAnimated, "preview never rests");
-    check(mode(p, kFree) == kStill, "preview without Pro: still");
-}
-
 void listening() {
     const unsigned f = kOnScreen | kDefaults;
     check(geode_surface_listening(f | GEODE_SURFACE_COVERED, kPro, kNow) == 1, "covered keeps listening");
@@ -88,13 +79,13 @@ void trialEnd() {
 
 // ---- The full decision table and its transitions over time ---------------------------------------------
 //
-// Expected values come from the rule for `wallpaper` ("stopped when hidden or covered
-// by the shade or recents, a still frame without Pro or once a trial ends, in battery saver or after 6 s of
-// silence"), the preview's exemptions in SurfaceRun.hpp's header comment, Kotlin's TrialState.at (a trial is
+// Expected values come from the rule in SurfaceRun.hpp's header comment (stopped when hidden or covered, a still
+// frame without Pro or once a trial ends, in battery saver or after 6 s of silence), Kotlin's TrialState.at (a trial is
 // active for `now in startedAt until endsAt`, a half-open range: the end itself is over), and Silence.hpp's
 // "nothing heard for longer than kRestAfterMs" with the rule's 6 s.
 
-constexpr unsigned kEveryBit = 0xFFu;  // the eight GEODE_SURFACE_* bits
+// The eight low bits, bit 2 (the retired wallpaper preview) among them: an unused bit changes nothing.
+constexpr unsigned kEveryBit = 0xFFu;
 
 // A real wall clock (Nov 2026, ms since the epoch): far past what 32 bits hold.
 constexpr long long kWall = 1'793'000'000'000LL;
@@ -119,24 +110,20 @@ constexpr Entitlement kEntitlements[] = {
     {GEODE_SURFACE_FOREVER, true}, {0, false}, {kWall + kHour, true}, {kWall, false}, {kWall - 1, false}};
 
 // Every one of the 256 flag combinations under every entitlement, row by row of the stated rule.
-// Kills: || -> && on surface/visible, a dropped surface or visible check, the cover not stopping (or
-// stopping the preview), the entitlement read after the cover or after the preview, free -> Stopped, the
-// preview not exempt, battery saver or silence ignoring its option (or stopping instead of stilling), and a
-// 32-bit truncation of animate_until_ms (kWall + kHour does not fit an int).
+// Kills: || -> && on surface/visible, a dropped surface or visible check, the cover not stopping, the entitlement
+// read after the cover, free -> Stopped, battery saver or silence ignoring its option (or stopping instead of
+// stilling), and a 32-bit truncation of animate_until_ms (kWall + kHour does not fit an int).
 void decisionTableEveryCombination() {
     for (const Entitlement& e : kEntitlements) {
         for (unsigned f = 0; f <= kEveryBit; ++f) {
             const int m = geode_surface_run_mode(f, e.until, kWall);
             const bool shown = on(f, GEODE_SURFACE_HAS_SURFACE) && on(f, GEODE_SURFACE_VISIBLE);
-            const bool preview = on(f, GEODE_SURFACE_PREVIEW);
             if (!shown) {
                 checkAt(m == kStopped, "hidden or no surface: stopped", f, e.until);
-            } else if (on(f, GEODE_SURFACE_COVERED) && !preview) {
-                checkAt(m == kStopped, "covered by the shade or recents: stopped", f, e.until);
+            } else if (on(f, GEODE_SURFACE_COVERED)) {
+                checkAt(m == kStopped, "covered: stopped", f, e.until);
             } else if (!e.moves) {
                 checkAt(m == kStill, "on screen without Pro or once a trial ends: a still frame", f, e.until);
-            } else if (preview) {
-                checkAt(m == kAnimated, "the picker's preview, entitled: always moving", f, e.until);
             } else {
                 const bool saver = on(f, GEODE_SURFACE_BATTERY_SAVER) && on(f, GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER);
                 const bool rest = on(f, GEODE_SURFACE_SILENT) && on(f, GEODE_SURFACE_REST_WHEN_SILENT);
@@ -149,8 +136,7 @@ void decisionTableEveryCombination() {
 }
 
 // More reasons to rest never make a surface livelier (stopped < still < moving): hiding it, covering it,
-// battery saver, silence, turning either rest option on, or losing the entitlement. The preview is exempt
-// from the cover, the saver and the silence by design, so those are walked without it.
+// battery saver, silence, turning either rest option on, or losing the entitlement.
 // Kills: any negated condition (e.g. !battery_saver && pause), a rest branch returning Animated.
 void restingNeverMakesItLivelier() {
     const unsigned restBits[] = {GEODE_SURFACE_COVERED, GEODE_SURFACE_BATTERY_SAVER, GEODE_SURFACE_SILENT,
@@ -159,11 +145,8 @@ void restingNeverMakesItLivelier() {
     for (unsigned f = 0; f <= kEveryBit; ++f) {
         for (const Entitlement& e : kEntitlements) {
             const int m = geode_surface_run_mode(f, e.until, kWall);
-            if (!on(f, GEODE_SURFACE_PREVIEW)) {
-                for (unsigned b : restBits) {
-                    checkAt(geode_surface_run_mode(f | b, e.until, kWall) <= m, "a rest reason never livens it", f,
-                            e.until);
-                }
+            for (unsigned b : restBits) {
+                checkAt(geode_surface_run_mode(f | b, e.until, kWall) <= m, "a rest reason never livens it", f, e.until);
             }
             for (unsigned b : sightBits) {
                 checkAt(geode_surface_run_mode(f & ~b, e.until, kWall) == kStopped, "out of sight: stopped", f,
@@ -174,16 +157,15 @@ void restingNeverMakesItLivelier() {
     }
 }
 
-// Listening, over every combination: the shade and the silence never change whether it hears (a glance at
-// the shade keeps the capture, and hearing is what ends a silent rest); anything moving hears; nothing
-// unentitled or out of sight hears. Kills: a dropped cover or silence mask, == Animated -> != Stopped, and a
-// mask that also strips the preview (a preview in battery saver moves, so it must hear).
+// Listening, over every combination: the cover and the silence never change whether it hears (lifting the phone
+// keeps the capture, and hearing is what ends a silent rest); anything moving hears; nothing unentitled or out of
+// sight hears. Kills: a dropped cover or silence mask, == Animated -> != Stopped.
 void listeningOverEveryCombination() {
     for (const Entitlement& e : kEntitlements) {
         for (unsigned f = 0; f <= kEveryBit; ++f) {
             const int hears = geode_surface_listening(f, e.until, kWall);
             checkAt(hears == geode_surface_listening(f ^ GEODE_SURFACE_COVERED, e.until, kWall),
-                    "the shade never changes listening", f, e.until);
+                    "the cover never changes listening", f, e.until);
             checkAt(hears == geode_surface_listening(f ^ GEODE_SURFACE_SILENT, e.until, kWall),
                     "silence never changes listening", f, e.until);
             if (geode_surface_run_mode(f, e.until, kWall) == kAnimated) {
@@ -195,23 +177,17 @@ void listeningOverEveryCombination() {
             }
         }
     }
-    const unsigned preview = kOnScreen | kDefaults | GEODE_SURFACE_PREVIEW | GEODE_SURFACE_BATTERY_SAVER;
-    check(geode_surface_listening(preview, kPro, kWall) == 1, "the preview in battery saver keeps hearing");
 }
 
-// The trial's end at the exact millisecond, for moving, listening, the preview and the dream alike, on a
-// real wall clock. Kills: < -> <= in entitled, listening judged at a fixed time instead of now, the
-// preview's moving branch placed before the entitlement, int truncation of the ABI's long long.
+// The trial's end at the exact millisecond, for moving, listening and the dream's end alike, on a real wall
+// clock. Kills: < -> <= in entitled, listening judged at a fixed time instead of now, int truncation of the ABI's long long.
 void trialEndsAtTheExactMillisecond() {
     const unsigned f = kOnScreen | kDefaults;
-    const unsigned p = f | GEODE_SURFACE_PREVIEW;
     const long long started = kWall;
     const long long ends = started + kHour;
     check(geode_surface_run_mode(f, ends, started) == kAnimated, "a trial's first ms: moving");
     check(geode_surface_run_mode(f, ends, ends - 1) == kAnimated, "a 1 h trial at 59:59.999: moving");
     check(geode_surface_run_mode(f, ends, ends) == kStill, "a 1 h trial at 60:00.000: still");
-    check(geode_surface_run_mode(p, ends, ends - 1) == kAnimated, "the preview in a trial's last ms: moving");
-    check(geode_surface_run_mode(p, ends, ends) == kStill, "the preview once the trial ends: still");
     check(geode_surface_listening(f, ends, ends - 1) == 1, "a trial's last ms: listening");
     check(geode_surface_listening(f, ends, ends) == 0, "once the trial ends the capture is released");
     check(geode_surface_entitled(ends, ends - 1) == 1, "the dream runs through the trial's last ms");
@@ -278,7 +254,7 @@ struct Listener {
     }
 };
 
-// Music, then quiet: the wallpaper keeps moving through 6 s of silence, stills on the first ms past it,
+// Music, then quiet: the surface keeps moving through 6 s of silence, stills on the first ms past it,
 // keeps listening while it rests, and the next audible poll wakes it. Kills: > -> >= in resting, the 6 s
 // off by a ms either way, heardAt always now or never now, the grace not restarting from the last sound.
 void silenceRestsAfterSixSecondsAndSoundWakesIt() {
@@ -302,12 +278,10 @@ void silenceRestsAfterSixSecondsAndSoundWakesIt() {
     check(geode_surface_run_mode(f, kPro, t0 + 60'250) == kAnimated, "sound back: moving again");
     check(!ear.poll(0.0f, 0.0f, t0 + 66'250) && ear.poll(0.0f, 0.0f, t0 + 66'251),
           "the grace restarts from the last sound heard");
-    // The options: rest-when-silent off never rests; the preview never rests.
+    // The option: rest-when-silent off never rests.
     check(geode_surface_run_mode(kOnScreen | GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER | GEODE_SURFACE_SILENT, kPro,
                                  t0 + 66'251) == kAnimated,
           "rest when silent off: moving through the quiet");
-    check(geode_surface_run_mode(f | GEODE_SURFACE_SILENT | GEODE_SURFACE_PREVIEW, kPro, t0 + 66'251) == kAnimated,
-          "the preview in a quiet room: moving");
 }
 
 // What counts as sound: the level, either sign, either channel. Silence.hpp puts the line near -42 dBFS.
@@ -337,7 +311,7 @@ void whatCountsAsSound() {
 
 // A capture's digital silence (geode_capture_*): a refused capture writes exact zeros, so anything above
 // digital zero is sound, and 4 s of only zeros since the start or the last sound is quiet. Kills: > -> >=
-// in quiet, the 4 s off by a ms, a dropped fabs, a floor raised to the wallpaper's -42 dBFS.
+// in quiet, the 4 s off by a ms, a dropped fabs, a floor raised to the silence rule's -42 dBFS.
 void captureQuietAfterFourSecondsOfZeros() {
     const long long t0 = kWall;
     long long heardAt = t0;  // the capture's start
@@ -368,34 +342,28 @@ void trialEndsDuringASilentRest() {
     check(geode_surface_run_mode(kOnScreen | kDefaults, ends, ends) == kStill, "music back after the end: still");
 }
 
-// The dream restates with the surface fixed and never as a preview (it has a window, not a picker); the
-// wallpaper with whatever its engine sees. Both must come out still under reduced motion.
+// The dream restates with the surface fixed; it must come out still under reduced motion.
 constexpr unsigned kDream = kOnScreen | kDefaults;
-constexpr unsigned kWallpaper = kOnScreen | kDefaults;
 constexpr unsigned kReduced = GEODE_SURFACE_REDUCED_MOTION;
 
 void reducedMotion() {
-    check(mode(kWallpaper | kReduced) == kStill, "wallpaper, reduced motion: still");
     check(mode(kDream | kReduced) == kStill, "dream, reduced motion: still");
     check(mode(kOnScreen | kReduced) == kStill, "reduced motion with every rest option off: still");
-    check(mode(kWallpaper | kReduced | GEODE_SURFACE_PREVIEW) == kStill, "preview under reduced motion: still");
-    check(mode(kWallpaper | kReduced | GEODE_SURFACE_PREVIEW | GEODE_SURFACE_COVERED) == kStill,
-          "a covered preview stays the picker's: still, not stopped");
 
     // Stopped beats still: reduced motion never draws on a surface nobody can see.
     check(mode(GEODE_SURFACE_HAS_SURFACE | kDefaults | kReduced) == kStopped, "reduced motion, not visible: stopped");
     check(mode(GEODE_SURFACE_VISIBLE | kDefaults | kReduced) == kStopped, "reduced motion, no surface: stopped");
-    check(mode(kWallpaper | kReduced | GEODE_SURFACE_COVERED) == kStopped, "reduced motion, covered: stopped");
+    check(mode(kDream | kReduced | GEODE_SURFACE_COVERED) == kStopped, "reduced motion, covered: stopped");
     check(mode(kDream | kReduced | GEODE_SURFACE_COVERED, kFree) == kStopped, "covered beats free and reduced motion");
 
     // Still with or without the other reasons; none of them turns it back to moving.
-    check(mode(kWallpaper | kReduced, kFree) == kStill, "reduced motion and free: still");
-    check(mode(kWallpaper | kReduced | GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER) == kStill,
+    check(mode(kDream | kReduced, kFree) == kStill, "reduced motion and free: still");
+    check(mode(kDream | kReduced | GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER) == kStill,
           "reduced motion, silent, battery saver: still");
 
     // A surface that cannot move hears nothing, so the capture is released: the still frame no longer
     // reacts to the music (the owner's call for vestibular safety).
-    check(geode_surface_listening(kWallpaper | kReduced, kPro, kNow) == 0, "reduced motion hears nothing");
+    check(geode_surface_listening(kDream | kReduced, kPro, kNow) == 0, "reduced motion hears nothing");
     check(geode_surface_listening(kDream | kReduced | GEODE_SURFACE_SILENT, kPro, kNow) == 0,
           "reduced motion in silence hears nothing");
 
@@ -407,18 +375,18 @@ void reducedMotion() {
 
 // ---- The dream goes dark in silence (#999 F11) -----------------------------------------------------
 //
-// Owner: "No sound no visuals". The dream asks for GEODE_SURFACE_DARK_WHEN_SILENT, and where the wallpaper
-// rests on a still frame it shows nothing; anything else is the wallpaper's rule unchanged. Kills: the dark
-// branch without its silence or rest option, placed before the sight test or the cover (a covered dream
-// drawn), before the entitlement (a free dream dark, not still), after reduced motion or battery saver (a
-// still frame in silence), a dark preview, a bit that overlaps another, and listening losing the silence.
+// Owner: "No sound no visuals". The dream asks for GEODE_SURFACE_DARK_WHEN_SILENT, and where the rule without it
+// rests on a still frame it shows nothing; anything else is the rule unchanged. Kills: the dark branch without its
+// silence or rest option, placed before the sight test or the cover (a covered dream drawn), before the
+// entitlement (a free dream dark, not still), after reduced motion or battery saver (a still frame in silence), a
+// bit that overlaps another, and listening losing the silence.
 
 constexpr unsigned kDarkDream = kDream | GEODE_SURFACE_DARK_WHEN_SILENT;
 
 void dreamGoesDarkInSilence() {
     check(mode(kDarkDream) == kAnimated, "dream with sound: moving");
     check(mode(kDarkDream | GEODE_SURFACE_SILENT) == kDark, "dream in silence: dark");
-    check(mode(kWallpaper | GEODE_SURFACE_SILENT) == kStill, "wallpaper in silence: still frame, as before");
+    check(mode(kDream | GEODE_SURFACE_SILENT) == kStill, "without the bit, silence: a still frame");
     check(mode(kOnScreen | GEODE_SURFACE_DARK_WHEN_SILENT | GEODE_SURFACE_SILENT) == kAnimated,
           "rest when silent off: moving through the quiet");
     check(mode(kDarkDream | GEODE_SURFACE_SILENT | kReduced) == kDark, "silence beats reduced motion: dark");
@@ -440,15 +408,14 @@ void dreamGoesDarkInSilence() {
     constexpr unsigned kNineBits = 0x1FFu;
     for (const Entitlement& e : kEntitlements) {
         for (unsigned f = 0; f <= kNineBits; ++f) {
-            const int wallpaper = geode_surface_run_mode(f, e.until, kWall);
+            const int plain = geode_surface_run_mode(f, e.until, kWall);
             const int dream = geode_surface_run_mode(f | GEODE_SURFACE_DARK_WHEN_SILENT, e.until, kWall);
             const bool shown = on(f, GEODE_SURFACE_HAS_SURFACE) && on(f, GEODE_SURFACE_VISIBLE);
-            const bool preview = on(f, GEODE_SURFACE_PREVIEW);
             const bool rests = on(f, GEODE_SURFACE_SILENT) && on(f, GEODE_SURFACE_REST_WHEN_SILENT);
-            const bool dark = shown && !preview && !on(f, GEODE_SURFACE_COVERED) && e.moves && rests;
-            checkAt(dream == (dark ? kDark : wallpaper), "dark exactly in an entitled, uncovered silent rest", f,
+            const bool dark = shown && !on(f, GEODE_SURFACE_COVERED) && e.moves && rests;
+            checkAt(dream == (dark ? kDark : plain), "dark exactly in an entitled, uncovered silent rest", f,
                     e.until);
-            if (dark) checkAt(wallpaper == kStill, "where the dream is dark the wallpaper is still", f, e.until);
+            if (dark) checkAt(plain == kStill, "where the dream is dark the rule without the bit is still", f, e.until);
             checkAt(geode_surface_listening(f | GEODE_SURFACE_DARK_WHEN_SILENT, e.until, kWall) ==
                         geode_surface_listening(f, e.until, kWall),
                     "dark never changes listening", f, e.until);
@@ -508,12 +475,8 @@ void fps() {
     check(geode_surface_fps_choices(nullptr, 0) == 3, "a null buffer only counts");
 }
 
-// What sets the cover bit: the wallpaper's zoom behind the shade, the dream's proximity sensor (was Kotlin).
+// What sets the cover bit: the dream's proximity sensor (was Kotlin).
 void cover() {
-    check(!geode_surface_zoom_covers(0.0f), "no zoom: not covered");
-    check(!geode_surface_zoom_covers(0.89f), "just short of 0.9: not covered");
-    check(geode_surface_zoom_covers(0.9f) == 1, "0.9: covered");
-    check(geode_surface_zoom_covers(1.0f) == 1, "fully zoomed out: covered");
     check(geode_surface_proximity_near(0.0f, 5.0f) == 1, "a binary sensor's 0: near");
     check(!geode_surface_proximity_near(5.0f, 5.0f), "a binary sensor's range: far");
     check(geode_surface_proximity_near(2.9f, 10.0f) == 1, "under 3 cm: near");
@@ -592,33 +555,9 @@ void connectedDisplay() {
     }
 }
 
-// The reason a settings page names agrees with the mode on every combination, and each reason is the first
-// that holds: the entitlement before reduced motion, reduced motion before battery saver and silence.
-void reasonNamesTheMode() {
-    constexpr int kNone = 0, kHidden = 1, kEntitlement = 2, kReduced = 3, kSaver = 4, kSilence = 5;
-    for (const Entitlement& e : kEntitlements) {
-        for (unsigned f = 0; f <= 0x3FFu; ++f) {
-            const int m = geode_surface_run_mode(f, e.until, kWall);
-            const int r = geode_surface_reason(f, e.until, kWall);
-            checkAt((r == kNone) == (m == kAnimated), "no reason exactly when moving", f, e.until);
-            checkAt((r == kHidden) == (m == kStopped), "hidden exactly when stopped", f, e.until);
-            if (m == kDark) checkAt(r == kSilence, "dark only for silence", f, e.until);
-        }
-    }
-    const unsigned rest = GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER;
-    check(geode_surface_reason(kOnScreen | kDefaults | GEODE_SURFACE_REDUCED_MOTION, kFree, kNow) == kEntitlement,
-          "free: the entitlement first");
-    check(geode_surface_reason(kOnScreen | kDefaults | rest | GEODE_SURFACE_REDUCED_MOTION, kPro, kNow) == kReduced,
-          "reduced motion before battery saver and silence");
-    check(geode_surface_reason(kOnScreen | kDefaults | rest, kPro, kNow) == kSaver, "battery saver before silence");
-    check(geode_surface_reason(kOnScreen | kDefaults | GEODE_SURFACE_SILENT, kPro, kNow) == kSilence, "a silent rest");
-    check(geode_surface_reason(kOnScreen | GEODE_SURFACE_BATTERY_SAVER, kPro, kNow) == kNone, "saver off: moving");
-}
-
 int main() {
     connectedDisplay();
     priorityOrder();
-    preview();
     listening();
     trialEnd();
     decisionTableEveryCombination();
@@ -636,7 +575,6 @@ int main() {
     fps();
     cover();
     stage();
-    reasonNamesTheMode();
     if (failures == 0) std::printf("surface_run_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

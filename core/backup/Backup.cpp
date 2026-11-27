@@ -31,7 +31,9 @@ constexpr const char* kAudioFx = "geode-audiofx";
 constexpr const char* kModulation = "geode-mod";
 constexpr const char* kLibrary = "geode-library";
 constexpr const char* kBackground = "geode-background";
-constexpr const char* kWallpaper = "geode-wallpaper";
+// Retired with the live wallpaper (GeodePrefsFiles.RETIRED_WALLPAPER): an older backup's settings carry it, so a
+// restore still accepts its path, and restores nothing from it.
+constexpr const char* kRetiredWallpaper = "geode-wallpaper";
 
 constexpr const char* kPrefsDir = "prefs/";
 constexpr const char* kPrefsSuffix = ".json";
@@ -48,7 +50,7 @@ struct Section {
 const std::vector<Section>& sectionTable() {
     static const std::vector<Section> table = {
         {"settings",
-         {kGeneral, kViz, kPlayer, kAudioFx, kLibrary, kBackground, kWallpaper},
+         {kGeneral, kViz, kPlayer, kAudioFx, kLibrary, kBackground},
          {},
          {},
          {}},
@@ -82,7 +84,6 @@ const std::set<std::string>* deviceLocal(const std::string& file) {
         {kLibrary, {"roots"}},
         {kPlayer, {"picture_delay_ms"}},
         {kBackground, {"background_uri"}},
-        {kWallpaper, {"mix_refused"}},
     };
     const auto it = table.find(file);
     return it == table.end() ? nullptr : &it->second;
@@ -289,6 +290,8 @@ std::string sectionOfPath(const std::string& path) {
             for (const auto& s : sectionTable()) {
                 if (contains(s.prefsFiles, name)) return s.id;
             }
+            // Not in any section's prefsFiles, so nothing exports or restores it; only an old archive's entry passes.
+            if (name == kRetiredWallpaper) return "settings";
             return "";
         }
         if (parts.size() == 2) {

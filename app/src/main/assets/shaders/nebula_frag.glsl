@@ -517,20 +517,49 @@ float nebEnvelope(float rSq, float radius) {
 /**
  * The domain-warped coordinate the density field is read at.
  *
- * Three fbm samples of one coarse field at decorrelating offsets, used as a
- * displacement vector. The offsets are large and mutually irrational-looking
- * because fbm3 already offsets its own octaves by a fixed vector: two
- * components sampled a few cells apart would share the same octave
- * structure and the displacement would collapse onto a plane, which shows up
- * as a cloud combed flat in one direction.
+ * Three independent coarse fbm fields, used as a displacement vector. They
+ * come from separate hash bits, not from one field sampled a few cells apart:
+ * those would share their octave structure and the displacement would
+ * collapse onto a plane, a cloud combed flat in one direction.
  */
+vec3 nebCorner(uint h) {
+    return vec3(uvec3(h >> 22u, (h >> 12u) & 0x3FFu, (h >> 2u) & 0x3FFu)) * (1.0 / 1024.0);
+}
+
+/** Three independent value noises on one lattice: each corner's hash split into three 10-bit values. */
+vec3 nebVnoise3x3(vec3 p) {
+    vec3 f = floor(p);
+    uvec3 a = uvec3(ivec3(f));
+    uvec3 b = uvec3(ivec3(f) + 1);
+    vec3 t = p - f;
+    vec3 w = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+    uint y0 = uhash(a.y + 0x9e3779b9u);
+    uint y1 = uhash(b.y + 0x9e3779b9u);
+    uint z0 = uhash(a.z + 0x85ebca6bu);
+    uint z1 = uhash(b.z + 0x85ebca6bu);
+    vec3 x00 = mix(nebCorner(uhash(a.x ^ y0 ^ z0)), nebCorner(uhash(b.x ^ y0 ^ z0)), w.x);
+    vec3 x10 = mix(nebCorner(uhash(a.x ^ y1 ^ z0)), nebCorner(uhash(b.x ^ y1 ^ z0)), w.x);
+    vec3 x01 = mix(nebCorner(uhash(a.x ^ y0 ^ z1)), nebCorner(uhash(b.x ^ y0 ^ z1)), w.x);
+    vec3 x11 = mix(nebCorner(uhash(a.x ^ y1 ^ z1)), nebCorner(uhash(b.x ^ y1 ^ z1)), w.x);
+    return mix(mix(x00, x10, w.y), mix(x01, x11, w.y), w.z);
+}
+
+/** fbm3's sum, lacunarity and octave offset, over nebVnoise3x3. */
+vec3 nebFbm3x3(vec3 p) {
+    vec3 sum = vec3(0.0);
+    float amp = 0.5;
+    float norm = 0.0;
+    for (int i = 0; i < NEB_WARP_OCTAVES; i++) {
+        sum += amp * nebVnoise3x3(p);
+        norm += amp;
+        p = p * 2.02 + vec3(37.13, 11.71, 53.29);
+        amp *= 0.5;
+    }
+    return sum / norm;
+}
+
 vec3 nebWarpCoord(vec3 p) {
-    vec3 pw = p * NEB_WARP_SCALE;
-    vec3 w = vec3(
-        fbm3(pw, NEB_WARP_OCTAVES),
-        fbm3(pw + vec3(23.7, 8.3, 47.1), NEB_WARP_OCTAVES),
-        fbm3(pw + vec3(5.9, 63.7, 13.1), NEB_WARP_OCTAVES)
-    ) - 0.5;
+    vec3 w = nebFbm3x3(p * NEB_WARP_SCALE) - 0.5;
     return p * NEB_DENSITY_SCALE + w * gWarpAmp;
 }
 

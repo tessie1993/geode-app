@@ -5,6 +5,8 @@
 #include <cstring>
 #include <limits>
 
+#include "sound/interp/SpeakerSync.hpp"
+
 #ifdef __ANDROID__
 #include <pthread.h>
 #include <sys/resource.h>
@@ -32,6 +34,10 @@ constexpr float kFlowCapSeconds = 5.0f;
 constexpr float kHeldBackCapSeconds = 1.0f;
 // step()'s own clamp on dt, so the quiet counted here is the quiet the engine counts.
 constexpr float kMaxStepSeconds = 0.25f;
+// A player's boundary (or new play) this soon after the engine started over at a new epoch names the join that epoch
+// already marked: the player sends it when the speaker plays the join, the sink's lead (and the link's) after this
+// thread read it, plus the main thread's dispatch.
+constexpr int64_t kBoundaryGraceMs = interp::kSpeakerLagMs + 1000;
 // A reader's tries at one slot, and at the whole search, before it falls back.
 constexpr int kReadTries = 64;
 constexpr int kLapTries = 4;
@@ -307,13 +313,13 @@ void AnalysisThread::applyControls() {
                 if (engine_) engine_->setTuning(tuning_);
                 break;
             case Control::kBoundary:
-                if (engine_) engine_->trackBoundary();
+                if (engine_ && !startedOverForBoundary()) engine_->trackBoundary();
                 break;
             case Control::kReset:
                 restartEngine();
                 break;
             case Control::kEmotionReset:
-                if (engine_) engine_->resetEmotion();
+                if (engine_ && !startedOverForBoundary()) engine_->resetEmotion();
                 break;
             case Control::kLimit:
                 limit_ = c.limit;
@@ -329,10 +335,15 @@ void AnalysisThread::applyControls() {
     }
 }
 
+bool AnalysisThread::startedOverForBoundary() const {
+    return sinceRestart_ >= 0 && sinceRestart_ <= engine_->sampleRateHz() * kBoundaryGraceMs / 1000;
+}
+
 void AnalysisThread::restartEngine() {
     if (!engine_) return;
     engine_->reset();
     engineWritten_ = 0;
+    sinceRestart_ = 0;
     hopsSeen_ = 0;
     // Until the next take re-bases it: a starved engine's silence hops sit where the cursor stands.
     offset_ = cursor_.position();
@@ -363,6 +374,7 @@ void AnalysisThread::write(const float* interleaved, int frames, int channels) {
         const int n = std::min(frames - done, chunk);
         engine_->write(interleaved + static_cast<size_t>(done) * static_cast<size_t>(channels), n, channels);
         engineWritten_ += n;
+        if (sinceRestart_ >= 0) sinceRestart_ += n;
         done += n;
         publishNew();
     }

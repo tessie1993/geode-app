@@ -6,12 +6,14 @@ namespace geode::sound::player {
 
 // What the player tells the sound engines that the tap cannot hear (#460).
 //
-// Track boundary: a gapless or crossfaded next track reaches the ring with no flush and no silence, so the
-// tap's epoch does not move and the 2 s silence rule never fires; the engines would carry the last song's
-// tempo, key and sections into the new one. The player names the boundary instead, with the new play's
-// seed, and every live renderer's sound engine forgets its musical memory at its next frame
-// (SoundEngine::trackBoundary). The seed travels with it so whatever reads the boundary knows which play
-// it starts; the director already takes the same seed through director::setGlobal.
+// Track boundary: a gapless or crossfaded next track reaches the ring with no silence, so the 2 s silence
+// rule never fires. Media3 drains the sink's processors at every stream change, so the tap's flush begins
+// a ring epoch on the new track's first sample and the analysis starts over there (AnalysisThread). The
+// player also names the boundary, with the new play's seed, but only once the speaker plays it, a sink's
+// lead later: the analysis takes it as that same join when it just started over (else, with no epoch at
+// the join, it is what starts the song over: SoundEngine::trackBoundary), and the frame fires its section
+// change. The seed travels with it so whatever reads the boundary knows which play it starts; the
+// director already takes the same seed through director::setGlobal.
 //
 // Fade gain: the tap sits before the player's volume (docs/AUDIO_CHAIN.md), so the frame never hears a
 // pause fade or a crossfade. The player hands the gain over as a number and the frame carries it as
@@ -28,10 +30,6 @@ namespace geode::sound::player {
 // frame on each GL thread. An export renderer reads none of them (Renderer::beginFrame): a render has its
 // own track, no player fades, and counts as the player. The flags are the app ring's: a renderer fed another
 // ring (the wallpaper's output mix, wallpaper/OutputMixCapture) hears no player at all (heardAsPlayer).
-//
-// Group C's native ring (core/audio/ingest) carries an epoch with every write; once it lands, the ring can
-// stamp the first sample of the new track with the epoch trackBoundary() returns, so the reset lands on
-// that sample instead of on the next frame.
 
 struct Boundary {
     uint64_t epoch = 0;  // 0 before the first boundary; each boundary adds one

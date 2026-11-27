@@ -174,7 +174,7 @@ void FluidSim::copyInto(const Fbo& src, const Fbo& dst) {
     glDisable(GL_BLEND);
     quad_.bind();
     useProgram(kCopy, dst.width(), dst.height());
-    bindTex("uTexture", src.tex(), 0, kCopy);
+    bindTex(Uniform::uTexture, src.tex(), 0, kCopy);
     blitDiscarding(dst);
     quad_.unbind();
 }
@@ -233,11 +233,11 @@ void FluidSim::applyField(Field field, UniformCache& program, const std::functio
     glDisable(GL_BLEND);
     quad_.bind();
     glUseProgram(program.program());
-    glUniform2f(program.loc("uInvRes"), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
-    glUniform1f(program.loc("uAspect"), aspect_);
+    glUniform2f(program.loc(Uniform::uInvRes), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
+    glUniform1f(program.loc(Uniform::uAspect), aspect_);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, target.read().tex());
-    glUniform1i(program.loc("uTarget"), 0);
+    glUniform1i(program.loc(Uniform::uTarget), 0);
     uniforms(program);
     blitDiscarding(target.write());
     target.swap();
@@ -282,38 +282,38 @@ void FluidSim::stepOnce(float dtStep) {
     if (hot && heat > 0.0f) runBatchedSplats(*temperature_, 2);
 
     useProgram(kCurl, crl.width(), crl.height());
-    bindTex("uVelocity", vel.read().tex(), 0, kCurl);
-    set1f(kCurl, "uHalfRdx", halfRdx_);
+    bindTex(Uniform::uVelocity, vel.read().tex(), 0, kCurl);
+    set1f(kCurl, Uniform::uHalfRdx, halfRdx_);
     blitDiscarding(crl);
     useProgram(kVorticity, vel.width(), vel.height());
-    bindTex("uVelocity", vel.read().tex(), 0, kVorticity);
-    bindTex("uCurl", crl.tex(), 1, kVorticity);
+    bindTex(Uniform::uVelocity, vel.read().tex(), 0, kVorticity);
+    bindTex(Uniform::uCurl, crl.tex(), 1, kVorticity);
     // Texture 0 is incomplete and samples as zero: a style without heat gets no lift.
-    bindTex("uTemperature", hot ? temperature_->read().tex() : 0, 2, kVorticity);
-    set1f(kVorticity, "uBuoyancy", hot ? buoyancy : 0.0f);
-    set1f(kVorticity, "uMaxHeat", math::kMaxTemperature);
-    set1f(kVorticity, "uCurlStrength", curlStrength);
-    set1f(kVorticity, "uDx", cellSize_);
-    set1f(kVorticity, "uDt", dt);
+    bindTex(Uniform::uTemperature, hot ? temperature_->read().tex() : 0, 2, kVorticity);
+    set1f(kVorticity, Uniform::uBuoyancy, hot ? buoyancy : 0.0f);
+    set1f(kVorticity, Uniform::uMaxHeat, math::kMaxTemperature);
+    set1f(kVorticity, Uniform::uCurlStrength, curlStrength);
+    set1f(kVorticity, Uniform::uDx, cellSize_);
+    set1f(kVorticity, Uniform::uDt, dt);
     blitDiscarding(vel.write());
     vel.swap();
 
     useProgram(kDivergence, div.width(), div.height());
-    bindTex("uVelocity", vel.read().tex(), 0, kDivergence);
-    set1f(kDivergence, "uHalfRdx", halfRdx_);
-    set2f(kDivergence, "uInvRes", 1.0f / static_cast<float>(div.width()), 1.0f / static_cast<float>(div.height()));
+    bindTex(Uniform::uVelocity, vel.read().tex(), 0, kDivergence);
+    set1f(kDivergence, Uniform::uHalfRdx, halfRdx_);
+    set2f(kDivergence, Uniform::uInvRes, 1.0f / static_cast<float>(div.width()), 1.0f / static_cast<float>(div.height()));
     blitDiscarding(div);
     useProgram(kClear, press.width(), press.height());
-    bindTex("uTexture", press.read().tex(), 0, kClear);
-    set1f(kClear, "uValue", pressureDamp);
+    bindTex(Uniform::uTexture, press.read().tex(), 0, kClear);
+    set1f(kClear, Uniform::uValue, pressureDamp);
     blitDiscarding(press.write());
     press.swap();
     solvePressure();
     useProgram(kGradient, vel.width(), vel.height());
-    bindTex("uPressure", press.read().tex(), 0, kGradient);
-    bindTex("uVelocity", vel.read().tex(), 1, kGradient);
-    set1f(kGradient, "uHalfRdx", halfRdx_);
-    set2f(kGradient, "uInvRes", velInvW, velInvH);
+    bindTex(Uniform::uPressure, press.read().tex(), 0, kGradient);
+    bindTex(Uniform::uVelocity, vel.read().tex(), 1, kGradient);
+    set1f(kGradient, Uniform::uHalfRdx, halfRdx_);
+    set2f(kGradient, Uniform::uInvRes, velInvW, velInvH);
     blitDiscarding(vel.write());
     vel.swap();
 
@@ -355,31 +355,31 @@ void FluidSim::advect(DoubleFbo& field, std::optional<Fbo>* scratch, bool linear
     // Predictor: plain semi-Lagrangian. It carries no decay when a corrector follows, so both see
     // the same field; the corrector applies it once.
     useProgram(kAdvect, field.width(), field.height());
-    bindTex("uVelocity", velTex, 0, kAdvect);
+    bindTex(Uniform::uVelocity, velTex, 0, kAdvect);
     // A field of the velocity's own size reads it at matching texel centres; the dye reads it
     // between them, through the linear sampler.
     if (linearVelocity) glBindSampler(0, linearSampler_);
-    bindTex("uSource", field.read().tex(), 1, kAdvect);
-    set2f(kAdvect, "uSrcInvRes", srcInvW, srcInvH);
-    set2f(kAdvect, "uVelInvRes", velInvW, velInvH);
-    set1f(kAdvect, "uDt", dt);
-    set1f(kAdvect, "uRdx", rdx_);
+    bindTex(Uniform::uSource, field.read().tex(), 1, kAdvect);
+    set2f(kAdvect, Uniform::uSrcInvRes, srcInvW, srcInvH);
+    set2f(kAdvect, Uniform::uVelInvRes, velInvW, velInvH);
+    set1f(kAdvect, Uniform::uDt, dt);
+    set1f(kAdvect, Uniform::uRdx, rdx_);
     if (second) {
-        set3f(kAdvect, "uDecay", 1.0f, 1.0f, 1.0f);
+        set3f(kAdvect, Uniform::uDecay, 1.0f, 1.0f, 1.0f);
     } else {
-        set3f(kAdvect, "uDecay", d0, d1, d2);
+        set3f(kAdvect, Uniform::uDecay, d0, d1, d2);
     }
     blitDiscarding(field.write());
     if (second) {
         useProgram(kMacCormack, field.width(), field.height());
-        bindTex("uVelocity", velTex, 0, kMacCormack);
-        bindTex("uSource", field.read().tex(), 1, kMacCormack);
-        bindTex("uForward", field.write().tex(), 2, kMacCormack);
-        set2f(kMacCormack, "uSrcInvRes", srcInvW, srcInvH);
-        set2f(kMacCormack, "uVelInvRes", velInvW, velInvH);
-        set1f(kMacCormack, "uDt", dt);
-        set1f(kMacCormack, "uRdx", rdx_);
-        set3f(kMacCormack, "uDecay", d0, d1, d2);
+        bindTex(Uniform::uVelocity, velTex, 0, kMacCormack);
+        bindTex(Uniform::uSource, field.read().tex(), 1, kMacCormack);
+        bindTex(Uniform::uForward, field.write().tex(), 2, kMacCormack);
+        set2f(kMacCormack, Uniform::uSrcInvRes, srcInvW, srcInvH);
+        set2f(kMacCormack, Uniform::uVelInvRes, velInvW, velInvH);
+        set1f(kMacCormack, Uniform::uDt, dt);
+        set1f(kMacCormack, Uniform::uRdx, rdx_);
+        set3f(kMacCormack, Uniform::uDecay, d0, d1, d2);
         blitDiscarding(**scratch);
         field.adoptRead(**scratch);
     } else {
@@ -403,10 +403,10 @@ void FluidSim::clearTarget(const Fbo& target) {
 void FluidSim::smoothPass(int level) {
     DoubleFbo& p = levelP(level);
     useProgram(kMgSmooth, p.width(), p.height());
-    bindTex("uP", p.read().tex(), 0, kMgSmooth);
-    bindTex("uRhs", levelRhs(level), 1, kMgSmooth);
-    set1f(kMgSmooth, "uH2", levelH2(level));
-    set1f(kMgSmooth, "uOmega", math::kSmootherOmega);
+    bindTex(Uniform::uP, p.read().tex(), 0, kMgSmooth);
+    bindTex(Uniform::uRhs, levelRhs(level), 1, kMgSmooth);
+    set1f(kMgSmooth, Uniform::uH2, levelH2(level));
+    set1f(kMgSmooth, Uniform::uOmega, math::kSmootherOmega);
     blitDiscarding(p.write());
     p.swap();
 }
@@ -422,15 +422,15 @@ void FluidSim::vCycle(int level, const math::SolvePlan& plan) {
     for (int i = 0; i < plan.smooth; ++i) smoothPass(level);
     const Fbo& coarseRhs = mgRhs_[static_cast<size_t>(level)];
     useProgram(kMgRestrict, coarseRhs.width(), coarseRhs.height());
-    bindTex("uP", p.read().tex(), 0, kMgRestrict);
-    bindTex("uRhs", levelRhs(level), 1, kMgRestrict);
-    set1f(kMgRestrict, "uH2", levelH2(level));
+    bindTex(Uniform::uP, p.read().tex(), 0, kMgRestrict);
+    bindTex(Uniform::uRhs, levelRhs(level), 1, kMgRestrict);
+    set1f(kMgRestrict, Uniform::uH2, levelH2(level));
     blitDiscarding(coarseRhs);
     vCycle(level + 1, plan);
     DoubleFbo& coarse = levelP(level + 1);
     useProgram(kMgProlong, p.width(), p.height());
-    bindTex("uP", p.read().tex(), 0, kMgProlong);
-    bindTex("uE", coarse.read().tex(), 1, kMgProlong);
+    bindTex(Uniform::uP, p.read().tex(), 0, kMgProlong);
+    bindTex(Uniform::uE, coarse.read().tex(), 1, kMgProlong);
     blitDiscarding(p.write());
     p.swap();
     for (int i = 0; i < plan.smooth; ++i) smoothPass(level);
@@ -467,18 +467,18 @@ void FluidSim::runBatchedSplats(DoubleFbo& target, int mode) {
             val[i * 4 + 3] = mode == 0 ? 0.0f : s.b;
         }
         glUseProgram(cache.program());
-        glUniform2f(cache.loc("uInvRes"), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
-        glUniform1f(cache.loc("uAspect"), aspect_);
+        glUniform2f(cache.loc(Uniform::uInvRes), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
+        glUniform1f(cache.loc(Uniform::uAspect), aspect_);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, target.read().tex());
-        glUniform1i(cache.loc("uTarget"), 0);
-        glUniform4fv(cache.loc("uSeg"), static_cast<GLsizei>(n), seg.data());
-        glUniform4fv(cache.loc("uVal"), static_cast<GLsizei>(n), val.data());
-        glUniform1i(cache.loc("uCount"), static_cast<GLint>(n));
-        glUniform1i(cache.loc("uMode"), mode);
-        glUniform1f(cache.loc("uCeiling"), dyeCeiling);
-        glUniform1f(cache.loc("uHeat"), heat);
-        glUniform1f(cache.loc("uMaxHeat"), math::kMaxTemperature);
+        glUniform1i(cache.loc(Uniform::uTarget), 0);
+        glUniform4fv(cache.loc(Uniform::uSeg), static_cast<GLsizei>(n), seg.data());
+        glUniform4fv(cache.loc(Uniform::uVal), static_cast<GLsizei>(n), val.data());
+        glUniform1i(cache.loc(Uniform::uCount), static_cast<GLint>(n));
+        glUniform1i(cache.loc(Uniform::uMode), mode);
+        glUniform1f(cache.loc(Uniform::uCeiling), dyeCeiling);
+        glUniform1f(cache.loc(Uniform::uHeat), heat);
+        glUniform1f(cache.loc(Uniform::uMaxHeat), math::kMaxTemperature);
         blitDiscarding(target.write());
         target.swap();
     }
@@ -495,29 +495,29 @@ void FluidSim::runInjection(DoubleFbo& target, int mode, std::optional<UniformCa
     UniformCache& cache = *custom;
     for (const Splat& s : pending_) {
         glUseProgram(cache.program());
-        glUniform2f(cache.loc("uInvRes"), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
-        glUniform1f(cache.loc("uAspect"), aspect_);
+        glUniform2f(cache.loc(Uniform::uInvRes), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
+        glUniform1f(cache.loc(Uniform::uAspect), aspect_);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, target.read().tex());
-        glUniform1i(cache.loc("uTarget"), 0);
-        glUniform2f(cache.loc("uPrev"), s.prevX, s.prevY);
-        glUniform2f(cache.loc("uCur"), s.curX, s.curY);
-        glUniform1f(cache.loc("uRadius"), s.radius);
+        glUniform1i(cache.loc(Uniform::uTarget), 0);
+        glUniform2f(cache.loc(Uniform::uPrev), s.prevX, s.prevY);
+        glUniform2f(cache.loc(Uniform::uCur), s.curX, s.curY);
+        glUniform1f(cache.loc(Uniform::uRadius), s.radius);
         if (mode == 0) {
-            glUniform3f(cache.loc("uValue"), s.velX, s.velY, 0.0f);
+            glUniform3f(cache.loc(Uniform::uValue), s.velX, s.velY, 0.0f);
         } else {
-            glUniform3f(cache.loc("uValue"), s.r, s.g, s.b);
+            glUniform3f(cache.loc(Uniform::uValue), s.r, s.g, s.b);
         }
-        glUniform1i(cache.loc("uMode"), mode);
-        glUniform1f(cache.loc("uCeiling"), dyeCeiling);
-        glUniform1f(cache.loc("uDt"), dt);
-        glUniform1f(cache.loc("uDx"), cellSize_);
-        glUniform1f(cache.loc("uTime"), timeSeconds);
-        glUniform1f(cache.loc("uBass"), audioBass);
-        glUniform1f(cache.loc("uMid"), audioMid);
-        glUniform1f(cache.loc("uTreble"), audioTreble);
-        glUniform1f(cache.loc("uEnergy"), audioEnergy);
-        glUniform1f(cache.loc("uBeat"), audioBeat);
+        glUniform1i(cache.loc(Uniform::uMode), mode);
+        glUniform1f(cache.loc(Uniform::uCeiling), dyeCeiling);
+        glUniform1f(cache.loc(Uniform::uDt), dt);
+        glUniform1f(cache.loc(Uniform::uDx), cellSize_);
+        glUniform1f(cache.loc(Uniform::uTime), timeSeconds);
+        glUniform1f(cache.loc(Uniform::uBass), audioBass);
+        glUniform1f(cache.loc(Uniform::uMid), audioMid);
+        glUniform1f(cache.loc(Uniform::uTreble), audioTreble);
+        glUniform1f(cache.loc(Uniform::uEnergy), audioEnergy);
+        glUniform1f(cache.loc(Uniform::uBeat), audioBeat);
         blit(target.write());
         target.swap();
     }
@@ -530,11 +530,11 @@ void FluidSim::drawDisplay() {
     glUseProgram(prog.program());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, dye_->read().tex());
-    glUniform1i(prog.loc("uDye"), 0);
+    glUniform1i(prog.loc(Uniform::uDye), 0);
     const float invW = 1.0f / static_cast<float>(dye_->width());
     const float invH = 1.0f / static_cast<float>(dye_->height());
-    glUniform2f(prog.loc("uInvRes"), invW, invH);
-    glUniform2f(prog.loc("uTexelSize"), invW, invH);
+    glUniform2f(prog.loc(Uniform::uInvRes), invW, invH);
+    glUniform2f(prog.loc(Uniform::uTexelSize), invW, invH);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     quad_.unbind();
 }
@@ -574,8 +574,8 @@ void FluidSim::release() {
 void FluidSim::useProgram(int prog, int gridW, int gridH) {
     UniformCache& p = programs_[static_cast<size_t>(prog)];
     glUseProgram(p.program());
-    glUniform2f(p.loc("uInvRes"), 1.0f / static_cast<float>(gridW), 1.0f / static_cast<float>(gridH));
-    glUniform1f(p.loc("uAspect"), aspect_);
+    glUniform2f(p.loc(Uniform::uInvRes), 1.0f / static_cast<float>(gridW), 1.0f / static_cast<float>(gridH));
+    glUniform1f(p.loc(Uniform::uAspect), aspect_);
 }
 
 void FluidSim::blitDiscarding(const Fbo& target) {
@@ -592,7 +592,7 @@ void FluidSim::blit(const Fbo& target) {
 }
 
 // `prog` is current (useProgram). The sampler's unit is set only when this program has not been told it yet.
-void FluidSim::bindTex(const char* name, GLuint tex, int unit, int prog) {
+void FluidSim::bindTex(Uniform name, GLuint tex, int unit, int prog) {
     glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
     glBindTexture(GL_TEXTURE_2D, tex);
     const GLint l = loc(prog, name);

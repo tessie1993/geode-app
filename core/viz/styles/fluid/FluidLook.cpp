@@ -101,15 +101,15 @@ void Look::applyBloom(GLuint dyeTex) {
     const float knee = bloomThreshold * bloomKnee + 1e-4f;
     const Fbo* dst = &bloomMips_[0];
     use(prefilter_, 1.0f / static_cast<float>(dst->width()), 1.0f / static_cast<float>(dst->height()));
-    bindTex(prefilter_, "uTexture", dyeTex, 0);
-    glUniform3f(prefilter_.loc("uCurve"), bloomThreshold - knee, knee * 2.0f, 0.25f / knee);
-    glUniform1f(prefilter_.loc("uThreshold"), bloomThreshold);
+    bindTex(prefilter_, Uniform::uTexture, dyeTex, 0);
+    glUniform3f(prefilter_.loc(Uniform::uCurve), bloomThreshold - knee, knee * 2.0f, 0.25f / knee);
+    glUniform1f(prefilter_.loc(Uniform::uThreshold), bloomThreshold);
     blitDiscarding(*dst);
     const Fbo* last = dst;
     for (size_t i = 1; i < bloomMips_.size(); ++i) {
         dst = &bloomMips_[i];
         use(bloomBlur_, 1.0f / static_cast<float>(last->width()), 1.0f / static_cast<float>(last->height()));
-        bindTex(bloomBlur_, "uTexture", last->tex(), 0);
+        bindTex(bloomBlur_, Uniform::uTexture, last->tex(), 0);
         blitDiscarding(*dst);
         last = dst;
     }
@@ -119,14 +119,14 @@ void Look::applyBloom(GLuint dyeTex) {
     for (int i = static_cast<int>(bloomMips_.size()) - 2; i >= 0; --i) {
         dst = &bloomMips_[static_cast<size_t>(i)];
         use(bloomBlur_, 1.0f / static_cast<float>(last->width()), 1.0f / static_cast<float>(last->height()));
-        bindTex(bloomBlur_, "uTexture", last->tex(), 0);
+        bindTex(bloomBlur_, Uniform::uTexture, last->tex(), 0);
         blit(*dst);
         last = dst;
     }
     glDisable(GL_BLEND);
     use(bloomFinal_, 1.0f / static_cast<float>(last->width()), 1.0f / static_cast<float>(last->height()));
-    bindTex(bloomFinal_, "uTexture", last->tex(), 0);
-    glUniform1f(bloomFinal_.loc("uIntensity"), bloomIntensity);
+    bindTex(bloomFinal_, Uniform::uTexture, last->tex(), 0);
+    glUniform1f(bloomFinal_.loc(Uniform::uIntensity), bloomIntensity);
     blitDiscarding(*bloomResult_);
 }
 
@@ -138,18 +138,18 @@ void Look::applySunrays(GLuint dyeTex) {
     const float invW = 1.0f / static_cast<float>(rays.width());
     const float invH = 1.0f / static_cast<float>(rays.height());
     use(sunraysMask_, 1.0f / static_cast<float>(mask.width()), 1.0f / static_cast<float>(mask.height()));
-    bindTex(sunraysMask_, "uTexture", dyeTex, 0);
+    bindTex(sunraysMask_, Uniform::uTexture, dyeTex, 0);
     blitDiscarding(mask);
     use(sunrays_, invW, invH);
-    bindTex(sunrays_, "uTexture", mask.tex(), 0);
-    glUniform1f(sunrays_.loc("uWeight"), sunraysWeight);
+    bindTex(sunrays_, Uniform::uTexture, mask.tex(), 0);
+    glUniform1f(sunrays_.loc(Uniform::uWeight), sunraysWeight);
     blitDiscarding(rays);
     use(blur_, invW, invH);
-    bindTex(blur_, "uTexture", rays.tex(), 0);
-    glUniform2f(blur_.loc("uDirection"), 1.33333f * invW, 0.0f);
+    bindTex(blur_, Uniform::uTexture, rays.tex(), 0);
+    glUniform2f(blur_.loc(Uniform::uDirection), 1.33333f * invW, 0.0f);
     blitDiscarding(temp);
-    bindTex(blur_, "uTexture", temp.tex(), 0);
-    glUniform2f(blur_.loc("uDirection"), 0.0f, 1.33333f * invH);
+    bindTex(blur_, Uniform::uTexture, temp.tex(), 0);
+    glUniform2f(blur_.loc(Uniform::uDirection), 0.0f, 1.33333f * invH);
     blitDiscarding(rays);
 }
 
@@ -164,17 +164,17 @@ void Look::drawDisplay(GLuint dyeTex, bool shadingOn, bool bloomOn, bool sunrays
     const float invW = 1.0f / static_cast<float>(viewportW);
     const float invH = 1.0f / static_cast<float>(viewportH);
     use(program, invW, invH);
-    bindTex(program, "uDye", dyeTex, 0);
-    if (bloomReady) bindTex(program, "uBloom", bloomResult_->tex(), 1);
-    if (raysReady) bindTex(program, "uSunrays", sunraysTarget_->tex(), 2);
-    bindTex(program, "uDither", ditherTex_, 3);
-    bindTex(program, "uTemperature", temperatureTex, 4);
-    glUniform2f(program.loc("uDitherScale"), static_cast<float>(viewportW) / blue_noise::kSize, static_cast<float>(viewportH) / blue_noise::kSize);
-    glUniform2f(program.loc("uTexelSize"), invW, invH);
+    bindTex(program, Uniform::uDye, dyeTex, 0);
+    if (bloomReady) bindTex(program, Uniform::uBloom, bloomResult_->tex(), 1);
+    if (raysReady) bindTex(program, Uniform::uSunrays, sunraysTarget_->tex(), 2);
+    bindTex(program, Uniform::uDither, ditherTex_, 3);
+    bindTex(program, Uniform::uTemperature, temperatureTex, 4);
+    glUniform2f(program.loc(Uniform::uDitherScale), static_cast<float>(viewportW) / blue_noise::kSize, static_cast<float>(viewportH) / blue_noise::kSize);
+    glUniform2f(program.loc(Uniform::uTexelSize), invW, invH);
     // Read only by the styled looks; the linker drops them from LOOK 0 and a -1 location is a no-op.
-    glUniform1f(program.loc("uTime"), timeSeconds);
-    glUniform4f(program.loc("uAudio"), audio[0], audio[1], audio[2], audio[3]);
-    glUniform1f(program.loc("uLookHue"), lookHue);
+    glUniform1f(program.loc(Uniform::uTime), timeSeconds);
+    glUniform4f(program.loc(Uniform::uAudio), audio[0], audio[1], audio[2], audio[3]);
+    glUniform1f(program.loc(Uniform::uLookHue), lookHue);
     quad_.draw();
     glDisable(GL_BLEND);
 }
@@ -220,7 +220,7 @@ std::string Look::withKeywords(const std::string& src, int flags, int look) {
 
 void Look::use(UniformCache& program, float invW, float invH) {
     glUseProgram(program.program());
-    glUniform2f(program.loc("uInvRes"), invW, invH);
+    glUniform2f(program.loc(Uniform::uInvRes), invW, invH);
 }
 
 void Look::blitDiscarding(const Fbo& target) {
@@ -236,7 +236,7 @@ void Look::blit(const Fbo& target) {
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
-void Look::bindTex(UniformCache& program, const char* name, GLuint tex, int unit) {
+void Look::bindTex(UniformCache& program, Uniform name, GLuint tex, int unit) {
     glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
     glBindTexture(GL_TEXTURE_2D, tex);
     glUniform1i(program.loc(name), unit);

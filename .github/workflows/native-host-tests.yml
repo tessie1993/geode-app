@@ -94,6 +94,14 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           bash tools/host-tests.sh tsan
 
+      # The threaded and memory-heavy tests again under AddressSanitizer and UndefinedBehaviorSanitizer (the
+      # `asan` group). ASan needs the same mmap_rnd_bits as TSan; set here too so the step stands alone.
+      - name: Threads and buffers (AddressSanitizer, UndefinedBehaviorSanitizer)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          bash tools/host-tests.sh asan
+
       # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
       - name: Sound golden vector
         id: golden

@@ -5,7 +5,7 @@
 #
 #   tools/host-tests.sh [--dry-run] [--only NAME]... [GROUP]...
 #
-#   GROUP      main (the default), tsan, golden or bench: the `@group` lines of the manifest.
+#   GROUP      main (the default), tsan, asan, golden or bench: the `@group` lines of the manifest.
 #   --only     build and run just the named test (any group), for a test you are working on.
 #   --dry-run  print every command, variables expanded and globs left as written; build and run nothing.
 #
@@ -73,12 +73,20 @@ wanted() {  # is entry $1 selected?
   return 1
 }
 
+declare -A INDEX
+for i in "${!names[@]}"; do INDEX["${names[$i]}"]=$i; done
+
 ran=0
 for i in "${!names[@]}"; do
   wanted "$i" || continue
   n="${names[$i]}"
   [ -n "${PROFILE[${profs[$i]}]:-}" ] || { echo "host-tests: $n: no profile ${profs[$i]}" >&2; exit 1; }
-  build="g++ ${PROFILE[${profs[$i]}]} ${srcss[$i]} -o $n"
+  srcs="${srcss[$i]}"
+  if [[ "$srcs" == @* ]]; then
+    [ -n "${INDEX[${srcs#@}]:-}" ] || { echo "host-tests: $n: no test ${srcs#@}" >&2; exit 1; }
+    srcs="${srcss[${INDEX[${srcs#@}]}]}"
+  fi
+  build="g++ ${PROFILE[${profs[$i]}]} $srcs -o $n"
   if [ "${runs[$i]}" = "-" ]; then run=""; else run="${envs[$i]:+${envs[$i]} }./$n ${runs[$i]}"; fi
   if [ "$dry" = 1 ]; then
     [ -n "${pres[$i]}" ] && echo "PRE ${pres[$i]}"

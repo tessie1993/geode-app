@@ -72,7 +72,7 @@ void Renderer::pinLayer(bool on) {
 }
 
 // Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
-// the live screen, an export and the dream all draw what Customize › Layers set; the
+// the live screen and an export both draw what Customize › Layers set; the
 // follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene turns
 // the setting into this renderer's style (viz/LayerPick), and an export's blocking build makes the layer
 // scene whole on the first frame that asks for it, like the main scene.
@@ -839,8 +839,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
-    // The user's edited source for this style, whichever renderer this is (live, export or the
-    // dream): one process-wide table (viz/glsl/ShaderOverrides, #364). Recorded so syncShaderOverrides
+    // The user's edited source for this style, whichever renderer this is (live or export): one process-wide table (viz/glsl/ShaderOverrides, #364). Recorded so syncShaderOverrides
     // only re-applies what changed after this build.
     const std::string custom = shader_overrides::get(id);
     appliedShaders_[id] = custom;

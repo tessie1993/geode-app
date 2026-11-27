@@ -204,7 +204,7 @@ void trimSignalReachesEachRendererOnce() {
     check(s.poll(a), "a later request is seen again");
 }
 
-// #999: what a trim releases. A renderer still drawing (the dream, Cast, an export
+// #999: what a trim releases. A renderer still drawing (Cast, an export
 // reading the process signal in a frame) keeps its passes' history and its scene targets; only the spares
 // go. A surface that stops drawing gives back the spares, the passes' targets and both scene targets.
 void trimShedsByWhetherTheSurfaceDraws() {

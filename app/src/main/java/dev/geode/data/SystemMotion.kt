@@ -19,7 +19,7 @@ import android.provider.Settings
  * - the paywall's hero, through the same value in `ui/AppShell`;
  * - exports and casts, read with [isReduced] when they start.
  *
- * Kept in `data` (it reads a stored system setting) so the dream and cast, which may not
+ * Kept in `data` (it reads a stored system setting) so Cast, which may not
  * reach into the UI package, read the same rule.
  */
 object SystemMotion {

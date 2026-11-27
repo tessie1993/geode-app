@@ -15,7 +15,7 @@ namespace geode::stage {
 using RunMode = viz::surface::RunMode;
 
 // A view stage keeps its surface while hidden (the app's view at alpha 0 keeps its Surface); a surface stage
-// (the dream) pauses when its rule says Stopped, as the service called onPause there.
+// pauses when its rule says Stopped.
 enum class Kind : int { View = 0, Surface = 1 };
 
 // What the shell observes of the app's view. Values are the ABI (GEODE_STAGE_VIEW_* in geode_stage_api.h).

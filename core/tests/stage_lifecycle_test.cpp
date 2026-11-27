@@ -3,7 +3,7 @@
 // each action, checks it was allowed, and can fail the creates the way a driver does.
 //
 // What is pinned: the action order of the common paths (a view shown, paused and resumed with its context kept,
-// hidden while resumed, rotated, its context lost; a dream's still frame with its settle burst, a restated
+// hidden while resumed, rotated, its context lost; a surface stage's still frame with its settle burst, a restated
 // still frame, Dark; a refused context; three losses in a row), and, over every sequence of four events from a
 // twenty-event alphabet and thousands of longer random ones, for both kinds: no GL call without a current context,
 // no surface on a gone or replaced window once the events are applied, every create matched by its destroy after

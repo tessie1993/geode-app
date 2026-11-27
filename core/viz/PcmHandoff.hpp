@@ -9,7 +9,7 @@ namespace geode::viz {
 // The raw PCM (every scene's PcmPulse): the mono mix of exactly the
 // samples this renderer's sound engine heard since the last frame. Renderer::writeAudio hands each block it
 // writes into the engine here as well, so the raw tail comes from the same ring and the same each-sample-once
-// cursor as the sound frame, on every surface that hears sound (live, cast, dream), with no
+// cursor as the sound frame, on every surface that hears sound (live, cast), with no
 // second Kotlin ring and no push from the app (#360). The GL thread takes it once per frame; take() empties
 // it, so a frame with no new samples (paused, starved, silent source gone) hands the scenes nothing:
 // re-delivering the last block would hold every PcmPulse at its last peak and feed a consumer the same

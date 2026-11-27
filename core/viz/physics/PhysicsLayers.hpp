@@ -14,8 +14,8 @@
 
 namespace geode::viz::physics {
 
-// The physics layers' GL side (PhysicsPlan.hpp has the why and the maths). One per renderer, so live, the
-// dream and an export all draw them the same way, after Trails, Liquid and the dive and before the
+// The physics layers' GL side (PhysicsPlan.hpp has the why and the maths). One per renderer, so live and
+// an export both draw them the same way, after Trails, Liquid and the dive and before the
 // composite. Each frame, with a plan that asks for anything:
 //
 //   1. the fluid (a fluid::FluidSim at the plan's low-res grids, the solver every fluid style runs) takes its

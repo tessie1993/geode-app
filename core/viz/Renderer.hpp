@@ -95,8 +95,8 @@ public:
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
     // optional passes and fluid bloom.
     void setUserQuality(float renderScale, float marchScale, bool postFx);
-    // The rate the display last presented at and the surface's own cap (Settings › Performance, the
-    // dream's, Cast's fixed rate), 0 when free-running. Any thread.
+    // The rate the display last presented at and the surface's own cap (Settings › Performance,
+    // Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
         pacedFps_.store(pacedFps, std::memory_order_relaxed);
         ownCapFps_.store(ownCapFps, std::memory_order_relaxed);
@@ -164,7 +164,7 @@ public:
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
-    // The live feed is the player's ring (one a sink plays). Off for another ring (the dream's output
+    // The live feed is the player's ring (one a sink plays). Off for another ring (the output
     // mix): the player's source, fade and boundaries are not this engine's (PlayerSignals::heardAsPlayer).
     void setFedPlayersRing(bool on) { fedPlayersRing_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
@@ -235,7 +235,7 @@ public:
     // a pause, a frame no vsync asked for). GL thread.
     void restartClock() { lastTimeS_ = -1.0; }
     void releaseScenes();
-    // The surface is about to stop drawing (the host's pause, an in-app hide, a stopped dream): the spares,
+    // The surface is about to stop drawing (the host's pause, an in-app hide): the spares,
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
     // is only read by a frame and none follows. GL thread, with the context current.
     void trimSpares() { trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, false)); }
@@ -462,8 +462,8 @@ private:
     GlTexture paletteRampTex_;
     // The shape graph the Scope::Shapes styles melt into their form (viz/styles/shared/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
-    // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
-    // export and the dream each tick their own on their own clock, and an export's fresh
+    // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live and an
+    // export each tick their own on their own clock, and an export's fresh
     // renderer replays its film from the pinned seed.
     shapes::ShapeGraph shapeGraph_;
 

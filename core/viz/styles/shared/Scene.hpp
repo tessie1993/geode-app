@@ -92,7 +92,7 @@ struct SceneHost {
     std::function<GLuint()> paletteRamp;
     // The shape graph (viz/styles/shared/ShapeGraph) as this frame uploads it: the renderer ticks one graph once a frame after
     // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
-    // and live, an export and the dream each draw their own renderer's. Unset reads as an empty graph.
+    // and live and an export each draw their own renderer's. Unset reads as an empty graph.
     std::function<const shapes::Packed*()> shapeGraph;
     // The live Fields (viz/fields/FieldSet), read only: the fluid takes each as a force on its flow and its
     // particles. Unset reads as none.

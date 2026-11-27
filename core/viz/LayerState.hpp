@@ -9,7 +9,7 @@ namespace geode::viz::layer_state {
 
 // Customize › Advanced › Layers: a second style drawn over the main one (whether it is on, where its style
 // comes from, how much of it, how it blends), process-wide (#364). It used to live on one Renderer (the live
-// screen's, pushed by Kotlin every frame), so an export, the live wallpaper and the dream each drew the base
+// screen's, pushed by Kotlin every frame), so an export drew the base
 // style alone. Like the macro bank, the director and the shader overrides, it is now one value every renderer
 // reads: each renderer's Follower hands it the layer when the generation moves, and each renderer picks the
 // style itself (viz/LayerPick), since what suits it depends on the style that renderer shows. The main thread
@@ -17,7 +17,7 @@ namespace geode::viz::layer_state {
 //
 // Native keeps it: Customize › Layers' edits change it here (change), and the shell only saves the line native
 // hands back (encode) and hands it back at the next start (decode), so it is saved with the look and reaches the
-// dream after a restart.
+// renderers after a restart.
 
 // Where the layer's style comes from. The owner, 2026-11-12, asked what the layer should choose from: "User
 // chooses. Or director or macro."

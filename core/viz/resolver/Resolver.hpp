@@ -35,7 +35,7 @@ namespace geode::signal {
 // visible on a device, and an export heard live edits. Here it knows nothing of GL or threads: everything
 // it reads arrives as a plain value (EngineSettings, StyleContext, the sound frame, dt), so the order is
 // host-tested in one place (core/tests/resolver_test.cpp), two resolvers given the same inputs give the
-// same bits, and every renderer (live, dream, export) runs the same chain.
+// same bits, and every renderer (live, export) runs the same chain.
 //
 // Single-threaded: no mutex, no atomics. The renderer keeps its lock and atomics and hands the resolver
 // copies at its frame latch. Device policy (post-FX), the camera rig

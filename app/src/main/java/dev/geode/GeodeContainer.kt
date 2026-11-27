@@ -65,7 +65,7 @@ class GeodeContainer(
 
     /**
      * The last process death a JVM handler cannot see (native or driver crash, ANR, a kill while in use), written
-     * to the crash file once ([ExitReasons]). Started with the process so the dream reports too; the
+     * to the crash file once ([ExitReasons]). Started with the process; the
      * crash dialog awaits it before it reads the file.
      */
     val lastExit: Deferred<ExitKind?> =
@@ -95,7 +95,7 @@ class GeodeContainer(
     val appState: AppStateRepository = PrefsSettingsRepository(prefsFiles.general, AppStateCodec, appScope)
 
     // The process-wide engine configuration: each hands its saved value to native as soon as the
-    // read is back, so the app, the dream and an export all start from it.
+    // read is back, so the app and an export both start from it.
 
     val macros = MacroStore(PrefsSettingsRepository(prefsFiles.general, MacroBankCodec(), appScope), appScope)
 
@@ -119,7 +119,7 @@ class GeodeContainer(
     /** Customize's tab and the groups the user opened. */
     val customizeGroups = CustomizeGroupsStore(PrefsSettingsRepository(prefsFiles.general, CustomizeGroupsCodec, appScope), appScope)
 
-    /** Settings › Performance; the dream reads the same prefs through its own store. */
+    /** Settings › Performance. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
 
     /** The `ContentResolver` source the screens and controllers reach consent requests, grants and picked documents through. */

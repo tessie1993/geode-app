@@ -134,7 +134,7 @@ private fun MicStatusNotice(
 /**
  * The sound engine's tuning (core/sound GeodeSoundTuning): Reactivity and Speed up front, the
  * TouchDesigner-style per-band shaping, the drums and the event thresholds under Advanced. Global,
- * so the screen, the dream and every export hear the music the same way.
+ * so the screen and every export hear the music the same way.
  */
 @Composable
 private fun SoundTuningControls(

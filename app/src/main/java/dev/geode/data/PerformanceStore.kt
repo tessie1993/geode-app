@@ -13,8 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Settings › Performance, in the general prefs file so the dream (which builds
- * its own store, in its own lifetime) read the same values the app wrote.
+ * Settings › Performance, in the general prefs file so a store built on its own reads the same values the app wrote.
  *
  * Nothing stored yet means first run: the device decides the mode once, and that pick is written
  * back so it never changes under the user after an OS update or a RAM reading that wobbles.

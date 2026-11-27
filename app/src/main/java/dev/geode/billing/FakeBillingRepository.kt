@@ -28,7 +28,7 @@ enum class FakePurchaseOutcome {
  * ViewModel tests drive.
  *
  * It writes the same [EntitlementStore] the real one does, so in a debug build "owning" Pro here
- * also reaches the screensaver through [ProSnapshot].
+ * also reaches Cast and exports through [ProSnapshot].
  *
  * With [requiresTesterCode] (the app's wiring) nothing is free here: until a tester enters
  * [TesterCode] every purchase fails as billing unavailable, as Play answers an app id it does not

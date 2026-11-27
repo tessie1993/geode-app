@@ -13,7 +13,7 @@ import dev.geode.pro.BillingRepository
  *
  * Pro is a one-time purchase, so once Play has handed over a purchase whose signature checks out,
  * the cache keeps vouching for it with no expiry. It used to lapse 30 days after the last
- * confirmation, which froze the screensaver for buyers who were simply
+ * confirmation, which locked Pro for buyers who were simply
  * offline (a trip, a tablet that never sees Wi-Fi) and so punished exactly the people who paid.
  *
  * What keeps that from being a hole is [purchaseJson] and [signature]: the purchase as Play signed
@@ -159,8 +159,8 @@ class InMemoryEntitlementStore(
 
 /**
  * The on-device cache, in its own small prefs file. Reads are synchronous on purpose: the
- * screensaver runs outside the UI and its injection graph and must know at once
- * whether to animate (see [ProSnapshot]).
+ * Cast, an export and the auto-director feed run outside the UI and its injection graph and must know at once
+ * what is unlocked (see [ProSnapshot]).
  */
 class PrefsEntitlementStore(
     private val prefs: SharedPreferences,

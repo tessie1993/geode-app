@@ -84,7 +84,7 @@ GEODE_API const char* geode_director_tuning_with(const char* text, int index, fl
  * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
 GEODE_API int         geode_auto_pick_among(const char* ids, int on_screen, int director_moment);
 /* Customize › Advanced › Layers (core/viz/LayerState, core/viz/LayerPick): a second style over the main one,
- * process-wide like geode_director_set, so live, export and the dream all draw it. Native keeps the
+ * process-wide like geode_director_set, so live and export both draw it. Native keeps the
  * layer; the shell only saves the line edit hands back ("layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|
  * <mix>") and hands it to set at the next start. Where its style comes from (GEODE_LAYER_SOURCE_USER, the user's
  * pick or one native picks to suit the style on screen; _DIRECTOR, Auto Director's pick at its style moments;
@@ -132,7 +132,7 @@ GEODE_API const char* geode_layer_shown(const char* active_style);
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
 /* Customize › Advanced › Shader code (core/viz/glsl/ShaderOverrides): the user's fragment source for a style, process-wide
- * like geode_director_set, so live, export and the dream all draw it. A null or empty source clears it
+ * like geode_director_set, so live and export both draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
 GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
 /* The style's override; returns its full length, 0 when it draws the built-in style. */
@@ -299,7 +299,7 @@ GEODE_API int          geode_shake_sample(geode_shake*, int64_t time_ns, float x
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
-/* The surface is about to stop drawing (the host pauses it, the dream stops): sheds this renderer's spare
+/* The surface is about to stop drawing (the host pauses it): sheds this renderer's spare
  * scenes now, exactly as a TRIM_MEMORY_UI_HIDDEN trim does (geode_memory_trim), because that signal is only read
  * by a frame and a paused surface draws none. What is drawn, the layer, the born and the requested style stay.
  * GL thread, while the context is still current; without one it does nothing. */
@@ -1432,7 +1432,7 @@ GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, fl
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
 /* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
-   is up, never the dream, an export or Cast. `rates` are the refresh rates of the stage's display at
+   is up, never an export or Cast. `rates` are the refresh rates of the stage's display at
    its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the
    rates offered, ascending, into out (up to capacity); returns how many: every refresh rate divided by a whole number,
    30 to 120 (30 and 60 for an unknown display), then GEODE_LIVE_FPS_FOLLOW ("Follow
@@ -1836,7 +1836,7 @@ GEODE_API geode_pcm_ring*   geode_pcm_ring_create(int capacity_frames, int chann
 /* destroy leaves a handle from geode_pcm_ring_shared alone. */
 GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
 /* The rings the app keeps, one per source (audio/ingest/RingKinds): the player's (the tap, or a capture of
- * another app in its place), the mic's and the dream's output-mix capture. */
+ * another app in its place), the mic's and the output-mix capture of other apps. */
 #define GEODE_PCM_RING_PLAYER 0
 #define GEODE_PCM_RING_MIC 1
 #define GEODE_PCM_RING_OUTPUT_MIX 2
@@ -1844,7 +1844,7 @@ GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
  * size, the mic's layered over the player's, and never freed: a handle any thread holds stays valid. NULL
  * for another kind or no memory. Any thread. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_shared(int kind);
-/* The app's sound input, for the surfaces that hold no playback session (the stage, the dream, a
+/* The app's sound input, for the surfaces that hold no playback session (the stage, a
  * cast): the player's ring while a session holds it, else NULL. The shell says so as a session begins and ends.
  * Process-wide, any thread. */
 GEODE_API void              geode_pcm_ring_set_live(int on);
@@ -1863,7 +1863,7 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
-/* on != 0: the ring's writes are a capture's snapshots, not a stream (the dream's output mix: the
+/* on != 0: the ring's writes are a capture's snapshots, not a stream (the output mix: the
  * newest ~1024 samples ~20 times a second). Each write then adds the real time since the last one, on the
  * monotonic clock, filled from that snapshot alone (audio/ingest/SnapshotStitch), so the readers' sample
  * clock is real time and no two snapshots are joined at a seam. on = 0 writes blocks as they are again.

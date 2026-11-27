@@ -16,7 +16,7 @@ namespace geode::viz::frame {
 
 // Which kind of surface the frame is for. A pass that belongs to one (the export's watermark) says so in
 // wants().
-enum class Surface : int { Live, Dream, Export };
+enum class Surface : int { Live, Export };
 
 // What a pass may read about this frame. `sound` is the frame's sound engine output: never null while the
 // renderer runs, but a pass treats null as silence so a host test can drive it without one.

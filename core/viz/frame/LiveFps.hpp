@@ -9,8 +9,8 @@
 // for (refreshRateFor) and how many vsyncs a stage frame spans (stage/FramePacer), so every thread works to one frame
 // length. Pure, with no GL and no Android, so the host can test it (core/tests/live_fps_test.cpp).
 //
-// Live only: the in-app stage (and its PiP window and second screen). The dream paces to its own
-// choice (viz/SurfaceRun), an export to its own fixed step, Cast to its fixed clock.
+// Live only: the in-app stage (and its PiP window and second screen). An export paces to its own
+// fixed step, Cast to its fixed clock.
 //
 // `rates` are the refresh rates of the stage's display at its current resolution (Display.getSupportedModes): the same
 // set from every mode, so a mode switch never changes what is offered. NULL or none is a display that has not said.

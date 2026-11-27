@@ -8,11 +8,10 @@ import dev.geode.RingLog
 import dev.geode.engine.bridge.IngestNative
 
 /**
- * Whatever any app is playing, as a native ring a renderer can hear: the app's "hear other apps" and the
- * screen saver both use it.
+ * Whatever any app is playing, as a native ring a renderer can hear: the app's "hear other apps" uses it.
  *
  * The app's own capture path (`audio/PlaybackCaptureService`) needs a MediaProjection consent
- * and a foreground service, which a dream can neither ask for nor keep running. A
+ * and a foreground service, which the output mix cannot ask for or keep running. A
  * `Visualizer` on the output mix (audio session 0) needs neither: the microphone permission,
  * granted once in the app, and `MODIFY_AUDIO_SETTINGS`, which the manifest already holds. It is
  * the platform's own answer for "visualize what is playing".

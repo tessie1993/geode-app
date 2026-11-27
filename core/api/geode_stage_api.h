@@ -32,7 +32,7 @@ typedef struct geode_stage_client {
 } geode_stage_client;
 
 /* A view stage keeps its surface while hidden (the app's view); a surface stage pauses while its rule says
-   stopped (the dream). */
+   stopped. */
 #define GEODE_STAGE_KIND_VIEW                0
 #define GEODE_STAGE_KIND_SURFACE             1
 
@@ -56,7 +56,7 @@ typedef struct geode_stage_client {
 #define GEODE_STAGE_STATE_MODE_SHIFT         12
 
 /* NULL when the client lacks a function or the thread could not start. cap_fps is the surface's own fps cap
-   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW, the dream's; 0 every vsync). */
+   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW; 0 every vsync). */
 GEODE_API geode_stage* geode_stage_create(int kind, const geode_stage_client* client, float cap_fps);
 /* A window (from ANativeWindow_fromSurface; the stage takes its own reference, the caller keeps and releases
    its own) or NULL when the surface is destroyed. Returns once the stage has let go of the old window: call it
@@ -89,8 +89,8 @@ GEODE_API unsigned geode_stage_take_events(geode_stage*);
 GEODE_API void     geode_stage_destroy(geode_stage*);
 
 /* A live stage: one that owns its renderer (a geode_viz made here from the assets and the shader cache folder)
-   and frees it at its release. This is the app's view and the
-   dream. NULL when the renderer could not be made. The assets must outlive the stage. */
+   and frees it at its release. This is the app's view.
+   NULL when the renderer could not be made. The assets must outlive the stage. */
 GEODE_API geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir,
                                                float cap_fps);
 /* The renderer for one any-thread geode_viz_* call (the ones geode_api.h marks "any thread", and the queries),

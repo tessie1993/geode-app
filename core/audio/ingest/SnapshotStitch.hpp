@@ -7,7 +7,7 @@
 
 #include "audio/ingest/PcmRing.hpp"
 
-// A capture that hands over snapshots, not a stream (the dream's output mix: android.media.audiofx.
+// A capture that hands over snapshots, not a stream (the output mix: android.media.audiofx.
 // Visualizer gives the newest ~1024 samples about 20 times a second, so ~21 ms heard out of every 50 ms).
 // Butted together in the ring, those snapshots read as a stream running at ~0.43x real time with a seam
 // every snapshot: the engine's sample clock, so tempo, bars, sections and the LUFS windows, ran 2.3x fast,

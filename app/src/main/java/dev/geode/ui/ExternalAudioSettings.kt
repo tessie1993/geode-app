@@ -1,9 +1,5 @@
 package dev.geode.ui
 
-import android.app.Activity
-import android.media.projection.MediaProjectionManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,51 +15,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.CaptureFailure
-import dev.geode.audio.PlaybackCaptureService
 
 @Composable
 fun ExternalAudioSettings(viewModel: PlayerViewModel) {
     val context = LocalContext.current
     val external by viewModel.externalAudio.collectAsStateWithLifecycle()
 
-    val projectionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val data = result.data
-            if (result.resultCode == Activity.RESULT_OK && data != null) {
-                if (!PlaybackCaptureService.start(context, result.resultCode, data)) viewModel.noteExternalAudioConsentDenied()
-            } else {
-                viewModel.noteExternalAudioConsentDenied()
-            }
-        }
-    val askConsent = {
-        viewModel.noteExternalAudioConsentPending()
-        val manager = context.getSystemService(MediaProjectionManager::class.java)
-        projectionLauncher.launch(manager.createScreenCaptureIntent())
-    }
-    val permissions =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-            if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
-                askConsent()
-            } else {
-                viewModel.noteExternalAudioPermissionDenied()
-            }
-        }
+    val capture = rememberExternalCaptureLauncher(viewModel)
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         LabeledSwitch(
             stringResource(R.string.ext_visualize_other_apps),
             checked = external.active || external.awaitingConsent,
             onCheckedChange = { want ->
-                if (!want) {
-                    viewModel.stopExternalAudio()
-                } else {
-                    permissions.launch(
-                        arrayOf(
-                            android.Manifest.permission.RECORD_AUDIO,
-                            android.Manifest.permission.POST_NOTIFICATIONS,
-                        ),
-                    )
-                }
+                if (want) capture.start() else viewModel.stopExternalAudio()
             },
         )
         Text(

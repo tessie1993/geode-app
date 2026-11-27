@@ -479,7 +479,11 @@
 
     <!-- Settings › Audio › Other apps (playback capture). -->
     <string name="ext_visualize_other_apps">Visualize other apps</string>
-    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. An app that blocks capture is heard through the phone\'s own sound output instead, which is rougher. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for microphone access, which covers any audio capture, and then for permission to capture. An app that blocks capture is heard through the phone\'s own sound output instead, which is rougher. The audio is analysed live on this device and is not stored or sent anywhere, except inside a video you choose to record.</string>
+    <string name="ext_disclosure_title">Listen to other apps?</string>
+    <string name="ext_disclosure_continue">Continue</string>
+    <string name="ext_disclosure_mic_denied">Microphone access was refused. Android requires it for audio capture of any kind, so nothing can be heard without it.</string>
+    <string name="ext_disclosure_mic_denied_forever">Microphone access is off for BeatRealms, and Android will not ask again from here. Turn it on in the app\'s settings, then come back.</string>
     <string name="ext_waiting_permission">Waiting for the capture permission…</string>
     <string name="ext_listening_to">Listening to %1$s.</string>
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>

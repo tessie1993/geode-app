@@ -85,10 +85,12 @@ class PermissionRequestState internal constructor(
 @Composable
 fun rememberPermissionRequest(
     permission: String,
+    onRefused: () -> Unit = {},
     onGranted: () -> Unit = {},
 ): PermissionRequestState {
     val context = LocalContext.current
     val currentOnGranted by rememberUpdatedState(onGranted)
+    val currentOnRefused by rememberUpdatedState(onRefused)
     val status =
         remember(permission) {
             mutableStateOf(if (context.isGranted(permission)) PermissionStatus.GRANTED else PermissionStatus.NOT_ASKED)
@@ -104,6 +106,7 @@ fun rememberPermissionRequest(
                 currentOnGranted()
             } else {
                 status.value = statusAfterRefusal(rationaleBefore[0], rationale(), status.value)
+                currentOnRefused()
             }
         }
     LifecycleResumeEffect(permission) {

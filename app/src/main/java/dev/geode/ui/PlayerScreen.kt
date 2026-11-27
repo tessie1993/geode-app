@@ -29,8 +29,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Computer
@@ -846,42 +846,11 @@ private fun QuickActions(
     canShuffle: Boolean,
     contentPadding: PaddingValues,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     // Once Android stops showing the dialog, request() opens the app's Settings page instead, so
     // the button never silently does nothing.
     val micPermission =
         rememberPermissionRequest(android.Manifest.permission.RECORD_AUDIO) { viewModel.setMicEnabled(true) }
-    val projectionLauncher =
-        androidx.activity.compose.rememberLauncherForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts
-                .StartActivityForResult(),
-        ) { result ->
-            val data = result.data
-            if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
-                val started =
-                    dev.geode.audio.PlaybackCaptureService
-                        .start(context, result.resultCode, data)
-                if (!started) viewModel.noteExternalAudioConsentDenied()
-            } else {
-                viewModel.noteExternalAudioConsentDenied()
-            }
-        }
-    val capturePermissions =
-        androidx.activity.compose.rememberLauncherForActivityResult(
-            androidx.activity.result.contract.ActivityResultContracts
-                .RequestMultiplePermissions(),
-        ) { granted ->
-            if (granted[android.Manifest.permission.RECORD_AUDIO] != false) {
-                viewModel.noteExternalAudioConsentPending()
-                projectionLauncher.launch(
-                    context
-                        .getSystemService(android.media.projection.MediaProjectionManager::class.java)
-                        .createScreenCaptureIntent(),
-                )
-            } else {
-                viewModel.noteExternalAudioPermissionDenied()
-            }
-        }
+    val capture = rememberExternalCaptureLauncher(viewModel)
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         contentPadding = contentPadding,
@@ -903,24 +872,15 @@ private fun QuickActions(
         }
         item {
             QuickAction(
-                Icons.Filled.Cast,
+                Icons.Filled.Apps,
                 stringResource(if (external.active) R.string.quick_capturing else R.string.source_other_apps),
                 active = external.active,
             ) {
-                if (external.active) {
-                    viewModel.stopExternalAudio()
-                } else {
-                    capturePermissions.launch(
-                        arrayOf(
-                            android.Manifest.permission.RECORD_AUDIO,
-                            android.Manifest.permission.POST_NOTIFICATIONS,
-                        ),
-                    )
-                }
+                if (external.active) viewModel.stopExternalAudio() else capture.start()
             }
         }
         item {
-            // Share to PC, beside the Cast-shaped source tile (owner): the browser link and its sheet.
+            // Share to PC, beside the other-apps source tile (owner): the browser link and its sheet.
             ComputerLinkDoor { door ->
                 QuickAction(
                     if (door.link.running) Icons.Filled.Computer else Icons.Outlined.Computer,

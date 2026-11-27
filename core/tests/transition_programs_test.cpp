@@ -2,11 +2,11 @@
 // LRU of spliced GL Transitions variants. Built and run by CI ("Native host tests") with the system
 // compiler, from any directory.
 //
-// The seam is the class's public interface (create, programFor, uploadParamsIfNeeded, release). The real
-// ShaderSource, TransitionCatalog and program::build run; only the system boundaries are faked: GL
-// (core/tests/fakegl/GLES3/gl3.h, modelled below as names, compile counts and uniforms per program), the
-// APK's asset store (a small in-memory library) and logcat. ProgramStager and ProgramBinaryCache are link
-// seams as in edge_glow_pass_test.cpp: no stager is current and no cache is passed, so they abort if reached.
+// The seam is the class's public interface (create, programFor, ready, step, uploadParamsIfNeeded, release). The
+// real ShaderSource, TransitionCatalog, program::build and ProgramStager run; only the system boundaries are
+// faked: GL (core/tests/fakegl/GLES3/gl3.h, modelled below as names, compile counts and uniforms per program), the
+// APK's asset store (a small in-memory library) and logcat. ProgramBinaryCache is a link seam as in
+// edge_glow_pass_test.cpp: no cache is passed, so it aborts if reached; GlProber's error drain is a no-op.
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "viz/gl/ProgramStager.hpp"
+#include "viz/gl/GlProber.hpp"
 #include "viz/passes/Transition.hpp"
 
 using namespace geode::viz;
@@ -46,8 +46,7 @@ extern "C" void AAsset_close(AAsset* asset) { delete asset; }
 extern "C" int __android_log_print(int, const char*, const char*, ...) { return 0; }
 
 // ---- our own code's link seams --------------------------------------------------------------------------
-geode::viz::ProgramStager* geode::viz::ProgramStager::current() { return nullptr; }
-GLuint geode::viz::ProgramStager::obtain(const std::vector<ShaderStage>&, std::string*, bool*, bool) { std::abort(); }
+void geode::viz::prober::drainErrors() {}
 std::optional<geode::viz::ProgramKey> geode::viz::ProgramBinaryCache::keyFor(const std::string&, const std::string&) {
     std::abort();
 }
@@ -116,6 +115,7 @@ void glGetShaderInfoLog(GLuint, GLsizei, GLsizei* length, GLchar*) {
     if (length) *length = 0;
 }
 void glAttachShader(GLuint, GLuint) {}
+void glDetachShader(GLuint, GLuint) {}
 void glLinkProgram(GLuint) {}
 void glGetProgramiv(GLuint, GLenum, GLint* params) { *params = 1; }
 void glGetProgramInfoLog(GLuint, GLsizei, GLsizei* length, GLchar*) {
@@ -177,6 +177,82 @@ AAssetManager assets{{
 
 constexpr const char* kVert = "#version 300 es\nvoid main() {}\n";
 
+// The frames after a transition is asked for: the renderer steps the stager once per frame until it is idle.
+void settle(TransitionPrograms& programs) {
+    for (int frame = 0; frame < 16 && programs.staging(); ++frame) programs.step(frame / 60.0);
+}
+
+// A library transition's program once its staged compile is done.
+UniformCache& built(TransitionPrograms& programs, const std::string& id) {
+    programs.programFor(id);
+    settle(programs);
+    return programs.programFor(id);
+}
+
+// Kills a compile on the render thread's frame path: beginFrame warms the next random transition and
+// CompositePass::draw asks for the drawn one every frame. Neither may compile; the stager does, one blocking
+// compile per step, and until then the base program answers (it draws the crossfade).
+void aLibraryTransitionNeverCompilesOnTheFramePath() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    check(programs.create(kVert, &error), "the base composite program builds");
+    const GLuint base = programs.programFor("fade").program();
+    const int before = fake::gl.compiles;
+    programs.warm("a");
+    for (int frame = 0; frame < 30; ++frame) {
+        check(programs.programFor("b").program() == base, "a transition not built yet draws with the base program");
+    }
+    check(fake::gl.compiles == before, "warming or drawing a library transition does not compile it on the frame");
+    check(!programs.ready("a") && !programs.ready("b"), "a transition still compiling is not ready to start");
+    check(fake::gl.programs.size() == 1, "the stager's stand-ins are deleted, only the base program is left");
+    check(programs.staging(), "the stager holds the asked-for compiles");
+
+    programs.step(0.0);
+    check(fake::gl.compiles == before + 2, "one step compiles one program (two shaders), not every queued one");
+    programs.step(1.0 / 60.0);
+    check(fake::gl.compiles == before + 4, "the next step compiles the next one");
+    check(!programs.staging(), "each asked-for transition was queued once, however many frames asked");
+
+    const GLuint a = programs.programFor("a").program();
+    check(a != base && programs.programFor("b").program() != base, "a compiled transition draws with its own program");
+    check(programs.ready("a") && programs.ready("b") && programs.ready("fade"), "built and built-in transitions are ready");
+    check(fake::gl.compiles == before + 4, "taking a compiled program from the stager compiles nothing");
+}
+
+// Kills an export losing its library transitions: an offscreen export draws every frame as it was asked for,
+// so it builds a transition's program inline when it starts instead of crossfading while the stager works.
+void anExportBuildsItsTransitionInline() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    programs.setStaged(false);
+    const GLuint base = programs.programFor("fade").program();
+    const int before = fake::gl.compiles;
+    check(programs.ready("a"), "an export's transition is ready the frame it starts");
+    check(programs.programFor("a").program() != base, "it draws with its own program");
+    check(fake::gl.compiles == before + 2 && !programs.staging(), "built inline, nothing left to the stager");
+}
+
+// Kills leaking a staged program: one the stager finished but nobody took yet is deleted with the context's others.
+void releaseDeletesWhatTheStagerHolds() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    programs.warm("a");
+    settle(programs);
+    check(fake::gl.programs.size() == 2, "the stager holds the compiled program beside the base one");
+    programs.release();
+    check(fake::gl.programs.empty(), "release deletes the stager's program too");
+    check(programs.create(kVert, &error) && programs.programFor("a").program() == programs.programFor("fade").program(),
+          "after release the transition is asked for again, not taken from the old context");
+}
+
 // Kills rebuilding a transition the driver already refused: CompositePass::draw asks for the program every
 // frame of the transition, so a failed id must cost one build, fall back to the base program, and be tried
 // again only after release() (a new context).
@@ -190,19 +266,21 @@ void aTransitionThatFailsToBuildIsTriedOncePerContext() {
     check(base != 0, "a built-in style draws with the base program");
 
     const int before = fake::gl.compiles;
-    check(programs.programFor("broken").program() == base, "a transition that fails to build draws with the base program");
+    check(built(programs, "broken").program() == base, "a transition that fails to build draws with the base program");
     const int afterFirst = fake::gl.compiles;
-    check(afterFirst > before, "the first frame tries to build it");
+    check(afterFirst > before, "the stager tries to build it");
+    check(!programs.ready("broken"), "a transition that failed to build is not ready: the change crossfades");
     for (int frame = 0; frame < 30; ++frame) {
         check(programs.programFor("broken").program() == base, "later frames still draw with the base program");
+        programs.step(frame / 60.0);
     }
     check(fake::gl.compiles == afterFirst, "later frames of the transition do not compile it again");
-    check(programs.programFor("a").program() != base, "a good transition still builds beside a failed one");
+    check(built(programs, "a").program() != base, "a good transition still builds beside a failed one");
 
     programs.release();
     check(programs.create(kVert, &error), "the base program builds again after release");
     const int rebuilt = fake::gl.compiles;
-    programs.programFor("broken");
+    built(programs, "broken");
     check(fake::gl.compiles > rebuilt, "release forgets the failure, so a new context tries once more");
 }
 
@@ -229,16 +307,18 @@ void aRebuiltTransitionGetsItsParamsAgain() {
     TransitionPrograms programs(source, nullptr);
     std::string error;
     programs.create(kVert, &error);
+    built(programs, "a");
     const GLuint first = drawWith(programs, "a");
     check(hasAmount(first), "a library transition's params are uploaded when it is first drawn");
-    programs.programFor("b");
-    programs.programFor("c");
-    programs.programFor("d");
-    programs.programFor("e");
+    built(programs, "b");
+    built(programs, "c");
+    built(programs, "d");
+    built(programs, "e");
     check(fake::gl.programs.count(first) == 0, "a fifth transition evicts the oldest program");
     programs.programFor("b");
     programs.programFor("c");
     programs.programFor("d");
+    built(programs, "a");
     const GLuint rebuilt = drawWith(programs, "a");
     check(rebuilt != first && fake::gl.programs.count(rebuilt) == 1, "the evicted transition is built again");
     check(hasAmount(rebuilt), "the rebuilt program gets its params again");
@@ -287,17 +367,20 @@ void everyBuiltProgramIsToldItsSamplerUnits() {
     std::string error;
     programs.create(kVert, &error);
     check(toldItsUnits(programs.programFor("fade").program()), "the base program is told its sampler units when built");
-    const GLuint first = programs.programFor("a").program();
+    const GLuint first = built(programs, "a").program();
     check(toldItsUnits(first), "a library transition's program is told them when built");
-    for (const char* id : {"b", "c", "d", "e"}) programs.programFor(id);
+    for (const char* id : {"b", "c", "d", "e"}) built(programs, id);
     check(fake::gl.programs.count(first) == 0, "a fifth transition evicts the oldest program");
-    const GLuint rebuilt = programs.programFor("a").program();
+    const GLuint rebuilt = built(programs, "a").program();
     check(rebuilt != first && toldItsUnits(rebuilt), "a program built again is told them again");
 }
 
 }  // namespace
 
 int main() {
+    aLibraryTransitionNeverCompilesOnTheFramePath();
+    anExportBuildsItsTransitionInline();
+    releaseDeletesWhatTheStagerHolds();
     aTransitionThatFailsToBuildIsTriedOncePerContext();
     aRebuiltTransitionGetsItsParamsAgain();
     anInternedUniformIsResolvedOncePerProgram();

@@ -79,6 +79,11 @@ public:
     void releaseStaleTextures();
     GLuint zeroTex() const { return zeroTex_.get(); }
     void warmTransition(const std::string& id) { transitions_.warm(id); }
+    bool transitionReady(const std::string& id) { return transitions_.ready(id); }
+    void setStagedTransitions(bool staged) { transitions_.setStaged(staged); }
+    void onContext(bool parallelCompile) { transitions_.onContext(parallelCompile); }
+    void stepTransitions(double nowS) { transitions_.step(nowS); }
+    bool stagingTransitions() const { return transitions_.staging(); }
     TransitionCatalog& catalog() { return transitions_.catalog(); }
     void draw(const Inputs& inputs);
 

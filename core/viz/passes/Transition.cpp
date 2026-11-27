@@ -106,6 +106,8 @@ void TransitionPrograms::release() {
     base_.release();
     lru_.clear();  // each program goes with its entry
     failed_.clear();
+    stager_.clear();
+    pending_.clear();
     uploadedFor_ = nullptr;
     uploadedDef_ = nullptr;
 }
@@ -115,6 +117,8 @@ void TransitionPrograms::forget() {
     for (auto& entry : lru_) entry.second->forget();
     lru_.clear();
     failed_.clear();
+    stager_.forget();
+    pending_.clear();
     uploadedFor_ = nullptr;
     uploadedDef_ = nullptr;
 }
@@ -131,11 +135,9 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
     const TransitionCatalog::Def* def = definition(id);
     if (!def) return base_;
     std::string error;
-    GLuint program = 0;
-    {
-        const util::TraceSection section("geode.transitionCompile");
-        program = program::build(fadeVert_, TransitionCatalog::spliceInto(source_, *def), cache_, &error);
-    }
+    bool placeholder = false;
+    const GLuint program = build(id, *def, &error, &placeholder);
+    if (placeholder) return base_;
     if (program == 0) {
         GEODE_LOGW(kTag, "\"%s\" failed to link: %s", id.c_str(), error.c_str());
         failed_.insert(id);
@@ -148,6 +150,41 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
     lru_.emplace_back(id, std::make_unique<OwnedProgram>(program));
     assignUnits(*lru_.back().second);
     return *lru_.back().second;
+}
+
+GLuint TransitionPrograms::build(const std::string& id, const TransitionCatalog::Def& def, std::string* error,
+                                 bool* placeholder) {
+    *placeholder = false;
+    if (!staged_) {
+        const util::TraceSection section("geode.transitionCompile");
+        return program::build(fadeVert_, TransitionCatalog::spliceInto(source_, def), cache_, error);
+    }
+    // Asked again only once the stager is idle: each ask for a program it has not finished queues another copy.
+    if (pending_.count(id) != 0 && !stager_.idle()) {
+        *placeholder = true;
+        return 0;
+    }
+    GLuint program = 0;
+    bool deferred = false;
+    {
+        const ProgramStager::Attempt attempt(stager_);
+        program = program::build(fadeVert_, TransitionCatalog::spliceInto(source_, def), cache_, error);
+        deferred = attempt.deferred();
+    }
+    if (deferred) {
+        glDeleteProgram(program);  // the stager's empty stand-in
+        pending_.insert(id);
+        *placeholder = true;
+        return 0;
+    }
+    pending_.erase(id);
+    return program;
+}
+
+bool TransitionPrograms::ready(const std::string& id) { return TransitionCatalog::builtIn(id) || !isBase(programFor(id)); }
+
+void TransitionPrograms::step(double nowS) {
+    if (!stager_.idle()) stager_.step(nowS);
 }
 
 void TransitionPrograms::warm(const std::string& id) {

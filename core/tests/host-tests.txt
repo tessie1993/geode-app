@@ -266,10 +266,13 @@ gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Comput
     core/viz/gl/Framebuffer.cpp core/viz/gl/Texture.cpp |
 # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
 transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
-# The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
+# The transition programs over a faked GL context: a library transition compiles in stager steps, never on the frame
+# that asks for it (an export builds inline); one that fails to build is tried once per context, a rebuilt one gets
+# its params again.
 transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core/viz/passes/Transition.cpp \
-    core/viz/gl/Program.cpp core/viz/glsl/ShaderSource.cpp core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp \
-    core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/util/Json.cpp |
+    core/viz/gl/Program.cpp core/viz/gl/ProgramStager.cpp core/util/Sha256.cpp core/viz/glsl/ShaderSource.cpp \
+    core/viz/modulation/VisualSafety.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp \
+    core/util/Json.cpp |
 # The uniform value cache: an unchanged upload is skipped, a changed one sent, a rebuilt program starts empty.
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
 # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).

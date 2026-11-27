@@ -461,6 +461,7 @@ void Renderer::onSurfaceCreated() {
     quadVert_ = *quadVert;
     if (!trailPass_.create(assets_, &programCache_, *fadeVert, &error)) fail(error);
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
+    compositePass_.onContext(stager_.parallel());
     // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
     // And the wallpaper's edge glow: without it the wallpaper shows the full visual instead of the rim.

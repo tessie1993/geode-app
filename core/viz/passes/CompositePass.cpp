@@ -86,7 +86,9 @@ GLuint CompositePass::createNoiseTexture() { return blue_noise::createTexture(as
 void CompositePass::draw(const Inputs& inputs) {
     glDisable(GL_BLEND);
     UniformCache& program = transitions_.programFor(inputs.transitionId);
-    const TransitionCatalog::Def* definition = transitions_.definition(inputs.transitionId);
+    // The base program crossfades a library transition still compiling or that failed (uStyle 5 is its melt).
+    const TransitionCatalog::Def* definition =
+        transitions_.isBase(program) ? nullptr : transitions_.definition(inputs.transitionId);
     glUseProgram(program.program());
     transitions_.uploadParamsIfNeeded(program, definition);
 

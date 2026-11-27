@@ -151,8 +151,10 @@ float Renderer::beginFrame(double timeSeconds) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     applyUnderlayUpload();
+    // An export builds a transition's program when it starts, so its frames do not depend on the driver's pace.
+    compositePass_.setStagedTransitions(!blockingBuilds_.load(std::memory_order_relaxed));
     if (transition_choice::isRandom(frameTransitionId_) && nextRandomTransition_.empty()) {
-        // Drawn and compiled a change ahead, so a library transition's build never lands on the switch frame.
+        // Drawn a change ahead and handed to the transition stager, so its compile is staged before the switch.
         if (transitionRng_ == 0) {
             transitionRng_ = offscreen_.load(std::memory_order_relaxed)
                                  ? 0x5EEDull
@@ -229,6 +231,8 @@ Scene* Renderer::resolveActiveScene() {
             } else {
                 switchTransitionId_ = frameTransitionId_;
             }
+            // A library program still compiling: this change crossfades, and never switches look halfway through.
+            if (!compositePass_.transitionReady(switchTransitionId_)) switchTransitionId_ = "fade";
             // An export replays its switches as the user made them: never Auto's longer fade.
             const bool automatic =
                 !offscreen_.load(std::memory_order_relaxed) && transition_choice::takeAuto(requested->id(), seenAutoMark_);
@@ -677,6 +681,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         restartClock();
     }
     Scene* scene = resolveActiveScene();
+    // Transition programs compile while no scene does: one stager's blocking compile per frame at most.
+    if (stager_.idle()) compositePass_.stepTransitions(monotonicSeconds());
     if (sceneJustSwitched_) {
         // A new scene starts its clock at rest, and this frame's step with it.
         sceneClock_.reset();
@@ -689,7 +695,9 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.
     const bool staging = requestedPending_ && prep_.active() && prep_.attempts() < ScenePrep::kMaxAttempts;
-    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) noteSettling();
+    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle() || compositePass_.stagingTransitions()) {
+        noteSettling();
+    }
     if (!offscreen_.load(std::memory_order_relaxed)) logResidency(wallDt);
     if (!scene || !ensureTargets()) {
         stillDrawn_ = false;

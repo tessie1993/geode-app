@@ -170,20 +170,12 @@ void AcidScene::conduct(const GeodeSoundFrame& f, float dt) {
     wobble_ = ease(wobble_, std::clamp(finiteOr(f.glide + f.vibrato, 0.0f), 0.0f, 1.0f), 4.0f, dt);
 }
 
-void AcidScene::draw(float timeSeconds) {
-    (void) timeSeconds;
+void AcidScene::simulate() {
     if (!programOk_) return;
     resetFrameState();
-    GLint prevFbo = 0;
-    GLint prevViewport[4] = {0, 0, 0, 0};
-    SceneTarget::read(prevFbo, prevViewport);
+    simulated_ = true;
     fluid::DoubleFbo* loop = ensureState();
-    if (!loop) {
-        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
-        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        return;
-    }
+    if (!loop) return;
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
     const GeodeSoundFrame& f = last_;
@@ -257,7 +249,26 @@ void AcidScene::draw(float timeSeconds) {
     uploadSceneTouch(step_, touch_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     loop->swap();
+}
 
+void AcidScene::draw(float timeSeconds) {
+    (void) timeSeconds;
+    if (!programOk_) return;
+    GLint prevFbo = 0;
+    GLint prevViewport[4] = {0, 0, 0, 0};
+    SceneTarget::read(prevFbo, prevViewport);
+    if (!simulated_) simulate();
+    simulated_ = false;
+    fluid::DoubleFbo* loop = ensureState();
+    if (!loop) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
+    const SceneParams& p = params_;
+    const float drive = safeAudioDrive(p.audioDrive);
+    const float baseHue = hue::base(p.paletteBase()) + style_.hueOffset + hue_;
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     glUseProgram(show_.program());

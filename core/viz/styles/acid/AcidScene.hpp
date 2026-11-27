@@ -34,6 +34,7 @@ public:
     void setParams(const SceneParams& params) override { params_ = params; }
     void resize(int width, int height) override;
     void update(const GeodeSoundFrame& features, float dt) override;
+    void simulate() override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
@@ -72,6 +73,7 @@ private:
     UniformCache step_{0};
     UniformCache show_{0};
     bool programOk_ = false;
+    bool simulated_ = false;
     GLuint vao_ = 0;
     std::optional<fluid::DoubleFbo> state_;
     SoundUniforms sound_;

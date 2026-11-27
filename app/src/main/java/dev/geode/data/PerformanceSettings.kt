@@ -20,7 +20,7 @@ data class PerformanceSettings(
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,
-    /** Flow distortion and fluid bloom: the optional passes. */
+    /** Shader-style Trails, flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
 ) {
     /** The preset these values match natively on [panel], or null when the user has customised them. */

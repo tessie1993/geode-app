@@ -25,7 +25,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             seenSeq_ = std::max(seenSeq_, command.t);
             lifecycle_.windowSet(command.a, command.b);
             // A new window is a new Surface, and the rate preference lives on the surface.
-            restateRate();
+            if (lifecycle_.vsyncOn()) voteRate(true);
             break;
         case kStageWindowGone:
             if (window_) port_.releaseWindow(window_);
@@ -35,7 +35,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             break;
         case kStageSize:
             lifecycle_.windowChanged(command.a, command.b);
-            restateRate();
+            if (lifecycle_.vsyncOn()) voteRate(true);
             break;
         case kStageMode: lifecycle_.setMode(static_cast<RunMode>(command.a), nowMs); break;
         case kStagePause:
@@ -129,7 +129,7 @@ void StageCore::deriveBudget(int64_t periodNs, bool swapPaces) {
     mirror_.store(budget_.budgetNs, std::memory_order_relaxed);
     util::traceCounter("geode.frameBudgetUs", budget_.budgetNs / 1000);
     if (lifecycle_.vsyncOn()) port_.pace(true, budget_);
-    if (voteChanged) restateRate();
+    if (voteChanged && lifecycle_.vsyncOn()) voteRate(true);
 }
 
 void StageCore::handOverFrames() {
@@ -151,10 +151,12 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The window is asked for the user's rate (one vote, restated only for a new surface, size or rate); the pacer keeps
-// the rate whether or not the display follows it.
-void StageCore::restateRate() {
-    if (window_) port_.setFrameRate(window_, budget_.voteFps);
+// The window is asked for the user's rate while the stage draws (one vote, restated only for a new surface, size or rate), and
+// the vote is cleared when the stage stops while the surface stays visible: a surface that is not being drawn must not hold
+// the display at a rate (kb://android/media/optimize/performance/frame-rate). The pacer keeps the rate whether or not the
+// display follows it.
+void StageCore::voteRate(bool on) {
+    if (window_) port_.setFrameRate(window_, on ? budget_.voteFps : 0.0f);
 }
 
 // A window that went has no EGL surface left on it; a new one is held by its surface. Nothing after that touches the
@@ -203,9 +205,11 @@ Outcome StageCore::execute(const Action& action) {
             lastShownNs_ = 0;
             vsyncWait_ = false;
             port_.pace(true, budget_);
+            voteRate(true);
             return Outcome::Done;
         case Act::StopVsync:
             port_.pace(false, budget_);
+            voteRate(false);
             if (recorder_.enabled()) handOverFrames();
             return Outcome::Done;
         case Act::DrawOnce: {

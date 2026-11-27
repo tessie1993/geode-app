@@ -228,7 +228,7 @@ void windowAndFrames() {
     check(r.port.context && r.port.surfaceOn == &windowA && r.port.current, "a window builds the context and a surface on it");
     check(r.client->created == 1 && r.client->changed == 1 && r.client->width == 1080 && r.client->height == 2340, "and tells the client its size");
     check(r.port.applied == 1, "then the hand-over is acknowledged");
-    check(r.port.rateWindow == &windowA && r.port.rate == 60.0f, "a new window is told the cap's rate");
+    check(r.port.rateCalls == 0, "a stage that is not drawing votes no rate for its window");
     check((r.core.state() & kStateDrawable) != 0 && (r.core.state() & kStateVsync) == 0, "drawable, not pacing while hidden");
     r.turns(3);
     check(r.client->frames == 0 && r.port.swaps == 0, "a hidden stage draws no frame");
@@ -236,6 +236,7 @@ void windowAndFrames() {
     r.client->nextEvents = 0x4;
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
     check(r.port.pacing && r.port.paceBudget.swapNs == swapIntervalNs(60.0f), "a watched view starts the pacing with the cap's swap interval");
+    check(r.port.rateWindow == &windowA && r.port.rate == 60.0f, "and votes the cap's rate for its window");
     check(r.client->frames == 1 && r.port.swaps == 1, "and its first turn draws a frame and swaps it");
     r.client->nextEvents = 0x10;
     r.turns(2);
@@ -257,6 +258,7 @@ void windowAndFrames() {
 
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
     check(!r.port.pacing && r.client->trims == 1, "hidden: the pacing stops and the spares go");
+    check(r.port.rate == 0.0f && r.port.rateWindow == &windowA, "and the vote is cleared while the surface stays: a window nothing draws holds no rate");
     const int frames = r.client->frames;
     r.turns(3);
     check(r.client->frames == frames, "and no frame is drawn");
@@ -604,6 +606,26 @@ void theRateVoteFollowsTheCapNotTheFrames() {
     check(r.port.rateCalls == hints, "the same cap again states nothing");
 }
 
+// Red against: a vote left standing on a surface nothing draws on (a still frame, a pause), a vote not restored when the
+// drawing starts again, and a vote stated on a window that has gone.
+void theVoteIsClearedWhereNothingIsDrawn() {
+    Rig r;
+    r.show();
+    check(r.port.rate == 60.0f, "a drawing stage votes its rate");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Still)));
+    r.core.step(r.now + 5000);
+    check(r.port.rate == 0.0f && r.port.rateWindow == &windowA, "a still frame on a visible surface clears the vote");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
+    check(r.port.rate == 60.0f, "drawing again votes it again");
+    r.send(command(kStagePause, 1));
+    check(r.port.rate == 0.0f, "a pause clears it");
+    r.send(command(kStagePause, 0));
+    check(r.port.rate == 60.0f, "a resume restores it");
+    const int calls = r.port.rateCalls;
+    r.send(command(kStageWindowGone, 0, 0, 0.0f, 0.0f, 2));
+    check(r.port.rateCalls == calls, "a window that went is told nothing: it needs no clearing");
+}
+
 // Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the shell's
 // main thread waiting on shader warm-up or a blocked swap.
 void aWindowIsAcknowledgedBeforeTheClientOrAFrame() {
@@ -649,6 +671,7 @@ int main() {
     pauseAndLoss();
     serviceAndQuit();
     theRateVoteFollowsTheCapNotTheFrames();
+    theVoteIsClearedWhereNothingIsDrawn();
     theFrameRecorderIsOffUntilAskedAndHandsOverAtTheStop();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();

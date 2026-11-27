@@ -132,7 +132,7 @@ private:
     void acknowledge();
     Outcome execute(const Action& action);
     bool draw(float pacedFps, float capFps, int64_t presentNs, int64_t& drawNs);
-    void restateRate();
+    void voteRate(bool on);
     void deriveBudget(int64_t periodNs, bool swapPaces);
     void drawPaced();
     void handOverFrames();

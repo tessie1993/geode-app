@@ -134,7 +134,7 @@ void Particles::step(float dt, GLuint velocityTex, float aspect, float flowScale
     quad_.unbind();
 }
 
-void Particles::draw(float aspect, float pointScale, float hueBase, float hueSpan, float brightness, float shape, float glow, float timeSeconds) {
+void Particles::draw(float aspect, int viewportWidth, int viewportHeight, float pointScale, float hueBase, float hueSpan, float brightness, float shape, float glow, float timeSeconds) {
     if (!state_) return;
     DoubleMrt& st = *state_;
     const bool streaks = maxStretch > 1.0f && streak_.program() != 0;
@@ -158,9 +158,7 @@ void Particles::draw(float aspect, float pointScale, float hueBase, float hueSpa
     glUniform1f(prog.loc("uGlow"), glow);
     glUniform1f(prog.loc("uTime"), timeSeconds);
     if (streaks) {
-        GLint vp[4] = {0, 0, 1, 1};
-        glGetIntegerv(GL_VIEWPORT, vp);
-        glUniform2f(prog.loc("uViewport"), static_cast<float>(std::max(vp[2], 1)), static_cast<float>(std::max(vp[3], 1)));
+        glUniform2f(prog.loc("uViewport"), static_cast<float>(std::max(viewportWidth, 1)), static_cast<float>(std::max(viewportHeight, 1)));
         glUniform1f(prog.loc("uStretchSeconds"), std::max(stretchSeconds, 0.0f));
         glUniform1f(prog.loc("uMaxStretch"), maxStretch);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count_);

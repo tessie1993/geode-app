@@ -41,7 +41,7 @@ public:
     void create(int particleCount, const Formats& formats);
     void setChoreography(const float* spawns, int spawnPoints, const float* catches, int catchPoints);
     void step(float dt, GLuint velocityTex, float aspect, float flowScale, float timeSeconds = 0.0f);
-    void draw(float aspect, float pointScale, float hueBase, float hueSpan, float brightness, float shape = 0.0f, float glow = 0.85f,
+    void draw(float aspect, int viewportWidth, int viewportHeight, float pointScale, float hueBase, float hueSpan, float brightness, float shape = 0.0f, float glow = 0.85f,
               float timeSeconds = 0.0f);
     void invalidateSeed() { seeded_ = false; }
     void release();

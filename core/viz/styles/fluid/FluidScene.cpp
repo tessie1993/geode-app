@@ -130,7 +130,7 @@ void FluidScene::draw(float timeSeconds) {
         }
     }
     if (particles_.available() && p.fluidParticlesEnabled) {
-        particles_.draw(sim_.aspect(), (1.5f * std::clamp(p.particleSize, 0.2f, 3.0f)) * viewportDpiScale(), hueBase, hueSpan,
+        particles_.draw(sim_.aspect(), savedViewportWidth(), savedViewportHeight(), (1.5f * std::clamp(p.particleSize, 0.2f, 3.0f)) * viewportDpiScale(), hueBase, hueSpan,
                         0.55f * std::clamp(p.fluidParticleBrightness, 0.0f, 2.0f) * (0.3f + std::clamp(p.density, 0.0f, 1.5f)),
                         static_cast<float>(p.particleShape), particle_look::glow(p.bloom), timeSeconds);
     }

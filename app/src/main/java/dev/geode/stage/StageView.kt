@@ -7,6 +7,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Process
 import android.view.Display
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -213,7 +214,7 @@ class StageView(
         if (on == tiltOn) return
         // Only a registration the sensor service took counts as on, so a refused one is tried again next sync.
         if (on) {
-            val thread = HandlerThread("GeodeTilt").apply { start() }
+            val thread = HandlerThread("GeodeTilt", Process.THREAD_PRIORITY_DEFAULT).apply { start() }
             tiltDisplay = display
             tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME, Handler(thread.looper)) == true
             if (tiltOn) {

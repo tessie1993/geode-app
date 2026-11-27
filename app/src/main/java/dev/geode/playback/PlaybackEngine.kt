@@ -22,6 +22,7 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.IngestNative
 import dev.geode.engine.bridge.PlayoutNative
 import dev.geode.geodeContainer
+import dev.geode.util.backgroundThreadFactory
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -222,9 +223,7 @@ class PlaybackSession internal constructor(
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */
         private val sessionWriter: java.util.concurrent.ExecutorService =
-            java.util.concurrent.Executors.newSingleThreadExecutor { r ->
-                Thread(r, "geode-session").apply { isDaemon = true }
-            }
+            java.util.concurrent.Executors.newSingleThreadExecutor(backgroundThreadFactory("geode-session"))
     }
 }
 

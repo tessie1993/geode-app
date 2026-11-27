@@ -27,6 +27,7 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackSession
 import dev.geode.pro.ProFeature
 import dev.geode.startedInForeground
+import dev.geode.util.backgroundThreadFactory
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -310,7 +311,7 @@ class CastService : Service() {
         val s = stream
         stream = null
         // Stopping joins the render thread and closes the codecs: off the main thread.
-        if (s != null) Thread({ s.stop() }, "cast-stop").start()
+        if (s != null) backgroundThreadFactory("cast-stop", daemon = false).newThread { s.stop() }.start()
         super.onDestroy()
     }
 

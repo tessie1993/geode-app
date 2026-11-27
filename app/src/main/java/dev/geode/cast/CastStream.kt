@@ -14,6 +14,7 @@ import dev.geode.engine.bridge.PlayoutNative
 import dev.geode.geodeContainer
 import dev.geode.model.SceneParams
 import dev.geode.playback.PlaybackEngine
+import dev.geode.util.backgroundThreadFactory
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -95,7 +96,7 @@ internal class CastStream(
     @Volatile
     private var savedLook: LookSnapshot? = null
     private val lookReader =
-        Executors.newSingleThreadExecutor { r -> Thread(r, "cast-look").apply { isDaemon = true } }
+        Executors.newSingleThreadExecutor(backgroundThreadFactory("cast-look"))
     private val lookListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> readSavedLook() }
     private val mirrorListener = { pushLook() }
 

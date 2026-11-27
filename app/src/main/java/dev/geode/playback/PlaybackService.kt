@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import dev.geode.RingLog
 import dev.geode.appLaunchIntent
 import dev.geode.data.SessionStore
+import dev.geode.util.backgroundThreadFactory
 import dev.geode.widget.WidgetPublisher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -468,9 +469,7 @@ class PlaybackService : MediaLibraryService() {
                 ).build()
 
         private val resumptionExecutor =
-            java.util.concurrent.Executors.newSingleThreadExecutor { r ->
-                Thread(r, "geode-resumption").apply { isDaemon = true }
-            }
+            java.util.concurrent.Executors.newSingleThreadExecutor(backgroundThreadFactory("geode-resumption"))
 
         @OptIn(UnstableApi::class)
         internal fun lastPlayedResumption(context: Context): MediaSession.MediaItemsWithStartPosition? {

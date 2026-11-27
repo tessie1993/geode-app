@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import dev.geode.util.backgroundThreadFactory
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
@@ -19,7 +20,7 @@ class SessionBitmapLoader(
 ) : BitmapLoader {
     private val appContext = context.applicationContext
 
-    private val io = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor { r -> Thread(r, "geode-art") })
+    private val io = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor(backgroundThreadFactory("geode-art")))
 
     private var lastUri: String? = null
     private var lastFuture: ListenableFuture<Bitmap>? = null

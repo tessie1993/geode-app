@@ -45,7 +45,6 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -291,13 +290,10 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
-    val visualizerView = remember { StageView(context) }
-    // A cast to a TV or a browser carries this view's own frames (core/viz/frame/CastTee), not a second render.
-    DisposableEffect(visualizerView) {
-        visualizerView.stage.castSource = true
-        // The stage outlives its surface, so the shell that made it ends it.
-        onDispose { visualizerView.stage.close() }
-    }
+    // A cast to a TV or a browser carries this stage's own frames (core/viz/frame/CastTee), not a second render;
+    // Record copies them too.
+    val liveStage = rememberLiveStage(geodeViewModel<StudioViewModel>()::attachRecordStage)
+    val visualizerView = remember(liveStage) { StageView(context, liveStage) }
     val general by settingsViewModel.general.collectAsStateWithLifecycle()
     val onboarding by settingsViewModel.appState.collectAsStateWithLifecycle()
     val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()

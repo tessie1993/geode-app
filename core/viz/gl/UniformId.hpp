@@ -8,12 +8,10 @@ namespace geode::viz {
 // frame never hashes a name. A new per-frame uniform in those uploads is one X() line here.
 #define GEODE_FRAME_UNIFORMS(X) \
     X(uBackLayer) \
-    X(uBarOsc) \
     X(uBassRel) \
     X(uBirths) \
     X(uBlendMode) \
     X(uBloom) \
-    X(uBreath) \
     X(uBright) \
     X(uCamBasis) \
     X(uCamDolly) \
@@ -28,11 +26,9 @@ namespace geode::viz {
     X(uColorShift) \
     X(uContrast) \
     X(uDither) \
-    X(uDrift) \
     X(uDriftX) \
     X(uDriftY) \
     X(uDuotone) \
-    X(uEnergyRel) \
     X(uEscapeColor) \
     X(uField) \
     X(uFieldGeom) \
@@ -44,7 +40,6 @@ namespace geode::viz {
     X(uFlowPhase) \
     X(uFlowStrength) \
     X(uFlowTime) \
-    X(uFormPhase) \
     X(uFormula) \
     X(uFractal) \
     X(uFrontLayer) \
@@ -53,25 +48,18 @@ namespace geode::viz {
     X(uGateB) \
     X(uGateL) \
     X(uGrain) \
-    X(uHarmony) \
     X(uHasLayer) \
     X(uHueRange) \
     X(uHue) \
     X(uIntensity) \
     X(uInvert) \
     X(uKaleido) \
-    X(uKeyHue) \
-    X(uKeyStrength) \
-    X(uKnob) \
     X(uLayerMix) \
     X(uLife) \
     X(uMidRel) \
     X(uMirrorX) \
     X(uMorph) \
-    X(uMotionBright) \
-    X(uMoveDir) \
     X(uNoise) \
-    X(uOrbit) \
     X(uPalBase) \
     X(uPalLut) \
     X(uPalLutMix) \
@@ -136,8 +124,6 @@ namespace geode::viz {
     X(uSoundTex) \
     X(uSoundTimeSped) \
     X(uSpawn) \
-    X(uSpawnAge) \
-    X(uSpawnSeed) \
     X(uSteps) \
     X(uStyle) \
     X(uSway) \

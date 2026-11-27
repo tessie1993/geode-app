@@ -190,18 +190,13 @@ const SHADER_VALUES = {
   uLife: 0, uBirths: [0, 0, 0, 0],
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
-  // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
-  uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
   // Your colours (lib_palette): none picked, so the cosine ramp draws.
   uPalStops: new Array(15).fill(0), uPalStopCount: 0,
-  // The audio-motion uniforms (lib_scene_motion) at what ShaderScene::uploadMotion holds them at (the flow clocks run at 0.08 a second, below),
-  // and the legacy four at theirs: nothing computes any of them from the music any more.
-  uMoveDir: [1, 0], uSpawnSeed: 0, uSpawnAge: 1000, uFormPhase: 0, uFlowPhase: 1,
-  uEnergyRel: 1, uMotionBright: 0, uHarmony: 0.5,
-  uKeyHue: 0, uKeyStrength: 0, uBarOsc: 0.5, uOrbit: [0, 0], uDrift: 0,
-  uBreath: 1, uFlowTime: 1,
+  // The flow clocks (lib_scene_motion; they run at 0.08 a second, below). The rest of that file and the
+  // style knobs are GLSL constants, not uniforms.
+  uFlowPhase: 1, uFlowTime: 1,
   // The Speed-integrated sound clocks (core/viz/modulation/SpeedClock.hpp) at Speed 1, where they equal the
   // unscaled ones: the BASS_TIME MID_TIME TREBLE_TIME scalars below.
   uSoundTimeSped: [37, 35, 33],

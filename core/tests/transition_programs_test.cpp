@@ -258,7 +258,7 @@ void anInternedUniformIsResolvedOncePerProgram() {
     for (int frame = 0; frame < 100; ++frame) check(base.loc(Uniform::uTime) == first, "a slot returns the location it resolved");
     check(fake::gl.locationQueries == asked, "later frames do not ask the driver again");
     check(base.loc(std::string_view("uTime")) == first, "the interned and the named lookups agree");
-    check(base.arrayCount(Uniform::uKnob, 6) == base.arrayCount("uKnob", 6), "the interned and the named array counts agree");
+    check(base.arrayCount(Uniform::uTouchPoints, 5) == base.arrayCount("uTouchPoints", 5), "the interned and the named array counts agree");
     check(base.loc(Uniform::uProgress) != first, "two names get two locations");
 
     UniformCache elsewhere(base.program() + 100);

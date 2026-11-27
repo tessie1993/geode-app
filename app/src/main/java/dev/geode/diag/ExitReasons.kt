@@ -12,6 +12,7 @@ import dev.geode.data.AtomicWrite
 import java.io.File
 import java.io.InputStream
 import java.time.Instant
+import java.util.Locale
 
 /** A process death worth telling the user about, as the crash dialog words it. */
 enum class ExitKind(
@@ -45,12 +46,16 @@ private const val HEADER_LINES = 4
 /** What [ExitReasons] reads from an [ApplicationExitInfo]; the trace is read only for a crash or an ANR. */
 class LastExit(
     val timestamp: Long,
+    val pid: Int,
     val reason: Int,
     val importance: Int,
     val status: Int,
     val description: String?,
+    val summary: ByteArray?,
     val trace: () -> InputStream?,
-)
+) {
+    val key: String get() = "$timestamp:$pid"
+}
 
 /**
  * Explains, on the next start and once, the last process death the uncaught-exception handler cannot
@@ -60,37 +65,99 @@ class LastExit(
  * already shows and copies. The newest exit handled is kept in `no_backup` so it is told once.
  */
 class ExitReasons(
-    private val filesDir: File,
+    filesDir: File,
     noBackupDir: File,
-    private val lastExit: () -> LastExit?,
+    private val lastUpdateTime: () -> Long,
+    private val exitOf: (pid: Int) -> LastExit?,
 ) {
-    constructor(context: Context) : this(context.filesDir, context.noBackupFilesDir, { lastExitOf(context) })
+    constructor(context: Context) : this(
+        context.filesDir,
+        context.noBackupFilesDir,
+        { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime },
+        { pid -> exitOf(context, pid) },
+    )
 
     private val seenFile = File(noBackupDir, SEEN_FILE)
+    private val crashFile = File(filesDir, CRASH_FILE)
 
-    /** Writes the last exit's report when it needs one; the kind written, or null. */
+    /**
+     * Writes the last exit's report when it needs one; the kind written, or null. A native crash whose tombstone
+     * is not there yet is tried again on the next few starts.
+     */
     @WorkerThread
     fun record(): ExitKind? {
-        val last = lastExit() ?: return null
-        val seen = runCatching { seenFile.readText().trim().toLong() }.getOrDefault(0L)
-        if (last.timestamp <= seen) return null
-        val native = last.reason == ApplicationExitInfo.REASON_CRASH_NATIVE
-        val anr = last.reason == ApplicationExitInfo.REASON_ANR
-        val trace = if (native || anr) traceOf(last) else null
-        val tombstone = trace?.takeIf { native }?.let(Tombstone::parse)
-        val kind = kindOf(last.reason, last.importance, tombstone?.frames.orEmpty())
-        if (kind != null) {
-            val anrLines = trace?.takeIf { anr }?.let(::mainThreadOf).orEmpty()
-            AtomicWrite.text(File(filesDir, CRASH_FILE), report(kind, last, tombstone, anrLines))
+        val seen = Seen.read(seenFile)
+        val retry = seen.pending?.let { key -> exitOf(key.substringAfter(':').toIntOrNull() ?: 0)?.takeIf { it.key == key } }
+        val newest = exitOf(0)
+        if (retry == null && newest == null) return null
+        var written: ExitKind? = null
+        var pending: String? = null
+
+        fun handle(
+            exit: LastExit,
+            tries: Int,
+        ) {
+            when (val outcome = outcome(exit, tries)) {
+                Outcome.Retry -> pending = "${exit.key}:${tries + 1}"
+                is Outcome.Done -> written = outcome.kind ?: written
+            }
         }
-        AtomicWrite.text(seenFile, last.timestamp.toString())
-        return kind
+        retry?.let { handle(it, seen.tries) }
+        if (newest != null && !seen.covers(newest) && newest.key != retry?.key) handle(newest, 0)
+        AtomicWrite.text(seenFile, listOfNotNull(newest?.key ?: seen.line, pending).joinToString("\n"))
+        return written
     }
 
-    private fun traceOf(last: LastExit): ByteArray? =
-        runCatching { last.trace()?.use { it.readCapped(TRACE_MAX_BYTES) } }
+    private fun outcome(
+        last: LastExit,
+        tries: Int,
+    ): Outcome {
+        var tombstone: Tombstone? = null
+        var anrLines = emptyList<String>()
+        when (last.reason) {
+            ApplicationExitInfo.REASON_CRASH_NATIVE -> {
+                val trace = open(last)
+                if (trace == null && tries + 1 < TRACE_TRIES) return Outcome.Retry
+                tombstone = trace?.use { read(it, Tombstone::parse) }
+            }
+            ApplicationExitInfo.REASON_ANR ->
+                anrLines = open(last)?.use { read(it) { s -> mainThreadOf(s.readCapped(TRACE_MAX_BYTES)) } }.orEmpty()
+        }
+        val kind = kindOf(last.reason, last.importance, tombstone?.frames.orEmpty())
+        if (kind == null || !replaces(kind)) return Outcome.Done(null)
+        AtomicWrite.text(crashFile, report(kind, last, tombstone, anrLines))
+        return Outcome.Done(kind)
+    }
+
+    private fun open(last: LastExit): InputStream? =
+        runCatching { last.trace() }
+            .onFailure { RingLog.note(TAG, "exit trace unopenable", it) }
+            .getOrNull()
+
+    private fun <T> read(
+        trace: InputStream,
+        parse: (InputStream) -> T,
+    ): T? =
+        runCatching { parse(trace) }
             .onFailure { RingLog.note(TAG, "exit trace unreadable", it) }
             .getOrNull()
+
+    /** An unseen report is replaced only by one at least as serious: a kill never hides a crash or an ANR. */
+    private fun replaces(kind: ExitKind): Boolean {
+        if (!crashFile.exists()) return true
+        val head = runCatching { crashFile.useLines { it.take(HEADER_LINES).joinToString("\n") } }.getOrNull() ?: return false
+        return rank(kind) >= rank(ExitKind.of(head))
+    }
+
+    private fun versionLine(last: LastExit): String {
+        val died = last.summary?.let { String(it, Charsets.UTF_8).trim() }.takeUnless { it.isNullOrEmpty() }
+        return when {
+            died != null -> "BeatRealms $died"
+            last.timestamp < runCatching(lastUpdateTime).getOrDefault(0L) ->
+                "BeatRealms older than ${BuildConfig.VERSION_NAME} (before an update)"
+            else -> "BeatRealms ${BuildConfig.VERSION_NAME}"
+        }
+    }
 
     private fun report(
         kind: ExitKind,
@@ -99,7 +166,7 @@ class ExitReasons(
         anrLines: List<String>,
     ): String =
         buildString {
-            appendLine("BeatRealms ${BuildConfig.VERSION_NAME}")
+            appendLine(versionLine(last))
             appendLine("$EXIT_PREFIX${kind.slug}")
             appendLine("When: ${Instant.ofEpochMilli(last.timestamp)}")
             appendLine("Reason: ${reasonName(last.reason)}, status ${last.status}, importance ${last.importance}")
@@ -109,8 +176,8 @@ class ExitReasons(
             tombstone?.signal?.let { appendLine("Signal: $it") }
             tombstone?.abort?.let { appendLine("Abort: $it") }
             tombstone?.thread?.let { appendLine("Thread: $it") }
-            tombstone?.frames?.take(REPORT_FRAMES)?.forEachIndexed { i, f ->
-                appendLine("  #%02d %s%s".format(i, f.file, if (f.function.isEmpty()) "" else " (${f.function})"))
+            tombstone?.frames?.forEachIndexed { i, f ->
+                appendLine("  #%02d %s%s".format(Locale.ROOT, i, f.file, if (f.function.isEmpty()) "" else " (${f.function})"))
             }
             anrLines.forEach { appendLine(it) }
         }
@@ -122,24 +189,50 @@ class ExitReasons(
         private const val SEEN_FILE = "exit-reason-seen"
         private const val TAG = "ExitReasons"
         private const val TRACE_MAX_BYTES = 1 shl 20
-        private const val REPORT_FRAMES = 24
+        private const val TRACE_TRIES = 3
+        private const val SUMMARY_MAX_BYTES = 128
+        private val KILLS = setOf(ExitKind.LOW_MEMORY, ExitKind.SYSTEM_KILL)
         private const val ANR_LINES = 40
 
         /** A driver that crashes usually does so a few frames below its own entry, under libc's abort at most. */
         private const val DRIVER_FRAMES = 8
 
-        /** The vendor GLES, EGL and Vulkan libraries and the system loaders in front of them. */
+        /** The vendor GLES, EGL and Vulkan libraries and the system loaders in front of them, by file name. */
         private val GRAPHICS_DRIVER =
             Regex(
-                """/egl/|/hw/vulkan|libGLES|libEGL|libvulkan|adreno|libgsl|libllvm-glnext|mali|libpvr|libIMG|libsrv_um""",
+                """^(?:libGLES|libEGL|libvulkan|vulkan\.|libmali|libIMGegl|libsrv_um|libpvr|libgsl|libllvm-glnext|libadreno)""" +
+                    """|^eglSubDriver|_(?:adreno|mali)\.so$""",
                 RegexOption.IGNORE_CASE,
             )
 
+        private fun rank(kind: ExitKind?): Int = if (kind in KILLS) 0 else 1
+
+        /** The version of this process, for [ApplicationExitInfo.getProcessStateSummary] after it dies; 128 bytes at most. */
+        internal fun versionSummary(): ByteArray =
+            "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})".toByteArray(Charsets.UTF_8).let {
+                if (it.size > SUMMARY_MAX_BYTES) it.copyOf(SUMMARY_MAX_BYTES) else it
+            }
+
+        fun stampVersion(context: Context) {
+            context.getSystemService(ActivityManager::class.java)?.setProcessStateSummary(versionSummary())
+        }
+
         /** The newest exit of this app's process, as Android recorded it. */
-        private fun lastExitOf(context: Context): LastExit? {
+        private fun exitOf(
+            context: Context,
+            pid: Int,
+        ): LastExit? {
             val am = context.getSystemService(ActivityManager::class.java) ?: return null
-            val info = am.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull() ?: return null
-            return LastExit(info.timestamp, info.reason, info.importance, info.status, info.description) { info.traceInputStream }
+            val info = am.getHistoricalProcessExitReasons(context.packageName, pid, 1).firstOrNull() ?: return null
+            return LastExit(
+                info.timestamp,
+                info.pid,
+                info.reason,
+                info.importance,
+                info.status,
+                info.description,
+                info.processStateSummary,
+            ) { info.traceInputStream }
         }
 
         /**
@@ -154,7 +247,10 @@ class ExitReasons(
             val inUse = importance <= RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE
             return when (reason) {
                 ApplicationExitInfo.REASON_CRASH_NATIVE -> {
-                    val inDriver = frames.take(DRIVER_FRAMES).any { GRAPHICS_DRIVER.containsMatchIn(it.file) }
+                    val inDriver =
+                        frames.take(DRIVER_FRAMES).any {
+                            GRAPHICS_DRIVER.containsMatchIn(it.file.substringAfterLast('/').substringAfterLast('!'))
+                        }
                     if (inDriver) ExitKind.DRIVER_CRASH else ExitKind.NATIVE_CRASH
                 }
                 ApplicationExitInfo.REASON_ANR -> ExitKind.NOT_RESPONDING
@@ -197,6 +293,36 @@ class ExitReasons(
                 read += n
             }
             return buf.copyOf(read)
+        }
+    }
+}
+
+private sealed interface Outcome {
+    data object Retry : Outcome
+
+    class Done(
+        val kind: ExitKind?,
+    ) : Outcome
+}
+
+/** `exit-reason-seen`: the newest exit handled (`timestamp:pid`, or a bare timestamp from before), then a pending retry. */
+private class Seen(
+    val line: String,
+    val pending: String?,
+    val tries: Int,
+) {
+    fun covers(exit: LastExit): Boolean = line == exit.key || line.toLongOrNull()?.let { exit.timestamp <= it } == true
+
+    companion object {
+        fun read(file: File): Seen {
+            val lines = runCatching { file.readLines() }.getOrDefault(emptyList())
+            val retry = lines.getOrNull(1)?.trim()
+            val tries = retry?.substringAfterLast(':')?.toIntOrNull()
+            return Seen(
+                lines.firstOrNull()?.trim().orEmpty(),
+                retry?.substringBeforeLast(':')?.takeIf { tries != null },
+                tries ?: 0,
+            )
         }
     }
 }

@@ -70,6 +70,7 @@ class GeodeContainer(
      */
     val lastExit: Deferred<ExitKind?> =
         appScope.async(Dispatchers.IO) {
+            bestEffort(TAG, "stamp the version on this process") { ExitReasons.stampVersion(context) }
             runCatching { ExitReasons(context.applicationContext).record() }
                 .onFailure { RingLog.note(TAG, "last exit reason unreadable", it) }
                 .getOrNull()

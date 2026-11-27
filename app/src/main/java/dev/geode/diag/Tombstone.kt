@@ -1,5 +1,7 @@
 package dev.geode.diag
 
+import java.io.InputStream
+
 /**
  * What a crash report needs from a native crash's tombstone: the signal, the abort message and the
  * crashing thread's frames. Android hands the tombstone over as a protobuf
@@ -18,21 +20,49 @@ internal data class Tombstone(
     )
 
     companion object {
-        fun parse(bytes: ByteArray): Tombstone {
-            var tid = -1L
-            var signal: String? = null
-            var abort: String? = null
-            val threads = ArrayList<Proto>()
-            Proto(bytes).forEach { f ->
-                when (f.number) {
-                    TID -> tid = f.varint
-                    SIGNAL -> signal = signalOf(f.message())
-                    ABORT -> abort = f.string()
-                    THREADS -> threads += f.message()
+        const val MAX_FRAMES = 24
+
+        /**
+         * Streams the tombstone: `threads` is a map written in hash order, so the crashing thread can sit after any
+         * amount of other threads. Only its value and the small top-level fields are buffered; the rest is skipped.
+         */
+        fun parse(input: InputStream): Tombstone = Reader(ProtoStream(input)).read()
+
+        private class Reader(
+            private val s: ProtoStream,
+        ) {
+            private var tid = -1L
+            private var signal: String? = null
+            private var abort: String? = null
+            private var crashing: Pair<String?, List<Frame>>? = null
+
+            fun read(): Tombstone {
+                s.fields(Long.MAX_VALUE, { number, value -> if (number == TID) tid = value }, ::field)
+                return Tombstone(signal, abort?.takeIf { it.isNotBlank() }, crashing?.first, crashing?.second.orEmpty())
+            }
+
+            private fun field(
+                number: Int,
+                len: Long,
+            ): Boolean =
+                when {
+                    number == SIGNAL -> s.bytes(len, FIELD_MAX_BYTES)?.also { signal = signalOf(Proto(it)) } != null
+                    number == ABORT -> s.bytes(len, FIELD_MAX_BYTES)?.also { abort = it.toString(Charsets.UTF_8) } != null
+                    number == THREADS && crashing == null && tid >= 0 -> entry(len)
+                    else -> s.skip(len)
+                }
+
+            /** A `threads` map entry (key 1: tid, value 2: Thread); the value is read only when the key is [tid]. */
+            private fun entry(len: Long): Boolean {
+                var key = -1L
+                return s.fields(s.position + len, { number, value -> if (number == 1) key = value }) { number, vlen ->
+                    if (number == 2 && key == tid) {
+                        s.bytes(vlen, THREAD_MAX_BYTES)?.also { crashing = threadOf(Proto(it)) } != null
+                    } else {
+                        s.skip(vlen)
+                    }
                 }
             }
-            val crashing = threads.firstNotNullOfOrNull { entry -> threadOf(entry, tid) }
-            return Tombstone(signal, abort?.takeIf { it.isNotBlank() }, crashing?.first, crashing?.second.orEmpty())
         }
 
         private fun signalOf(signal: Proto): String? {
@@ -47,26 +77,13 @@ internal data class Tombstone(
             return name?.let { if (code.isNullOrBlank()) it else "$it ($code)" }
         }
 
-        /** A `threads` map entry (key 1: tid, value 2: Thread): the thread's name and frames when it is [tid]. */
-        private fun threadOf(
-            entry: Proto,
-            tid: Long,
-        ): Pair<String?, List<Frame>>? {
-            var key = -1L
-            var thread: Proto? = null
-            entry.forEach { f ->
-                when (f.number) {
-                    1 -> key = f.varint
-                    2 -> thread = f.message()
-                }
-            }
-            val body = thread?.takeIf { key == tid } ?: return null
+        private fun threadOf(body: Proto): Pair<String?, List<Frame>> {
             var name: String? = null
             val frames = ArrayList<Frame>()
             body.forEach { f ->
                 when (f.number) {
                     THREAD_NAME -> name = f.string()
-                    THREAD_FRAMES -> frames += frameOf(f.message())
+                    THREAD_FRAMES -> if (frames.size < MAX_FRAMES) frames += frameOf(f.message())
                 }
             }
             return name to frames
@@ -95,6 +112,87 @@ internal data class Tombstone(
         private const val THREAD_FRAMES = 4
         private const val FRAME_FUNCTION = 4
         private const val FRAME_FILE = 6
+
+        private const val FIELD_MAX_BYTES = 64 * 1024
+        private const val THREAD_MAX_BYTES = 1 shl 20
+    }
+}
+
+/** Reads a protobuf from a stream front to back; every read returns null or false at the end or on a malformed value. */
+private class ProtoStream(
+    private val input: InputStream,
+) {
+    var position = 0L
+        private set
+
+    /**
+     * Walks the fields up to [end]; [onLength] reads or skips a length-delimited value and says whether to go on.
+     * False when the walk stopped on a malformed or cut-off field.
+     */
+    fun fields(
+        end: Long,
+        onVarint: (number: Int, value: Long) -> Unit,
+        onLength: (number: Int, len: Long) -> Boolean,
+    ): Boolean {
+        while (position < end) {
+            val key = varint() ?: return end == Long.MAX_VALUE
+            val number = (key ushr 3).toInt()
+            val ok =
+                when ((key and WIRE_MASK).toInt()) {
+                    WIRE_VARINT -> varint()?.also { onVarint(number, it) } != null
+                    WIRE_FIXED64 -> skip(FIXED64_BYTES)
+                    WIRE_FIXED32 -> skip(FIXED32_BYTES)
+                    WIRE_LENGTH -> (varint() ?: -1L).let { len -> len in 0..end - position && onLength(number, len) }
+                    else -> false
+                }
+            if (!ok || position > end) return false
+        }
+        return true
+    }
+
+    fun varint(): Long? {
+        var result = 0L
+        var shift = 0
+        while (shift < Long.SIZE_BITS) {
+            val b = input.read()
+            if (b < 0) return null
+            position++
+            result = result or ((b and 0x7f).toLong() shl shift)
+            if (b and 0x80 == 0) return result
+            shift += 7
+        }
+        return null
+    }
+
+    fun skip(n: Long): Boolean {
+        var left = n
+        while (left > 0) {
+            val skipped = input.skip(left)
+            if (skipped > 0) {
+                left -= skipped
+            } else {
+                if (input.read() < 0) return false
+                left--
+            }
+        }
+        position += n
+        return true
+    }
+
+    /** The first [cap] bytes of a [len]-byte value, the rest skipped. */
+    fun bytes(
+        len: Long,
+        cap: Int,
+    ): ByteArray? {
+        val buf = ByteArray(minOf(len, cap.toLong()).toInt())
+        var read = 0
+        while (read < buf.size) {
+            val n = input.read(buf, read, buf.size - read)
+            if (n < 0) return null
+            read += n
+        }
+        position += read
+        return buf.takeIf { skip(len - read) }
     }
 }
 
@@ -160,12 +258,12 @@ internal class Proto(
         }
         return null
     }
-
-    private companion object {
-        const val WIRE_MASK = 7L
-        const val WIRE_VARINT = 0
-        const val WIRE_FIXED64 = 1
-        const val WIRE_LENGTH = 2
-        const val WIRE_FIXED32 = 5
-    }
 }
+
+private const val WIRE_MASK = 7L
+private const val WIRE_VARINT = 0
+private const val WIRE_FIXED64 = 1
+private const val WIRE_LENGTH = 2
+private const val WIRE_FIXED32 = 5
+private const val FIXED64_BYTES = 8L
+private const val FIXED32_BYTES = 4L

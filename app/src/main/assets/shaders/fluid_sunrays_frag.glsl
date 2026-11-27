@@ -1,7 +1,7 @@
 #version 300 es
 // Ported from WebGL-Fluid-Simulation - MIT License, (c) 2017 Pavel Dobryakov
 // 16-sample radial march from each pixel toward the screen centre (0.5,0.5)
-// of the scene-FBO UV space, accumulating the occlusion mask's alpha.
+// of the scene-FBO UV space, accumulating the occlusion mask's red channel.
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). Half-float velocity/dye/pressure values far exceed
@@ -21,10 +21,10 @@ void main() {
     vec2 dir = vUv - 0.5;
     dir *= 1.0 / float(ITERATIONS) * density;
     float illuminationDecay = 1.0;
-    float color = texture(uTexture, vUv).a;
+    float color = texture(uTexture, vUv).r;
     for (int i = 0; i < ITERATIONS; i++) {
         coord -= dir;
-        float col = texture(uTexture, coord).a;
+        float col = texture(uTexture, coord).r;
         color += col * illuminationDecay * uWeight;
         illuminationDecay *= decay;
     }

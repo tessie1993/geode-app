@@ -18,6 +18,8 @@
 "lib_scene_motion",
 "lib_dmt",
 "lib_camera",
+// The vertex stages (quad_vert and a style's own <id>_vert): the per-frame values a style's fragment reads as `flat` varyings.
+"lib_frame",
 // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
 "lib_sound",
 // The feedback pass's UV transform (core/viz/liquid/FeedbackMotion.hpp); liquid_frag.

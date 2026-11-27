@@ -120,7 +120,8 @@ class HistoryStore(
         private const val ENTRY_FIELDS = 6
 
         private val writer =
-            java.util.concurrent.Executors.newSingleThreadExecutor(backgroundThreadFactory("geode-history"))
+            java.util.concurrent.Executors
+                .newSingleThreadExecutor(backgroundThreadFactory("geode-history"))
 
         // Native's wire (`geode_history_recent`): six fields per entry, each entry ended by U+001E.
         private fun entriesOf(wire: String?): List<Entry> =

@@ -111,6 +111,7 @@ class StageView(
         if (bufferWidth == width && bufferHeight == height) holder.setSizeFromLayout() else holder.setFixedSize(bufferWidth, bufferHeight)
         if (blur[4] > 0f) sendBlur()
     }
+
     /**
      * Frosted glass for a Compose sheet floating over this visual. The sheet lives in another layer, so a
      * `RenderEffect` blur there never sees the visual's pixels; the visual blurs the region under the sheet

@@ -223,7 +223,8 @@ class PlaybackSession internal constructor(
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */
         private val sessionWriter: java.util.concurrent.ExecutorService =
-            java.util.concurrent.Executors.newSingleThreadExecutor(backgroundThreadFactory("geode-session"))
+            java.util.concurrent.Executors
+                .newSingleThreadExecutor(backgroundThreadFactory("geode-session"))
     }
 }
 

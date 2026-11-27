@@ -64,6 +64,7 @@ object PerfNative {
 
     /** The resolution an old install's stored render scale maps to on the panel last sent. */
     external fun perfResolutionForScale(renderScale: Float): Int
+
     /** The march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
 

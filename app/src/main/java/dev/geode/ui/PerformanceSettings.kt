@@ -172,6 +172,7 @@ private fun ResolutionControls(
         }
     }
 }
+
 /**
  * The refresh rates of the display under [view] at its current resolution (`Display.getSupportedModes`), ascending:
  * the same set from every mode, so the app's own mode switch never changes it. Empty before the view has a display.
@@ -248,7 +249,7 @@ private fun Hint(text: String) {
 @Composable
 internal fun PerformanceSettingsPreview() {
     CrystalMaterialTheme(GeneralSettings()) {
-        PerformanceSettingsContent(PerformanceSettings.BALANCED) {}
+        PerformanceSettingsContent(PerformanceSettings.BALANCED, onChange = {})
     }
 }
 
@@ -256,6 +257,6 @@ internal fun PerformanceSettingsPreview() {
 @Composable
 internal fun PerformanceSettingsCustomPreview() {
     CrystalMaterialTheme(GeneralSettings()) {
-        PerformanceSettingsContent(PerformanceSettings.SAVER.copy(fpsCap = 60)) {}
+        PerformanceSettingsContent(PerformanceSettings.SAVER.copy(fpsCap = 60), onChange = {})
     }
 }

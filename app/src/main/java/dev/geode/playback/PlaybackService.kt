@@ -469,7 +469,8 @@ class PlaybackService : MediaLibraryService() {
                 ).build()
 
         private val resumptionExecutor =
-            java.util.concurrent.Executors.newSingleThreadExecutor(backgroundThreadFactory("geode-resumption"))
+            java.util.concurrent.Executors
+                .newSingleThreadExecutor(backgroundThreadFactory("geode-resumption"))
 
         @OptIn(UnstableApi::class)
         internal fun lastPlayedResumption(context: Context): MediaSession.MediaItemsWithStartPosition? {

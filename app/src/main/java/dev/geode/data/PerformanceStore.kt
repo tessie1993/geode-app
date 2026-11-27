@@ -70,8 +70,7 @@ class PerformanceStore(
         mirror.value = ResolutionMirror.read()
     }
 
-    private fun send(panel: DisplayPanel) =
-        PerfNative.perfPanelSet(panel.panelWidth, panel.panelHeight, panel.modeWidth, panel.modeHeight)
+    private fun send(panel: DisplayPanel) = PerfNative.perfPanelSet(panel.panelWidth, panel.panelHeight, panel.modeWidth, panel.modeHeight)
 
     private fun send(settings: PerformanceSettings) =
         PerfNative.perfSettingsSet(settings.resolution, settings.fpsCap, settings.marchScale, settings.postFx)

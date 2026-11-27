@@ -30,15 +30,13 @@ public:
     EGLint makeCurrent();
     EGLint makeCurrentSurfaceless();
     void releaseCurrent();
-    // Inserts the frame's fence (EGL_KHR_fence_sync) after the draw and swaps. EGL_SUCCESS, or the error
-    // eglSwapBuffers left.
+    // eglSwapBuffers, at the window's own pace. EGL_SUCCESS, or the error it left.
     EGLint swap();
-    // The last swapped frame's GPU work has not finished: its fence is not signalled, asked with no wait. False with
-    // no frame swapped yet, or without EGL_KHR_fence_sync (no fence, so no skip).
-    bool previousFrameBusy();
-    // The next swap's stamp, CLOCK_MONOTONIC ns: the system does not show the frame before it; 0: none. Used by
-    // that swap alone. Does nothing where EGL_ANDROID_presentation_time is missing.
-    void presentAt(int64_t stampNs) { stampNs_ = stampNs; }
+    // EGL_SUCCESS after a swap that returned true, or the error a failed one left.
+    static EGLint swapError();
+    EGLDisplay display() const { return display_; }
+    EGLSurface surface() const { return surface_; }
+    ANativeWindow* window() const { return window_; }
     void destroySurface();
     void destroyContext();
 
@@ -49,16 +47,6 @@ private:
     EGLSurface surface_ = EGL_NO_SURFACE;
     ANativeWindow* window_ = nullptr;
     bool surfaceless_ = false;
-    // eglPresentationTimeANDROID, from EGL_ANDROID_presentation_time; null without it.
-    EGLBoolean (*presentationTime_)(EGLDisplay, EGLSurface, int64_t) = nullptr;
-    int64_t stampNs_ = 0;
-    // EGL_KHR_fence_sync, from the display's extensions; null without it.
-    EGLSyncKHR (*createSync_)(EGLDisplay, EGLenum, const EGLint*) = nullptr;
-    EGLBoolean (*destroySync_)(EGLDisplay, EGLSyncKHR) = nullptr;
-    EGLint (*clientWaitSync_)(EGLDisplay, EGLSyncKHR, EGLint, EGLTimeKHR) = nullptr;
-    // The fence of the last frame swapped, EGL_NO_SYNC_KHR for none.
-    EGLSyncKHR fence_ = EGL_NO_SYNC_KHR;
-    void dropFence();
 };
 
 }  // namespace geode::stage::platform

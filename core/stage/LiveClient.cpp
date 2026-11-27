@@ -15,17 +15,13 @@ void LiveClient::surfaceChanged(int width, int height) {
     if (viz_) viz_->surfaceChanged(width, height);
 }
 
-void LiveClient::frameTime(int64_t vsyncNs) {
-    if (viz_) viz_->frameTime(vsyncNs);
-}
-
 void LiveClient::framePresent(int64_t presentNs) {
     if (viz_) viz_->framePresent(presentNs);
 }
 
 uint32_t LiveClient::frame(float pacedFps, float capFps) {
     if (!viz_) return 0;
-    // ADPF is the stage thread's: the whole frame, draw and swap, against the frame clock's budget (StagePort::frameWork).
+    // ADPF is the stage thread's: the frame's draw against the paced frame's length (StagePort::frameWork).
     runJobs(true);
     uint32_t events = 0;
     {

@@ -579,8 +579,7 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, bool mayRepeat)
-        : v_(v), ring_(ring), vsyncNs_(vsyncNs) {
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t presentNs, bool mayRepeat) : v_(v), ring_(ring) {
         v_.presentNs = presentNs;
         v_.mayRepeat = mayRepeat;
     }
@@ -607,16 +606,12 @@ public:
     bool frameRepeated() override { return v_.renderer.frameRepeated(); }
 
 private:
-    // The frame's time: when the display is expected to show it (the vsync's expected presentation), so the picture's
-    // step is the presentations' own spacing and not the thread hop's jitter. Without one, the vsync it was asked for
-    // at, and without that (the cast's fallback) the clock at the draw. Never earlier than the last frame's.
+    // The frame's time: when the display is expected to show it (the stage's pacer, stage/SwapPace's PresentClock),
+    // so the picture's step is the presentations' own spacing and not the draw's jitter. Without one (a frame no pacer
+    // asked for) the clock at the draw. Never earlier than the last frame's.
     double frameSeconds() {
         double seconds = monotonicSeconds();
-        if (v_.presentNs > 0) {
-            seconds = static_cast<double>(v_.presentNs) * 1e-9;
-        } else if (vsyncNs_ > 0) {
-            seconds = static_cast<double>(vsyncNs_) * 1e-9;
-        }
+        if (v_.presentNs > 0) seconds = static_cast<double>(v_.presentNs) * 1e-9;
         seconds = std::max(seconds, v_.liveSeconds);
         v_.liveSeconds = seconds;
         return seconds;
@@ -624,7 +619,6 @@ private:
 
     geode_viz& v_;
     const geode_pcm_ring* ring_;
-    int64_t vsyncNs_;
 };
 
 static_assert(kPageMoments == GEODE_MUSIC_MOMENTS);
@@ -636,13 +630,13 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 // The two below are defined by qualified name, so each must match its declaration in api/geode_viz_internal.hpp:
 // a drift is a compile error here, not a new overload that geode_stage_api.cpp fails to link against.
 
-// geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
-// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. presentNs, CLOCK_MONOTONIC, is when
-// the display is expected to show it (0: none); the sound is read there. Not part of the C ABI.
-int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs, bool mayRepeat) {
+// geode_viz_frame for a frame the stage's pacer asked for (declared in api/geode_viz_internal.hpp): presentNs,
+// CLOCK_MONOTONIC, is when the display is expected to show it, the picture's clock for this frame and where the sound
+// is read; 0 draws at the clock now. Not part of the C ABI.
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t presentNs, bool mayRepeat) {
     if (!v) return 0;
     try {
-        VizStages stages(*v, ring, vsyncNs, presentNs, mayRepeat);
+        VizStages stages(*v, ring, presentNs, mayRepeat);
         return static_cast<int>(v->live.run(stages, pacedFps, capFps));
     } catch (...) {
         // Nothing to tell the shell this frame; the next one starts over.

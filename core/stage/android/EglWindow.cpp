@@ -97,24 +97,6 @@ bool EglWindow::ensureDisplay() {
         return false;
     }
     surfaceless_ = hasExtension(display, "EGL_KHR_surfaceless_context");
-    if (hasExtension(display, "EGL_ANDROID_presentation_time")) {
-        presentationTime_ = reinterpret_cast<decltype(presentationTime_)>(eglGetProcAddress("eglPresentationTimeANDROID"));
-    }
-    if (hasExtension(display, "EGL_KHR_fence_sync")) {
-        createSync_ = reinterpret_cast<decltype(createSync_)>(eglGetProcAddress("eglCreateSyncKHR"));
-        destroySync_ = reinterpret_cast<decltype(destroySync_)>(eglGetProcAddress("eglDestroySyncKHR"));
-        clientWaitSync_ = reinterpret_cast<decltype(clientWaitSync_)>(eglGetProcAddress("eglClientWaitSyncKHR"));
-        if (!createSync_ || !destroySync_ || !clientWaitSync_) createSync_ = nullptr;
-    }
-    // Said once per process, not once per stage: what a device lacks is the device's, and the stage then runs without it.
-    static std::atomic<bool> told{false};
-    if (!presentationTime_ && !told.exchange(true)) {
-        GEODE_LOGW(kTag, "no eglPresentationTimeANDROID: swaps are not stamped with their presentation time");
-    }
-    static std::atomic<bool> toldFence{false};
-    if (!createSync_ && !toldFence.exchange(true)) {
-        GEODE_LOGW(kTag, "no EGL_KHR_fence_sync: a vsync is skipped only on the CPU side, never for the GPU");
-    }
     return true;
 }
 
@@ -171,33 +153,16 @@ void EglWindow::releaseCurrent() {
 
 EGLint EglWindow::swap() {
     if (surface_ == EGL_NO_SURFACE) return EGL_BAD_SURFACE;
-    if (stampNs_ > 0 && presentationTime_) presentationTime_(display_, surface_, stampNs_);
-    stampNs_ = 0;
-    // The fence goes in after this frame's draw and before the swap, so it signals when the GPU has finished the
-    // frame; the one before it is done with by now.
-    dropFence();
-    if (createSync_) fence_ = createSync_(display_, EGL_SYNC_FENCE_KHR, nullptr);
-    if (eglSwapBuffers(display_, surface_)) return EGL_SUCCESS;
+    return eglSwapBuffers(display_, surface_) ? EGL_SUCCESS : swapError();
+}
+
+EGLint EglWindow::swapError() {
     const EGLint error = eglGetError();
-    GEODE_LOGW(kTag, "eglSwapBuffers: 0x%x", static_cast<unsigned>(error));
+    GEODE_LOGW(kTag, "swap: 0x%x", static_cast<unsigned>(error));
     return error == EGL_SUCCESS ? EGL_BAD_SURFACE : error;
 }
 
-bool EglWindow::previousFrameBusy() {
-    if (fence_ == EGL_NO_SYNC_KHR || !clientWaitSync_) return false;
-    // Timeout 0: a poll, never a wait. No flush bit: the swap already flushed the frame.
-    return clientWaitSync_(display_, fence_, 0, 0) == EGL_TIMEOUT_EXPIRED_KHR;
-}
-
-void EglWindow::dropFence() {
-    if (fence_ == EGL_NO_SYNC_KHR) return;
-    if (destroySync_) destroySync_(display_, fence_);
-    fence_ = EGL_NO_SYNC_KHR;
-}
-
 void EglWindow::destroySurface() {
-    // The frame the fence stood for was on this surface.
-    dropFence();
     if (surface_ == EGL_NO_SURFACE) return;
     // Released first, so the surface is not left current and its buffers go back to the window now, not when
     // another surface is made current.
@@ -210,7 +175,6 @@ void EglWindow::destroySurface() {
 
 void EglWindow::destroyContext() {
     if (context_ == EGL_NO_CONTEXT) return;
-    dropFence();
     releaseCurrent();
     if (!eglDestroyContext(display_, context_)) GEODE_LOGW(kTag, "eglDestroyContext: 0x%x", static_cast<unsigned>(eglGetError()));
     context_ = EGL_NO_CONTEXT;

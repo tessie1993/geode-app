@@ -739,8 +739,10 @@ waveform_test | mt | core/tests/waveform_test.cpp core/sound/interp/Waveform.cpp
 # --- Export pre-roll
 # An export's start (core/output/PreRoll, #999 F1 F2 F4): the engine hears the track before frame 0, so the first
 # half second and a loop's head run the clock whole, mid-song frame 0 hears live's tempo, a track with no audio fails.
-# And F3: a silent stretch holds the export's frames and its beat cut, like the live visual.
-export_preroll_test | core | core/tests/export_preroll_test.cpp core/sound/*.cpp core/output/FrameClock.cpp \
+# And F3: a silent stretch holds the export's frames and its beat cut, like the live visual. Read the renderer's way
+# (inline analysis, FrameReader); a whole-track export's feeling starts with the range, as live's.
+export_preroll_test | mt | core/tests/export_preroll_test.cpp core/sound/*.cpp core/sound/hop/AnalysisThread.cpp \
+    core/sound/interp/FrameBlend.cpp core/audio/ingest/PcmRing.cpp core/output/FrameClock.cpp \
     core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp core/viz/styles/catalogue/StyleSchedule.cpp |
 # The render order (core/output/ExportFrame): prepare up to the look, the pre-roll's plan, each frame's audio to
 # its exact end and its draw at its exact time, the failures (no track, nothing heard, a track that ends).

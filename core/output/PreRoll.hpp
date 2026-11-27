@@ -2,7 +2,8 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "sound/SoundEngine.hpp"
+#include "sound/hop/AnalysisThread.hpp"
+#include "sound/interp/FrameBlend.hpp"
 
 namespace geode::output {
 
@@ -34,16 +35,15 @@ inline PreRoll preRollFor(int64_t rangeStartMs) {
     return PreRoll{0, kPreRollMs, true};
 }
 
-// Ends the pre-roll on the export's engine. Its triggers and accent were heard before the range, so a step
-// drops them rather than fire them on frame 0; the boundary, when the plan names one, lands on frame 0.
-// False when there is no engine, i.e. the track gave the engine nothing to hear: the shell fails the render
-// rather than export a picture frozen by the silence rule (F1). A track that decodes to silence is heard,
-// and stays still like any silence.
-inline bool endPreRoll(sound::SoundEngine* engine, const PreRoll& plan) {
-    if (engine == nullptr) return false;
-    GeodeSoundFrame dropped{};
-    engine->step(0.0f, dropped);
-    if (plan.boundary) engine->trackBoundary();
+// Ends the pre-roll on the export's analysis (inline, AnalysisThread::pump). Its triggers and accents were heard
+// before the range, so the reader delivers none of them; the boundary, when the plan names one, starts the song over
+// and is true here: the caller fires it on frame 0.
+inline bool endPreRoll(sound::AnalysisThread& analysis, sound::interp::FrameReader& reader, int64_t head, const PreRoll& plan) {
+    analysis.pump(0.0f);
+    reader.heardThrough(analysis, head);
+    if (!plan.boundary) return false;
+    analysis.trackBoundary();
+    analysis.pump(0.0f);
     return true;
 }
 

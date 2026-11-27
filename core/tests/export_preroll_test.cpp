@@ -1,15 +1,12 @@
 // An export's start (#999 F1, F2, F4): the pre-roll (core/output/PreRoll) before frame 0; and a silent
 // stretch mid-song, which holds the export's frames like the live visual's (F3).
-// Built with the runner's own compiler in CI:
-//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_preroll_test.cpp core/sound/*.cpp
-//     core/output/FrameClock.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp
-//     core/viz/styles/catalogue/StyleSchedule.cpp -o export_preroll_test
 //
 // Each case runs the export's start the way the shell and the renderer run it, with no GL: the pre-roll's
-// TrackFeed (ExportFrame's pre-roll decode) into a sound engine made at the first write (Renderer::writeAudio,
-// an export's engine counting as the player), output::endPreRoll (Renderer::endPreRoll), then the range's
-// own TrackFeed frame by frame, each frame hearing the audio up to its end and stepping the engine 1/fps
-// (output/ExportFrame::frame). The picture's clock is sound::motionRate of the frame (RendererFrame).
+// TrackFeed (ExportFrame's pre-roll decode) into the renderer's own ring and inline analysis, made at the first
+// write (Renderer::hearOwn, an export's analysis counting as the player), output::endPreRoll (Renderer::endPreRoll),
+// then the range's own TrackFeed frame by frame, each frame hearing the audio up to its end, pumping the analysis
+// 1/fps and reading at the ring's head (RendererFrame's beginFrame and readSound). The picture's clock is
+// sound::motionRate of the frame.
 //
 // Before the pre-roll the engine heard its first sample on frame 0, so presence rose from 0 and the clock
 // crawled for the first half second of every export (F2) and of every loop's head, which the seam dissolves
@@ -26,14 +23,19 @@
 #include "audio/ingest/TrackFeed.hpp"
 #include "output/FrameClock.hpp"
 #include "output/PreRoll.hpp"
+#include "audio/ingest/PcmRing.hpp"
 #include "sound/DriveGain.hpp"
-#include "sound/SoundEngine.hpp"
+#include "sound/Emotion.hpp"
+#include "sound/hop/AnalysisThread.hpp"
+#include "sound/interp/FrameBlend.hpp"
 #include "viz/styles/catalogue/StyleSchedule.hpp"
 
+using geode::audio::ingest::PcmRing;
 using geode::audio::ingest::TrackFeed;
 using geode::output::FrameClock;
 using geode::output::PreRoll;
-using geode::sound::SoundEngine;
+using geode::sound::AnalysisThread;
+using geode::sound::Emotion;
 
 namespace {
 
@@ -71,16 +73,56 @@ std::vector<float> track(double seconds, bool silent = false) {
     return pcm;
 }
 
-// The renderer's engine, made at its first write like Renderer::writeAudio in an export.
+// The renderer's own ring and inline analysis, made at its first write (Renderer::hearOwn in an export), and its read.
 struct Renderer {
-    std::unique_ptr<SoundEngine> sound;
+    static constexpr int kRingFrames = 1 << 16;
+    static constexpr int kRunway = 1 << 14;
+    std::unique_ptr<PcmRing> ring;
+    std::unique_ptr<AnalysisThread> sound;
+    geode::sound::interp::FrameReader reader;
+    geode::sound::interp::Hits hits;
+    Emotion::State feeling{};
+    int64_t unpumped = 0;
+    bool sectionChangeOwed = false;
+
     static void sink(void* self, const float* interleaved, int frames, int channels, int rate) {
         auto& r = *static_cast<Renderer*>(self);
         if (!r.sound) {
-            r.sound = std::make_unique<SoundEngine>(rate);
+            r.ring = std::make_unique<PcmRing>(kRingFrames, 2, kRunway);
+            r.sound = std::make_unique<AnalysisThread>(*r.ring);
             r.sound->setPlayerSource(true);
+            r.reader.restart();
         }
-        r.sound->write(interleaved, frames, channels);
+        for (int done = 0; done < frames;) {
+            const int n = std::min(frames - done, kRunway);
+            if (r.unpumped + n > kRingFrames / 2) {
+                r.sound->pump(0.0f);
+                r.unpumped = 0;
+            }
+            r.ring->writeFloat(interleaved + static_cast<size_t>(done) * static_cast<size_t>(channels), n, channels, rate);
+            r.unpumped += n;
+            done += n;
+        }
+    }
+    // Renderer::endPreRoll.
+    bool endPreRoll(int64_t rangeStartMs) {
+        if (!sound || ring->headFrames() <= 0) return false;
+        sectionChangeOwed = geode::output::endPreRoll(*sound, reader, ring->headFrames(), geode::output::preRollFor(rangeStartMs));
+        unpumped = 0;
+        return true;
+    }
+    // RendererFrame: the inline pump, then the read at the head.
+    GeodeSoundFrame frame(float dt) {
+        GeodeSoundFrame f{};
+        if (!sound) return f;
+        sound->pump(dt);
+        unpumped = 0;
+        reader.read(*sound, ring->headFrames(), f, feeling, hits);
+        if (sectionChangeOwed) {
+            f.sectionChange = 1.0f;
+            sectionChangeOwed = false;
+        }
+        return f;
     }
 };
 
@@ -122,6 +164,7 @@ private:
 struct Start {
     bool heard = false;                // endPreRoll's answer: false fails the render
     std::vector<GeodeSoundFrame> frames;
+    std::vector<Emotion::State> feelings;
 };
 
 // An export of `frames` frames from rangeStartMs at fps: the pre-roll, then the range.
@@ -130,15 +173,14 @@ Start exportStart(const std::vector<float>& pcm, int64_t rangeStartMs, int fps, 
     Start out;
     const PreRoll plan = geode::output::preRollFor(rangeStartMs);
     Decode(pcm, plan.fromMs).deliverUntilMs(plan.heardMs, r);
-    out.heard = geode::output::endPreRoll(r.sound.get(), plan);
+    out.heard = r.endPreRoll(rangeStartMs);
     if (!out.heard) return out;
     Decode range(pcm, rangeStartMs);
     const FrameClock clock(fps, kRate);
     for (int n = 0; n < frames; n++) {
         range.deliverUntilMs(clock.frameTimeMs(n + 1), r);
-        GeodeSoundFrame f{};
-        if (r.sound) r.sound->step(static_cast<float>(clock.dtSeconds()), f);
-        out.frames.push_back(f);
+        out.frames.push_back(r.frame(static_cast<float>(clock.dtSeconds())));
+        out.feelings.push_back(r.feeling);
     }
     return out;
 }
@@ -147,9 +189,21 @@ Start exportStart(const std::vector<float>& pcm, int64_t rangeStartMs, int fps, 
 GeodeSoundFrame liveAt(const std::vector<float>& pcm, int64_t untilMs) {
     Renderer r;
     Decode(pcm, 0).deliverUntilMs(untilMs, r);
-    GeodeSoundFrame f{};
-    r.sound->step(1.0f / 60.0f, f);
-    return f;
+    return r.frame(1.0f / 60.0f);
+}
+
+// Live from the track's start, frame by frame: no pre-roll.
+Start liveFromStart(const std::vector<float>& pcm, int fps, int frames) {
+    Renderer r;
+    Start out;
+    Decode play(pcm, 0);
+    const FrameClock clock(fps, kRate);
+    for (int n = 0; n < frames; n++) {
+        play.deliverUntilMs(clock.frameTimeMs(n + 1), r);
+        out.frames.push_back(r.frame(static_cast<float>(clock.dtSeconds())));
+        out.feelings.push_back(r.feeling);
+    }
+    return out;
 }
 
 void planCases() {
@@ -193,6 +247,34 @@ void warmStart() {
     check(top.frames[0].sectionChange == 1.0f, "the song's start is a track boundary on frame 0");
 }
 
+// A whole-track export feels what live feels from the start: the pre-roll's eight seconds of the song are not felt
+// ahead of frame 0, so the song's side of its feeling (how sure, how happy) is live's at each frame, not the song's
+// future. The live cues (a loudness rise in the tension) differ by design: the export's levels are warm.
+void feelingStartsWithTheRange() {
+    const std::vector<float> pcm = track(20.0);
+    constexpr int kFps = 30;
+    constexpr int kFrames = 8 * kFps;
+    const Start ex = exportStart(pcm, 0, kFps, kFrames);
+    const Start live = liveFromStart(pcm, kFps, kFrames);
+    check(ex.heard && ex.feelings.size() == live.feelings.size(), "both ran");
+    if (!ex.heard || ex.feelings.size() != live.feelings.size()) return;
+    check(ex.feelings[0].confidence == 0.0f && ex.feelings[0].scale == -1,
+          "frame 0 feels nothing of the song yet, as live");
+    float worst = 0.0f;
+    int at = 0;
+    for (int n = 0; n < kFrames; n++) {
+        const Emotion::State& a = ex.feelings[static_cast<size_t>(n)];
+        const Emotion::State& b = live.feelings[static_cast<size_t>(n)];
+        const float d = std::max(std::fabs(a.confidence - b.confidence), std::fabs(a.valence - b.valence));
+        if (d > worst) {
+            worst = d;
+            at = n;
+        }
+    }
+    std::printf("  feeling, export against live from the start: worst %.3f at frame %d\n", worst, at);
+    check(worst < 0.02f, "an export's feeling from the start is live's at every frame");
+}
+
 // F4: a loop's head runs at the speed of its tail, so the seam dissolves like into like.
 void loopSeam() {
     const std::vector<float> pcm = track(14.0);
@@ -213,7 +295,7 @@ void loopSeam() {
 
 // F1: a track that gave the engine nothing fails the render; one that decodes to silence is heard and still.
 void unheard() {
-    check(!geode::output::endPreRoll(nullptr, geode::output::preRollFor(0)), "no engine: the render fails (F1)");
+    check(!Renderer{}.endPreRoll(0), "no engine: the render fails (F1)");
     const std::vector<float> empty;
     check(!exportStart(empty, 0, 30, 3).heard, "a track with no audio fails the render (F1)");
     const Start silence = exportStart(track(12.0, true), 0, 30, 60);
@@ -288,6 +370,7 @@ void silentStretchHolds() {
 int main() {
     planCases();
     warmStart();
+    feelingStartsWithTheRange();
     loopSeam();
     unheard();
     silentStretchHolds();

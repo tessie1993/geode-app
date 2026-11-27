@@ -318,7 +318,10 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             keyHold_ = 0.0f;
         }
         clarity_ = follow(clarity_, std::clamp(r[key_], 0.0f, 1.0f), 1.0f, dt);
-        major_ = follow(major_, std::clamp(0.5f + 2.0f * (bestMajor - bestMinor), 0.0f, 1.0f), 2.0f, dt);
+        // How sure the held key's mode is: its fit over the other mode's best. The side is the held key's own, so the
+        // frame never names a key that is not there (C minor while the key is C major and A minor leads).
+        const float margin = r[key_] - (key_ < 12 ? bestMinor : bestMajor);
+        modeSure_ = follow(modeSure_, std::clamp(2.0f * margin, kModeSureMin, 0.5f), 2.0f, dt);
 
         // The chord's colour: the medium chroma's centre of mass on the circle of fifths, each class
         // above the mean pulling toward its own fifths position (Harte's tonal centroid, one circle).
@@ -382,7 +385,7 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
     const int tonic = key_ % 12;
     out.keyRoot = static_cast<float>(tonic) / 12.0f;
     out.keyHue = hueOf(minor ? (tonic + 3) % 12 : tonic);
-    out.keyMajor = major_;
+    out.keyMajor = key_ < 0 ? 0.5f : (minor ? 0.5f - modeSure_ : 0.5f + modeSure_);
     out.keyClarity = clarity_;
     out.chordHue = chordHue_;
     out.tension = tension_;

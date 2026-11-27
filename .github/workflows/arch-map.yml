@@ -1,7 +1,8 @@
 name: Architecture gates
 
 # The layer rule, the engine Kotlin rule, the audio Kotlin rule, the no-BPM-bias rule, the action pin rule,
-# the network rule, JNI parity, hand declarations and the notices copy, each gate with its self-test.
+# the network rule, JNI parity, hand declarations, the notices copy and the generated music tables, each gate with
+# its self-test.
 # Also the store listing text (tools/store-check.sh).
 # Also the self-test of the docs-only check the other pull-request workflows skip on.
 # No path filter, so the check reports on every PR.
@@ -178,6 +179,15 @@ jobs:
       - name: The sound analysis includes only itself and the ring
         shell: bash
         run: bash tools/sound-module-gate.sh
+
+      # Pins the music tables gate: a hand edit to a generated table or CSV, and a script edit not run, must fail it.
+      - name: Self-test the music tables gate
+        shell: bash
+        run: bash tools/music-tables-gate.sh --self-test
+
+      - name: The scale and emotion tables are their scripts' output
+        shell: bash
+        run: bash tools/music-tables-gate.sh
 
       # Pins the audio Kotlin gate: each way Kotlin can touch samples (AudioRecord, AudioTrack, codec, extractor and
       # muxer buffers, Media3 audio classes, Visualizer capture, buffer-carrying natives and their callers) must

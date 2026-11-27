@@ -56,7 +56,9 @@ private:
     int key_ = -1;          // 0..11 major on that tonic, 12..23 minor; -1 before any
     float keyHold_ = 0.0f;  // how long the current key has fitted worse than another
     float clarity_ = 0.0f;
-    float major_ = 0.5f;
+    // keyMajor's distance from 0.5, on the held key's side; never 0, so a minor key never reads as 0.5 (major).
+    static constexpr float kModeSureMin = 0.01f;
+    float modeSure_ = kModeSureMin;
     float chordHue_ = 0.0f;
     float tension_ = 0.0f;
     std::array<std::array<float, 12>, kSnapshots> snapshots_{};

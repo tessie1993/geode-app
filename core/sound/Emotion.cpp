@@ -97,10 +97,12 @@ void Emotion::stepFingerprint(const GeodeSoundFrame& f, float dt) {
     int scale = -1;
     int root = 0;
     float confidence = 0.0f;
+    bool fromScale = false;
     if (f.scale >= 0.0f && f.scaleFit >= kScaleTrust) {
         scale = std::clamp(static_cast<int>(std::lround(f.scale)), 0, modeCount() - 1);
         root = pitchClass(f.scaleRoot);
         confidence = clamp01((f.scaleFit - kScaleTrust) / (1.0f - kScaleTrust) * 1.5f);
+        fromScale = true;
     } else if (f.keyClarity >= kKeyTrust) {
         scale = f.keyMajor >= 0.5f ? kIonian : kAeolian;
         root = pitchClass(f.keyRoot);
@@ -114,12 +116,16 @@ void Emotion::stepFingerprint(const GeodeSoundFrame& f, float dt) {
             candidateRoot_ = root;
             candidateSeconds_ = 0.0f;
         }
-        if (!primed_ || candidateSeconds_ >= kHoldSeconds) {
+        // The first reading lands at once only from the scale: the key alone may still name the relative major.
+        if ((!primed_ && fromScale) || candidateSeconds_ >= kHoldSeconds) {
             state_.scale = scale;
             state_.root = root;
             if (!primed_) print_ = fingerprint(scale, root);
             primed_ = true;
         }
+    } else {
+        candidateScale_ = -1;
+        candidateSeconds_ = 0.0f;
     }
     state_.confidence = follow(state_.confidence, scale >= 0 ? confidence : 0.0f, dt, kPrintTau);
     if (state_.scale < 0) return;

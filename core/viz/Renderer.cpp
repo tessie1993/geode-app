@@ -184,15 +184,10 @@ bool Renderer::endPreRoll(int64_t rangeStartMs) {
     {
         std::lock_guard<std::mutex> lock(soundLock_);
         if (!ownSound_ || ownRing_->headFrames() <= 0) return false;
-        sound::AnalysisThread& analysis = ownSound_->thread();
-        analysis.pump(0.0f);
-        ownUnpumped_ = 0;
-        soundReader_.heardThrough(analysis, ownRing_->headFrames());
-        if (output::preRollFor(rangeStartMs).boundary) {
-            analysis.trackBoundary();
-            analysis.pump(0.0f);
+        if (output::endPreRoll(ownSound_->thread(), soundReader_, ownRing_->headFrames(), output::preRollFor(rangeStartMs))) {
             sectionChangeOwed_ = true;
         }
+        ownUnpumped_ = 0;
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();

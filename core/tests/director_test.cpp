@@ -85,13 +85,40 @@ const Song kSad{"aeolian", 9, 0.55f, 72.0f, 0.3f, 1.2f};
 
 constexpr float kDt = 1.0f / 60.0f;
 
-void run(Director& d, const Song& s, float seconds, float& t) {
+// The renderer's way: the director hears the feeling the engine stepped on the same frames (here a bare
+// Emotion), which a new play starts over (SharedAnalysis::newPlay).
+struct Directed : Director {
+    Emotion heard;
+    uint64_t seed = 0;
+    bool seeded = false;
+
+    using Director::step;
+    void step(const GeodeSoundFrame& f, float dt) {
+        heard.step(f, dt);
+        Director::step(f, heard.state(), dt);
+    }
+    void configure(const DirectorConfig& c) {
+        newPlay(c);
+        Director::configure(c);
+    }
+    void configure(const DirectorConfig& c, std::shared_ptr<const geode::viz::director::Tuning> t, const std::string& style) {
+        newPlay(c);
+        Director::configure(c, std::move(t), style);
+    }
+    void newPlay(const DirectorConfig& c) {
+        if (seeded && c.seed != seed) heard.reset();
+        seed = c.seed;
+        seeded = true;
+    }
+};
+
+void run(Directed& d, const Song& s, float seconds, float& t) {
     for (float end = t + seconds; t < end; t += kDt) d.step(frame(s, t, kDt), kDt);
 }
 
 // Form's name for the section a section event opened: one frame whose sectionId has moved on (Form names
 // it on the downbeat after the event; the director decides there).
-void name(Director& d, const Song& s, float& t, int section) {
+void name(Directed& d, const Song& s, float& t, int section) {
     GeodeSoundFrame f = frame(s, t, kDt);
     f.sectionId = static_cast<float>(section);
     d.step(f, kDt);
@@ -173,7 +200,7 @@ void testFeelingIgnoresTheTempo() {
 }
 
 void testPacing() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 42});
     float t = 0.0f;
     run(d, kHappy, 3.0f, t);
@@ -220,7 +247,7 @@ void testWeakEventsDecide() {
     const float weak = 0.45f;
     check(weak >= geode::sound::Form::kEventFloor, "0.45 is an event Form can fire");
     {
-        Director d;
+        Directed d;
         d.configure({1.0f, 42});
         float t = 0.0f;
         run(d, kHappy, 20.0f, t);
@@ -233,7 +260,7 @@ void testWeakEventsDecide() {
         check(d.commits() == 2 && d.lastReason() == Director::Reason::Section, "a section change at 0.45 commits a look");
     }
     {
-        Director d;
+        Directed d;
         d.configure({1.0f, 42});
         float t = 0.0f;
         run(d, kHappy, 20.0f, t);
@@ -244,7 +271,7 @@ void testWeakEventsDecide() {
     }
     {
         // No event, no decision: the frame between events holds 0, whatever else moves.
-        Director d;
+        Directed d;
         d.configure({1.0f, 42});
         float t = 0.0f;
         run(d, kHappy, 20.0f, t);
@@ -295,7 +322,7 @@ void testNeverTouchesColour() {
                 Song s = base;
                 s.scale = geode::sound::scaleInfo(scale).id;
                 s.root = root;
-                Director d;
+                Directed d;
                 d.configure({1.0f, static_cast<uint64_t>(104729 * (scale + 1) + root)});
                 float t = 0.0f;
                 run(d, s, 17.0f, t);
@@ -338,7 +365,7 @@ void testNeverTouchesColour() {
 // director hands on (params, axes, camera moves) follows the frame, however hard the drums, the melody
 // or a build push: what moves then is the reaction matrix alone.
 void testHeldBetweenDecisions() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 42});
     float t = 0.0f;
     run(d, kHappy, 20.0f, t);
@@ -380,7 +407,7 @@ void testNoTempoAssumed() {
     float expected[3] = {};
     const float bpms[3] = {0.0f, 77.0f, 174.0f};
     for (int n = 0; n < 3; ++n) {
-        Director d;
+        Directed d;
         d.configure({1.0f, 42});
         float t = 0.0f;
         run(d, kHappy, 20.0f, t);
@@ -425,8 +452,8 @@ void testFeelingSurvivesTheSeed() {
     int hotter = 0;
     std::set<int> variety;
     for (uint64_t seed = 1; seed <= 20; ++seed) {
-        Director h;
-        Director s;
+        Directed h;
+        Directed s;
         h.configure({1.0f, seed});
         s.configure({1.0f, seed});
         float t1 = 0.0f;
@@ -441,8 +468,8 @@ void testFeelingSurvivesTheSeed() {
 }
 
 void testDeterministicAndOff() {
-    Director a;
-    Director b;
+    Directed a;
+    Directed b;
     a.configure({1.0f, 99});
     b.configure({1.0f, 99});
     float t1 = 0.0f;
@@ -456,7 +483,7 @@ void testDeterministicAndOff() {
     none.motionAmount = none.motionDrift = 0.0f;
     const SceneParams qNone = a.applyAxes(a.apply(none));
     check(qNone.motionAmount == 0.0f && qNone.motionDrift == 0.0f, "a motion dial at 0 stays off under the look and the axes");
-    Director off;
+    Directed off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;
     run(off, kSad, 15.0f, t3);
@@ -606,7 +633,7 @@ void testAxesScaleTheCamera() {
 // The look is an offset on the user's dials, so a slider at either end of its range must not be
 // pushed past it.
 void testDialsStayInRange() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 99});
     float t = 0.0f;
     run(d, kSad, 15.0f, t);
@@ -626,7 +653,7 @@ void testDialsStayInRange() {
 // downbeats above 0.5 meant that on a beat held at, say, 0.4 no bar was ever counted and a modulation
 // never landed.
 void testWeakDownbeatsCount() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 42});
     float t = 0.0f;
     run(d, kHappy, 8.0f, t);
@@ -643,7 +670,7 @@ void testWeakDownbeatsCount() {
 // A new track is a new play, but the picture must not fall back to the user's bare settings while the
 // new play waits to make its first decision: the look on screen is carried, and glided from.
 void testLookCarriesAcrossPlays() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 5});
     float t = 0.0f;
     run(d, kHappy, 15.0f, t);
@@ -661,7 +688,7 @@ void testLookCarriesAcrossPlays() {
 
 // Music with no sections and no drops (ambient, a steady groove) still gets a new style now and then.
 void testLongStretchStepsTheStyle() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 42});
     float t = 0.0f;
     run(d, kHappy, 8.0f, t);
@@ -674,7 +701,7 @@ void testLongStretchStepsTheStyle() {
 // none of those commits may step the user's style: that is what once claimed the style.
 void testNoStyleMomentWhenOff() {
     for (const float amount : {0.0f, 1.0f}) {
-        Director d;
+        Directed d;
         d.configure({amount, 42});
         float t = 0.0f;
         run(d, kHappy, 12.0f, t);
@@ -704,7 +731,7 @@ void testNoLookTwistsEveryStyle() {
                 Song s = base;
                 s.scale = geode::sound::scaleInfo(scale).id;
                 s.root = root;
-                Director d;
+                Directed d;
                 d.configure({1.0f, static_cast<uint64_t>(7919 * (scale + 1) + root)});
                 float t = 0.0f;
                 run(d, s, 17.0f, t);
@@ -762,12 +789,12 @@ float apart(const Director::Look& a, const Director::Look& b) {
 std::shared_ptr<const vd::Tuning> tuned(const char* text) { return std::make_shared<const vd::Tuning>(vd::parseTuning(text)); }
 
 // A song as Form hears it: the frame of `song`, carrying Form's section id and state (and, with `phrases`, a
-// phrase on every downbeat, for the arc's count). Steps the director with its own feeling, or with `heard`
+// phrase on every downbeat, for the arc's count). Steps the director with the engine's feeling (Directed), or with `heard`
 // when set; once directed, the renderer's way too: its settings and the style on screen, each frame.
 struct Player {
-    Player(Director& director, const Song& s, const Emotion::State* feeling = nullptr) : d(director), song(s), heard(feeling) {}
+    Player(Directed& director, const Song& s, const Emotion::State* feeling = nullptr) : d(director), song(s), heard(feeling) {}
 
-    Director& d;
+    Directed& d;
     Song song;
     const Emotion::State* heard;
     float t = 0.0f;
@@ -854,7 +881,7 @@ void dropSection(Player& p, int named, Director::Look& cut) {
 void testSectionsGrowWhenTheyReturn() {
     const Song song{"ionian", 0, 0.85f, 93.0f, 0.6f, 0.2f};
     const float bar = 240.0f / 93.0f;
-    const auto script = [&](Director& d, bool checks) {
+    const auto script = [&](Directed& d, bool checks) {
         Player p{d, song};
         p.play(10.0f);
         if (checks) check(d.commits() == 1, "the first look, for the section Form names first");
@@ -889,8 +916,8 @@ void testSectionsGrowWhenTheyReturn() {
         p.play(8.0f);
         return d.look();
     };
-    Director a;
-    Director b;
+    Directed a;
+    Directed b;
     a.configure({1.0f, 77});
     b.configure({1.0f, 77});
     const Director::Look la = script(a, true);
@@ -933,7 +960,7 @@ void testGrowth() {
 // A section Form never names (Form's name is a bar away; this is the fallback) is decided after two
 // downbeats as a new look, and nothing is remembered for it.
 void testUnnamedSectionStillLands() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 5});
     Player p{d, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
     p.play(10.0f);
@@ -957,7 +984,7 @@ void testUnnamedSectionStillLands() {
 // second drop cuts straight to the first drop's look grown on, and when Form names it so, nothing moves. A
 // drop Form names as another known section morphs on into that one's grown look.
 void testDropsReturnToTheirSection() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 11});
     Player p{d, Song{"ionian", 0, 0.85f, 174.0f, 0.6f, 0.2f}};
     p.play(15.0f);
@@ -1015,7 +1042,7 @@ void testFeelingPicksTheGlide() {
     float returns[2] = {};
     const Emotion::State* states[2] = {&calm, &driven};
     for (int n = 0; n < 2; ++n) {
-        Director d;
+        Directed d;
         d.configure({1.0f, 3});
         Player p{d, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}, states[n]};
         p.play(15.0f);
@@ -1040,9 +1067,9 @@ void testBuildLeansIn() {
     const Song song{"ionian", 0, 0.85f, 174.0f, 0.6f, 0.2f};
     const float bar = 240.0f / 174.0f;
     const auto ax = [](const Director::Axes& x, Director::Axis a) { return x[static_cast<size_t>(a)]; };
-    Director d;
+    Directed d;
     d.configure({1.0f, 9});
-    Director twin;
+    Directed twin;
     twin.configure({1.0f, 9});
     Player p{d, song};
     Player q{twin, song};
@@ -1086,7 +1113,7 @@ void testBuildLeansIn() {
 
     // A build that fades without a drop lets go over a bar, back to the look as it was. (Complexity is the
     // song's arc's, which moves with Form's state on its own time.)
-    Director fade;
+    Directed fade;
     fade.configure({1.0f, 9});
     Player r{fade, song};
     r.play(20.0f);  // long enough for the look to be fully in, so only the lean moves these axes
@@ -1104,7 +1131,7 @@ void testBuildLeansIn() {
     check(fade.lean() == 0.0f && back < 1e-3f, "a bar later the look is as it was");
 
     // The lean's amounts and bars are settings: at 0 a build leans nowhere.
-    Director flat;
+    Directed flat;
     flat.configure({1.0f, 9});
     Player s{flat, song};
     s.direct({1.0f, 9}, tuned("lean_speed=0\nlean_closer=0\nlean_rough=0\n"), "");
@@ -1119,7 +1146,7 @@ void testBuildLeansIn() {
     check(flat.lean() == 1.0f && leaned < 1e-3f, "a lean set to nothing moves nothing");
 
     // Auto off: no lean reaches the picture.
-    Director off;
+    Directed off;
     off.configure({0.0f, 9});
     Player o{off, song};
     o.play(13.0f);
@@ -1160,7 +1187,7 @@ void testSongArc() {
     // The director: the arc climbs in the drops and relaxes in a breakdown, without a decision.
     const Song song{"ionian", 0, 0.85f, 174.0f, 0.6f, 0.2f};
     const auto complexity = [](const Director& d) { return d.axes()[static_cast<size_t>(Director::Axis::Complexity)]; };
-    Director d;
+    Directed d;
     d.configure({1.0f, 17});
     Player s{d, song};
     s.phrases = true;
@@ -1184,7 +1211,7 @@ void testSongArc() {
     check(d.arc() < peak - 0.1f, "a new song starts the climb again (" + std::to_string(d.arc()) + ")");
 
     // At depth 0 the arc moves nothing.
-    Director level;
+    Directed level;
     level.configure({1.0f, 17});
     Player l{level, song};
     l.direct({1.0f, 17}, tuned("arc_depth=0\n"), "");
@@ -1204,7 +1231,7 @@ void testSongArc() {
 // leap; Styles progress off says so.
 void testStyleIntents() {
     using Kind = vd::StyleIntent::Kind;
-    Director d;
+    Directed d;
     d.configure({1.0f, 31});
     Player p{d, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
     p.direct({1.0f, 31}, nullptr, "first_style");
@@ -1216,7 +1243,7 @@ void testStyleIntents() {
     const uint64_t firstDraw = d.styleIntent().draw;
     {
         // Another play of the same song draws its own (which entry a moment lands on, viz/director/DirectorStyle).
-        Director other;
+        Directed other;
         other.configure({1.0f, 32});
         Player o{other, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
         o.direct({1.0f, 32}, nullptr, "first_style");
@@ -1251,7 +1278,7 @@ void testStyleIntents() {
     check(d.styleIntent().kind == Kind::Return && d.styleIntent().remembered == "drop_style" && d.styleIntent().step == 1,
           "the next drop returns to the last drop's style, one step on");
 
-    Director stay;
+    Directed stay;
     stay.configure({1.0f, 31});
     Player q{stay, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
     q.direct({1.0f, 31}, tuned("styles_progress=0\n"), "first_style");
@@ -1260,7 +1287,7 @@ void testStyleIntents() {
     check(stay.styleIntent().kind == Kind::Progress && !stay.styleIntent().progress, "Styles progress off is said with the intent");
 
     // The long stretch, from its setting.
-    Director patient;
+    Directed patient;
     patient.configure({1.0f, 31});
     Player r{patient, Song{"ionian", 0, 0.85f, 141.0f, 0.6f, 0.2f}};
     r.direct({1.0f, 31}, tuned("long_seconds=30\n"), "first_style");
@@ -1309,7 +1336,7 @@ void testTuningTable() {
 // A look lands on the bar: the first look on a downbeat, and a long stretch's new look on one too (past
 // 75 s, when 32 bars of a slow song are longer).
 void testLooksLandOnTheBar() {
-    Director d;
+    Directed d;
     d.configure({1.0f, 21});
     const Song slow{"ionian", 0, 0.85f, 77.0f, 0.6f, 0.2f};
     float t = 0.0f;
@@ -1337,7 +1364,7 @@ void testNeverSpins() {
     calm.gems[Emotion::kPeace] = 0.4f;
     calm.gems[Emotion::kNostalgia] = 0.3f;
     calm.gems[Emotion::kTranscendence] = 0.3f;
-    Director d;
+    Directed d;
     d.configure({1.0f, 13});
     Player p{d, Song{"aeolian", 9, 0.55f, 93.0f, 0.3f, 1.2f}, &calm};
     p.play(12.0f);
@@ -1347,6 +1374,131 @@ void testNeverSpins() {
         in.motionDrift = spin;
         check(d.apply(in).motionDrift == spin && d.applyAxes(in).motionDrift == spin, "the look leaves Spin as the user set it");
     }
+}
+
+// A held minor frame: the scale detector names A Aeolian once its fit is trusted (from `trusted` s), while the key
+// already reads the relative major, C, with the clarity to be trusted from the start.
+GeodeSoundFrame minorFrame(float t, float trusted) {
+    GeodeSoundFrame f = frame(kSad, t, kDt);
+    f.loudness = 0.7f;
+    f.keyRoot = 0.0f;
+    f.keyMajor = 0.6f;
+    f.keyClarity = 0.5f;
+    f.scaleFit = t < trusted ? 0.1f : 0.85f;
+    return f;
+}
+
+// The first reading is not the relative major's: the feeling waits for the scale, so the first look of a minor
+// song (about four seconds in) hears it sad.
+void testFirstFeelingIsTheScale() {
+    for (const float trusted : {0.3f, 0.6f, 0.9f}) {
+        Emotion e;
+        int first = -1;
+        int firstRoot = -1;
+        float t = 0.0f;
+        for (; t < 4.0f; t += kDt) {
+            e.step(minorFrame(t, trusted), kDt);
+            if (first < 0 && e.state().scale >= 0) {
+                first = e.state().scale;
+                firstRoot = e.state().root;
+            }
+        }
+        const std::string at = " (scale trusted at " + std::to_string(trusted) + " s)";
+        check(first >= 0 && !Emotion::mode(first).majorThird && firstRoot == 9,
+              "the first feeling is a minor mode on A, not the relative major" + at + ": " +
+                  (first >= 0 ? geode::sound::scaleInfo(first).id : "none") + " on " + std::to_string(firstRoot));
+        check(e.state().valence < 0.0f, "and reads sad by the first look (" + std::to_string(e.state().valence) + ")" + at);
+    }
+}
+
+// A rival reading must hold a whole second in one run: runs broken by the committed reading do not add up.
+void testHoldIsOneRun() {
+    const Song x{"ionian", 0, 0.85f, 132.0f, 0.6f, 0.2f};
+    const Song y{"aeolian", 9, 0.85f, 132.0f, 0.6f, 0.2f};
+    Emotion e;
+    float t = 0.0f;
+    const auto play = [&](const Song& s, float seconds) {
+        for (const float end = t + seconds; t < end; t += kDt) e.step(frame(s, t, kDt), kDt);
+    };
+    play(x, 5.0f);
+    check(e.state().scale == scaleIndex("ionian"), "the first song's scale");
+    play(y, 0.6f);
+    play(x, 10.0f);
+    play(y, 0.45f);
+    check(e.state().scale == scaleIndex("ionian") && e.state().root == 0, "two broken runs of 0.6 and 0.45 s do not commit a new scale");
+    play(y, 1.2f);
+    check(e.state().scale == scaleIndex("aeolian") && e.state().root == 9, "a whole second in one run does");
+}
+
+// Every frame is heard, the ones that move no time too (the frame after a clock restart, a still picture): its
+// feeling, its events and its accents. Only what integrates time waits for a step.
+void testStillFrameIsHeard() {
+    Directed d;
+    d.configure({1.0f, 42});
+    float t = 0.0f;
+    run(d, kHappy, 20.0f, t);
+    const int commits = d.commits();
+    Emotion::State handed = d.heard.state();
+    handed.valence = -0.75f;
+    handed.degreeAccent = 1.0f;
+    handed.gems[Emotion::kSadness] += 0.1f;
+    GeodeSoundFrame f = frame(kHappy, t, kDt);
+    f.drop = 1.0f;
+    d.Director::step(f, handed, 0.0f);
+    check(d.commits() == commits + 1 && d.lastReason() == Director::Reason::Drop, "a drop on a frame with no time still cuts");
+    check(std::memcmp(&d.emotion(), &handed, sizeof(Emotion::State)) == 0, "and the feeling is the one handed in");
+    run(d, kHappy, 5.0f, t);
+    f = frame(kHappy, t, kDt);
+    f.sectionChange = 1.0f;
+    d.Director::step(f, d.heard.state(), 0.0f);
+    check(d.naming(), "a section event on one waits for its name");
+}
+
+// With no beat locked there is no bar: the build's lean and the song's arc move over the tuning's seconds,
+// never in one frame.
+void testNoBarNoJump() {
+    for (const float bpm : {0.0f, 93.0f}) {
+        Directed d;
+        d.configure({1.0f, 42});
+        float t = 0.0f;
+        run(d, kHappy, 20.0f, t);
+        const float arc = d.arc();
+        GeodeSoundFrame f = frame(kHappy, t, kDt);
+        f.bpm = bpm;
+        f.beatConf = 0.2f;
+        f.downbeat = 0.0f;
+        f.sectionState = static_cast<float>(GEODE_SECTION_DROP);
+        d.step(f, 0.016f);
+        check(std::fabs(d.arc() - arc) < 0.05f, "the arc moves a little in one frame (" + std::to_string(arc) + " to " + std::to_string(d.arc()) + ")");
+        f.sectionState = static_cast<float>(GEODE_SECTION_BUILD);
+        d.step(f, 0.016f);
+        check(d.lean() > 0.0f && d.lean() < 0.05f, "the lean starts in, a little (" + std::to_string(d.lean()) + ")");
+        for (int i = 0; i < 600; ++i) d.step(f, kDt);
+        check(d.lean() == 1.0f, "and is in within ten seconds");
+    }
+}
+
+// Form starting over (a seek, the mic's re-warm) numbers its sections afresh: the id falls back with no section
+// change. The old numbers mean nothing now, so the next section named is new, not a return.
+void testFormStartsOverForgets() {
+    const Song song{"ionian", 0, 0.85f, 93.0f, 0.6f, 0.2f};
+    Directed d;
+    d.configure({1.0f, 77});
+    Player p{d, song};
+    p.play(10.0f);
+    p.play(6.0f);
+    newSection(p, 1);
+    p.play(8.0f);
+    newSection(p, 0);
+    check(d.returned(), "the verse returns");
+    p.play(8.0f);
+    newSection(p, 1);
+    check(d.returned(), "so does the chorus");
+    p.play(8.0f);
+    p.section = 0;
+    p.play(8.0f);
+    newSection(p, 1);
+    check(!d.returned(), "after Form starts over, its section 1 is a new one");
 }
 }  // namespace
 
@@ -1384,6 +1536,11 @@ int main() {
     testTuningTable();
     testLooksLandOnTheBar();
     testNeverSpins();
+    testFirstFeelingIsTheScale();
+    testHoldIsOneRun();
+    testStillFrameIsHeard();
+    testNoBarNoJump();
+    testFormStartsOverForgets();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

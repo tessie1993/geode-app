@@ -106,8 +106,8 @@ public:
     // Readers, any thread. The hop at or before `position`, as SoundEngine::frameAt picks it (older than every
     // kept one reads the oldest, past the newest the newest), its phases moved on to `position`, fadeGain as
     // set now. False before the first hop, and when the writer lapped this reader on every try (it stalled for about
-    // a whole window): no hop it read can be trusted then.
-    bool frameAt(int64_t position, GeodeSoundFrame& out, Emotion::State* emotion = nullptr) const;
+    // a whole window): no hop it read can be trusted then. Tests only: the renderer reads through interp::FrameReader.
+    bool frameAt(int64_t position, GeodeSoundFrame& out) const;
     // The same pick, as published.
     bool hopAt(int64_t position, Heard& out) const;
     // The oldest readable hop past `position`; false when none is published yet (or the reader was lapped).

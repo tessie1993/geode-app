@@ -135,11 +135,11 @@ void compareNew(const AnalysisThread& at, const SoundEngine& bare, int64_t base,
     GeodeSoundFrame mine{};
     GeodeSoundFrame theirs{};
     at.hopsBetween(c.checked, kAll, [&](const Heard& h) {
-        Emotion::State feeling{};
-        const bool read = at.frameAt(h.position, mine, &feeling) && bare.frameAt(h.position - base, theirs);
+        Heard picked;
+        const bool read = at.frameAt(h.position, mine) && at.hopAt(h.position, picked) && bare.frameAt(h.position - base, theirs);
         const SoundEngine::Hop* kept = keptAt(bare, h.position - base);
         c.hops++;
-        if (!read || kept == nullptr || !same(mine, theirs) || !same(feeling, kept->emotion) || !same(h.clock, kept->clock)) {
+        if (!read || kept == nullptr || !same(mine, theirs) || !same(picked.emotion, kept->emotion) || !same(h.clock, kept->clock)) {
             c.differ++;
         }
         const int64_t between = h.position + 211;

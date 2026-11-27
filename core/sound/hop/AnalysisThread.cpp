@@ -477,7 +477,7 @@ bool AnalysisThread::hopAfter(int64_t position, Heard& out) const {
     return false;
 }
 
-bool AnalysisThread::frameAt(int64_t position, GeodeSoundFrame& out, Emotion::State* emotion) const {
+bool AnalysisThread::frameAt(int64_t position, GeodeSoundFrame& out) const {
     Heard h;
     if (!hopAt(position, h)) return false;
     out = h.frame;
@@ -485,7 +485,6 @@ bool AnalysisThread::frameAt(int64_t position, GeodeSoundFrame& out, Emotion::St
     // As SoundEngine::frameAt: the analysis samples since the hop, the input's halvings divided out.
     const int64_t since = position > h.position ? (position - h.position) >> h.halvings : 0;
     Rhythm::phases(h.clock, static_cast<int>(std::min<int64_t>(since, std::numeric_limits<int>::max())), out.hitTime, out);
-    if (emotion != nullptr) *emotion = h.emotion;
     return true;
 }
 

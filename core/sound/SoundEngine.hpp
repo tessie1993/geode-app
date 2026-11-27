@@ -72,7 +72,8 @@ public:
 
     // Interleaved float PCM; mono feeds both channels, channels past the second are ignored.
     void write(const float* interleaved, int frames, int channels);
-    // The newest hop's frame, as of the samples written so far; dt only times the writer's silence.
+    // The newest hop's frame, as of the samples written so far; dt only times the writer's silence. Tests only, like
+    // frameAt() and emotion(): the renderer reads the published hops (sound/hop/AnalysisThread, interp::FrameReader).
     void step(float dtSeconds, GeodeSoundFrame& out);
     // step()'s clock alone: the writer's silence is counted and fed, no frame is read. The analysis thread's pass.
     void starve(float dtSeconds);
@@ -111,7 +112,7 @@ public:
     int halvings() const { return halvings_; }
     // The silence rule fired and still holds (the frame's `silence` trigger was its start).
     bool silent() const { return state_.silent; }
-    // The feeling (Emotion), stepped every hop with the frame; its degree accent held like a trigger.
+    // The feeling (Emotion) as of the last step(), stepped every hop with the frame; its degree accent held like a trigger.
     const Emotion::State& emotion() const { return emotionOut_; }
     // A new play (the auto-director's seed changed): the feeling starts over, the analysis does not.
     void resetEmotion() {
@@ -132,7 +133,7 @@ public:
     const GeodeSoundTuning& tuning() const { return tuning_; }
     void reset();
     // A track boundary the player named (core/sound/PlayerSignals): the ring's audio runs on unbroken, but
-    // the song is new, so the musical memory (Rhythm, Harmony, Form) starts over, the relative levels warm
+    // the song is new, so the musical memory (Rhythm, Harmony, Form) and the feeling start over, the levels warm
     // up again, and the next step fires sectionChange at full strength. The silence rule does the same on
     // its own after 2 s of silence, for sources with no player to name their boundaries.
     void trackBoundary();
@@ -301,7 +302,7 @@ private:
     GeodeSoundFrame hopFrame_{};           // the newest hop's frame
     std::array<float, kTriggers> held_{};  // the triggers since the last step
     Emotion emotion_;
-    Emotion::State emotionOut_{};
+    Emotion::State emotionOut_{};  // step()'s
     float accentHeld_ = 0.0f;
     // Every hop as it was computed, a ring of historyHops_, the newest at historyHead_ - 1.
     int historyHops_ = 1;
@@ -336,8 +337,8 @@ private:
     Harmony harmony_;
     Form form_;
     int hopFill_ = 0;  // samples written since the last hop
-    // trackBoundary() since the last step: that step fires sectionChange. reset() (a seek, a new source)
-    // keeps it, since the boundary still began a new song.
+    // trackBoundary() since the last step: that step fires sectionChange (the renderer fires its own). reset() (a seek,
+    // a new source) keeps it, since the boundary still began a new song.
     bool boundaryPending_ = false;
     float fadeGain_ = 1.0f;
     bool playerSource_ = false;

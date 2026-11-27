@@ -9,6 +9,8 @@ namespace geode::signal {
 namespace {
 // The id used when no style is on screen.
 const std::string kNoStyle;
+// The feeling when nothing is heard (FrameReader::forget's).
+const sound::Emotion::State kUnheard{};
 }  // namespace
 
 void Resolver::beginMorph(float seconds) {
@@ -77,12 +79,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // the LFOs, the reactions and the safety clamp all still act on top of it.
     // With its settings and the style on screen, which a section remembers and a style moment steps on from.
     director_.configure(settings.director, settings.directorTuning, styleId);
-    // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
-    if (heard != nullptr) {
-        director_.step(sound, *heard, dt);
-    } else {
-        director_.step(sound, dt);
-    }
+    director_.step(sound, heard != nullptr ? *heard : kUnheard, dt);
     frame_.styleMoments = 0;
     const bool committed = director_.commits() != directorCommitsSeen_;
     if (committed) {

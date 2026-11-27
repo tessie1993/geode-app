@@ -131,10 +131,8 @@ public:
     // The renderer's way: also the tuning to direct by (null: the defaults) and the style on screen, which
     // a section remembers and a style moment steps on from.
     void configure(const DirectorConfig& config, std::shared_ptr<const director::Tuning> tuning, const std::string& style);
-    // Hears the frame and steps its own feeling with it (tests, and a renderer with no sound engine).
-    void step(const GeodeSoundFrame& f, float dt);
-    // Hears the frame with the feeling the sound engine stepped on its own sample clock: the renderer's
-    // way, so the feeling is the same at every frame rate and in an export.
+    // Hears the frame with the feeling the sound engine stepped on its own sample clock, so the feeling is the same at
+    // every frame rate and in an export. A frame of dt 0 is heard too; only what runs on time waits for one.
     void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt);
 
     // Before the macros: the camera's softness added by the amount, the breath dial turned by a factor
@@ -211,11 +209,12 @@ private:
     void remember(int section);
     // Form named the section a section event opened: grow its look back, or give it a new one.
     void named(int section, float change, float morph);
+    // Form started over: its section numbers are new.
+    void forgetSections();
     // The intent of the style moment just committed.
     void intend(director::StyleIntent::Kind kind, int section);
 
-    sound::Emotion emotion_;
-    sound::Emotion::State feeling_{};  // what this step heard: its own emotion_'s, or the engine's
+    sound::Emotion::State feeling_{};  // the engine's, as this step heard it
     DirectorConfig config_;
     bool configured_ = false;
     std::shared_ptr<const director::Tuning> tuning_;
@@ -244,6 +243,9 @@ private:
 
     // Section memory.
     std::array<Section, kSectionSlots> sections_{};
+    // The id the last frame carried, and whether a section event came since it last moved.
+    int lastSection_ = -1;
+    bool sectionPending_ = false;
     // The section on screen, and whether this is its first visit (its style is still being learnt: the
     // switch a style moment asks for lands a few frames after it).
     int current_ = -1;

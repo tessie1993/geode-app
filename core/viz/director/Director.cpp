@@ -330,6 +330,14 @@ void Director::remember(int section) {
     firstVisit_ = true;
 }
 
+void Director::forgetSections() {
+    sections_ = {};
+    current_ = -1;
+    firstVisit_ = false;
+    lastDropSection_ = -1;
+    guessed_ = -1;
+}
+
 void Director::intend(director::StyleIntent::Kind kind, int section) {
     intent_.kind = kind;
     intent_.from = style_;
@@ -406,14 +414,9 @@ void Director::named(int section, float change, float morph) {
     remember(section);
 }
 
-void Director::step(const GeodeSoundFrame& f, float dt) {
-    if (!(dt > 0.0f)) return;
-    emotion_.step(f, dt);
-    step(f, emotion_.state(), dt);
-}
-
-void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float dt) {
-    if (!(dt > 0.0f)) return;
+void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float frameDt) {
+    // A frame that moves no time (after a clock restart, a still picture) is still heard: its feeling and its events.
+    const float dt = frameDt > 0.0f ? frameDt : 0.0f;
     feeling_ = heard;
     amount_ += (config_.amount - amount_) * (1.0f - std::exp(-dt / 0.7f));
     if (config_.amount <= 0.0f && amount_ < 1e-3f) amount_ = 0.0f;
@@ -440,10 +443,21 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     const float change = std::max(0.25f, barKnown ? changeBars(s, T) * bar : changeSeconds(s, T));
     // A return morphs, never cuts: at least the tuning's morph.
     const float morph = std::max(change, barKnown ? T[Tune::ReturnMorphBars] * bar : T[Tune::ReturnMorphSeconds]);
+    // What the lean and the arc count in bars: the bar heard, else the tuning's seconds for one (changeSeconds).
+    const float span = barKnown ? bar : changeSeconds(s, T) / changeBars(s, T);
     // Where a look may land: on a downbeat, or anywhere when there is no beat to land on.
     const bool onBar = downbeat || f.beatConf < 0.3f;
     const int section = std::isfinite(f.sectionId) ? static_cast<int>(std::lround(f.sectionId)) : -1;
     const int state = std::isfinite(f.sectionState) ? static_cast<int>(std::lround(f.sectionState)) : -1;
+
+    // Form names a section only after a section event; an id that moves with none before it is Form starting over (a
+    // seek, a re-warm), whose old numbers mean nothing now.
+    if (sound::sectionChanged(f)) sectionPending_ = true;
+    if (lastSection_ >= 0 && section != lastSection_) {
+        if (!sectionPending_) forgetSections();
+        sectionPending_ = false;
+    }
+    lastSection_ = section;
 
     // A modulation counts once it has held six seconds.
     const bool moved = key_ >= 0 && key_ != committedKey_ && f.keyClarity >= 0.3f;
@@ -537,15 +551,15 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     if (sound::dropped(f)) {
         lean_ = 0.0f;
     } else if (state == GEODE_SECTION_BUILD) {
-        lean_ = std::min(1.0f, lean_ + dt / (T[Tune::LeanInBars] * bar));
+        lean_ = std::min(1.0f, lean_ + dt / (T[Tune::LeanInBars] * span));
     } else {
-        lean_ = std::max(0.0f, lean_ - dt / (T[Tune::LeanOutBars] * bar));
+        lean_ = std::max(0.0f, lean_ - dt / (T[Tune::LeanOutBars] * span));
     }
 
     // The song's arc: toward the level of Form's section state and the phrases heard, over the tuning's
     // bars. Form's state and the phrase count change on downbeats; nothing else moves it.
     const float arcTo = director::arcLevel(state, phrases_, T);
-    const float arcStep = dt / (T[Tune::ArcBars] * bar);
+    const float arcStep = dt / (T[Tune::ArcBars] * span);
     arc_ = arc_ < arcTo ? std::min(arcTo, arc_ + arcStep) : std::max(arcTo, arc_ - arcStep);
 
     if (commits_ > 0) presence_ += (1.0f - presence_) * (1.0f - std::exp(-dt / 1.0f));

@@ -109,7 +109,7 @@ public:
     // song's first frames. Routes, waves, envelopes, the fade and the director (which restarts on its own seed) stay.
     void newPlay();
 
-    // One frame.
+    // One frame. `heard`: the engine's feeling, null when nothing is heard.
     const Frame& step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
                       const EngineSettings& settings, const StyleContext& style,
                       const sound::Emotion::State* heard = nullptr, float fadeDt = -1.0f);

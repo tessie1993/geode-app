@@ -523,14 +523,16 @@ void testDeterministic() {
     float t = 0.0f;
     bool same = true;
     int moments = 0;
+    geode::sound::Emotion feeling;
     for (int i = 0; i < 600; ++i, t += kDt) {
         GeodeSoundFrame f = frame(t);
         if (i == 400) f.sectionChange = 1.0f;
         if (i == 300) requested.zoom = 1.6f;
         const std::string& id = i < 300 ? kStyle : kOtherStyle;
         const StyleContext st = style(id, i == 0 || i == 300);
-        const Resolver::Frame& fa = a->step(requested, f, kDt, s, st);
-        const Resolver::Frame& fb = b->step(requested, f, kDt, s, st);
+        feeling.step(f, kDt);
+        const Resolver::Frame& fa = a->step(requested, f, kDt, s, st, &feeling.state());
+        const Resolver::Frame& fb = b->step(requested, f, kDt, s, st, &feeling.state());
         moments += fa.styleMoments;
         same = same && sameBits(wire(fa.params), wire(fb.params)) && fa.styleMoments == fb.styleMoments &&
                std::memcmp(&fa.cameraMoves, &fb.cameraMoves, sizeof(fa.cameraMoves)) == 0;
@@ -635,8 +637,8 @@ struct OldChain {
         reactions.reset();
         director.reset();
     }
-    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s, float spin,
-                 const std::string& styleId) {
+    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, const geode::sound::Emotion::State& heard,
+                 float dt, const EngineSettings& s, float spin, const std::string& styleId) {
         float morph;
         if (morphRemainSec > 0.0f) {
             morphRemainSec -= dt;
@@ -648,7 +650,7 @@ struct OldChain {
         displayedParams = fade <= 0.01f ? requested : viz::lerpParams(displayedParams, requested, std::clamp(dt / fade, 0.0f, 1.0f));
         const viz::DirectorConfig directorConfig = s.director;
         director.configure(directorConfig);
-        director.step(soundFrame, dt);
+        director.step(soundFrame, heard, dt);
         styleMoments = 0;
         if (director.commits() != directorCommitsSeen) {
             directorCommitsSeen = director.commits();
@@ -832,6 +834,7 @@ void testParityWithTheOldChain() {
         EngineSettings s = randomSettings(g);
         SceneParams requested = randomRequested(g);
         const std::string* id = nullptr;
+        geode::sound::Emotion feeling;
         float spin = 0.0f;
         float t = 0.0f;
         bool same = true;
@@ -872,8 +875,10 @@ void testParityWithTheOldChain() {
             StyleContext st;
             st.id = id;
             st.spin = spin;
-            const Resolver::Frame& a = now->step(requested, f, dt, s, st);
-            old->resolve(requested, f, dt, s, spin, id != nullptr ? *id : std::string());
+            // The engine's feeling, stepped on the same frames (the renderer hands its own in).
+            feeling.step(f, dt);
+            const Resolver::Frame& a = now->step(requested, f, dt, s, st, &feeling.state());
+            old->resolve(requested, f, feeling.state(), dt, s, spin, id != nullptr ? *id : std::string());
             moments += a.styleMoments;
             same = same && sameBits(wire(a.params), wire(old->params)) && a.styleMoments == old->styleMoments &&
                    std::memcmp(&a.cameraMoves, &old->cameraMoves, sizeof(a.cameraMoves)) == 0;

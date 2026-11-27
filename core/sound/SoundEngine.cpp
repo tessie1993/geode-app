@@ -439,6 +439,7 @@ void SoundEngine::rewarm() {
     rhythm_.reset();
     harmony_.reset();
     form_.reset();
+    resetEmotion();
 }
 
 void SoundEngine::trackBoundary() {
@@ -452,8 +453,12 @@ void SoundEngine::trackBoundary() {
     // the last one's tempo, key and form.
     GeodeSoundFrame& f = hopFrame_;
     rhythm_.read(0, f.hitTime, f);
-    f.keyRoot = f.keyHue = f.keyMajor = f.keyClarity = f.chordHue = f.tension = f.harmonicChange = 0.0f;
-    f.scale = f.scaleRoot = f.scaleBrightness = f.scaleTension = f.scaleFit = 0.0f;
+    f.keyRoot = f.keyHue = f.keyClarity = f.chordHue = f.tension = f.harmonicChange = 0.0f;
+    f.scaleRoot = f.scaleTension = f.scaleFit = 0.0f;
+    // What Harmony says before it has heard anything, as reset() leaves the frame.
+    f.keyMajor = 0.5f;
+    f.scale = -1.0f;
+    f.scaleBrightness = 0.5f;
     f.novelty = f.sectionId = f.sectionState = f.sectionBars = f.buildUp = f.drop = 0.0f;
 }
 

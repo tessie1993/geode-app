@@ -556,6 +556,16 @@ void testTrackBoundaryKey() {
         if (boundary) {
             CHECK(a.keyClarity < 0.05f, "the key starts over: clarity %f", a.keyClarity);
             CHECK(b.keyClarity > 0.25f, "unnamed, still sure of the old key: clarity %f", b.keyClarity);
+            CHECK(a.scale == -1.0f && a.keyMajor == 0.5f, "no scale and no mode yet, as a reset engine: scale %f, major %f", a.scale,
+                  a.keyMajor);
+            CHECK(named.keptHop(0)->emotion.confidence > 0.3f, "the old song was felt: confidence %f", named.keptHop(0)->emotion.confidence);
+        }
+        if (i == switchFrame + 1) {
+            const Emotion::State& felt = named.keptHop(0)->emotion;
+            CHECK(felt.confidence == 0.0f && felt.scale == -1, "the feeling starts over with the song: confidence %f, scale %d",
+                  felt.confidence, felt.scale);
+            CHECK(unnamed.keptHop(0)->emotion.confidence > 0.3f, "unnamed, the old feeling carries on: confidence %f",
+                  unnamed.keptHop(0)->emotion.confidence);
         }
     }
     // F# major, or its relative D# minor: the same notes, so either says the old key of C is gone.
@@ -629,6 +639,64 @@ void testPauseHoldsKey() {
     CHECK(std::lround(a.keyRoot * 12.0f) % 12 == 0 && a.keyClarity > 0.25f, "the player's pause holds the key: root %f clarity %f",
           a.keyRoot * 12.0f, a.keyClarity);
     CHECK(b.keyClarity < 0.05f, "a capture's silence re-warms the key: clarity %f", b.keyClarity);
+}
+
+// The capture's re-warm after two seconds of silence is a new song for the feeling too: the next hops hear no
+// confidence left from the last one.
+void testRewarmStartsTheFeelingOver() {
+    const std::function<float(double)> silence = [](double) { return 0.0f; };
+    const int chords[4][3] = {{57, 60, 64}, {62, 65, 69}, {64, 68, 71}, {57, 60, 64}};
+    auto song = [&chords](double t) {
+        const int* c = chords[static_cast<int>(t / 1.0) % 4];
+        double v = 0.0;
+        for (int n = 0; n < 3; n++) {
+            const double hz = hzOf(c[n] + 12);
+            v += 0.1 * std::sin(kTau * hz * t) + 0.04 * std::sin(2 * kTau * hz * t);
+        }
+        return static_cast<float>(v);
+    };
+    SoundEngine capture(44100);
+    std::vector<float> buf;
+    GeodeSoundFrame f{};
+    const int pauseFrom = 16 * 60 + 1;
+    const int pauseTo = 20 * 60;
+    float before = 0.0f;
+    for (int i = 1; i <= pauseTo + 30; i++) {
+        frameOf(capture, i >= pauseFrom && i <= pauseTo ? silence : song, i, false, f, buf);
+        if (i == pauseFrom - 1) before = capture.keptHop(0)->emotion.confidence;
+    }
+    CHECK(before > 0.3f, "the first song was felt: confidence %f", before);
+    const float after = capture.keptHop(0)->emotion.confidence;
+    CHECK(after < 0.02f, "half a second into the next one, nothing of it is left: confidence %f", after);
+}
+
+// The key's mode is the held key's: at a change from C major to A minor the frame never names C minor or A major,
+// keys that are not there.
+void testKeyNamesItsOwnMode() {
+    const int major[4][3] = {{60, 64, 67}, {65, 69, 72}, {67, 71, 74}, {60, 64, 67}};
+    const int minor[4][3] = {{57, 60, 64}, {62, 65, 69}, {64, 68, 71}, {57, 60, 64}};
+    constexpr double kSwitch = 20.0;
+    auto song = [&](double t) {
+        const int* c = (t < kSwitch ? major : minor)[static_cast<int>(t / 1.0) % 4];
+        double v = 0.0;
+        for (int n = 0; n < 3; n++) {
+            const double hz = hzOf(c[n] + 12);
+            v += 0.1 * std::sin(kTau * hz * t) + 0.04 * std::sin(2 * kTau * hz * t);
+        }
+        return static_cast<float>(v);
+    };
+    SoundEngine e(44100);
+    std::vector<float> buf;
+    GeodeSoundFrame f{};
+    int wrong = 0;
+    for (int i = 1; i <= 60 * 45; i++) {
+        frameOf(e, song, i, false, f, buf);
+        const long root = std::lround(f.keyRoot * 12.0f) % 12;
+        const bool majorRead = f.keyMajor >= 0.5f;
+        if (f.keyClarity >= 0.2f && ((root == 0 && !majorRead) || (root == 9 && majorRead))) wrong++;
+    }
+    CHECK(wrong == 0, "%d frames named C minor or A major", wrong);
+    CHECK(std::lround(f.keyRoot * 12.0f) % 12 == 9 && f.keyMajor < 0.5f, "the new key: root %f major %f", f.keyRoot * 12.0f, f.keyMajor);
 }
 
 void testDeterministic() {
@@ -950,6 +1018,8 @@ int main() {
     testTrackBoundaryKey();
     testPauseHoldsTempo();
     testPauseHoldsKey();
+    testRewarmStartsTheFeelingOver();
+    testKeyNamesItsOwnMode();
     testDeterministic();
     testOffbeatGrooves();
     testGrooveRegressions();

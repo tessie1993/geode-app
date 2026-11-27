@@ -210,7 +210,7 @@ bool LiveClient::takeStill(Still& out) {
 }
 
 bool LiveClient::lockViz() {
-    vizLock_.lock_shared();
+    if (!vizLock_.try_lock_shared()) return false;
     if (viz_) return true;
     vizLock_.unlock_shared();
     return false;

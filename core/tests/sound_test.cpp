@@ -608,7 +608,7 @@ void testPlayerSignals() {
     player::setPlayerIsSource(false);
     CHECK(!player::playerIsSource(), "a capture takes the ring");
     player::setPlayerIsSource(true);
-    // The flag is the app ring's. A renderer fed another ring (the wallpaper's output mix) hears no player:
+    // The flag is the app ring's. A renderer fed another ring (the dream's output mix) hears no player:
     // its engine keeps the silence re-warm and takes no fade or boundary from the app's player.
     CHECK(player::heardAsPlayer(true, true, false), "the player's ring while the player writes it is the player");
     CHECK(!player::heardAsPlayer(false, true, false), "the output mix is never the player, whatever the app ring does");

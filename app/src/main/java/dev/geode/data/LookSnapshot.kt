@@ -7,7 +7,7 @@ import dev.geode.model.SceneParams
  * The look snapshot: everything the user set that decides what a renderer draws, as one immutable value
  * (#345). Not the auto-director's Look (GLOSSARY), which is one decision made inside the engine.
  *
- * Every renderer host (live Visuals, the wallpaper, the dream, Cast, an export) only says where its look
+ * Every renderer host (live Visuals, the dream, Cast, an export) only says where its look
  * comes from ([LookSource]) and what it overrides ([gentleFlight]); the host hands it whole to native
  * (`geode_viz_set_look`, `geode_stage_set_look`), which passes on only the parts that changed. Before this,
  * each host rebuilt it field by field and they drifted: the wallpaper and dream once drew with every LFO,
@@ -81,7 +81,7 @@ class LookUnderlay(
     val amount: Float,
 )
 
-/** Where a host's look comes from: the saved stores (wallpaper, dream, Cast) or the session's state (export). */
+/** Where a host's look comes from: the saved stores (the dream, Cast) or the session's state (export). */
 fun interface LookSource {
     fun current(): LookSnapshot
 

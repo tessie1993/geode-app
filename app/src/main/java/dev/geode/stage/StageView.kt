@@ -27,7 +27,7 @@ class StageView(
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
     SensorEventListener {
-    /** A view with a stage of its own: the wallpaper's and the dream's. */
+    /** A view with a stage of its own: the dream's. */
     constructor(context: Context, kind: Int, capFps: Float) : this(context, Stage(context, kind, capFps))
 
     private val sensors = context.getSystemService(SensorManager::class.java)

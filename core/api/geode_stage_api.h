@@ -32,7 +32,7 @@ typedef struct geode_stage_client {
 } geode_stage_client;
 
 /* A view stage keeps its surface while hidden (the app's view); a surface stage pauses while its rule says
-   stopped (the live wallpaper, the dream). */
+   stopped (the dream). */
 #define GEODE_STAGE_KIND_VIEW                0
 #define GEODE_STAGE_KIND_SURFACE             1
 
@@ -56,7 +56,7 @@ typedef struct geode_stage_client {
 #define GEODE_STAGE_STATE_MODE_SHIFT         12
 
 /* NULL when the client lacks a function or the thread could not start. cap_fps is the surface's own fps cap
-   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW, the wallpaper's or the dream's; 0 every vsync). */
+   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW, the dream's; 0 every vsync). */
 GEODE_API geode_stage* geode_stage_create(int kind, const geode_stage_client* client, float cap_fps);
 /* A window (from ANativeWindow_fromSurface; the stage takes its own reference, the caller keeps and releases
    its own) or NULL when the surface is destroyed. Returns once the stage has let go of the old window: call it
@@ -68,7 +68,7 @@ GEODE_API void     geode_stage_set_window(geode_stage*, struct ANativeWindow* wi
 GEODE_API void     geode_stage_set_size(geode_stage*, int width, int height);
 /* The app's view: GEODE_STAGE_VIEW_* bits. */
 GEODE_API void     geode_stage_set_view(geode_stage*, unsigned view_flags);
-/* The wallpaper and the dream: GEODE_SURFACE_* flags through the surface run rule (geode_surface_run_mode);
+/* The dream: GEODE_SURFACE_* flags through the surface run rule (geode_surface_run_mode);
    returns the run mode it applied, so the shell can lay its black cover over Dark. */
 GEODE_API int      geode_stage_set_surface(geode_stage*, unsigned surface_flags, long long animate_until_ms, long long now_ms);
 /* The host's pause and resume (the view's onPause and onResume). */
@@ -92,7 +92,7 @@ GEODE_API unsigned geode_stage_take_events(geode_stage*);
 GEODE_API void     geode_stage_destroy(geode_stage*);
 
 /* A live stage: one that owns its renderer (a geode_viz made here from the assets and the shader cache folder)
-   and frees it at its release. This is the app's view, the wallpaper and the
+   and frees it at its release. This is the app's view and the
    dream. NULL when the renderer could not be made. The assets must outlive the stage. */
 GEODE_API geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir,
                                                float cap_fps);

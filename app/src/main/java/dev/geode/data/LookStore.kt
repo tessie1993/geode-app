@@ -9,11 +9,11 @@ import dev.geode.util.bestEffort
 
 /**
  * The look as the app last saved it (#345), for the surfaces that run without the app's session: the
- * wallpaper, the dream and Cast. It reads the same keys the session writes (`data/VizStateStore` for the
+ * dream and Cast. It reads the same keys the session writes (`data/VizStateStore` for the
  * style, params and transition; [SoundInputSettingsCodec] for Settings › Audio, [SystemMotion] for reduce motion; [LfoStore] for the
  * modulation and the user's reactions), so those surfaces can never draw a look the app does not.
  *
- * Here and not in `ui`, so `wallpaper/` and `cast/` read it without crossing the layer rule; that is
+ * Here and not in `ui`, so `dream/` and `cast/` read it without crossing the layer rule; that is
  * why the wallpaper and the dream used to carry their own copies with the raw `live_state` key.
  * The background image is not loaded yet: it needs a decode at the surface's size, which only the
  * live stage does today.
@@ -48,7 +48,7 @@ class LookStore(
 
     /**
      * Pushes the process-wide native state a renderer draws under, for a process the app's session never
-     * started (the wallpaper or the dream after a kill). The app's own controllers push it themselves.
+     * started (the dream after a kill). The app's own controllers push it themselves.
      */
     fun pushProcessWide() {
         val modulation = LfoStore(prefsFiles.general)

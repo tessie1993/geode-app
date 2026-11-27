@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdint>
 
-// Whether a resting surface (the live wallpaper, the dream) is hearing anything: the rule behind
+// Whether a resting surface (the dream) is hearing anything: the rule behind
 // their "rest when silent".
 //
 // Silence is judged on the samples, not on whether a player is running, because a playing track

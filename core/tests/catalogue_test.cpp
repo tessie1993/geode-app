@@ -583,8 +583,8 @@ void textEqualsTheFixture(const char* path) {
     }
 }
 
-// The engine numbers the shell sizes things by: the touch field's finger slots are what the gestures and the
-// wallpaper collect, so they come from the field itself.
+// The engine numbers the shell sizes things by: the touch field's finger slots are what the gestures
+// collect, so they come from the field itself.
 void valuesTheShellReads() {
     const std::string& text = catalogue::text();
     check(text.find("\nvalue|touchPoints|" + std::to_string(TouchField::kMaxPoints) + "\n") != std::string::npos,

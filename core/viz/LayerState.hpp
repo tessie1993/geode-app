@@ -17,7 +17,7 @@ namespace geode::viz::layer_state {
 //
 // Native keeps it: Customize › Layers' edits change it here (change), and the shell only saves the line native
 // hands back (encode) and hands it back at the next start (decode), so it is saved with the look and reaches the
-// wallpaper and the dream after a restart.
+// dream after a restart.
 
 // Where the layer's style comes from. The owner, 2026-11-12, asked what the layer should choose from: "User
 // chooses. Or director or macro."

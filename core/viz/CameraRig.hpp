@@ -6,7 +6,7 @@
 
 namespace geode::viz {
 
-// The viewer, shared by every render path: live view, wallpaper, dream and
+// The viewer, shared by every render path: live view, dream and
 // export all step one of these from the same final SceneParams, so an export
 // flies the same path the screen did.
 //

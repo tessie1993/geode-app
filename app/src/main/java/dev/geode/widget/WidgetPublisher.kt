@@ -221,7 +221,7 @@ class WidgetPublisher(
     companion object {
         /**
          * Kept on every player event whether or not a widget is placed (the [WidgetState] write is
-         * skipped without one), so the screen saver's now-playing line (`wallpaper/DreamOverlay`) is
+         * skipped without one), so the screen saver's now-playing line (`dream/DreamOverlay`) is
          * always current. Null until the playback service publishes in this process.
          */
         @Volatile

@@ -9,14 +9,13 @@ import dev.geode.engine.bridge.IngestNative
 
 /**
  * Whatever any app is playing, as a native ring a renderer can hear: the app's "hear other apps" and the
- * wallpaper both use it.
+ * screen saver both use it.
  *
  * The app's own capture path (`audio/PlaybackCaptureService`) needs a MediaProjection consent
- * and a foreground service, which a wallpaper can neither ask for nor keep running. A
+ * and a foreground service, which a dream can neither ask for nor keep running. A
  * `Visualizer` on the output mix (audio session 0) needs neither: the microphone permission,
  * granted once in the app, and `MODIFY_AUDIO_SETTINGS`, which the manifest already holds. It is
- * the platform's own answer for "visualize what is playing", and the wallpaper process is bound
- * by the system with the capabilities a visible wallpaper needs to keep it.
+ * the platform's own answer for "visualize what is playing".
  *
  * What it hands over is coarser than the app's tap: 8-bit mono, and only the newest
  * `Visualizer.getCaptureSize` samples at each capture (about 20 a second, ~21 ms of every 50).

@@ -3,7 +3,7 @@ package dev.geode.data
 import dev.geode.engine.bridge.PerfNative
 
 /**
- * Settings › Performance: how much GPU a live surface (screen, wallpaper, dream) may spend.
+ * Settings › Performance: how much GPU a live surface (screen, dream) may spend.
  *
  * A mode is only a named preset of these values; the user can then change any one of them, and
  * the tab shows "Custom" once the values no longer match a preset. Export never reads this: it

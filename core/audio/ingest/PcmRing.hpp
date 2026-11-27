@@ -6,7 +6,7 @@
 #include <vector>
 
 // The PCM ingest ring: one ring per audio source (the player's
-// tap, the mic, another app's audio, the wallpaper's output-mix capture). Ported from the Kotlin
+// tap, the mic, another app's audio, the dream's output-mix capture). Ported from the Kotlin
 // SampleRing and SoundCursor, with the rate inside the ring instead of in a volatile beside it.
 //
 // One writer at a time, any number of readers. The writer copies a block in, then publishes the new

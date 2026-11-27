@@ -41,12 +41,12 @@ class GeodeApp : Application() {
         // Builds the container now: it starts the IO load of every settings repository, the prefs the
         // playback session reads while it is constructed on main, and the process-wide engine
         // configuration (the macro bank, the auto-director), which reaches native
-        // as each read is back, before a surface (the app, the wallpaper, the dream, an export) needs it.
+        // as each read is back, before a surface (the app, the dream, an export) needs it.
         container
     }
 
     /**
-     * Memory pressure (#854). The one process serves the app, the wallpaper and the dream, so this one
+     * Memory pressure (#854). The one process serves the app and the dream, so this one
      * callback covers all of them. Kotlin only forwards: see [MemoryTrim].
      */
     override fun onTrimMemory(level: Int) {

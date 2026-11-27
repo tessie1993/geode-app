@@ -1,4 +1,4 @@
-// Host-side checks for what #509 (#441, #389) adds to the wallpaper's and the dream's run rule
+// Host-side checks for what #509 (#441, #389) adds to the dream's run rule
 // (core/viz/SurfaceRun), through the C ABI the shells call: reduced motion holds a still frame, the still
 // frame's native settle, and each surface's own fps choice as the frame-rate hint.
 // Built and run by CI ("Native host tests" in .github/workflows/android.yml); no GL, no device.

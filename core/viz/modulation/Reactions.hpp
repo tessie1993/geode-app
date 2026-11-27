@@ -259,7 +259,7 @@ constexpr std::uint32_t bit(Moment m) { return 1u << static_cast<int>(m); }
 ReactSourceMask sources(std::uint32_t mask);
 // The moment `s` belongs to, or -1 when no moment claims it. Only the page's moments claim sources.
 int momentOf(ReactSource s);
-// Process-wide like the macro bank and the director, so every renderer's director (screen, export, wallpaper,
+// Process-wide like the macro bank and the director, so every renderer's director (screen, export,
 // dream) keeps off the same moments. 0 (nothing the hand's) until the shell pushes the saved mask.
 // A mask counts only while the user has a list of their own (`hasUser`): with none the DNA plays every
 // moment, so a mask left over from a stale or unreadable saved list (#355) must not switch off the

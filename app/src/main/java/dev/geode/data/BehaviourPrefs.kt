@@ -193,8 +193,8 @@ data class BehaviourPrefs(
     /** The dream's "title · artist" line under the clock, while something plays. */
     val dreamShowNowPlaying: Boolean = true,
     /**
-     * The dream also reacts to other apps' sound (the output-mix capture the wallpaper's "React to
-     * any app" uses), when BeatRealms is not playing. Off by default, like the wallpaper's: Android
+     * The dream also reacts to other apps' sound (the output-mix capture), when BeatRealms is not playing.
+     * Off by default: Android
      * files that capture under the microphone permission, so it is asked for when this is turned on.
      */
     val dreamHearOtherApps: Boolean = false,

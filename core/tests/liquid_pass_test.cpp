@@ -51,6 +51,7 @@ extern "C" int AAsset_read(AAsset* asset, void* buf, size_t count) {
     return static_cast<int>(n);
 }
 extern "C" void AAsset_close(AAsset* asset) { delete asset; }
+extern "C" int __android_log_print(int, const char*, const char*, ...) { return 0; }
 
 // ---- our own code's link seams (as in edge_glow_pass_test.cpp) ------------------------------------------
 geode::viz::ProgramStager* geode::viz::ProgramStager::current() { return nullptr; }

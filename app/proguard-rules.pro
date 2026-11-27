@@ -52,3 +52,10 @@
 # Glance builds an ActionCallback (WidgetTransportAction, WidgetStyleAction) from
 # its class name with the no-argument constructor.
 -keep class * implements androidx.glance.appwidget.action.ActionCallback { public <init>(); }
+
+# ---------------------------------------------------------------------------
+# Cast
+# ---------------------------------------------------------------------------
+# CastContext builds the OptionsProvider named in the manifest from its class name; the Cast
+# SDK's own rule keeps its methods, not its constructor.
+-keep class dev.geode.cast.CastOptionsProvider { public <init>(); }

@@ -31,9 +31,6 @@ constexpr const char* kAudioFx = "geode-audiofx";
 constexpr const char* kModulation = "geode-mod";
 constexpr const char* kLibrary = "geode-library";
 constexpr const char* kBackground = "geode-background";
-// Retired with the live wallpaper (GeodePrefsFiles.RETIRED_WALLPAPER): an older backup's settings carry it, so a
-// restore still accepts its path, and restores nothing from it.
-constexpr const char* kRetiredWallpaper = "geode-wallpaper";
 
 constexpr const char* kPrefsDir = "prefs/";
 constexpr const char* kPrefsSuffix = ".json";
@@ -290,8 +287,6 @@ std::string sectionOfPath(const std::string& path) {
             for (const auto& s : sectionTable()) {
                 if (contains(s.prefsFiles, name)) return s.id;
             }
-            // Not in any section's prefsFiles, so nothing exports or restores it; only an old archive's entry passes.
-            if (name == kRetiredWallpaper) return "settings";
             return "";
         }
         if (parts.size() == 2) {

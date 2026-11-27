@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -83,8 +84,9 @@ internal fun SongEventsPage(
     var open by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableIntStateOf(-1) }
     var undo by remember { mutableStateOf<RowUndo?>(null) }
-    // The event lights and the cost, as the last frame left them.
-    val status by produceState(FloatArray(0)) {
+    // The event lights and the cost, as the last frame left them. A new array every poll, so it is read only where
+    // it is drawn (the lights, the meter's line) and as the meter's level: a poll redraws, it never recomposes the page.
+    val status = produceState(FloatArray(0)) {
         while (true) {
             value = vm.responderStatus()
             delay(STATUS_POLL_MS)
@@ -93,7 +95,7 @@ internal fun SongEventsPage(
     Column {
         SectionHeader(stringResource(R.string.song_events_header))
         ControlHint(stringResource(R.string.song_events_hint))
-        CostMeter(status)
+        CostMeter { status.value }
         var category = -1
         catalogue.rows.forEach { info ->
             if (info.category != category) {
@@ -109,7 +111,7 @@ internal fun SongEventsPage(
             EventRow(
                 info = info,
                 on = on,
-                light = status.getOrElse(info.row) { 0f },
+                light = { status.value.getOrElse(info.row) { 0f } },
                 chips = remember(reactions, sceneId, seed, handMask) { listedOf(reactions, sceneId, seed, handMask, info.row) },
                 open = open,
                 look = look,
@@ -201,7 +203,7 @@ private fun tileFields(
 private fun EventRow(
     info: EventRowInfo,
     on: Boolean,
-    light: Float,
+    light: () -> Float,
     chips: List<Listed>,
     open: String,
     look: FloatArray,
@@ -213,13 +215,14 @@ private fun EventRow(
 ) {
     val users = chips.count { !it.style }
     val rowSwitch = stringResource(R.string.song_events_row_switch, info.label)
+    val lightColor = MaterialTheme.colorScheme.primary
     Column(Modifier.fillMaxWidth().padding(vertical = GeodeSpacing.XS)) {
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = LIGHT_FLOOR + (1f - LIGHT_FLOOR) * light.coerceIn(0f, 1f))),
+                    .drawBehind { drawRect(lightColor.copy(alpha = LIGHT_FLOOR + (1f - LIGHT_FLOOR) * light().coerceIn(0f, 1f))) },
             )
             Column(Modifier.weight(1f).padding(start = GeodeSpacing.M)) {
                 Text(info.label, style = MaterialTheme.typography.bodyLarge)
@@ -482,11 +485,15 @@ private fun AddResponseSheet(
 
 /** This frame's work against the budget as a quiet meter: a line, and a word once it is busy. */
 @Composable
-private fun CostMeter(status: FloatArray) {
-    if (status.size < ResponderNative.RESP_STATUS_VALUES) return
-    val cost = status[ResponderNative.RESP_STATUS_COST]
-    val budget = status[ResponderNative.RESP_STATUS_BUDGET]
-    val level = status[ResponderNative.RESP_STATUS_LEVEL].roundToInt()
+private fun CostMeter(status: () -> FloatArray) {
+    // Only the level (and whether there is a status yet) is composition's; the line reads the cost in its draw.
+    val level by remember {
+        derivedStateOf {
+            val s = status()
+            if (s.size < ResponderNative.RESP_STATUS_VALUES) NO_LEVEL else s[ResponderNative.RESP_STATUS_LEVEL].roundToInt()
+        }
+    }
+    if (level == NO_LEVEL) return
     val word =
         stringResource(
             when (level) {
@@ -505,7 +512,11 @@ private fun CostMeter(status: FloatArray) {
     ) {
         Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         LinearProgressIndicator(
-            progress = { if (budget > 0f) (cost / budget).coerceIn(0f, 1f) else 0f },
+            progress = {
+                val s = status()
+                val budget = s.getOrElse(ResponderNative.RESP_STATUS_BUDGET) { 0f }
+                if (budget > 0f) (s.getOrElse(ResponderNative.RESP_STATUS_COST) { 0f } / budget).coerceIn(0f, 1f) else 0f
+            },
             modifier = Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
             color = if (level == 0) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
         )
@@ -533,6 +544,7 @@ private fun UndoBar(
 }
 
 private const val ROW_ON = 0
+private const val NO_LEVEL = -1
 private const val STATUS_POLL_MS = 80L
 private const val UNDO_MS = 6000L
 private const val LIGHT_FLOOR = 0.15f

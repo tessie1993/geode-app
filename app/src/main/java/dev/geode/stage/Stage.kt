@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.lang.ref.Cleaner
+import java.lang.ref.WeakReference
 import java.nio.ByteBuffer
 
 /**
@@ -31,7 +32,7 @@ import java.nio.ByteBuffer
  */
 class Stage(
     context: Context,
-    kind: Int,
+    val kind: Int,
     capFps: Float,
 ) {
     private val appContext = context.applicationContext
@@ -85,8 +86,15 @@ class Stage(
     /** The auto-director chose a new look at a new section or a drop; the app's Auto changes style on it. */
     var onDirectorStyleMoment: () -> Unit = {}
 
-    /** Lets the UI re-crop the background image to the surface's new pixel size. */
+    /** Lets the UI re-crop the background image to the surface's new pixel size; one set while a surface is up hears its size at once. */
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
+        set(value) {
+            field = value
+            if (windowed) value(surfaceWidth, surfaceHeight)
+        }
+
+    /** The view drawing this stage now: a late callback from one an Activity recreation replaced changes nothing. */
+    internal var view = WeakReference<StageView>(null)
 
     /** The ring handle the stage hears (0: none), asked every polled frame so a playback session that comes and goes is picked up. */
     var soundInput: () -> Long = { 0L }
@@ -117,6 +125,7 @@ class Stage(
     private var sentUnderlay: LookUnderlay? = null
     private var underlaySent = false
     private var stillThen: ((Bitmap) -> Unit)? = null
+    private var windowed = false
     private var posted = false
     private var pollUntilMs = 0L
     private var eventFd: ParcelFileDescriptor? = null
@@ -139,6 +148,7 @@ class Stage(
             it.close()
         }
         eventFd = null
+        stillThen = null
         owned.handle = 0L
         if (h == 0L) return
         StageNative.stageSetSound(h, 0L)
@@ -212,6 +222,7 @@ class Stage(
         height: Int,
     ) {
         StageNative.stageSetWindow(handle, surface, width, height)
+        windowed = surface != null
         if (surface != null) sized(width, height)
         poll()
     }

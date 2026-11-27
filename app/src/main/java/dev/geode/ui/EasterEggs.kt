@@ -34,15 +34,15 @@ internal fun ShakeToScreenshot(
     viewModel: VisualsViewModel,
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext
     val view = LocalView.current
     val shot by rememberUpdatedState {
         view.performStoneHaptic(StoneHapticCue.TAP)
+        // The stage outlives this view and Activity, so the still goes on to the save without them.
         visualizerView.stage.requestStill { still ->
-            view.post {
-                viewModel.saveStill(still) { saved ->
-                    val text = if (saved) R.string.visuals_screenshot_saved else R.string.visuals_screenshot_failed
-                    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-                }
+            viewModel.saveStill(still) { saved ->
+                val text = if (saved) R.string.visuals_screenshot_saved else R.string.visuals_screenshot_failed
+                Toast.makeText(app, text, Toast.LENGTH_SHORT).show()
             }
         }
     }

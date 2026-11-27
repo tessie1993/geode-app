@@ -16,7 +16,6 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performSemanticsAction
-import androidx.compose.ui.test.performTextInput
 import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -171,7 +170,7 @@ class UiTourTest {
         }
         tour.step("library", "search", "the search field with a query typed") {
             tour.tapIfPresent(SEARCH)
-            compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("tone")
+            compose.onAllNodes(hasSetTextAction()).onFirst().setTextWithoutKeyboard("tone")
             null
         }
         tour.back()

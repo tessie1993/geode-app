@@ -57,7 +57,6 @@ fun VisualizerEngineBindings(
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val studioViewModel: StudioViewModel = geodeViewModel()
     // Only the two ids, derived: a Customize slider tick changes vizState but must not re-run this.
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     val activeSceneId by remember { derivedStateOf { vizState.value.sceneId } }
@@ -72,12 +71,15 @@ fun VisualizerEngineBindings(
     LaunchedEffect(Unit) {
         visualizerView.stage.onShaderError = viewModel::reportShaderError
         visualizerView.stage.soundInput = { dev.geode.audio.AudioBus.heard }
-        // W02: the background image is decoded to the surface's current pixel size, so a rotation
-        // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
-        // inside the view's surface callback, so the re-decode is launched rather than run there.
-        visualizerView.stage.onSurfaceSizeChanged = { w, h ->
-            mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) }
-        }
+    }
+    // W02: the background image is decoded to the surface's current pixel size, so a rotation
+    // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
+    // inside the view's surface callback, so the re-decode is launched rather than run there.
+    // The stage outlives this composition, so the handler goes with it.
+    DisposableEffect(visualizerView) {
+        val stage = visualizerView.stage
+        stage.onSurfaceSizeChanged = { w, h -> mainScope.launch { visualsViewModel.setBackgroundRenderSize(w, h) } }
+        onDispose { stage.onSurfaceSizeChanged = { _, _ -> } }
     }
     // The look is one value fed from one collector (#345): a slider drag or a pinch edits params at
     // pointer rate, and an effect keyed on them relaunched a coroutine per edit, each a frame late. The
@@ -99,11 +101,6 @@ fun VisualizerEngineBindings(
     DisposableEffect(visualizerView) {
         visualsViewModel.attachResponderStage(visualizerView.stage)
         onDispose { visualsViewModel.attachResponderStage(null) }
-    }
-    // Record copies this stage's frames; one leaving the screen ends a recording it was making.
-    DisposableEffect(visualizerView) {
-        studioViewModel.attachRecordStage(visualizerView.stage)
-        onDispose { studioViewModel.attachRecordStage(null) }
     }
     LaunchedEffect(Unit) {
         viewModel.vizState

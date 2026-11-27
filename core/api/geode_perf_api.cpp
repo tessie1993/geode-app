@@ -35,4 +35,13 @@ int geode_perf_scale_choices(float* out, int capacity) {
     return n;
 }
 
+int geode_perf_buffer_size(float render_scale, int view_width, int view_height, int* out, int capacity) {
+    if (!out || capacity < GEODE_PERF_BUFFER_INTS) return 0;
+    const frame::BufferSize b = frame::bufferSize(render_scale, view_width, view_height);
+    if (b.width <= 0) return 0;
+    out[0] = b.width;
+    out[1] = b.height;
+    return GEODE_PERF_BUFFER_INTS;
+}
+
 }  // extern "C"

@@ -107,9 +107,9 @@ object StageNative {
         amount: Float,
     )
 
+    /** March scale and post FX; the render resolution is the window buffer's size ([PerfNative.perfBufferSize]). */
     external fun stageSetQuality(
         stage: Long,
-        renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
     )

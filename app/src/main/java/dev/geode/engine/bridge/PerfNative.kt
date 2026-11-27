@@ -70,6 +70,17 @@ object PerfNative {
     /** The render and march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
 
+    /**
+     * The window buffer for a view of [viewWidth] x [viewHeight] pixels at [renderScale], width then height into
+     * [out] (2 ints): the size the stage's surface is fixed to, which the display scales up. False for no view.
+     */
+    external fun perfBufferSize(
+        renderScale: Float,
+        viewWidth: Int,
+        viewHeight: Int,
+        out: IntArray,
+    ): Boolean
+
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 }

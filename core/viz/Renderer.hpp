@@ -92,9 +92,10 @@ public:
     void setParams(const SceneParams& params);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
-    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
-    // optional passes and fluid bloom.
-    void setUserQuality(float renderScale, float marchScale, bool postFx);
+    // so it keeps full quality. marchScale is a 0..1 multiplier; postFx = false drops the optional passes
+    // and fluid bloom. The render resolution is the surface's own size: the shell sizes the window buffer
+    // (SurfaceHolder.setFixedSize, viz/frame/Quality bufferSize) and the display scales it up.
+    void setUserQuality(float marchScale, bool postFx);
     // The rate the display last presented at and the surface's own cap (Settings › Performance,
     // Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
@@ -276,7 +277,7 @@ private:
     // Steps styleSchedule_ once per frame (after the sound engine and musicRate_) on the picture's clock,
     // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
     void applyStyleSchedule(float dt);
-    void applyRenderScale();
+    void resizeTargets();
     Scene* resolveActiveScene();
     // This frame's engine settings (viz/resolver/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
@@ -366,7 +367,7 @@ private:
     Overlays overlays_{loader_};
     std::vector<std::pair<std::string, std::unique_ptr<Scene>>> scenes_;
     // Which of scenes_ stay resident, and which were sized before the last tier or scale change
-    // (viz/SceneResidency). sizeStamp_ moves on every applyRenderScale.
+    // (viz/SceneResidency). sizeStamp_ moves on every resizeTargets.
     SceneResidency residency_;
     uint32_t sizeStamp_ = 0;
     std::string quadVert_;
@@ -482,10 +483,8 @@ private:
     std::string transitionId_ = kFirstTransitionId;
     int64_t transitionDurationMs_ = kFirstTransitionMs;
     std::atomic<bool> reducedMotion_{false};
-    std::atomic<float> userScale_{1.0f};
     std::atomic<float> marchScale_{1.0f};
     std::atomic<bool> userPostFx_{true};
-    float appliedUserScale_ = 1.0f;
     // SceneRegistry::spinRate of the requested scene, set by setScene so the
     // frame never compares ids.
     std::atomic<float> sceneSpin_{0.0f};

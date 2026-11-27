@@ -500,16 +500,14 @@ void Renderer::surfaceChanged(int width, int height) {
     width_ = std::max(width, 1);
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
-    applyRenderScale();
+    resizeTargets();
     // The targets were rebuilt: the next frame steps by 0, not by that.
     restartClock();
 }
 
-void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx) {
-    // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
-    // resizing every frame; a corrupt pref means full quality instead.
+void Renderer::setUserQuality(float marchScale, bool postFx) {
+    // std::clamp passes NaN through; a corrupt pref means full quality instead.
     const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
-    userScale_.store(unit(renderScale), std::memory_order_relaxed);
     marchScale_.store(unit(marchScale), std::memory_order_relaxed);
     userPostFx_.store(postFx, std::memory_order_relaxed);
 }
@@ -532,16 +530,14 @@ void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
     uiBlurOn_.store(r.active(), std::memory_order_relaxed);
 }
 
-void Renderer::applyRenderScale() {
-    // The user's scale, as of this frame.
-    appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
-    // The scene target is the surface's pixels times that scale and never more: a scale of 1 draws
-    // each pixel once.
-    renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);
-    renderHeight_ = std::max(static_cast<int>(height_ * appliedUserScale_), 1);
-    util::traceCounter("geode.renderScalePct", std::lround(appliedUserScale_ * 100.0f));
+void Renderer::resizeTargets() {
+    // The scene targets are the surface's pixels, one to one. Settings › Performance's render resolution
+    // is the surface's size: the shell sizes the window buffer and the display's scaler fills the screen,
+    // so the composite, the UI blur and the final pass shade the same pixels the scene does.
+    renderWidth_ = width_;
+    renderHeight_ = height_;
     // Spares over the budget go before anything is resized (#378). Then only the scenes drawn this frame
-    // are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
+    // are resized; a spare is resized when readyScene hands it out again, so a size change costs one
     // resize per scene shown, not one per scene ever built.
     ++sizeStamp_;
     trimScenes({});

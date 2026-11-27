@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <iterator>
+#include <limits>
 
 #include "api/geode_api.h"
 #include "viz/frame/Quality.hpp"
@@ -93,6 +94,27 @@ void throughTheAbi() {
     check(geode_perf_tier(3, tier, GEODE_PERF_TIER_FLOATS) == 0, "no fourth tier");
 }
 
+// The window buffer the shell fixes the surface to (SurfaceHolder.setFixedSize); the display scales it up.
+void bufferSizes() {
+    const BufferSize full = bufferSize(1.0f, 1080, 2400);
+    check(full.width == 1080 && full.height == 2400, "scale 1 is the view's own size");
+    const BufferSize half = bufferSize(0.5f, 1440, 3200);
+    check(half.width == 720 && half.height == 1600, "scale 0.5 halves each side");
+    const BufferSize odd = bufferSize(0.75f, 1081, 2401);
+    check(odd.width == 811 && odd.height == 1801, "a side rounds to the nearest pixel");
+    check(bufferSize(std::numeric_limits<float>::quiet_NaN(), 1080, 2400).width == 1080, "a corrupt scale is full size");
+    check(bufferSize(4.0f, 1080, 2400).width == 1080, "never bigger than the view");
+    check(bufferSize(0.01f, 1080, 2400).width == 270, "never under a quarter");
+    check(bufferSize(0.25f, 1, 1).width == 1 && bufferSize(0.25f, 1, 1).height == 1, "at least one pixel");
+    check(bufferSize(1.0f, 0, 2400).width == 0, "no view, no buffer");
+    int out[GEODE_PERF_BUFFER_INTS] = {};
+    check(geode_perf_buffer_size(0.5f, 1080, 2400, out, GEODE_PERF_BUFFER_INTS) == GEODE_PERF_BUFFER_INTS && out[0] == 540 &&
+              out[1] == 1200,
+          "geode_perf_buffer_size");
+    check(geode_perf_buffer_size(0.5f, 0, 0, out, GEODE_PERF_BUFFER_INTS) == 0 && geode_perf_buffer_size(0.5f, 8, 8, out, 1) == 0,
+          "no view or a short out writes nothing");
+}
+
 }  // namespace
 
 int main() {
@@ -102,6 +124,7 @@ int main() {
     devicePick();
     presetMatch();
     throughTheAbi();
+    bufferSizes();
     if (failures == 0) std::printf("quality_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

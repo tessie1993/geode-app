@@ -134,9 +134,8 @@ Java_dev_geode_engine_bridge_StageNative_stageSetUnderlay(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat renderScale, jfloat marchScale,
-                                                         jboolean postFx) {
-    geode_viz_set_quality(StageViz(stage), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
+Java_dev_geode_engine_bridge_StageNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat marchScale, jboolean postFx) {
+    geode_viz_set_quality(StageViz(stage), marchScale, postFx == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT void JNICALL

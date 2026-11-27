@@ -70,7 +70,8 @@ class Stage(
     var performance: PerformanceSettings = PerformanceSettings.HIGH
         set(value) {
             field = value
-            StageNative.stageSetQuality(handle, value.renderScale, value.marchScale, value.postFx)
+            // The render scale is the window buffer's size, which the StageView showing this stage fixes.
+            StageNative.stageSetQuality(handle, value.marchScale, value.postFx)
         }
 
     /** The surface's own fps cap; 0 or less is none. */

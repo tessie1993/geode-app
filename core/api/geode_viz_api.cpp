@@ -587,7 +587,7 @@ public:
 
     void setPacedFps(float pacedFps, float capFps) override { v_.renderer.setPacedFps(pacedFps, capFps); }
     void applyQuality(const frame::UserQuality& q) override {
-        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx);
+        v_.renderer.setUserQuality(q.marchScale, q.postFx);
     }
     int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
     void gyroReset() override {
@@ -1038,8 +1038,8 @@ const char* geode_viz_look_defaults(void) {
     return defaults.c_str();
 }
 
-void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx) {
-    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0});
+void geode_viz_set_quality(geode_viz* v, float march_scale, int post_fx) {
+    if (v) v->live.setQuality(frame::UserQuality{march_scale, post_fx != 0});
 }
 
 

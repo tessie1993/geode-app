@@ -17,17 +17,15 @@ public:
     virtual void surfaceCreated() = 0;
     // The window's size in pixels, after every new surface and every size change, context current.
     virtual void surfaceChanged(int width, int height) = 0;
-    // One frame, context current: paced is the rate the display presents at (read from the vsync's own interval, 0 not known), cap the surface's own, a hint only.
-    // Returns event bits the shell polls (geode_stage_take_events).
+    // One frame, context current: paced is the rate frames are paced at (1 / the frame's length, 0 not known), cap
+    // the surface's own, a hint only. Returns event bits the shell polls (geode_stage_take_events).
     virtual uint32_t frame(float pacedFps, float capFps) = 0;
-    // Called just before each frame: the vsync's frame time (CLOCK_MONOTONIC ns) the frame is for, 0 when no vsync
-    // asked for it. The frame's own time, so a thread hop between the vsync and the draw adds no jitter to its step.
-    virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
-    // Called just before each frame, after frameTime: when the display is expected to show it (CLOCK_MONOTONIC ns),
-    // 0 when no time was given. The sound is read where the viewer sees the frame.
+    // Called just before each frame: when the display is expected to show it (CLOCK_MONOTONIC ns, from the pacer,
+    // core/stage/SwapPace), 0 for a frame no pacer asked for. The picture steps by these times, and the sound is read
+    // where the viewer sees the frame.
     virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
-    // The next frame steps by 0: the time since the last one did not pass on screen (the vsync starts again, or a
-    // frame no vsync asked for follows). Called on the stage thread, context current or not.
+    // The next frame steps by 0: the time since the last one did not pass on screen (the pacing starts again, or a
+    // frame no pacer asked for follows). Called on the stage thread, context current or not.
     virtual void restartClock() {}
     // Shed the spare scenes before the surface pauses, context current.
     virtual void trimSpares() = 0;

@@ -5,19 +5,21 @@
 #include <string>
 
 #include "stage/CommandQueue.hpp"
-#include "stage/FramePacer.hpp"
 #include "stage/FrameRecorder.hpp"
 #include "stage/StageClient.hpp"
 #include "stage/StageLifecycle.hpp"
-#include "stage/VsyncRule.hpp"
+#include "stage/SwapPace.hpp"
 
 // What a stage thread does with each command and on each turn of its loop: which
-// lifecycle event a command is, when a window hand-over is acknowledged, when a requested frame is drawn, when the
+// lifecycle event a command is, when a window hand-over is acknowledged, when a paced frame is drawn, when the
 // window's frame-rate preference is restated. Pure, with no EGL and no Android, so the host can test it
 // (core/tests/stage_core_test.cpp); core/stage/android carries out the port's calls and nothing else.
+//
+// While the stage paces, every turn of the loop draws one frame and the swap holds it to the frame rate (Android
+// Frame Pacing: the swap blocks until the frame's slot), so the thread takes its commands between frames.
 namespace geode::stage {
 
-// What a stage thread is told. a, b: sizes, a mode or a frame's intervals; f: a rate; t: a window hand-over's sequence number or a vsync's time;
+// What a stage thread is told. a, b: sizes or a mode; f: a rate; t: a window hand-over's sequence number;
 // target: a window the sender acquired for the stage.
 enum StageCommand : uint16_t {
     kStageWindow = 1,      // Ordered: target = the window, a = width, b = height, t = sequence
@@ -27,10 +29,20 @@ enum StageCommand : uint16_t {
     kStagePause = 5,       // LastWins: a = 1 paused, 0 resumed
     kStageRedraw = 6,      // LastWins
     kStageCap = 7,         // LastWins: f = cap fps
-    kStageFrameDue = 8,    // LastWins, from the vsync thread: t = the vsync's frame time (CLOCK_MONOTONIC ns), b = ns from it to the frame's expected presentation (0: none given), a = ns between presentations (0: not known)
     kStageQuit = 10,       // Ordered
     kStageService = 11,    // LastWins: the client has work for the stage thread (StageClient::service)
     kStageTrim = 12,       // LastWins: the system wants memory back (Lifecycle::trimRequested)
+    kStageVsync = 13,      // LastWins, from the stage's own Choreographer: the vsync StagePort::wakeAtVsync asked for
+};
+
+// What the pacer knows before a frame (StagePort::paceTimes).
+struct PaceTimes {
+    // The presentation time the pacer aims the next frame at, CLOCK_MONOTONIC ns (Swappy's startFrame); 0: none.
+    int64_t desiredNs = 0;
+    // One frame's length (the swap interval in whole refresh periods), and the display's refresh period; 0: not
+    // known.
+    int64_t frameNs = 0;
+    int64_t periodNs = 0;
 };
 
 // The platform a stage runs on, called on the stage thread only. A window is opaque here.
@@ -45,31 +57,32 @@ public:
     virtual void releaseCurrent() = 0;
     virtual void destroySurface() = 0;
     virtual void destroyContext() = 0;
-    // The frame just drawn goes to the window: Done, ContextLost, or BadSurface for any other failure.
+    // The frame just drawn goes to the window through the pacer: Done, ContextLost, or BadSurface for any other
+    // failure. Blocks until the pacer lets the frame go (Swappy's swap interval, or the window's own back-pressure).
     virtual Outcome swap() = 0;
+    // A frame swapped nothing, so no swap holds the next one back: the platform's next vsync (Choreographer) sends
+    // kStageVsync, and the loop sleeps until then.
+    virtual void wakeAtVsync() = 0;
     // The reference a hand-over carried, once the stage no longer names that window.
     virtual void releaseWindow(void* window) = 0;
     virtual void setFrameRate(void* window, float fps) = 0;
-    virtual void vsyncRun(bool on) = 0;
+    // The pacing starts (on, at `capFps`), takes a new cap, or stops (off).
+    virtual void pace(bool on, float capFps) = 0;
+    virtual PaceTimes paceTimes() = 0;
+    // The GPU time of the frame before the last one swapped, as the pacer measured it; 0 or less: not known.
+    virtual int64_t lastGpuNs() { return 0; }
+    // CLOCK_MONOTONIC ns.
+    virtual int64_t nowNs() = 0;
     // Every hand-over up to this sequence number is applied: its sender may stop waiting.
     virtual void windowApplied(int64_t sequence) = 0;
-    // The next swap's stamp, CLOCK_MONOTONIC ns (frame::latchStampNs): the frame is not shown before it (0: none, the
-    // swap presents when it can). Set just before each swap, so it never outlives the frame it was given for.
-    virtual void presentAt(int64_t stampNs) { static_cast<void>(stampNs); }
-    // The last frame swapped is still in the GPU's queue: its fence (inserted after the draw, before the swap) has not
-    // signalled. Asked with no wait. False when no frame was swapped, or the platform has no fence.
-    virtual bool gpuBusy() { return false; }
-    // The frame the vsync asked for is finished (drawn, or dropped unseen): the vsync thread may ask for the next at its
-    // first vsync from now. Called once per kStageFrameDue taken, after the swap.
-    virtual void frameDone() {}
-    // One vsync frame's whole work on the stage thread, the client's draw and the swap, took `actualNs` of the
-    // `budgetNs` the frame clock gave it (ADPF's target and actual work duration). Only frames a vsync asked for.
-    virtual void frameWork(int64_t budgetNs, int64_t actualNs) {
-        static_cast<void>(budgetNs);
+    // One paced frame's draw on the stage thread took `actualNs` of the `targetNs` frame (ADPF's target and actual
+    // work duration). The swap's wait is not work.
+    virtual void frameWork(int64_t targetNs, int64_t actualNs) {
+        static_cast<void>(targetNs);
         static_cast<void>(actualNs);
     }
-    // A chunk of the frame recorder (stage/FrameRecorder), as its CSV: when the ring is full and when the vsync stops.
-    // Only while a debug flag has it recording.
+    // A chunk of the frame recorder (stage/FrameRecorder), as its CSV: when the ring is full and when the pacing
+    // stops. Only while a debug flag has it recording.
     virtual void framesRecorded(const std::string& csv) { static_cast<void>(csv); }
 };
 
@@ -82,54 +95,49 @@ public:
     // Stage thread. One command from the inbox, in the order drained.
     void apply(const Command& command, int64_t nowMs);
     // Stage thread, after each batch of commands: what the lifecycle owes, the hand-over's acknowledgement, the
-    // client's own work, then the frame a vsync asked for.
+    // client's own work, then one paced frame when the stage paces (unless it waits for a vsync).
     void step(int64_t nowMs);
     // Stage thread, when the thread must end out of turn (an exception): quit and free everything in order.
     void abandon();
     // Stage thread, last: a command that will never be applied gives its window back, as does the stage's own.
     void discard(const Command& command);
     void close();
-    // Stage thread, from a debug flag: every vsync the frame clock draws on goes to the frame recorder. Off by default.
+    // Stage thread, from a debug flag: every paced frame goes to the frame recorder. Off by default.
     void recordFrames(bool on) { recorder_.setEnabled(on); }
 
     bool finished() const { return lifecycle_.finished(); }
-    // When step is owed with no command arriving, -1 for never.
-    int64_t deadlineMs() const { return lifecycle_.deadlineMs(); }
+    // How long the loop may sleep before the next step, in ms: 0 for at once (the next paced frame: its swap does the
+    // waiting), -1 for until a command (or the vsync asked for) comes, else until the lifecycle's deadline.
+    int64_t waitMs(int64_t nowMs) const;
     // The lifecycle asked for more actions than any batch of events can owe: a bug to log, never a hang.
     bool unsettled() const { return unsettled_; }
 
     // Any thread.
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
-    // The rate the display last presented at, from the vsync's own intervals; 0 until one says.
+    // The rate frames are paced at, 1 / the frame's length; 0 until the pacer says.
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
     bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
 private:
+    bool paces() const;
     void runActions();
     void acknowledge();
     Outcome execute(const Action& action);
-    bool draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs);
+    bool draw(float pacedFps, float capFps, int64_t presentNs, int64_t& drawNs);
     void restateRate();
-    void drawDue();
-    void fencePolled(bool busy);
+    void drawPaced();
     void handOverFrames();
     Lifecycle lifecycle_;
     std::shared_ptr<StageClient> client_;
     StagePort& port_;
     void* window_ = nullptr;
     float cap_;
-    // The frame clock: which vsyncs draw, and the budget each frame has (stage/FramePacer).
-    FramePacer pacer_;
-    bool frameDue_ = false;
-    float dueFps_ = 0.0f;
-    int64_t dueFrameNs_ = 0;
-    int64_t duePeriodNs_ = 0;
-    int64_t duePresentNs_ = 0;
-    int64_t dueStampNs_ = 0;
-    // The last drawn frame's expected presentation (its vsync's time when none was given), 0 since a start.
+    PresentClock clock_;
+    // The last paced frame swapped nothing: the next one waits for the vsync asked for (kStageVsync).
+    bool vsyncWait_ = false;
+    // The last drawn frame's presentation time, 0 since a start.
     int64_t lastShownNs_ = 0;
-    int64_t gpuSkips_ = 0;
     FrameRecorder recorder_;
     bool serviceDue_ = false;
     int64_t seenSeq_ = 0;

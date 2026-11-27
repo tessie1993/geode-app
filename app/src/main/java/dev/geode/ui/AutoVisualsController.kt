@@ -24,7 +24,8 @@ internal class AutoVisualsController(
 
         fun updateViz(transform: (VizUiState) -> VizUiState)
 
-        val isPlaying: Boolean
+        /** Sound drives the visual: the player, the mic or a captured app. Auto holds while none does. */
+        val soundPlaying: Boolean
 
         fun selectScene(sceneId: String)
 
@@ -104,7 +105,7 @@ internal class AutoVisualsController(
     fun advanceVizPlaylist() {
         val s = host.vizState.value
         val now = SystemClock.elapsedRealtime()
-        val index = AutoNative.autoPlaylistTick(s.vizPlaylist.size, s.vizPlaylistEnabled, host.isPlaying, s.vizPlaylistIntervalSec, now)
+        val index = AutoNative.autoPlaylistTick(s.vizPlaylist.size, s.vizPlaylistEnabled, host.soundPlaying, s.vizPlaylistIntervalSec, now)
         if (index >= 0) applyVizEntry(s.vizPlaylist[index], automatic = true)
     }
 
@@ -166,7 +167,7 @@ internal class AutoVisualsController(
      */
     fun onDirectorMoment() {
         val s = host.vizState.value
-        when (AutoNative.autoMoment(s.sceneId, s.params.frame(), s.params.customPaletteId, host.isPlaying, s.vizPlaylistEnabled)) {
+        when (AutoNative.autoMoment(s.sceneId, s.params.frame(), s.params.customPaletteId, host.soundPlaying, s.vizPlaylistEnabled)) {
             AutoNative.AUTO_MOMENT_PLAYLIST -> stepVizPlaylist(automatic = true)
             AutoNative.AUTO_MOMENT_RANDOM -> randomStepNow(keepLook = true)
         }
@@ -174,7 +175,8 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
-        if (AutoNative.autoRandomTick(s.randomEnabled, host.isPlaying, s.randomIntervalSec, SystemClock.elapsedRealtime())) randomStepNow()
+        val now = SystemClock.elapsedRealtime()
+        if (AutoNative.autoRandomTick(s.randomEnabled, host.soundPlaying, s.randomIntervalSec, now)) randomStepNow()
     }
 
     /**

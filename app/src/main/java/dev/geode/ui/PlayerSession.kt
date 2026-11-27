@@ -408,7 +408,8 @@ class PlayerSession internal constructor(
 
                 override fun updateViz(transform: (VizUiState) -> VizUiState) = _vizState.update(transform)
 
-                override val isPlaying: Boolean get() = _uiState.value.isPlaying
+                override val soundPlaying: Boolean
+                    get() = soundPlaying(_uiState.value.isPlaying, externalAudio.value, captureController.micState.value)
 
                 // Auto-visuals only cycles through styles the user may keep; it never opens the
                 // paywall on its own.

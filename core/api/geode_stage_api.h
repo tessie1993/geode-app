@@ -101,7 +101,8 @@ GEODE_API geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, 
    thread; the stage's release waits for it. */
 GEODE_API geode_viz* geode_stage_viz_lock(geode_stage*);
 GEODE_API void     geode_stage_viz_unlock(void);
-/* The ring frames hear, or NULL. Never waits for a frame: one in flight keeps the ring it began with, so a replaced ring is not safe to free on return. */
+/* The ring frames hear, or NULL. Never waits for a frame: one in flight keeps the ring it began with. The stage holds
+   the ring until it hears another and that frame ends, so its owner may destroy it on return. */
 GEODE_API void     geode_stage_set_sound(geode_stage*, const geode_pcm_ring* ring);
 
 /* The user's look, as geode_viz_set_look takes it: only the parts that differ from the look set last reach the

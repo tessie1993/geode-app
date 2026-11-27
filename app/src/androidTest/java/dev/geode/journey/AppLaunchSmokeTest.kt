@@ -29,15 +29,10 @@ class AppLaunchSmokeTest {
         compose.tap("I understand")
 
         // The notice is the whole of first run now: music access is asked in Library. The guided
-        // tour follows; Skip tour is the shortest way through it.
+        // tour follows; Skip tour is the shortest way through it, and it makes no Pro offer.
         compose.awaitNode(hasText("Skip tour"))
         compose.tap("Skip tour")
         compose.awaitNoNode(hasText("Skip tour"))
-
-        // Ending the tour offers Pro once. Closing it must land on the shell, not a dead end.
-        compose.awaitNode(hasText("Make your music come to life"))
-        compose.tap("Close")
-        compose.awaitNoNode(hasText("Make your music come to life"))
 
         compose.awaitEmptyPlayer()
     }

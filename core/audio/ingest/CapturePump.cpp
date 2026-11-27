@@ -12,6 +12,7 @@
 
 #include "sound/Silence.hpp"
 #include "util/Log.hpp"
+#include "util/ThreadNice.hpp"
 
 namespace geode::audio::ingest {
 
@@ -41,6 +42,9 @@ constexpr const char* kTag = "GeodeCapture";
 std::atomic<int> gStuck{0};
 
 void pump(const std::shared_ptr<CapturePump::Run>& run) {
+    // Level with the analysis it feeds (sound/hop/AnalysisThread), whatever thread started the capture: a late read
+    // overruns the platform's buffer and the visuals hear a gap.
+    util::setThreadNice(util::kFeedNice);
     CaptureReader& reader = *run->reader;
     const int capacity = static_cast<int>(run->buffer.size());
     if (reader.begin()) {

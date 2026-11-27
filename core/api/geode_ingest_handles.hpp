@@ -15,7 +15,8 @@ class SharedAnalysis;
 
 // The ring behind a geode_pcm_ring handle, for the API files that read one (geode_ingest_api.cpp,
 // geode_viz_api.cpp). The handle shares the ring with every cursor made from it, so destroying the
-// handle while a renderer or a cursor still reads only drops the writer's side.
+// handle while a renderer or a cursor still reads only drops the writer's side. A stage holds the handle itself
+// (geode::api::holdRing): its frame reads the handle's fields, and a frame can outlive destroy's bounded wait.
 struct geode_pcm_ring {
     std::shared_ptr<geode::audio::ingest::PcmRing> ring;
     // geode_pcm_ring_set_playout: the clock of the sink that plays this ring; null reads the newest.
@@ -39,9 +40,16 @@ struct geode_pcm_ring {
     // (geode_viz_feed_ring) and shared with every later one. Its lock is taken only when a renderer's ring changes.
     mutable std::mutex analysisLock{};
     mutable std::shared_ptr<geode::sound::SharedAnalysis> analysis{};
+    // The owner's hold (dropped by geode_pcm_ring_destroy) plus one per holdRing: the last to go frees the handle.
+    mutable std::atomic<int> holds{1};
 
     std::shared_ptr<const geode::audio::ingest::PcmRing> layerRing() const {
         std::lock_guard<std::mutex> lock(layerLock);
         return layer;
     }
 };
+
+namespace geode::api {
+// A hold on the handle, shared by whoever reads it after its owner may have destroyed it (a stage's frames).
+std::shared_ptr<const geode_pcm_ring> holdRing(const geode_pcm_ring* ring);
+}  // namespace geode::api

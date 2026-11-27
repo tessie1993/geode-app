@@ -2,11 +2,14 @@
 // encoders configured from the cast format, the video one on a surface; the PCM backlog's order, drops and PTS;
 // codec config buffers into the fMP4 init segment and to the WebRTC tap; frames to both; the Opus encoder made
 // only while a browser listens, fed the same PCM, its header not sent, freed after ten idle seconds and never
-// tried again once refused; a video or AAC codec error ends the stream, an Opus one only the browser's sound.
+// tried again once refused; a video or AAC codec error ends the stream, an Opus one only the browser's sound; the
+// drain thread names its own nice.
 //
 // Build & run:
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/cast_encoder_test.cpp
 //       core/cast/CastEncoder.cpp core/cast/Fmp4Writer.cpp -o cast_encoder_test && ./cast_encoder_test
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -14,10 +17,12 @@
 #include <deque>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "cast/CastEncoder.hpp"
+#include "util/ThreadNice.hpp"
 
 namespace sink = geode::output::sink;
 using geode::cast::CastEncoder;
@@ -57,6 +62,7 @@ struct FakeState {
     Buf input = Buf(4096 * 4);
     Buf held;
     bool inputError = false;
+    std::atomic<int> drainNice{geode::util::kNiceInherited};   // the nice of the thread that last drained it
 };
 
 class FakeEncoder final : public sink::Encoder {
@@ -92,6 +98,7 @@ public:
         return true;
     }
     sink::Out dequeueOutput(int* index, sink::BufferInfo* info) override {
+        s_->drainNice = geode::util::threadNice();
         if (s_->outputs.empty()) return sink::Out::None;
         if (s_->outputs.front().error) return sink::Out::Error;
         s_->held = s_->outputs.front().bytes;
@@ -298,6 +305,12 @@ void testThread() {
     auto e = CastEncoder::open(std::make_unique<FakeCodecs>(&made), format(), outputs(seen));
     if (!e) return;
     e->start();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (made[0]->drainNice == geode::util::kNiceInherited && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::yield();
+    }
+    // A cast's encoder is opened on the cast render thread (nice -4): its drain must not inherit that.
+    check(made[0]->drainNice == geode::util::kFeedNice, "the drain thread sets its own nice, not its spawner's");
     e.reset();   // joins
     check(made[0]->released, "the thread stops and the codecs go");
 }

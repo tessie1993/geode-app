@@ -92,43 +92,52 @@ struct Rig {
 
 void soundAndSurface() {
     Rig r;
-    int ringA = 0, ringB = 0;
+    const auto ringA = std::make_shared<int>(0), ringB = std::make_shared<int>(0);
     r.client.surfaceCreated();
     r.client.surfaceChanged(1080, 2400);
     r.client.frame(60.0f, 60.0f);
-    r.client.setSound(&ringA);
+    r.client.setSound(ringA);
     r.client.frame(60.0f, 60.0f);
-    r.client.setSound(&ringB);
+    r.client.setSound(ringB);
     r.client.frame(60.0f, 60.0f);
     r.client.setSound(nullptr);
     r.client.frame(60.0f, 60.0f);
-    check(r.seen.rings == std::vector<const void*>({nullptr, &ringA, &ringB, nullptr}), "each frame hears the ring set last");
+    check(r.seen.rings == std::vector<const void*>({nullptr, ringA.get(), ringB.get(), nullptr}), "each frame hears the ring set last");
     r.client.trimSpares();
     // Leaving drawing also lets the ring's analysis go, so it stops while nothing draws from it.
     check(r.seen.log == std::vector<std::string>({"created", "size 1080x2400", "trim", "let sound go"}),
           "the surface calls reach the renderer in order, and a stage that stops drawing stops listening");
-    r.client.setSound(&ringA);
+    r.client.setSound(ringA);
     r.client.frame(60.0f, 60.0f);
-    check(r.seen.rings.back() == &ringA, "the next frame hears its ring again");
+    check(r.seen.rings.back() == ringA.get(), "the next frame hears its ring again");
 }
 
+// The owner drops its own hold as soon as the stage was told to let the ring go (OutputMixCapture.release after
+// Stage.close): the client's hold is what keeps a ring alive for a frame still reading it.
 void soundSetDuringFrame() {
     Rig r;
-    int ringA = 0, ringB = 0;
-    r.client.setSound(&ringA);
-    bool releasedInFrame = true;
+    auto ringA = std::make_shared<int>(0);
+    auto ringB = std::make_shared<int>(0);
+    const std::weak_ptr<int> watchA = ringA, watchB = ringB;
+    r.client.setSound(ringA);
+    bool heldInFrame = false;
     r.seen.during = [&] {
-        r.client.setSound(&ringB);  // would wait for this very frame if the frame held the sound lock
-        releasedInFrame = r.client.soundReleased(&ringA);
+        r.client.setSound(ringB);  // would wait for this very frame if the frame held the sound lock
+        ringA.reset();
+        heldInFrame = !watchA.expired();
     };
     r.client.frame(60.0f, 60.0f);
     r.seen.during = nullptr;
-    check(r.seen.rings == std::vector<const void*>({&ringA}), "a frame keeps the ring it began with");
-    check(!releasedInFrame, "the ring in use is not released while its frame runs");
-    check(r.client.soundReleased(&ringA), "it is released once that frame ends");
-    check(!r.client.soundReleased(&ringB), "the ring set during the frame is the one now held");
+    check(r.seen.rings.size() == 1 && r.seen.rings[0] != nullptr, "a frame keeps the ring it began with");
+    check(heldInFrame, "the ring in use is held while its frame runs, though its owner let it go");
+    check(watchA.expired(), "it is let go once that frame ends");
+    ringB.reset();
+    check(!watchB.expired(), "the ring set during the frame is the one now held");
     r.client.frame(60.0f, 60.0f);
-    check(r.seen.rings.back() == &ringB, "the next frame hears the ring set during the last");
+    check(r.seen.rings.back() != nullptr && r.seen.rings.back() != r.seen.rings[0],
+          "the next frame hears the ring set during the last");
+    r.client.setSound(nullptr);
+    check(watchB.expired(), "a ring replaced between frames goes at once");
 }
 
 void frameReports() {

@@ -89,9 +89,13 @@ public:
     // Controls, applied by the analysis thread at its next pass before it takes more audio, in the order sent.
     // False when the queue is full (32 waiting), and nothing is applied.
     bool setTuning(const GeodeSoundTuning& tuning);
+    // The player's track boundary. The ring's new epoch at a gapless join (the tap's flush) already started the engine
+    // over on the join's first sample, before the player names it: a boundary that soon after a restart is that join's
+    // and changes nothing, or it would start the new song over a second time, a sink's lead late.
     bool trackBoundary();
     // The engine starts over (a new source, a seek the shell names); the cursor keeps its place.
     bool reset();
+    // A new play: as trackBoundary, nothing when the engine (its feeling too) just started over at a join.
     bool resetEmotion();
     // `context` must outlive stop() (or the next setListenLimit that replaces it): the thread calls `limit` with it.
     bool setListenLimit(ListenLimit limit, void* context);
@@ -162,6 +166,7 @@ private:
     Next waitUnlessDeferred() const;
     bool ensureEngine(int sampleRateHz);
     void restartEngine();
+    bool startedOverForBoundary() const;
     void write(const float* interleaved, int frames, int channels);
     void publishNew();
     void publish(const SoundEngine::Hop& hop);
@@ -190,6 +195,7 @@ private:
     void* limitContext_ = nullptr;
     int64_t engineWritten_ = 0;  // input frames written to the engine since its construction or reset
     int64_t offset_ = 0;         // ring position minus engine position
+    int64_t sinceRestart_ = -1;  // input frames written since the engine last started over at a restart, -1 before one
     int64_t hopsSeen_ = 0;       // engine_->hopsRun() as last published
     bool flowing_ = false;       // audio came, and the engine has not reported silence since
     float quietSeconds_ = 0.0f;  // since audio last came, while flowing

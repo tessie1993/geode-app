@@ -85,12 +85,13 @@ internal fun SongEventsPage(
     var adding by rememberSaveable { mutableIntStateOf(-1) }
     var undo by remember { mutableStateOf<RowUndo?>(null) }
     // The event lights and the cost, as the last frame left them.
-    val status = produceState(FloatArray(0)) {
-        while (true) {
-            value = vm.responderStatus()
-            delay(STATUS_POLL_MS)
+    val status =
+        produceState(FloatArray(0)) {
+            while (true) {
+                value = vm.responderStatus()
+                delay(STATUS_POLL_MS)
+            }
         }
-    }
     Column {
         SectionHeader(stringResource(R.string.song_events_header))
         ControlHint(stringResource(R.string.song_events_hint))

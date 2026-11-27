@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
-"""Generates the BeatRealms 3D brand mark (the eye): SVG masters in docs/brand/ and the launcher background,
-themed-icon and status-bar drawables in app/src/main/res/drawable/, all from one geometry.
-
-The launcher foreground, the splash art and the splash video are raster since 2026-11-01:
-tools/brand_raster.sh builds them from the neon render.
+"""Generates the BeatRealms 3D launcher background, themed-icon and status-bar drawables in
+app/src/main/res/drawable/, all from one geometry.
 
 The mark is the "all three" direction chosen on 2026-10-30: a spectrum of bars (waveform) inside a
 rippling oscilloscope lid (eye) around a twisted-hexagon vortex iris (fractal), in the old neon
 purple palette. Edit the geometry here, never the generated files, then run:
 
     python tools/brand_assets.py
-
-The raster store art (docs/brand/flow/) came from Google Flow.
-
-The wordmark is not drawn here: tools/wordmark.py outlines it, and tools/feature_graphic.py
-draws the Play feature graphic.
 """
 import math
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-BRAND = ROOT / "docs" / "brand"
 DRAWABLE = ROOT / "app" / "src" / "main" / "res" / "drawable"
 
 NIGHT, NIGHT_LIFT = "#0E0620", "#1F1145"  # brand background, its lit centre
@@ -141,63 +132,6 @@ def status_icon():
     ]
 
 
-# ---------------------------------------------------------------- SVG
-
-
-class Svg:
-    def __init__(self):
-        self.defs, self.n = [], 0
-
-    def paint(self, p):
-        if p is None:
-            return "none"
-        if isinstance(p, str):
-            return p
-        kind, (x1, y1, x2, y2), stops = p
-        self.n += 1
-        gid = f"g{self.n}"
-        units = "" if (x1, y1, x2, y2) == (0, 0, 1, 0) else ' gradientUnits="userSpaceOnUse"'
-        s = "".join(f'<stop offset="{o}" stop-color="{c}"/>' for o, c in stops)
-        self.defs.append(f'<linearGradient id="{gid}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"{units}>{s}</linearGradient>')
-        return f"url(#{gid})"
-
-    def node(self, n):
-        if "group" in n:
-            return "<g>" + "".join(self.node(c) for c in n["children"]) + "</g>"
-        a = f'd="{n["d"]}" fill="{self.paint(n["fill"])}"'
-        if n["stroke"]:
-            a += f' stroke="{self.paint(n["stroke"])}" stroke-width="{num(n["width"])}" stroke-linecap="round" stroke-linejoin="round"'
-        return f"<path {a}/>"
-
-    def body(self, nodes):
-        return "".join(self.node(n) for n in nodes)
-
-    def doc(self, w, h, inner, view=None):
-        v = view or f"0 0 {w} {h}"
-        return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="{v}">'
-                f'<defs>{"".join(self.defs)}</defs>{inner}</svg>\n')
-
-
-def background_svg(cx=C, cy=C, r=76, w=108, h=108):
-    return (f'<radialGradient id="bg" cx="{cx}" cy="{cy}" r="{r}" gradientUnits="userSpaceOnUse">'
-            f'<stop offset="0" stop-color="{NIGHT_LIFT}"/><stop offset="1" stop-color="{NIGHT}"/></radialGradient>',
-            f'<rect width="{w}" height="{h}" fill="url(#bg)"/>')
-
-
-def write_svgs():
-    BRAND.mkdir(parents=True, exist_ok=True)
-    grad, rect = background_svg()
-
-    s = Svg()
-    s.defs.append(grad)
-    (BRAND / "beatrealms-icon.svg").write_text(s.doc(108, 108, rect + s.body(mark())))
-    s = Svg()
-    (BRAND / "beatrealms-mark.svg").write_text(s.doc(108, 108, s.body(mark())))
-    s = Svg()
-    (BRAND / "beatrealms-monochrome.svg").write_text(s.doc(108, 108, s.body(monochrome())))
-
-
-
 # ---------------------------------------------------------------- VectorDrawable
 
 
@@ -267,9 +201,8 @@ def write_drawables():
 
 
 def main():
-    write_svgs()
     write_drawables()
-    print("brand assets written")
+    print("brand drawables written")
 
 
 if __name__ == "__main__":

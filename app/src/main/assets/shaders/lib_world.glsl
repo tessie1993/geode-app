@@ -64,7 +64,7 @@
 // domain repetition, reflection folds, iterated function systems, sphere inversion, orbit traps,
 // sphere tracing, emission-absorption volume rendering, value noise, fractional Brownian motion,
 // ridged noise, the Lipschitz bound of a height field). No code was taken from any shader. The
-// baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
+// baked models and material maps are CC0 assets from BlenderKit.
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
 uniform vec4 uWorld[24];

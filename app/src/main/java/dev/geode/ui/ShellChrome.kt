@@ -81,7 +81,7 @@ import kotlinx.coroutines.delay
 /**
  * Whether the floating mini player (and, on Visuals, the stage icons and the tab bar) is awake.
  *
- * WHY it fades on every screen (docs/ui-redesign): the owner wants the screen to belong to what is
+ * WHY it fades on every screen: the owner wants the screen to belong to what is
  * on it, and the player back within one touch. It wakes on [wake] (a tap at the bottom of the
  * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [hide]
  * puts it to sleep at once (a swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which

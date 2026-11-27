@@ -15,7 +15,7 @@ namespace geode::sound::player {
 // change. The seed travels with it so whatever reads the boundary knows which play it starts; the
 // director already takes the same seed through director::setGlobal.
 //
-// Fade gain: the tap sits before the player's volume (docs/AUDIO_CHAIN.md), so the frame never hears a
+// Fade gain: the tap sits before the player's volume, so the frame never hears a
 // pause fade or a crossfade. The player hands the gain over as a number and the frame carries it as
 // fadeGain, a source a reaction route can follow.
 //

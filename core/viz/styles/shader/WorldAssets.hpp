@@ -4,7 +4,7 @@
 #include <vector>
 
 // Morph World's baked assets: what tools/morph_world_assets/bake.py writes from CC0 BlenderKit
-// models and materials (docs/morph-world-assets.md has each one's name, author and licence).
+// models and materials (the fetch cache's provenance.json has each one's name, author and licence).
 //
 //   shaders/world_shapes.bin    kShapeCount slabs of a kShapeRes^3 R8 signed distance grid over the
 //                               cube [-1, 1]^3, x fastest then y then z; the byte maps the distance

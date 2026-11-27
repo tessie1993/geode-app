@@ -101,7 +101,7 @@ internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
  * Presets, back, Styles). [NavHistory] says why a page already on the route is returned to rather
  * than added twice. Customize's category tabs add no back entries: back from Customize leaves it.
  *
- * The visual always fills the screen (docs/ui-redesign); the options are a floating sheet over
+ * The visual always fills the screen; the options are a floating sheet over
  * it whose height is [sheet]. In landscape the same state drives the side panel instead
  * (V2 rule 5): any shown height means the panel is out, [SheetHeight.HIDDEN] means it is away, so
  * turning the phone keeps the route, the page and whether the options are up.

@@ -443,7 +443,7 @@
     <!-- Settings › Audio: sound tuning, live input. -->
     <string name="audio_group_analysis">Analysis</string>
     <!-- Shown once per audio-DSP screen (playback/EQ), so nobody files "the visuals didn't
-         change" as a bug per feature. See docs/AUDIO_CHAIN.md, "DSP does not move the visuals". -->
+         change" as a bug per feature: DSP does not move the visuals. -->
     <string name="audio_dsp_visuals_notice">Nothing on this screen touches the visuals. The picture is drawn from the raw audio before the equalizer, ReplayGain or any other effect here runs, so turning a knob changes what you hear and never what you see.</string>
     <string name="audio_default">Default</string>
     <!-- The sound engine's tuning (core/sound GeodeSoundTuning). -->

@@ -3,7 +3,7 @@
 Each asset is looked up by its assetBaseId through BlenderKit's public search API; the script
 refuses any whose license is not cc_zero, so nothing but CC0 can reach the bake. It fetches the
 smallest .blend the asset offers (resolution_0_5K, else the full blend) and writes provenance.json
-beside the downloads: name, author, license and asset id of each, for docs/morph-world-assets.md.
+beside the downloads: name, author, license and asset id of each, as a portable provenance record.
 
 Free CC0 assets download without an API key. Set BLENDERKIT_API_KEY to send one anyway.
 

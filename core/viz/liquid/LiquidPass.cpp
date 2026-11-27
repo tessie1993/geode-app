@@ -178,8 +178,7 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1f(uniforms_.loc("uDt"), f.dt);
     glUniform1f(uniforms_.loc("uAspect"), static_cast<float>(width_) / static_cast<float>(height_));
     glUniform2f(uniforms_.loc("uVp"), f.vpX, f.vpY);
-    // The transform's terms, once for the frame (lib_feedback reads them; motion::derive).
-    const motion::FrameTerms m = motion::derive(f.motion, f.time);
+    const motion::FrameTerms& m = f.terms;
     glUniform1i(uniforms_.loc("uMotionFlags"), m.flags);
     glUniform1f(uniforms_.loc("uZoom"), m.zoom);
     glUniform1f(uniforms_.loc("uZoomExp"), m.zoomExp);

@@ -338,10 +338,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
     // The stage's surface casts the app's one frame-rate vote; the window and Compose cast none.
-    val performance by context.geodeContainer.performance.settings
-        .collectAsStateWithLifecycle()
-    val liveFps = rememberLiveFps(performance.fpsCap)
-    VisualizerEngineBindings(viewModel, visualizerView, liveFps)
+    VisualizerEngineBindings(viewModel, visualizerView)
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues.
     // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.

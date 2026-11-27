@@ -133,7 +133,7 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
             const float d = syncFree_[i] - pos;
             syncJump_[i] = d - std::round(d);
         }
-        syncJump_[i] -= syncJump_[i] * std::clamp(dt / kEaseSeconds, 0.0f, 1.0f);
+        syncJump_[i] = slew::step(syncJump_[i], 0.0f, dt, kEaseSeconds);
         syncFree_[i] = pos;
         ph = pos + syncJump_[i];
     } else {

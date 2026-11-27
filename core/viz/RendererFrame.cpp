@@ -17,6 +17,7 @@
 #include "viz/passes/CompositeGrade.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
+#include "viz/clock/TimeBase.hpp"
 #include "viz/passes/TwistShape.hpp"
 #include "viz/panel/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
@@ -132,9 +133,7 @@ float Renderer::beginFrame(double timeSeconds) {
     // The scene clock moves by the picture's step through Clock control's scale: a freeze holds it, a reverse or a
     // stutter's loop sends it back.
     sceneStep_ = sceneClock_.step(dt * musicRate_);
-    timeSeconds_ = std::fmod(timeSeconds_ + sceneStep_, static_cast<double>(kTimeWrapSeconds));
-    // A reverse at the start of the clock stops at 0; it never wraps to the end of the period.
-    if (timeSeconds_ < 0.0) timeSeconds_ = 0.0;
+    timebase::step({sceneStep_, soundHeard_ && (soundFrame_.hardCut > 0.0f || soundFrame_.sectionChange > 0.0f)}, timeSeconds_);
     applyStyleSchedule(dt);
     std::vector<std::pair<std::string, std::string>> pending;
     {
@@ -483,12 +482,13 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         updateScene(*layerScene_, sceneSound(p), dt);
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
-        glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
-        glViewport(0, 0, renderWidth_, renderHeight_);
-        glClear(GL_COLOR_BUFFER_BIT);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
         updateScene(*layerScene_, sceneSound(p), dt);
+        layerScene_->simulate();
+        glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
+        glViewport(0, 0, renderWidth_, renderHeight_);
+        glClear(GL_COLOR_BUFFER_BIT);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(static_cast<float>(timeSeconds_));
     }
@@ -498,11 +498,12 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             outgoingScene_ = nullptr;
             outgoingParams_.reset();
         } else {
-            bindSecondaryTarget();
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
             updateScene(*outgoingScene_, sceneSound(op), dt);
+            outgoingScene_->simulate();
+            bindSecondaryTarget();
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(static_cast<float>(timeSeconds_));
         }
@@ -560,6 +561,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
         // last frame's colour (or any depth) into tile memory first.
         static constexpr GLenum kSurfaceAttachments[] = {GL_COLOR, GL_DEPTH};
         glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, kSurfaceAttachments);
+    } else {
+        Framebuffer::discardColorAttachments(GL_FRAMEBUFFER, 1);
     }
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = sceneShown_;
@@ -569,7 +572,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     fluid::FlowField* ff = overlays_.flow();
     const bool smear = smearWarp_ > 0.0f && ff != nullptr && ff->available();
     in.flowTex = smear ? ff->velocityTex() : compositePass_.zeroTex();
-    in.flowStrength = smear ? smearWarp_ : 0.0f;
     in.progress = progress;
     // The Layers page's mix (base) plus what waves, envelopes, routes and knobs add (the layerMix param).
     in.layerMix = safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_));
@@ -584,23 +586,28 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = static_cast<float>(timeSeconds_);
     const SceneParams& fx = lastFinalParams_;
-    in.postRotationAngle = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
-    in.twistSeed = styleVariantSeed(activeScene_->id());
     const double birthsWrap = static_cast<double>(kTimeWrapSeconds);
     in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, birthsWrap)), fx.life);
     in.quadVao = quadVao_.get();
-    in.fx = fx;
-    in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
     Scene* other = outgoingScene_ ? outgoingScene_ : activeScene_;
-    in.gateB = grade::gateFor(other->family(), other->drawsCamera()).toVec4();
     Scene* layer = layerScene_ ? layerScene_ : activeScene_;
-    in.gateL = grade::gateFor(layer->family(), layer->drawsCamera()).toVec4();
-    in.camGateL = layer->drawsCamera() ? 0.0f : 1.0f;
     // The rig's flat projection, for every scene that does not march the 3D pose itself.
     const CameraPose& cam = camera_.pose();
-    in.camFlat = cam.flat;
-    in.camTilt = cam.tilt;
-    in.camGate = {activeScene_->drawsCamera() ? 0.0f : 1.0f, other->drawsCamera() ? 0.0f : 1.0f};
+    composite::Source src;
+    src.fx = fx;
+    src.rotation = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
+    src.flowStrength = smear ? smearWarp_ : 0.0f;
+    src.time = in.timeSeconds;
+    src.camFlat = cam.flat;
+    src.camTilt = cam.tilt;
+    src.twistSeed = styleVariantSeed(activeScene_->id());
+    src.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera());
+    src.gateB = grade::gateFor(other->family(), other->drawsCamera());
+    src.gateL = grade::gateFor(layer->family(), layer->drawsCamera());
+    src.cameraA = !activeScene_->drawsCamera();
+    src.cameraB = !other->drawsCamera();
+    src.cameraL = !layer->drawsCamera();
+    in.terms = composite::describe(src);
     // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
     // see CompositePass.hpp), the same way uFlow above is read from Overlays.
     in.underlayTex = compositePass_.underlayTexOrZero();
@@ -985,7 +992,7 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    f.motion = motion::perFrame(heard, wallDt);
+    f.terms = motion::derive(motion::perFrame(heard, wallDt), static_cast<float>(timeSeconds_));
     f.inject = endless::feedback::sustainInject(p.trailLength, dt);
     f.edge = kLiquidEdge;
     f.sharpen = kLiquidSharpen;
@@ -1147,7 +1154,8 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    f.motion = liquid::motion::fromDive(liquidFrame_, static_cast<float>(w) / static_cast<float>(h));
+    f.terms = liquid::motion::derive(liquid::motion::fromDive(liquidFrame_, static_cast<float>(w) / static_cast<float>(h)),
+                                     static_cast<float>(timeSeconds_));
     f.vpX = liquidFrame_.vpX;
     f.vpY = liquidFrame_.vpY;
     const float liquidity = std::clamp(p.flowStrength, 0.0f, 1.0f);

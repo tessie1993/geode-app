@@ -2,6 +2,7 @@ package dev.geode.data
 
 import android.content.Context
 import dev.geode.engine.bridge.LibraryNative
+import dev.geode.util.backgroundThreadFactory
 
 /**
  * The play history's file (history.json). Every rule (which plays count, the stamps, listened time, what is kept
@@ -119,9 +120,8 @@ class HistoryStore(
         private const val ENTRY_FIELDS = 6
 
         private val writer =
-            java.util.concurrent.Executors.newSingleThreadExecutor { r ->
-                Thread(r, "geode-history").apply { isDaemon = true }
-            }
+            java.util.concurrent.Executors
+                .newSingleThreadExecutor(backgroundThreadFactory("geode-history"))
 
         // Native's wire (`geode_history_recent`): six fields per entry, each entry ended by U+001E.
         private fun entriesOf(wire: String?): List<Entry> =

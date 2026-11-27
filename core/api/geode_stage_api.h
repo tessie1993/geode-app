@@ -77,6 +77,7 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 /* surfaceRedrawNeeded: one frame now, even while the vsync is stopped. */
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
+GEODE_API void     geode_stage_set_live_fps(geode_stage*, int stored_fps, const float* refresh_rates, int count);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
 /* The stage's frame budget in ns: one frame's length for the rate setting on the display mode now running. The swap
    interval, the frame-rate vote's pace and the work target follow this one number; 0 until the pacer has said. */

@@ -74,8 +74,8 @@ import dev.geode.ui.tour.LocalTourNudge
 import dev.geode.ui.tour.fits
 
 /**
- * Visuals: the visual fills the whole screen, and everything else floats over it (docs/ui-redesign;
- * the owner dropped the old stage window). This is the root: it reads the state and lays out the
+ * Visuals: the visual fills the whole screen, and everything else floats over it. The owner dropped
+ * the old stage window. This is the root: it reads the state and lays out the
  * three layers, each in its own file.
  *
  * - The stage ([VisualsStage], VisualsStage.kt): the visual and its gestures. By default a tap on

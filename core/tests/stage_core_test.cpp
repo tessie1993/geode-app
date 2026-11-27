@@ -228,7 +228,7 @@ void windowAndFrames() {
     check(r.port.context && r.port.surfaceOn == &windowA && r.port.current, "a window builds the context and a surface on it");
     check(r.client->created == 1 && r.client->changed == 1 && r.client->width == 1080 && r.client->height == 2340, "and tells the client its size");
     check(r.port.applied == 1, "then the hand-over is acknowledged");
-    check(r.port.rateWindow == &windowA && r.port.rate == 60.0f, "a new window is told the cap's rate");
+    check(r.port.rateCalls == 0, "a stage that is not drawing votes no rate for its window");
     check((r.core.state() & kStateDrawable) != 0 && (r.core.state() & kStateVsync) == 0, "drawable, not pacing while hidden");
     r.turns(3);
     check(r.client->frames == 0 && r.port.swaps == 0, "a hidden stage draws no frame");
@@ -236,6 +236,7 @@ void windowAndFrames() {
     r.client->nextEvents = 0x4;
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
     check(r.port.pacing && r.port.paceBudget.swapNs == swapIntervalNs(60.0f), "a watched view starts the pacing with the cap's swap interval");
+    check(r.port.rateWindow == &windowA && r.port.rate == 60.0f, "and votes the cap's rate for its window");
     check(r.client->frames == 1 && r.port.swaps == 1, "and its first turn draws a frame and swaps it");
     r.client->nextEvents = 0x10;
     r.turns(2);
@@ -257,6 +258,7 @@ void windowAndFrames() {
 
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
     check(!r.port.pacing && r.client->trims == 1, "hidden: the pacing stops and the spares go");
+    check(r.port.rate == 0.0f && r.port.rateWindow == &windowA, "and the vote is cleared while the surface stays: a window nothing draws holds no rate");
     const int frames = r.client->frames;
     r.turns(3);
     check(r.client->frames == frames, "and no frame is drawn");
@@ -318,9 +320,9 @@ void handOvers() {
     check(r.port.released.size() == 5 && r.port.released[4] == &windowB, "closing releases the stage's own window once");
 }
 
-// Red against: a frame told the time it starts instead of the pacer's presentation time, a jitter in the pacer's time
-// stepping the picture by more or less than whole refresh periods, a late frame stepping by a catch-up of nothing (two
-// frames on one refresh) and a time already past used as it is.
+// Red against: a frame told the time it starts instead of the pacer's presentation time, a jitter of the pacer's time
+// stepping the picture by more than the lock lets through, a late frame stepping once for each period it took (and not at
+// all for one it did not), and a time already past used as it is.
 void aFrameIsToldTheTimeItIsShown() {
     Rig r;
     r.port.times.desiredNs = 1'000'000'000;
@@ -328,20 +330,100 @@ void aFrameIsToldTheTimeItIsShown() {
     check(r.client->presentTimes.size() == 1 && r.client->presentTimes[0] == 1'000'000'000, "a frame is told when the pacer will show it");
     r.port.times.desiredNs = 1'000'000'000 + kPeriod60 + 300;
     r.turns(1);
-    check(r.client->presentTimes.back() == 1'000'000'000 + kPeriod60, "a jitter of the pacer's time snaps to whole refresh periods");
+    const int64_t jittered = r.client->presentTimes.back() - (1'000'000'000 + kPeriod60);
+    check(jittered >= 0 && jittered < 100, "a jitter of the pacer's time is divided down, the step stays one period");
     r.port.times.desiredNs = 1'000'000'000 + 3 * kPeriod60 + 40'000;
     r.turns(1);
-    check(r.client->presentTimes.back() == 1'000'000'000 + 3 * kPeriod60, "a late frame steps by the periods it really took, once");
+    check(std::llabs(r.client->presentTimes.back() - (1'000'000'000 + 3 * kPeriod60)) < 10'000, "a late frame steps by the periods it really took, once");
+    const int64_t before = r.client->presentTimes.back();
     r.port.times.desiredNs = 1'000'000'000;
     r.port.now = 50;
     r.turns(1);
-    check(r.client->presentTimes.back() == 1'000'000'000 + 4 * kPeriod60, "a time at or before the last frame's is the next refresh: never two frames on one");
+    check(r.client->presentTimes.back() - before > kPeriod60 / 2 && r.client->presentTimes.back() - before < 3 * kPeriod60 / 2,
+          "a time at or before the last frame's is the next refresh: never two frames on one");
     r.port.times.desiredNs = 0;
     r.port.now = 9'000'000'000;
     r.turns(1);
     check(r.client->presentTimes.back() >= 9'000'000'000 + 2 * kPeriod60 - kPeriod60 / 2, "with no time from the pacer a frame is two frames ahead, as a pipelined one is");
 }
 
+// Red against: a picture that steps back or freezes where the pacer's time base changes (Swappy to the vsync and back, as
+// when another stage takes Swappy or the Activity goes), and a frame no pacer asked for told 0, which the picture would
+// read as now, two frames behind the paced ones.
+void theTimeNeverStepsBackWhereThePacerChanges() {
+    Rig r;
+    r.port.times.desiredNs = 1'000'000'000;
+    r.show();
+    int64_t desired = 1'000'000'000;
+    for (int i = 0; i < 10; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired;
+        r.turns(1);
+    }
+    // The vsync's expected presentation time is a frame behind Swappy's two-ahead.
+    r.port.times.swapPaces = false;
+    for (int i = 0; i < 10; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired - kPeriod60;
+        r.send(command(kStageVsync));
+    }
+    r.port.times.swapPaces = true;
+    r.send(command(kStageVsync));
+    for (int i = 0; i < 10; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired + kPeriod60;
+        r.turns(1);
+    }
+    bool forward = true, zero = false;
+    for (size_t i = 1; i < r.client->presentTimes.size(); ++i) {
+        forward = forward && r.client->presentTimes[i] > r.client->presentTimes[i - 1];
+        zero = zero || r.client->presentTimes[i] == 0;
+    }
+    check(forward && !zero && r.client->presentTimes.size() > 30, "every frame is told a time after the last frame's, across both switches");
+
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    const int64_t last = r.client->presentTimes.back();
+    r.port.times.desiredNs = 0;
+    r.port.now = last - 2 * kPeriod60;
+    r.send(command(kStageRedraw));
+    check(r.client->presentTimes.back() > 0 && r.client->presentTimes.back() >= last - 3 * kPeriod60,
+          "a frame no pacer asked for is on the clock's base, two frames ahead, not told 0 or now");
+}
+
+// Red against: the first frame after a display mode change counted against the old period (the step too short), and a
+// step that is not the new frame length.
+void aNewModeStepsByTheNewFrameLengthOnTheStage() {
+    Rig r;
+    int64_t desired = 1'000'000'000;
+    r.port.times.desiredNs = desired;
+    r.show();
+    for (int i = 0; i < 20; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired;
+        r.turns(1);
+    }
+    const int64_t last = r.client->presentTimes.back();
+    r.port.times.periodNs = kPeriod90;
+    desired += 2 * kPeriod90;
+    r.port.times.desiredNs = desired;
+    r.turns(1);
+    check(std::llabs((r.client->presentTimes.back() - last) - 2 * kPeriod90) < 100'000, "the first frame after the mode changed steps by the new frame length: two periods of the 90 Hz mode");
+    int64_t previous = r.client->presentTimes.back();
+    int odd = 0;
+    for (int i = 0; i < 30; ++i) {
+        desired += 2 * kPeriod90;
+        r.port.times.desiredNs = desired;
+        r.turns(1);
+        if (std::llabs((r.client->presentTimes.back() - previous) - 2 * kPeriod90) > 50'000) ++odd;
+        previous = r.client->presentTimes.back();
+    }
+    check(odd == 0, "and every frame after it");
+    r.send(command(kStageCap, 0, 0, 30.0f));
+    desired += 3 * kPeriod90;
+    r.port.times.desiredNs = desired;
+    r.turns(1);
+    check(std::llabs((r.client->presentTimes.back() - previous) - 3 * kPeriod90) < 100'000, "a lower cap steps by its longer frame at once: three periods of the same mode");
+}
 // Red against: a frame that repeats the picture on screen still swapping (the GPU does the work of a present for
 // nothing), its bit reaching the shell's events, and a stage that spins on a frame nothing waits for.
 void aFrameThatRepeatsThePictureIsNotSwapped() {
@@ -524,6 +606,26 @@ void theRateVoteFollowsTheCapNotTheFrames() {
     check(r.port.rateCalls == hints, "the same cap again states nothing");
 }
 
+// Red against: a vote left standing on a surface nothing draws on (a still frame, a pause), a vote not restored when the
+// drawing starts again, and a vote stated on a window that has gone.
+void theVoteIsClearedWhereNothingIsDrawn() {
+    Rig r;
+    r.show();
+    check(r.port.rate == 60.0f, "a drawing stage votes its rate");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Still)));
+    r.core.step(r.now + 5000);
+    check(r.port.rate == 0.0f && r.port.rateWindow == &windowA, "a still frame on a visible surface clears the vote");
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
+    check(r.port.rate == 60.0f, "drawing again votes it again");
+    r.send(command(kStagePause, 1));
+    check(r.port.rate == 0.0f, "a pause clears it");
+    r.send(command(kStagePause, 0));
+    check(r.port.rate == 60.0f, "a resume restores it");
+    const int calls = r.port.rateCalls;
+    r.send(command(kStageWindowGone, 0, 0, 0.0f, 0.0f, 2));
+    check(r.port.rateCalls == calls, "a window that went is told nothing: it needs no clearing");
+}
+
 // Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the shell's
 // main thread waiting on shader warm-up or a blocked swap.
 void aWindowIsAcknowledgedBeforeTheClientOrAFrame() {
@@ -561,12 +663,15 @@ int main() {
     trimReachesAStageThatDrawsNothing();
     handOvers();
     aFrameIsToldTheTimeItIsShown();
+    theTimeNeverStepsBackWhereThePacerChanges();
+    aNewModeStepsByTheNewFrameLengthOnTheStage();
     aFrameThatRepeatsThePictureIsNotSwapped();
     withoutSwappyTheVsyncPacesEachFrame();
     theFrameBudgetFollowsTheModeAndTheWorkIsTheDraw();
     pauseAndLoss();
     serviceAndQuit();
     theRateVoteFollowsTheCapNotTheFrames();
+    theVoteIsClearedWhereNothingIsDrawn();
     theFrameRecorderIsOffUntilAskedAndHandsOverAtTheStop();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();

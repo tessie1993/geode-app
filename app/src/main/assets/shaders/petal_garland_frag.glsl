@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+#define FRAME_SLOTS 1
 //#include lib_frame_frag
 out vec4 fragColor;
 

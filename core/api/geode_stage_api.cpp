@@ -300,6 +300,10 @@ void geode_stage_set_cap(geode_stage* s, float cap_fps) {
     onThread(s, "geode_stage_set_cap", [&](StageThread& t) { t.setCap(cap_fps); });
 }
 
+void geode_stage_set_live_fps(geode_stage* s, int stored_fps, const float* refresh_rates, int count) {
+    geode_stage_set_cap(s, static_cast<float>(geode_live_fps_cap(stored_fps, refresh_rates, count)));
+}
+
 unsigned geode_stage_state(const geode_stage* s) {
     const std::shared_ptr<Stage> stage = find(s);
     return stage ? stage->thread->state() : 0u;

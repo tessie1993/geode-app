@@ -4,9 +4,6 @@
 
 #include "util/Log.hpp"
 #include "viz/gl/BlueNoise.hpp"
-#include "viz/passes/CompositeGrade.hpp"
-#include "viz/passes/CompositeTerms.hpp"
-#include "viz/passes/TwistShape.hpp"
 
 namespace geode::viz {
 
@@ -95,7 +92,7 @@ void CompositePass::draw(const Inputs& inputs) {
     uploadFrameUniforms(program, inputs, definition);
     uploadGradeUniforms(program, inputs);
 
-    program.setFloats(Uniform::uCamFlat, 4, 1, inputs.camFlat.data());
+    program.setFloats(Uniform::uCamFlat, 4, 1, inputs.terms.camFlat.data());
     glBindVertexArray(inputs.quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -135,74 +132,28 @@ void CompositePass::uploadFrameUniforms(UniformCache& p, const Inputs& inputs, c
 }
 
 void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
-    const SceneParams& fx = inputs.fx;
-    const SceneParams::KaleidoUniforms kaleido = SceneParams::kaleidoUniforms(fx.kaleidoFolds);
-    // The composite's picture spans half a unit each side of the middle where the shader scenes' spans one.
-    const TwistShape twist = twistShape(inputs.twistSeed, inputs.timeSeconds);
+    const composite::Descriptor& d = inputs.terms;
+    p.set1i(Uniform::uFxA, d.a.flags);
+    p.set1i(Uniform::uFxB, d.b.flags);
+    p.set1i(Uniform::uFxL, d.l.flags);
+    p.set4f(Uniform::uRotAB, d.a.rotCos, d.a.rotSin, d.b.rotCos, d.b.rotSin);
+    p.set2f(Uniform::uRotL, d.l.rotCos, d.l.rotSin);
+    p.set1i(Uniform::uFxFrame, d.frame.frameFlags);
+    p.setFloats(Uniform::uCamTiltCS, 4, 1, d.frame.camTiltCS.data());
+    p.setFloats(Uniform::uCamRoll, 4, 1, d.frame.camRoll.data());
+    p.setFloats(Uniform::uPostGeo, 4, 1, d.frame.geo.data());
+    p.setFloats(Uniform::uPostGeo2, 4, 1, d.frame.geo2.data());
+    p.setFloats(Uniform::uPostShade, 4, 1, d.frame.shade.data());
+    p.set2f(Uniform::uPostHueCS, d.frame.hueCS[0], d.frame.hueCS[1]);
+    p.setFloats(Uniform::uPostLens, 4, 1, d.frame.lens.data());
+    p.setFloats(Uniform::uPostLens2, 4, 1, d.frame.lens2.data());
 
-    composite::Look look;
-    look.chroma = fx.chromaAb;
-    look.vignette = fx.vignette;
-    look.scanlines = fx.scanlines;
-    look.grain = fx.grain;
-    look.fisheye = fx.fisheye;
-    look.warp = fx.warp;
-    look.ripple = fx.ripple;
-    look.kaleidoFolds = kaleido.folds;
-    look.kaleidoOn = kaleido.on;
-    look.pixelate = fx.pixelate;
-    look.tile = fx.tile;
-    look.twist = fx.twist;
-    look.twistBend = twist.bend;
-    look.bloom = fx.bloom;
-    look.posterize = fx.posterize;
-    look.driftX = fx.driftX;
-    look.driftY = fx.driftY;
-    look.sway = fx.sway;
-    look.temperature = fx.temperature;
-    look.solarize = fx.solarize;
-    look.mirror = fx.mirror;
-    look.invert = fx.invert;
-    look.zoom = fx.zoom;
-    look.life = fx.life;
-    look.saturation = fx.saturation;
-    look.brightness = grade::brightness(fx.brightness, fx.intensity);
-    look.contrast = fx.contrast;
-    look.gamma = fx.gamma;
-    look.hue = fx.colorShift;
-    look.rotation = inputs.postRotationAngle;
-    look.flowStrength = inputs.flowStrength;
-    look.time = inputs.timeSeconds;
-    look.camFlat = inputs.camFlat;
-    look.camTilt = inputs.camTilt;
-
-    auto gateOf = [](const std::array<float, 4>& g) { return grade::Gate{g[0] > 0.5f, g[1] > 0.5f, g[2] > 0.5f}; };
-    const composite::TextureTerms a = composite::textureTerms(look, gateOf(inputs.gateA), inputs.camGate[0] > 0.5f);
-    const composite::TextureTerms b = composite::textureTerms(look, gateOf(inputs.gateB), inputs.camGate[1] > 0.5f);
-    const composite::TextureTerms l = composite::textureTerms(look, gateOf(inputs.gateL), inputs.camGateL > 0.5f);
-    const composite::FrameTerms frame = composite::frameTerms(look);
-
-    p.set1i(Uniform::uFxA, a.flags);
-    p.set1i(Uniform::uFxB, b.flags);
-    p.set1i(Uniform::uFxL, l.flags);
-    p.set4f(Uniform::uRotAB, a.rotCos, a.rotSin, b.rotCos, b.rotSin);
-    p.set2f(Uniform::uRotL, l.rotCos, l.rotSin);
-    p.set1i(Uniform::uFxFrame, frame.frameFlags);
-    p.setFloats(Uniform::uCamTiltCS, 4, 1, frame.camTiltCS.data());
-    p.setFloats(Uniform::uCamRoll, 4, 1, frame.camRoll.data());
-    p.setFloats(Uniform::uPostGeo, 4, 1, frame.geo.data());
-    p.setFloats(Uniform::uPostGeo2, 4, 1, frame.geo2.data());
-    p.setFloats(Uniform::uPostShade, 4, 1, frame.shade.data());
-    p.set2f(Uniform::uPostHueCS, frame.hueCS[0], frame.hueCS[1]);
-    p.setFloats(Uniform::uPostLens, 4, 1, frame.lens.data());
-    p.setFloats(Uniform::uPostLens2, 4, 1, frame.lens2.data());
-
-    p.set1f(Uniform::uPostTile, fx.tile);
-    p.set2f(Uniform::uPostTwistCentre, twist.x * 0.5f, twist.y * 0.5f);
-    p.set1f(Uniform::uPostBloom, fx.bloom);
+    p.set1f(Uniform::uPostTile, d.tile);
+    p.set2f(Uniform::uPostTwistCentre, d.twistCentreX, d.twistCentreY);
+    p.set1f(Uniform::uPostBloom, d.bloom);
     p.setFloats(Uniform::uPostBirths, 4, p.arrayCount(Uniform::uPostBirths, 2 * births::kBirths), inputs.postBirths.data());
-    p.set1f(Uniform::uPostSat, fx.saturation);
-    p.set1f(Uniform::uPostBright, look.brightness);
-    p.set1f(Uniform::uPostContrast, fx.contrast);
+    p.set1f(Uniform::uPostSat, d.saturation);
+    p.set1f(Uniform::uPostBright, d.brightness);
+    p.set1f(Uniform::uPostContrast, d.contrast);
 }
 }  // namespace geode::viz

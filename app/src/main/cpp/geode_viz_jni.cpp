@@ -1248,29 +1248,13 @@ Java_dev_geode_engine_bridge_PerfNative_liveFpsRefresh(JNIEnv* env, jobject, jin
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_PerfNative_perfModeForDevice(JNIEnv*, jobject, jlong totalRamBytes, jboolean lowRam,
-                                                          jint mediaPerformanceClass, jint panelWidth, jint panelHeight) {
-    return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass, panelWidth, panelHeight);
+                                                          jint mediaPerformanceClass) {
+    return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_PerfNative_perfModeOf(JNIEnv*, jobject, jint resolution, jint fpsCap, jfloat marchScale,
-                                                   jboolean postFx, jint panelWidth, jint panelHeight) {
-    return geode_perf_mode_of(resolution, fpsCap, marchScale, postFx ? 1 : 0, panelWidth, panelHeight);
-}
-
-JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_PerfNative_perfResolutionChoices(JNIEnv* env, jobject, jint panelWidth, jint panelHeight) {
-    int values[GEODE_PERF_RESOLUTION_CHOICES];
-    const int n = geode_perf_resolution_choices(panelWidth, panelHeight, values, GEODE_PERF_RESOLUTION_CHOICES);
-    jintArray out = env->NewIntArray(n);
-    if (out) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(values));
-    return out;
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_PerfNative_perfResolutionForScale(JNIEnv*, jobject, jfloat renderScale, jint panelWidth,
-                                                               jint panelHeight) {
-    return geode_perf_resolution_for_scale(renderScale, panelWidth, panelHeight);
+Java_dev_geode_engine_bridge_PerfNative_perfResolutionForScale(JNIEnv*, jobject, jfloat renderScale) {
+    return geode_perf_resolution_for_scale(renderScale);
 }
 
 JNIEXPORT jfloatArray JNICALL
@@ -1280,19 +1264,6 @@ Java_dev_geode_engine_bridge_PerfNative_perfScaleChoices(JNIEnv* env, jobject) {
     jfloatArray out = env->NewFloatArray(n);
     if (out) env->SetFloatArrayRegion(out, 0, n, values);
     return out;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_PerfNative_perfBufferSize(JNIEnv* env, jobject, jint resolution, jint modeWidth, jint modeHeight,
-                                                       jint viewWidth, jint viewHeight, jintArray out) {
-    if (!out || env->GetArrayLength(out) < GEODE_PERF_BUFFER_INTS) return JNI_FALSE;
-    int size[GEODE_PERF_BUFFER_INTS] = {};
-    if (geode_perf_buffer_size(resolution, modeWidth, modeHeight, viewWidth, viewHeight, size, GEODE_PERF_BUFFER_INTS) !=
-        GEODE_PERF_BUFFER_INTS)
-        return JNI_FALSE;
-    const jint values[GEODE_PERF_BUFFER_INTS] = {size[0], size[1]};
-    env->SetIntArrayRegion(out, 0, GEODE_PERF_BUFFER_INTS, values);
-    return JNI_TRUE;
 }
 
 // The resolution the app holds (core/viz/frame/ResolutionState): the shell's events return nothing; the descriptor is read as published.

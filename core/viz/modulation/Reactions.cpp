@@ -424,10 +424,19 @@ void ReactSignals::reset() {
     candidateSeconds_ = 0.0f;
     keyKnown_ = false;
     keyChange_ = 0.0f;
+    hit_.fill(false);
+    keyChangeHit_ = false;
+}
+
+bool ReactSignals::isTrigger(ReactSource s) {
+    const SourceSpec& spec = kSourceTable[static_cast<size_t>(s)];
+    return spec.kind == Kind::Trigger || (spec.kind == Kind::Derived && spec.scale > 0.0f);
 }
 
 void ReactSignals::step(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling) {
     dt = sanitizeDt(dt);
+    hit_.fill(false);
+    keyChangeHit_ = false;
     for (const SourceSpec& spec : kSourceTable) {
         const size_t k = static_cast<size_t>(spec.source);
         const float x = field(f, spec.offset);
@@ -446,7 +455,10 @@ void ReactSignals::step(const GeodeSoundFrame& f, float dt, const sound::Emotion
             }
             case Kind::Trigger:
                 v *= std::exp(-dt / spec.scale);
-                if (x > 0.0f) v = std::max(v, kTriggerFloor + (1.0f - kTriggerFloor) * std::clamp(x, 0.0f, 1.0f));
+                if (x > 0.0f) {
+                    hit_[k] = true;
+                    v = std::max(v, kTriggerFloor + (1.0f - kTriggerFloor) * std::clamp(x, 0.0f, 1.0f));
+                }
                 break;
             case Kind::Derived:
                 // A derived trigger decays here and is raised below; a held value keeps what it had.
@@ -463,6 +475,7 @@ void ReactSignals::step(const GeodeSoundFrame& f, float dt, const sound::Emotion
 void ReactSignals::stepDerived(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling) {
     const auto clean = [](float x) { return std::isfinite(x) ? x : 0.0f; };
     const auto fire = [this](ReactSource s, float strength) {
+        hit_[static_cast<size_t>(s)] = true;
         float& v = values_[static_cast<size_t>(s)];
         v = std::max(v, kTriggerFloor + (1.0f - kTriggerFloor) * std::clamp(strength, 0.0f, 1.0f));
     };
@@ -622,6 +635,7 @@ void ReactSignals::stepDerived(const GeodeSoundFrame& f, float dt, const sound::
                     settledKey_ = key;
                     candidateSeconds_ = 0.0f;
                     keyChange_ = 1.0f;
+                    keyChangeHit_ = true;
                 }
             }
         }
@@ -635,7 +649,7 @@ void ReactionEngine::reset() {
     external_.fill(0.0f);
     primed_.fill(false);
     cableKey_.fill(-1);
-    high_.fill(false);
+    high_.fill(edge::State{});
     circ_.fill(0.0f);
     circSource_.fill(0);
     circFrom_.fill(0.0f);
@@ -683,6 +697,12 @@ void ReactionEngine::stepSignals(const GeodeSoundFrame& f, float dt, const sound
     signals_.step(f, dt_, feeling);
 }
 
+const edge::State& ReactionEngine::edgeOf(size_t k, const ReactRoute& r, float level) {
+    edge::State& s = high_[k];
+    edge::step({level, signals_.hit(r.source), !r.external && ReactSignals::isTrigger(r.source)}, s);
+    return s;
+}
+
 void ReactionEngine::tickRoutes() {
     const float dt = dt_;
     for (int i = 0; i < kRoutes; ++i) {
@@ -701,9 +721,7 @@ void ReactionEngine::tickRoutes() {
                 target = shape(src, r.curve) * r.amount;
                 break;
             case ReactMode::Step: {
-                const bool high = src >= 0.5f;
-                if (high && !high_[k]) acc_[k] = std::fmod(acc_[k] + r.amount, 4.0f);
-                high_[k] = src >= 0.3f && (high || high_[k]);  // hysteresis: re-arm below 0.3
+                if (edgeOf(k, r, src).came) acc_[k] = std::fmod(acc_[k] + r.amount, 4.0f);
                 target = fold(acc_[k]);
                 break;
             }
@@ -712,9 +730,7 @@ void ReactionEngine::tickRoutes() {
                 target = fold(acc_[k]);
                 break;
             case ReactMode::Jump: {
-                const bool high = src >= 0.5f;
-                if (high && !high_[k]) acc_[k] = nextJump(i);
-                high_[k] = src >= 0.3f && (high || high_[k]);
+                if (edgeOf(k, r, src).came) acc_[k] = nextJump(i);
                 target = acc_[k] * r.amount;
                 break;
             }
@@ -722,19 +738,15 @@ void ReactionEngine::tickRoutes() {
                 // As Jump, but an edge counts only once the last value has had its glide; one that comes
                 // sooner is passed over (it re-arms like any edge), never saved for later.
                 settle_[k] = std::max(0.0f, settle_[k] - dt);
-                const bool high = src >= 0.5f;
-                if (high && !high_[k] && settle_[k] <= 0.0f) {
+                if (edgeOf(k, r, src).came && settle_[k] <= 0.0f) {
                     acc_[k] = nextJump(i);
                     settle_[k] = std::max(r.attackSeconds, 0.0f) + std::max(r.releaseSeconds, 0.0f);
                 }
-                high_[k] = src >= 0.3f && (high || high_[k]);
                 target = acc_[k] * r.amount;
                 break;
             }
             case ReactMode::Toggle: {
-                const bool high = src >= 0.5f;
-                if (high && !high_[k]) acc_[k] = acc_[k] > 0.5f ? 0.0f : 1.0f;
-                high_[k] = src >= 0.3f && (high || high_[k]);
+                if (edgeOf(k, r, src).came) acc_[k] = acc_[k] > 0.5f ? 0.0f : 1.0f;
                 target = acc_[k] * r.amount;
                 break;
             }
@@ -879,26 +891,35 @@ ReactSource trigger(Moment m) {
 
 }  // namespace hand
 
-std::uint32_t MomentWatch::step(const std::array<float, kMomentCount>& triggers) {
+std::uint32_t MomentWatch::stepEdges(const std::array<edge::In, kMomentCount>& in) {
     std::uint32_t came = 0;
     for (int m = 0; m < kMomentCount; ++m) {
         const size_t k = static_cast<size_t>(m);
-        const float v = std::isfinite(triggers[k]) ? triggers[k] : 0.0f;
-        const bool high = v >= kRise;
-        if (high && !high_[k]) came |= 1u << m;
-        high_[k] = v >= kRearm && (high || high_[k]);
+        edge::step(in[k], high_[k]);
+        if (high_[k].came) came |= 1u << m;
     }
     return came;
 }
 
+std::uint32_t MomentWatch::step(const std::array<float, kMomentCount>& triggers) {
+    std::array<edge::In, kMomentCount> in{};
+    for (size_t k = 0; k < in.size(); ++k) in[k].level = std::isfinite(triggers[k]) ? triggers[k] : 0.0f;
+    return stepEdges(in);
+}
+
 std::uint32_t MomentWatch::step(const ReactSignals& signals) {
-    std::array<float, kMomentCount> triggers{};
+    std::array<edge::In, kMomentCount> in{};
     for (int m = 0; m < kMomentCount; ++m) {
         if (m == static_cast<int>(Moment::Collide)) continue;  // the picture's event: no trigger in the sound
-        triggers[static_cast<size_t>(m)] =
-            m == static_cast<int>(Moment::KeyChange) ? signals.keyChange() : signals.value(hand::trigger(static_cast<Moment>(m)));
+        edge::In& e = in[static_cast<size_t>(m)];
+        if (m == static_cast<int>(Moment::KeyChange)) {
+            e = {signals.keyChange(), signals.keyChangeHit(), true};
+        } else {
+            const ReactSource s = hand::trigger(static_cast<Moment>(m));
+            e = {signals.value(s), signals.hit(s), ReactSignals::isTrigger(s)};
+        }
     }
-    return step(triggers);
+    return stepEdges(in);
 }
 
 }  // namespace geode::viz

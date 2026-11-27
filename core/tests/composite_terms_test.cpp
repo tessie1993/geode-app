@@ -9,10 +9,12 @@
 #include <cstdio>
 #include <functional>
 
-#include "viz/passes/CompositeTerms.hpp"
+#include "viz/passes/CompositeDescriptor.hpp"
 
 namespace composite = geode::viz::composite;
 namespace grade = geode::viz::grade;
+using geode::viz::TwistShape;
+using geode::viz::twistShape;
 
 namespace {
 
@@ -192,6 +194,30 @@ void frame() {
     check(composite::frameTerms(composite::Look{}).geo[0] == 0.0f, "no kaleidoscope: no segment");
 }
 
+void descriptor() {
+    composite::Source s;
+    composite::Descriptor d = composite::describe(s);
+    check(d.a.flags == 0 && d.b.flags == 0 && d.l.flags == 0 && d.frame.frameFlags == 0, "a neutral frame describes no stage");
+    check(d.tile == 1.0f && d.saturation == 1.0f && d.contrast == 1.0f && d.brightness == 1.0f, "and neutral grade values");
+
+    s.cameraA = true;
+    s.gateB = grade::Gate{true, true, true};
+    s.fx.zoom = 2.0f;
+    s.fx.brightness = 0.5f;
+    s.fx.intensity = 2.0f;
+    s.rotation = 0.5f;
+    s.flowStrength = 0.5f;
+    s.twistSeed = 7u;
+    s.time = 3.0f;
+    d = composite::describe(s);
+    check(d.a.flags == composite::kCameraFold, "texture A: only the fold, its scene applied the rest");
+    check((d.b.flags & (composite::kZoom | composite::kRotate)) == (composite::kZoom | composite::kRotate) && d.l.flags == 0,
+          "texture B (graded) runs the zoom and rotation, the layer none");
+    check(near(d.brightness, 1.0f), "brightness is the param times the intensity");
+    check((d.frame.frameFlags & composite::kFlow) != 0 && near(d.frame.lens[0], 0.5f * 0.015f), "the flow strength reaches the lens terms");
+    const TwistShape t = twistShape(7u, 3.0f);
+    check(near(d.twistCentreX, t.x * 0.5f) && near(d.twistCentreY, t.y * 0.5f), "the twist centre is half the shaders' units");
+}
 }  // namespace
 
 int main() {
@@ -201,6 +227,7 @@ int main() {
     camera();
     rotation();
     frame();
+    descriptor();
     if (failures != 0) {
         std::printf("composite_terms_test: %d failed\n", failures);
         return 1;

@@ -591,13 +591,11 @@ class UiTourTest {
     }
 
     private fun aboutDialogs() {
-        // Licences and the policy are in the About section below Backup, closed until opened.
+        // Licences are in the About section below Backup, closed until opened.
         if (!tour.has(hasText(LICENSES) and hasClickAction())) tour.tapIfPresent(ABOUT_SECTION)
-        for (dialog in listOf(LICENSES, PRIVACY)) {
-            tour.step("settings", "about-${slug(dialog)}", "the $dialog dialog") { tour.tap(dialog) }
-            tour.pages("settings", "about-${slug(dialog)}-body", pages = 2)
-            tour.tapIfPresent(CLOSE)
-        }
+        tour.step("settings", "about-${slug(LICENSES)}", "the $LICENSES dialog") { tour.tap(LICENSES) }
+        tour.pages("settings", "about-${slug(LICENSES)}-body", pages = 2)
+        tour.tapIfPresent(CLOSE)
     }
 
     private fun exportLink() {
@@ -738,7 +736,6 @@ class UiTourTest {
         const val SETTINGS_BACK = "Back to Settings"
         const val EXPORT = "Export & recording"
         const val LICENSES = "Open source licenses"
-        const val PRIVACY = "Privacy policy"
         const val CLOSE = "Close"
         const val OPEN_STUDIO_RENDER = "Open Studio › Render"
         const val GO_PRO = "Go Pro"

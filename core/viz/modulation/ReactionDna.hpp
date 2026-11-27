@@ -134,7 +134,7 @@ LfoTarget musicActionTarget(MusicAction action);
 //
 // "When this happens in the music, do that": each recipe is only a bundle of routes, so it runs in the
 // same matrix as the DNA and the user's routes, and turning it off takes its routes back out. The amounts
-// and attack/release times come from docs/CUSTOMIZE_MACROS_RESEARCH.md § Event reactions; the flash-prone
+// and attack/release times are the event-reaction recipe values; the flash-prone
 // ones (bloom, brightness, colour steps) still pass through safety::apply. Each one's title and sentence are
 // viz/modulation/ModCatalog's; the shell toggles one through viz/modulation/ModDocument.
 

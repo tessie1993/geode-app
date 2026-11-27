@@ -25,7 +25,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             seenSeq_ = std::max(seenSeq_, command.t);
             lifecycle_.windowSet(command.a, command.b);
             // A new window is a new Surface, and the rate preference lives on the surface.
-            restateRate();
+            if (lifecycle_.vsyncOn()) voteRate(true);
             break;
         case kStageWindowGone:
             if (window_) port_.releaseWindow(window_);
@@ -35,7 +35,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             break;
         case kStageSize:
             lifecycle_.windowChanged(command.a, command.b);
-            restateRate();
+            if (lifecycle_.vsyncOn()) voteRate(true);
             break;
         case kStageMode: lifecycle_.setMode(static_cast<RunMode>(command.a), nowMs); break;
         case kStagePause:
@@ -119,6 +119,8 @@ void StageCore::drawPaced() {
 // published for the UI, traced, handed to the pacer (the swap interval) and, when the rate it votes changed, to the window.
 // The swap, the vote, the work target and the UI only read it.
 void StageCore::deriveBudget(int64_t periodNs, bool swapPaces) {
+    // Swappy's time and the vsync's are different bases of the same clock: the switch re-anchors the count, it never steps back.
+    if (swapPaces != swapPaces_) clock_.reanchor();
     swapPaces_ = swapPaces;
     const FrameBudget next = frameBudget(cap_, periodNs, swapPaces);
     if (next == budget_) return;
@@ -127,7 +129,7 @@ void StageCore::deriveBudget(int64_t periodNs, bool swapPaces) {
     mirror_.store(budget_.budgetNs, std::memory_order_relaxed);
     util::traceCounter("geode.frameBudgetUs", budget_.budgetNs / 1000);
     if (lifecycle_.vsyncOn()) port_.pace(true, budget_);
-    if (voteChanged) restateRate();
+    if (voteChanged && lifecycle_.vsyncOn()) voteRate(true);
 }
 
 void StageCore::handOverFrames() {
@@ -149,10 +151,12 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The window is asked for the user's rate (one vote, restated only for a new surface, size or rate); the pacer keeps
-// the rate whether or not the display follows it.
-void StageCore::restateRate() {
-    if (window_) port_.setFrameRate(window_, budget_.voteFps);
+// The window is asked for the user's rate while the stage draws (one vote, restated only for a new surface, size or rate), and
+// the vote is cleared when the stage stops while the surface stays visible: a surface that is not being drawn must not hold
+// the display at a rate (kb://android/media/optimize/performance/frame-rate). The pacer keeps the rate whether or not the
+// display follows it.
+void StageCore::voteRate(bool on) {
+    if (window_) port_.setFrameRate(window_, on ? budget_.voteFps : 0.0f);
 }
 
 // A window that went has no EGL surface left on it; a new one is held by its surface. Nothing after that touches the
@@ -201,16 +205,20 @@ Outcome StageCore::execute(const Action& action) {
             lastShownNs_ = 0;
             vsyncWait_ = false;
             port_.pace(true, budget_);
+            voteRate(true);
             return Outcome::Done;
         case Act::StopVsync:
             port_.pace(false, budget_);
+            voteRate(false);
             if (recorder_.enabled()) handOverFrames();
             return Outcome::Done;
         case Act::DrawOnce: {
-            // No pacer asked for it: the time since the last frame is not a step.
+            // No pacer asked for it: the time since the last frame is not a step. Its time is the clock's own, two frames
+            // ahead as a paced frame's is, so the picture's time base never steps back to now.
             if (client_) client_->restartClock();
+            clock_.restart();
             int64_t drawNs = 0;
-            draw(paced_.load(std::memory_order_relaxed), cap_, 0, drawNs);
+            draw(paced_.load(std::memory_order_relaxed), cap_, clock_.next(0, port_.nowNs(), budget_.budgetNs, budget_.periodNs), drawNs);
             return Outcome::Done;
         }
         case Act::ClientTrimSpares:
@@ -235,7 +243,7 @@ Outcome StageCore::execute(const Action& action) {
 }
 
 // One frame and its swap; the swap's outcome is the lifecycle's next event. presentNs is the frame's presentation
-// time (0 for a frame no pacer asked for: the client's own clock). drawNs is set to the client's draw time. True
+// time, always the PresentClock's. drawNs is set to the client's draw time. True
 // when a new frame was swapped.
 bool StageCore::draw(float pacedFps, float capFps, int64_t presentNs, int64_t& drawNs) {
     if (!client_) return false;

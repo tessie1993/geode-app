@@ -141,17 +141,20 @@ class WidgetPublisher(
 
     fun clear() {
         stopTick()
-        nowPlaying = nowPlaying?.copy(playing = false)
-        // The publisher's own scopes are cancelled right below, which would cancel this write and
-        // redraw before they dispatch and leave the widget showing a stale "playing" state; run
-        // them on the process-scoped appScope instead so they survive the publisher's teardown.
+        val jobs =
+            listOf(
+                requireNotNull(scope.coroutineContext[Job]),
+                requireNotNull(stateScope.coroutineContext[Job]),
+                requireNotNull(mainScope.coroutineContext[Job]),
+            )
+        // The final write must follow every publish, tick and artwork decode already in flight. The
+        // process scope survives the publisher's teardown; joining its cancelled jobs supplies the order.
         appContext.geodeContainer.appScope.launch(Dispatchers.IO) {
-            WidgetState.update(appContext) { it.copy(playing = false) }
-            NowPlayingWidget().updateAll(appContext)
+            afterCancelled(jobs) {
+                WidgetState.update(appContext) { it.copy(playing = false) }
+                NowPlayingWidget().updateAll(appContext)
+            }
         }
-        scope.cancel()
-        stateScope.cancel()
-        mainScope.cancel()
     }
 
     private fun startTick() {
@@ -210,7 +213,16 @@ class WidgetPublisher(
         uri: String?,
     ): String = metadata.title?.toString()?.ifBlank { null } ?: uri?.substringAfterLast('/').orEmpty()
 
-    companion object {
+    internal companion object {
+        suspend fun afterCancelled(
+            jobs: List<Job>,
+            action: suspend () -> Unit,
+        ) {
+            jobs.forEach { it.cancel() }
+            jobs.forEach { it.join() }
+            action()
+        }
+
         /**
          * How often a playing, visible widget redraws its progress and visual (#878). Every redraw wakes
          * the process and the launcher and the bar is approximate anyway; a minute keeps a four-minute

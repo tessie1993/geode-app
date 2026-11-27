@@ -65,8 +65,7 @@ runs:
           echo "CCACHE_COMPILERCHECK=content"
         } >> "$GITHUB_ENV"
 
-    # The newest cache this branch or main saved: build-lint.yml and ship-apk.yml build the same
-    # debug objects, so a pull request starts from main's last build.
+    # The newest cache a previous build-lint run saved for this branch.
     - name: Restore the ccache
       if: inputs.ccache == 'true'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

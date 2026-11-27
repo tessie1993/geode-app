@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "viz/passes/Births.hpp"
+#include "viz/passes/CompositeDescriptor.hpp"
 #include "viz/params/Params.hpp"
 #include "viz/gl/Texture.hpp"
 #include "viz/passes/Transition.hpp"
@@ -37,7 +38,6 @@ public:
         // Customize › Layers: the layer's own target, blended over the transition's result (zeroTex when none).
         GLuint texL = 0;
         GLuint flowTex = 0;
-        float flowStrength = 0.0f;
         float progress = 1.0f;
         float layerMix = 0.5f;
         int blendOrdinal = 0;
@@ -47,21 +47,10 @@ public:
         std::string transitionId = "fade";
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
-        float postRotationAngle = 0.0f;
-        // The playing style's variant seed (styleVariantSeed): where its twist turns from (viz/passes/TwistShape).
-        std::uint32_t twistSeed = 0u;
         // Life's births (viz/passes/Births) for a scene that has no shader to draw them (gate x): all 0 at Life 0.
         std::array<float, births::kFloats> postBirths{};
         GLuint quadVao = 0;
-        SceneParams fx;
-        std::array<float, 4> gateA{};
-        std::array<float, 4> gateB{};
-        std::array<float, 4> gateL{};
-        // CameraRig's flat projection and, per texture, whether to apply it.
-        std::array<float, 4> camFlat{0.0f, 0.0f, 1.0f, 0.0f};
-        std::array<float, 2> camTilt{};
-        std::array<float, 2> camGate{};
-        float camGateL = 0.0f;
+        composite::Descriptor terms;
         // W00: underlay, read each frame from CompositePass's own latched texture (see the class
         // comment above) via underlayTexOrZero()/underlayBlendMode()/underlayAmount().
         GLuint underlayTex = 0;

@@ -89,6 +89,12 @@ Java_dev_geode_engine_bridge_StageNative_stageSetCap(JNIEnv*, jobject, jlong sta
     geode_stage_set_cap(stageOf(stage), capFps);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_StageNative_stageSetLiveFps(JNIEnv* env, jobject, jlong stage, jint storedFps, jfloatArray rates) {
+    FloatElements r(env, rates);
+    geode_stage_set_live_fps(stageOf(stage), storedFps, r.get(), r.length());
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageState(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_state(stageOf(stage)));

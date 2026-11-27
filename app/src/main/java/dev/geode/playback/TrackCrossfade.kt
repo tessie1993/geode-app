@@ -7,7 +7,7 @@ import dev.geode.engine.bridge.GeodeNative
 /**
  * Settings › Playback › Crossfade. One track fades out and the next fades in, back to back on the
  * one player. It is not an overlap: two tracks sounding at once would need a second player mixed
- * into the tap, and the tap stays first and single (docs/AUDIO_CHAIN.md). The owner chose the
+ * into the tap, and the tap stays first and single. The owner chose the
  * setting, and this is the shape that keeps the audio chain as it is.
  *
  * The fade itself is native (`core/audio/dsp/GainStage`): half of [crossfadeMs] on each side of the

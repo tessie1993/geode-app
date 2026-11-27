@@ -162,10 +162,10 @@ typedef struct GeodeSoundFrame {
     float chordHue;     /* the medium chroma's centre on the circle of fifths, 0..1: moves with each chord */
     float tension;      /* dissonance of the medium chroma (seconds, tritones, sevenths sounding together), 0..1 */
     float harmonicChange; /* trigger: the last half second's chroma moved away from the two seconds before */
-    /* Scale and mode, from the musical intelligence database (docs/musical-intelligence, core/sound/ScaleTable.inc):
+    /* Scale and mode, from the musical intelligence database (core/sound/ScaleTable.inc):
      * the catalogue entry (46 scales and modes: the church modes, harmonic and melodic minor and their
      * modes, pentatonics, blues, symmetric and exotic scales) that best fits the slow chroma on its root. */
-    float scale;        /* the catalogue index, in scales.csv order; -1 before any music */
+    float scale;        /* the catalogue index, in ScaleTable.inc order; -1 before any music */
     float scaleRoot;    /* the scale's root pitch class, C = 0 … B = 11/12 */
     float scaleBrightness; /* the scale's mood: 0 darkest (Locrian, super Locrian) … 1 brightest (Lydian), 0.5 neutral */
     float scaleTension; /* how unstable the scale sounds (tritones, minor seconds, augmented steps), 0..1 */

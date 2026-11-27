@@ -318,9 +318,9 @@ void handOvers() {
     check(r.port.released.size() == 5 && r.port.released[4] == &windowB, "closing releases the stage's own window once");
 }
 
-// Red against: a frame told the time it starts instead of the pacer's presentation time, a jitter in the pacer's time
-// stepping the picture by more or less than whole refresh periods, a late frame stepping by a catch-up of nothing (two
-// frames on one refresh) and a time already past used as it is.
+// Red against: a frame told the time it starts instead of the pacer's presentation time, a jitter of the pacer's time
+// stepping the picture by more than the lock lets through, a late frame stepping once for each period it took (and not at
+// all for one it did not), and a time already past used as it is.
 void aFrameIsToldTheTimeItIsShown() {
     Rig r;
     r.port.times.desiredNs = 1'000'000'000;
@@ -328,20 +328,100 @@ void aFrameIsToldTheTimeItIsShown() {
     check(r.client->presentTimes.size() == 1 && r.client->presentTimes[0] == 1'000'000'000, "a frame is told when the pacer will show it");
     r.port.times.desiredNs = 1'000'000'000 + kPeriod60 + 300;
     r.turns(1);
-    check(r.client->presentTimes.back() == 1'000'000'000 + kPeriod60, "a jitter of the pacer's time snaps to whole refresh periods");
+    const int64_t jittered = r.client->presentTimes.back() - (1'000'000'000 + kPeriod60);
+    check(jittered >= 0 && jittered < 100, "a jitter of the pacer's time is divided down, the step stays one period");
     r.port.times.desiredNs = 1'000'000'000 + 3 * kPeriod60 + 40'000;
     r.turns(1);
-    check(r.client->presentTimes.back() == 1'000'000'000 + 3 * kPeriod60, "a late frame steps by the periods it really took, once");
+    check(std::llabs(r.client->presentTimes.back() - (1'000'000'000 + 3 * kPeriod60)) < 10'000, "a late frame steps by the periods it really took, once");
+    const int64_t before = r.client->presentTimes.back();
     r.port.times.desiredNs = 1'000'000'000;
     r.port.now = 50;
     r.turns(1);
-    check(r.client->presentTimes.back() == 1'000'000'000 + 4 * kPeriod60, "a time at or before the last frame's is the next refresh: never two frames on one");
+    check(r.client->presentTimes.back() - before > kPeriod60 / 2 && r.client->presentTimes.back() - before < 3 * kPeriod60 / 2,
+          "a time at or before the last frame's is the next refresh: never two frames on one");
     r.port.times.desiredNs = 0;
     r.port.now = 9'000'000'000;
     r.turns(1);
     check(r.client->presentTimes.back() >= 9'000'000'000 + 2 * kPeriod60 - kPeriod60 / 2, "with no time from the pacer a frame is two frames ahead, as a pipelined one is");
 }
 
+// Red against: a picture that steps back or freezes where the pacer's time base changes (Swappy to the vsync and back, as
+// when another stage takes Swappy or the Activity goes), and a frame no pacer asked for told 0, which the picture would
+// read as now, two frames behind the paced ones.
+void theTimeNeverStepsBackWhereThePacerChanges() {
+    Rig r;
+    r.port.times.desiredNs = 1'000'000'000;
+    r.show();
+    int64_t desired = 1'000'000'000;
+    for (int i = 0; i < 10; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired;
+        r.turns(1);
+    }
+    // The vsync's expected presentation time is a frame behind Swappy's two-ahead.
+    r.port.times.swapPaces = false;
+    for (int i = 0; i < 10; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired - kPeriod60;
+        r.send(command(kStageVsync));
+    }
+    r.port.times.swapPaces = true;
+    r.send(command(kStageVsync));
+    for (int i = 0; i < 10; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired + kPeriod60;
+        r.turns(1);
+    }
+    bool forward = true, zero = false;
+    for (size_t i = 1; i < r.client->presentTimes.size(); ++i) {
+        forward = forward && r.client->presentTimes[i] > r.client->presentTimes[i - 1];
+        zero = zero || r.client->presentTimes[i] == 0;
+    }
+    check(forward && !zero && r.client->presentTimes.size() > 30, "every frame is told a time after the last frame's, across both switches");
+
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    const int64_t last = r.client->presentTimes.back();
+    r.port.times.desiredNs = 0;
+    r.port.now = last - 2 * kPeriod60;
+    r.send(command(kStageRedraw));
+    check(r.client->presentTimes.back() > 0 && r.client->presentTimes.back() >= last - 3 * kPeriod60,
+          "a frame no pacer asked for is on the clock's base, two frames ahead, not told 0 or now");
+}
+
+// Red against: the first frame after a display mode change counted against the old period (the step too short), and a
+// step that is not the new frame length.
+void aNewModeStepsByTheNewFrameLengthOnTheStage() {
+    Rig r;
+    int64_t desired = 1'000'000'000;
+    r.port.times.desiredNs = desired;
+    r.show();
+    for (int i = 0; i < 20; ++i) {
+        desired += kPeriod60;
+        r.port.times.desiredNs = desired;
+        r.turns(1);
+    }
+    const int64_t last = r.client->presentTimes.back();
+    r.port.times.periodNs = kPeriod90;
+    desired += 2 * kPeriod90;
+    r.port.times.desiredNs = desired;
+    r.turns(1);
+    check(std::llabs((r.client->presentTimes.back() - last) - 2 * kPeriod90) < 100'000, "the first frame after the mode changed steps by the new frame length: two periods of the 90 Hz mode");
+    int64_t previous = r.client->presentTimes.back();
+    int odd = 0;
+    for (int i = 0; i < 30; ++i) {
+        desired += 2 * kPeriod90;
+        r.port.times.desiredNs = desired;
+        r.turns(1);
+        if (std::llabs((r.client->presentTimes.back() - previous) - 2 * kPeriod90) > 50'000) ++odd;
+        previous = r.client->presentTimes.back();
+    }
+    check(odd == 0, "and every frame after it");
+    r.send(command(kStageCap, 0, 0, 30.0f));
+    desired += 3 * kPeriod90;
+    r.port.times.desiredNs = desired;
+    r.turns(1);
+    check(std::llabs((r.client->presentTimes.back() - previous) - 3 * kPeriod90) < 100'000, "a lower cap steps by its longer frame at once: three periods of the same mode");
+}
 // Red against: a frame that repeats the picture on screen still swapping (the GPU does the work of a present for
 // nothing), its bit reaching the shell's events, and a stage that spins on a frame nothing waits for.
 void aFrameThatRepeatsThePictureIsNotSwapped() {
@@ -561,6 +641,8 @@ int main() {
     trimReachesAStageThatDrawsNothing();
     handOvers();
     aFrameIsToldTheTimeItIsShown();
+    theTimeNeverStepsBackWhereThePacerChanges();
+    aNewModeStepsByTheNewFrameLengthOnTheStage();
     aFrameThatRepeatsThePictureIsNotSwapped();
     withoutSwappyTheVsyncPacesEachFrame();
     theFrameBudgetFollowsTheModeAndTheWorkIsTheDraw();

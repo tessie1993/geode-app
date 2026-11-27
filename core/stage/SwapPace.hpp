@@ -70,30 +70,58 @@ inline FrameBudget frameBudget(float capFps, int64_t periodNs, bool swapPaces) {
 
 // The presentation time each frame is drawn for: the picture's clock (its step) and where the sound is read. The
 // time comes from the pacer: Swappy's desired presentation time for the frame it starts (its startFrame tracer
-// callback, the time it stamps the swap with). Swappy measures it from its own wake-up, which jitters by a fraction of
-// a millisecond; snapped to whole refresh periods after the last frame's, the step is exactly the presentations'
-// spacing. With no time from the pacer (the fallback, a time already past) the frame is taken to show two frames from
-// now, as a pipelined frame does (CPU in one interval, GPU in the next).
+// callback, fired at the end of the swap before: the time it stamps this frame's swap with), or, without Swappy, the
+// vsync's expected presentation time. With no time from the pacer (or one already past) the frame is taken to show two
+// frames from now, as a pipelined frame does (CPU in one interval, GPU in the next).
+//
+// The pacer's time jitters by a fraction of a millisecond (it is measured from a Choreographer tick), and the panel's real
+// period is not exactly the nominal one. So the clock counts whole refresh periods from the last frame's (never fewer
+// than one: two frames are never shown on one refresh) and keeps its phase locked to the pacer's: each frame takes an
+// eighth of the gap between its counted time and the pacer's. A fixed offset of the nominal period from the real one then
+// settles to a small constant lag instead of growing until the count skips a period, and the jitter is divided by eight.
 class PresentClock {
 public:
+    // How many frames the phase lock averages over.
+    static constexpr int64_t kLockFrames = 8;
+
     // `desiredNs`: the pacer's time for this frame, CLOCK_MONOTONIC (0: none); `nowNs`: when the frame starts;
-    // `frameNs`: the frame's length (0: not known); `periodNs`: the display's refresh period (0: not known, no snap).
+    // `frameNs`: the frame's length (0: not known); `periodNs`: the display's refresh period (0: not known, no count).
     int64_t next(int64_t desiredNs, int64_t nowNs, int64_t frameNs, int64_t periodNs) {
-        int64_t t = desiredNs > nowNs ? desiredNs : nowNs + 2 * (frameNs > 0 ? frameNs : 0);
+        const int64_t pacer = desiredNs > nowNs ? desiredNs : nowNs + 2 * (frameNs > 0 ? frameNs : 0);
+        int64_t t = pacer;
         if (last_ > 0 && periodNs > 0) {
-            int64_t steps = std::llround(static_cast<double>(t - last_) / static_cast<double>(periodNs));
-            // Two frames are never shown on one refresh: a time at or before the last frame's is the next refresh.
-            if (steps < 1) steps = 1;
-            t = last_ + steps * periodNs;
+            if (anchored_ && periodNs == period_) {
+                int64_t steps = std::llround(static_cast<double>(pacer - last_) / static_cast<double>(periodNs));
+                if (steps < 1) steps = 1;
+                const int64_t counted = last_ + steps * periodNs;
+                // The lock follows a phase error within half a period; a pacer further off than that (behind the last frame,
+                // or a late frame) is not a phase to follow.
+                const int64_t phase = pacer - counted;
+                t = counted + (std::llabs(phase) <= periodNs / 2 ? phase / kLockFrames : 0);
+            } else {
+                // A new display mode, or the pacer changed: the count starts again from the pacer's own time, which already
+                // spaces the frame by the new frame length, and never at or before the last frame's.
+                t = pacer > last_ + periodNs / 2 ? pacer : last_ + periodNs;
+            }
         }
+        anchored_ = periodNs > 0;
+        period_ = periodNs;
         last_ = t;
         return t;
     }
-    // A start (the pacing starts again): the next frame is not snapped to one shown before the gap.
-    void restart() { last_ = 0; }
+    // A start (the pacing starts again): the next frame is not counted from one shown before the gap.
+    void restart() {
+        last_ = 0;
+        anchored_ = false;
+    }
+    // The pacer's time base changed (Swappy to the vsync or back): the next frame takes the pacer's time as it comes, still
+    // after the last frame's, and the count goes on from there.
+    void reanchor() { anchored_ = false; }
 
 private:
     int64_t last_ = 0;
+    int64_t period_ = 0;
+    bool anchored_ = false;
 };
 
 }  // namespace geode::stage

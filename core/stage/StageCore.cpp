@@ -119,6 +119,8 @@ void StageCore::drawPaced() {
 // published for the UI, traced, handed to the pacer (the swap interval) and, when the rate it votes changed, to the window.
 // The swap, the vote, the work target and the UI only read it.
 void StageCore::deriveBudget(int64_t periodNs, bool swapPaces) {
+    // Swappy's time and the vsync's are different bases of the same clock: the switch re-anchors the count, it never steps back.
+    if (swapPaces != swapPaces_) clock_.reanchor();
     swapPaces_ = swapPaces;
     const FrameBudget next = frameBudget(cap_, periodNs, swapPaces);
     if (next == budget_) return;
@@ -207,10 +209,12 @@ Outcome StageCore::execute(const Action& action) {
             if (recorder_.enabled()) handOverFrames();
             return Outcome::Done;
         case Act::DrawOnce: {
-            // No pacer asked for it: the time since the last frame is not a step.
+            // No pacer asked for it: the time since the last frame is not a step. Its time is the clock's own, two frames
+            // ahead as a paced frame's is, so the picture's time base never steps back to now.
             if (client_) client_->restartClock();
+            clock_.restart();
             int64_t drawNs = 0;
-            draw(paced_.load(std::memory_order_relaxed), cap_, 0, drawNs);
+            draw(paced_.load(std::memory_order_relaxed), cap_, clock_.next(0, port_.nowNs(), budget_.budgetNs, budget_.periodNs), drawNs);
             return Outcome::Done;
         }
         case Act::ClientTrimSpares:
@@ -235,7 +239,7 @@ Outcome StageCore::execute(const Action& action) {
 }
 
 // One frame and its swap; the swap's outcome is the lifecycle's next event. presentNs is the frame's presentation
-// time (0 for a frame no pacer asked for: the client's own clock). drawNs is set to the client's draw time. True
+// time, always the PresentClock's. drawNs is set to the client's draw time. True
 // when a new frame was swapped.
 bool StageCore::draw(float pacedFps, float capFps, int64_t presentNs, int64_t& drawNs) {
     if (!client_) return false;

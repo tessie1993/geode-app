@@ -560,7 +560,6 @@ private fun titleFor(trigger: PaywallTrigger?): Int =
                 ProFeature.NO_WATERMARK -> R.string.pro_title_watermark
                 ProFeature.FULL_LENGTH_EXPORT -> R.string.pro_title_full_length
                 ProFeature.STUDIO -> R.string.pro_title_studio
-                ProFeature.LIVE_WALLPAPER -> R.string.pro_title_wallpaper
                 ProFeature.SCREENSAVER -> R.string.pro_title_screensaver
                 ProFeature.PREMIUM_STYLES -> R.string.pro_title_styles
                 ProFeature.ADVANCED_CUSTOMIZATION -> R.string.pro_title_customization
@@ -600,7 +599,7 @@ internal val COMPARE_ROWS =
         CompareRow(R.string.pro_row_length, null, R.string.pro_row_length_pro, setOf(ProFeature.FULL_LENGTH_EXPORT)),
         CompareRow(R.string.pro_row_loop_batch, null, null, setOf(ProFeature.FULL_LENGTH_EXPORT)),
         CompareRow(R.string.pro_row_studio, null, null, setOf(ProFeature.STUDIO)),
-        CompareRow(R.string.pro_row_wallpaper, null, null, setOf(ProFeature.LIVE_WALLPAPER, ProFeature.SCREENSAVER)),
+        CompareRow(R.string.pro_row_screensaver, null, null, setOf(ProFeature.SCREENSAVER)),
         CompareRow(R.string.pro_row_cast, null, null, setOf(ProFeature.CAST)),
         CompareRow(
             R.string.pro_row_customization,

@@ -4,8 +4,6 @@
 package dev.geode.ui
 
 import android.Manifest
-import android.app.WallpaperManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -31,19 +29,15 @@ import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
 import dev.geode.engine.bridge.TouchNative
 import dev.geode.geodeContainer
-import dev.geode.pro.PaywallTrigger
-import dev.geode.pro.ProFeature
-import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.rememberSystemReducedMotion
-import dev.geode.wallpaper.VisualizerWallpaperService
 import kotlinx.coroutines.launch
 
 // The rows stored in [BehaviourPrefs] (`geode-prefs`, defaults the owner's), which Settings spreads
 // over seven tabs since the regroup: Playback (queue end, shuffle and repeat), Output & devices
-// (headphones, notification buttons), Displays & casting (the screen on in Visuals), Wallpaper &
-// screen saver (the dream), Gestures & controls (the gesture map) and Look (where the app opens);
+// (headphones, notification buttons), Displays & casting (the screen on in Visuals), Screen saver
+// (the dream), Gestures & controls (the gesture map) and Look (where the app opens);
 // plus the visual's other rows that are not one store's: safety and motion, touch, a second
-// screen, the wallpaper button. Only options the app honours get a row (#337): a switch that does
+// screen. Only options the app honours get a row (#337): a switch that does
 // nothing is worse than no switch.
 
 /** A change to [BehaviourPrefs], applied to the latest value by the repository. */
@@ -306,35 +300,7 @@ internal fun ConnectedDisplaySection() {
 }
 
 /**
- * Wallpaper & screen saver: set the live wallpaper (Pro). The dream's own switches beside it
- * ([BehaviourPrefs.dreamScreenBright], [BehaviourPrefs.dreamShowClock],
- * [BehaviourPrefs.dreamShowNowPlaying], [BehaviourPrefs.dreamHearOtherApps]) are [BehaviourRow]s,
- * read by `wallpaper/VisualizerDreamService` when it starts.
- */
-@Composable
-internal fun LiveWallpaperRow() {
-    val ctx = LocalContext.current
-    val paywall: PaywallViewModel = geodeViewModel()
-    val gate by paywall.gate.collectAsStateWithLifecycle()
-    SettingsHint(stringResource(R.string.behavior_wallpaper_hint))
-    CrystalButton(onClick = {
-        if (!gate.allows(ProFeature.LIVE_WALLPAPER)) {
-            paywall.open(PaywallTrigger.Feature(ProFeature.LIVE_WALLPAPER))
-            return@CrystalButton
-        }
-        val direct =
-            Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
-                WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                ComponentName(ctx, VisualizerWallpaperService::class.java),
-            )
-        val ok = runCatching { ctx.startActivity(direct) }.isSuccess
-        if (!ok) bestEffortStart(ctx, Intent(Intent.ACTION_SET_WALLPAPER))
-    }) { Text(stringResource(R.string.behavior_wallpaper_button)) }
-}
-
-/**
- * The screen saver reacting to other apps' sound ([BehaviourPrefs.dreamHearOtherApps]), as the
- * wallpaper's "React to any app" does: turning it on asks for the permission the output-mix
+ * The screen saver reacting to other apps' sound ([BehaviourPrefs.dreamHearOtherApps]): turning it on asks for the permission the output-mix
  * capture needs in place, and while it is on without it one button asks again (or opens Android's
  * settings once it has stopped asking), so a refusal is never a switch that silently does nothing.
  */
@@ -354,7 +320,7 @@ private fun DreamOtherAppsRow(
         },
     )
     if (prefs.dreamHearOtherApps && !permission.granted) {
-        CrystalButton(onClick = permission::request) { Text(stringResource(R.string.wallpaper_options_open_settings)) }
+        CrystalButton(onClick = permission::request) { Text(stringResource(R.string.settings_dream_open_settings)) }
     }
 }
 

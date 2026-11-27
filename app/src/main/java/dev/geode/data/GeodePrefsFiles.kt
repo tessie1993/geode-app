@@ -2,6 +2,9 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.BackupClass
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 /**
  * The registry of the app's SharedPreferences files: every file the app keeps is named here, and
@@ -24,9 +27,6 @@ class GeodePrefsFiles(
     val library: SharedPreferences by lazy { open(LIBRARY) }
     val background: SharedPreferences by lazy { open(BACKGROUND) }
 
-    /** The live wallpaper's own options (`wallpaper/WallpaperPrefsStore`). */
-    val wallpaper: SharedPreferences by lazy { open(WALLPAPER) }
-
     /** The home screen widget's cache (`widget/WidgetState`). */
     val widget: SharedPreferences by lazy { open(WIDGET) }
 
@@ -44,7 +44,6 @@ class GeodePrefsFiles(
         const val MODULATION = "geode-mod"
         const val LIBRARY = "geode-library"
         const val BACKGROUND = "geode-background"
-        const val WALLPAPER = "geode-wallpaper"
         const val WIDGET = "geode-widget"
         const val PRO = "geode-pro"
 
@@ -53,5 +52,21 @@ class GeodePrefsFiles(
          * needs the context for the folder grant anyway), so there is no property for it here.
          */
         const val RECORD = "geode-record"
+
+        /**
+         * The live wallpaper's options, retired with the wallpaper (2026-11-27): no build reads or writes the
+         * file, and `GeodeContainer` deletes it at start. An older backup still carries it; core/backup accepts
+         * it there and restores nothing from it.
+         */
+        const val RETIRED_WALLPAPER = "geode-wallpaper"
+
+        /** What [RETIRED_WALLPAPER] held, kept on record in the prefs schema (`PrefsSchemaTest`). */
+        val RETIRED_WALLPAPER_KEYS =
+            prefKeys(RETIRED_WALLPAPER) {
+                retired(PrefType.BOOLEAN, "rest_when_silent", "pause_in_battery_saver", "hear_other_apps", backup = BackupClass.DEVICE)
+                retired(PrefType.STRING, "home_look", "lock_look", backup = BackupClass.DEVICE)
+                retired(PrefType.INT, "fps", backup = BackupClass.DEVICE)
+                retired(PrefType.BOOLEAN, "mix_refused", backup = BackupClass.DEVICE)
+            }
     }
 }

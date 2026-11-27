@@ -136,6 +136,7 @@ class GeodeContainer(
         sweepOldShareCopies(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
+        sweepRetiredWallpaperPrefs(context.applicationContext)
         discardStaleRestore(context.applicationContext)
         deleteUnfinishedOutputs(context.applicationContext)
         sweepStaleTemps(context.applicationContext)
@@ -195,6 +196,16 @@ class GeodeContainer(
     private fun sweepRetiredAnalysisCache(filesDir: File) {
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep retired analysis cache") { File(filesDir, "analysis").deleteRecursively() }
+        }
+    }
+
+    /**
+     * Deletes the live wallpaper's options file (`GeodePrefsFiles.RETIRED_WALLPAPER`), which older builds wrote.
+     * The wallpaper is gone, so nothing else would ever remove it.
+     */
+    private fun sweepRetiredWallpaperPrefs(context: Context) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep retired wallpaper prefs") { context.deleteSharedPreferences(GeodePrefsFiles.RETIRED_WALLPAPER) }
         }
     }
 

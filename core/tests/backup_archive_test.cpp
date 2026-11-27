@@ -173,12 +173,12 @@ void roundTrip() {
     check(o.finish.sections.size() == 3, "every section known");
     std::vector<std::string> paths;
     for (const auto& e : m.entries) paths.push_back(e.path);
-    // Prefs of every section first (settings' seven, creative's two), then its files; the vanished one is not listed.
-    check(paths.size() == 11 && paths[9] == "presets/a.json" && paths[10] == "prefs/geode-favourites.json", "entries in order, section by section: its prefs then its files");
-    check(paths[0] == "prefs/geode-prefs.json" && paths[7] == "prefs/geode-mod.json" && paths[8] == "prefs/creative/geode-prefs.json",
+    // Prefs of every section first (settings' six, creative's two), then its files; the vanished one is not listed.
+    check(paths.size() == 10 && paths[8] == "presets/a.json" && paths[9] == "prefs/geode-favourites.json", "entries in order, section by section: its prefs then its files");
+    check(paths[0] == "prefs/geode-prefs.json" && paths[6] == "prefs/geode-mod.json" && paths[7] == "prefs/creative/geode-prefs.json",
           "settings prefs, then creative's own file and slice");
     check(plan.sources[0].inlineBytes && plan.sources[0].bytes.find("gui_opacity") != std::string::npos, "settings holds the opacity");
-    check(!plan.sources[10].inlineBytes && plan.sources[10].path == "presets/gone.json", "files are opened by the shell");
+    check(!plan.sources[9].inlineBytes && plan.sources[9].path == "presets/gone.json", "files are opened by the shell");
 }
 
 void exportRules() {
@@ -205,9 +205,7 @@ void exportRules() {
     check(slice.find("macro_bank") != std::string::npos && slice.find("palette_stack") != std::string::npos &&
               slice.find("gui_reduced_motion") == std::string::npos,
           "creative's slice holds only its keys");
-    check(bytesOf("prefs/geode-wallpaper.json").find("mix_refused") == std::string::npos &&
-              bytesOf("prefs/geode-wallpaper.json").find("home_look") != std::string::npos,
-          "refused capture stays on the phone");
+    check(bytesOf("prefs/geode-wallpaper.json") == "<missing>", "the retired wallpaper file is never exported");
     check(bytesOf("prefs/geode-library.json").find("roots") == std::string::npos, "roots stay");
     check(bytesOf("prefs/geode-mod.json") == "{}", "a file with nothing to say is {}");
     check(bytesOf("prefs/geode-viz.json") == "{}", "a file never supplied is {}");

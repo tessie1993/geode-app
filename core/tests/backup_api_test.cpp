@@ -47,9 +47,9 @@ void layoutCrosses() {
     const List l = take(geode_backup_layout(&n), n);
     check(l.size() > 5 && l[0] == "manifest.json" && l[1] == "8388608" && l[2] == "603979776" && l[3] == "20000" && l[4] == "3",
           "the manifest's path and the three caps, then three sections");
-    check(l[5] == "settings" && l[6] == "7" && l[7] == "geode-prefs" && l[8] == "prefs/geode-prefs.json",
-          "settings first, its seven prefs files each with its archive path");
-    size_t at = 7 + 14;
+    check(l[5] == "settings" && l[6] == "6" && l[7] == "geode-prefs" && l[8] == "prefs/geode-prefs.json",
+          "settings first, its six prefs files each with its archive path");
+    size_t at = 7 + 12;
     check(l[at] == "0", "settings has no roots");
     bool creative = false;
     for (size_t i = 0; i + 1 < l.size(); ++i) creative = creative || (l[i] == "prefs/creative/geode-prefs.json");

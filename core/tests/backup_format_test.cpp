@@ -76,7 +76,7 @@ void sections() {
     check(sectionOfPath("library.json") == "music", "library music");
     check(sectionOfPath("prefs/geode-favourites.json") == "music", "favourites music");
     check(sectionOfPath("prefs/geode-prefs.json") == "settings", "prefs settings");
-    check(sectionOfPath("prefs/geode-wallpaper.json") == "settings", "wallpaper settings");
+    check(sectionOfPath("prefs/geode-wallpaper.json") == "settings", "the retired wallpaper file still passes in an old archive");
     check(sectionOfPath("prefs/creative/geode-prefs.json") == "creative", "creative slice");
     check(sectionOfPath("presets/a.json.tmp").empty() && sectionOfPath("presets/a.corrupt").empty(), "tmp and corrupt out");
     check(sectionOfPath("prefs/geode-widget.json").empty(), "unknown prefs file out");
@@ -101,9 +101,9 @@ void keys() {
     check(!isPortableKey("geode-prefs", "gui_tutorial_seen"), "tutorial seen is device-local");
     check(!isPortableKey("geode-library", "roots"), "roots are device-local");
     check(isPortableKey("geode-prefs", "gui_reduced_motion"), "ordinary key portable");
-    check(sectionOfKey("geode-wallpaper", "home_look") == "settings", "wallpaper options ride with settings");
-    check(sectionOfKey("geode-wallpaper", "fps") == "settings", "wallpaper fps");
-    check(sectionOfKey("geode-wallpaper", "mix_refused").empty(), "refused capture stays");
+    for (const char* k : {"home_look", "fps", "mix_refused"}) {
+        check(sectionOfKey("geode-wallpaper", k).empty(), std::string("the retired wallpaper's ") + k + " is never restored");
+    }
     check(sectionOfKey("geode-prefs", "macro_bank") == "creative", "macro bank creative");
     for (const char* k : {"macro_knobs", "macro_locks", "macro_presets"}) {
         check(sectionOfKey("geode-prefs", k).empty(), std::string(k) + " is neither backed up nor restored");
@@ -135,7 +135,8 @@ void names() {
     check(l[1].prefsEntries.size() == 2 && l[1].prefsEntries[0].path == "prefs/geode-mod.json" &&
               l[1].prefsEntries[1].path == "prefs/creative/geode-prefs.json" && l[1].prefsEntries[1].file == "geode-prefs",
           "creative prefs entries: own file then slice");
-    check(l[0].prefsEntries.size() == 7, "settings has seven files");
+    check(l[0].prefsEntries.size() == 6, "settings has six files");
+    for (const auto& e : l[0].prefsEntries) check(e.file != "geode-wallpaper", "the retired wallpaper file is never exported");
     check(l[2].roots == std::vector<std::string>({"music-playlists", "smart-playlists", "library.json", "history.json"}),
           "roots");
     check(kMaxTotalBytes == 536870912 && kMaxEntries == 20000 && kMaxManifestBytes == 8388608 && kCurrentVersion == 2 &&

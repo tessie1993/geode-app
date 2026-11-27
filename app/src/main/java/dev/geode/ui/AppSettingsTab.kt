@@ -23,12 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -121,11 +121,10 @@ enum class SettingsGroupKey(
         listOf(SettingsRowKey.KEEP_SCREEN_ON_IN_VISUALS, SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL),
         listOf(SettingsSectionKey.CONNECTED_DISPLAY, SettingsSectionKey.PICTURE_IN_PICTURE),
     ),
-    WALLPAPER(
-        R.string.settings_group_wallpaper,
-        R.string.settings_group_wallpaper_summary,
+    SCREEN_SAVER(
+        R.string.settings_group_screen_saver,
+        R.string.settings_group_screen_saver_summary,
         listOf(
-            SettingsRowKey.LIVE_WALLPAPER,
             SettingsRowKey.DREAM_BRIGHT,
             SettingsRowKey.DREAM_CLOCK,
             SettingsRowKey.DREAM_NOW_PLAYING,
@@ -186,7 +185,7 @@ enum class SettingsGroupKey(
                 SOUND_REACTION -> StoneIcon.MICROPHONE.vector
                 SAFETY -> Icons.Filled.Accessibility
                 DISPLAYS -> StoneIcon.CAST.vector
-                WALLPAPER -> Icons.Filled.Wallpaper
+                SCREEN_SAVER -> Icons.Filled.Bedtime
                 GESTURES -> Icons.Filled.TouchApp
                 LOOK -> Icons.Filled.Palette
                 PERFORMANCE -> Icons.Filled.Speed
@@ -200,6 +199,7 @@ enum class SettingsGroupKey(
          * The ten groups before the regroup (2026-11-11), by the tab most of their rows went to:
          * Behaviour's own rows split four ways, so it opens on Gestures & controls, the half of it
          * named in its title; Visuals opens on Visual playback; Tutorials and Backup became one tab.
+         * Wallpaper & screen saver lost the live wallpaper and became Screen saver.
          */
         private val FORMER_GROUPS =
             mapOf(
@@ -208,18 +208,19 @@ enum class SettingsGroupKey(
                 "SOUND_INPUT" to SOUND_REACTION,
                 "HELP" to HELP_ABOUT,
                 "BACKUP_ABOUT" to HELP_ABOUT,
+                "WALLPAPER" to SCREEN_SAVER,
             )
 
         /**
          * Sections that were folded into a tab's Basics, by that tab: Equalizer is Sound &
-         * equalizer, the gesture map is Gestures & controls, and the wallpaper and screen saver
-         * are a tab of their own.
+         * equalizer, the gesture map is Gestures & controls, and the screen saver is a tab of
+         * its own.
          */
         private val FORMER_SECTIONS =
             mapOf(
                 "EQUALIZER" to SOUND_EQ,
                 "GESTURES" to GESTURES,
-                "WALLPAPER_DREAM" to WALLPAPER,
+                "WALLPAPER_DREAM" to SCREEN_SAVER,
             )
 
         /** A tab by a saved name: today's, or a group's from before the regroup; null for none. */
@@ -460,7 +461,6 @@ private fun SettingsRowContent(
         SettingsRowKey.REDUCED_MOTION -> ReducedMotionRow()
         SettingsRowKey.CONNECTED_DISPLAY -> ConnectedDisplaySection()
         SettingsRowKey.PIP_AUTO_ENTER -> PictureInPictureSection(settings)
-        SettingsRowKey.LIVE_WALLPAPER -> LiveWallpaperRow()
         SettingsRowKey.TOUCH_SMEAR -> TouchSmearRow(settings)
         SettingsRowKey.TOUCH_TRANSFORM -> TouchTransformRow(settings)
         SettingsRowKey.LOOK_THEME -> LookBasics(settings)

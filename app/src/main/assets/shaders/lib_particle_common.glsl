@@ -143,3 +143,4 @@ vec2 ptBillboard(vec2 corner, vec2 velPx, float quadPx, float stretchSeconds, fl
     vec2 dir = speedPx > 1.0 ? velPx / speedPx : vec2(1.0, 0.0);
     return dir * (corner.x * quadPx * stretch) + vec2(-dir.y, dir.x) * (corner.y * quadPx);
 }
+

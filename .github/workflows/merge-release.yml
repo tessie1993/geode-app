@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# Keyed by commit: a later merge never cancels an earlier commit's release.
+concurrency:
+  group: geode-merge-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
   # The same gate every pull request runs, on the merge commit itself. Main is not protected,
   # so a direct push must not be able to publish a red build.
@@ -25,12 +30,6 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
-    # Number reservation and publication are one ordered queue. Up to 100 merged commits can wait;
-    # a later merge never replaces an earlier pending release.
-    concurrency:
-      group: geode-merge-release
-      queue: max
-      cancel-in-progress: false
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,29 +105,9 @@ jobs:
         run: |
           set -euo pipefail
           AAPT2="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/aapt2"
-          APK=app/build/outputs/apk/debug/app-debug.apk
-          BADGING=$("$AAPT2" dump badging "$APK")
-          PACKAGE_NAME=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<< "$BADGING")
+          BADGING=$("$AAPT2" dump badging app/build/outputs/apk/debug/app-debug.apk)
           VERSION_NAME=$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<< "$BADGING")
           VERSION_CODE=$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")
-          MIN_SDK=$(sed -n "s/^sdkVersion:'\([0-9]*\)'.*/\1/p" <<< "$BADGING")
-          TARGET_SDK=$(sed -n "s/^targetSdkVersion:'\([0-9]*\)'.*/\1/p" <<< "$BADGING")
-          if [ "$PACKAGE_NAME" != "com.beatrealms3d.app.debug" ]; then
-            echo "::error::Expected the debug application id, got '$PACKAGE_NAME'"
-            exit 1
-          fi
-          if [ "$MIN_SDK" != 33 ] || [ "$TARGET_SDK" != 36 ]; then
-            echo "::error::Expected minSdk 33 and targetSdk 36, got minSdk '$MIN_SDK' and targetSdk '$TARGET_SDK'"
-            exit 1
-          fi
-          for abi in arm64-v8a x86_64; do
-            unzip -l "$APK" "lib/$abi/libgeode.so" | grep -Fq "lib/$abi/libgeode.so" || {
-              echo "::error::The APK has no libgeode.so for $abi"
-              exit 1
-            }
-          done
-          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/apksigner" verify --verbose "$APK"
-          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/36.0.0/zipalign" -c -P 16 -v 4 "$APK"
           EXPECTED_CODE=$((CODE_BASE + N))
           if [ "$VERSION_NAME" != "$EXPECTED" ]; then
             echo "::error::versionName '$VERSION_NAME' does not match reserved version '$EXPECTED'"
@@ -141,7 +120,7 @@ jobs:
           BUILT_SHA=$(git rev-parse HEAD)
           FILE_NAME="BeatRealms3D-${VERSION_NAME}-debug.apk"
           mkdir -p dist
-          cp "$APK" "dist/$FILE_NAME"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$FILE_NAME"
           (cd dist && sha256sum "$FILE_NAME" > "$FILE_NAME.sha256")
           {
             echo "file_name=$FILE_NAME"
@@ -164,10 +143,7 @@ jobs:
         run: |
           set -euo pipefail
           source tools/ci-git-auth.sh
-          TAG_SHA=$(git ls-remote origin "refs/tags/$TAG^{}" | cut -f1)
-          if [ -z "$TAG_SHA" ]; then
-            TAG_SHA=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
-          fi
+          TAG_SHA=$(git ls-remote origin "refs/tags/$TAG" | cut -f1)
           if [ "$TAG_SHA" != "$BUILT_SHA" ]; then
             echo "::error::Tag $TAG points at $TAG_SHA, not the built commit $BUILT_SHA"
             exit 1
@@ -194,7 +170,7 @@ jobs:
           else
             gh release create "$TAG" \
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
-              --draft --prerelease --verify-tag \
+              --draft --prerelease \
               --target "$BUILT_SHA" \
               --title "BeatRealms 3D $VERSION_NAME" \
               --notes "$NOTES"

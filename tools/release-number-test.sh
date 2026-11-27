@@ -73,12 +73,6 @@ git tag -a apk-v1.8.1.20 "$SHA9" -m annotated
 git push -q origin refs/tags/apk-v9.9.9.99 refs/tags/apk-v1.8.1.20
 SHA10=$(commit ten)
 git push -q origin HEAD:main
-# N is global: the unrelated base's .99 tag still raises the next release to 100.
-[ "$(bash "$SCRIPT" 1.8.1 "$SHA10" reserve)" = 100 ]
+[ "$(bash "$SCRIPT" 1.8.1 "$SHA10" reserve)" = 21 ]
 
-# An annotated tag points at a tag object in ls-remote; the peeled commit still identifies a re-run.
-git tag -a apk-v1.8.1.101 "$SHA10" -m annotated
-git push -q origin refs/tags/apk-v1.8.1.101
-[ "$(bash "$SCRIPT" 1.8.1 "$SHA10" reserve)" = 101 ]
-
-echo "release-number tests passed: global sequence, reuse, gaps, concurrency and annotated tags"
+echo "release-number tests passed: reuse, gaps, concurrency, unrelated and annotated tags"

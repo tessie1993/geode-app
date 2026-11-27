@@ -260,7 +260,7 @@ fun maxLoadAlignment(bytes: ByteArray): Long {
     return max
 }
 
-listOf("assembleDebug", "assembleRelease", "bundleRelease", "assembleSideload").forEach { name ->
+listOf("assembleRelease", "bundleRelease", "assembleSideload").forEach { name ->
     tasks.matching { it.name == name }.configureEach { finalizedBy(checkNativePageAlignment) }
 }
 

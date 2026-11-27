@@ -20,6 +20,9 @@ class PlaybackCapture(
 ) {
     private var handle = 0L
 
+    /** The projection the running capture reads; a new consent replaces it, and the system stops the old one. */
+    private var bound: MediaProjection? = null
+
     val active: Boolean
         @Synchronized get() = IngestNative.javaCaptureActive(handle)
 
@@ -29,9 +32,10 @@ class PlaybackCapture(
 
     @Synchronized
     fun start(projection: MediaProjection): CaptureFailure? {
-        if (active) return null
+        if (active && projection === bound) return null
         stop()
         handle = IngestNative.javaCapturePlayback(projection, ring)
+        bound = projection.takeIf { handle != 0L }
         return if (handle != 0L) null else CaptureFailure.UNAVAILABLE
     }
 
@@ -40,5 +44,6 @@ class PlaybackCapture(
     fun stop() {
         IngestNative.javaCaptureStop(handle)
         handle = 0L
+        bound = null
     }
 }

@@ -29,8 +29,9 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
     runJobs(true);
     uint32_t events = 0;
     {
-        // The lock is held only to latch the ring and to hand a newer one in; the draw runs outside it.
-        const void* ring;
+        // The lock is held only to latch the ring and to hand a newer one in; the draw runs outside it. The latched
+        // hold outlives `done`, so a ring replaced during the frame is let go after it, outside the lock.
+        std::shared_ptr<const void> ring;
         {
             std::lock_guard<std::mutex> sound(soundLock_);
             inFrame_ = true;
@@ -41,11 +42,12 @@ uint32_t LiveClient::frame(float pacedFps, float capFps) {
             ~Done() {
                 std::lock_guard<std::mutex> sound(c.soundLock_);
                 c.inFrame_ = false;
-                if (c.pendingSet_) c.ring_ = c.pending_;
+                if (c.pendingSet_) c.ring_ = std::move(c.pending_);
+                c.pending_.reset();
                 c.pendingSet_ = false;
             }
         } done{*this};
-        events = viz_->frame(ring, pacedFps, capFps);
+        events = viz_->frame(ring.get(), pacedFps, capFps);
     }
     if (events == 0) return events;
     if ((events & kFrameLiquidChanged) != 0) liquid_.store(viz_->liquidMode());
@@ -130,20 +132,17 @@ void LiveClient::release(bool glCurrent) {
     viz_.reset();
 }
 
-void LiveClient::setSound(const void* ring) {
+void LiveClient::setSound(std::shared_ptr<const void> ring) {
+    // The hold replaced goes after the lock: the last one frees its ring.
+    std::shared_ptr<const void> replaced;
     std::lock_guard<std::mutex> sound(soundLock_);
     if (inFrame_) {
-        pending_ = ring;  // the frame in flight keeps the ring it latched; this one lands as that frame ends
+        replaced = std::exchange(pending_, std::move(ring));  // the frame in flight keeps the ring it latched
         pendingSet_ = true;
     } else {
-        ring_ = ring;
+        replaced = std::exchange(ring_, std::move(ring));
         pendingSet_ = false;
     }
-}
-
-bool LiveClient::soundReleased(const void* ring) {
-    std::lock_guard<std::mutex> sound(soundLock_);
-    return ring_ != ring && !(pendingSet_ && pending_ == ring);
 }
 
 bool LiveClient::queue(Job job) {

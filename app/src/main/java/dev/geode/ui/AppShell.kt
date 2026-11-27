@@ -100,6 +100,8 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
+import dev.geode.diag.ExitKind
+import dev.geode.diag.ExitReasons
 import dev.geode.engine.bridge.PaletteNative
 import dev.geode.geodeContainer
 import dev.geode.model.TabLabels
@@ -213,9 +215,11 @@ private fun CrashReportDialog() {
     val context = LocalContext.current
     var crashText by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
+        // The last exit's report lands in the same file at start; read the file after it.
+        context.geodeContainer.lastExit.await()
         crashText =
             withContext(Dispatchers.IO) {
-                val file = java.io.File(context.filesDir, "crash-latest.txt")
+                val file = java.io.File(context.filesDir, ExitReasons.CRASH_FILE)
                 if (file.exists()) {
                     file.inputStream().use { stream ->
                         val buf = ByteArray(CRASH_REPORT_MAX_BYTES)
@@ -234,12 +238,13 @@ private fun CrashReportDialog() {
     }
     val clipLabel = stringResource(R.string.crash_clip_label)
     crashText?.let { text ->
+        val kind = remember(text) { ExitKind.of(text) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = {},
-            title = { Text(stringResource(R.string.crash_dialog_title)) },
+            title = { Text(stringResource(kind?.title ?: R.string.crash_dialog_title)) },
             text = {
                 Text(
-                    stringResource(R.string.crash_dialog_body, text.take(600)),
+                    stringResource(kind?.body ?: R.string.crash_dialog_body, text.take(600)),
                     style = MaterialTheme.typography.bodySmall,
                 )
             },
@@ -251,13 +256,33 @@ private fun CrashReportDialog() {
             },
             dismissButton = {
                 TextButton(onClick = {
-                    java.io.File(context.filesDir, "crash-latest.txt").delete()
+                    java.io.File(context.filesDir, ExitReasons.CRASH_FILE).delete()
                     crashText = null
                 }) { Text(stringResource(R.string.action_dismiss)) }
             },
         )
     }
 }
+
+private val ExitKind.title: Int
+    get() =
+        when (this) {
+            ExitKind.DRIVER_CRASH -> R.string.exit_driver_crash_title
+            ExitKind.NATIVE_CRASH -> R.string.exit_native_crash_title
+            ExitKind.NOT_RESPONDING -> R.string.exit_not_responding_title
+            ExitKind.LOW_MEMORY -> R.string.exit_low_memory_title
+            ExitKind.SYSTEM_KILL -> R.string.exit_system_kill_title
+        }
+
+private val ExitKind.body: Int
+    get() =
+        when (this) {
+            ExitKind.DRIVER_CRASH -> R.string.exit_driver_crash_body
+            ExitKind.NATIVE_CRASH -> R.string.exit_native_crash_body
+            ExitKind.NOT_RESPONDING -> R.string.exit_not_responding_body
+            ExitKind.LOW_MEMORY -> R.string.exit_low_memory_body
+            ExitKind.SYSTEM_KILL -> R.string.exit_system_kill_body
+        }
 
 @Composable
 private fun AppContent(tourViewModel: TourViewModel) {

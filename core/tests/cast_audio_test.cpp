@@ -29,6 +29,7 @@
 #include "api/geode_api.h"
 #include "audio/dsp/PcmConvert.hpp"
 #include "audio/dsp/PcmResampler.hpp"
+#include "sound/PlayerSignals.hpp"
 #include "viz/frame/CastAudio.hpp"
 #include "viz/frame/FixedRateClock.hpp"
 
@@ -631,6 +632,37 @@ void onlyTheMusicLeaves() {
           "music only: the music again once it feeds the visuals");
 }
 
+// A capture of another app writes the player's own ring, under an epoch of its own (CaptureController
+// resetSound): the ring is the one the visuals hear, but what it holds is not the music.
+void noCapturedAudioLeaves() {
+    Ring music;
+    Native native(music.r);
+    Clock clock;
+    const int16_t played = geode::audio::roundToS16(0.3f);
+    auto all = [&native](int16_t v) {
+        return std::all_of(native.out.begin(), native.out.begin() + kPerFrame * kCh, [v](int16_t s) { return s == v; });
+    };
+    bool before = true;
+    for (int i = 0; i < 10; ++i) {
+        music.write(std::vector<float>(at(kPerFrame), 0.3f), kCh, kRate);
+        before = before && native.pump(music.r, clock.nextCutUs()) == kPerFrame && all(played);
+    }
+    check(before, "capture: the player's music leaves before a capture");
+    geode_pcm_ring_begin_epoch(music.r);
+    geode::sound::player::setPlayerIsSource(false);
+    bool silent = true;
+    for (int i = 0; i < 30; ++i) {
+        music.write(std::vector<float>(at(kPerFrame), 0.6f), kCh, kRate);
+        silent = silent && native.pump(music.r, clock.nextCutUs()) == kPerFrame && all(0);
+    }
+    check(silent, "capture: another app's audio in the player's ring sends silence");
+    geode_pcm_ring_begin_epoch(music.r);
+    geode::sound::player::setPlayerIsSource(true);
+    music.write(std::vector<float>(at(kPerFrame), 0.3f), kCh, kRate);
+    check(native.pump(music.r, clock.nextCutUs()) == kPerFrame && all(played),
+          "capture: the music again once the player has the ring back, and nothing of the capture");
+}
+
 void noAllocationPerFrame() {
     for (const int rate : {44'100, kRate}) {
         Ring music;
@@ -693,6 +725,7 @@ int main() {
     frameBoundaries();
     channelLayouts();
     onlyTheMusicLeaves();
+    noCapturedAudioLeaves();
     noAllocationPerFrame();
     cAbiEdges();
     if (failures) {

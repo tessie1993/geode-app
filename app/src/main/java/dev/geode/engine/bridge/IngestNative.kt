@@ -159,7 +159,7 @@ object IngestNative {
     /** A new ring of [kind] ([PCM_RING_OUTPUT_MIX]), its owner's to free with [pcmRingDestroy]; 0 without memory. */
     external fun pcmRingCreateKind(kind: Int): Long
 
-    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes or a stage holds it. */
+    /** Drops the owner's hold; the ring goes once no cursor reads it and no stage hears it. Never while a thread writes through it. */
     external fun pcmRingDestroy(handle: Long)
 
     /** The most frames one write publishes (the runway). */

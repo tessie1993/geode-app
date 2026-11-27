@@ -42,9 +42,22 @@ data class ExternalAudioState(
     /** The other app while it is the sound source and its media session answers: the transport is its, not the player's. */
     val driven: NowPlayingBridge.External? get() = nowPlaying.takeIf { active }
 
+    /** Heard, and its session (when read) not paused: the device mix that stands in for a quiet capture hears silence too. */
+    val playing: Boolean get() = active && !hearingSilence && driven?.playing != false
+
     /** Capturing without notification access: the other app can be heard but not named or driven. */
     val sessionUnreadable: Boolean get() = active && !hasSessionAccess
 }
+
+/**
+ * Sound is driving the visual, the input Auto holds on: the app's own player, the mic, or another app's capture.
+ * A capture pauses the player, so the player alone would hold Auto for as long as another app is visualized.
+ */
+internal fun soundPlaying(
+    playerPlaying: Boolean,
+    external: ExternalAudioState,
+    mic: MicState,
+): Boolean = playerPlaying || mic.active || external.playing
 
 internal class CaptureController(
     private val application: Application,
@@ -351,13 +364,22 @@ internal class CaptureController(
             try {
                 val access = withContext(Dispatchers.IO) { nowPlayingBridge.hasAccess() }
                 notificationAccessAbsent = !access
-                val quiet = playbackCapture.active && playbackCapture.quiet
+                // Read once: the capture thread can end between two reads of the native state.
+                val capturing = playbackCapture.active
+                // A capture that ended on its own (an AudioRecord error, the audio server restarting) must hand
+                // the ring back as a stop does; mirrored as merely inactive, the player stays shut out of its ring.
+                if (_externalAudio.value.active && !capturing) {
+                    stopExternalAudio()
+                    _externalAudio.update { it.copy(hasSessionAccess = access) }
+                    return@launch
+                }
+                val quiet = capturing && playbackCapture.quiet
                 hearDeviceMix(quiet)
                 // On the mix the app is heard after all, so neither notice applies.
                 val unheard = quiet && !deviceMix.running
                 _externalAudio.update {
                     it.copy(
-                        active = playbackCapture.active,
+                        active = capturing,
                         hasSessionAccess = access,
                         refusedByApp = unheard && (it.nowPlaying?.playing ?: false),
                         hearingSilence = unheard,

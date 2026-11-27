@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PointF
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.ui.geometry.Rect
@@ -33,6 +34,10 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.ui.MainActivity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /** The compose rule every tour case runs under. */
 typealias TourRule = AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
@@ -44,9 +49,10 @@ typealias TourRule = AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, 
  * Every step is best-effort by design. The tour exists to put the real UI in front of a design
  * audit, so a control that is missing, renamed or unreachable is a finding to write down, not a
  * reason to stop: a tour that dies at step 5 shows five screens. [step] catches the failure,
- * records it, still takes the screenshot (which usually shows why) and carries on. Only two
+ * records it, still takes the screenshot (which usually shows why) and carries on. Only three
  * things end a case: the app crashing (the instrumentation process dies with it, and Orchestrator
- * reports it) and the activity never coming up ([requireShell]).
+ * reports it), the activity never coming up ([requireShell]) and a wait on the main thread that
+ * never returns ([TourStuck], or the case's time limit in [UiTourTest]).
  *
  * Files go through [TestStorage] under `ui-tour/<config>/`: they survive Orchestrator's
  * clearPackageData, and the workflow pulls `/sdcard/googletest/test_outputfiles/ui-tour` after
@@ -81,7 +87,7 @@ class UiTour(
      * Runs [block], screenshots the result and records a row. [block] may return a String, what
      * it observed, which goes in the row; anything else (Unit, a Boolean) leaves the screenshot
      * to say it. Never throws, except for the errors no test survives (out of memory, an
-     * interrupt).
+     * interrupt, [TourStuck]).
      */
     fun step(
         area: String,
@@ -167,18 +173,18 @@ class UiTour(
         area: String,
         name: String,
     ): String? {
-        runCatching { compose.waitForIdle() }
+        bounded("waiting for Compose to idle") { runCatching { compose.waitForIdle() } }
         SystemClock.sleep(SHOT_SETTLE_MS)
         val n = case.index * CASE_STRIDE + shots++
         val base = "%03d_%s_%s_%s_%s".format(n, slug(area), slug(name), config.orientationTag, config.fontTag)
-        val layout = attempt { UiTourLayout.dump() }.getOrNull()
+        val layout = bounded("reading the accessibility tree") { attempt { UiTourLayout.dump() } }.getOrNull()
         lastUnlabeled = layout?.unlabeled.orEmpty()
         layout?.let { dump ->
             runCatching {
                 storage.openOutputFile("$dir/$base.layout.json").use { it.write(dump.nodes.toString(1).toByteArray()) }
             }
         }
-        val bitmap = runCatching { TourDevice.automation.takeScreenshot() }.getOrNull() ?: return null
+        val bitmap = bounded("taking the screenshot") { runCatching { TourDevice.automation.takeScreenshot() } }.getOrNull() ?: return null
         return runCatching {
             storage.openOutputFile("$dir/$base.png").use { bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
             "$base.png"
@@ -214,9 +220,11 @@ class UiTour(
     fun has(matcher: SemanticsMatcher): Boolean = nodes(matcher).isNotEmpty()
 
     fun nodes(matcher: SemanticsMatcher): List<SemanticsNode> =
-        runCatching {
-            compose.onAllNodes(matcher).fetchSemanticsNodes(atLeastOneRootRequired = false)
-        }.getOrElse { emptyList() }
+        bounded("reading the semantics tree") {
+            runCatching {
+                compose.onAllNodes(matcher).fetchSemanticsNodes(atLeastOneRootRequired = false)
+            }.getOrElse { emptyList() }
+        }
 
     /** [has] polled for up to [timeoutMs]. */
     fun waitFor(
@@ -251,7 +259,7 @@ class UiTour(
     /** Taps [label] if it is there; true when it was. For the optional bits of a screen. */
     fun tapIfPresent(label: String): Boolean = tapIfPresent(hasText(label) or hasContentDescription(label))
 
-    fun tapIfPresent(what: SemanticsMatcher): Boolean = runCatching { tap(what) }.isSuccess
+    fun tapIfPresent(what: SemanticsMatcher): Boolean = attempt { tap(what) }.isSuccess
 
     /**
      * Runs the TalkBack custom action [label] on the first node offering it: how the tour reaches
@@ -328,9 +336,38 @@ class UiTour(
     }
 
     fun resumedActivity(): Activity? =
-        onMain {
-            ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).firstOrNull()
+        bounded("asking the main thread for the resumed activity") {
+            onMain {
+                ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).firstOrNull()
+            }
         }
+
+    /**
+     * Runs [block], a wait on the app's main thread, on a thread of its own for at most
+     * [MAIN_THREAD_LIMIT_MS]. These waits (Compose's idling, the semantics tree, the activity
+     * monitor) hand work to the main thread and wait for it with no limit, so they never return
+     * once that thread stops: Espresso's idling timeout runs on the main thread too. Run out, the
+     * case ends here with a report row and a [TourStuck] saying where the wait and the main thread
+     * stood, rather than holding the case until its limit.
+     */
+    private fun <T> bounded(
+        what: String,
+        block: () -> T,
+    ): T {
+        val task = FutureTask(block)
+        val waiter = Thread(task, "UiTour: $what").apply { isDaemon = true }
+        waiter.start()
+        return try {
+            task.get(MAIN_THREAD_LIMIT_MS, TimeUnit.MILLISECONDS)
+        } catch (e: ExecutionException) {
+            throw e.cause ?: e
+        } catch (e: TimeoutException) {
+            val stuck = TourStuck(what, waiter.stackTrace, Looper.getMainLooper().thread.stackTrace)
+            Log.e(TAG, "${config.id} ${case.area}: ${stuck.message}", stuck)
+            row(area = case.area, step = "stuck", shots = emptyList(), expected = "$what returns", observed = "", error = describe(stuck))
+            throw stuck
+        }
+    }
 
     /** Which window has input focus, reduced to who has it: app, shade, home, or the raw line. */
     fun focus(): String {
@@ -517,6 +554,13 @@ class UiTour(
         private const val SHOT_SETTLE_MS = 500L
         const val SHORT_SETTLE_MS = 600L
         private const val FOREGROUND_SETTLE_MS = 3_000L
+
+        /**
+         * Over Espresso's own limit for an app that never idles (its master idling policy, 60 s),
+         * so while the main thread runs Espresso gives up first and the step records that; only a
+         * main thread that has stopped reaches this one.
+         */
+        private const val MAIN_THREAD_LIMIT_MS = 90_000L
         private const val PNG_QUALITY = 100
         private const val DEFAULT_PAGES = 4
         private const val FINGERPRINT_NODES = 40
@@ -527,11 +571,32 @@ class UiTour(
 
 /**
  * Runs [block], keeping its failure as a value. The errors no code survives (out of memory, a
- * stack overflow, an interrupt from the runner's timeout) are rethrown rather than written into a
- * report the process may not live to save.
+ * stack overflow, an interrupt from the case's time limit) are rethrown rather than written into a
+ * report the process may not live to save, and so is [TourStuck], which ends the case.
  */
 fun <T> attempt(block: () -> T): Result<T> =
-    runCatching(block).onFailure { if (it is VirtualMachineError || it is InterruptedException) throw it }
+    runCatching(block).onFailure {
+        if (it is VirtualMachineError || it is InterruptedException || it is TourStuck) throw it
+    }
+
+/**
+ * A wait on the app's main thread that did not return ([UiTour]'s bounded waits). Its stack is
+ * where the wait stood; its message says where the main thread stood, which tells a deadlock
+ * from a busy loop.
+ */
+class TourStuck(
+    what: String,
+    waiting: Array<StackTraceElement>,
+    main: Array<StackTraceElement>,
+) : AssertionError("$what did not return; main thread at ${main.take(MAIN_FRAMES).joinToString(" < ")}") {
+    init {
+        stackTrace = waiting
+    }
+
+    private companion object {
+        const val MAIN_FRAMES = 8
+    }
+}
 
 /** A failure as one report cell: its type and the first line of its message. */
 fun describe(error: Throwable): String {

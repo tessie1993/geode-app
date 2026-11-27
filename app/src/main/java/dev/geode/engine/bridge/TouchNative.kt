@@ -100,8 +100,11 @@ object TouchNative {
         armed: Boolean,
     )
 
-    /** How long to wait for the next event before [gestureTick]; -1 for no timer. */
-    external fun gestureWaitMs(handle: Long): Long
+    /** How long from [nowMs] (uptime, the events' clock) to wait for the next event before [gestureTick]; -1 for no timer. */
+    external fun gestureWaitMs(
+        handle: Long,
+        nowMs: Long,
+    ): Long
 
     /** The hold timer ran out; GESTURE_* bits. */
     external fun gestureTick(handle: Long): Int

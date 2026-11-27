@@ -301,12 +301,16 @@ present_time_test | core | core/tests/present_time_test.cpp |
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
-# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the client's service, a thread ending out of turn.
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
 stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |
+# The stage's per-frame recorder for on-device measurement: off until a debug flag, the ring's newest frames oldest first, a fence settling the last drawn frame once, the CSV.
+frame_recorder_test | core | core/tests/frame_recorder_test.cpp |
 # The look snapshot a renderer is handed whole: only the parts that differ reach it, all on a new one; its defaults.
 look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
 # A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
 live_client_test | mt | core/tests/live_client_test.cpp core/stage/LiveClient.cpp |
+# A live stage's ring at teardown: a frame slower than destroy's wait keeps the ring its owner destroyed until it ends.
+live_ring_teardown_test | stub-mt | core/tests/live_ring_teardown_test.cpp core/stage/LiveClient.cpp $INGEST_SRCS |
 # The ADPF wrapper (core/util/WorkHint): a no-op off Android, the target is the paced frame's length.
 work_hint_test | core | core/tests/work_hint_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
@@ -686,6 +690,7 @@ analysis_thread_tsan | tsan | core/tests/analysis_thread_test.cpp core/sound/hop
 # The tests whose code shares memory between threads or owns raw buffers (rings, FIFOs, queues, encoders, the
 # stage's client, the glTF reader of untrusted files), each built again from its main entry's sources.
 live_client_asan | asan | @live_client_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+live_ring_teardown_asan | asan-stub | @live_ring_teardown_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
 command_queue_asan | asan | @command_queue_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
 live_frame_asan | asan-stub | @live_frame_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
 analysis_thread_asan | asan | @analysis_thread_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS

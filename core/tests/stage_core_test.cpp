@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "stage/FrameRecorder.hpp"
 #include "stage/StageCore.hpp"
 #include "stage/VsyncRule.hpp"
 
@@ -52,6 +53,7 @@ struct Port final : StagePort {
     int frameDones = 0;
     std::vector<int64_t> presented;  // each swap's stamp, 0 for none
     std::vector<int64_t> budgets;    // each paced frame's budget, as reported for ADPF
+    std::vector<std::string> recorded;  // each chunk of the frame recorder handed over
 
     Outcome createContext(bool& surfaceless) override {
         surfaceless = true;
@@ -105,6 +107,7 @@ struct Port final : StagePort {
         return out;
     }
     void releaseWindow(void* window) override { released.push_back(window); }
+    void framesRecorded(const std::string& csv) override { recorded.push_back(csv); }
     void setFrameRate(void* window, float fps) override {
         rateWindow = window;
         rate = fps;
@@ -433,6 +436,42 @@ void aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame() {
     check(r.port.gpuAsks == asks, "a request that will not draw never asks the fence");
 }
 
+// Red against: a recorder that runs without its debug flag, a skip or a drawn frame missing from it, a present interval
+// read from the vsync instead of the presentation, an interval across a stop, the fence asked on a passed-by vsync while
+// not recording, and a recording kept back when the vsync stops (nothing else would hand it over).
+void theFrameRecorderIsOffUntilAskedAndHandsOverAtTheStop() {
+    Rig off;
+    off.show();
+    for (int i = 0; i < 4; ++i) off.send(command(kStageFrameDue, 16'666'667, 0, 0.0f, 0.0f, 1'000'000'000LL + i * 16'666'667LL));
+    off.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    check(off.port.recorded.empty(), "with no debug flag nothing is recorded or handed over");
+
+    Rig r(Kind::View, 60.0f);
+    r.core.recordFrames(true);
+    r.show();
+    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 1'000'000'000));
+    r.port.gpuBusyNow = true;
+    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 1'016'666'667));
+    r.port.gpuBusyNow = false;
+    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 1'033'333'334));
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    check(r.port.recorded.size() == 1, "the vsync stopping hands the recording over once");
+    const std::string csv = r.port.recorded.empty() ? std::string() : r.port.recorded[0];
+    const std::string header = FrameRecorder::kCsvHeader;
+    check(csv.compare(0, header.size(), header) == 0, "as the recorder's CSV");
+    // Rows: frame 0 drawn, 1 skipped, 2 drawn two vsyncs after frame 0 (its interval is presentation to presentation).
+    check(csv.find("\n1,0,0,0,1\n") != std::string::npos, "the GPU-busy skip is a row of its own");
+    check(csv.find(",33333334,0\n") != std::string::npos, "the next frame's interval spans the skipped vsync");
+    check(csv.find("\n0,") != std::string::npos && csv.find("\n3,") == std::string::npos, "three rows, numbered from 0");
+
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
+    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 9'000'000'000));
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
+    check(r.port.recorded.size() == 2 && r.port.recorded[1].find("\n3,") != std::string::npos &&
+              r.port.recorded[1].find(",0,0\n") != std::string::npos,
+          "the numbering goes on, and the first frame after a start has no interval across the stop");
+}
+
 // Red against: a rate that depends on the display following the vote (a 90 Hz display under a 60 rate would draw 90,
 // the old rule's gap), a frame clock that lowers a display that does follow it, a passed-by request left unanswered,
 // and work reported against the display's period instead of the frame's budget.
@@ -518,6 +557,7 @@ int main() {
     aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame();
     theRateHintFollowsTheCapNotTheFrames();
     theFrameClockHoldsTheUsersRate();
+    theFrameRecorderIsOffUntilAskedAndHandsOverAtTheStop();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();
     if (failures) {

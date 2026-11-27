@@ -659,6 +659,12 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 }
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
+    buildClock_.frameBegun(monotonicSeconds());
+    renderFrame(timeSeconds, targetFbo);
+    buildClock_.frameEnded(monotonicSeconds());
+}
+
+void Renderer::renderFrame(double timeSeconds, GLuint targetFbo) {
     repeated_ = false;
     const float wallDt = beginFrame(timeSeconds);
     // The picture's step drives the responder, the waves and the sound; the simulations step by it through the

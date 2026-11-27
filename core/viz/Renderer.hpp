@@ -271,6 +271,8 @@ private:
     void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    // render()'s frame, timed around it by buildClock_.
+    void renderFrame(double timeSeconds, GLuint targetFbo);
     void updatePcmWanted();
     // Under soundLock_: what writeAudio hears without a shared analysis (an export, a layered live feed).
     void hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz);
@@ -358,6 +360,8 @@ private:
     // Staged scene builds (live renderers only): the programs being compiled for prep_'s target.
     ProgramStager stager_{&programCache_};
     ScenePrep prep_;
+    // Sizes each stager step from the paced rate less the last frame's draw (BuildBudget::sliceFor).
+    BuildClock buildClock_;
     std::atomic<bool> blockingBuilds_{false};
     // While a staged attempt runs, scene errors wait here: a deferred attempt's errors are about
     // placeholders and are dropped; a whole one's are reported as an inline build would have.

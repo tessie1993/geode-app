@@ -2134,19 +2134,59 @@ void endlessZoomReducedMotionScalesTheDiveOnce() {
 }
 
 void buildBudgetBoundsAFrame() {
+    constexpr double kSlice = 0.004;
     BuildBudget b;
-    b.begin(10.0);
+    b.begin(10.0, kSlice);
     check(b.allows(10.5, true), "the first piece goes even when the frame is already late");
     b.spend(true);
     check(!b.allows(10.0, true), "a second blocking compile waits for the next frame");
     check(!b.allows(10.5, false), "nothing more goes once the frame's slice is spent");
-    b.begin(20.0);
+    b.begin(20.0, kSlice);
     b.spend(false);
-    check(b.allows(20.0 + BuildBudget::kFrameSeconds * 0.5, false), "cheap work goes on inside the slice");
-    check(b.allows(20.0 + BuildBudget::kFrameSeconds * 0.5, true), "one blocking compile may follow cheap work in the slice");
-    check(!b.allows(20.0 + BuildBudget::kFrameSeconds * 1.5, false), "nothing goes past the slice");
-    b.begin(30.0);
+    check(b.allows(20.0 + kSlice * 0.5, false), "cheap work goes on inside the slice");
+    check(b.allows(20.0 + kSlice * 0.5, true), "one blocking compile may follow cheap work in the slice");
+    check(!b.allows(20.0 + kSlice * 1.5, false), "nothing goes past the slice");
+    b.begin(30.0, kSlice);
     check(b.pieces() == 0 && b.allows(30.0, true), "a new frame starts a new budget");
+}
+
+// The slice is what the frame clock's budget leaves after the frame's draw, at every rate it paces to.
+void buildBudgetFollowsThePacer() {
+    const auto near = [](double a, double b) { return std::fabs(a - b) < 1e-9; };
+    check(near(BuildBudget::sliceFor(30.0f, 0.010), 1.0 / 30.0 - 0.010), "30 Hz: a 10 ms draw leaves the rest of 33 ms");
+    check(near(BuildBudget::sliceFor(60.0f, 0.010), 1.0 / 60.0 - 0.010), "60 Hz: a 10 ms draw leaves under 7 ms");
+    check(near(BuildBudget::sliceFor(120.0f, 0.005), 1.0 / 120.0 - 0.005), "120 Hz: a 5 ms draw leaves about 3 ms");
+    check(BuildBudget::sliceFor(120.0f, 0.0) < 1.0 / 120.0 + 1e-9, "120 Hz: never more than the whole frame");
+    check(BuildBudget::sliceFor(30.0f, 0.0) > BuildBudget::sliceFor(60.0f, 0.0) &&
+              BuildBudget::sliceFor(60.0f, 0.0) > BuildBudget::sliceFor(120.0f, 0.0),
+          "a slower frame clock leaves builds more of each frame");
+    for (const float fps : {30.0f, 60.0f, 120.0f}) {
+        check(near(BuildBudget::sliceFor(fps, 0.050), BuildBudget::kMinSliceSeconds),
+              "a draw over the whole budget still leaves the floor, so builds move on");
+        check(near(BuildBudget::sliceFor(fps, std::nan("")), BuildBudget::sliceFor(fps, 0.0)), "an unmeasured draw takes nothing");
+    }
+    check(near(BuildBudget::sliceFor(0.0f, 0.0), BuildBudget::sliceFor(BuildBudget::kUnpacedFps, 0.0)),
+          "no rate from the frame clock yet: a 60 Hz frame");
+
+    // 120 Hz with a 6 ms draw: cheap pieces stop at about 2.3 ms, where the fixed 8 ms let them run the whole frame.
+    BuildBudget b;
+    b.begin(0.0, BuildBudget::sliceFor(120.0f, 0.006));
+    b.spend(false);
+    check(b.allows(0.002, false), "120 Hz: cheap work goes on inside what the draw leaves");
+    check(!b.allows(0.003, false), "120 Hz: no work past what the draw leaves");
+
+    // The draw is the frame's render less the build work in it; this frame's builds come out of its own slice.
+    BuildClock clock;
+    clock.frameBegun(1.0);
+    clock.built(0.002);
+    clock.frameEnded(1.009);
+    check(near(clock.drawSeconds(), 0.007), "the draw is the render less its build work");
+    clock.frameBegun(2.0);
+    check(near(clock.slice(60.0f), 1.0 / 60.0 - 0.007), "the next frame leaves what the last draw did not take");
+    clock.built(0.004);
+    check(near(clock.slice(60.0f), 1.0 / 60.0 - 0.011), "a second build in the frame gets only what is left");
+    clock.built(0.010);
+    check(near(clock.slice(60.0f), BuildBudget::kMinSliceSeconds), "and never less than the floor");
 }
 
 void scenePrepRetargetsAndCaps() {
@@ -2280,7 +2320,7 @@ void stagedBuildFinishesInBoundedFrames() {
         switch (prep.next(queued == 0)) {
             case ScenePrep::Step::Wait: {
                 BuildBudget budget;
-                budget.begin(0.0);
+                budget.begin(0.0, BuildBudget::sliceFor(60.0f, 0.0));
                 while (queued > 0 && budget.allows(0.0, true)) {
                     budget.spend(true);
                     --queued;
@@ -2795,6 +2835,7 @@ int main() {
     endlessZoomLeavesTheRigAlone();
     endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();
+    buildBudgetFollowsThePacer();
     scenePrepRetargetsAndCaps();
     scenePrepSecondariesTakeTurns();
     scenePrepGivesUpAndRemembersFailures();

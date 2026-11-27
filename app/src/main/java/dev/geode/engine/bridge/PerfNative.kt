@@ -109,6 +109,47 @@ object PerfNative {
         out: IntArray,
     ): Boolean
 
+    // The resolution the app holds (core/viz/frame/ResolutionState): each event returns nothing, and [perfResolutionRead] reads what native derived.
+
+    /** The display's panel and its current mode, as [perfModeForDevice] takes the panel (0 for unknown). */
+    external fun perfPanelSet(
+        panelWidth: Int,
+        panelHeight: Int,
+        modeWidth: Int,
+        modeHeight: Int,
+    )
+
+    /** The stage view's size in pixels. */
+    external fun perfViewSet(
+        viewWidth: Int,
+        viewHeight: Int,
+    )
+
+    /** The user's resolution, fps cap, march scale and post FX. */
+    external fun perfSettingsSet(
+        resolution: Int,
+        fpsCap: Int,
+        marchScale: Float,
+        postFx: Boolean,
+    )
+
+    /** Fills [out] ([PERF_DESCRIPTOR_INTS]) with the descriptor native published, in the order of the `PERF_FIELD_*`; false for a short [out]. */
+    external fun perfResolutionRead(out: IntArray): Boolean
+
+    /** Mirrors GEODE_PERF_DESCRIPTOR_INTS and GEODE_PERF_FIELD_*: [perfResolutionRead]'s ints. */
+    const val PERF_DESCRIPTOR_INTS = 17
+    const val PERF_FIELD_RESOLUTION = 0
+    const val PERF_FIELD_PRESET = 1
+    const val PERF_FIELD_SELECTED = 2
+    const val PERF_FIELD_BUFFER_WIDTH = 3
+    const val PERF_FIELD_BUFFER_HEIGHT = 4
+    const val PERF_FIELD_DRAWN_WIDTH = 5
+    const val PERF_FIELD_DRAWN_HEIGHT = 6
+    const val PERF_FIELD_MODE_WIDTH = 7
+    const val PERF_FIELD_MODE_HEIGHT = 8
+    const val PERF_FIELD_STEP_COUNT = 9
+    const val PERF_FIELD_STEPS = 10
+
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)
 }

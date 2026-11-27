@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "api/geode_api.h"
+#include "util/ThreadNice.hpp"
 #include "viz/frame/LinkShare.hpp"
 
 namespace geode::cast {
@@ -260,6 +261,8 @@ void LiveServer::admit(uint32_t tv, int wants) {
 }
 
 void LiveServer::acceptLoop() {
+    // An app thread's rank, whoever started the server: serving files never outranks a frame.
+    util::setThreadNice(util::kDefaultNice);
     try {
         while (!stopping_.load()) {
             pollfd fds[2] = {{listenFd_, POLLIN, 0}, {wake_[0], POLLIN, 0}};
@@ -321,6 +324,7 @@ void LiveServer::take(int fd, uint32_t address) {
 }
 
 void LiveServer::workLoop() {
+    util::setThreadNice(util::kDefaultNice);
     try {
         for (;;) {
             Accepted client = {};

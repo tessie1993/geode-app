@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sys/eventfd.h>
-#include <sys/resource.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
 
@@ -12,17 +11,13 @@
 #include <climits>
 
 #include "util/Log.hpp"
+#include "util/ThreadNice.hpp"
 
 namespace geode::stage::platform {
 
 namespace {
 
 constexpr const char* kTag = "GeodeStage";
-
-// android.os.Process.THREAD_PRIORITY_DISPLAY as a Linux nice value, the vsync thread's too (VsyncThread.cpp): the thread
-// that draws a frame never ranks below the one that wakes it. GLSurfaceView's GLThread set none (a Java thread's
-// default, nice 0).
-constexpr int kStageNice = -4;
 
 // The frame recorder's debug flag (stage/FrameRecorder): `adb shell setprop debug.geode.frames 1`, read when a stage
 // starts. Its chunks go to logcat under kFramesTag as CSV, so a tester on another brand can send them.
@@ -173,7 +168,8 @@ void StageThread::quitAndWait() {
 void StageThread::run() {
     try {
         pthread_setname_np(pthread_self(), "GeodeStage");
-        if (setpriority(PRIO_PROCESS, static_cast<id_t>(gettid()), kStageNice) != 0) {
+        // GLSurfaceView's GLThread set none (a Java thread's default, nice 0).
+        if (!util::setThreadNice(util::kDisplayNice)) {
             GEODE_LOGW(kTag, "stage thread keeps its inherited priority");
         }
         ALooper* looper = ALooper_prepare(0);

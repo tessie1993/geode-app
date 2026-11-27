@@ -60,8 +60,7 @@ class VisualsTabsAndPresetsToolbarTest {
 
     @Test
     fun saveLookIsNotTruncatedAtDoubleFontScale() {
-        val layout = saveLookLayout(width = 320.dp, fontScale = 2f)
-        assertFalse("label is cut off", layout.hasVisualOverflow)
+        assertWhole(saveLookLayout(width = 320.dp, fontScale = 2f))
     }
 
     /** A 360 dp window less the sheet's 12 dp inset on each side: the label used to take three lines. */
@@ -69,7 +68,19 @@ class VisualsTabsAndPresetsToolbarTest {
     fun saveLookIsOneLineInA360DpPhonesSheet() {
         val layout = saveLookLayout(width = 336.dp, fontScale = 1f)
         assertEquals(1, layout.lineCount)
-        assertFalse("label is cut off", layout.hasVisualOverflow)
+        assertWhole(layout)
+    }
+
+    /**
+     * Every character laid out, none ellipsized or clipped. Not hasVisualOverflow: GetTextLayoutResult
+     * lays the text out again at the full width offered but keeps the measured size, so a label
+     * narrower than its room reads as overflowing.
+     */
+    private fun assertWhole(layout: TextLayoutResult) {
+        val last = layout.lineCount - 1
+        assertEquals("label is cut off", layout.layoutInput.text.length, layout.getLineEnd(last))
+        assertFalse("label is ellipsized", layout.isLineEllipsized(last))
+        assertFalse("label is clipped", layout.didOverflowHeight)
     }
 
     private fun saveLookLayout(

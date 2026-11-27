@@ -2,7 +2,8 @@
 // reader. Blocks reach the write as read, begin and end run once each on the pump's thread, a read error or a
 // refused begin ends the capture, stop interrupts a waiting read and nothing is written after it returns, a read
 // that never lets go is left behind without a later write, a bad start lets go of the reader, quiet follows
-// digital zero for 4 s, and once kMaxStuck threads are left behind a new capture is refused until one ends.
+// digital zero for 4 s, once kMaxStuck threads are left behind a new capture is refused until one ends, and the
+// pump's thread names its own nice.
 //
 // Build and run (one command; core/tests/fakegl only for its <android/log.h>, defined below):
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/fakegl core/tests/capture_pump_test.cpp
@@ -21,6 +22,7 @@
 #include <vector>
 
 #include "audio/ingest/CapturePump.hpp"
+#include "util/ThreadNice.hpp"
 
 using geode::audio::ingest::CapturePump;
 using geode::audio::ingest::CaptureReader;
@@ -51,6 +53,7 @@ struct Seen {
     std::atomic<int> reads{0};
     std::atomic<int> interrupts{0};
     std::atomic<bool> endOnCaller{false};
+    std::atomic<int> beginNice{geode::util::kNiceInherited};
     std::thread::id caller = std::this_thread::get_id();
 };
 
@@ -61,6 +64,7 @@ struct FakeReader final : CaptureReader {
 
     bool begin() override {
         ++seen->begins;
+        seen->beginNice = geode::util::threadNice();
         return beginOk;
     }
     void end() override {
@@ -152,6 +156,8 @@ void blocksReachTheWriteThenStop() {
     CHECK(!pump->active(), "inactive after stop");
     CHECK(seen->begins == 1 && seen->ends == 1, "begin and end once: %d %d", seen->begins.load(), seen->ends.load());
     CHECK(!seen->endOnCaller, "end runs on the pump's thread");
+    CHECK(seen->beginNice == geode::util::kFeedNice, "the pump's thread sets its own nice, not its spawner's: %d",
+          seen->beginNice.load());
     std::lock_guard<std::mutex> lock(sink->lock);
     for (size_t i = 0; i < sink->blocks.size(); ++i) {
         CHECK(sink->blocks[i] == 6 && sink->firstBytes[i] == 7, "block %zu as read", i);

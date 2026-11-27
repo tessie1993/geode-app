@@ -52,7 +52,8 @@ public:
     // does not hold Swappy.
     void release(const void* owner);
     bool holds(const void* owner) const;
-    // Swappy is made and `owner` holds it or may take it at its next swap.
+    // Swappy is made and `owner` has successfully attached its window. A claimed owner whose
+    // SwappyGL_setWindow failed is not available: StageCore must use Choreographer fallback.
     bool available(const void* owner) const;
     // The owner's last swap, as Swappy's tracer told it; zeros for a stage that does not hold Swappy.
     SwappyTimes times(const void* owner) const;

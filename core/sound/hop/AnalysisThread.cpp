@@ -44,10 +44,10 @@ constexpr int kReadTries = 64;
 constexpr int kLapTries = 4;
 
 #ifdef __ANDROID__
-// One step below the stage thread's (util::kDisplayNice), still above a default thread: the analysis feeds the
-// picture's next frame, so it is never starved by app threads, and never outranks the thread that draws. The stage reads
-// its hops without a lock, so the thread that draws never waits on this one.
-constexpr int kAnalysisNice = util::kFeedNice;
+// One step below the stage thread's nice -8 (util::kDisplayNice; this module includes nothing outside itself), still above
+// a default thread: the analysis feeds the picture's next frame, so it is never starved by app threads, and never
+// outranks the thread that draws. The stage reads its hops without a lock, so the thread that draws never waits on this one.
+constexpr int kAnalysisNice = -6;
 #endif
 
 std::atomic<AnalysisThread::WorkReporter> gWorkReporter{nullptr};

@@ -28,38 +28,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A pull request that changes only documents (tools/ci-docs-only.sh) skips the heavy job below.
-  # The heavy job is skipped, not filtered out by `paths`, so its check still reports on the pull
-  # request and a required check is never left waiting. It runs unless this job said "true".
-  changed:
-    name: Changed paths
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      docs_only: ${{ steps.docs.outputs.docs_only }}
-    steps:
-      # The merge commit and its two parents: the first parent is the base, so the diff is the pull request's.
-      - name: Check out tools/ at the merge commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-          sparse-checkout: tools
-      - name: Only documents changed
-        id: docs
-        shell: bash
-        run: |
-          docs_only=false
-          if git rev-parse -q --verify HEAD^2 >/dev/null; then
-            docs_only=$(git diff --name-only --no-renames HEAD^1 HEAD | bash tools/ci-docs-only.sh)
-          fi
-          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
-          echo "docs_only=$docs_only"
-
   build-lint:
     name: Build and lint
-    needs: changed
-    if: ${{ !cancelled() && needs.changed.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

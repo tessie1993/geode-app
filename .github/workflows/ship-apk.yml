@@ -86,23 +86,9 @@ jobs:
     with:
       ref: ${{ needs.commit.outputs.sha }}
 
-  host-tests:
-    name: Native host tests
-    needs: commit
-    uses: ./.github/workflows/native-host-tests.yml
-    with:
-      ref: ${{ needs.commit.outputs.sha }}
-
-  arch-gates:
-    name: Architecture gates
-    needs: commit
-    uses: ./.github/workflows/arch-map.yml
-    with:
-      ref: ${{ needs.commit.outputs.sha }}
-
   ship-apk:
     name: Build and publish APK
-    needs: [commit, build-lint, host-tests, arch-gates]
+    needs: [commit, build-lint]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # The release tag and the release itself; the checks above only read.

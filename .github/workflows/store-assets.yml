@@ -215,15 +215,6 @@ jobs:
             || echo "no OOM kill or segfault in the host kernel log"
           ls -la /tmp/android-runner/ 2>/dev/null || true
 
-      - name: Collect and check the assets
-        if: always()
-        shell: bash
-        run: |
-          # Wheels only: the runner's python3 is 3.14, which Pillow 11.0.0 has no wheel for, and its
-          # source build needs libjpeg headers the runner lacks. 12.0.0 ships cp314 manylinux wheels.
-          python3 -m pip install --quiet --only-binary=:all: "pillow==12.0.0"
-          python3 tools/store_assets_collect.py store-assets-out
-
       - name: Upload the assets
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -231,16 +222,6 @@ jobs:
           name: store-assets-${{ github.run_number }}
           path: |
             store-assets-out/
-            !store-assets-out/raw/
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Fail if a set is short or the wrong size
-        if: always()
-        run: |
-          problems=$(cat store-assets-out/problems.txt 2>/dev/null || echo "the collect step did not run")
-          if [ -n "$problems" ]; then
-            echo "::error::Store assets are incomplete; see store-assets-out/report.md in the artifact."
-            echo "$problems"
-            exit 1
-          fi

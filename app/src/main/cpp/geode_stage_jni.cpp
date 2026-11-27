@@ -94,6 +94,21 @@ Java_dev_geode_engine_bridge_StageNative_stageState(JNIEnv*, jobject, jlong stag
     return static_cast<jint>(geode_stage_state(stageOf(stage)));
 }
 
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_StageNative_stageFrameBudgetNs(JNIEnv*, jobject, jlong stage) {
+    return static_cast<jlong>(geode_stage_frame_budget_ns(stageOf(stage)));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_StageNative_pacingAttach(JNIEnv* env, jobject, jobject activity) {
+    geode_stage_pacing_attach(env, activity);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_StageNative_pacingDetach(JNIEnv* env, jobject, jobject activity) {
+    geode_stage_pacing_detach(env, activity);
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageEventFd(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_event_fd(stageOf(stage)));

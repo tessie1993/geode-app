@@ -317,7 +317,7 @@ target_link_libraries(geode_core PUBLIC mediandk)
 if(ANDROID)
     target_sources(geode_core PRIVATE
         stage/android/EglWindow.cpp
-        stage/android/VsyncThread.cpp
+        stage/android/SwappyHost.cpp
         stage/android/StageThread.cpp
         api/geode_stage_api.cpp)
     target_link_libraries(geode_core PUBLIC games-frame-pacing::swappy_static)

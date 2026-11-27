@@ -17,6 +17,7 @@
 #include "viz/passes/CompositeGrade.hpp"
 #include "viz/passes/EndlessZoom.hpp"
 #include "viz/FrameStep.hpp"
+#include "viz/clock/TimeBase.hpp"
 #include "viz/passes/TwistShape.hpp"
 #include "viz/panel/ParamRandomizer.hpp"
 #include "viz/gl/Quad.hpp"
@@ -132,9 +133,7 @@ float Renderer::beginFrame(double timeSeconds) {
     // The scene clock moves by the picture's step through Clock control's scale: a freeze holds it, a reverse or a
     // stutter's loop sends it back.
     sceneStep_ = sceneClock_.step(dt * musicRate_);
-    timeSeconds_ = std::fmod(timeSeconds_ + sceneStep_, static_cast<double>(kTimeWrapSeconds));
-    // A reverse at the start of the clock stops at 0; it never wraps to the end of the period.
-    if (timeSeconds_ < 0.0) timeSeconds_ = 0.0;
+    timebase::step({sceneStep_, soundHeard_ && (soundFrame_.hardCut > 0.0f || soundFrame_.sectionChange > 0.0f)}, timeSeconds_);
     applyStyleSchedule(dt);
     std::vector<std::pair<std::string, std::string>> pending;
     {

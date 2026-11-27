@@ -10,6 +10,7 @@
 #include "viz/colour/Colour.hpp"
 #include "viz/passes/TwistShape.hpp"
 #include "viz/styles/shared/SceneCommon.hpp"
+#include "viz/clock/TimeBase.hpp"
 #include "viz/styles/shader/WorldAssets.hpp"
 
 namespace geode::viz {
@@ -82,9 +83,7 @@ void ShaderScene::resize(int width, int height) {
 void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     sound_.step(sound, dt);
     const SceneParams& p = params_;
-    shaderTime_ = std::fmod(shaderTime_ + p.speed * clockStep_, static_cast<double>(kTimeWrapSeconds));
-    // A reverse at the start of the clock stops at 0; it never wraps to the end of the period.
-    if (shaderTime_ < 0.0) shaderTime_ = 0.0;
+    timebase::step({p.speed * clockStep_, sound.hardCut > 0.0f || sound.sectionChange > 0.0f}, shaderTime_);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * clockStep_, kTwoPi);
     flow_.step(p.speed, clockStep_);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};

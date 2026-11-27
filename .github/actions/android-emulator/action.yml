@@ -12,8 +12,14 @@ inputs:
     description: The hardware profile (avdmanager list device); empty is avdmanager's default device.
     default: ""
   phone:
-    description: The phone whose screen the emulator takes (oppo-find-x9, the owner's) or avd-default.
+    description: >-
+      The screen the emulator takes: oppo-find-x9 (the owner's, 1256x2760 480 dpi), pixel-9 (1080x2424 420),
+      compact-1080p (1080x2340 440, most Samsung and Xiaomi phones), budget-720p (720x1600 320),
+      tablet-10in (1600x2560 320), or avd-default (avdmanager's own device).
     default: avd-default
+  api-level:
+    description: The Android API level of the system image (33 is minSdk, 36 targetSdk).
+    default: "36"
 
 runs:
   using: composite
@@ -28,12 +34,30 @@ runs:
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
 
+    # The phone's panel as the emulator's screen; the GPU and refresh rate stay the emulator's.
+    - name: Pick the screen
+      id: screen
+      shell: bash
+      env:
+        PHONE: ${{ inputs.phone }}
+      run: |
+        case "$PHONE" in
+          oppo-find-x9)  size=1256x2760; dpi=480 ;;
+          pixel-9)       size=1080x2424; dpi=420 ;;
+          compact-1080p) size=1080x2340; dpi=440 ;;
+          budget-720p)   size=720x1600;  dpi=320 ;;
+          tablet-10in)   size=1600x2560; dpi=320 ;;
+          avd-default)   echo "wm=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+          *) echo "::error::unknown phone '$PHONE'"; exit 1 ;;
+        esac
+        echo "wm=adb shell wm size $size && adb shell wm density $dpi" >> "$GITHUB_OUTPUT"
+
     - name: Run on the emulator
       uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
       with:
-        # API 36 (Android 16), the app's targetSdk: what new phones run. minSdk is 33,
-        # so READ_MEDIA_AUDIO and POST_NOTIFICATIONS behave as on a real phone.
-        api-level: 36
+        # API 36 (Android 16, targetSdk) unless a run asks for another. Every level from minSdk 33 up
+        # has READ_MEDIA_AUDIO and POST_NOTIFICATIONS, so permissions behave as on a real phone.
+        api-level: ${{ inputs.api-level }}
         target: google_apis
         arch: x86_64
         profile: ${{ inputs.profile }}
@@ -56,6 +80,5 @@ runs:
         disable-animations: true
         working-directory: .
         script: |
-          ${{ inputs.phone == 'oppo-find-x9' && 'adb shell wm size 1256x2760' || 'true' }}
-          ${{ inputs.phone == 'oppo-find-x9' && 'adb shell wm density 480' || 'true' }}
+          ${{ steps.screen.outputs.wm }}
           ${{ inputs.script }}

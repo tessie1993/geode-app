@@ -10,10 +10,15 @@ on:
   workflow_dispatch:
     inputs:
       phone:
-        description: The emulator's screen. oppo-find-x9 is the owner's phone (1256x2760, 480 dpi); avd-default is avdmanager's own.
+        description: The emulator's screen (.github/actions/android-emulator). oppo-find-x9 is the owner's phone.
         type: choice
-        options: [oppo-find-x9, avd-default]
+        options: [oppo-find-x9, pixel-9, compact-1080p, budget-720p, tablet-10in, avd-default]
         default: oppo-find-x9
+      android:
+        description: The emulator's API level. 33 is minSdk, 36 targetSdk.
+        type: choice
+        options: ["36", "35", "34", "33"]
+        default: "36"
 
 permissions:
   contents: read
@@ -105,6 +110,7 @@ jobs:
         uses: ./.github/actions/android-emulator
         with:
           phone: ${{ inputs.phone || 'oppo-find-x9' }}
+          api-level: ${{ inputs.android || '36' }}
           script: |
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0

@@ -275,6 +275,7 @@ liquid::LiquidPass::Frame trailsFrame(float dt = 1.0f / 60.0f) {
     f.inject = 0.1f;
     f.sharpen = 0.35f;
     f.time = 12.5f;
+    f.terms = liquid::motion::derive(liquid::motion::FrameMotion{}, f.time);
     return f;
 }
 

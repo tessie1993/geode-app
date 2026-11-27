@@ -34,7 +34,7 @@ public:
         int styleWidth = 1;
         int styleHeight = 1;
         float dt = 0.0f;
-        motion::FrameMotion motion;  // the transform of the last frame (lib_feedback)
+        motion::FrameTerms terms;  // the transform of the last frame, derived once by the renderer (lib_feedback)
         float vpX = 0.0f;            // the born disc's centre, centred units
         float vpY = 0.0f;
         float inject = 0.5f;

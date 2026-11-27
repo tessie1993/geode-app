@@ -572,7 +572,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     fluid::FlowField* ff = overlays_.flow();
     const bool smear = smearWarp_ > 0.0f && ff != nullptr && ff->available();
     in.flowTex = smear ? ff->velocityTex() : compositePass_.zeroTex();
-    in.flowStrength = smear ? smearWarp_ : 0.0f;
     in.progress = progress;
     // The Layers page's mix (base) plus what waves, envelopes, routes and knobs add (the layerMix param).
     in.layerMix = safety::layerMix(frameLayerMix_ + p.layerMix, blendModeFromOrdinal(frameLayerBlend_));
@@ -587,23 +586,28 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = static_cast<float>(timeSeconds_);
     const SceneParams& fx = lastFinalParams_;
-    in.postRotationAngle = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
-    in.twistSeed = styleVariantSeed(activeScene_->id());
     const double birthsWrap = static_cast<double>(kTimeWrapSeconds);
     in.postBirths = births::compute(static_cast<float>(ratePhases_.wrapped(ParamSlot::speed, birthsWrap)), fx.life);
     in.quadVao = quadVao_.get();
-    in.fx = fx;
-    in.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera()).toVec4();
     Scene* other = outgoingScene_ ? outgoingScene_ : activeScene_;
-    in.gateB = grade::gateFor(other->family(), other->drawsCamera()).toVec4();
     Scene* layer = layerScene_ ? layerScene_ : activeScene_;
-    in.gateL = grade::gateFor(layer->family(), layer->drawsCamera()).toVec4();
-    in.camGateL = layer->drawsCamera() ? 0.0f : 1.0f;
     // The rig's flat projection, for every scene that does not march the 3D pose itself.
     const CameraPose& cam = camera_.pose();
-    in.camFlat = cam.flat;
-    in.camTilt = cam.tilt;
-    in.camGate = {activeScene_->drawsCamera() ? 0.0f : 1.0f, other->drawsCamera() ? 0.0f : 1.0f};
+    composite::Source src;
+    src.fx = fx;
+    src.rotation = static_cast<float>(ratePhases_.wrapped(ParamSlot::rotation, grade::kTau));
+    src.flowStrength = smear ? smearWarp_ : 0.0f;
+    src.time = in.timeSeconds;
+    src.camFlat = cam.flat;
+    src.camTilt = cam.tilt;
+    src.twistSeed = styleVariantSeed(activeScene_->id());
+    src.gateA = grade::gateFor(activeScene_->family(), activeScene_->drawsCamera());
+    src.gateB = grade::gateFor(other->family(), other->drawsCamera());
+    src.gateL = grade::gateFor(layer->family(), layer->drawsCamera());
+    src.cameraA = !activeScene_->drawsCamera();
+    src.cameraB = !other->drawsCamera();
+    src.cameraL = !layer->drawsCamera();
+    in.terms = composite::describe(src);
     // W00: read this frame's latched underlay straight from CompositePass (it owns the texture -
     // see CompositePass.hpp), the same way uFlow above is read from Overlays.
     in.underlayTex = compositePass_.underlayTexOrZero();
@@ -988,7 +992,7 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    f.motion = motion::perFrame(heard, wallDt);
+    f.terms = motion::derive(motion::perFrame(heard, wallDt), static_cast<float>(timeSeconds_));
     f.inject = endless::feedback::sustainInject(p.trailLength, dt);
     f.edge = kLiquidEdge;
     f.sharpen = kLiquidSharpen;
@@ -1150,7 +1154,8 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    f.motion = liquid::motion::fromDive(liquidFrame_, static_cast<float>(w) / static_cast<float>(h));
+    f.terms = liquid::motion::derive(liquid::motion::fromDive(liquidFrame_, static_cast<float>(w) / static_cast<float>(h)),
+                                     static_cast<float>(timeSeconds_));
     f.vpX = liquidFrame_.vpX;
     f.vpY = liquidFrame_.vpY;
     const float liquidity = std::clamp(p.flowStrength, 0.0f, 1.0f);

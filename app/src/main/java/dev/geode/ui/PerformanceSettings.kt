@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.data.DisplayPanel
 import dev.geode.data.GeneralSettings
 import dev.geode.data.PerformanceMode
 import dev.geode.data.PerformanceSettings
@@ -66,7 +67,8 @@ private fun PerformanceModeControls(
     settings: PerformanceSettings,
     onChange: (PerformanceSettings) -> Unit,
 ) {
-    val mode = settings.mode
+    val panel = rememberDisplayPanel()
+    val mode = remember(settings, panel) { settings.modeOn(panel) }
     CrystalSegmented(
         options =
             listOf(
@@ -94,11 +96,7 @@ private fun PerformanceDetailControls(
     settings: PerformanceSettings,
     onChange: (PerformanceSettings) -> Unit,
 ) {
-    Choice(
-        stringResource(R.string.perf_render_scale),
-        PerformanceSettings.SCALES.map { "${(it * 100).toInt()}%" },
-        PerformanceSettings.SCALES.indexOf(settings.renderScale),
-    ) { onChange(settings.copy(renderScale = PerformanceSettings.SCALES[it])) }
+    ResolutionControls(settings, onChange)
     val refreshRates = rememberDisplayRefreshRates()
     val fpsCaps = remember(refreshRates) { liveFpsCaps(refreshRates) }
     Column {
@@ -135,6 +133,61 @@ private fun PerformanceDetailControls(
         Hint(stringResource(R.string.perf_post_fx_hint))
     }
     Hint(stringResource(R.string.perf_export_note))
+}
+
+/**
+ * The render resolutions this panel offers (native: the steps under its short side, then Native) and, under them,
+ * the real pixels the pick draws on the screen's current mode.
+ */
+@Composable
+private fun ResolutionControls(
+    settings: PerformanceSettings,
+    onChange: (PerformanceSettings) -> Unit,
+) {
+    val panel = rememberDisplayPanel()
+    val choices = remember(panel) { PerfNative.perfResolutionChoices(panel.panelWidth, panel.panelHeight).toList() }
+    // Choices compare as the panel draws them: a stored 900 on a 720p panel is its Native.
+    val drawnOnPanel = { r: Int -> drawnSize(r, panel.panelWidth, panel.panelHeight)?.toList() }
+    val stored = drawnOnPanel(settings.resolution)
+    val selected =
+        choices.indexOfFirst { stored != null && drawnOnPanel(it) == stored }.takeIf { it >= 0 }
+            ?: choices.indexOf(settings.resolution)
+    Column {
+        Choice(
+            stringResource(R.string.perf_render_scale),
+            choices.map {
+                if (it == PerfNative.PERF_NATIVE) {
+                    stringResource(R.string.perf_resolution_native)
+                } else {
+                    stringResource(R.string.perf_resolution_value, it)
+                }
+            },
+            selected,
+        ) { onChange(settings.copy(resolution = choices[it])) }
+        val drawn = drawnSize(settings.resolution, panel.modeWidth, panel.modeHeight)
+        if (drawn != null) {
+            Spacer(Modifier.height(6.dp))
+            Hint(stringResource(R.string.perf_resolution_hint, drawn[0], drawn[1], panel.modeWidth, panel.modeHeight))
+        }
+    }
+}
+
+/** What [resolution] draws full screen on a [width] x [height] mode (native), or null for an unknown one. */
+private fun drawnSize(
+    resolution: Int,
+    width: Int,
+    height: Int,
+): IntArray? = IntArray(PerfNative.PERF_BUFFER_INTS).takeIf { PerfNative.perfBufferSize(resolution, width, height, width, height, it) }
+
+/**
+ * The panel of the display under this window ([DisplayPanel.of]): read at start, again when the configuration
+ * changes (a fold, a move to another display, a resolution change in the system settings).
+ */
+@Composable
+internal fun rememberDisplayPanel(): DisplayPanel {
+    val view = LocalView.current
+    val configuration = LocalConfiguration.current
+    return remember(view, configuration) { DisplayPanel.of(view.display) }
 }
 
 /**

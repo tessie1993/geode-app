@@ -75,7 +75,7 @@ const std::set<std::string>* deviceLocal(const std::string& file) {
     static const std::map<std::string, std::set<std::string>> table = {
         {kGeneral,
          {"gui_safety_acknowledged", "gui_setup_done", "gui_tutorial_seen", "gui_tutorial_done", "gui_tutorial_resume",
-          "gui_tutorial_tips", "gui_tutorial_off", "preset_mirror_uri", "perf_render_scale", "perf_fps_cap",
+          "gui_tutorial_tips", "gui_tutorial_off", "preset_mirror_uri", "perf_resolution", "perf_render_scale", "perf_fps_cap",
           "perf_march_scale", "perf_post_fx", "perf_adapt_frame_time", "perf_adaptive", "perf_liquid_hot", "macro_knobs", "macro_locks",
           "macro_presets", "customize_open_groups", "customize_tab"}},
         {kLibrary, {"roots"}},

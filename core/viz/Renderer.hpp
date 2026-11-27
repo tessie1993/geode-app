@@ -55,6 +55,7 @@
 #include "viz/modulation/Reactions.hpp"
 #include "viz/styles/shared/Scene.hpp"
 #include "viz/gl/ScenePrep.hpp"
+#include "viz/gl/StyleQuarantine.hpp"
 #include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/styles/catalogue/StyleSchedule.hpp"
@@ -348,6 +349,7 @@ private:
     void fail(const std::string& message);
     // Re-applies the process-wide shader overrides (viz/glsl/ShaderOverrides) to resident scenes when they change.
     void syncShaderOverrides();
+    void openQuarantine();
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -358,6 +360,10 @@ private:
     // Staged scene builds (live renderers only): the programs being compiled for prep_'s target.
     ProgramStager stager_{&programCache_};
     ScenePrep prep_;
+    // Styles that crashed this driver while building or first drawing (opened at the first surface).
+    StyleQuarantine quarantine_;
+    // Counts render() calls: a style is proven by draws in distinct frames.
+    uint64_t drawSerial_ = 0;
     std::atomic<bool> blockingBuilds_{false};
     // While a staged attempt runs, scene errors wait here: a deferred attempt's errors are about
     // placeholders and are dropped; a whole one's are reported as an inline build would have.

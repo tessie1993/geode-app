@@ -107,23 +107,34 @@ public:
         stallSinceS_ = -1.0;
     }
 
+    // Lasting: a style quarantined for crashing this driver (StyleQuarantine), which no new context or
+    // shader edit makes safe to try in this process.
+    enum class Lasting { No, Yes };
+
     // `id` did not build: not asked for again until forgive(). `report` is what the stage says about it.
-    void fail(const std::string& id, const std::string& report = {}) {
-        if (!failed(id)) failed_.emplace_back(id, report);
+    void fail(const std::string& id, const std::string& report = {}, Lasting lasting = Lasting::No) {
+        if (Failure* entry = find(id)) {
+            if (lasting == Lasting::Yes && entry->lasting == Lasting::No) *entry = Failure{id, report, lasting};
+            return;
+        }
+        failed_.push_back(Failure{id, report, lasting});
     }
     bool failed(const std::string& id) const { return find(id) != nullptr; }
     // What fail() was told about `id`, said again when the style is picked again; empty for none.
     std::string report(const std::string& id) const {
         const auto* entry = find(id);
-        return entry ? entry->second : std::string();
+        return entry ? entry->report : std::string();
     }
     // True when `text` is the report of a failed style, so it can be taken down for another style.
     bool reported(const std::string& text) const {
         if (text.empty()) return false;
-        return std::any_of(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.second == text; });
+        return std::any_of(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.report == text; });
     }
     // A new context or a changed shader source may build what failed before.
-    void forgive() { failed_.clear(); }
+    void forgive() {
+        failed_.erase(std::remove_if(failed_.begin(), failed_.end(), [](const auto& entry) { return entry.lasting == Lasting::No; }),
+                      failed_.end());
+    }
 
     // True when `id`, a secondary target (the layer, Liquid's next style), must wait because the
     // stager is working for `other`, the other secondary target, which is still wanted. Without this
@@ -144,12 +155,18 @@ private:
     int attempts_ = 0;
     double stallSinceS_ = -1.0;
     int progress_ = 0;
-    const std::pair<std::string, std::string>* find(const std::string& id) const {
-        const auto it = std::find_if(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.first == id; });
+    struct Failure {
+        std::string id;
+        std::string report;
+        Lasting lasting = Lasting::No;
+    };
+    const Failure* find(const std::string& id) const {
+        const auto it = std::find_if(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.id == id; });
         return it == failed_.end() ? nullptr : &*it;
     }
+    Failure* find(const std::string& id) { return const_cast<Failure*>(std::as_const(*this).find(id)); }
 
-    std::vector<std::pair<std::string, std::string>> failed_;
+    std::vector<Failure> failed_;
 };
 
 }  // namespace geode::viz

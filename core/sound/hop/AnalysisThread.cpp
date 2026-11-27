@@ -6,7 +6,6 @@
 #include <limits>
 
 #include "sound/interp/SpeakerSync.hpp"
-#include "util/ThreadNice.hpp"
 
 #ifdef __ANDROID__
 #include <pthread.h>

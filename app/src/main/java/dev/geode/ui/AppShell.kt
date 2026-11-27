@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
@@ -361,7 +360,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // Player is home: Back from any other tab goes there, previewed by the gesture (#557). Composed
     // before the theme and every screen, so their own back handlers, registered later, win first.
     val backToPlayer = rememberBackToPlayer(appState, motion)
-    val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
+    // Snapped, not animated: the accent builds the ColorScheme in a static local, so each frame of a
+    // spring here recomposed every screen under the theme while the visual changed style.
+    val accent = accentTarget
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture

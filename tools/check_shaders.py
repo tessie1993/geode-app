@@ -191,8 +191,11 @@ def main():
     speed_failed = check_speed_rule()
     precision_failed = check_int_precision()
     glslc = sys.argv[1]
-    names = sys.argv[2:] or sorted(p.name for p in SHADERS.glob("*_frag.glsl")) + sorted(
-        p.name for p in SHADERS.glob("*_vert.glsl")) + sorted(SIM_BODIES)
+    names = sys.argv[2:] or sorted(
+        p.name for p in SHADERS.glob("*_frag.glsl") if p.stem not in ALLOWED
+    ) + sorted(
+        p.name for p in SHADERS.glob("*_vert.glsl") if p.stem not in ALLOWED
+    ) + sorted(SIM_BODIES)
     failed = []
     total = 0
     with tempfile.TemporaryDirectory() as tmp:

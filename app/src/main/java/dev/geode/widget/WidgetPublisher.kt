@@ -141,7 +141,6 @@ class WidgetPublisher(
 
     fun clear() {
         stopTick()
-        nowPlaying = nowPlaying?.copy(playing = false)
         // The publisher's own scopes are cancelled right below, which would cancel this write and
         // redraw before they dispatch and leave the widget showing a stale "playing" state; run
         // them on the process-scoped appScope instead so they survive the publisher's teardown.

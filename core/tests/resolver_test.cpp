@@ -30,6 +30,7 @@
 #include "viz/panel/CustomizeMap.hpp"
 #include "viz/director/Director.hpp"
 #include "viz/modulation/MacroBank.hpp"
+#include "viz/modulation/Slew.hpp"
 #include "viz/colour/Palette.hpp"
 #include "viz/modulation/Reactions.hpp"
 #include "viz/modulation/VisualSafety.hpp"
@@ -645,7 +646,7 @@ struct OldChain {
             morph = 0.0f;
         }
         const float fade = std::max(requested.paramFadeSec, morph);
-        displayedParams = fade <= 0.01f ? requested : viz::lerpParams(displayedParams, requested, std::clamp(dt / fade, 0.0f, 1.0f));
+        displayedParams = fade <= 0.01f ? requested : viz::lerpParams(displayedParams, requested, viz::slew::alpha(dt, fade));
         const viz::DirectorConfig directorConfig = s.director;
         director.configure(directorConfig);
         director.step(soundFrame, dt);
@@ -811,7 +812,7 @@ float randomDt(Rng& g) {
 // Parity: the resolver gives the old chain's frames bit for bit (params, style moments, camera moves)
 // over 16 seeded runs of 900 frames, with configs, settings, requests,
 // style switches, preset morphs and new surfaces changing at random. Kills any two stages swapped (director/
-// director/axes/bank/LFO nesting, LFO/envelope, envelope/reactions, reactions/safety), any stage dropped, the morph's x3 and <= 0, the fade's 0.01 cut, max, clamp and dt/fade,
+// director/axes/bank/LFO nesting, LFO/envelope, envelope/reactions, reactions/safety), any stage dropped, the morph's x3 and <= 0, the fade's 0.01 cut, max, slew and dt/fade,
 // the style moments' Section || Drop and their reset each frame, the
 // camera moves read from the director's axes, the bank's reach per style, reducedMotion passed to the clamp, and every reset() of a stage.
 // The same frames also hold the flash caps (safety last).
@@ -897,8 +898,8 @@ void testParityWithTheOldChain() {
               std::to_string(switches) + ", " + std::to_string(morphs) + ", " + std::to_string(resets) + ")");
 }
 
-// A preset morph: a 1 s morph from saturation 0 to 1 at dt 0.1 covers a tenth of what is left each frame
-// (0.1, 0.19, 0.6513, 0.9282 at 2.5 s, 0.9529 at 2.9 s), for three times its length, then the params land on
+// A preset morph: a 1 s morph from saturation 0 to 1 closes the gap with a 1 s time constant, 1 - exp(-t)
+// (0.0952 at 0.1 s, 0.1813, 0.6321, 0.9179 at 2.5 s, 0.9450 at 2.9 s), for three times its length, then the params land on
 // the request exactly. A new surface (reset) mid-glide keeps it. Every stage is off, and saturation is a
 // field only the director, the bank and the routes write, so it shows the fade alone.
 // Kills: x3 -> x1 or x2 (lands by 2.9 s), max -> min of the style's fade and the morph (cuts at once),
@@ -919,7 +920,7 @@ void testPresetMorphGlidesForThreeTimesItsLength() {
         int k;
         float sat;
     };
-    static constexpr Expect kGlide[] = {{1, 0.1f}, {2, 0.19f}, {10, 0.6513216f}, {25, 0.9282102f}, {29, 0.9528987f}};
+    static constexpr Expect kGlide[] = {{1, 0.0951626f}, {2, 0.1812692f}, {10, 0.6321206f}, {25, 0.9179150f}, {29, 0.9449774f}};
     float t = dt;
     bool glide = true;
     bool landed = true;
@@ -934,14 +935,14 @@ void testPresetMorphGlidesForThreeTimesItsLength() {
         }
         if (k >= 32) landed = landed && sat == 1.0f;
     }
-    check(glide, "a 1 s preset morph glides a tenth of the rest each 0.1 s frame for its three seconds, through a reset");
+    check(glide, "a 1 s preset morph closes the gap with a 1 s time constant for its three seconds, through a reset");
     check(landed, "after three times its length the morph ends and the params sit exactly on the request");
 }
 
 // The style's own param fade, from the default saturation 1 toward 0. A fade of 10 ms or less is a cut; a
-// fade shorter than the frame lands exactly on the request, never past it; a 0.5 s fade at dt 0.1 covers a
-// fifth of what is left each frame: 0.8, then 0.64.
-// Kills: <= 0.01 -> < 0.01, the clamp of dt / fade removed (overshoots to -1), dt / fade inverted (cuts),
+// fade shorter than the frame keeps exp(-dt / fade) of the gap, never past it; a 0.5 s fade has a 0.5 s
+// time constant, the same in seconds at 30, 60 and 120 fps.
+// Kills: <= 0.01 -> < 0.01, dt / fade inverted (cuts), a fixed fraction a frame (the three rates differ),
 // the lerp's ends swapped (0.2), the fade restarting from the request instead of the last faded params.
 void testParamFadeCutsLandsAndGlides() {
     const EngineSettings off;
@@ -958,10 +959,13 @@ void testParamFadeCutsLandsAndGlides() {
     const std::vector<float> cut = run(0.01f, 0.001f, 1);
     check(cut[0] == 0.0f, "a 10 ms param fade is a cut (got " + std::to_string(cut[0]) + ")");
     const std::vector<float> lands = run(0.05f, 0.1f, 1);
-    check(lands[0] == 0.0f, "a fade shorter than the frame lands exactly on the request (got " + std::to_string(lands[0]) + ")");
+    check(std::fabs(lands[0] - std::exp(-2.0f)) < 1e-6f, "a fade shorter than the frame keeps exp(-dt / fade) of the gap (got " + std::to_string(lands[0]) + ")");
     const std::vector<float> glide = run(0.5f, 0.1f, 2);
-    check(std::fabs(glide[0] - 0.8f) < 1e-6f && std::fabs(glide[1] - 0.64f) < 1e-6f,
-          "a 0.5 s fade at dt 0.1 goes 1 -> 0.8 -> 0.64 (got " + std::to_string(glide[0]) + ", " + std::to_string(glide[1]) + ")");
+    check(std::fabs(glide[0] - std::exp(-0.2f)) < 1e-6f && std::fabs(glide[1] - std::exp(-0.4f)) < 1e-6f,
+          "a 0.5 s fade at dt 0.1 goes 1 -> exp(-0.2) -> exp(-0.4) (got " + std::to_string(glide[0]) + ", " + std::to_string(glide[1]) + ")");
+    const float at30 = run(0.5f, 1.0f / 30.0f, 30).back();
+    check(std::fabs(run(0.5f, 1.0f / 60.0f, 60).back() - at30) < 1e-5f && std::fabs(run(0.5f, 1.0f / 120.0f, 120).back() - at30) < 1e-5f,
+          "a 0.5 s fade is the same after 1 s at 30, 60 and 120 fps (got " + std::to_string(at30) + ")");
 }
 
 // In silence the renderer's step is 0 (no sound, no movement), but a slider moved then still arrives: the
@@ -974,7 +978,7 @@ void testAStoppedClockStillGlidesToTheRequest() {
     requested.paramFadeSec = 0.5f;
     const float first = r.step(requested, frame(0.0f), 0.0f, off, style(kStyle, true), nullptr, 0.1f).params.saturation;
     const float second = r.step(requested, frame(0.0f), 0.0f, off, style(kStyle, false), nullptr, 0.1f).params.saturation;
-    check(std::fabs(first - 0.8f) < 1e-6f && std::fabs(second - 0.64f) < 1e-6f,
+    check(std::fabs(first - std::exp(-0.2f)) < 1e-6f && std::fabs(second - std::exp(-0.4f)) < 1e-6f,
           "a stopped clock glides on the wall step (got " + std::to_string(first) + ", " + std::to_string(second) + ")");
     Resolver held;
     const float stuck = held.step(requested, frame(0.0f), 0.0f, off, style(kStyle, true)).params.saturation;

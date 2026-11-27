@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "viz/modulation/Slew.hpp"
 #include "viz/modulation/VisualSafety.hpp"
 
 namespace geode::signal {
@@ -71,7 +72,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         morph = 0.0f;
     }
     const float fade = std::max(requested.paramFadeSec, morph);
-    displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, std::clamp(glide / fade, 0.0f, 1.0f));
+    displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, viz::slew::alpha(glide, fade));
 
     // The auto-director hears the frame first: its look lies under the user's knobs, so the macro bank,
     // the LFOs, the reactions and the safety clamp all still act on top of it.

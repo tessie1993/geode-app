@@ -256,6 +256,10 @@ fields_test | core | core/tests/fields_test.cpp |
 # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
 gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Compute.cpp core/viz/gl/Quad.cpp \
     core/viz/gl/Framebuffer.cpp core/viz/gl/Texture.cpp |
+# The feedback pass over a faked GL: Trails write one target and show the liquid, Liquid mode keeps its display,
+# trading one for the other keeps the liquid, a driver that will not mix formats falls back to RGBA8.
+liquid_pass_test | fakegl | core/tests/liquid_pass_test.cpp core/viz/liquid/LiquidPass.cpp core/viz/liquid/LiquidMath.cpp \
+    core/viz/gl/Framebuffer.cpp core/viz/gl/Program.cpp core/viz/glsl/ShaderSource.cpp |
 # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
 transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
 # The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.

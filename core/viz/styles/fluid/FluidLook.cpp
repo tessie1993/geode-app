@@ -73,7 +73,7 @@ void Look::resize(int w, int h) {
         bloomMips_.back().create();
     }
     const auto [sw, sh] = resolution(kSunraysRes, w, h);
-    sunraysMaskTarget_.emplace(sw, sh, formats_.rgba, true);
+    sunraysMaskTarget_.emplace(sw, sh, formats_.r, true);
     sunraysMaskTarget_->create();
     sunraysTarget_.emplace(sw, sh, formats_.r, true);
     sunraysTarget_->create();

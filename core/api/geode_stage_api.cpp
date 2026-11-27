@@ -1,4 +1,5 @@
 #include "api/geode_stage_api.h"
+#include "api/geode_ingest_handles.hpp"
 #include "api/geode_modulation_api.h"
 #include "api/geode_viz_internal.hpp"
 
@@ -352,7 +353,7 @@ void geode_stage_viz_unlock(void) {
 
 void geode_stage_set_sound(geode_stage* s, const geode_pcm_ring* ring) {
     try {
-        if (const std::shared_ptr<stage::LiveClient> live = liveOf(s)) live->setSound(ring);
+        if (const std::shared_ptr<stage::LiveClient> live = liveOf(s)) live->setSound(geode::api::holdRing(ring));
     } catch (...) {
         GEODE_LOGE(kTag, "geode_stage_set_sound failed");
     }

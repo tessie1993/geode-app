@@ -1894,8 +1894,9 @@ GEODE_API int            geode_playout_lag_ms(const geode_playout*, int64_t now_
  * at a time (the player's tap, a capture thread) and read by any number of cursors, which never change it.
  * Every write carries its sample rate and source channel count, so a reader gets each frame with the rate
  * it was written at. Lifetime: the handle and every cursor (a renderer's feed included) share the ring, so
- * it is freed when the last of them goes; destroy the handle only once no thread writes through it and no
- * stage is handed it. The player's and the mic's handles are kept for the process and never freed. Every
+ * it is freed when the last of them goes; destroy the handle only once no thread writes through it. A stage
+ * handed it (geode_stage_set_sound) holds the handle until it hears another, so its frames never read a freed
+ * one. The player's and the mic's handles are kept for the process and never freed. Every
  * call is safe on a NULL handle. */
 typedef struct geode_pcm_ring   geode_pcm_ring;
 typedef struct geode_pcm_cursor geode_pcm_cursor;

@@ -73,7 +73,22 @@ const ProcessRings& processRings() {
 // A playback session holds the player's ring (geode_pcm_ring_set_live).
 std::atomic<bool> gPlayerLive{false};
 
+void dropRing(const geode_pcm_ring* r) {
+    if (r->holds.fetch_sub(1, std::memory_order_acq_rel) == 1) delete r;
+}
+
 }  // namespace
+
+namespace geode::api {
+
+std::shared_ptr<const geode_pcm_ring> holdRing(const geode_pcm_ring* ring) {
+    if (!ring) return nullptr;
+    ring->holds.fetch_add(1, std::memory_order_relaxed);
+    // Without memory for the control block, shared_ptr calls the deleter: the hold just taken is dropped.
+    return std::shared_ptr<const geode_pcm_ring>(ring, dropRing);
+}
+
+}  // namespace geode::api
 
 struct geode_aiff {
     std::unique_ptr<geode::audio::ingest::AiffReader> reader;
@@ -134,8 +149,8 @@ geode_pcm_ring* geode_pcm_ring_live(void) {
 }
 
 void geode_pcm_ring_destroy(geode_pcm_ring* r) {
-    if (r && r->kept) return;
-    std::unique_ptr<geode_pcm_ring> owned(r);
+    if (!r || r->kept) return;
+    dropRing(r);
 }
 
 int geode_pcm_ring_max_write_frames(const geode_pcm_ring* r) {

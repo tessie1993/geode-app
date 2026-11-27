@@ -2,9 +2,10 @@
 // The feedback pass (core/viz/liquid/LiquidPass): Liquid mode's liquid, and with Liquid off the flat
 // styles' dive and a shader style's Trails.
 //
-// One pass, two targets. location 0 is the liquid itself, carried frame to frame (half float where
-// the GPU renders it, so a slow fade does not band); location 1 is what the composite shows, the
-// liquid with its Surface lit on top, so the lighting never feeds back into the liquid.
+// One pass, two targets in Liquid mode. location 0 is the liquid itself, carried frame to frame (half
+// float where the GPU renders it, so a slow fade does not band); location 1 is what the composite shows,
+// the liquid with its Surface lit on top, so the lighting never feeds back into the liquid. Trails
+// have no Surface, so the composite shows their liquid itself and location 1 is not attached.
 //
 // Per pixel:
 //   1. back-trace: the per-frame UV transform (lib_feedback: zoom, stretch, warp, rotation,
@@ -44,7 +45,15 @@ uniform int uFeedback;      // 0: the warp fallback, nothing carried over
 uniform float uShimmer;     // the highs, 0..1
 uniform float uLight;      // the sound's energy, 0..1, lights the surface
 uniform float uTime;
+// What this frame runs, decided once on the CPU (LiquidPass::run). A stage left out is exact: it would
+// add 0 or mix by 0. Shader-style Trails leave both out, and the transform when it is the identity.
+const int kPassFlow = 1;    // the flow field moves the back-trace (else uVel is the zero texture)
+const int kPassBorn = 2;    // the born disc can show (uBornGain is not 0)
+uniform int uPassFlags;
 
+// Location 1 is attached only while something reads the display (Liquid mode): Trails show the liquid
+// itself (outDisplay is then clamp(outLiquid) with its values already in 0..1), so their target has
+// location 0 alone and the write to location 1 is dropped.
 layout(location = 0) out vec4 outLiquid;
 layout(location = 1) out vec4 outDisplay;
 
@@ -73,18 +82,27 @@ vec3 hueRotate(vec3 c, float a) {
 
 void main() {
     vec2 c = centred(vUv);
-    vec2 src = uvFor(frameMotion(), vUv, uAspect, uTime);
-    vec2 vel = texture(uVel, fold(src)).xy;
-    if (any(isnan(vel)) || any(isinf(vel))) vel = vec2(0.0);
-    src -= uDt * vel * uVelScale;
-    if (uShimmer > 0.001) {
+    bool flows = (uPassFlags & kPassFlow) != 0;
+    bool shimmers = uShimmer > 0.001;
+    // Not moved at all, the sample is the pixel's own centre: inside the frame, nothing to fold.
+    vec2 src = vUv;
+    vec2 vel = vec2(0.0);
+    if (feedbackMoves()) src = uvFor(vUv, uAspect);
+    if (flows) {
+        vel = texture(uVel, fold(src)).xy;
+        if (any(isnan(vel)) || any(isinf(vel))) vel = vec2(0.0);
+        src -= uDt * vel * uVelScale;
+    }
+    if (shimmers) {
         vec2 q = src * vec2(uAspect, 1.0) * 38.0 + uTime * 0.9;
         src += (vec2(noise(q), noise(q + 17.3)) - 0.5) * uShimmer * 3.0 * uTexel;
     }
-    // Zooming out, a twist or the flow reads past the frame's edge. Clamping there repeats the edge
-    // texel as stripes; folding the frame back on itself continues the picture with no seam.
-    src = fold(src);
-    src = clamp(src, uTexel * 0.5, 1.0 - uTexel * 0.5);
+    if (feedbackMoves() || flows || shimmers) {
+        // Zooming out, a twist or the flow reads past the frame's edge. Clamping there repeats the edge
+        // texel as stripes; folding the frame back on itself continues the picture with no seam.
+        src = fold(src);
+        src = clamp(src, uTexel * 0.5, 1.0 - uTexel * 0.5);
+    }
 
     vec3 prev;
     vec3 n0;
@@ -123,9 +141,12 @@ void main() {
     prev = sane(prev);
     vec3 liquid = prev;
     float r = uBornR;
-    // A bell with no plateau: a disc with a flat top and a narrow rim left a ring the dive magnified.
-    float bell = 1.0 - smoothstep(0.0, r * 1.25, length(c - uVp));
-    float bornMask = uBornGain * bell * bell;
+    float bornMask = 0.0;
+    if ((uPassFlags & kPassBorn) != 0) {
+        // A bell with no plateau: a disc with a flat top and a narrow rim left a ring the dive magnified.
+        float bell = 1.0 - smoothstep(0.0, r * 1.25, length(c - uVp));
+        bornMask = uBornGain * bell * bell;
+    }
     if (uFeedback == 1) {
         vec3 style = sane(texture(uStyle, vUv).rgb);
         float gx = luma(texture(uStyle, vUv + vec2(uStyleTexel.x, 0.0)).rgb) - luma(texture(uStyle, vUv - vec2(uStyleTexel.x, 0.0)).rgb);

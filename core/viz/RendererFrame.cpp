@@ -726,7 +726,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // A shader style paints its whole frame, so its Trails cannot live in the scene target: they are
     // the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
     const bool trails = liveLiquid_ == liquid::Mode::Off && p.trails && scene->family() == SceneFamily::Shader &&
-                        scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_);
+                        scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_, false);
     if (!trails) trailsWereOn_ = false;
     if (trails || liveLiquid_ != liquid::Mode::Off) {
         feedbackIdleSeconds_ = 0.0f;
@@ -1127,7 +1127,7 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     const liquid::Plan plan = liquid::planFor(liveLiquid_);
     const int w = std::max(static_cast<int>(static_cast<float>(renderWidth_) * plan.liquidScale), 1);
     const int h = std::max(static_cast<int>(static_cast<float>(renderHeight_) * plan.liquidScale), 1);
-    if (!liquidPass_.ensure(w, h)) return 0;
+    if (!liquidPass_.ensure(w, h, true)) return 0;
     fluid::FlowField* ff = overlays_.flow();
     const bool flowing = ff != nullptr && ff->available() && plan.velocityGrid > 0;
     const bool threeD = scene.drawsCamera();
@@ -1138,6 +1138,7 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.velocityTex = flowing ? ff->velocityTex() : compositePass_.zeroTex();
     f.velScaleX = flowing ? ff->velScaleX() : 0.0f;
     f.velScaleY = flowing ? ff->velScaleY() : 0.0f;
+    f.flowing = flowing;
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;

@@ -32,6 +32,12 @@ GLuint makeTexture(int w, int h, bool halfFloat) {
     glBindTexture(GL_TEXTURE_2D, 0);
     return tex;
 }
+
+// The bound framebuffer's draw buffers: the liquid, and the display beside it when there is one.
+void drawBuffersFor(bool display) {
+    const GLenum buffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(display ? 2 : 1, buffers);
+}
 }  // namespace
 
 bool LiquidPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& vert, bool halfFloat,
@@ -65,9 +71,8 @@ bool LiquidPass::makeSide(Side& s) {
     glGenFramebuffers(1, &s.fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, s.fbo);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.liquid, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, display_, 0);
-    const GLenum buffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-    glDrawBuffers(2, buffers);
+    if (display_ != 0) glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, display_, 0);
+    drawBuffersFor(display_ != 0);
     const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     if (complete) {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -101,15 +106,33 @@ void LiquidPass::releaseTargets() {
     fresh_ = true;
 }
 
-bool LiquidPass::ensure(int width, int height) {
+bool LiquidPass::setDisplay(bool display) {
+    const GLuint old = display_;
+    display_ = display ? makeTexture(width_, height_, false) : 0;
+    bool complete = true;
+    for (Side& s : sides_) {
+        glBindFramebuffer(GL_FRAMEBUFFER, s.fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, display_, 0);
+        drawBuffersFor(display);
+        complete = complete && glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (old != 0) glDeleteTextures(1, &old);
+    return complete;
+}
+
+bool LiquidPass::ensure(int width, int height, bool display) {
     width = std::max(width, 1);
     height = std::max(height, 1);
     if (program_ == 0) return false;
-    if (width == width_ && height == height_ && sides_[0].fbo != 0 && sides_[1].fbo != 0) return true;
+    const bool sized = width == width_ && height == height_ && sides_[0].fbo != 0 && sides_[1].fbo != 0;
+    if (sized && (display_ != 0) == display) return true;
+    // Liquid mode and Trails trade the display at the same size, and the liquid carries on in both sides.
+    if (sized && setDisplay(display)) return true;
     releaseSides();
     width_ = width;
     height_ = height;
-    display_ = makeTexture(width_, height_, false);
+    if (display) display_ = makeTexture(width_, height_, false);
     bool ok = makeSide(sides_[0]) && makeSide(sides_[1]);
     if (!ok && halfFloat_) {
         // A driver that probed half float renderable but will not attach it beside RGBA8.
@@ -130,12 +153,12 @@ bool LiquidPass::ensure(int width, int height) {
 GLuint LiquidPass::run(const Frame& f) {
     if (program_ == 0 || sides_[0].fbo == 0 || sides_[1].fbo == 0) return 0;
     // A stopped clock holds the picture: another pass would sharpen and fade it again with nothing moving.
-    if (!(f.dt > 0.0f) && !fresh_) return display_;
+    if (!(f.dt > 0.0f) && !fresh_) return shown(read_);
     const int write = 1 - read_;
     Side& dst = sides_[write];
     glBindFramebuffer(GL_FRAMEBUFFER, dst.fbo);
     // Every pixel is written below: a tile GPU must not load the old contents back first.
-    Framebuffer::discardColorAttachments(GL_FRAMEBUFFER, 2);
+    Framebuffer::discardColorAttachments(GL_FRAMEBUFFER, display_ != 0 ? 2 : 1);
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
     glUseProgram(program_);
@@ -155,24 +178,30 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1f(uniforms_.loc("uDt"), f.dt);
     glUniform1f(uniforms_.loc("uAspect"), static_cast<float>(width_) / static_cast<float>(height_));
     glUniform2f(uniforms_.loc("uVp"), f.vpX, f.vpY);
-    glUniform1f(uniforms_.loc("uZoom"), f.motion.zoom);
-    glUniform1f(uniforms_.loc("uZoomExp"), f.motion.zoomExp);
-    glUniform1f(uniforms_.loc("uRot"), f.motion.rot);
-    glUniform1f(uniforms_.loc("uCx"), f.motion.cx);
-    glUniform1f(uniforms_.loc("uCy"), f.motion.cy);
-    glUniform1f(uniforms_.loc("uDx"), f.motion.dx);
-    glUniform1f(uniforms_.loc("uDy"), f.motion.dy);
-    glUniform1f(uniforms_.loc("uSx"), f.motion.sx);
-    glUniform1f(uniforms_.loc("uSy"), f.motion.sy);
-    glUniform1f(uniforms_.loc("uWarp"), f.motion.warp);
-    glUniform1f(uniforms_.loc("uWarpScale"), f.motion.warpScale);
-    glUniform1f(uniforms_.loc("uWarpSpeed"), f.motion.warpSpeed);
+    // The transform's terms, once for the frame (lib_feedback reads them; motion::derive).
+    const motion::FrameTerms m = motion::derive(f.motion, f.time);
+    glUniform1i(uniforms_.loc("uMotionFlags"), m.flags);
+    glUniform1f(uniforms_.loc("uZoom"), m.zoom);
+    glUniform1f(uniforms_.loc("uZoomExp"), m.zoomExp);
+    glUniform1f(uniforms_.loc("uCx"), m.cx);
+    glUniform1f(uniforms_.loc("uCy"), m.cy);
+    glUniform1f(uniforms_.loc("uDx"), m.dx);
+    glUniform1f(uniforms_.loc("uDy"), m.dy);
+    glUniform1f(uniforms_.loc("uSx"), m.sx);
+    glUniform1f(uniforms_.loc("uSy"), m.sy);
+    glUniform2f(uniforms_.loc("uRotCS"), m.rotCos, m.rotSin);
+    glUniform1f(uniforms_.loc("uWarp"), m.warp);
+    glUniform1f(uniforms_.loc("uWarpInvScale"), m.warpInvScale);
+    glUniform4fv(uniforms_.loc("uWarpFreq"), 1, m.warpFreq);
+    glUniform4fv(uniforms_.loc("uWarpPhase"), 1, m.warpPhase);
     // The first frame after a reset pours the whole style in, so the liquid starts as the style.
     glUniform1f(uniforms_.loc("uInject"), fresh_ ? 1.0f : f.inject);
     glUniform1f(uniforms_.loc("uEdge"), perFrameWeight(f.edge, f.dt));
     glUniform1f(uniforms_.loc("uSharpen"), f.sharpen);
     glUniform1f(uniforms_.loc("uBornR"), f.bornRadius);
-    glUniform1f(uniforms_.loc("uBornGain"), fresh_ ? 0.0f : f.bornGain);
+    const float bornGain = fresh_ ? 0.0f : f.bornGain;
+    glUniform1f(uniforms_.loc("uBornGain"), bornGain);
+    glUniform1i(uniforms_.loc("uPassFlags"), passFlags(f.flowing, bornGain));
     glUniform1i(uniforms_.loc("uBornMode"), f.bornMode);
     glUniform1i(uniforms_.loc("uAge"), f.age);
     glUniform1i(uniforms_.loc("uSurface"), f.surface);
@@ -189,7 +218,7 @@ GLuint LiquidPass::run(const Frame& f) {
     }
     read_ = write;
     fresh_ = false;
-    return display_;
+    return shown(write);
 }
 
 }  // namespace geode::viz::liquid

@@ -119,6 +119,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
 
 // Under soundLock_: audio only this renderer hears, into its own ring and analysis.
 void Renderer::hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    latchTuning();
     const bool offscreen = offscreen_.load(std::memory_order_relaxed);
     if (!ownSound_) {
         try {
@@ -158,6 +159,7 @@ void Renderer::hearOwn(const float* interleaved, int frames, int channels, int s
 
 void Renderer::hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis) {
     std::lock_guard<std::mutex> lock(soundLock_);
+    latchTuning();
     if (analysis == sharedSound_) return;
     sharedSound_ = std::move(analysis);
     sharedHeard_.store(sharedSound_ != nullptr, std::memory_order_release);
@@ -200,12 +202,23 @@ bool Renderer::endPreRoll(int64_t rangeStartMs) {
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
-    std::lock_guard<std::mutex> lock(soundLock_);
     // Clamped here, so a NaN Reactivity reaches the engine as the default one, not a NaN.
-    soundTuning_ = sound::tuning::clamp(tuning);
+    const GeodeSoundTuning clamped = sound::tuning::clamp(tuning);
+    soundWave_.setTrimDb(clamped.inputTrimDb);
+    std::lock_guard<std::mutex> lock(tuningLock_);
+    tuningNext_ = clamped;
+    tuningNew_.store(true, std::memory_order_release);
+}
+
+void Renderer::latchTuning() {
+    if (!tuningNew_.load(std::memory_order_acquire)) return;
+    {
+        std::lock_guard<std::mutex> lock(tuningLock_);
+        soundTuning_ = tuningNext_;
+        tuningNew_.store(false, std::memory_order_relaxed);
+    }
     if (sharedSound_) sharedSound_->thread().setTuning(soundTuning_);
     if (ownSound_) ownSound_->thread().setTuning(soundTuning_);
-    soundWave_.setTrimDb(soundTuning_.inputTrimDb);
 }
 
 double Renderer::monotonicSeconds() {

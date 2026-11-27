@@ -83,6 +83,7 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         // Before anything reads it this frame. No analysis yet (nothing heard) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
+        latchTuning();
         // The engine settings, latched once per frame for the resolver.
         frameSettings_ = latchEngineSettings();
         sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();

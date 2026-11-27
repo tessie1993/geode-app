@@ -525,12 +525,6 @@ Java_dev_geode_engine_bridge_VizNative_vizLookDefaults(JNIEnv* env, jobject) {
     return geode::jni::utf8String(env, geode_viz_look_defaults());
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale, jfloat marchScale,
-                                                      jboolean postFx) {
-    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
-}
-
 // The live frame: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is valid
 // while its Kotlin holder is reachable, and the caller holds it for this call.
 JNIEXPORT jint JNICALL
@@ -1271,6 +1265,17 @@ Java_dev_geode_engine_bridge_PerfNative_perfScaleChoices(JNIEnv* env, jobject) {
     jfloatArray out = env->NewFloatArray(n);
     if (out) env->SetFloatArrayRegion(out, 0, n, values);
     return out;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfBufferSize(JNIEnv* env, jobject, jfloat renderScale, jint viewWidth, jint viewHeight,
+                                                       jintArray out) {
+    if (!out || env->GetArrayLength(out) < GEODE_PERF_BUFFER_INTS) return JNI_FALSE;
+    int size[GEODE_PERF_BUFFER_INTS] = {};
+    if (geode_perf_buffer_size(renderScale, viewWidth, viewHeight, size, GEODE_PERF_BUFFER_INTS) != GEODE_PERF_BUFFER_INTS) return JNI_FALSE;
+    const jint values[GEODE_PERF_BUFFER_INTS] = {size[0], size[1]};
+    env->SetIntArrayRegion(out, 0, GEODE_PERF_BUFFER_INTS, values);
+    return JNI_TRUE;
 }
 
 // The background image bake (core/viz/Underlay). The rect comes back as a new int[4] (x, y, width, height).

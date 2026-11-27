@@ -161,9 +161,8 @@ open class VisualizerDreamService : DreamService() {
      * natively: Performance's fps cap is the live visual's, and the dream paces to its own choice.
      */
     private fun applyPerformance() {
-        val stage = visualizerView?.stage ?: return
-        stage.performance = PerformanceStore(generalPrefs, this).settings.value
-        stage.capFps = SoundNative.surfaceFpsChoice(dreamFps).toFloat()
+        val view = visualizerView ?: return
+        view.applyPerformance(PerformanceStore(generalPrefs, this).settings.value, SoundNative.surfaceFpsChoice(dreamFps).toFloat())
     }
 
     override fun onDreamingStarted() {

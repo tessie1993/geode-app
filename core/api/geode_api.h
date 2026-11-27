@@ -187,9 +187,9 @@ GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look)
    Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/looks/LookSnapshot). */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
-   changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
-   quality (an export). */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
+   changed, and again on a new surface): march_scale 0..1, post_fx 0 or 1. Never set, the renderer keeps full
+   quality (an export). The render resolution is the surface's own size (geode_perf_buffer_size). */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float march_scale, int post_fx);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
    0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
@@ -1452,6 +1452,12 @@ GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, fl
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
+/* The window buffer a live surface renders into for a view of view_width x view_height pixels at render_scale:
+   out[0] width, out[1] height (GEODE_PERF_BUFFER_INTS). The shell sizes the surface to it
+   (SurfaceHolder.setFixedSize) and the display scales it up to the view; every pass, the composite and the UI
+   blur included, shades the buffer's pixels. Returns the count, 0 for no view (a size <= 0) or a short out. */
+#define GEODE_PERF_BUFFER_INTS 2
+GEODE_API int             geode_perf_buffer_size(float render_scale, int view_width, int view_height, int* out, int capacity);
 /* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
    is up, never the dream, an export or Cast. `rates` are the refresh rates of the stage's display at
    its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the

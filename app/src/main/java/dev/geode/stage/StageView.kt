@@ -9,6 +9,7 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import dev.geode.data.PerformanceSettings
+import dev.geode.engine.bridge.PerfNative
 import dev.geode.engine.bridge.StageNative
 import java.lang.ref.WeakReference
 
@@ -50,10 +51,48 @@ class StageView(
 
     private val current get() = stage.view.get() === this
 
-    /** Settings › Performance for this surface: quality and the fps cap. */
-    fun applyPerformance(settings: PerformanceSettings) {
+    // The window buffer's size as last fixed (0: not yet), and the blur region as last set, in this view's terms.
+    private val buffer = IntArray(2)
+    private var bufferWidth = 0
+    private var bufferHeight = 0
+    private val blur = FloatArray(BLUR_FIELDS)
+
+    /**
+     * Settings › Performance for this surface: quality, the render resolution (the window buffer's size) and the
+     * fps cap, [capFps] when the host paces to its own (the dream's).
+     */
+    fun applyPerformance(
+        settings: PerformanceSettings,
+        capFps: Float = settings.fpsCap.toFloat(),
+    ) {
         stage.performance = settings
-        stage.capFps = settings.fpsCap.toFloat()
+        stage.capFps = capFps
+        sizeBuffer()
+    }
+
+    override fun onSizeChanged(
+        w: Int,
+        h: Int,
+        oldw: Int,
+        oldh: Int,
+    ) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        sizeBuffer()
+    }
+
+    /**
+     * The render resolution the Android way: the window buffer is fixed to native's size for this view and the
+     * display's scaler fills the view, so every pass (scene, composite, UI blur) shades only the buffer's pixels.
+     * Full size follows the layout again. Restated on every layout size (rotation, a multi-window resize) and
+     * setting; the holder keeps it across a surface's recreation. Main thread, as `setFixedSize` asks.
+     */
+    private fun sizeBuffer() {
+        if (!PerfNative.perfBufferSize(stage.performance.renderScale, width, height, buffer)) return
+        if (buffer[0] == bufferWidth && buffer[1] == bufferHeight) return
+        bufferWidth = buffer[0]
+        bufferHeight = buffer[1]
+        if (bufferWidth == width && bufferHeight == height) holder.setSizeFromLayout() else holder.setFixedSize(bufferWidth, bufferHeight)
+        if (blur[4] > 0f) sendBlur()
     }
 
     /**
@@ -72,7 +111,21 @@ class StageView(
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    ) = stage.setUiBlurRegion(left, top, right, bottom, strength, cornerPx)
+    ) {
+        blur[0] = left
+        blur[1] = top
+        blur[2] = right
+        blur[3] = bottom
+        blur[4] = strength
+        blur[5] = cornerPx
+        sendBlur()
+    }
+
+    /** The edges are fractions of the view, so they hold; the corner is in pixels, so it is the buffer's. */
+    private fun sendBlur() {
+        val toBuffer = if (width > 0 && bufferWidth > 0) bufferWidth.toFloat() / width else 1f
+        stage.setUiBlurRegion(blur[0], blur[1], blur[2], blur[3], blur[4], blur[5] * toBuffer)
+    }
 
     /** The host's pause and resume (the activity's, or the dream's). */
     fun onPause() {
@@ -169,4 +222,9 @@ class StageView(
         sensor: Sensor?,
         accuracy: Int,
     ) = Unit
+
+    private companion object {
+        /** [setUiBlurRegion]'s left, top, right, bottom, strength and corner. */
+        const val BLUR_FIELDS = 6
+    }
 }

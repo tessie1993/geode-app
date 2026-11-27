@@ -6,7 +6,8 @@ missing include fails here as it fails on the phone), then compiles for an
 OpenGL target. The Silk simulation bodies (silk_step, silk_show) are not whole
 shaders; they are compiled inside the preamble core/viz/styles/silk/SimGlsl.cpp
 wraps them in. Before compiling it lints every shader and lib for the time
-rule (see speed_twice). glslc will not take `#version 300 es`
+rule (see speed_twice) and every resolved fragment shader for an int precision
+before its first 32-bit uint hash (see int_precision_late). glslc will not take `#version 300 es`
 for SPIR-V, so the check bumps it to 310 es: it catches syntax, type and
 undeclared-name errors, not ES 3.00-only restrictions.
 
@@ -127,6 +128,35 @@ def check_speed_rule():
     return bad
 
 
+# 32-bit uint work: a hex or long decimal uint literal, or a float bit cast.
+UINT32 = re.compile(r"\b(0x[0-9a-fA-F]+u|\d{6,}u|floatBitsToUint|uintBitsToFloat)\b")
+HIGHP_INT = re.compile(r"precision\s+highp\s+int\s*;")
+
+
+def int_precision_late(text):
+    """True when 32-bit uint work comes before any `precision highp int;`.
+
+    The fragment default for int and uint is mediump, which Mali and PowerVR
+    honour at 16 bits: a hash run there collapses into stripes and repeats.
+    """
+    code = COMMENTS.sub("", text)
+    use = UINT32.search(code)
+    return bool(use) and not HIGHP_INT.search(code, 0, use.start())
+
+
+def check_int_precision():
+    assert int_precision_late("uint h = x * 0x9e3779b9u;")
+    assert int_precision_late("// precision highp int;\nuint h = x * 747796405u;")
+    assert int_precision_late("uint b = floatBitsToUint(f);\nprecision highp int;")
+    assert not int_precision_late("precision highp int;\nuint h = x * 0x9e3779b9u;")
+    assert not int_precision_late("uint i = 3u; float x = 123456.0;")
+    bad = [p.name for p in sorted(SHADERS.glob("*_frag.glsl"))
+           if int_precision_late(resolve(p.read_text(encoding="utf-8"), ()))]
+    for b in bad:
+        print(f"FAIL {b}: 32-bit uint work before `precision highp int;` collapses at mediump on Mali/PowerVR")
+    return bad
+
+
 def allow_list():
     # Every double-quoted name outside a `//` comment, as the .inc's header says.
     text = re.sub(r"//[^\n]*", "", INCLUDES_INC.read_text(encoding="utf-8"))
@@ -159,6 +189,7 @@ def resolve(text, path):
 
 def main():
     speed_failed = check_speed_rule()
+    precision_failed = check_int_precision()
     glslc = sys.argv[1]
     names = sys.argv[2:] or sorted(p.name for p in SHADERS.glob("*_frag.glsl")) + sorted(
         p.name for p in SHADERS.glob("*_vert.glsl")) + sorted(SIM_BODIES)
@@ -188,7 +219,9 @@ def main():
     print(f"{total - len(failed)}/{total} shaders compiled")
     if speed_failed:
         print(f"{len(speed_failed)} statement(s) multiply an accumulated clock by uSpeed")
-    sys.exit(1 if failed or speed_failed else 0)
+    if precision_failed:
+        print(f"{len(precision_failed)} fragment shader(s) hash in uint before `precision highp int;`")
+    sys.exit(1 if failed or speed_failed or precision_failed else 0)
 
 
 if __name__ == "__main__":

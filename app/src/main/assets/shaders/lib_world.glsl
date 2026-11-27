@@ -557,6 +557,9 @@ float wPrims(vec3 q) {
 /** The blend's slope per unit of relief: smoothstep's 1.5 over the 400-unit stretch, rounded up. */
 #define WG_WRAP_SLOPE 0.004
 
+// The fragment default int is mediump, 16 bits on Mali and PowerVR: the hashes need all 32.
+precision highp int;
+
 /** A lattice point's hash: Knuth's multiplicative hash per axis, then xor-shift-multiply rounds. */
 uint wHash(int x, int y) {
     uint h = (uint(x) * 0x9E3779B1u) ^ (uint(y) * 0x85EBCA77u);

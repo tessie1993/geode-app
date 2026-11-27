@@ -11,16 +11,15 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * The settings the critique found dead and the owner kept: Settings › Gestures & controls › Touch
- * (pinch and twist, the smear and its strength), the pinch's gesture key, and the screen saver's
- * "reacts to any app". Each is read back as saved; what they do is native (`touch_transform_test.cpp`,
- * `touch_smear_test.cpp`) or the dream's sound source.
+ * (pinch and twist, the smear and its strength) and the pinch's gesture key. Each is read back as saved;
+ * what they do is native (`touch_transform_test.cpp`, `touch_smear_test.cpp`).
  */
 @RunWith(RobolectricTestRunner::class)
-class TouchAndDreamPrefsTest {
+class TouchPrefsTest {
     private val prefs =
         ApplicationProvider
             .getApplicationContext<Context>()
-            .getSharedPreferences("touch-dream-prefs-test", Context.MODE_PRIVATE)
+            .getSharedPreferences("touch-prefs-test", Context.MODE_PRIVATE)
 
     @Test
     fun touchDefaultIsPinchOn() {
@@ -63,14 +62,6 @@ class TouchAndDreamPrefsTest {
         saveBehaviour(b.copy(gestures = b.gestures + (CanvasGesture.PINCH_TWIST to GestureAction.TOUCH_PLAY)))
         assertEquals(GestureAction.TOUCH_PLAY, BehaviourCodec.read(prefs).actionFor(CanvasGesture.PINCH_TWIST))
         assertEquals("TOUCH_PLAY", prefs.getString("behaviour_gesture_PINCH_TWIST", null))
-    }
-
-    @Test
-    fun theScreenSaverHearsOtherAppsOnlyWhenAsked() {
-        assertFalse(BehaviourCodec.read(prefs).dreamHearOtherApps)
-        saveBehaviour(BehaviourCodec.read(prefs).copy(dreamHearOtherApps = true))
-        assertTrue(BehaviourCodec.read(prefs).dreamHearOtherApps)
-        assertTrue(prefs.getBoolean("behaviour_dream_hear_other_apps", false))
     }
 
     private fun saveVisuals(value: VisualsSettings) = prefs.edit().also { VisualsSettingsCodec.write(it, value) }.commit()

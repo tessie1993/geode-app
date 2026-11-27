@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Settings' fifteen tabs (owner, 2026-11-11; Preferences the same day) as `AppSettingsTab` draws them: [SettingsGroupKey]'s
+ * Settings' fourteen tabs (owner, 2026-11-11; Preferences the same day) as `AppSettingsTab` draws them: [SettingsGroupKey]'s
  * Basics and sections, each a list of [SettingsRowKey]. The regroup moved every row of the ten
  * groups before it; these hold that none was lost or shown twice, and that a page saved by an old
  * name (a process-death bundle across the update) still opens on a tab.
@@ -35,7 +35,7 @@ class SettingsMapTest {
     }
 
     @Test
-    fun theFifteenTabsInListOrder() {
+    fun theFourteenTabsInListOrder() {
         assertEquals(
             listOf(
                 "PLAYBACK",
@@ -46,7 +46,6 @@ class SettingsMapTest {
                 "SOUND_REACTION",
                 "SAFETY",
                 "DISPLAYS",
-                "SCREEN_SAVER",
                 "GESTURES",
                 "LOOK",
                 "PERFORMANCE",
@@ -69,8 +68,8 @@ class SettingsMapTest {
         assertEquals(SettingsGroupKey.SOUND_REACTION, SettingsGroupKey.fromName("SOUND_INPUT"))
         assertEquals(SettingsGroupKey.HELP_ABOUT, SettingsGroupKey.fromName("HELP"))
         assertEquals(SettingsGroupKey.HELP_ABOUT, SettingsGroupKey.fromName("BACKUP_ABOUT"))
-        // The live wallpaper's tab, now the screen saver's.
-        assertEquals(SettingsGroupKey.SCREEN_SAVER, SettingsGroupKey.fromName("WALLPAPER"))
+        assertEquals(SettingsGroupKey.DISPLAYS, SettingsGroupKey.fromName("WALLPAPER"))
+        assertEquals(SettingsGroupKey.DISPLAYS, SettingsGroupKey.fromName("SCREEN_SAVER"))
     }
 
     @Test
@@ -102,7 +101,7 @@ class SettingsMapTest {
         assertEquals(SettingsGroupKey.OUTPUT, SettingsGroupKey.ofSection("NOTIFICATION"))
         assertEquals(SettingsGroupKey.GESTURES, SettingsGroupKey.ofSection("TOUCH"))
         assertEquals(SettingsGroupKey.DISPLAYS, SettingsGroupKey.ofSection("CONNECTED_DISPLAY"))
-        assertEquals(SettingsGroupKey.SCREEN_SAVER, SettingsGroupKey.ofSection("WALLPAPER_DREAM"))
+        assertEquals(SettingsGroupKey.DISPLAYS, SettingsGroupKey.ofSection("WALLPAPER_DREAM"))
     }
 
     @Test

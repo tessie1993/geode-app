@@ -311,6 +311,8 @@ look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
 live_client_test | mt | core/tests/live_client_test.cpp core/stage/LiveClient.cpp |
 # The ADPF wrapper (core/util/WorkHint): a no-op off Android, the target is the paced frame's length.
 work_hint_test | core | core/tests/work_hint_test.cpp |
+# Each native thread's own nice (core/util/ThreadNice): none until set, per thread, the ranks in order.
+thread_nice_test | mt | core/tests/thread_nice_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 command_queue_test | mt | core/tests/command_queue_test.cpp |
 # The stage's vsync callback on the vsync thread: start and stop, one callback posted, a lapse once stopped.

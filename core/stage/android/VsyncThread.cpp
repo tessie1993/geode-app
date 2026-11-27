@@ -4,23 +4,19 @@
 #include "stage/VsyncRule.hpp"
 
 #include <pthread.h>
-#include <sys/resource.h>
-#include <unistd.h>
 
 #include <cstdint>
 #include <mutex>
 #include <thread>
 
 #include "util/Log.hpp"
+#include "util/ThreadNice.hpp"
 
 namespace geode::stage::platform {
 
 namespace {
 
 constexpr const char* kTag = "GeodeStage";
-
-// android.os.Process.THREAD_PRIORITY_DISPLAY, the Kotlin pacer thread's priority, as a Linux nice value.
-constexpr int kDisplayNice = -4;
 
 enum VsyncCommand : uint16_t {
     kVsyncRun = 1,     // LastWins: a = 1 on, 0 off
@@ -107,7 +103,8 @@ void VsyncThread::retire(Sink* sink) {
 
 void VsyncThread::loop() {
     pthread_setname_np(pthread_self(), "GeodeVsync");
-    if (setpriority(PRIO_PROCESS, static_cast<id_t>(gettid()), kDisplayNice) != 0) {
+    // The stage thread's rank (StageThread.cpp): the thread that wakes a frame never ranks below the one that draws it.
+    if (!util::setThreadNice(util::kDisplayNice)) {
         GEODE_LOGW(kTag, "vsync thread keeps the default priority");
     }
     ALooper* looper = ALooper_prepare(0);

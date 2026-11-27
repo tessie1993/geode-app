@@ -6,6 +6,8 @@
 
 #include "output/android/EncoderGl.hpp"
 #include "util/Log.hpp"
+#include "util/ThreadNice.hpp"
+#include "util/WorkHint.hpp"
 
 namespace geode::output {
 
@@ -64,6 +66,8 @@ bool CastRender::stop(int64_t timeoutMs) {
 }
 
 void CastRender::run() {
+    // It draws whole scenes at the encoder's rate, as the stage thread does: its rank, not its spawner's.
+    if (!util::setThreadNice(util::kDisplayNice)) GEODE_LOGW(kTag, "cast render thread keeps its inherited priority");
     geode_cast_encoder* encoder = geode_cast_encoder_open(setup_.server, setup_.webrtc, setup_.music);
     bool ok = false;
     if (!encoder) {
@@ -125,6 +129,7 @@ bool CastRender::draw(geode_cast_encoder* encoder) {
     int64_t fallbackDrewNs = 0;
     uint64_t seenLook = 0;
     const float paced = static_cast<float>(fps);
+    const int64_t frameNs = util::WorkHint::targetNs(paced);
 
     while (!stopping_.load()) {
         if (geode_cast_encoder_failed(encoder)) {
@@ -143,6 +148,7 @@ bool CastRender::draw(geode_cast_encoder* encoder) {
             // The stage is on screen and its first copy is coming (a new surface stages its scene over several
             // frames): wait for it rather than have a second renderer show another visual first.
             geode_cast_encoder_pump(encoder, heard, geode_frame_clock_audio_until_us(clock));
+            util::reportThreadWork(frameNs, nowNs() - now);
             continue;
         }
         if (!fromStage) {
@@ -172,6 +178,8 @@ bool CastRender::draw(geode_cast_encoder* encoder) {
             return false;
         }
         geode_cast_encoder_pump(encoder, heard, geode_frame_clock_audio_until_us(clock));
+        // The slot's work from its start, the sleep left out: ADPF sizes the CPU for the frame, not the wait.
+        util::reportThreadWork(frameNs, nowNs() - now);
     }
     return true;
 }

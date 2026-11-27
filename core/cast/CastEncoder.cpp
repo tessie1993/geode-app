@@ -5,6 +5,8 @@
 #include <cstring>
 #include <utility>
 
+#include "util/ThreadNice.hpp"
+
 namespace geode::cast {
 
 namespace sink = output::sink;
@@ -118,6 +120,9 @@ void CastEncoder::start() {
 }
 
 void CastEncoder::run() {
+    // Opened on the cast render thread: below it, so the drain never takes the frame's CPU, yet above app threads,
+    // so a codec's full output never stalls the swap that feeds it.
+    util::setThreadNice(util::kFeedNice);
     using Clock = std::chrono::steady_clock;
     while (!stopping_.load(std::memory_order_acquire)) {
         const int64_t now =

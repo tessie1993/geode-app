@@ -272,6 +272,7 @@ private:
     void updatePcmWanted();
     // Under soundLock_: what writeAudio hears without a shared analysis (an export, a layered live feed).
     void hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz);
+    void latchTuning();
     // Under soundLock_, once a frame: the frame at this renderer's sample, its triggers, feeling and waveform.
     void readSound(const sound::SharedAnalysis& heard, float dt, float fadeGain);
     // Steps styleSchedule_ once per frame (after the sound engine and musicRate_) on the picture's clock,
@@ -429,6 +430,9 @@ private:
     // On the analysis settings every engine here runs (SharedAnalysis's thread takes AnalysisSettings{}).
     sound::interp::Waveform soundWave_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
+    std::mutex tuningLock_;
+    GeodeSoundTuning tuningNext_{};
+    std::atomic<bool> tuningNew_{false};
     GeodeSoundFrame soundFrame_{};
     // The frame the scenes and the resolver hear: soundFrame_ with the band trims of the params asked about
     // (viz/BandTrim.hpp), made once per distinct trim per frame. A frame with no trim is soundFrame_ itself.

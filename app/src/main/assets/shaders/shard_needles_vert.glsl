@@ -1,4 +1,5 @@
 #version 300 es
+#define FRAME_SLOTS 2
 //#include lib_frame_vert
 
 void main() {

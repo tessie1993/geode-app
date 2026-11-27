@@ -3,6 +3,10 @@
 // (lib_frame_frag). Nothing between the two is computed or handed back piecemeal: modules are void functions
 // that take a descriptor in and write their result through out or inout.
 
+#ifndef FRAME_SLOTS
+#define FRAME_SLOTS 3
+#endif
+
 /** A turn's angle is start + time * rate; rate is FRAME_RATE(k), k whole cycles per uTime wrap (7100 s, ShaderScene). */
 struct FrameTurn {
     float rate;
@@ -35,6 +39,12 @@ void frameTurnOf(in float time, in FrameTurn turn, out vec4 m) {
 
 void frameDerive(in FrameIn f, out FrameOut o) {
     frameTurnOf(f.time, f.a, o.a);
+    o.b = vec4(0.0);
+    o.c = vec4(0.0);
+#if FRAME_SLOTS > 1
     frameTurnOf(f.time, f.b, o.b);
+#endif
+#if FRAME_SLOTS > 2
     frameTurnOf(f.time, f.c, o.c);
+#endif
 }

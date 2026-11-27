@@ -665,10 +665,6 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // scene clock's scale (never backwards).
     const float musicDt = wallDt * musicRate_;
     float dt = sceneClock_.sim(musicDt);
-    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
-        applyRenderScale();
-        restartClock();
-    }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).

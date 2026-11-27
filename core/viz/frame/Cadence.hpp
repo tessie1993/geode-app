@@ -20,9 +20,9 @@ inline constexpr uint32_t kFrameErrorChanged = 1u << 3;
 inline constexpr int kFrameLiquidShift = 8;
 inline constexpr uint32_t kFrameLiquidMask = 0xFu;
 
-// Settings › Performance as the live shell set it (geode_viz_set_quality).
+// Settings › Performance as the live shell set it (geode_viz_set_quality). The render resolution is not
+// here: it is the surface's size (viz/frame/Quality bufferSize).
 struct UserQuality {
-    float renderScale = 1.0f;
     float marchScale = 1.0f;
     bool postFx = true;
 };
@@ -30,8 +30,7 @@ struct UserQuality {
 // Equal by bits, not by value: a NaN from a corrupt pref equals itself here, so it is applied once (as full
 // quality, Renderer::setUserQuality) rather than on every frame.
 inline bool sameQuality(const UserQuality& a, const UserQuality& b) {
-    return std::bit_cast<uint32_t>(a.renderScale) == std::bit_cast<uint32_t>(b.renderScale) &&
-        std::bit_cast<uint32_t>(a.marchScale) == std::bit_cast<uint32_t>(b.marchScale) && a.postFx == b.postFx;
+    return std::bit_cast<uint32_t>(a.marchScale) == std::bit_cast<uint32_t>(b.marchScale) && a.postFx == b.postFx;
 }
 
 // One live surface's cadence. GL thread only: geode_viz_surface_created and geode_viz_frame.

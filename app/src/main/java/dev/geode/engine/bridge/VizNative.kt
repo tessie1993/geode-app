@@ -143,14 +143,6 @@ object VizNative {
      */
     external fun vizLookDefaults(): String
 
-    /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
-    external fun vizSetQuality(
-        handle: Long,
-        renderScale: Float,
-        marchScale: Float,
-        postFx: Boolean,
-    )
-
     /**
      * One whole live frame into framebuffer 0 (geode_viz_frame, `core/viz/frame/LiveFrame`), GL thread: the
      * renderer hears [ring] (0: nothing) and draws with what was pushed to it. [pacedFps] is the

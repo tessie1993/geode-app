@@ -49,7 +49,6 @@ class NativeViz(
     private var look: LookSnapshot? = null
     private var sentUnderlay: LookUnderlay? = null
     private var underlaySent = false
-    private var quality: () -> Unit = {}
 
     @Synchronized
     fun create(): Boolean {
@@ -57,7 +56,6 @@ class NativeViz(
             handle = VizNative.vizCreate(assets, cacheDir)
             owned.handle = handle
             if (handle != 0L) {
-                quality()
                 underlaySent = false
                 look?.let(::pushLook)
             }
@@ -117,17 +115,6 @@ class NativeViz(
             sentUnderlay = u
             underlaySent = true
         }
-    }
-
-    /** Settings › Performance for a live surface, from any thread; kept for the next handle. An export never sets it. */
-    @Synchronized
-    fun setQuality(
-        renderScale: Float,
-        marchScale: Float,
-        postFx: Boolean,
-    ) {
-        quality = { if (handle != 0L) VizNative.vizSetQuality(handle, renderScale, marchScale, postFx) }
-        quality()
     }
 
     @Synchronized

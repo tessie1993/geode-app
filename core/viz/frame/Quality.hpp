@@ -1,5 +1,7 @@
 #pragma once
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 
 // Settings › Performance's three tiers and the first-run pick for this phone (#437).
@@ -13,7 +15,7 @@ enum class QualityMode : int { Saver = 0, Balanced = 1, High = 2 };
 inline constexpr int kQualityModes = 3;
 
 struct QualityTier {
-    float renderScale;  // fraction of the surface's pixels the scene renders
+    float renderScale;  // fraction of the view's pixels the window buffer has (bufferSize)
     float fpsCap;       // the live frame rate (viz/frame/LiveFps)
     float marchScale;   // ray-march step budget for marched styles
     bool postFx;        // trails and the other optional passes
@@ -31,6 +33,22 @@ inline const QualityTier& qualityTier(QualityMode mode) { return kQualityTiers[s
 
 // The render scales and march scales the tab offers, ascending; the march row names them Low, Medium, High.
 inline constexpr std::array<float, 3> kScaleChoices = {0.5f, 0.75f, 1.0f};
+
+// The window buffer a live surface renders into: the view's pixels times the render scale, at least one pixel
+// each way. The shell sizes the surface to it (SurfaceHolder.setFixedSize) and the display's scaler fills the
+// view, so the scene, the composite and the UI blur all shade these pixels and the scene targets equal the
+// buffer. A non-finite scale (a corrupt pref) is full size; any scale holds to 0.25..1.
+struct BufferSize {
+    int width = 0;
+    int height = 0;
+};
+
+inline BufferSize bufferSize(float renderScale, int viewWidth, int viewHeight) {
+    if (viewWidth <= 0 || viewHeight <= 0) return {};
+    const float s = std::isfinite(renderScale) ? std::clamp(renderScale, 0.25f, 1.0f) : 1.0f;
+    const auto side = [s](int px) { return std::clamp(static_cast<int>(std::lround(static_cast<float>(px) * s)), 1, px); };
+    return {side(viewWidth), side(viewHeight)};
+}
 
 // The tier these values are, or -1 once the user changed one (the tab reads "Custom").
 inline int modeOf(float renderScale, int fpsCap, float marchScale, bool postFx) {

@@ -99,7 +99,7 @@ geode_viz* CastRender::makeFallback(uint64_t& seenLook) {
     look_.take(seenLook, [viz](const geode_viz_look& look) { geode_viz_set_look(viz, &look); });
     float tier[GEODE_PERF_TIER_FLOATS] = {};
     if (geode_perf_tier(kHighTier, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS) {
-        geode_viz_set_quality(viz, tier[0], tier[2], tier[3] != 0.0f ? 1 : 0);
+        geode_viz_set_quality(viz, tier[2], tier[3] != 0.0f ? 1 : 0);
     }
     int format[GEODE_CAST_FORMAT_INTS];
     geode_cast_format(format);

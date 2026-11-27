@@ -5,6 +5,9 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Handler
+import android.os.HandlerThread
+import android.view.Display
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
@@ -32,7 +35,13 @@ class StageView(
 
     // The game rotation vector, not the plain one: no magnetometer, so a speaker cannot swing the view.
     private val tilt = sensors?.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
+
+    @Volatile
     private var tiltOn = false
+    private var tiltThread: HandlerThread? = null
+
+    @Volatile
+    private var tiltDisplay: Display? = null
 
     /** The camera's "Tilt phone to look" setting; native says when the sensor runs. */
     var gyroWanted: Boolean = false
@@ -204,17 +213,27 @@ class StageView(
         if (on == tiltOn) return
         // Only a registration the sensor service took counts as on, so a refused one is tried again next sync.
         if (on) {
-            tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) == true
+            val thread = HandlerThread("GeodeTilt").apply { start() }
+            tiltDisplay = display
+            tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME, Handler(thread.looper)) == true
+            if (tiltOn) {
+                tiltThread = thread
+            } else {
+                thread.quitSafely()
+            }
         } else {
             tiltOn = false
             sensors?.unregisterListener(this)
+            tiltThread?.quitSafely()
+            tiltThread = null
+            tiltDisplay = null
         }
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         if (!tiltOn) return // one queued as the sensor stopped would start a new session
         val v = event.values
-        stage.gyroPush(v[0], v[1], v[2], v[3], display?.rotation ?: 0)
+        stage.gyroPush(v[0], v[1], v[2], v[3], tiltDisplay?.rotation ?: 0)
     }
 
     override fun onAccuracyChanged(

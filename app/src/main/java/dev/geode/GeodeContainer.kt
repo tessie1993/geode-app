@@ -45,11 +45,15 @@ import dev.geode.data.VisualsSettingsRepository
 import dev.geode.data.backup.BackupRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.data.releaseGrant
+import dev.geode.diag.ExitKind
+import dev.geode.diag.ExitReasons
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -58,6 +62,19 @@ class GeodeContainer(
     context: Context,
 ) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /**
+     * The last process death a JVM handler cannot see (native or driver crash, ANR, a kill while in use), written
+     * to the crash file once ([ExitReasons]). Started with the process so the wallpaper or dream reports too; the
+     * crash dialog awaits it before it reads the file.
+     */
+    val lastExit: Deferred<ExitKind?> =
+        appScope.async(Dispatchers.IO) {
+            bestEffort(TAG, "stamp the version on this process") { ExitReasons.stampVersion(context) }
+            runCatching { ExitReasons(context.applicationContext).record() }
+                .onFailure { RingLog.note(TAG, "last exit reason unreadable", it) }
+                .getOrNull()
+        }
 
     val prefsFiles = GeodePrefsFiles(context)
 

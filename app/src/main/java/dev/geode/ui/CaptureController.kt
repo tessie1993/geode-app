@@ -65,6 +65,9 @@ data class ExternalAudioState(
     /** The other app while it is the sound source and its media session answers: the transport is its, not the player's. */
     val driven: NowPlayingBridge.External? get() = nowPlaying.takeIf { active }
 
+    /** Heard, and its session (when read) not paused: the device mix that stands in for a quiet capture hears silence too. */
+    val playing: Boolean get() = active && !hearingSilence && driven?.playing != false
+
     /** Capturing without notification access: the other app can be heard but not named or driven. */
     val sessionUnreadable: Boolean get() = active && !hasSessionAccess
 }
@@ -88,6 +91,16 @@ sealed interface CaptureNotice {
         val failure: CaptureFailure,
     ) : CaptureNotice
 }
+
+/**
+ * Sound is driving the visual, the input Auto holds on: the app's own player, the mic, or another app's capture.
+ * A capture pauses the player, so the player alone would hold Auto for as long as another app is visualized.
+ */
+internal fun soundPlaying(
+    playerPlaying: Boolean,
+    external: ExternalAudioState,
+    mic: MicState,
+): Boolean = playerPlaying || mic.active || external.playing
 
 internal class CaptureController(
     private val application: Application,

@@ -1046,8 +1046,8 @@ GEODE_API int         geode_gesture_for_key(int key_code, int options_shown, int
  * min time and timeout (ms); _area: the window size, the system's gesture strips (px from each window edge), the
  * stage's top-left in the window and whether that is known yet. Both are read at the next _down. _down: a first
  * finger at (x, y) at t_ms; actions holds each gesture's action ordinal (GEODE_GESTURE_COUNT of them), armed
- * whether the hold may run. Then, until GEODE_GESTURE_OVER: _wait_ms (-1 no timer; else wait that long for the next
- * event and call _tick if none comes) and _event: t_ms (< 0 keeps the last), the pressed fingers' (x, y) in the
+ * whether the hold may run. Then, until GEODE_GESTURE_OVER: _wait_ms (now_ms: the uptime now, on the events' clock;
+ * -1 no timer; else wait that long for the next event and call _tick if none comes) and _event: t_ms (< 0 keeps the last), the pressed fingers' (x, y) in the
  * event's order, live of them (only the first two are read), whether the first finger is still down, a pinch step's
  * factor and degrees into pinch[2]. Both answer GEODE_GESTURE_* bits. _release: 1 when touch play holds fingers that
  * must now lift (call it when following ends, cancelled or not). _end: the gesture to fire, -1 none, and into out[3]
@@ -1074,7 +1074,7 @@ GEODE_API void        geode_gesture_configure(geode_gesture*, float touch_slop, 
 GEODE_API void        geode_gesture_area(geode_gesture*, float window_w, float window_h, float left, float top, float right,
                                          float bottom, float origin_x, float origin_y, int placed);
 GEODE_API void        geode_gesture_down(geode_gesture*, float x, float y, long long t_ms, const int* actions, int armed);
-GEODE_API long long   geode_gesture_wait_ms(const geode_gesture*);
+GEODE_API long long   geode_gesture_wait_ms(const geode_gesture*, long long now_ms);
 GEODE_API unsigned    geode_gesture_tick(geode_gesture*);
 GEODE_API unsigned    geode_gesture_event(geode_gesture*, long long t_ms, const float* xy, int live, int primary_down, float* pinch);
 GEODE_API int         geode_gesture_release(geode_gesture*);

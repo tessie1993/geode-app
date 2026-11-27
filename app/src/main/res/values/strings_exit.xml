@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The crash dialog for a last exit the app could not catch itself (ApplicationExitInfo). %1$s is the start of the details. -->
+    <string name="exit_driver_crash_title">The graphics driver crashed</string>
+    <string name="exit_driver_crash_body">Last time, BeatRealms closed because this phone\'s graphics driver crashed while drawing a visual. Your music and settings are fine. Copy the details to report it.\n\n%1$s</string>
+    <string name="exit_native_crash_title">BeatRealms crashed</string>
+    <string name="exit_native_crash_body">Last time, BeatRealms closed because of a fault in its visual or sound engine. Your music and settings are fine. Copy the details to report it.\n\n%1$s</string>
+    <string name="exit_not_responding_title">BeatRealms stopped responding</string>
+    <string name="exit_not_responding_body">Last time, Android closed BeatRealms because it stopped responding for too long. Copy the details to report it.\n\n%1$s</string>
+    <string name="exit_low_memory_title">Android closed BeatRealms to free memory</string>
+    <string name="exit_low_memory_body">Last time, the phone ran low on memory and Android closed BeatRealms while you were using it or while it was rendering. Closing other apps can help. Copy the details to report it.\n\n%1$s</string>
+    <string name="exit_system_kill_title">Android closed BeatRealms</string>
+    <string name="exit_system_kill_body">Last time, the system closed BeatRealms while you were using it or while it was rendering, often to save battery. If it happens during renders, set BeatRealms\' battery use to Unrestricted in the phone\'s settings. Copy the details to report it.\n\n%1$s</string>
+</resources>

@@ -111,11 +111,6 @@ colour::Rgb blend(colour::Rgb a, colour::Rgb b, float f, Space space) {
     return a;
 }
 
-struct Drawn {
-    std::vector<Stop> stops;  // sorted by pos
-    Space space = Space::Oklab;
-};
-
 // The stops a palette draws, sorted by position. One colour becomes the run its Single option names,
 // always through OKLab: Shades from a dark to a light of the colour with the colour itself halfway, ToBlack
 // from the colour to black.
@@ -241,6 +236,63 @@ float amountOf(const Amounts& amounts, size_t i) {
     return std::isfinite(a) ? std::clamp(a, 0.0f, 1.0f) : 0.0f;
 }
 
+colour::Rgb drawnAt(const Drawn& d, const Palette& p, float t) {
+    const float w = std::isfinite(t) ? colour::wrap01(t) : 0.0f;
+    if (p.wrap == Wrap::Loop) return loopRun(d, p.interp, w);
+    return openRun(d, p.interp, w < 0.5f ? 2.0f * w : 2.0f - 2.0f * w);
+}
+
+// The stack at t, a layer's own colour at u in 0..1 being layerAt(layer, u). The stack has at least one layer.
+template <typename LayerAt>
+colour::Rgb stackAt(const Stack& s, const Amounts& amounts, float t, LayerAt layerAt) {
+    const float w = std::isfinite(t) ? colour::wrap01(t) : 0.0f;
+    const size_t n = std::min(s.layers.size(), amounts.size());
+    float total = 0.0f;
+    for (size_t i = 0; i < n; ++i) total += amountOf(amounts, i);
+    if (n == 1 || total <= 1e-6f) return layerAt(0, w);
+    if (s.blend == Blend::Mix) {
+        colour::Rgb sum{};
+        for (size_t i = 0; i < n; ++i) {
+            const float a = amountOf(amounts, i) / total;
+            if (a <= 0.0f) continue;
+            const colour::Rgb c = layerAt(i, w);
+            sum = {sum.r + c.r * a, sum.g + c.g * a, sum.b + c.b * a};
+        }
+        return sum;
+    }
+    // Share: each layer draws its whole self across its own part of t, in stack order.
+    std::array<Part, kMaxLayers> parts;
+    size_t count = 0;
+    float start = 0.0f;
+    for (size_t i = 0; i < n; ++i) {
+        const float width = amountOf(amounts, i) / total;
+        if (width <= 0.0f) continue;
+        parts[count++] = {i, start, width};
+        start += width;
+    }
+    size_t k = count - 1;
+    for (size_t j = 0; j < count; ++j) {
+        if (w < parts[j].start + parts[j].width) {
+            k = j;
+            break;
+        }
+    }
+    const Part& part = parts[k];
+    const colour::Rgb own = layerAt(part.layer, std::clamp((w - part.start) / part.width, 0.0f, kBeforeOne));
+    if (s.edge == Edge::Hard || count < 2) return own;
+    // Soft: across each line the two palettes' colours there cross-fade, half each on the line itself, so the
+    // ramp is continuous; t = 0 and 1 are a line too, between the last palette and the first.
+    const Part& prev = parts[(k + count - 1) % count];
+    const Part& next = parts[(k + 1) % count];
+    const float fromLeft = w - part.start;
+    const float toRight = part.start + part.width - w;
+    const float left = softHalf(prev.width, part.width);
+    const float right = softHalf(part.width, next.width);
+    if (fromLeft < left) return lerp(layerAt(prev.layer, kBeforeOne), own, smooth((fromLeft + left) / (2.0f * left)));
+    if (toRight < right) return lerp(layerAt(next.layer, 0.0f), own, smooth((toRight + right) / (2.0f * right)));
+    return own;
+}
+
 }  // namespace
 
 static_assert(kMaxLayers == 8, "one paletteAmount row per layer (viz/params/ParamTable.inc)");
@@ -261,12 +313,18 @@ bool Ramp::update(std::shared_ptr<const Stack> stack, const Amounts& amounts) {
     Amounts read{};
     for (size_t i = 0; i < std::min(stack->layers.size(), read.size()); ++i) read[i] = amountOf(amounts, i);
     if (stack == stack_ && read == amounts_) return false;
-    stack_ = std::move(stack);
+    if (stack != stack_) {
+        stack_ = std::move(stack);
+        drawn_.clear();
+        for (const Palette& layer : stack_->layers) drawn_.push_back(drawn(layer));
+    }
     amounts_ = read;
-    const std::vector<colour::Rgb> colours = compose(*stack_, amounts_);
-    bytes_.resize(colours.size() * 3);
-    for (size_t i = 0; i < colours.size(); ++i) {
-        const int rgb = colour::pack(colours[i]);
+    const Stack& s = *stack_;
+    bytes_.resize(static_cast<size_t>(kRampSize) * 3);
+    for (int i = 0; i < kRampSize; ++i) {
+        const colour::Rgb c = stackAt(s, amounts_, (static_cast<float>(i) + 0.5f) / static_cast<float>(kRampSize),
+                                      [&](size_t layer, float u) { return drawnAt(drawn_[layer], s.layers[layer], u); });
+        const int rgb = colour::pack(c);
         bytes_[3 * i] = static_cast<std::uint8_t>((rgb >> 16) & 0xFF);
         bytes_[3 * i + 1] = static_cast<std::uint8_t>((rgb >> 8) & 0xFF);
         bytes_[3 * i + 2] = static_cast<std::uint8_t>(rgb & 0xFF);
@@ -337,69 +395,30 @@ colour::Rgb along(const Palette& p, float u) {
     return openRun(d, p.interp, std::isfinite(u) ? std::clamp(u, 0.0f, 1.0f) : 0.0f);
 }
 
-colour::Rgb at(const Palette& p, float t) {
-    const Drawn d = drawn(p);
-    const float w = std::isfinite(t) ? colour::wrap01(t) : 0.0f;
-    if (p.wrap == Wrap::Loop) return loopRun(d, p.interp, w);
-    return openRun(d, p.interp, w < 0.5f ? 2.0f * w : 2.0f - 2.0f * w);
-}
+colour::Rgb at(const Palette& p, float t) { return drawnAt(drawn(p), p, t); }
 
 colour::Rgb at(const Stack& s, const Amounts& amounts, float t) {
     if (isUnset(s)) return at(unsetFallback(), t);
-    const float w = std::isfinite(t) ? colour::wrap01(t) : 0.0f;
-    float total = 0.0f;
-    for (size_t i = 0; i < s.layers.size(); ++i) total += amountOf(amounts, i);
-    if (s.layers.size() == 1 || total <= 1e-6f) return at(s.layers.front(), w);
-    if (s.blend == Blend::Mix) {
-        colour::Rgb sum{};
-        for (size_t i = 0; i < s.layers.size(); ++i) {
-            const float a = amountOf(amounts, i) / total;
-            if (a <= 0.0f) continue;
-            const colour::Rgb c = at(s.layers[i], w);
-            sum = {sum.r + c.r * a, sum.g + c.g * a, sum.b + c.b * a};
-        }
-        return sum;
-    }
-    // Share: each layer draws its whole self across its own part of t, in stack order.
-    std::vector<Part> parts;
-    float start = 0.0f;
-    for (size_t i = 0; i < s.layers.size(); ++i) {
-        const float width = amountOf(amounts, i) / total;
-        if (width <= 0.0f) continue;
-        parts.push_back({i, start, width});
-        start += width;
-    }
-    size_t k = parts.size() - 1;
-    for (size_t j = 0; j < parts.size(); ++j) {
-        if (w < parts[j].start + parts[j].width) {
-            k = j;
-            break;
-        }
-    }
-    const Part& part = parts[k];
-    const colour::Rgb own = at(s.layers[part.layer], std::clamp((w - part.start) / part.width, 0.0f, kBeforeOne));
-    if (s.edge == Edge::Hard || parts.size() < 2) return own;
-    // Soft: across each line the two palettes' colours there cross-fade, half each on the line itself, so the
-    // ramp is continuous; t = 0 and 1 are a line too, between the last palette and the first.
-    const Part& prev = parts[(k + parts.size() - 1) % parts.size()];
-    const Part& next = parts[(k + 1) % parts.size()];
-    const float fromLeft = w - part.start;
-    const float toRight = part.start + part.width - w;
-    const float left = softHalf(prev.width, part.width);
-    const float right = softHalf(part.width, next.width);
-    if (fromLeft < left) return lerp(at(s.layers[prev.layer], kBeforeOne), own, smooth((fromLeft + left) / (2.0f * left)));
-    if (toRight < right) return lerp(at(s.layers[next.layer], 0.0f), own, smooth((toRight + right) / (2.0f * right)));
-    return own;
+    return stackAt(s, amounts, t, [&](size_t layer, float u) { return at(s.layers[layer], u); });
 }
 
 std::vector<colour::Rgb> compose(const Stack& s, const Amounts& amounts, int samples) {
     std::vector<colour::Rgb> out;
     const int n = std::max(samples, 0);
     out.reserve(static_cast<size_t>(n));
-    for (int i = 0; i < n; ++i) out.push_back(at(s, amounts, (static_cast<float>(i) + 0.5f) / static_cast<float>(n)));
+    if (isUnset(s)) {
+        for (int i = 0; i < n; ++i) out.push_back(at(s, amounts, (static_cast<float>(i) + 0.5f) / static_cast<float>(n)));
+        return out;
+    }
+    std::vector<Drawn> runs;
+    runs.reserve(s.layers.size());
+    for (const Palette& layer : s.layers) runs.push_back(drawn(layer));
+    for (int i = 0; i < n; ++i) {
+        out.push_back(stackAt(s, amounts, (static_cast<float>(i) + 0.5f) / static_cast<float>(n),
+                              [&](size_t layer, float u) { return drawnAt(runs[layer], s.layers[layer], u); }));
+    }
     return out;
 }
-
 bool isUnset(const Stack& s) { return s.layers.empty(); }
 
 Stack resolveDefault(const Stack& s, const Palette& styleDefault) {

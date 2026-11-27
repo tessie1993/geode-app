@@ -201,8 +201,14 @@ inline std::shared_ptr<const Stack> global() {
     return detail::globalStack();
 }
 
+// The stops a palette draws, sorted by position (a palette of one colour is the run its Single option names).
+struct Drawn {
+    std::vector<Stop> stops;
+    Space space = Space::Oklab;
+};
+
 // What a renderer uploads for the stack: kRampSize RGB8 texels, composed again only when the stack or an
-// amount one of its layers reads changed. GL-free.
+// amount one of its layers reads changed. GL-free; a changed amount rebuilds the texels without allocating.
 class Ramp {
 public:
     // False while there is no stack to draw: the look's old colour params draw.
@@ -213,6 +219,7 @@ public:
 
 private:
     std::shared_ptr<const Stack> stack_;
+    std::vector<Drawn> drawn_;
     Amounts amounts_{};
     std::vector<std::uint8_t> bytes_;
 };

@@ -54,7 +54,7 @@
     <string name="perf_level_medium">Medium</string>
     <string name="perf_level_high">High</string>
     <string name="perf_post_fx">Extra effects</string>
-    <string name="perf_post_fx_hint">Flow distortion, the touch smear and fluid bloom.</string>
+    <string name="perf_post_fx_hint">Trails on the shader styles, flow distortion, the touch smear and fluid bloom.</string>
     <string name="perf_export_note">Applies at once to the visualizer. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->

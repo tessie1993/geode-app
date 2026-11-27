@@ -724,9 +724,12 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // A shader style paints its whole frame, so its Trails cannot live in the scene target: they are
-    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
-    const bool trails = liveLiquid_ == liquid::Mode::Off && p.trails && scene->family() == SceneFamily::Shader &&
-                        scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_, false);
+    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention). Without
+    // Performance's extra effects the pass does not run: Trails are one of the optional passes.
+    const bool trails = liquid::shaderTrailsRun(liveLiquid_ == liquid::Mode::Off, p.trails,
+                                                scene->family() == SceneFamily::Shader, scene->trailRetention(p),
+                                                userPostFx_.load(std::memory_order_relaxed)) &&
+                        liquidPass_.ensure(renderWidth_, renderHeight_, false);
     if (!trails) trailsWereOn_ = false;
     if (trails || liveLiquid_ != liquid::Mode::Off) {
         feedbackIdleSeconds_ = 0.0f;

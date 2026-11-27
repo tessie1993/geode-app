@@ -4,6 +4,7 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 import dev.geode.billing.ForegroundActivityTracker
 import dev.geode.di.MemoryTrim
+import dev.geode.diag.ExitReasons
 import java.io.File
 import javax.inject.Inject
 
@@ -22,7 +23,7 @@ class GeodeApp : Application() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching {
-                File(filesDir, "crash-latest.txt").writeText(
+                File(filesDir, ExitReasons.CRASH_FILE).writeText(
                     "BeatRealms ${BuildConfig.VERSION_NAME}\n" +
                         "Thread: ${thread.name}\n\n" +
                         android.util.Log.getStackTraceString(throwable) +

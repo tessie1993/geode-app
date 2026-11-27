@@ -82,21 +82,22 @@ One fact per line. The design of the native host every live surface draws throug
 - A stage leaving the vsync thread goes on a list under a mutex, not through the queue, so the detach cannot be dropped and no callback re-posts for a stage that is gone.
 - The consumer is woken through a callback, only when the queue turns non-empty; the platform layer passes `ALooper_wake`.
 
-## Vsync (`core/stage/StagePacing`, `core/stage/VsyncRule`)
+## Vsync (`core/stage/StagePacing`, `core/stage/VsyncRule`, `core/stage/FramePacer`)
 
 - `AChoreographer_postVsyncCallback` (API 33) on the vsync thread's own choreographer, re-posted from each callback. It carries the frame timelines: the vsync's frame time and the expected presentation time, both `CLOCK_MONOTONIC`.
-- One frame per vsync callback: the stage draws on every vsync the system delivers. The user's frame rate is a hint to the platform (below), never a divisor of the vsyncs.
+- The frame clock (`FramePacer`, after Android's frame pacing guidance): the user's rate and the display's vsync period, read from each callback's frame timelines, give the swap interval, the fewest whole vsyncs that keep the drawn rate at or under the user's rate (60 on a 90 Hz panel is every second vsync, 45 fps), and the frame budget, interval times period. A frame is drawn on a vsync at least the interval after the last drawn one, by vsync time, so a vsync the stage was too busy to be asked for still counts. A mode change takes the next vsync: no measured rate, no settling. Follow device and an unknown period draw every vsync.
+- The frame is told the rate it is drawn at (`frameFps`, 1 / budget), and the stage thread reports each paced frame's whole work, draw and swap, against the budget to ADPF (`StagePort::frameWork`, `util/WorkHint`).
 - One fixed rule skips a vsync (`skipVsync`): the last frame is still in flight. On the vsync thread that is `Sink::stageBusy` (the stage thread has not finished the frame it was asked for, cleared by `StagePort::frameDone`); on the stage thread it is the GPU side: `EglWindow::swap` inserts an `EGL_KHR_fence_sync` fence after the draw and before the swap, and the next frame request polls it with `eglClientWaitSyncKHR` and a zero timeout (`StagePort::gpuBusy`). A skipped vsync is not queued or remembered; the next one asks again. A device without the extension has no fence and so no GPU-side skip.
 - The picture's clock is the frame's expected presentation time (the vsync's frame time when none is given), and the step is the real difference between two frames' clocks, unclamped. A run's first frame steps by 0: the stage asks the client to restart the clock when the vsync starts and before a frame no vsync asked for (`StageClient::restartClock`), so a resume never steps by the pause.
 - A callback re-posts first, so a skipped vsync still wakes the next one.
 - There is no NDK call to remove a posted callback, so stop only clears the running flag and the pending callback lapses on its next vsync.
 - A start while a callback is still pending posts nothing, so two starts never fire twice per vsync.
-- A drawn vsync hands the stage thread one last-wins frame request carrying the vsync's time, the offset to its expected presentation and the interval between presentations; requests coalesce like `requestRender` did. The rate handed to the frame is read from that interval.
+- A drawn vsync hands the stage thread one last-wins frame request carrying the vsync's time, the offset to its expected presentation and the interval between presentations; requests coalesce like `requestRender` did. The frame clock reads its period from that interval.
 
-## Frame-rate hint
+## Frame-rate vote
 
-- `ANativeWindow_setFrameRate` (API 30) with `ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT`: the NDK documents it as the change strategy only-if-seamless, the twin of the two-argument `Surface.setFrameRate`.
-- The rate is the surface's cap (`frameRateHint`): 0 for Follow device or no cap; 0 is the platform's no preference. Nothing lowers it for heat or load.
+- One rate for the whole app while the stage is up, voted the same way everywhere (developer.android.com/media/optimize/performance/frame-rate): the window asks for the display mode that shows the user's rate evenly (`preferredDisplayModeId`, the shell's `LiveFrameRateVote`) with no touch boost while a rate is set (API 35+), Compose votes it on the shell's content (`Modifier.preferredFrameRate`), and the stage's surface votes it with `ANativeWindow_setFrameRateWithChangeStrategy`, default compatibility, only-if-seamless.
+- The rate is the surface's cap (`frameRateHint`): 0 for Follow device or no cap; 0 is the platform's no preference, and Follow clears the window's mode and restores touch boost. Nothing lowers it for heat or load.
 - It is stated on every new window, every size change and every cap change, on the stage thread, which holds the window. A drawn frame states nothing.
 
 ## EGL
@@ -143,9 +144,9 @@ One fact per line. The design of the native host every live surface draws throug
 
 ## Files
 
-- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.hpp`, `core/stage/VsyncRule.hpp`, `core/stage/StageClient.hpp`, `core/stage/LiveClient.{hpp,cpp}`: pure, host-tested.
+- `core/stage/StageLifecycle.{hpp,cpp}`, `core/stage/StageCore.{hpp,cpp}`, `core/stage/CommandQueue.hpp`, `core/stage/StagePacing.hpp`, `core/stage/VsyncRule.hpp`, `core/stage/FramePacer.hpp`, `core/stage/StageClient.hpp`, `core/stage/LiveClient.{hpp,cpp}`: pure, host-tested.
 - `core/stage/android/EglWindow.{hpp,cpp}`, `core/stage/android/VsyncThread.{hpp,cpp}`, `core/stage/android/StageThread.{hpp,cpp}`: the platform layer, Android only, in no host-test line, and deciding nothing.
-- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`, `vsync_rule_test.cpp`, `live_client_test.cpp`.
+- Host tests: `stage_lifecycle_test.cpp`, `stage_core_test.cpp`, `command_queue_test.cpp`, `stage_pacing_test.cpp`, `vsync_rule_test.cpp`, `frame_pacer_test.cpp`, `live_client_test.cpp`.
 
 ## What cannot be host-tested
 
@@ -158,7 +159,7 @@ One fact per line. The design of the native host every live surface draws throug
 - Second screen (Presentation): a second stage on the external window, both pacing independently.
 - Wallpaper preview beside the home-screen wallpaper: two surface stages and the app view at once, one `GeodeVsync` thread.
 - Lock screen: the lock look, Stopped when covered, Still with the settle burst and then no frames.
-- 60, 90 and 120 Hz panels: every vsync draws, the cap is the window's hint (the panel mode follows it where it can switch seamlessly), and where the display keeps presenting at over 1.5 times the cap, `CapGuard` draws every whole divide that lands at or under it.
+- 60, 90 and 120 Hz panels: the window runs the mode that shows the rate evenly, and where the display presents faster anyway the frame clock draws every whole divide at or under the rate; the panel no longer moves between modes on a touch.
 - Screen off and on: vsync stops, the context survives, the first frame after is not a 600 s step.
 - Low-memory trim: `geode_memory_trim` still reaches the renderer while the stage is stopped, and spares trim on the way out.
 - Context loss (force with a GPU reset or a driver that drops contexts on sleep): surfaces rebuild and keep drawing.

@@ -6,7 +6,8 @@
 // quit), the window references (one release per hand-over, replaced, gone, discarded or closed), the hand-over's
 // acknowledgement only after the old surface is gone, a vsync's frame drawn only while the vsync runs and a frame
 // can be drawn, the frame-rate preference restated for a new window, a new size and a new cap and never by a
-// frame, a vsync skipped while the GPU has not finished the last frame (and drawn again the moment it has), the
+// frame, the frame clock's rate held whether or not the display follows the vote (stage/FramePacer), a vsync
+// skipped while the GPU has not finished the last frame (and drawn again the moment it has), the
 // presentation rate read from the vsync's interval, the client's service between frames, a lost context forgotten with none current, and a thread ending out of turn still
 // releasing the client once and freeing everything.
 #include <cstdint>
@@ -50,6 +51,7 @@ struct Port final : StagePort {
     bool surfaceAtAck = false;
     int frameDones = 0;
     std::vector<int64_t> presented;  // each swap's stamp, 0 for none
+    std::vector<int64_t> budgets;    // each paced frame's budget, as reported for ADPF
 
     Outcome createContext(bool& surfaceless) override {
         surfaceless = true;
@@ -92,6 +94,10 @@ struct Port final : StagePort {
     }
     void presentAt(int64_t presentNs) override { presented.push_back(presentNs); }
     void frameDone() override { frameDones++; }
+    void frameWork(int64_t budgetNs, int64_t actualNs) override {
+        static_cast<void>(actualNs);
+        budgets.push_back(budgetNs);
+    }
     Outcome swap() override {
         swaps++;
         const Outcome out = nextSwap;
@@ -300,7 +306,8 @@ void handOvers() {
 }
 
 void vsyncTimes() {
-    Rig r;
+    // Follow device: every vsync draws, whatever its interval, so each one's times can be read.
+    Rig r(Kind::View, -1.0f);
     r.show();
     // t = the vsync's frame time, b = ns from it to the expected presentation, a = ns between presentations.
     r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'000'000'000));
@@ -426,23 +433,24 @@ void aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame() {
     check(r.port.gpuAsks == asks, "a request that will not draw never asks the fence");
 }
 
-// Red against: a cap that depends on the platform honouring the hint (a display that keeps presenting at 120 Hz under a
-// 60 cap would draw 120), a guard that lowers a display that does follow the hint, and a skipped frame left unanswered.
-void aCapThePlatformIgnoredIsKeptByTheStage() {
+// Red against: a rate that depends on the display following the vote (a 90 Hz display under a 60 rate would draw 90,
+// the old rule's gap), a frame clock that lowers a display that does follow it, a passed-by request left unanswered,
+// and work reported against the display's period instead of the frame's budget.
+void theFrameClockHoldsTheUsersRate() {
     Rig r(Kind::View, 60.0f);
     r.show();
-    const int warm = CapGuard::kSustainFrames - 1;
-    for (int i = 0; i < warm; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
-    check(r.client->frames == warm, "until the rate has stayed over the cap, every vsync draws");
     const int dones = r.port.frameDones;
-    for (int i = 0; i < 120; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
-    check(r.client->frames == warm + 60, "then a 120 Hz display under a 60 cap draws every second vsync");
-    check(r.port.frameDones == dones + 120, "and each skipped request is still told done");
+    for (int i = 0; i < 90; ++i) r.send(command(kStageFrameDue, 11'111'111, 0, 0.0f, 0.0f, 1'000'000'000LL + i * 11'111'111LL));
+    check(r.client->frames == 45, "a 90 Hz display under a 60 rate draws every second vsync: 45, never 90");
+    check(near(r.client->paced, 45.0f) && near(r.core.frameFps(), 45.0f), "and each frame is told the rate it is drawn at");
+    check(r.port.frameDones == dones + 90, "each passed-by request is still told done");
+    check(r.port.budgets.size() == 45 && r.port.budgets.back() == 22'222'222, "each drawn frame's work is reported against two vsyncs");
 
     Rig honoured(Kind::View, 60.0f);
     honoured.show();
     for (int i = 0; i < 200; ++i) honoured.send(command(kStageFrameDue, 16'666'667, 0));
-    check(honoured.client->frames == 200, "a display that follows the hint draws every vsync");
+    check(honoured.client->frames == 200, "a display that follows the vote draws every vsync");
+    check(honoured.port.budgets.back() == 16'666'667, "against one vsync");
 
     Rig follow(Kind::View, -1.0f);
     follow.show();
@@ -462,7 +470,7 @@ void theRateHintFollowsTheCapNotTheFrames() {
     check(r.port.rate == 30.0f, "a new cap is stated");
     const int hints = r.port.rateCalls;
     for (int i = 0; i < 20; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
-    check(r.port.rateCalls == hints && r.client->frames == 20, "twenty frames at a faster display state nothing and are all drawn");
+    check(r.port.rateCalls == hints && r.client->frames == 5, "twenty vsyncs of a 120 Hz display state nothing and draw every fourth");
 }
 
 // Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the
@@ -509,7 +517,7 @@ int main() {
     serviceAndQuit();
     aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame();
     theRateHintFollowsTheCapNotTheFrames();
-    aCapThePlatformIgnoredIsKeptByTheStage();
+    theFrameClockHoldsTheUsersRate();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();
     if (failures) {

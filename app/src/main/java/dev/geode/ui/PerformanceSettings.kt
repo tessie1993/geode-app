@@ -1,5 +1,8 @@
 package dev.geode.ui
 
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -7,8 +10,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -139,15 +145,37 @@ private fun PerformanceDetailControls(
  */
 internal fun seamlessRefreshRates(view: View): FloatArray {
     val mode = view.display?.mode ?: return FloatArray(0)
-    return floatArrayOf(mode.refreshRate) + mode.alternativeRefreshRates
+    // Sorted: the set is the same from any mode in it, so a switch between them reads as no change.
+    return (floatArrayOf(mode.refreshRate) + mode.alternativeRefreshRates).apply { sort() }
 }
 
-/** [seamlessRefreshRates] of this window's display, read again when the configuration changes (a fold, a move). */
+/**
+ * [seamlessRefreshRates] of this window's display: read at start, again when the configuration changes (a fold, a
+ * move), and whenever the display says its modes changed (`DisplayManager.DisplayListener`).
+ */
 @Composable
 internal fun rememberSeamlessRefreshRates(): FloatArray {
     val view = LocalView.current
     val configuration = LocalConfiguration.current
-    return remember(view, configuration) { seamlessRefreshRates(view) }
+    var rates by remember(view, configuration) { mutableStateOf(seamlessRefreshRates(view)) }
+    DisposableEffect(view, configuration) {
+        val displays = view.context.getSystemService(DisplayManager::class.java)
+        val listener =
+            object : DisplayManager.DisplayListener {
+                override fun onDisplayAdded(displayId: Int) = Unit
+
+                override fun onDisplayRemoved(displayId: Int) = Unit
+
+                override fun onDisplayChanged(displayId: Int) {
+                    if (displayId != view.display?.displayId) return
+                    val now = seamlessRefreshRates(view)
+                    if (!now.contentEquals(rates)) rates = now
+                }
+            }
+        displays?.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
+        onDispose { displays?.unregisterDisplayListener(listener) }
+    }
+    return rates
 }
 
 /** The live caps Settings › Performance offers on a display with [refreshRates], ascending, then Follow device (native). */

@@ -318,6 +318,12 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
     VisualizerEngineBindings(viewModel, visualizerView)
+    // One frame rate for the whole app while the stage is up: the window asks for the display mode that shows the
+    // user's rate evenly, Compose votes it below, and the stage's surface and frame clock keep it (LiveFrameRate).
+    val performance by context.geodeContainer.performance.settings
+        .collectAsStateWithLifecycle()
+    val liveRate = rememberLiveFrameRate(performance.fpsCap)
+    LiveFrameRateVote(liveRate)
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues.
     // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
@@ -394,7 +400,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             // The tab fades toward Player as a back gesture travels (rememberBackToPlayer); the banner
             // stays lit, since it belongs to playback, not to the tab.
             if (!inPip) PlaybackNoticeBanner(viewModel)
-            Box(Modifier.graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer() }) {
+            Box(Modifier.liveFrameRate(liveRate).graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer() }) {
                 destinationState.SaveableStateProvider(appState.dest.name) {
                     when (appState.dest) {
                         GeodeDestination.PLAYER ->

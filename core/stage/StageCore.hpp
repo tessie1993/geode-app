@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "stage/CommandQueue.hpp"
+#include "stage/FramePacer.hpp"
 #include "stage/StageClient.hpp"
 #include "stage/StageLifecycle.hpp"
 #include "stage/VsyncRule.hpp"
@@ -59,6 +60,12 @@ public:
     // The frame the vsync asked for is finished (drawn, or dropped unseen): the vsync thread may ask for the next at its
     // first vsync from now. Called once per kStageFrameDue taken, after the swap.
     virtual void frameDone() {}
+    // One vsync frame's whole work on the stage thread, the client's draw and the swap, took `actualNs` of the
+    // `budgetNs` the frame clock gave it (ADPF's target and actual work duration). Only frames a vsync asked for.
+    virtual void frameWork(int64_t budgetNs, int64_t actualNs) {
+        static_cast<void>(budgetNs);
+        static_cast<void>(actualNs);
+    }
 };
 
 class StageCore {
@@ -88,6 +95,8 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     // The rate the display last presented at, from the vsync's own intervals; 0 until one says.
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
+    // The rate frames are drawn at, the frame clock's (stage/FramePacer); 0 until a vsync says the display's period.
+    float frameFps() const { return frameFps_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
     bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
@@ -102,11 +111,12 @@ private:
     StagePort& port_;
     void* window_ = nullptr;
     float cap_;
-    // The user's cap kept when the platform ignores the frame-rate hint (stage/VsyncRule).
-    CapGuard capGuard_;
+    // The frame clock: which vsyncs draw, and the budget each frame has (stage/FramePacer).
+    FramePacer pacer_;
     bool frameDue_ = false;
     float dueFps_ = 0.0f;
     int64_t dueFrameNs_ = 0;
+    int64_t duePeriodNs_ = 0;
     int64_t duePresentNs_ = 0;
     int64_t dueStampNs_ = 0;
     bool serviceDue_ = false;
@@ -116,6 +126,7 @@ private:
 
     std::atomic<uint32_t> state_{0};
     std::atomic<float> paced_;
+    std::atomic<float> frameFps_{0.0f};
     std::atomic<uint32_t> events_{0};
 };
 

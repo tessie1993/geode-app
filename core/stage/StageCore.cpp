@@ -1,6 +1,7 @@
 #include "stage/StageCore.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <utility>
 
 #include "stage/VsyncRule.hpp"
@@ -16,7 +17,9 @@ constexpr int kMaxActions = 64;
 }  // namespace
 
 StageCore::StageCore(Kind kind, std::shared_ptr<StageClient> client, float capFps, StagePort& port)
-    : lifecycle_(kind), client_(std::move(client)), port_(port), cap_(capFps), paced_(0.0f) {}
+    : lifecycle_(kind), client_(std::move(client)), port_(port), cap_(capFps), paced_(0.0f) {
+    pacer_.setTarget(frameRateHint(cap_));
+}
 
 void StageCore::apply(const Command& command, int64_t nowMs) {
     switch (command.kind) {
@@ -49,11 +52,13 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
         case kStageRedraw: lifecycle_.redrawNeeded(); break;
         case kStageCap:
             cap_ = command.f;
+            pacer_.setTarget(frameRateHint(cap_));
             restateRate();
             break;
         case kStageFrameDue:
             frameDue_ = true;
             dueFps_ = presentRateFps(command.a);
+            duePeriodNs_ = command.a;
             dueFrameNs_ = command.t;
             duePresentNs_ = command.b > 0 ? command.t + command.b : 0;
             dueStampNs_ = viz::frame::latchStampNs(duePresentNs_, command.a);
@@ -77,12 +82,22 @@ void StageCore::step(int64_t nowMs) {
     }
     if (frameDue_) {
         frameDue_ = false;
-        // A request already in flight when the vsync stopped is dropped here, and so is one whose predecessor the GPU
-        // has not finished, or that the user's cap leaves out where the platform ignored its hint (stage/VsyncRule).
-        if (lifecycle_.vsyncOn() && lifecycle_.canDraw() && !skipVsync(false, port_.gpuBusy()) &&
-            capGuard_.draws(dueFps_, cap_)) {
-            draw(dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
-            runActions();
+        // A request already in flight when the vsync stopped is dropped here, and so is one the frame clock does not
+        // draw on (stage/FramePacer), and one whose predecessor the GPU has not finished (stage/VsyncRule): that one
+        // stays due, so the next vsync draws it.
+        if (lifecycle_.vsyncOn() && lifecycle_.canDraw()) {
+            if (!pacer_.due(dueFrameNs_, duePeriodNs_)) {
+                pacer_.passed();
+            } else if (!skipVsync(false, port_.gpuBusy())) {
+                pacer_.drawn(dueFrameNs_);
+                const float frameFps = pacer_.frameFps();
+                frameFps_.store(frameFps, std::memory_order_relaxed);
+                const auto start = std::chrono::steady_clock::now();
+                draw(frameFps > 0.0f ? frameFps : dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
+                port_.frameWork(pacer_.budgetNs(),
+                                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count());
+                runActions();
+            }
         }
         port_.frameDone();
     }
@@ -102,7 +117,8 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The window is asked for the user's rate, as a hint; what is drawn does not depend on the answer (stage/VsyncRule).
+// The window is asked for the user's rate (one vote, restated only for a new surface, size or rate); the frame clock
+// keeps the rate whether or not the display follows it (stage/FramePacer).
 void StageCore::restateRate() {
     if (window_) port_.setFrameRate(window_, frameRateHint(cap_));
 }

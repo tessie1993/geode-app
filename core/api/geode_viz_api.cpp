@@ -493,13 +493,17 @@ const char* geode_transition_picker(AAssetManager* assets) {
 int geode_live_fps_choices(const float* rates, int count, int* out, int capacity) {
     static_assert(geode::viz::frame::kLiveFpsDefault == GEODE_LIVE_FPS_DEFAULT);
     static_assert(geode::viz::frame::kLiveFpsFollow == GEODE_LIVE_FPS_FOLLOW);
-    // Every rung, then Follow device.
-    static_assert(static_cast<int>(geode::viz::frame::kLiveFpsRungs.size()) + 1 == GEODE_LIVE_FPS_MAX_CHOICES);
+    // Every rate, then Follow device.
+    static_assert(geode::viz::frame::kLiveFpsMaxRates + 1 == GEODE_LIVE_FPS_MAX_CHOICES);
     return geode::viz::frame::liveFpsChoices(rates, std::max(count, 0), out, std::max(capacity, 0));
 }
 
 int geode_live_fps_cap(int stored_fps, const float* rates, int count) {
     return geode::viz::frame::liveFpsCap(stored_fps, rates, std::max(count, 0));
+}
+
+float geode_live_fps_refresh(int fps, const float* rates, int count) {
+    return geode::viz::frame::refreshRateFor(fps, rates, std::max(count, 0));
 }
 
 void geode_memory_trim(int android_level) {

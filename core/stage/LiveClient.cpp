@@ -26,15 +26,7 @@ void LiveClient::framePresent(int64_t presentNs) {
 
 uint32_t LiveClient::frame(float pacedFps, float capFps) {
     if (!viz_) return 0;
-    // ADPF: this frame's work against the paced frame's length, reported on the way out by whichever return.
-    struct Reported {
-        util::WorkHint& hint;
-        int64_t target;
-        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        ~Reported() {
-            hint.report(target, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count());
-        }
-    } reported{workHint_, util::WorkHint::targetNs(pacedFps)};
+    // ADPF is the stage thread's: the whole frame, draw and swap, against the frame clock's budget (StagePort::frameWork).
     runJobs(true);
     uint32_t events = 0;
     {

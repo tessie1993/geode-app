@@ -14,6 +14,7 @@
 #include "stage/android/EglWindow.hpp"
 #include "stage/android/Inbox.hpp"
 #include "stage/android/VsyncThread.hpp"
+#include "util/WorkHint.hpp"
 
 // One surface's stage thread (docs/agents/native-stage.md): an ALooper thread that owns the EGL context and window
 // surface and carries out what core/stage/StageCore asks for through its port. It decides nothing itself: what a
@@ -86,11 +87,13 @@ private:
     void frameDone() override;
     void presentAt(int64_t stampNs) override;
     void windowApplied(int64_t sequence) override;
+    void frameWork(int64_t budgetNs, int64_t actualNs) override;
 
     std::shared_ptr<Inbox> inbox_;
     EglWindow egl_;                      // stage thread only
     VsyncThread::Sink* sink_ = nullptr;  // stage thread only
     StageCore core_;
+    util::WorkHint workHint_;  // stage thread only: ADPF for the frames the frame clock paces
 
     // Readable while frame events wait; written by the stage thread after a step, drained by takeEvents. -1: none.
     int eventFd_ = -1;

@@ -302,8 +302,10 @@ work_hint_test | core | core/tests/work_hint_test.cpp |
 command_queue_test | mt | core/tests/command_queue_test.cpp |
 # The stage's vsync callback on the vsync thread: start and stop, one callback posted, a lapse once stopped.
 stage_pacing_test | core | core/tests/stage_pacing_test.cpp |
-# The stage's vsync rule: draw every vsync unless the last frame is in flight (CPU or GPU fence), no memory, the frame-rate hint for the window, the presentation rate from its interval.
+# The stage's vsync rule: skip a vsync while the last frame is in flight (CPU or GPU fence), the frame-rate hint for the window, the presentation rate from its interval.
 vsync_rule_test | core | core/tests/vsync_rule_test.cpp |
+# The live stage's frame clock: the swap interval from the display period and the user's rate, the budget, frames by vsync time.
+frame_pacer_test | core | core/tests/frame_pacer_test.cpp |
 # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
 renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |
 # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.

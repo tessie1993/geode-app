@@ -84,7 +84,7 @@ std::vector<float> lockedWave(int fps) {
     for (int i = 0; i < fps * 12 / 10; ++i) {
         GeodeSoundFrame sound{};
         const bool locked = i + 1 > fps / 10;
-        sound.bpm = locked ? 120.0f : 0.0f;
+        if (locked) sound.bpm = 93.0f;
         sound.beatConf = locked ? 1.0f : 0.0f;
         sound.beatCount = 0.0f;
         sound.beatPhase = 0.6f;

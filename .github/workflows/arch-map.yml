@@ -62,7 +62,7 @@ jobs:
         run: |
           set -u
           t=$(mktemp -d)
-          mkdir -p "$t/core/sound" "$t/core/viz" "$t/core/tests" "$t/app/src/main/java" "$t/app/src/androidTest" "$t/notes" "$t/tools/glslcheck"
+          mkdir -p "$t/core/sound" "$t/core/viz" "$t/core/tests" "$t/app/src/main/java" "$t/app/src/androidTest" "$t/docs" "$t/tools/glslcheck"
           echo 'float period_ = 0.0f;  // 0 = none yet' > "$t/core/sound/Rhythm.hpp"
           echo 'static constexpr float kFastestBpm = 300.0f;' >> "$t/core/sound/Rhythm.hpp"
           echo 'const double bpm = 93.0;' > "$t/core/tests/musical_test.cpp"
@@ -83,9 +83,9 @@ jobs:
           plant core/sound/Bias.cpp 'const float preferredBpm = 100.0f;'
           plant core/viz/Bias.hpp '    float lastBpm_ = 120.0f;'
           plant app/src/main/java/Bias.kt '        const val LEGACY_MORPH_BPM = 120f'
-          plant notes/bias.md 'Weight the tempogram with a log-Gaussian prior centred on 120 BPM.'
-          plant notes/bias.md 'With no estimate, fall back to 120 BPM.'
-          plant notes/bias.md 'tempo = librosa.feature.tempo(onset_envelope=env, start_bpm=120)'
+          plant docs/bias.md 'Weight the tempogram with a log-Gaussian prior centred on 120 BPM.'
+          plant docs/bias.md 'With no estimate, fall back to 120 BPM.'
+          plant docs/bias.md 'tempo = librosa.feature.tempo(onset_envelope=env, start_bpm=120)'
           plant core/tests/Bias.cpp 'const double bpm = 120.0;'
           plant core/tests/Bias.cpp '// A steady groove at 120 BPM.'
           plant core/tests/Bias.cpp 'f.beatPhase = std::fmod(t * 120.0 / 60.0, 1.0);'
@@ -102,7 +102,7 @@ jobs:
           plant app/src/main/java/Bias.kt '        val bpm = maxOf(60f, state.bpm)'
           plant core/sound/Bias.cpp 'const float b = bpm_ > 0.0f ? bpm_ : 100.0f;'
           plant core/sound/Bias.cpp 'const float b = bpm_ <= 0.0f ? 100.0f : bpm_;'
-          plant notes/bias.sh 'bpm="${BPM:-93}"'
+          plant docs/bias.sh 'bpm="${BPM:-93}"'
           plant app/src/main/java/Bias.java '    float lastBpm = 93f;'
           plant app/src/main/java/bias.xml '    <integer name="default_bpm">93</integer>'
           echo "no-BPM-bias gate self-test passed"

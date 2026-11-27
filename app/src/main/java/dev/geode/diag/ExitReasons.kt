@@ -9,6 +9,7 @@ import androidx.annotation.WorkerThread
 import dev.geode.BuildConfig
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
+import dev.geode.engine.bridge.VizNative
 import java.io.File
 import java.io.InputStream
 import java.time.Instant
@@ -42,6 +43,13 @@ enum class ExitKind(
 
 internal const val EXIT_PREFIX = "Exit: "
 private const val HEADER_LINES = 4
+
+/** One exit record as the style quarantine reads it: a `VizNative.DEATH_*` [verdict]. */
+class StyleDeath(
+    val pid: Int,
+    val timestamp: Long,
+    val verdict: Int,
+)
 
 /** What [ExitReasons] reads from an [ApplicationExitInfo]; the trace is read only for a crash or an ANR. */
 class LastExit(
@@ -194,6 +202,11 @@ class ExitReasons(
         private val KILLS = setOf(ExitKind.LOW_MEMORY, ExitKind.SYSTEM_KILL)
         private const val ANR_LINES = 40
 
+        /** Exit records the style quarantine reads: a leftover sentinel's own process is usually the newest. */
+        private const val STYLE_DEATHS = 5
+        private const val STAGE_FRAMES = 12
+        private val STAGE_CALL = Regex("""^at dev\.geode\.(?:stage\.|viz\.|engine\.bridge\.(?:Stage|Viz|Cast)Native\.)""")
+
         /** A driver that crashes usually does so a few frames below its own entry, under libc's abort at most. */
         private const val DRIVER_FRAMES = 8
 
@@ -217,6 +230,54 @@ class ExitReasons(
             context.getSystemService(ActivityManager::class.java)?.setProcessStateSummary(versionSummary())
         }
 
+        /**
+         * Tells native's style quarantine (core/viz/gl/StyleQuarantine) how the app's recent processes died. Once per
+         * process, from its start on IO; until then native keeps every leftover sentinel as it was.
+         */
+        @WorkerThread
+        fun tellStyleQuarantine(context: Context) {
+            val am = context.getSystemService(ActivityManager::class.java) ?: return
+            val deaths =
+                am.getHistoricalProcessExitReasons(context.packageName, 0, STYLE_DEATHS).map { styleDeath(lastExitOf(it)) }
+            VizNative.styleQuarantineDeaths(
+                IntArray(deaths.size) { deaths[it].pid },
+                LongArray(deaths.size) { deaths[it].timestamp },
+                IntArray(deaths.size) { deaths[it].verdict },
+            )
+        }
+
+        /**
+         * A crash in the graphics driver, or an ANR whose main thread waits on the stage, may be a style's doing;
+         * anything else is not. Unknown while a crash's tombstone or an ANR's trace cannot be read yet.
+         */
+        internal fun styleDeath(exit: LastExit): StyleDeath {
+            val verdict =
+                when (exit.reason) {
+                    ApplicationExitInfo.REASON_CRASH_NATIVE ->
+                        runCatching { exit.trace()?.use(Tombstone::parse) }.getOrNull()?.let {
+                            if (kindOf(exit.reason, exit.importance, it.frames) == ExitKind.DRIVER_CRASH) {
+                                VizNative.DEATH_CRASH
+                            } else {
+                                VizNative.DEATH_OTHER
+                            }
+                        }
+                    ApplicationExitInfo.REASON_ANR ->
+                        runCatching { exit.trace()?.use { mainThreadOf(it.readCapped(TRACE_MAX_BYTES)) } }.getOrNull()?.let {
+                            if (waitsOnStage(it)) VizNative.DEATH_CRASH else VizNative.DEATH_OTHER
+                        }
+                    else -> VizNative.DEATH_OTHER
+                }
+            return StyleDeath(exit.pid, exit.timestamp, verdict ?: VizNative.DEATH_UNKNOWN)
+        }
+
+        /** The ANR's main thread, near its top, inside the stage or a renderer's native call. */
+        internal fun waitsOnStage(mainThread: List<String>): Boolean =
+            mainThread
+                .map { it.trim() }
+                .filter { it.startsWith("at ") }
+                .take(STAGE_FRAMES)
+                .any { STAGE_CALL.containsMatchIn(it) }
+
         /** The newest exit of this app's process, as Android recorded it. */
         private fun exitOf(
             context: Context,
@@ -224,7 +285,11 @@ class ExitReasons(
         ): LastExit? {
             val am = context.getSystemService(ActivityManager::class.java) ?: return null
             val info = am.getHistoricalProcessExitReasons(context.packageName, pid, 1).firstOrNull() ?: return null
-            return LastExit(
+            return lastExitOf(info)
+        }
+
+        private fun lastExitOf(info: ApplicationExitInfo): LastExit =
+            LastExit(
                 info.timestamp,
                 info.pid,
                 info.reason,
@@ -233,7 +298,6 @@ class ExitReasons(
                 info.description,
                 info.processStateSummary,
             ) { info.traceInputStream }
-        }
 
         /**
          * Null for an exit that needs no report: the uncaught-exception handler already wrote a JVM crash, the user

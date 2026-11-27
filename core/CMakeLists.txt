@@ -302,6 +302,10 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib/toolkit
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
+# The app build keys the style quarantine (viz/gl/StyleQuarantine); only Renderer.cpp rebuilds when it changes.
+if(DEFINED GEODE_APP_BUILD)
+    set_source_files_properties(viz/Renderer.cpp PROPERTIES COMPILE_DEFINITIONS "GEODE_APP_BUILD=\"${GEODE_APP_BUILD}\"")
+endif()
 # nativewindow: AHardwareBuffer, the GPU buffers Cast's tee hands the stage's picture over in (viz/frame/CastTee).
 # mediandk: AMediaCodec and AMediaMuxer, Record's encoders and file (output/android/MediaCodecSink), and
 # AMediaExtractor, an export's track decode (audio/ingest/android/TrackDecoder.cpp).

@@ -8,7 +8,7 @@
 // first lines of the driver's log, short enough to read off a phone. Pure; viz_math_test pins it.
 namespace geode::viz::build_report {
 
-enum class Stage { Asset, Compile, Link, Stall };
+enum class Stage { Asset, Compile, Link, Stall, Crash };
 
 constexpr int kMaxLines = 4;
 constexpr std::size_t kMaxLineChars = 160;
@@ -19,6 +19,7 @@ inline const char* name(Stage stage) {
         case Stage::Compile: return "compile";
         case Stage::Link: return "link";
         case Stage::Stall: return "stall";
+        case Stage::Crash: return "driver crash";
     }
     return "compile";
 }
@@ -56,6 +57,8 @@ inline std::string text(const std::string& id, Stage stage, const std::string& l
     const std::string lines = firstLines(log);
     if (stage == Stage::Stall) {
         out += "\nits shaders did not finish compiling";
+    } else if (stage == Stage::Crash) {
+        out += "\nit crashed this phone's graphics driver twice, so it is off until the driver or the app is updated";
     } else if (lines.empty()) {
         out += "\nthe driver gave no message";
     }

@@ -3,6 +3,7 @@ package dev.geode.diag
 import android.app.ActivityManager.RunningAppProcessInfo
 import android.app.ApplicationExitInfo
 import dev.geode.BuildConfig
+import dev.geode.engine.bridge.VizNative
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -238,6 +239,57 @@ class ExitReasonsTest {
             "/vendor/lib64/libadreno_utils.so",
             "/vendor/lib64/egl/libq3dtools_adreno.so",
         ).forEach { assertEquals(it, ExitKind.DRIVER_CRASH, kind(it)) }
+    }
+
+    @Test
+    fun `only a driver crash or an ANR waiting on the stage strikes a style`() {
+        fun verdict(
+            reason: Int,
+            trace: ByteArray? = null,
+        ): Int {
+            exit(reason, trace = trace, timestamp = 7_000L, pid = 42)
+            val death = ExitReasons.styleDeath(last!!)
+            assertEquals(42, death.pid)
+            assertEquals(7_000L, death.timestamp)
+            return death.verdict
+        }
+        assertEquals(VizNative.DEATH_CRASH, verdict(ApplicationExitInfo.REASON_CRASH_NATIVE, tombstone(DRIVER_FRAMES)))
+        val engineCrash = verdict(ApplicationExitInfo.REASON_CRASH_NATIVE, tombstone(ENGINE_FRAMES))
+        assertEquals("a native crash outside the driver", VizNative.DEATH_OTHER, engineCrash)
+        assertEquals("no tombstone yet", VizNative.DEATH_UNKNOWN, verdict(ApplicationExitInfo.REASON_CRASH_NATIVE))
+
+        fun anr(top: String) =
+            verdict(
+                ApplicationExitInfo.REASON_ANR,
+                (
+                    "\"main\" prio=5 tid=1 Waiting\n  native: #00 pc 000 /apex/libc.so (syscall+28)\n  at $top\n" +
+                        "  at android.os.Handler.dispatchMessage(Handler.java:99)\n\n"
+                ).toByteArray(),
+            )
+        assertEquals(VizNative.DEATH_CRASH, anr("dev.geode.engine.bridge.StageNative.stageSurfaceDestroyed(Native method)"))
+        assertEquals(VizNative.DEATH_CRASH, anr("dev.geode.stage.Stage.pause(Stage.kt:120)"))
+        assertEquals("an ANR elsewhere", VizNative.DEATH_OTHER, anr("dev.geode.library.Scan.walk(Scan.kt:9)"))
+        assertEquals("no ANR trace", VizNative.DEATH_UNKNOWN, verdict(ApplicationExitInfo.REASON_ANR))
+        listOf(
+            ApplicationExitInfo.REASON_CRASH,
+            ApplicationExitInfo.REASON_SIGNALED,
+            ApplicationExitInfo.REASON_LOW_MEMORY,
+            ApplicationExitInfo.REASON_USER_REQUESTED,
+            ApplicationExitInfo.REASON_USER_STOPPED,
+            ApplicationExitInfo.REASON_OTHER,
+            ApplicationExitInfo.REASON_FREEZER,
+            ApplicationExitInfo.REASON_EXIT_SELF,
+        ).forEach { assertEquals("reason $it", VizNative.DEATH_OTHER, verdict(it)) }
+    }
+
+    @Test
+    fun `a stage call deep in the ANR's main thread is not what it waits on`() {
+        val deep =
+            List(20) { "at android.view.Choreographer.doFrame(Choreographer.java:$it)" } +
+                "at dev.geode.stage.Stage.pause(Stage.kt:1)"
+        assertFalse(ExitReasons.waitsOnStage(deep))
+        assertTrue(ExitReasons.waitsOnStage(listOf("  at dev.geode.viz.NativeViz.destroy(NativeViz.kt:3)")))
+        assertFalse(ExitReasons.waitsOnStage(listOf("  at dev.geode.vizzy.Other.run(Other.kt:3)")))
     }
 
     @Test

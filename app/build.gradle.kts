@@ -52,7 +52,8 @@ android {
         }
         externalNativeBuild {
             cmake {
-                arguments += listOf("-DANDROID_STL=c++_shared")
+                // Keys the native style quarantine (core/viz/gl/StyleQuarantine): an update retries what crashed.
+                arguments += listOf("-DANDROID_STL=c++_shared", "-DGEODE_APP_BUILD=$versionName+$versionCode")
             }
         }
 

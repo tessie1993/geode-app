@@ -449,6 +449,22 @@ Java_dev_geode_engine_bridge_DirectorNative_shaderOverrideSet(JNIEnv* env, jobje
     geode_shader_override_set(id.get(), source.get());
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_VizNative_styleQuarantineDeaths(JNIEnv* env, jobject, jintArray pids, jlongArray timesMs,
+                                                             jintArray verdicts) {
+    if (!pids || !timesMs || !verdicts) return;
+    const jsize count = env->GetArrayLength(pids);
+    if (env->GetArrayLength(timesMs) != count || env->GetArrayLength(verdicts) != count) return;
+    std::vector<jint> p(static_cast<size_t>(count));
+    std::vector<jlong> t(static_cast<size_t>(count));
+    std::vector<jint> v(static_cast<size_t>(count));
+    env->GetIntArrayRegion(pids, 0, count, p.data());
+    env->GetLongArrayRegion(timesMs, 0, count, t.data());
+    env->GetIntArrayRegion(verdicts, 0, count, v.data());
+    std::vector<int64_t> times(t.begin(), t.end());
+    geode_style_quarantine_deaths(p.data(), times.data(), v.data(), static_cast<int>(count));
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_shaderOverride(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars id(env, styleId);

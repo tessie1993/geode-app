@@ -266,4 +266,19 @@ object VizNative {
     external fun underlayBlendName(blend: Int): String
 
     external fun underlayBlendOf(name: String?): Int
+
+    /** Mirrors GEODE_DEATH_*: a verdict on one exit record, for the style quarantine. */
+    const val DEATH_UNKNOWN = 0
+    const val DEATH_OTHER = 1
+    const val DEATH_CRASH = 2
+
+    /**
+     * How recent processes died, once per process (core/viz/gl/StyleQuarantine): per record its pid, time (ms since
+     * the epoch) and a `DEATH_*` verdict. Only [DEATH_CRASH] strikes; [DEATH_UNKNOWN] keeps the evidence.
+     */
+    external fun styleQuarantineDeaths(
+        pids: IntArray,
+        timesMs: LongArray,
+        verdicts: IntArray,
+    )
 }

@@ -55,6 +55,7 @@
 #include "viz/modulation/Reactions.hpp"
 #include "viz/styles/shared/Scene.hpp"
 #include "viz/gl/ScenePrep.hpp"
+#include "viz/gl/StyleQuarantine.hpp"
 #include "viz/styles/catalogue/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/styles/catalogue/StyleSchedule.hpp"
@@ -242,6 +243,8 @@ public:
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
     // is only read by a frame and none follows. GL thread, with the context current.
     void trimSpares() { trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, false)); }
+    // The same pause, with or without a context: a kill while nothing draws is not a style's crash.
+    void pauseQuarantine() { quarantine_.pause(); }
     const GlProfile& profile() const { return profile_; }
 
 private:
@@ -348,6 +351,8 @@ private:
     void fail(const std::string& message);
     // Re-applies the process-wide shader overrides (viz/glsl/ShaderOverrides) to resident scenes when they change.
     void syncShaderOverrides();
+    void openQuarantine();
+    void applyQuarantine();
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -358,6 +363,8 @@ private:
     // Staged scene builds (live renderers only): the programs being compiled for prep_'s target.
     ProgramStager stager_{&programCache_};
     ScenePrep prep_;
+    // Styles that crashed this driver while building or first drawing (opened at the first surface).
+    StyleQuarantine quarantine_;
     std::atomic<bool> blockingBuilds_{false};
     // While a staged attempt runs, scene errors wait here: a deferred attempt's errors are about
     // placeholders and are dropped; a whole one's are reported as an inline build would have.

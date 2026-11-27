@@ -137,6 +137,14 @@ GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved,
 GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
 /* The style's override; returns its full length, 0 when it draws the built-in style. */
 GEODE_API size_t      geode_shader_override(const char* style_id, char* out, size_t capacity);
+/* How the app's recent processes died, from Android's exit records, for the style quarantine
+ * (core/viz/gl/StyleQuarantine): per record its pid, its time (ms since the epoch) and a GEODE_DEATH_* verdict.
+ * Crash is a crash in the graphics driver or an ANR waiting on the stage; Unknown (a tombstone not written yet)
+ * keeps the evidence for a later process. Process-wide, once; until it comes no leftover is struck or cleared. */
+#define GEODE_DEATH_UNKNOWN 0
+#define GEODE_DEATH_OTHER 1
+#define GEODE_DEATH_CRASH 2
+GEODE_API void        geode_style_quarantine_deaths(const int* pids, const int64_t* times_ms, const int* verdicts, int count);
 /* Customize › Music, "the hand wins per moment" (core/viz Reactions.hpp hand::, ReactionDna.hpp). The hand mask
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the

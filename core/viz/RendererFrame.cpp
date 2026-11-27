@@ -28,6 +28,9 @@ namespace geode::viz {
 namespace {
 // Endless zoom fades in and out over this long when it is switched, on the wall clock.
 constexpr float kDiveFadeSeconds = 0.6f;
+const std::string kNoScene;
+// Free for everyone (FreeTier.FIRST_STYLE_ID), so a stand-in never lands on a locked style.
+const std::string kStandInScene = kFirstSceneId;
 // Liquid mode's hand and sound on the flow (clip units per second into FlowField's kicks), and the
 // radius of each kind of kick: a drag moves the liquid about as fast as the finger.
 constexpr float kLiquidPush = 1.0f;
@@ -209,6 +212,11 @@ Scene* Renderer::resolveActiveScene() {
         } else if (prep_.reported(lastError())) {
             fail("");
         }
+    }
+    // A style turned off for crashing this driver draws a stand-in, every frame it stays requested: the style on
+    // screen, else the app's free first style. An export says the style is off (above) and draws no other.
+    if (!offscreen_.load(std::memory_order_relaxed)) {
+        requestedId = prep_.stageFor(requestedId, activeScene_ ? activeScene_->id() : kNoScene, kStandInScene);
     }
     // Live, a scene not built yet comes back null for a few frames while it is staged; the frame
     // keeps drawing activeScene_ (or a clear when there is none) until it is whole.
@@ -490,6 +498,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         updateScene(*layerScene_, sceneSound(p), dt);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(static_cast<float>(timeSeconds_));
+        quarantine_.drew(layerScene_->id());
     }
     if (outgoingScene_) {
         progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / switchTransitionMs_), 0.0f, 1.0f);
@@ -504,6 +513,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             updateScene(*outgoingScene_, sceneSound(op), dt);
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(static_cast<float>(timeSeconds_));
+            quarantine_.drew(outgoingScene_->id());
         }
     }
     return progress;
@@ -547,6 +557,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(static_cast<float>(timeSeconds_));
+    quarantine_.drew(scene.id());
 }
 
 void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex) {
@@ -660,6 +671,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     repeated_ = false;
+    if (quarantine_.frame(prep_.target(), monotonicSeconds())) applyQuarantine();
     const float wallDt = beginFrame(timeSeconds);
     // The picture's step drives the responder, the waves and the sound; the simulations step by it through the
     // scene clock's scale (never backwards).
@@ -967,7 +979,9 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     if (bornSceneId_.empty()) {
         std::vector<std::string> pool;
         for (const std::string& id : catalogue::allIds()) {
-            if (id != scene.id() && catalogue::isShaderStyle(id) && !catalogue::isMarched(id) && registry_.knows(id)) pool.push_back(id);
+            if (id != scene.id() && catalogue::isShaderStyle(id) && !catalogue::isMarched(id) && registry_.knows(id) && !prep_.failed(id)) {
+                pool.push_back(id);
+            }
         }
         if (pool.empty()) return sceneShown_;
         bornSceneId_ = pool[static_cast<size_t>(bornClock_.rollSeed() % pool.size())];
@@ -985,6 +999,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     updateScene(*next, sceneSound(p), dt);
     const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
     next->draw(static_cast<float>(timeSeconds_));
+    quarantine_.drew(next->id());
     return bornFbo_.tex();
 }
 

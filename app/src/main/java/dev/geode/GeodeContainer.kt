@@ -66,11 +66,12 @@ class GeodeContainer(
     /**
      * The last process death a JVM handler cannot see (native or driver crash, ANR, a kill while in use), written
      * to the crash file once ([ExitReasons]). Started with the process so the wallpaper or dream reports too; the
-     * crash dialog awaits it before it reads the file.
+     * crash dialog awaits it before it reads the file. The style quarantine hears of every recent death here too.
      */
     val lastExit: Deferred<ExitKind?> =
         appScope.async(Dispatchers.IO) {
             bestEffort(TAG, "stamp the version on this process") { ExitReasons.stampVersion(context) }
+            bestEffort(TAG, "tell the style quarantine how recent processes died") { ExitReasons.tellStyleQuarantine(context) }
             runCatching { ExitReasons(context.applicationContext).record() }
                 .onFailure { RingLog.note(TAG, "last exit reason unreadable", it) }
                 .getOrNull()

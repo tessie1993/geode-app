@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <ctime>
 #include <utility>
 
 #include "output/PreRoll.hpp"
@@ -30,6 +31,10 @@ constexpr int kOwnRingMs = 1000;
 constexpr int kOwnRingFrames = sound::budget::ringFrames(kOwnRingMs, sound::budget::kCaptureRateHz);
 static_assert(kOwnRingFrames == 1 << 16, "a renderer's own ring changed size");
 constexpr int kOwnRingRunway = 1 << 14;
+// The app build, from app/build.gradle.kts: an update gets a fresh quarantine (its shaders may be fixed).
+#ifndef GEODE_APP_BUILD
+#define GEODE_APP_BUILD "dev"
+#endif
 }  // namespace
 
 Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
@@ -383,6 +388,12 @@ void Renderer::syncShaderOverrides() {
     // An edited source may build where the last one failed.
     prep_.forgive();
     const auto overrides = shader_overrides::snapshot();
+    std::vector<std::string> overridden;
+    for (const auto& entry : overrides) {
+        overridden.push_back(entry.first);
+        quarantine_.leave(entry.first);
+    }
+    prep_.setOverridden(std::move(overridden));
     const std::string stock;
     for (auto& [id, scene] : scenes_) {
         const auto found = overrides.find(id);
@@ -398,6 +409,7 @@ void Renderer::onSurfaceCreated() {
     stillDrawn_ = false;
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
+    openQuarantine();
     // A new surface rebuilds every program and texture on its first frames.
     noteSettling();
     // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
@@ -701,6 +713,24 @@ Scene* Renderer::builtScene(const std::string& id) {
     return nullptr;
 }
 
+// Once per renderer, on its first context (the driver's name needs one). The first renderer in the process
+// sets aside what a dead process left; every renderer then keeps the quarantined styles off for good.
+void Renderer::openQuarantine() {
+    if (quarantine_.isOpen() || cacheDir_.empty()) return;
+    const GlIdentity identity = prober::identity();
+    quarantine_.open(StyleQuarantine::dirFor(cacheDir_, identity, GEODE_APP_BUILD), identity.renderer,
+                     static_cast<long long>(std::time(nullptr)));
+    applyQuarantine();
+}
+
+void Renderer::applyQuarantine() {
+    for (const std::string& id : quarantine_.quarantined()) {
+        if (prep_.quarantined(id)) continue;
+        GEODE_LOGW(kTag, "%s is off: it crashed this graphics driver twice", id.c_str());
+        prep_.fail(id, build_report::text(id, build_report::Stage::Crash, ""), ScenePrep::Lasting::Yes);
+    }
+}
+
 // A live frame's way to the scene it wants: the built scene, or null while it is still being
 // staged (the caller keeps drawing what it drew). Each call does a bounded slice of work: one
 // attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
@@ -718,6 +748,8 @@ Scene* Renderer::readyScene(const std::string& id) {
     }
     // A style that did not build is not built again every frame: the caller keeps what it drew.
     if (prep_.failed(id)) return nullptr;
+    // Until its first frames are drawn, a death in the driver is blamed on this style; a user's shader is not.
+    if (!prep_.overridden(id)) quarantine_.arm(id);
     Scene* scene = nullptr;
     if (blockingBuilds_.load(std::memory_order_relaxed)) {
         scene = sceneFor(id);
@@ -859,6 +891,8 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
 }
 
 void Renderer::releaseScenes() {
+    // Builds dropped with their scenes (a lost context, a closed view) ended without a crash.
+    quarantine_.release();
     stager_.clear();
     prep_.done();
     for (auto& entry : scenes_) entry.second->release();

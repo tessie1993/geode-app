@@ -66,14 +66,14 @@ class StageView(
 
     /**
      * Settings › Performance for this surface: quality, the render resolution (the window buffer's size) and the
-     * fps cap, [capFps] when the host paces to its own (the dream's).
+     * fps cap, which native resolves against [refreshRates].
      */
     fun applyPerformance(
         settings: PerformanceSettings,
-        capFps: Float = settings.fpsCap.toFloat(),
+        refreshRates: FloatArray,
     ) {
         stage.performance = settings
-        stage.capFps = capFps
+        stage.setLiveFps(settings.fpsCap, refreshRates)
         sizeBuffer()
     }
 

@@ -65,6 +65,12 @@ object StageNative {
         capFps: Float,
     )
 
+    external fun stageSetLiveFps(
+        stage: Long,
+        storedFps: Int,
+        refreshRates: FloatArray,
+    )
+
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
 

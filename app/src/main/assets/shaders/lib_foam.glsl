@@ -298,8 +298,8 @@ struct FoamSample {
     vec4 orb;
     /** log2 of the conformal scale: the small deep beads have a large one. */
     float scaleLog;
-    /** The outermost cell's hash. */
-    float cellH;
+    /** The outermost cell's lattice coordinate, .w 1 when there is one; foamCellHash() takes its hash at the hit. */
+    vec4 cellKey;
 };
 
 /** The tunnel axis at depth z: two lobes, whole cycles per period. */
@@ -396,16 +396,20 @@ void foamSetup() {
 
 // ---- the foam ---------------------------------------------------------------
 
+/** The hash of the cell a FoamSample was in: 0 for a sample with none. */
+float foamCellHash(vec4 key) {
+    return key.w > 0.5 ? hashCell(ivec3(int(key.x), int(key.y), int(mod(key.z, FOAM_CELLS)))) : 0.0;
+}
+
 /**
  * The packing at q (foam units): its distance in .d (world-scaled by the caller), the orbit
- * trap, the conformal scale and the outermost cell's hash. Writes nothing outside itself.
+ * trap, the conformal scale and the outermost cell's key. Writes nothing outside itself.
  */
 FoamSample foam(vec3 q) {
     FoamSample s;
     float scale = 1.0;
     s.orb = vec4(FOAM_TRAP_FAR);
-    vec3 cell = floor(0.5 * q + 0.5);
-    s.cellH = hashCell(ivec3(int(cell.x), int(cell.y), int(mod(cell.z, FOAM_CELLS))));
+    s.cellKey = vec4(floor(0.5 * q + 0.5), 1.0);
     for (int i = 0; i < FOAM_MAX_ITERS; i++) {
         if (float(i) >= gFoamIters) break;
         q = 2.0 * fract(0.5 * q + 0.5) - 1.0;
@@ -450,7 +454,7 @@ FoamSample foamEmpty(float cutD) {
     s.mask = 0.0;
     s.orb = vec4(FOAM_TRAP_FAR);
     s.scaleLog = 0.0;
-    s.cellH = 0.0;
+    s.cellKey = vec4(0.0);
     return s;
 }
 
@@ -630,7 +634,7 @@ FoamHit foamMarch(vec3 ro, vec3 rd, float far) {
             h.used = float(i);
             h.orb = f.orb;
             h.scaleLog = f.scaleLog;
-            h.cell = f.cellH;
+            h.cell = foamCellHash(f.cellKey);
             h.cut = f.cut;
             break;
         }

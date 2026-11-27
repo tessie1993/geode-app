@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <sys/eventfd.h>
 #include <sys/resource.h>
+#include <sys/system_properties.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -22,6 +23,16 @@ constexpr const char* kTag = "GeodeStage";
 // that draws a frame never ranks below the one that wakes it. GLSurfaceView's GLThread set none (a Java thread's
 // default, nice 0).
 constexpr int kStageNice = -4;
+
+// The frame recorder's debug flag (stage/FrameRecorder): `adb shell setprop debug.geode.frames 1`, read when a stage
+// starts. Its chunks go to logcat under kFramesTag as CSV, so a tester on another brand can send them.
+constexpr const char* kFramesProperty = "debug.geode.frames";
+constexpr const char* kFramesTag = "GeodeFrames";
+
+bool framesFlag() {
+    char value[PROP_VALUE_MAX] = {};
+    return __system_property_get(kFramesProperty, value) > 0 && value[0] == '1';
+}
 
 int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -168,6 +179,10 @@ void StageThread::run() {
         ALooper* looper = ALooper_prepare(0);
         inbox_->bind(looper);
         sink_ = VsyncThread::process().attach(inbox_);
+        if (framesFlag()) {
+            core_.recordFrames(true);
+            GEODE_LOGI(kFramesTag, "recording frames (%s)", kFramesProperty);
+        }
         loop();
     } catch (...) {
         GEODE_LOGE(kTag, "stage thread ended on an exception");
@@ -263,6 +278,15 @@ void StageThread::presentAt(int64_t stampNs) { egl_.presentAt(stampNs); }
 // ADPF (developer.android.com/games/optimize/adpf): the session's target is the frame clock's budget, and each paced
 // frame reports its whole time on this thread, the draw and the swap.
 void StageThread::frameWork(int64_t budgetNs, int64_t actualNs) { workHint_.report(budgetNs, actualNs); }
+
+// One log line per row: a chunk is too long for one logcat entry.
+void StageThread::framesRecorded(const std::string& csv) {
+    size_t from = 0;
+    for (size_t end = csv.find('\n'); end != std::string::npos; end = csv.find('\n', from)) {
+        GEODE_LOGI(kFramesTag, "%.*s", static_cast<int>(end - from), csv.c_str() + from);
+        from = end + 1;
+    }
+}
 
 void StageThread::windowApplied(int64_t sequence) {
     std::lock_guard<std::mutex> lock(ackLock_);

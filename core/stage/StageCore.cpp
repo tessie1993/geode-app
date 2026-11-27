@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "stage/VsyncRule.hpp"
+#include "util/Trace.hpp"
 #include "viz/frame/PresentTime.hpp"
 
 namespace geode::stage {
@@ -13,6 +14,10 @@ namespace {
 
 // More actions than this for one batch of events means the lifecycle is not converging: a bug, not a hang.
 constexpr int kMaxActions = 64;
+
+int64_t steadyNs() {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 
 }  // namespace
 
@@ -90,18 +95,55 @@ void StageCore::step(int64_t nowMs) {
         if (lifecycle_.vsyncOn() && lifecycle_.canDraw()) {
             if (!pacer_.due(dueFrameNs_, duePeriodNs_)) {
                 pacer_.passed();
-            } else if (!skipVsync(false, port_.gpuBusy())) {
-                pacer_.drawn(dueFrameNs_);
-                const float frameFps = pacer_.frameFps();
-                const auto start = std::chrono::steady_clock::now();
-                draw(frameFps > 0.0f ? frameFps : dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
-                port_.frameWork(pacer_.budgetNs(),
-                                std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count());
-                runActions();
+                // Recording only: a finer poll of the fence it waits for. Not otherwise asked on a vsync not drawn on.
+                if (recorder_.awaitingFence()) fencePolled(port_.gpuBusy());
+            } else {
+                const bool gpuBusy = port_.gpuBusy();
+                fencePolled(gpuBusy);
+                if (!skipVsync(false, gpuBusy)) {
+                    drawDue();
+                } else {
+                    util::traceCounter("geode.gpuBusySkips", ++gpuSkips_);
+                    if (recorder_.enabled()) {
+                        if (recorder_.full()) handOverFrames();
+                        recorder_.skipped();
+                    }
+                }
             }
         }
         port_.frameDone();
     }
+}
+
+// The frame a vsync asked for and the frame clock draws on, timed whole for ADPF and the recorder.
+void StageCore::drawDue() {
+    pacer_.drawn(dueFrameNs_);
+    const float frameFps = pacer_.frameFps();
+    const int64_t start = steadyNs();
+    const bool swapped = draw(frameFps > 0.0f ? frameFps : dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
+    const int64_t took = steadyNs() - start;
+    port_.frameWork(pacer_.budgetNs(), took);
+    if (swapped) {
+        // Presentation to presentation, so a skipped vsync shows as the longer interval it made on screen.
+        const int64_t shownNs = duePresentNs_ > 0 ? duePresentNs_ : dueFrameNs_;
+        const int64_t intervalNs = lastShownNs_ > 0 && shownNs > lastShownNs_ ? shownNs - lastShownNs_ : 0;
+        lastShownNs_ = shownNs;
+        if (intervalNs > 0) util::traceCounter("geode.frameIntervalUs", intervalNs / 1000);
+        if (recorder_.enabled()) {
+            if (recorder_.full()) handOverFrames();
+            recorder_.drawn(start, took, intervalNs);
+        }
+    }
+    runActions();
+}
+
+void StageCore::fencePolled(bool busy) {
+    if (!busy && recorder_.awaitingFence()) recorder_.fenceSignalled(steadyNs());
+}
+
+void StageCore::handOverFrames() {
+    if (recorder_.size() > 0) port_.framesRecorded(recorder_.csv());
+    recorder_.clear();
 }
 
 void StageCore::abandon() {
@@ -166,9 +208,13 @@ Outcome StageCore::execute(const Action& action) {
         case Act::StartVsync:
             // A start does not inherit the gap it was stopped across.
             if (client_) client_->restartClock();
+            lastShownNs_ = 0;
             port_.vsyncRun(true);
             return Outcome::Done;
-        case Act::StopVsync: port_.vsyncRun(false); return Outcome::Done;
+        case Act::StopVsync:
+            port_.vsyncRun(false);
+            if (recorder_.enabled()) handOverFrames();
+            return Outcome::Done;
         case Act::DrawOnce:
             // No vsync asked for it: the time since the last frame is not a step.
             if (client_) client_->restartClock();
@@ -197,20 +243,30 @@ Outcome StageCore::execute(const Action& action) {
 
 // One frame and its swap; the swap's outcome is the lifecycle's next event. frameNs is the vsync's frame time and
 // presentNs the frame's expected presentation (0 for a frame no vsync asked for: the client's own clock, no time);
-// stampNs is what the swap is stamped with for it (frame::latchStampNs, 0 for no stamp).
-void StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs) {
-    if (!client_) return;
+// stampNs is what the swap is stamped with for it (frame::latchStampNs, 0 for no stamp). True when a new frame was
+// swapped.
+bool StageCore::draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs) {
+    if (!client_) return false;
     client_->frameTime(frameNs);
     client_->framePresent(presentNs);
-    const uint32_t events = client_->frame(pacedFps, capFps);
+    uint32_t events = 0;
+    {
+        const util::TraceSection section("geode.draw");
+        events = client_->frame(pacedFps, capFps);
+    }
     events_.fetch_or(events & ~kFrameNothingNew, std::memory_order_relaxed);
     // The picture is the one already on screen: no new buffer, so no swap, and the display keeps the last.
-    if ((events & kFrameNothingNew) != 0) return;
+    if ((events & kFrameNothingNew) != 0) return false;
     port_.presentAt(stampNs);
-    switch (port_.swap()) {
-        case Outcome::Done: lifecycle_.frameDrawn(); break;
-        case Outcome::ContextLost: lifecycle_.contextLost(); break;
-        default: lifecycle_.surfaceBad(); break;
+    Outcome swapped = Outcome::Done;
+    {
+        const util::TraceSection section("geode.swap");
+        swapped = port_.swap();
+    }
+    switch (swapped) {
+        case Outcome::Done: lifecycle_.frameDrawn(); return true;
+        case Outcome::ContextLost: lifecycle_.contextLost(); return false;
+        default: lifecycle_.surfaceBad(); return false;
     }
 }
 

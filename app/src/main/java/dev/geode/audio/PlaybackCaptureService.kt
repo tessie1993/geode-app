@@ -22,10 +22,14 @@ import kotlinx.coroutines.flow.StateFlow
 
 class PlaybackCaptureService : Service() {
     private var projection: MediaProjection? = null
+    private var projectionCallback: MediaProjection.Callback? = null
 
-    private val projectionCallback =
+    // One callback per projection: a new projection stops the one before it, and that onStop is posted to the main
+    // looper, so it can run after the new one is in place; a shared callback would end the new capture with it.
+    private fun stopsWith(mp: MediaProjection) =
         object : MediaProjection.Callback() {
             override fun onStop() {
+                if (projection !== mp) return
                 MediaProjectionHolder.publish(null)
                 stopSelf()
             }
@@ -66,23 +70,30 @@ class PlaybackCaptureService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        projection?.let {
-            bestEffort(TAG, "it.unregisterCallback(projectionCallback)") { it.unregisterCallback(projectionCallback) }
-            bestEffort(TAG, "it.stop()") { it.stop() }
-        }
-        mp.registerCallback(projectionCallback, Handler(Looper.getMainLooper()))
-        projection = mp
-        MediaProjectionHolder.publish(mp)
+        adopt(mp)
         return START_NOT_STICKY
+    }
+
+    internal fun adopt(mp: MediaProjection) {
+        release()
+        val callback = stopsWith(mp)
+        mp.registerCallback(callback, Handler(Looper.getMainLooper()))
+        projection = mp
+        projectionCallback = callback
+        MediaProjectionHolder.publish(mp)
+    }
+
+    private fun release() {
+        val old = projection ?: return
+        projectionCallback?.let { cb -> bestEffort(TAG, "old.unregisterCallback()") { old.unregisterCallback(cb) } }
+        bestEffort(TAG, "old.stop()") { old.stop() }
+        projection = null
+        projectionCallback = null
     }
 
     override fun onDestroy() {
         MediaProjectionHolder.publish(null)
-        projection?.let {
-            bestEffort(TAG, "it.unregisterCallback(projectionCallback)") { it.unregisterCallback(projectionCallback) }
-            bestEffort(TAG, "it.stop()") { it.stop() }
-        }
-        projection = null
+        release()
         super.onDestroy()
     }
 

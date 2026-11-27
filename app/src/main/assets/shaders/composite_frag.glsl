@@ -35,90 +35,26 @@ uniform float uLayerMix;
 /** Layers: which blend function, matching BlendMode's ordinals. */
 uniform int uBlendMode;
 uniform float uTime;
-uniform float uChroma;
-uniform float uVignette;
-uniform float uScanline;
-uniform float uGrain;
-uniform float uFisheye;
-// PER-TEXTURE GATES. Which of the uPost* groups below the composite must
-// apply is a property of the SCENE, not of the frame: shader scenes already
-// warp/grade in view()/grade(), particle scenes in particle_vert/frag,
-// and the fluid family (Fluid, Curl Flow, Water)
-// applies nothing of its own. main() routes BOTH uTexA (incoming) and uTexB
-// (outgoing) through postFx, and during a transition those two textures can
-// come from DIFFERENT families - so one gate per texture, never one shared
-// gate taken from the incoming scene. With a single gate a julia -> fluid
-// fade graded the already-graded julia frame a second time (a white,
-// over-zoomed flash for the whole fade) and the reverse dropped the fluid
-// grade entirely.
-//   x = geometry/stylize group   (warp, ripple, kaleido, pixelate, tile,
-//                                 twist, bloom, posterize, drift, sway,
-//                                 temp, solarize)
-//   y = mirror + invert
-//   z = colour grade + zoom/rotation  (the uPostZoom..uPostHue block below)
-//   w = unused
-// A component is 1.0 when the COMPOSITE owns that group for that texture and
-// 0.0 when the scene already applied it. Uploaded by VisualizerRenderer and
-// FxCompositor from CompositeGrade.gateFor(); the export path uploads the
-// same value in both slots (it never transitions).
-uniform vec4 uGateA;
-uniform vec4 uGateB;
-// The layer's gate and camera gate (uTexL), the same per-texture rule.
-uniform vec4 uGateL;
-uniform float uCamGateL;
 // The shared camera rig (core/viz/CameraRig.cpp) seen through a flat image:
 // every scene that does not march the rig's 3D pose itself is viewed as a
 // picture on a plane the camera pans, tilts, rolls and dollies toward.
-// uCamGate is per texture (x = uTexA, y = uTexB), like the gates above:
-// 0 for a scene that already drew the camera.
 uniform vec4 uCamFlat;  // panX, panY, zoom, roll
-uniform vec2 uCamTilt;  // yaw, pitch of the image plane, radians
-uniform vec2 uCamGate;
 // Universal geometric + color post effects, applied here so they work on
 // EVERY scene type - including particle scenes, whose vertex pipeline can't
 // honor screen-space shape params on its own.
-uniform float uPostWarp;
-uniform float uPostRipple;
-uniform float uPostSymmetry;
-uniform float uPostKaleido;
-uniform float uPostPixelate;
 uniform float uPostTile;
-uniform float uPostTwist;
 uniform vec2 uPostTwistCentre;
-uniform float uPostTwistBend;
-uniform float uPostMirror;
 uniform float uPostBloom;
-uniform float uPostPosterize;
-uniform float uPostInvert;
-// Motion + color params that particle pipelines can't honor natively
-// (shader scenes do these in-shader, so the gate's x is 0 for them and every
-// block below is skipped - the values themselves are uploaded raw).
-uniform float uPostDriftX;
-uniform float uPostDriftY;
-uniform float uPostSway;
-uniform float uPostTemp;
-uniform float uPostSolarize;
-// Universal grading + zoom/rotation for scenes that grade NOTHING themselves
-// (the fluid family: Fluid, Curl Flow, Water). Shader scenes grade in
-// view()/grade(), and particle scenes in particle_vert/particle_frag,
-// so for those the gate's z is 0 and the whole block below is
-// skipped - a bitwise no-op, never a double grade.
-// The gate is required (not just neutral values) because the neutral value of
-// these uniforms is 1.0, not 0.0: a program that never uploads them would
-// otherwise read the GL default 0 and render black at 20x zoom.
-uniform float uPostZoom;
-uniform float uPostRotation; // already-integrated angle (renderer sums rot*dt)
+// Universal grading for scenes that grade NOTHING themselves (the fluid family: Fluid, Curl Flow, Water).
+// Shader and particle scenes grade in their own shaders, so for them the texture's flags leave these stages out.
 uniform float uPostSat;
 uniform float uPostBright;   // brightness * intensity, as everywhere else
 uniform float uPostContrast;
-uniform float uPostGamma;
-uniform float uPostHue;
 // FlowField fluidWarp: the shared fluid velocity field bends the sampling
 // coordinate of ANY scene's output (particles, shaders) before the
 // scene-texture fetch. A 1x1 zero texture is bound when disabled so the
 // sampler is always valid.
 uniform highp sampler2D uFlow;   // half-float velocities exceed lowp range
-uniform float uFlowStrength;
 // Underlay (W00): a full-frame RGBA8 background layer, blended into the finished composite
 // colour in main() below, just before the dither - so it applies once, identically, regardless
 // of transitions or Layers. uUnderlayBlend selects the function (0 = screen: shows through where
@@ -216,9 +152,8 @@ vec2 mirrorUv(vec2 p) { return 1.0 - abs(1.0 - mod(p, 2.0)); }
 // core/viz/Births's births, laid over the finished picture the way lib_grow's growBirths2 lays
 // them over a 2D style's (the composite does not include lib_grow, so this is its own copy of that law:
 // birth units 0.3 of the half-height, a ball of 2 units, Implode's shrink, Fold back's reflection, Cave
-// in's hollow). uPostLife is 0 unless Life is up, and geo() then skips this (a bitwise no-op), as it does
+// in's hollow). the texture's kBirths flag is off unless Life is up, and geo() then skips this (a bitwise no-op), as it does
 // on every scene whose gate.x is 0: a shader style and a 3D present draw their own births.
-uniform float uPostLife;
 uniform vec4 uPostBirths[6];
 
 // Centred c (-0.5..0.5) in, centred c out: inside each living birth's ball the picture is read from its
@@ -391,8 +326,8 @@ vec3 postFx(sampler2D tex, vec2 uv, int fx, vec2 rot) {
 #ifdef MV_TRANSITION
 #define progress uProgress
 #define ratio uRatio
-vec4 getFromColor(vec2 uv) { return vec4(postFx(uTexB, clamp(uv, 0.0, 1.0), uGateB, uCamGate.y), 1.0); }
-vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA, uCamGate.x), 1.0); }
+vec4 getFromColor(vec2 uv) { return vec4(postFx(uTexB, clamp(uv, 0.0, 1.0), uFxB, uRotAB.zw), 1.0); }
+vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uFxA, uRotAB.xy), 1.0); }
 // __GL_TRANSITION_SOURCE__
 #endif
 
@@ -451,29 +386,29 @@ vec3 blended() {
         return transition(vUv).rgb;
     }
 #endif
-    vec3 a = postFx(uTexA, vUv, uGateA, uCamGate.x);
+    vec3 a = postFx(uTexA, vUv, uFxA, uRotAB.xy);
     if (uStyle == 0 || uProgress >= 1.0) {
         return a;
     }
     if (uStyle == 1) {
-        vec3 b = postFx(uTexB, vUv, uGateB, uCamGate.y);
+        vec3 b = postFx(uTexB, vUv, uFxB, uRotAB.zw);
         return mix(b, a, uProgress);
     } else if (uStyle == 3) {
         float sh = smoothstep(0.0, 1.0, uProgress);
-        vec3 aSlide = postFx(uTexA, clamp(vUv + vec2(1.0 - sh, 0.0), 0.0, 1.0), uGateA, uCamGate.x);
-        vec3 bSlide = postFx(uTexB, clamp(vUv - vec2(sh, 0.0), 0.0, 1.0), uGateB, uCamGate.y);
+        vec3 aSlide = postFx(uTexA, clamp(vUv + vec2(1.0 - sh, 0.0), 0.0, 1.0), uFxA, uRotAB.xy);
+        vec3 bSlide = postFx(uTexB, clamp(vUv - vec2(sh, 0.0), 0.0, 1.0), uFxB, uRotAB.zw);
         return vUv.x < sh ? aSlide : bSlide;
     } else if (uStyle == 4) {
         float sh = smoothstep(0.0, 1.0, uProgress);
         vec2 zUv = (vUv - 0.5) / (1.0 + sh * 2.5) + 0.5;
-        vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uGateB, uCamGate.y);
+        vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uFxB, uRotAB.zw);
         vec2 aUv = (vUv - 0.5) * (1.0 + (1.0 - sh) * 0.35) + 0.5;
-        vec3 aZoom = postFx(uTexA, mirrorUv(aUv), uGateA, uCamGate.x);
+        vec3 aZoom = postFx(uTexA, mirrorUv(aUv), uFxA, uRotAB.xy);
         return mix(bZoom, aZoom, sh);
     } else {
         float lumB = dot(texture(uTexB, vUv).rgb, vec3(0.299, 0.587, 0.114));
         vec2 melted = vUv + vec2(0.0, uProgress * (0.25 + lumB * 0.6));
-        vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uGateB, uCamGate.y);
+        vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uFxB, uRotAB.zw);
         float reveal = smoothstep(0.0, 1.0, uProgress * 1.4 - lumB * 0.4);
         return mix(bMelt, a, clamp(reveal, 0.0, 1.0));
     }
@@ -486,7 +421,7 @@ void main() {
     // uStyle value: a layer is a setting, a transition a timer, and the two run
     // at once. uLayerMix 0 is the active style alone, 1 the full blend.
     if (uHasLayer == 1) {
-        vec3 l = postFx(uTexL, vUv, uGateL, uCamGateL);
+        vec3 l = postFx(uTexL, vUv, uFxL, uRotL);
         col = mix(col, layerBlend(col, l, uBlendMode), clamp(uLayerMix, 0.0, 1.0));
     }
     // Underlay (W00): folded in here, after every transition/Layers/postFx blend above and

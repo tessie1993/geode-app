@@ -17,12 +17,10 @@ namespace geode::viz {
     X(uCamDolly) \
     X(uCamFlat) \
     X(uCamFocal) \
-    X(uCamGate) \
-    X(uCamGateL) \
     X(uCamPos) \
-    X(uCamTilt) \
+    X(uCamRoll) \
+    X(uCamTiltCS) \
     X(uCamTravel) \
-    X(uChroma) \
     X(uColorShift) \
     X(uContrast) \
     X(uDither) \
@@ -35,12 +33,14 @@ namespace geode::viz {
     X(uFieldLook) \
     X(uFieldRes) \
     X(uFieldShape) \
-    X(uFisheye) \
     X(uFlow) \
     X(uFlowPhase) \
-    X(uFlowStrength) \
     X(uFlowTime) \
     X(uFormula) \
+    X(uFxA) \
+    X(uFxB) \
+    X(uFxFrame) \
+    X(uFxL) \
     X(uFractal) \
     X(uFrontLayer) \
     X(uGamma) \
@@ -48,6 +48,7 @@ namespace geode::viz {
     X(uGateB) \
     X(uGateL) \
     X(uGrain) \
+    X(uHarmony) \
     X(uHasLayer) \
     X(uHueRange) \
     X(uHue) \
@@ -79,34 +80,22 @@ namespace geode::viz {
     X(uPostBloom) \
     X(uPostBright) \
     X(uPostContrast) \
-    X(uPostDriftX) \
-    X(uPostDriftY) \
-    X(uPostGamma) \
-    X(uPostHue) \
-    X(uPostInvert) \
-    X(uPostKaleido) \
-    X(uPostLife) \
-    X(uPostMirror) \
-    X(uPostPixelate) \
-    X(uPostPosterize) \
-    X(uPostRipple) \
-    X(uPostRotation) \
+    X(uPostGeo) \
+    X(uPostGeo2) \
+    X(uPostHueCS) \
+    X(uPostLens) \
+    X(uPostLens2) \
     X(uPostSat) \
-    X(uPostSolarize) \
-    X(uPostSway) \
-    X(uPostSymmetry) \
-    X(uPostTemp) \
+    X(uPostShade) \
     X(uPostTile) \
-    X(uPostTwist) \
-    X(uPostTwistBend) \
     X(uPostTwistCentre) \
-    X(uPostWarp) \
-    X(uPostZoom) \
     X(uPosterize) \
     X(uProgress) \
     X(uRatio) \
     X(uResolution) \
     X(uRipple) \
+    X(uRotAB) \
+    X(uRotL) \
     X(uRotation) \
     X(uSat) \
     X(uScanline) \
@@ -149,7 +138,6 @@ namespace geode::viz {
     X(uUnderlay) \
     X(uUnderlayAmount) \
     X(uUnderlayBlend) \
-    X(uVignette) \
     X(uWarp) \
     X(uWorld) \
     X(uWorldShapes) \

@@ -10,6 +10,7 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.graphics.drawable.Icon
+import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -96,6 +97,8 @@ internal const val PIP_MIN_ASPECT = 1f / 2.39f
 internal const val PIP_MAX_ASPECT = 2.39f
 
 private const val JANK_TAG = "GeodeJank"
+
+private const val NANOS_PER_SECOND = 1_000_000_000f
 
 /**
  * Hands a shared link from the Activity's intent to the UI, which asks before importing
@@ -233,7 +236,25 @@ class MainActivity : ComponentActivity() {
 
     private val playerViewModel: PlayerViewModel by viewModels()
 
-    private val jankTally = JankTally()
+    private val jankTally = JankTally(LiveFrameBudget::ns) { displayPeriodNs }
+
+    @Volatile
+    private var displayPeriodNs = 0L
+
+    private val displayListener =
+        object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) = Unit
+
+            override fun onDisplayRemoved(displayId: Int) = Unit
+
+            override fun onDisplayChanged(displayId: Int) {
+                if (displayId == display.displayId) readDisplayPeriod()
+            }
+        }
+
+    private fun readDisplayPeriod() {
+        displayPeriodNs = display.refreshRate.takeIf { it > 0f }?.let { (NANOS_PER_SECOND / it).toLong() } ?: 0L
+    }
 
     private lateinit var jankStats: JankStats
 
@@ -354,12 +375,15 @@ class MainActivity : ComponentActivity() {
     /** Not called while the visualizer is in a PiP window, which is still on screen. */
     override fun onResume() {
         super.onResume()
+        readDisplayPeriod()
+        getSystemService(DisplayManager::class.java).registerDisplayListener(displayListener, null)
         jankStats.isTrackingEnabled = true
         paywallPrompts.onResumed()
     }
 
     override fun onPause() {
         jankStats.isTrackingEnabled = false
+        getSystemService(DisplayManager::class.java).unregisterDisplayListener(displayListener)
         Log.i(JANK_TAG, jankTally.summary())
         super.onPause()
     }
@@ -417,6 +441,7 @@ class MainActivity : ComponentActivity() {
             AppRoot()
         }
         jankStats = JankStats.createAndTrack(window, jankTally)
+        jankTally.stats = jankStats
         if (savedInstanceState == null) {
             receiveSharedLink(intent)
             receiveAudioFile(this, intent, playerViewModel)

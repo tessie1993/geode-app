@@ -86,6 +86,8 @@ class Stage(
         refreshRates: FloatArray,
     ) = StageNative.stageSetLiveFps(handle, storedFps, refreshRates)
 
+    val frameBudgetNs: Long get() = StageNative.stageFrameBudgetNs(handle)
+
     var onShaderError: (String?) -> Unit = {}
 
     /** The auto-director chose a new look at a new section or a drop; the app's Auto changes style on it. */

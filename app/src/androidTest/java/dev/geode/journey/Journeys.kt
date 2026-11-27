@@ -1,6 +1,8 @@
 package dev.geode.journey
 
 import android.content.Context
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
@@ -172,6 +174,10 @@ fun ComposeTestRule.tap(what: SemanticsMatcher) {
  * neither its rows nor its columns, -1 and -1, where a lazy list knows one of the two):
  * performScrollToNode on the Styles grid never returned, which hung the journeys for the
  * whole job. A journey that needs a card in the grid filters or searches to it instead.
+ *
+ * Lists with no room on their scroll axis are skipped too: performScrollToNode pages by the
+ * viewport's own size until the list is at its end, so a 0 px list (the Styles list under a
+ * peeking sheet at font scale 1.5, #1420) scrolls by nothing forever.
  */
 fun ComposeTestRule.scrollLazyListsTo(matcher: SemanticsMatcher) {
     waitForIdle()
@@ -184,10 +190,18 @@ fun ComposeTestRule.scrollLazyListsTo(matcher: SemanticsMatcher) {
     lists.fetchSemanticsNodes().forEachIndexed { i, node ->
         val info = node.config.getOrNull(SemanticsProperties.CollectionInfo)
         val isGrid = info != null && info.rowCount < 0 && info.columnCount < 0
-        if (!isGrid) {
+        if (!isGrid && node.canPage()) {
             runCatching { lists[i].performScrollToNode(matcher) }
         }
     }
+}
+
+/** Whether one viewport's step along each scroll axis moves the list: the same size performScrollToNode pages by. */
+private fun SemanticsNode.canPage(): Boolean {
+    val viewport = layoutInfo.coordinates.boundsInParent().size
+    val vertical = SemanticsProperties.VerticalScrollAxisRange in config
+    val horizontal = SemanticsProperties.HorizontalScrollAxisRange in config
+    return (!vertical || viewport.height >= 1f) && (!horizontal || viewport.width >= 1f)
 }
 
 /** How long [scrollLazyListsTo] lets a node appear by itself before it scrolls for it. */

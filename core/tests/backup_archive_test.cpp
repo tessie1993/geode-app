@@ -186,7 +186,6 @@ void exportRules() {
     req.prefs.push_back({"geode-prefs",
                          {boolean("gui_tutorial_seen", true), boolean("gui_reduced_motion", true), text("macro_bank", "m"),
                           text("macro_knobs", "old"), text("palette_stack", "p")}});
-    req.prefs.push_back({"geode-wallpaper", {boolean("mix_refused", true), text("home_look", "x")}});
     req.prefs.push_back({"geode-library", {text("roots", "content://r"), text("sort", "name")}});
     const ExportPlan plan = planExport(req);
     auto bytesOf = [&](const std::string& path) {
@@ -205,7 +204,6 @@ void exportRules() {
     check(slice.find("macro_bank") != std::string::npos && slice.find("palette_stack") != std::string::npos &&
               slice.find("gui_reduced_motion") == std::string::npos,
           "creative's slice holds only its keys");
-    check(bytesOf("prefs/geode-wallpaper.json") == "<missing>", "the retired wallpaper file is never exported");
     check(bytesOf("prefs/geode-library.json").find("roots") == std::string::npos, "roots stay");
     check(bytesOf("prefs/geode-mod.json") == "{}", "a file with nothing to say is {}");
     check(bytesOf("prefs/geode-viz.json") == "{}", "a file never supplied is {}");

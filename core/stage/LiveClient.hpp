@@ -91,10 +91,9 @@ public:
     // Any thread from here on.
 
     // The ring frames hear, or none. Never waits for a frame: one in flight keeps the ring it began with and the
-    // next frame hears this one.
-    void setSound(const void* ring);
-    // True once no frame reads, or will read, this ring: only then may its owner free it.
-    bool soundReleased(const void* ring);
+    // next frame hears this one. The client holds each ring while a frame may read it, so its owner may drop its
+    // own hold at any time: a frame slower than the stage's bounded quit wait still reads a live ring.
+    void setSound(std::shared_ptr<const void> ring);
     // Each queues work for the stage thread; the caller then asks the stage for a service turn. False once the
     // stage released its renderer: nothing was queued, and for a recording no tee will ever open or close.
     bool warm(std::string id);
@@ -128,8 +127,8 @@ private:
     std::shared_mutex vizLock_;
 
     std::mutex soundLock_;  // held only to swap rings, never across a draw
-    const void* ring_ = nullptr;     // the ring the next, or the frame in flight, hears
-    const void* pending_ = nullptr;  // set while a frame is in flight; becomes ring_ as it ends
+    std::shared_ptr<const void> ring_;     // the ring the next, or the frame in flight, hears
+    std::shared_ptr<const void> pending_;  // set while a frame is in flight; becomes ring_ as it ends
     bool pendingSet_ = false;
     bool inFrame_ = false;
 

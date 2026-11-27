@@ -482,12 +482,13 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         updateScene(*layerScene_, sceneSound(p), dt);
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
-        glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
-        glViewport(0, 0, renderWidth_, renderHeight_);
-        glClear(GL_COLOR_BUFFER_BIT);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
         updateScene(*layerScene_, sceneSound(p), dt);
+        layerScene_->simulate();
+        glBindFramebuffer(GL_FRAMEBUFFER, fboL_.fbo());
+        glViewport(0, 0, renderWidth_, renderHeight_);
+        glClear(GL_COLOR_BUFFER_BIT);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(static_cast<float>(timeSeconds_));
     }
@@ -497,11 +498,12 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             outgoingScene_ = nullptr;
             outgoingParams_.reset();
         } else {
-            bindSecondaryTarget();
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
             updateScene(*outgoingScene_, sceneSound(op), dt);
+            outgoingScene_->simulate();
+            bindSecondaryTarget();
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(static_cast<float>(timeSeconds_));
         }
@@ -559,6 +561,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
         // last frame's colour (or any depth) into tile memory first.
         static constexpr GLenum kSurfaceAttachments[] = {GL_COLOR, GL_DEPTH};
         glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, kSurfaceAttachments);
+    } else {
+        Framebuffer::discardColorAttachments(GL_FRAMEBUFFER, 1);
     }
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = sceneShown_;

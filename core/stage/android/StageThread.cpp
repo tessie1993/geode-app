@@ -244,10 +244,12 @@ Outcome StageThread::swap() { return outcomeOf(egl_.swap()); }
 
 void StageThread::releaseWindow(void* window) { ANativeWindow_release(static_cast<ANativeWindow*>(window)); }
 
-// The two-argument form is only-if-seamless, as the two-argument Surface.setFrameRate was: a panel that blanks for
-// a moment mid-track is worse than the rate it was asked for.
+// The surface's one vote, the user's rate (developer.android.com/media/optimize/performance/frame-rate): default
+// compatibility (not video), and only a seamless switch, since a panel that blanks for a moment mid-track is worse than
+// the rate. The window asks for the matching display mode itself (the shell's preferredDisplayModeId), so the two agree.
 void StageThread::setFrameRate(void* window, float fps) {
-    ANativeWindow_setFrameRate(static_cast<ANativeWindow*>(window), fps, ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT);
+    ANativeWindow_setFrameRateWithChangeStrategy(static_cast<ANativeWindow*>(window), fps, ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT,
+                                                 ANATIVEWINDOW_CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
 }
 
 void StageThread::vsyncRun(bool on) { VsyncThread::process().run(sink_, on); }
@@ -257,6 +259,10 @@ bool StageThread::gpuBusy() { return egl_.previousFrameBusy(); }
 void StageThread::frameDone() { VsyncThread::frameDone(sink_); }
 
 void StageThread::presentAt(int64_t stampNs) { egl_.presentAt(stampNs); }
+
+// ADPF (developer.android.com/games/optimize/adpf): the session's target is the frame clock's budget, and each paced
+// frame reports its whole time on this thread, the draw and the swap.
+void StageThread::frameWork(int64_t budgetNs, int64_t actualNs) { workHint_.report(budgetNs, actualNs); }
 
 void StageThread::windowApplied(int64_t sequence) {
     std::lock_guard<std::mutex> lock(ackLock_);

@@ -18,7 +18,7 @@ object PerfNative {
     ): Boolean
 
     /** Mirrors GEODE_LIVE_FPS_MAX_CHOICES: the size of the array [liveFpsChoices] fills. */
-    const val LIVE_FPS_MAX_CHOICES = 5
+    const val LIVE_FPS_MAX_CHOICES = 12
 
     /**
      * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap but
@@ -27,10 +27,10 @@ object PerfNative {
     const val LIVE_FPS_FOLLOW = -1
 
     /**
-     * Settings › Performance's live frame-rate caps (core/viz/frame/LiveFps) on a display that can switch to
-     * [refreshRates] seamlessly, ascending into [out]; returns how many. 30 and 60 always, 90 and 120 where
-     * the display shows them, then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper, dream, export and
-     * Cast keep their own.
+     * Settings › Performance's live frame rates (core/viz/frame/LiveFps) on a display with [refreshRates],
+     * ascending into [out]; returns how many. Every refresh rate divided by a whole number (30 to 120; 30 and 60
+     * for an unknown display), then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper,
+     * dream, export and Cast keep their own.
      */
     external fun liveFpsChoices(
         refreshRates: FloatArray,
@@ -42,6 +42,15 @@ object PerfNative {
         storedFps: Int,
         refreshRates: FloatArray,
     ): Int
+
+    /**
+     * The refresh rate the window asks the display for while [fps] is the live rate: the lowest of [refreshRates]
+     * that shows it evenly (60 on a 60/90 Hz panel runs the 60 Hz mode, 45 the 90 Hz one); 0 for no preference.
+     */
+    external fun liveFpsRefresh(
+        fps: Int,
+        refreshRates: FloatArray,
+    ): Float
 
     /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
     external fun perfModeForDevice(

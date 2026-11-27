@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "stage/CommandQueue.hpp"
+#include "stage/FramePacer.hpp"
 #include "stage/StageClient.hpp"
 #include "stage/StageLifecycle.hpp"
 #include "stage/VsyncRule.hpp"
@@ -59,6 +60,12 @@ public:
     // The frame the vsync asked for is finished (drawn, or dropped unseen): the vsync thread may ask for the next at its
     // first vsync from now. Called once per kStageFrameDue taken, after the swap.
     virtual void frameDone() {}
+    // One vsync frame's whole work on the stage thread, the client's draw and the swap, took `actualNs` of the
+    // `budgetNs` the frame clock gave it (ADPF's target and actual work duration). Only frames a vsync asked for.
+    virtual void frameWork(int64_t budgetNs, int64_t actualNs) {
+        static_cast<void>(budgetNs);
+        static_cast<void>(actualNs);
+    }
 };
 
 class StageCore {
@@ -102,11 +109,12 @@ private:
     StagePort& port_;
     void* window_ = nullptr;
     float cap_;
-    // The user's cap kept when the platform ignores the frame-rate hint (stage/VsyncRule).
-    CapGuard capGuard_;
+    // The frame clock: which vsyncs draw, and the budget each frame has (stage/FramePacer).
+    FramePacer pacer_;
     bool frameDue_ = false;
     float dueFps_ = 0.0f;
     int64_t dueFrameNs_ = 0;
+    int64_t duePeriodNs_ = 0;
     int64_t duePresentNs_ = 0;
     int64_t dueStampNs_ = 0;
     bool serviceDue_ = false;

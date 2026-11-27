@@ -1262,6 +1262,12 @@ Java_dev_geode_engine_bridge_PerfNative_liveFpsCap(JNIEnv* env, jobject, jint st
     return geode_live_fps_cap(storedFps, r.get(), r.length());
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_PerfNative_liveFpsRefresh(JNIEnv* env, jobject, jint fps, jfloatArray rates) {
+    FloatElements r(env, rates);
+    return geode_live_fps_refresh(fps, r.get(), r.length());
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_PerfNative_perfModeForDevice(JNIEnv*, jobject, jlong totalRamBytes, jboolean lowRam,
                                                           jint mediaPerformanceClass) {

@@ -395,6 +395,10 @@ _Avoid_: Macros (those are the user's bank)
 The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).
 _Avoid_: Emotion (it is a design reading, not a measurement)
 
+**Frame clock**:
+The live stage's one timing rule (`core/stage/FramePacer`): the user's live frame rate, one of the display's refresh rates divided by a whole number, and the display's vsync period give the swap interval (whole vsyncs per frame) and the frame budget (interval times period). The window, Compose and the stage's surface all vote that rate; every stage frame is drawn the interval apart and its work reported to ADPF against the budget.
+_Avoid_: Cap (the stored setting it is made from), pacer (the vsync thread's callback, `StagePacing`)
+
 ## Code
 
 **Engine**:

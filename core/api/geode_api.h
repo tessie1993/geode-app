@@ -1468,18 +1468,21 @@ GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, fl
 /* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
-   wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
-   seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is
-   an unknown display. choices: the caps offered, ascending, into out (up to capacity); returns how many: 30
-   and 60 always, 90 and 120 where the display shows them evenly, then GEODE_LIVE_FPS_FOLLOW ("Follow
-   device") always. cap: the stored pick as this display runs it: an offered cap or Follow as it is, anything
-   else the nearest offered cap (the lower on a tie), any other value <= 0 the default. */
+/* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
+   is up, never the wallpaper, the dream, an export or Cast. `rates` are the refresh rates of the stage's display at
+   its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the
+   rates offered, ascending, into out (up to capacity); returns how many: every refresh rate divided by a whole number,
+   30 to 120 (30 and 60 for an unknown display), then GEODE_LIVE_FPS_FOLLOW ("Follow
+   device") always. cap: the stored pick as this display runs it: an offered rate or Follow as it is, anything else
+   the nearest offered rate (the lower on a tie), any other value <= 0 the default. refresh: the refresh rate the
+   window asks the display for while `fps` is the live rate, the lowest of `rates` that shows it evenly; 0 (no
+   preference) for Follow device or a rate no mode shows evenly. */
 #define GEODE_LIVE_FPS_DEFAULT 60
 #define GEODE_LIVE_FPS_FOLLOW (-1)
-#define GEODE_LIVE_FPS_MAX_CHOICES 5
+#define GEODE_LIVE_FPS_MAX_CHOICES 12
 GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);
 GEODE_API int             geode_live_fps_cap(int stored_fps, const float* rates, int count);
+GEODE_API float           geode_live_fps_refresh(int fps, const float* rates, int count);
 /* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
  * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
  * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and

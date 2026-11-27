@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "stage/StageClient.hpp"
-#include "util/WorkHint.hpp"
 
 // A live stage's client (docs/agents/native-stage.md): the renderer behind the app's view, the wallpaper and the
 // dream. It runs on the stage thread what must run there (frames, a transition's warm-up, Record's tee), keeps
@@ -126,7 +125,6 @@ private:
     void closeRecord();
 
     std::unique_ptr<LiveViz> viz_;  // written under vizLock_, on the stage thread
-    util::WorkHint workHint_;       // the stage thread's: what each frame's CPU work took against its paced length
     std::shared_mutex vizLock_;
 
     std::mutex soundLock_;  // held only to swap rings, never across a draw

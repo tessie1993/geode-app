@@ -1,91 +1,108 @@
 #pragma once
 #include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <cstdlib>
 
-// Settings › Performance's live frame-rate cap above 60 (owner decision of 2026-11-12: "Offer 90 and 120 in
-// Performance"). Pure, with no GL and no Android, so the host can test it (core/tests/live_fps_test.cpp).
+// The live frame rate, taken from the display. A panel shows a rate evenly only when the rate is one of its refresh
+// rates divided by a whole number (90 Hz: 90, 45, 30; 120 Hz: 120, 60, 40, 30), so those are the rates Settings ›
+// Performance offers. The one the user picks is the whole app's frame rate: it picks the display mode the window asks
+// for (refreshRateFor) and how many vsyncs a stage frame spans (stage/FramePacer), so every thread works to one frame
+// length. Pure, with no GL and no Android, so the host can test it (core/tests/live_fps_test.cpp).
 //
-// Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to
-// their own choice (viz/SurfaceRun, kFpsChoices), an export to its own fixed step, Cast to its fixed clock;
-// none of them reads this cap.
+// Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to their own
+// choice (viz/SurfaceRun), an export to its own fixed step, Cast to its fixed clock.
 //
-// Android keeps only the read of what the display can show: the current mode's refresh rate and its
-// seamless alternatives (Display.Mode.getAlternativeRefreshRates), the set the two-argument frame-rate hint
-// (ANativeWindow_setFrameRate) can reach, since it asks for a seamless switch only.
+// `rates` are the refresh rates of the stage's display at its current resolution (Display.getSupportedModes): the same
+// set from every mode, so a mode switch never changes what is offered. NULL or none is a display that has not said.
 namespace geode::viz::frame {
 
-// The live caps, ascending.
-inline constexpr std::array<int, 4> kLiveFpsRungs = {30, 60, 90, 120};
-// What the tab starts on and what any phone keeps: 60 is offered on every display, and so is 30 (Saver's).
+inline constexpr int kLiveFpsMin = 30;
+inline constexpr int kLiveFpsMax = 120;
 inline constexpr int kLiveFpsDefault = 60;
-// "Follow device" (the owner, 2026-11-12: "so fps follows the device settings"): stored as the live cap. The
-// stage draws every vsync of the rate the display runs now, which is the system's choice (Smooth display, battery saver, the panel's own modes), and states no rate of its own
-// (Surface.setFrameRate(0): the platform's "no preference", which clears any standing request). Negative so
-// no rate means it, and -1 so an older build reading it draws every vsync (it took a negative cap as none).
+// Offered on a display that says nothing (or nothing usable): Saver's 30 and the default 60, the quality tiers' rates.
+// A display that does say offers only what it shows evenly: 60 on a 90 Hz-only panel would draw 45.
+inline constexpr int kLiveFpsUnknown[] = {30, 60};
+// "Follow device": the stage draws every vsync of whatever rate the system runs and states no rate of its own.
+// Negative so no rate means it, -1 so an older build reading it draws every vsync.
 inline constexpr int kLiveFpsFollow = -1;
-inline constexpr int kLiveFpsAlwaysUpTo = 60;
-// How far a reported refresh rate, once divided, may sit from a cap and still show it (59.94 or 119.88 Hz
-// modes).
+// The most rates the tab offers, before Follow device.
+inline constexpr int kLiveFpsMaxRates = 11;
+// The most vsyncs one frame spans.
+inline constexpr int kMaxVsyncsPerFrame = 8;
+// How far a refresh rate may sit from a whole multiple of a frame rate and still show it (59.94, 119.88 Hz modes).
 inline constexpr float kRefreshToleranceHz = 1.0f;
-// A whole divide of a faster rate counts (a 240 Hz mode shows 120 on every second refresh), up to this many.
-inline constexpr int kMaxRefreshDivide = 8;
-
-// True when one of `rates` shows `fps` evenly: it is that rate, or a whole multiple of it, so the platform can
-// reach it with a seamless mode. A rate the panel can only reach unevenly would be a setting
-// that silently means something else (a 120 cap on a 90 Hz panel draws 90).
-inline bool displayShows(int fps, const float* rates, int count) {
-    if (fps <= 0 || !rates) return false;
-    for (int i = 0; i < count; ++i) {
-        const float r = rates[i];
-        if (!std::isfinite(r) || r <= 0.0f) continue;
-        const float divide = std::round(r / static_cast<float>(fps));
-        if (divide < 1.0f || divide > static_cast<float>(kMaxRefreshDivide)) continue;
-        if (std::abs(r / divide - static_cast<float>(fps)) <= kRefreshToleranceHz) return true;
-    }
-    return false;
-}
-
-// True when Settings › Performance offers `fps` on a display with these refresh rates: 30 and 60 on every
-// display, as they always were (Saver's 30 and the default 60; setFrameRate asks a fast panel for its 60 Hz
-// mode), 90 and 120 only where the display shows them.
-inline bool liveFpsOffered(int fps, const float* rates, int count) {
-    if (std::find(kLiveFpsRungs.begin(), kLiveFpsRungs.end(), fps) == kLiveFpsRungs.end()) return false;
-    return fps <= kLiveFpsAlwaysUpTo || displayShows(fps, rates, count);
-}
 
 inline bool isLiveFpsFollow(float capFps) { return capFps == static_cast<float>(kLiveFpsFollow); }
 
-// The caps offered, ascending, then Follow device, into out (up to capacity); returns how many there are.
-// No rates (a display not yet attached, a platform that says nothing) offers 30, 60 and Follow: following
-// needs no list, it reads the panel's vsync.
+// How many vsyncs of a display at `refreshHz` one frame at `fps` spans, when that is a whole number up to
+// kMaxVsyncsPerFrame; 0 when the display cannot show `fps` evenly.
+inline int vsyncSpan(float refreshHz, float fps) {
+    if (!std::isfinite(refreshHz) || refreshHz <= 0.0f || !std::isfinite(fps) || fps <= 0.0f) return 0;
+    const float n = std::round(refreshHz / fps);
+    if (n < 1.0f || n > static_cast<float>(kMaxVsyncsPerFrame)) return 0;
+    return std::fabs(refreshHz - n * fps) <= kRefreshToleranceHz ? static_cast<int>(n) : 0;
+}
+
+// The rates offered on a display with these refresh rates, ascending, into out (up to capacity), then Follow device;
+// returns how many there are.
 inline int liveFpsChoices(const float* rates, int count, int* out, int capacity) {
+    int found[kLiveFpsMaxRates];
     int n = 0;
-    for (const int fps : kLiveFpsRungs) {
-        if (!liveFpsOffered(fps, rates, count)) continue;
-        if (out && n < capacity) out[n] = fps;
-        ++n;
+    const auto add = [&](int fps) {
+        if (fps < kLiveFpsMin || fps > kLiveFpsMax || n == kLiveFpsMaxRates) return;
+        if (std::find(found, found + n, fps) == found + n) found[n++] = fps;
+    };
+    for (int i = 0; rates && i < count; ++i) {
+        const float r = rates[i];
+        if (!std::isfinite(r) || r <= 0.0f) continue;
+        for (int span = 1; span <= kMaxVsyncsPerFrame; ++span) {
+            const int fps = static_cast<int>(std::lround(r / static_cast<float>(span)));
+            if (vsyncSpan(r, static_cast<float>(fps)) == span) add(fps);
+        }
     }
+    if (n == 0) {
+        for (const int fps : kLiveFpsUnknown) add(fps);
+    }
+    std::sort(found, found + n);
+    for (int i = 0; out && i < n && i < capacity; ++i) out[i] = found[i];
     if (out && n < capacity) out[n] = kLiveFpsFollow;
     return n + 1;
 }
 
-// The stored cap as this display runs it: an offered cap as it is; anything else (a 120 picked on the
-// inner screen of a foldable now on its 60 Hz outer one, a value another build wrote) the nearest offered
-// cap, the lower one on a tie; Follow device as it is; any other non-positive value the default. Snapped
-// where it is applied.
+inline bool liveFpsOffered(int fps, const float* rates, int count) {
+    int choices[kLiveFpsMaxRates + 1];
+    const int n = liveFpsChoices(rates, count, choices, kLiveFpsMaxRates + 1);
+    return fps > 0 && std::find(choices, choices + n, fps) != choices + n;
+}
+
+// The stored rate as this display runs it: an offered rate as it is; anything else (a 120 picked on a foldable's
+// inner screen, now on its 60 Hz outer one) the nearest offered, the lower on a tie; Follow device as it is; any other
+// value <= 0 the default.
 inline int liveFpsCap(int stored, const float* rates, int count) {
     if (stored == kLiveFpsFollow) return kLiveFpsFollow;
     if (stored <= 0) return kLiveFpsDefault;
+    int choices[kLiveFpsMaxRates + 1];
+    const int n = liveFpsChoices(rates, count, choices, kLiveFpsMaxRates + 1);
     int best = 0;
-    for (const int fps : kLiveFpsRungs) {
-        if (!liveFpsOffered(fps, rates, count)) continue;
+    for (int i = 0; i < n; ++i) {
+        const int fps = choices[i];
+        if (fps == kLiveFpsFollow) continue;
         if (best == 0 || std::abs(fps - stored) < std::abs(best - stored)) best = fps;
     }
     return best > 0 ? best : kLiveFpsDefault;
+}
+
+// The refresh rate the window asks the display for while the live rate is `fps`: the lowest of `rates` that shows it
+// evenly, so 60 on a 60/90 Hz panel runs the 60 Hz mode and 45 the 90 Hz one. 0 (no preference) for Follow device,
+// no rate, or a rate no mode shows evenly.
+inline float refreshRateFor(int fps, const float* rates, int count) {
+    if (fps <= 0) return 0.0f;
+    float best = 0.0f;
+    for (int i = 0; rates && i < count; ++i) {
+        if (vsyncSpan(rates[i], static_cast<float>(fps)) == 0) continue;
+        if (best == 0.0f || rates[i] < best) best = rates[i];
+    }
+    return best;
 }
 
 }  // namespace geode::viz::frame

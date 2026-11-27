@@ -297,7 +297,7 @@ present_time_test | core | core/tests/present_time_test.cpp |
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
-# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, one paced frame per loop turn while one can be drawn, a frame that swaps nothing (or no Swappy) waiting for a vsync, the frame budget and its trace, the frame-rate hint restated on a change only, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
 stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |
 # The stage's per-frame recorder for on-device measurement: off until a debug flag, the ring's newest frames oldest first, a fence settling the last drawn frame once, the CSV.
 frame_recorder_test | core | core/tests/frame_recorder_test.cpp |
@@ -313,12 +313,8 @@ work_hint_test | core | core/tests/work_hint_test.cpp |
 thread_nice_test | mt | core/tests/thread_nice_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 command_queue_test | mt | core/tests/command_queue_test.cpp |
-# The stage's vsync callback on the vsync thread: start and stop, one callback posted, a lapse once stopped.
-stage_pacing_test | core | core/tests/stage_pacing_test.cpp |
-# The stage's vsync rule: skip a vsync while the last frame is in flight (CPU or GPU fence), the frame-rate hint for the window, the presentation rate from its interval.
-vsync_rule_test | core | core/tests/vsync_rule_test.cpp |
-# The live stage's frame clock: the swap interval from the display period and the user's rate, the budget, frames by vsync time.
-frame_pacer_test | core | core/tests/frame_pacer_test.cpp |
+# How the stage paces its swaps: the frame-rate hint for the window, the swap interval for a cap, the frame's length in refresh periods (Swappy's rounding), the presentation time each frame is drawn for.
+swap_pace_test | core | core/tests/swap_pace_test.cpp |
 # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
 renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |
 # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.

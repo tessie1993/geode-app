@@ -82,6 +82,14 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
+/* The stage's frame budget in ns: one frame's length for the rate setting on the display mode now running. The swap
+   interval, the frame-rate vote's pace and the work target follow this one number; 0 until the pacer has said. */
+GEODE_API long long geode_stage_frame_budget_ns(const geode_stage*);
+/* Android Frame Pacing (Swappy) is made from an Activity and paces the app's live stage: attach with the Activity's
+   JNIEnv* and jobject in its onCreate and detach with them in its onDestroy. A stage with no Swappy is paced by
+   Choreographer, one frame per vsync. */
+GEODE_API void     geode_stage_pacing_attach(void* env, void* activity);
+GEODE_API void     geode_stage_pacing_detach(void* env, void* activity);
 /* A new file descriptor, readable while frame events wait and until geode_stage_take_events takes them, for the
    shell's main looper to sleep on; the caller owns and closes it. -1 when there is none. */
 GEODE_API int      geode_stage_event_fd(const geode_stage*);

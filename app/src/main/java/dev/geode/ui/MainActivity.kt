@@ -37,6 +37,7 @@ import androidx.media3.session.PlaybackPendingIntentBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
 import dev.geode.cast.CastController
+import dev.geode.engine.bridge.StageNative
 import dev.geode.model.PresetLink
 import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
@@ -397,6 +398,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setKeepOnScreenCondition { !settingsViewModel.userDataLoaded.value }
         super.onCreate(savedInstanceState)
+        StageNative.pacingAttach(this)
         // Cast to TV starts with the app (owner Q38), so a TV picked in the system's output
         // switcher is gated and streamed even before Visuals has shown the Cast button. Posted to
         // the decor view: the first frame's traversal runs ahead of it, so Cast's start-up (Play
@@ -419,5 +421,10 @@ class MainActivity : ComponentActivity() {
             playFromSearch(intent)
             openRequestedPaywall(intent)
         }
+    }
+
+    override fun onDestroy() {
+        StageNative.pacingDetach(this)
+        super.onDestroy()
     }
 }

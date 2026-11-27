@@ -72,7 +72,11 @@ void StageCore::step(int64_t nowMs) {
         serviceDue_ = false;
         if (client_) client_->service(lifecycle_.canDraw());
     }
-    if (paces() && !vsyncWait_) drawPaced();
+    if (paces() && !vsyncWait_) {
+        drawPaced();
+        // What the frame's swap made of the lifecycle (a lost context, a bad surface) is settled before the loop sleeps.
+        runActions();
+    }
 }
 
 int64_t StageCore::waitMs(int64_t nowMs) const {
@@ -87,16 +91,19 @@ void StageCore::drawPaced() {
     const PaceTimes p = port_.paceTimes();
     const int64_t start = port_.nowNs();
     const int64_t presentNs = clock_.next(p.desiredNs, start, p.frameNs, p.periodNs);
+    syncBudget(p);
     const float fps = p.frameNs > 0 ? static_cast<float>(1.0e9 / static_cast<double>(p.frameNs)) : 0.0f;
     paced_.store(fps, std::memory_order_relaxed);
     int64_t drawNs = 0;
     const bool swapped = draw(fps, cap_, presentNs, drawNs);
     port_.frameWork(p.frameNs, drawNs);
-    if (!swapped) {
+    util::traceCounter("geode.cpuUs", drawNs / 1000);
+    if (const int64_t gpuNs = port_.lastGpuNs(); gpuNs > 0) util::traceCounter("geode.gpuUs", gpuNs / 1000);
+    if (!swapped || !p.swapPaces) {
         // No swap held this frame back, so none paces the next: it waits for the platform's next vsync.
         vsyncWait_ = true;
         port_.wakeAtVsync();
-        return;
+        if (!swapped) return;
     }
     // Presentation to presentation, so a late frame shows as the longer interval it made on screen.
     const int64_t intervalNs = lastShownNs_ > 0 && presentNs > lastShownNs_ ? presentNs - lastShownNs_ : 0;
@@ -107,6 +114,15 @@ void StageCore::drawPaced() {
         recorder_.drawn(drawNs, intervalNs);
         recorder_.gpuOfPrevious(port_.lastGpuNs());
     }
+}
+
+// The budget is the frame's length on the display mode now running. A new one (the setting or the mode changed) is
+// published for the UI and traced; the swap interval and the work target take it from the same frame's times.
+void StageCore::syncBudget(const PaceTimes& times) {
+    if (times.frameNs == appliedBudgetNs_) return;
+    appliedBudgetNs_ = times.frameNs;
+    budget_.store(times.frameNs, std::memory_order_relaxed);
+    util::traceCounter("geode.frameBudgetUs", times.frameNs / 1000);
 }
 
 void StageCore::handOverFrames() {

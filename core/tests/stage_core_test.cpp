@@ -1,15 +1,14 @@
 // Host-side checks for core/stage/StageCore: what a stage thread does with each command and on each turn of its
-// loop. No EGL and no looper: a model port records every platform call and can fail
-// a swap the way a driver does, and a model client records what it is told.
+// loop. No EGL and no looper: a model port records every platform call, answers the pacer's times and can fail a swap
+// the way a driver does, and a model client records what it is told.
 //
-// What is pinned: each command's lifecycle event (window, window gone, size, mode, pause and resume, redraw, cap,
-// quit), the window references (one release per hand-over, replaced, gone, discarded or closed), the hand-over's
-// acknowledgement only after the old surface is gone, a vsync's frame drawn only while the vsync runs and a frame
-// can be drawn, the frame-rate preference restated for a new window, a new size and a new cap and never by a
-// frame, the frame clock's rate held whether or not the display follows the vote (stage/FramePacer), a vsync
-// skipped while the GPU has not finished the last frame (and drawn again the moment it has), the
-// presentation rate read from the vsync's interval, the client's service between frames, a lost context forgotten with none current, and a thread ending out of turn still
-// releasing the client once and freeing everything.
+// What is pinned: each command's lifecycle event, the window references, the hand-over's acknowledgement only after the
+// old surface is gone, one paced frame per turn while the pacing runs and a frame can be drawn, a frame that swaps
+// nothing (or a pacer that does not hold the swap) waiting for the vsync it asked for, the frame budget published from
+// the pacer's times and following a display mode, the frame-rate vote restated for a new window, size and cap and never by
+// a frame or a mode, the work reported against the budget as the draw alone, the presentation time each frame is drawn
+// for, the client's service between frames, a lost context forgotten with none current, and a thread ending out of turn
+// still releasing the client once and freeing everything.
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -18,7 +17,6 @@
 
 #include "stage/FrameRecorder.hpp"
 #include "stage/StageCore.hpp"
-#include "stage/VsyncRule.hpp"
 
 using namespace geode::stage;
 
@@ -33,6 +31,9 @@ void check(bool ok, const char* what) {
     }
 }
 
+constexpr int64_t kPeriod60 = 16'666'667;
+constexpr int64_t kPeriod90 = 11'111'111;
+
 struct Port final : StagePort {
     std::vector<std::string> log;
     bool context = false;
@@ -45,15 +46,18 @@ struct Port final : StagePort {
     void* rateWindow = nullptr;
     float rate = -1.0f;
     int rateCalls = 0;
-    bool vsync = false;
-    bool gpuBusyNow = false;  // the last swapped frame's fence has not signalled
-    int gpuAsks = 0;
+    bool pacing = false;
+    float paceCap = -1.0f;
+    int paceCalls = 0;
+    int vsyncWakes = 0;
     int64_t applied = 0;
     bool surfaceAtAck = false;
-    int frameDones = 0;
-    std::vector<int64_t> presented;  // each swap's stamp, 0 for none
-    std::vector<int64_t> budgets;    // each paced frame's budget, as reported for ADPF
-    std::vector<std::string> recorded;  // each chunk of the frame recorder handed over
+    int64_t now = 100;
+    int64_t swapCost = 0;
+    int64_t gpuNs = 0;
+    PaceTimes times{0, kPeriod60, kPeriod60, true};
+    std::vector<std::pair<int64_t, int64_t>> work;  // each frame's (target, actual) as reported for ADPF
+    std::vector<std::string> recorded;
 
     Outcome createContext(bool& surfaceless) override {
         surfaceless = true;
@@ -94,34 +98,34 @@ struct Port final : StagePort {
         contextDestroys++;
         log.push_back("-context");
     }
-    void presentAt(int64_t presentNs) override { presented.push_back(presentNs); }
-    void frameDone() override { frameDones++; }
-    void frameWork(int64_t budgetNs, int64_t actualNs) override {
-        static_cast<void>(actualNs);
-        budgets.push_back(budgetNs);
-    }
     Outcome swap() override {
         swaps++;
+        now += swapCost;
         const Outcome out = nextSwap;
         nextSwap = Outcome::Done;
         return out;
     }
+    void wakeAtVsync() override { vsyncWakes++; }
     void releaseWindow(void* window) override { released.push_back(window); }
-    void framesRecorded(const std::string& csv) override { recorded.push_back(csv); }
     void setFrameRate(void* window, float fps) override {
         rateWindow = window;
         rate = fps;
         rateCalls++;
     }
-    void vsyncRun(bool on) override { vsync = on; }
-    bool gpuBusy() override {
-        gpuAsks++;
-        return gpuBusyNow;
+    void pace(bool on, float capFps) override {
+        pacing = on;
+        paceCap = capFps;
+        paceCalls++;
     }
+    PaceTimes paceTimes() override { return times; }
+    int64_t lastGpuNs() override { return gpuNs; }
+    int64_t nowNs() override { return now; }
     void windowApplied(int64_t sequence) override {
         applied = sequence;
         surfaceAtAck = surfaceOn != nullptr;
     }
+    void frameWork(int64_t targetNs, int64_t actualNs) override { work.emplace_back(targetNs, actualNs); }
+    void framesRecorded(const std::string& csv) override { recorded.push_back(csv); }
 };
 
 struct Client final : StageClient {
@@ -132,7 +136,7 @@ struct Client final : StageClient {
     int restarts = 0;
     float paced = -1.0f, cap = -1.0f;
     uint32_t nextEvents = 0;
-    std::vector<int64_t> vsyncTimes;  // the frame time each frame was told, 0 for none
+    int64_t drawCost = 0;
     std::vector<int64_t> presentTimes;  // the presentation time each frame was told, 0 for none
     bool lostWhileCurrent = false;
     bool releasedWithGl = false;
@@ -150,13 +154,13 @@ struct Client final : StageClient {
         width = w;
         height = h;
     }
-    void frameTime(int64_t vsyncNs) override { vsyncTimes.push_back(vsyncNs); }
     void framePresent(int64_t presentNs) override { presentTimes.push_back(presentNs); }
     uint32_t frame(float pacedFps, float capFps) override {
         if (frames == 0) appliedAtFirstFrame = port.applied;
         frames++;
         paced = pacedFps;
         cap = capFps;
+        port.now += drawCost;
         return nextEvents;
     }
     void restartClock() override { restarts++; }
@@ -202,11 +206,14 @@ struct Rig {
         core.apply(c, now);
         core.step(now);
     }
-    // A watched, drawing view on window A.
+    // A watched, drawing view on window A: the turn that starts the pacing draws its first frame.
     void show() {
         core.apply(command(kStageWindow, 1080, 2340, 0.0f, 0.0f, 1, &windowA), now);
         core.apply(command(kStageMode, static_cast<int32_t>(RunMode::Animated)), now);
         core.step(now);
+    }
+    void turns(int n) {
+        for (int i = 0; i < n; ++i) core.step(now);
     }
 };
 
@@ -218,55 +225,53 @@ void windowAndFrames() {
     check(r.port.applied == 1, "then the hand-over is acknowledged");
     check(r.port.rateWindow == &windowA && r.port.rate == 60.0f, "a new window is told the cap's rate");
     check((r.core.state() & kStateDrawable) != 0 && (r.core.state() & kStateVsync) == 0, "drawable, not pacing while hidden");
+    r.turns(3);
+    check(r.client->frames == 0 && r.port.swaps == 0, "a hidden stage draws no frame");
 
-    r.send(command(kStageFrameDue, 33'333'333, 0));
-    check(r.client->frames == 0 && r.port.swaps == 0, "a frame request with the vsync stopped is dropped");
-    check(near(r.core.pacedFps(), 30.0f), "its rate, read from the interval between presentations, is still read back");
-
-    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
-    check(r.port.vsync, "a watched view starts the vsync");
     r.client->nextEvents = 0x4;
-    r.send(command(kStageFrameDue, 22'222'222, 0));
+    r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
+    check(r.port.pacing && r.port.paceCap == 60.0f, "a watched view starts the pacing at the cap");
+    check(r.client->frames == 1 && r.port.swaps == 1, "and its first turn draws a frame and swaps it");
     r.client->nextEvents = 0x10;
-    r.send(command(kStageFrameDue, 22'222'222, 0));
-    check(r.client->frames == 2 && r.port.swaps == 2, "each request draws one frame and swaps it");
-    check(near(r.client->paced, 45.0f) && r.client->cap == 60.0f, "told the rate the display presents at and the user's cap");
+    r.turns(2);
+    check(r.client->frames == 3 && r.port.swaps == 3, "each turn after draws one frame and swaps it: the swap does the waiting");
+    check(near(r.client->paced, 60.0f) && r.client->cap == 60.0f, "told the rate the pacer holds and the user's cap");
     check(r.core.takeEvents() == 0x14 && r.core.takeEvents() == 0, "the frames' events add up and are taken once");
-
-    r.core.step(r.now);
-    check(r.client->frames == 2, "no frame without a request");
+    check(r.core.waitMs(0) == 0, "the loop does not sleep while frames are due");
 
     const int rates = r.port.rateCalls;
     r.send(command(kStageSize, 2340, 1080));
     check(r.client->changed == 2 && r.client->width == 2340 && r.port.rateCalls == rates + 1, "a new size reaches the client and restates the rate");
+    const int paces = r.port.paceCalls;
     r.send(command(kStageCap, 0, 0, 90.0f));
-    check(r.port.rate == 90.0f && r.port.rateWindow == &windowA, "a cap goes to the window as its frame-rate hint");
-    check(near(r.core.pacedFps(), 45.0f), "and does not move the rate the display presents at");
+    check(r.port.rate == 90.0f && r.port.rateWindow == &windowA, "a cap goes to the window as its frame-rate vote");
+    check(r.port.paceCalls == paces + 1 && r.port.paceCap == 90.0f, "and to the pacer once");
     const int hints = r.port.rateCalls;
-    r.send(command(kStageFrameDue, 22'222'222, 0));
-    check(r.port.rateCalls == hints, "a drawn frame states no rate: the hint is set on a change only");
+    r.turns(5);
+    check(r.port.rateCalls == hints, "a drawn frame states no rate: the vote is set on a change only");
 
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
-    check(!r.port.vsync && r.client->trims == 1, "hidden: the vsync stops and the spares go");
+    check(!r.port.pacing && r.client->trims == 1, "hidden: the pacing stops and the spares go");
+    const int frames = r.client->frames;
+    r.turns(3);
+    check(r.client->frames == frames, "and no frame is drawn");
     r.send(command(kStageRedraw));
-    check(r.client->frames == 4 && near(r.client->paced, 45.0f) && r.client->cap == 90.0f, "a redraw while stopped draws one frame at the last rate, with the cap");
+    check(r.client->frames == frames + 1 && r.client->cap == 90.0f, "a redraw while stopped draws one frame, with the cap");
 }
 
-// Red against: a resume that steps the picture by the whole pause (no restart when the vsync starts again), a frame
-// no vsync asked for stepping by the time since the last, and a restart on every drawn frame (the step would always
-// be 0).
+// Red against: a resume that steps the picture by the whole pause (no restart when the pacing starts again), a frame
+// nobody paced stepping by the time since the last, and a restart on every drawn frame (the step would always be 0).
 void theClockRestartsWhereNoTimePassedOnScreen() {
     Rig r;
     r.show();
-    check(r.client->restarts == 1, "the vsync starting restarts the clock once");
-    r.send(command(kStageFrameDue, 16'666'667, 0));
-    r.send(command(kStageFrameDue, 16'666'667, 0));
+    check(r.client->restarts == 1, "the pacing starting restarts the clock once");
+    r.turns(2);
     check(r.client->restarts == 1, "drawn frames do not");
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
     r.send(command(kStageRedraw));
-    check(r.client->restarts == 2, "a frame no vsync asked for restarts it");
+    check(r.client->restarts == 2, "a frame no pacer asked for restarts it");
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
-    check(r.client->restarts == 3, "and so does the vsync starting again after the stop");
+    check(r.client->restarts == 3, "and so does the pacing starting again after the stop");
 }
 
 void trimReachesAStageThatDrawsNothing() {
@@ -308,81 +313,118 @@ void handOvers() {
     check(r.port.released.size() == 5 && r.port.released[4] == &windowB, "closing releases the stage's own window once");
 }
 
-void vsyncTimes() {
-    // Follow device: every vsync draws, whatever its interval, so each one's times can be read.
-    Rig r(Kind::View, -1.0f);
-    r.show();
-    // t = the vsync's frame time, b = ns from it to the expected presentation, a = ns between presentations.
-    r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'000'000'000));
-    check(r.client->vsyncTimes.size() == 1 && r.client->vsyncTimes[0] == 1'000'000'000, "a frame is told the vsync it is for");
-    check(r.client->presentTimes.back() == 1'020'000'000, "and the vsync it is shown at");
-    check(r.port.presented.size() == 1 && r.port.presented[0] == 1'016'000'000,
-          "the swap is stamped half an interval before that vsync, between it and the one before");
-    r.send(command(kStageFrameDue, 0, 20'000'000, 60.0f, 60.0f, 1'008'000'000));
-    check(r.client->presentTimes.back() == 1'028'000'000 && r.port.presented.size() == 2 && r.port.presented[1] == 1'028'000'000,
-          "with no interval the stamp is the presentation time itself, as it was");
-    r.send(command(kStageFrameDue, 8'000'000, 20'000'000, 60.0f, 60.0f, 1'016'000'000));
-    check(r.port.presented.size() == 3 && r.port.presented[2] == 1'032'000'000, "the next frame with one is stamped again");
-    r.send(command(kStageFrameDue, 8'000'000, 0, 60.0f, 60.0f, 1'024'000'000));
-    check(r.client->vsyncTimes.back() == 1'024'000'000 && r.port.presented.size() == 4 && r.port.presented[3] == 0,
-          "a vsync with no expected time presents as it can");
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
-    check(r.client->vsyncTimes.back() == 0 && r.port.presented.back() == 0, "a request with no vsync time says so");
-}
-
-// Red against: a pacer never told the stage is free (frameDone not called, or called before the swap), a dropped
-// request that leaves the pacer waiting for ever, and a client not told when its frame is shown (the sound is
-// read there).
-void aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone() {
+// Red against: a frame told the time it starts instead of the pacer's presentation time, a jitter in the pacer's time
+// stepping the picture by more or less than whole refresh periods, a late frame stepping by a catch-up of nothing (two
+// frames on one refresh) and a time already past used as it is.
+void aFrameIsToldTheTimeItIsShown() {
     Rig r;
+    r.port.times.desiredNs = 1'000'000'000;
     r.show();
-    r.send(command(kStageFrameDue, 0, 33'000'000, 30.0f, 30.0f, 2'000'000'000));
-    check(r.client->presentTimes.size() == 1 && r.client->presentTimes[0] == 2'033'000'000, "a frame is told when it is shown");
-    check(r.port.frameDones == 1, "the pacer is told the frame is done, once");
-    r.send(command(kStagePause, 1));
-    const int before = r.port.frameDones;
-    r.send(command(kStageFrameDue, 0, 0, 30.0f, 30.0f, 2'100'000'000));
-    check(r.client->frames == 1 && r.port.frameDones == before + 1, "a request dropped unseen is done too, so the pacer is not left waiting");
+    check(r.client->presentTimes.size() == 1 && r.client->presentTimes[0] == 1'000'000'000, "a frame is told when the pacer will show it");
+    r.port.times.desiredNs = 1'000'000'000 + kPeriod60 + 300;
+    r.turns(1);
+    check(r.client->presentTimes.back() == 1'000'000'000 + kPeriod60, "a jitter of the pacer's time snaps to whole refresh periods");
+    r.port.times.desiredNs = 1'000'000'000 + 3 * kPeriod60 + 40'000;
+    r.turns(1);
+    check(r.client->presentTimes.back() == 1'000'000'000 + 3 * kPeriod60, "a late frame steps by the periods it really took, once");
+    r.port.times.desiredNs = 1'000'000'000;
+    r.port.now = 50;
+    r.turns(1);
+    check(r.client->presentTimes.back() == 1'000'000'000 + 4 * kPeriod60, "a time at or before the last frame's is the next refresh: never two frames on one");
+    r.port.times.desiredNs = 0;
+    r.port.now = 9'000'000'000;
+    r.turns(1);
+    check(r.client->presentTimes.back() >= 9'000'000'000 + 2 * kPeriod60 - kPeriod60 / 2, "with no time from the pacer a frame is two frames ahead, as a pipelined one is");
 }
 
-// Red against: a frame the client says repeats the picture on screen still swapping (the GPU does the work of a
-// present for nothing), its bit reaching the shell's events, and a skipped frame leaving the pacer waiting.
-// Any change draws and swaps on the very next vsync.
+// Red against: a frame that repeats the picture on screen still swapping (the GPU does the work of a present for
+// nothing), its bit reaching the shell's events, and a stage that spins on a frame nothing waits for.
 void aFrameThatRepeatsThePictureIsNotSwapped() {
     Rig r;
     r.show();
-    r.send(command(kStageFrameDue, 0, 4'000'000, 30.0f, 30.0f, 1'000'000'000));
     const int swaps = r.port.swaps;
-    const size_t presents = r.port.presented.size();
+    check(r.port.vsyncWakes == 0, "a frame whose swap held it asks for no vsync");
     r.client->nextEvents = kFrameNothingNew | 0x40u;
-    r.send(command(kStageFrameDue, 0, 4'000'000, 30.0f, 30.0f, 1'033'000'000));
-    check(r.client->frames == 2 && r.port.swaps == swaps && r.port.presented.size() == presents,
-          "a frame that repeats the picture is neither presented nor swapped");
-    check(r.port.frameDones == 2, "and the pacer is told it is done");
+    r.turns(1);
+    check(r.client->frames == 2 && r.port.swaps == swaps, "a frame that repeats the picture is not swapped");
+    check(r.port.vsyncWakes == 1 && r.core.waitMs(0) == -1, "no swap holds the next one back, so it asks for the vsync and the loop sleeps");
     check(r.core.takeEvents() == 0x40u, "its own bit never reaches the shell, the rest does");
+    r.turns(4);
+    check(r.client->frames == 2 && r.port.vsyncWakes == 1, "and no turn draws before the vsync, nor asks again");
     r.client->nextEvents = 0;
-    r.send(command(kStageFrameDue, 0, 4'000'000, 30.0f, 30.0f, 1'066'000'000));
-    check(r.port.swaps == swaps + 1 && r.port.presented.size() == presents + 1, "the next frame with a change swaps");
+    r.send(command(kStageVsync));
+    check(r.client->frames == 3 && r.port.swaps == swaps + 1 && r.core.waitMs(0) == 0, "the vsync makes it the next frame's turn, and a frame with a change swaps");
+}
+
+// Red against: a stage without Swappy drawing as fast as its swap lets it (a burst after a late frame), a frame per
+// vsync lost or doubled, and a presentation time that is not the vsync's own.
+void withoutSwappyTheVsyncPacesEachFrame() {
+    Rig r;
+    r.port.times = PaceTimes{2'000'000'000, kPeriod60, kPeriod60, false};
+    r.show();
+    check(r.client->frames == 1 && r.port.swaps == 1 && r.port.vsyncWakes == 1, "a swapped frame no pacer holds asks for the next vsync");
+    check(r.client->presentTimes.back() == 2'000'000'000, "told the vsync's presentation time");
+    r.turns(5);
+    check(r.client->frames == 1 && r.port.vsyncWakes == 1, "however many turns come before it, no second frame");
+    r.port.times.desiredNs = 2'000'000'000 + kPeriod60;
+    r.send(command(kStageVsync));
+    check(r.client->frames == 2 && r.port.vsyncWakes == 2, "each vsync draws exactly one frame and asks for the next");
+    r.port.times.desiredNs = 2'000'000'000 + 4 * kPeriod60;
+    r.port.now = 2'000'000'000 + 3 * kPeriod60;
+    r.send(command(kStageVsync));
+    r.turns(3);
+    check(r.client->frames == 3 && r.client->presentTimes.back() == 2'000'000'000 + 4 * kPeriod60, "a late frame is shown at the vsync it caught, with no catch-up frames after it");
+    check(r.port.work.back().first == kPeriod60, "its budget is the display's period: nothing holds a longer frame");
+}
+
+// Red against: a budget that stays the number it started as when the display mode changes (the work target would
+// be a 60 Hz frame on a 90 Hz panel), a vote restated for a mode (the vote is the setting's, whatever the platform
+// does), a budget not told to the UI's getter, and work reported as the draw plus the swap's wait.
+void theFrameBudgetFollowsTheModeAndTheWorkIsTheDraw() {
+    Rig r;
+    check(r.core.frameBudgetNs() == 0, "no budget before the pacer says");
+    r.client->drawCost = 3'000'000;
+    r.port.swapCost = 12'000'000;
+    r.show();
+    check(r.core.frameBudgetNs() == kPeriod60, "the budget is the frame's length the pacer reports");
+    check(r.port.work.size() == 1 && r.port.work[0].first == kPeriod60 && r.port.work[0].second == 3'000'000,
+          "the work is reported against the budget as the draw alone, not the swap's wait");
+    const int hints = r.port.rateCalls;
+    const float vote = r.port.rate;
+    r.port.times.frameNs = 2 * kPeriod90;
+    r.port.times.periodNs = kPeriod90;
+    r.turns(1);
+    check(r.core.frameBudgetNs() == 2 * kPeriod90 && r.port.work.back().first == 2 * kPeriod90, "a new display mode is a new budget, for the UI and for the work target");
+    check(near(r.client->paced, 45.0f), "and the rate the frame is told");
+    check(r.port.rateCalls == hints && r.port.rate == vote, "the vote does not follow the mode");
+    r.send(command(kStageCap, 0, 0, -1.0f));
+    check(r.port.rate == 0.0f && r.port.paceCap == -1.0f, "Follow device votes no rate and tells the pacer");
+    r.port.times.frameNs = kPeriod90;
+    r.turns(1);
+    check(r.core.frameBudgetNs() == kPeriod90, "and its budget is one refresh period of the mode the system runs");
 }
 
 void pauseAndLoss() {
     Rig r;
     r.show();
     r.send(command(kStagePause, 1));
-    check(r.port.surfaceOn == nullptr && r.port.context && !r.port.vsync && (r.core.state() & kStatePaused) != 0, "a pause lets the surface go and keeps the context");
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
-    check(r.client->frames == 0, "a frame request in flight across the pause is dropped");
+    check(r.port.surfaceOn == nullptr && r.port.context && !r.port.pacing && (r.core.state() & kStatePaused) != 0, "a pause lets the surface go and keeps the context");
+    const int frames = r.client->frames;
+    r.turns(2);
+    check(r.client->frames == frames, "a paused stage draws nothing");
     r.send(command(kStagePause, 0));
-    check(r.port.surfaceOn == &windowA && r.port.vsync && r.client->created == 1, "a resume rebuilds the surface, not the client");
+    check(r.port.surfaceOn == &windowA && r.port.pacing && r.client->created == 1, "a resume rebuilds the surface, not the client");
 
     r.port.nextSwap = Outcome::ContextLost;
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
+    r.turns(1);
     check(r.client->losses == 1 && !r.client->lostWhileCurrent, "a lost context is forgotten with none current");
     check(r.port.contextCreates == 2 && r.port.contextDestroys == 1 && r.client->created == 2 && r.port.current, "and rebuilt in the same turn");
 
+    check(r.core.waitMs(0) == -1 && r.port.vsyncWakes == 1, "a frame that swapped nothing waits for the vsync, whatever the reason");
+    r.send(command(kStageVsync));
     r.port.nextSwap = Outcome::BadSurface;
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
-    check((r.core.state() & kStateSurfaceBad) != 0 && r.port.surfaceOn == nullptr && !r.port.vsync, "a bad surface is destroyed and reported, the vsync stopped");
+    r.turns(1);
+    check((r.core.state() & kStateSurfaceBad) != 0 && r.port.surfaceOn == nullptr && !r.port.pacing, "a bad surface is destroyed and reported, the pacing stopped");
 }
 
 void serviceAndQuit() {
@@ -390,11 +432,11 @@ void serviceAndQuit() {
     r.send(command(kStageService));
     check(r.client->services == 1 && !r.client->serviceReady, "service with nothing built says not ready");
     r.show();
+    const int frames = r.client->frames;
     r.core.apply(command(kStageService), r.now);
     r.core.apply(command(kStageService), r.now);
-    r.core.apply(command(kStageFrameDue, 0, 0, 60.0f, 60.0f), r.now);
     r.core.step(r.now);
-    check(r.client->services == 2 && r.client->serviceReady && r.client->framesAtService == 0 && r.client->frames == 1,
+    check(r.client->services == 2 && r.client->serviceReady && r.client->framesAtService == frames && r.client->frames == frames + 1,
           "service runs once, ready, before the turn's frame");
     r.core.step(r.now);
     check(r.client->services == 2, "and not again unasked");
@@ -405,115 +447,72 @@ void serviceAndQuit() {
     const int swaps = r.port.swaps;
     r.send(command(kStageQuit));
     check(held.expired(), "and drops it at release");
-    check(r.core.finished() && !r.port.context && r.port.surfaceOn == nullptr && !r.port.vsync, "quit frees everything");
+    check(r.core.finished() && !r.port.context && r.port.surfaceOn == nullptr && !r.port.pacing, "quit frees everything");
     check(r.port.contextCreates == r.port.contextDestroys && r.port.surfaceCreates == r.port.surfaceDestroys, "every create has its destroy");
     check((r.core.state() & kStateReleased) != 0, "and reports released");
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
+    r.send(command(kStageVsync));
     r.send(command(kStageService));
     check(r.port.swaps == swaps, "nothing draws after quit");
 }
 
-// Red against: a vsync drawn on top of a frame the GPU has not finished (the queue stuffs and every frame lands late),
-// a skip that is remembered (the next vsync waits too), a skipped request left unanswered (the vsync thread would
-// wait for ever), and a fence asked about on a vsync nothing will draw.
-void aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame() {
-    Rig r;
-    r.show();
-    r.send(command(kStageFrameDue, 16'666'667, 0));
-    check(r.client->frames == 1 && r.port.swaps == 1, "an idle GPU draws");
-    r.port.gpuBusyNow = true;
-    r.send(command(kStageFrameDue, 16'666'667, 0));
-    r.send(command(kStageFrameDue, 16'666'667, 0));
-    check(r.client->frames == 1 && r.port.swaps == 1, "a GPU still on the last frame skips the vsync, however many come");
-    check(r.port.frameDones == 3, "and the vsync thread is told each request is done");
-    r.port.gpuBusyNow = false;
-    r.send(command(kStageFrameDue, 16'666'667, 0));
-    check(r.client->frames == 2 && r.port.swaps == 2, "the first vsync after the fence signals draws: no skip is remembered");
-
-    r.send(command(kStagePause, 1));
-    const int asks = r.port.gpuAsks;
-    r.send(command(kStageFrameDue, 16'666'667, 0));
-    check(r.port.gpuAsks == asks, "a request that will not draw never asks the fence");
-}
-
-// Red against: a recorder that runs without its debug flag, a skip or a drawn frame missing from it, a present interval
-// read from the vsync instead of the presentation, an interval across a stop, the fence asked on a passed-by vsync while
-// not recording, and a recording kept back when the vsync stops (nothing else would hand it over).
+// Red against: a recorder that runs without its debug flag, a draw time that includes the swap's wait, a present
+// interval read from anything but the presentation times, the pacer's GPU time not joining the frame before, an interval
+// across a stop, and a recording kept back when the pacing stops (nothing else would hand it over).
 void theFrameRecorderIsOffUntilAskedAndHandsOverAtTheStop() {
     Rig off;
     off.show();
-    for (int i = 0; i < 4; ++i) off.send(command(kStageFrameDue, 16'666'667, 0, 0.0f, 0.0f, 1'000'000'000LL + i * 16'666'667LL));
+    off.turns(4);
     off.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
     check(off.port.recorded.empty(), "with no debug flag nothing is recorded or handed over");
 
-    Rig r(Kind::View, 60.0f);
+    Rig r;
     r.core.recordFrames(true);
+    r.client->drawCost = 4'000'000;
+    r.port.swapCost = 9'000'000;
+    r.port.gpuNs = 5'000'000;
+    r.port.times.desiredNs = 1'000'000'000;
     r.show();
-    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 1'000'000'000));
-    r.port.gpuBusyNow = true;
-    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 1'016'666'667));
-    r.port.gpuBusyNow = false;
-    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 1'033'333'334));
+    r.port.times.desiredNs = 1'000'000'000 + kPeriod60;
+    r.turns(1);
+    r.port.times.desiredNs = 1'000'000'000 + 2 * kPeriod60;
+    r.port.gpuNs = 0;
+    r.turns(1);
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
-    check(r.port.recorded.size() == 1, "the vsync stopping hands the recording over once");
+    check(r.port.recorded.size() == 1, "the pacing stopping hands the recording over once");
     const std::string csv = r.port.recorded.empty() ? std::string() : r.port.recorded[0];
     const std::string header = FrameRecorder::kCsvHeader;
     check(csv.compare(0, header.size(), header) == 0, "as the recorder's CSV");
-    // Rows: frame 0 drawn, 1 skipped, 2 drawn two vsyncs after frame 0 (its interval is presentation to presentation).
-    check(csv.find("\n1,0,0,0,1\n") != std::string::npos, "the GPU-busy skip is a row of its own");
-    check(csv.find(",33333334,0\n") != std::string::npos, "the next frame's interval spans the skipped vsync");
-    check(csv.find("\n0,") != std::string::npos && csv.find("\n3,") == std::string::npos, "three rows, numbered from 0");
+    check(csv.find("\n0,4000000,5000000,0\n") != std::string::npos, "the first frame: its draw alone, its GPU time, no interval across the start");
+    check(csv.find("\n1,4000000,0,16666667\n") != std::string::npos || csv.find("\n1,4000000,5000000,16666667\n") != std::string::npos,
+          "the next: its draw and the presentation-to-presentation interval");
+    check(csv.find("\n2,4000000,0,16666667\n") != std::string::npos, "and the third, its GPU time not yet told");
 
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
-    r.send(command(kStageFrameDue, 16'666'667, 4'000'000, 0.0f, 0.0f, 9'000'000'000));
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Stopped)));
-    check(r.port.recorded.size() == 2 && r.port.recorded[1].find("\n3,") != std::string::npos &&
-              r.port.recorded[1].find(",0,0\n") != std::string::npos,
+    check(r.port.recorded.size() == 2 && r.port.recorded[1].find("\n3,4000000,") != std::string::npos &&
+              r.port.recorded[1].find(",0\n") != std::string::npos,
           "the numbering goes on, and the first frame after a start has no interval across the stop");
 }
 
-// Red against: a rate that depends on the display following the vote (a 90 Hz display under a 60 rate would draw 90,
-// the old rule's gap), a frame clock that lowers a display that does follow it, a passed-by request left unanswered,
-// and work reported against the display's period instead of the frame's budget.
-void theFrameClockHoldsTheUsersRate() {
+// Red against: the user's rate stated on every frame (a call across to the system per frame), a stated rate that is the
+// display's own, and Follow device stated as a rate.
+void theRateVoteFollowsTheCapNotTheFrames() {
     Rig r(Kind::View, 60.0f);
     r.show();
-    const int dones = r.port.frameDones;
-    for (int i = 0; i < 90; ++i) r.send(command(kStageFrameDue, 11'111'111, 0, 0.0f, 0.0f, 1'000'000'000LL + i * 11'111'111LL));
-    check(r.client->frames == 45, "a 90 Hz display under a 60 rate draws every second vsync: 45, never 90");
-    check(near(r.client->paced, 45.0f), "and each frame is told the rate it is drawn at");
-    check(r.port.frameDones == dones + 90, "each passed-by request is still told done");
-    check(r.port.budgets.size() == 45 && r.port.budgets.back() == 22'222'222, "each drawn frame's work is reported against two vsyncs");
-
-    Rig honoured(Kind::View, 60.0f);
-    honoured.show();
-    for (int i = 0; i < 200; ++i) honoured.send(command(kStageFrameDue, 16'666'667, 0));
-    check(honoured.client->frames == 200, "a display that follows the vote draws every vsync");
-    check(honoured.port.budgets.back() == 16'666'667, "against one vsync");
-
-    Rig follow(Kind::View, -1.0f);
-    follow.show();
-    for (int i = 0; i < 200; ++i) follow.send(command(kStageFrameDue, 8'333'333, 0));
-    check(follow.client->frames == 200, "Follow device is never cut");
-}
-
-// Red against: the user's rate stated on every frame (a call across to the system per vsync), a stated rate that is
-// the display's own, and Follow device stated as a rate.
-void theRateHintFollowsTheCapNotTheFrames() {
-    Rig r(Kind::View, 60.0f);
-    r.show();
-    check(r.port.rate == 60.0f, "the window is asked for the user's cap");
+    check(r.port.rate == 60.0f, "the window is voted the user's cap");
     r.send(command(kStageCap, 0, 0, -1.0f));
     check(r.port.rate == 0.0f, "Follow device states no rate");
     r.send(command(kStageCap, 0, 0, 30.0f));
     check(r.port.rate == 30.0f, "a new cap is stated");
     const int hints = r.port.rateCalls;
-    for (int i = 0; i < 20; ++i) r.send(command(kStageFrameDue, 8'333'333, 0));
-    check(r.port.rateCalls == hints && r.client->frames == 5, "twenty vsyncs of a 120 Hz display state nothing and draw every fourth");
+    r.turns(20);
+    check(r.port.rateCalls == hints, "twenty frames state nothing");
+    r.send(command(kStageCap, 0, 0, 30.0f));
+    check(r.port.rateCalls == hints, "the same cap again states nothing");
 }
 
-// Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the
-// shell's Main thread waiting on shader warm-up or a blocked swap.
+// Red against: the acknowledgement sent after the client's surface calls or the first frame, which keeps the shell's
+// main thread waiting on shader warm-up or a blocked swap.
 void aWindowIsAcknowledgedBeforeTheClientOrAFrame() {
     Rig r;
     r.core.apply(command(kStageWindow, 1080, 2340, 0.0f, 0.0f, 1, &windowA), r.now);
@@ -521,7 +520,6 @@ void aWindowIsAcknowledgedBeforeTheClientOrAFrame() {
     r.core.step(r.now);
     check(r.client->created == 1 && r.client->appliedAtCreated == 1, "a new window is acknowledged before the client is told of it");
     check(r.port.surfaceAtAck, "with its surface already made");
-    r.send(command(kStageFrameDue, 0, 0, 60.0f, 60.0f));
     check(r.client->frames == 1 && r.client->appliedAtFirstFrame == 1, "and before the first frame");
 
     r.send(command(kStageWindowGone, 0, 0, 0.0f, 0.0f, 2));
@@ -533,7 +531,7 @@ void endsOutOfTurn() {
     r.show();
     r.core.abandon();
     check(r.client->releases == 1 && r.client->releasedWithGl, "a thread ending out of turn still releases the client, with its context current");
-    check(r.core.finished() && !r.port.context && r.port.surfaceOn == nullptr && !r.port.vsync, "and frees the surface, the context and the vsync");
+    check(r.core.finished() && !r.port.context && r.port.surfaceOn == nullptr && !r.port.pacing, "and frees the surface, the context and the pacing");
     r.core.abandon();
     check(r.client->releases == 1, "once");
 
@@ -549,14 +547,13 @@ int main() {
     theClockRestartsWhereNoTimePassedOnScreen();
     trimReachesAStageThatDrawsNothing();
     handOvers();
-    vsyncTimes();
-    aFrameIsToldItsPresentationTimeAndTheStageSaysWhenItIsDone();
+    aFrameIsToldTheTimeItIsShown();
     aFrameThatRepeatsThePictureIsNotSwapped();
+    withoutSwappyTheVsyncPacesEachFrame();
+    theFrameBudgetFollowsTheModeAndTheWorkIsTheDraw();
     pauseAndLoss();
     serviceAndQuit();
-    aVsyncIsSkippedWhileTheGpuHasNotFinishedTheLastFrame();
-    theRateHintFollowsTheCapNotTheFrames();
-    theFrameClockHoldsTheUsersRate();
+    theRateVoteFollowsTheCapNotTheFrames();
     theFrameRecorderIsOffUntilAskedAndHandsOverAtTheStop();
     aWindowIsAcknowledgedBeforeTheClientOrAFrame();
     endsOutOfTurn();

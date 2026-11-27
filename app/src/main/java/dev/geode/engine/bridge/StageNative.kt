@@ -76,6 +76,15 @@ object StageNative {
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
 
+    /** The stage's frame budget in ns for the rate setting on the display mode now running; 0 until the pacer has said. */
+    external fun stageFrameBudgetNs(stage: Long): Long
+
+    /** Android Frame Pacing is made from the Activity: [activity] is the `MainActivity` from `onCreate`. */
+    external fun pacingAttach(activity: Any)
+
+    /** Lets Android Frame Pacing go with the Activity from `onDestroy`. */
+    external fun pacingDetach(activity: Any)
+
     /** A new descriptor, readable while frame events wait and until [stageTakeEvents]; the caller owns it. -1: none. */
     external fun stageEventFd(stage: Long): Int
 

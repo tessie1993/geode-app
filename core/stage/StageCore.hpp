@@ -43,6 +43,9 @@ struct PaceTimes {
     // known.
     int64_t frameNs = 0;
     int64_t periodNs = 0;
+    // Swappy holds each frame to its slot inside the swap. False: nothing in the swap does, so the platform's vsync
+    // (Choreographer, wakeAtVsync) paces the stage, one frame per vsync, and desiredNs is that vsync's presentation time.
+    bool swapPaces = false;
 };
 
 // The platform a stage runs on, called on the stage thread only. A window is opaque here.
@@ -60,8 +63,8 @@ public:
     // The frame just drawn goes to the window through the pacer: Done, ContextLost, or BadSurface for any other
     // failure. Blocks until the pacer lets the frame go (Swappy's swap interval, or the window's own back-pressure).
     virtual Outcome swap() = 0;
-    // A frame swapped nothing, so no swap holds the next one back: the platform's next vsync (Choreographer) sends
-    // kStageVsync, and the loop sleeps until then.
+    // No swap holds the next frame back (the frame swapped nothing, or the pacer is not Swappy): the platform's next vsync
+    // (Choreographer) is the next frame's turn, and the loop sleeps until it comes (kStageVsync).
     virtual void wakeAtVsync() = 0;
     // The reference a hand-over carried, once the stage no longer names that window.
     virtual void releaseWindow(void* window) = 0;
@@ -116,6 +119,9 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     // The rate frames are paced at, 1 / the frame's length; 0 until the pacer says.
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
+    // The frame budget, ns: the setting's frame length on the display mode now running. The swap interval, the work
+    // target and the UI read this one number; 0 until the pacer says.
+    int64_t frameBudgetNs() const { return budget_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
     bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
@@ -126,6 +132,7 @@ private:
     Outcome execute(const Action& action);
     bool draw(float pacedFps, float capFps, int64_t presentNs, int64_t& drawNs);
     void restateRate();
+    void syncBudget(const PaceTimes& times);
     void drawPaced();
     void handOverFrames();
     Lifecycle lifecycle_;
@@ -136,6 +143,7 @@ private:
     PresentClock clock_;
     // The last paced frame swapped nothing: the next one waits for the vsync asked for (kStageVsync).
     bool vsyncWait_ = false;
+    int64_t appliedBudgetNs_ = 0;
     // The last drawn frame's presentation time, 0 since a start.
     int64_t lastShownNs_ = 0;
     FrameRecorder recorder_;
@@ -146,6 +154,7 @@ private:
 
     std::atomic<uint32_t> state_{0};
     std::atomic<float> paced_;
+    std::atomic<int64_t> budget_{0};
     std::atomic<uint32_t> events_{0};
 };
 

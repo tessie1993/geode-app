@@ -243,6 +243,8 @@ public:
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
     // is only read by a frame and none follows. GL thread, with the context current.
     void trimSpares() { trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, false)); }
+    // The same pause, with or without a context: a kill while nothing draws is not a style's crash.
+    void pauseQuarantine() { quarantine_.pause(); }
     const GlProfile& profile() const { return profile_; }
 
 private:
@@ -362,8 +364,6 @@ private:
     ScenePrep prep_;
     // Styles that crashed this driver while building or first drawing (opened at the first surface).
     StyleQuarantine quarantine_;
-    // Counts render() calls: a style is proven by draws in distinct frames.
-    uint64_t drawSerial_ = 0;
     std::atomic<bool> blockingBuilds_{false};
     // While a staged attempt runs, scene errors wait here: a deferred attempt's errors are about
     // placeholders and are dropped; a whole one's are reported as an inline build would have.

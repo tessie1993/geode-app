@@ -9,6 +9,7 @@ import androidx.annotation.WorkerThread
 import dev.geode.BuildConfig
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
+import dev.geode.engine.bridge.VizNative
 import java.io.File
 import java.io.InputStream
 import java.time.Instant
@@ -216,6 +217,31 @@ class ExitReasons(
         fun stampVersion(context: Context) {
             context.getSystemService(ActivityManager::class.java)?.setProcessStateSummary(versionSummary())
         }
+
+        private var quarantineTold = false
+
+        /**
+         * Tells native's style quarantine (core/viz/gl/StyleQuarantine) how the last process died: once, before the
+         * first renderer, so every renderer's creator calls this first.
+         */
+        @Synchronized
+        fun tellStyleQuarantine(context: Context) {
+            if (quarantineTold) return
+            quarantineTold = true
+            val reason =
+                runCatching { exitOf(context, 0)?.reason }
+                    .onFailure { RingLog.note(TAG, "exit reason unreadable for the style quarantine", it) }
+                    .getOrNull()
+            VizNative.styleQuarantineLastDeath(lastDeathOf(reason))
+        }
+
+        /** Only a native crash or an ANR may be a style's doing; a kill, a JVM crash or low memory is not. Null: unknown. */
+        internal fun lastDeathOf(reason: Int?): Int =
+            when (reason) {
+                null -> VizNative.LAST_DEATH_UNKNOWN
+                ApplicationExitInfo.REASON_CRASH_NATIVE, ApplicationExitInfo.REASON_ANR -> VizNative.LAST_DEATH_CRASH
+                else -> VizNative.LAST_DEATH_OTHER
+            }
 
         /** The newest exit of this app's process, as Android recorded it. */
         private fun exitOf(

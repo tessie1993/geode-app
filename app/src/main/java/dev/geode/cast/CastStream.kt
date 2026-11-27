@@ -9,6 +9,7 @@ import android.net.NetworkCapabilities
 import dev.geode.RingLog
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookStore
+import dev.geode.diag.ExitReasons
 import dev.geode.engine.bridge.CastNative
 import dev.geode.engine.bridge.PlayoutNative
 import dev.geode.geodeContainer
@@ -122,6 +123,7 @@ internal class CastStream(
             webrtc.close()
             throw e
         }
+        ExitReasons.tellStyleQuarantine(appContext)
         val handle =
             CastNative.castRenderStart(
                 server.native,

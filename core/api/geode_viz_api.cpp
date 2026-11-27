@@ -59,6 +59,7 @@
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/glsl/ShaderOverrides.hpp"
+#include "viz/gl/StyleQuarantine.hpp"
 #include "viz/frame/WallpaperWindow.hpp"
 
 struct geode_viz {
@@ -460,6 +461,13 @@ void geode_viz_set_sound_tuning(geode_viz* v, const float* saved, int count) {
 
 void geode_shader_override_set(const char* style_id, const char* fragment_source) {
     if (style_id) geode::viz::shader_overrides::set(style_id, fragment_source ? fragment_source : "");
+}
+
+void geode_style_quarantine_last_death(int death) {
+    using Death = geode::viz::StyleQuarantine::Death;
+    geode::viz::StyleQuarantine::setLastDeath(death == GEODE_LAST_DEATH_CRASH   ? Death::Crash
+                                              : death == GEODE_LAST_DEATH_OTHER ? Death::Other
+                                                                                : Death::Unknown);
 }
 
 size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
@@ -1275,9 +1283,11 @@ void geode_viz_release_scenes(geode_viz* v) {
 }
 
 void geode_viz_trim_spares(geode_viz* v) {
+    if (!v) return;
+    v->renderer.pauseQuarantine();
     // Without a current context (the surface already gone) every GL delete is a no-op: the scenes would be
     // forgotten while their objects stayed in the kept context. Then nothing is shed here.
-    if (!v || eglGetCurrentContext() == EGL_NO_CONTEXT) return;
+    if (eglGetCurrentContext() == EGL_NO_CONTEXT) return;
     v->renderer.trimSpares();
 }
 

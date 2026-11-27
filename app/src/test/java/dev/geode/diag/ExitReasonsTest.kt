@@ -3,6 +3,7 @@ package dev.geode.diag
 import android.app.ActivityManager.RunningAppProcessInfo
 import android.app.ApplicationExitInfo
 import dev.geode.BuildConfig
+import dev.geode.engine.bridge.VizNative
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -238,6 +239,23 @@ class ExitReasonsTest {
             "/vendor/lib64/libadreno_utils.so",
             "/vendor/lib64/egl/libq3dtools_adreno.so",
         ).forEach { assertEquals(it, ExitKind.DRIVER_CRASH, kind(it)) }
+    }
+
+    @Test
+    fun `only a native crash or an ANR makes the style quarantine strike`() {
+        assertEquals(VizNative.LAST_DEATH_CRASH, ExitReasons.lastDeathOf(ApplicationExitInfo.REASON_CRASH_NATIVE))
+        assertEquals(VizNative.LAST_DEATH_CRASH, ExitReasons.lastDeathOf(ApplicationExitInfo.REASON_ANR))
+        listOf(
+            ApplicationExitInfo.REASON_CRASH,
+            ApplicationExitInfo.REASON_SIGNALED,
+            ApplicationExitInfo.REASON_LOW_MEMORY,
+            ApplicationExitInfo.REASON_USER_REQUESTED,
+            ApplicationExitInfo.REASON_USER_STOPPED,
+            ApplicationExitInfo.REASON_OTHER,
+            ApplicationExitInfo.REASON_FREEZER,
+            ApplicationExitInfo.REASON_EXIT_SELF,
+        ).forEach { assertEquals("reason $it", VizNative.LAST_DEATH_OTHER, ExitReasons.lastDeathOf(it)) }
+        assertEquals(VizNative.LAST_DEATH_UNKNOWN, ExitReasons.lastDeathOf(null))
     }
 
     @Test

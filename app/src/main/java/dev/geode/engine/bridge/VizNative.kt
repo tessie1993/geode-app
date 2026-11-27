@@ -266,4 +266,12 @@ object VizNative {
     external fun underlayBlendName(blend: Int): String
 
     external fun underlayBlendOf(name: String?): Int
+
+    /** Mirrors GEODE_LAST_DEATH_*: how the last process died, for the style quarantine. */
+    const val LAST_DEATH_UNKNOWN = 0
+    const val LAST_DEATH_OTHER = 1
+    const val LAST_DEATH_CRASH = 2
+
+    /** Process-wide (core/viz/gl/StyleQuarantine): set before the first renderer; only [LAST_DEATH_CRASH] strikes a style. */
+    external fun styleQuarantineLastDeath(death: Int)
 }

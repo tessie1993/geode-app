@@ -388,6 +388,7 @@ void Renderer::syncShaderOverrides() {
     // An edited source may build where the last one failed.
     prep_.forgive();
     const auto overrides = shader_overrides::snapshot();
+    for (const auto& entry : overrides) quarantine_.leave(entry.first);
     const std::string stock;
     for (auto& [id, scene] : scenes_) {
         const auto found = overrides.find(id);
@@ -737,8 +738,8 @@ Scene* Renderer::readyScene(const std::string& id) {
     }
     // A style that did not build is not built again every frame: the caller keeps what it drew.
     if (prep_.failed(id)) return nullptr;
-    // Until its first frames are drawn, a death in the driver is blamed on this style.
-    quarantine_.arm(id);
+    // Until its first frames are drawn, a death in the driver is blamed on this style; a user's shader is not.
+    if (shader_overrides::get(id).empty()) quarantine_.arm(id);
     Scene* scene = nullptr;
     if (blockingBuilds_.load(std::memory_order_relaxed)) {
         scene = sceneFor(id);

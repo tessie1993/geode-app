@@ -11,6 +11,7 @@ import android.view.Surface
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.data.PerformanceSettings
+import dev.geode.diag.ExitReasons
 import dev.geode.engine.bridge.DirectorNative
 import dev.geode.engine.bridge.StageNative
 import dev.geode.export.SceneFactory
@@ -39,6 +40,10 @@ class Stage(
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets = appContext.assets
     private val main = Handler(Looper.getMainLooper())
+
+    init {
+        ExitReasons.tellStyleQuarantine(appContext)
+    }
 
     // The Cleaner's copy of the handle: a stage nobody closed still ends its thread and renderer once this
     // object is unreachable.

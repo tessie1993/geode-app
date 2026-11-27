@@ -449,6 +449,11 @@ Java_dev_geode_engine_bridge_DirectorNative_shaderOverrideSet(JNIEnv* env, jobje
     geode_shader_override_set(id.get(), source.get());
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_VizNative_styleQuarantineLastDeath(JNIEnv*, jobject, jint death) {
+    geode_style_quarantine_last_death(death);
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_DirectorNative_shaderOverride(JNIEnv* env, jobject, jstring styleId) {
     Utf8Chars id(env, styleId);

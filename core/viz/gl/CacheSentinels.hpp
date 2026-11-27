@@ -39,10 +39,12 @@ public:
         return true;
     }
 
-    // `create` runs under the lock when this is the first holder. Returns whether it ran.
+    // `create` runs under the lock when this is the first holder. Returns whether it ran. A settled
+    // sentinel is never armed again in this process.
     template <typename Create>
     bool arm(const std::string& sentinel, Create&& create) {
         std::lock_guard<std::mutex> lock(mutex_);
+        if (settled_.count(sentinel) > 0) return false;
         if (holders_[sentinel]++ != 0) return false;
         create();
         return true;
@@ -62,17 +64,34 @@ public:
         return true;
     }
 
+    // What it guarded is done for good: `remove` runs under the lock whatever other holders remain, and
+    // later arms and disarms of it do nothing.
+    template <typename Remove>
+    void settle(const std::string& sentinel, Remove&& remove) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!settled_.insert(sentinel).second) return;
+        holders_.erase(sentinel);
+        remove();
+    }
+
+    bool settled(const std::string& sentinel) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return settled_.count(sentinel) > 0;
+    }
+
     // Tests only: forget everything, as a new process would.
     void resetForTest() {
         std::lock_guard<std::mutex> lock(mutex_);
         opened_.clear();
         holders_.clear();
+        settled_.clear();
     }
 
 private:
     std::mutex mutex_;
     std::set<std::string> opened_;
     std::map<std::string, int> holders_;
+    std::set<std::string> settled_;
 };
 
 }  // namespace geode::viz

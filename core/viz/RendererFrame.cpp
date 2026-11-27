@@ -210,6 +210,12 @@ Scene* Renderer::resolveActiveScene() {
             fail("");
         }
     }
+    // A style turned off for crashing this driver, with nothing on screen yet, draws a stand-in: the last
+    // proven style, else the catalogue's default (TemplateFile's, a Silk style).
+    if (!activeScene_ && quarantine_.isQuarantined(requestedId)) {
+        const std::string standIn = quarantine_.standIn(requestedId, catalogue::allIds().front());
+        if (!standIn.empty()) requestedId = standIn;
+    }
     // Live, a scene not built yet comes back null for a few frames while it is staged; the frame
     // keeps drawing activeScene_ (or a clear when there is none) until it is whole.
     Scene* requested = readyScene(requestedId);
@@ -490,7 +496,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         updateScene(*layerScene_, sceneSound(p), dt);
         const SceneTarget target(fboL_.fbo(), renderWidth_, renderHeight_);
         layerScene_->draw(static_cast<float>(timeSeconds_));
-        quarantine_.drew(layerScene_->id(), drawSerial_);
+        quarantine_.drew(layerScene_->id());
     }
     if (outgoingScene_) {
         progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / switchTransitionMs_), 0.0f, 1.0f);
@@ -505,7 +511,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             updateScene(*outgoingScene_, sceneSound(op), dt);
             const SceneTarget target(fboB_.fbo(), renderWidth_, renderHeight_);
             outgoingScene_->draw(static_cast<float>(timeSeconds_));
-            quarantine_.drew(outgoingScene_->id(), drawSerial_);
+            quarantine_.drew(outgoingScene_->id());
         }
     }
     return progress;
@@ -549,7 +555,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(static_cast<float>(timeSeconds_));
-    quarantine_.drew(scene.id(), drawSerial_);
+    quarantine_.drew(scene.id());
 }
 
 void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex) {
@@ -663,8 +669,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     repeated_ = false;
-    quarantine_.settle(drawSerial_, prep_.target());
-    ++drawSerial_;
+    quarantine_.frame(prep_.target(), monotonicSeconds());
     const float wallDt = beginFrame(timeSeconds);
     // The picture's step drives the responder, the waves and the sound; the simulations step by it through the
     // scene clock's scale (never backwards).
@@ -992,7 +997,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     updateScene(*next, sceneSound(p), dt);
     const SceneTarget target(bornFbo_.fbo(), renderWidth_, renderHeight_);
     next->draw(static_cast<float>(timeSeconds_));
-    quarantine_.drew(next->id(), drawSerial_);
+    quarantine_.drew(next->id());
     return bornFbo_.tex();
 }
 

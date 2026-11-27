@@ -119,56 +119,121 @@ inline FrameMotion perFrame(const Motion& motion, float dt) {
     return f;
 }
 
+// Which of uvFor's stages a frame runs (FrameTerms::flags). A stage whose values are the identity's is
+// skipped, and skipping it is exact: the stage would add 0 or multiply by 1.
+inline constexpr int kMoves = 1;       // anything but the identity; without it the sample is where it draws
+inline constexpr int kRadialZoom = 2;  // zoomExp is not 1, so the zoom varies with the radius
+inline constexpr int kWarps = 4;       // warp is not 0
+
 /**
- * The UV of the last frame a destination pixel samples. `uv` is GL's (v up), `aspect` is width / height,
- * `time` the clock the warp drifts on (seconds). The warp's time and its four drifting frequencies, the
- * zoom's exponent, the zoom about the centre, the stretch, the warp, the rotation, the translation and the
- * undo of the aspect fit are applied in that order. The mesh's v runs down, so v is flipped in and out.
- * The result is unfolded: fold() it before sampling.
+ * uvFor's terms that depend only on the frame's motion and the clock, derived once a frame on the CPU:
+ * what lib_feedback reads as uniforms, so no pixel works them out again.
  */
-inline Uv uvFor(const FrameMotion& f, Uv uv, float aspect, float time) {
+struct FrameTerms {
+    int flags = 0;
+    float zoom = 1.0f;
+    float zoomExp = 1.0f;
+    float cx = 0.5f;
+    float cy = 0.5f;
+    float dx = 0.0f;
+    float dy = 0.0f;
+    float sx = 1.0f;
+    float sy = 1.0f;
+    float rotCos = 1.0f;
+    float rotSin = 0.0f;
+    float warp = 0.0f;
+    float warpInvScale = 1.0f;  // 1 / warpScale
+    float warpFreq[4] = {0.0f, 0.0f, 0.0f, 0.0f};   // the warp's four drifting frequencies at this time
+    float warpPhase[4] = {0.0f, 0.0f, 0.0f, 0.0f};  // each warp term's phase at this time
+};
+
+/** `f`'s terms at `time` (seconds, the clock the warp drifts on). */
+inline FrameTerms derive(const FrameMotion& f, float time) {
+    FrameTerms t;
+    t.zoom = f.zoom;
+    t.zoomExp = f.zoomExp;
+    t.cx = f.cx;
+    t.cy = f.cy;
+    t.dx = f.dx;
+    t.dy = f.dy;
+    t.sx = f.sx;
+    t.sy = f.sy;
+    t.rotCos = std::cos(f.rot);
+    t.rotSin = std::sin(f.rot);
+    t.warp = f.warp;
+    t.warpInvScale = 1.0f / f.warpScale;
+    const float wt = (std::isfinite(time) ? time : 0.0f) * f.warpSpeed;
+    t.warpFreq[0] = 11.68f + 4.0f * std::cos(wt * 1.413f + 10.0f);
+    t.warpFreq[1] = 8.77f + 3.0f * std::cos(wt * 1.113f + 7.0f);
+    t.warpFreq[2] = 10.54f + 3.0f * std::cos(wt * 1.233f + 3.0f);
+    t.warpFreq[3] = 11.49f + 4.0f * std::cos(wt * 0.933f + 5.0f);
+    t.warpPhase[0] = wt * 0.333f;
+    t.warpPhase[1] = wt * 0.375f;
+    t.warpPhase[2] = wt * 0.753f;
+    t.warpPhase[3] = wt * 0.825f;
+    // A NaN fails every comparison, so a broken value runs its stage and uvFor's own guard catches it.
+    const bool identity = f.zoom == 1.0f && f.sx == 1.0f && f.sy == 1.0f && f.rot == 0.0f && f.dx == 0.0f &&
+                          f.dy == 0.0f && f.warp == 0.0f;
+    if (!identity) t.flags |= kMoves;
+    if (!(f.zoomExp == 1.0f)) t.flags |= kRadialZoom;
+    if (!(f.warp == 0.0f)) t.flags |= kWarps;
+    return t;
+}
+
+/**
+ * The UV of the last frame a destination pixel samples. `uv` is GL's (v up), `aspect` is width / height.
+ * The zoom (its exponent shaping it by radius) about the centre, the stretch, the warp, the rotation, the
+ * translation and the undo of the aspect fit are applied in that order. The mesh's v runs down, so v is
+ * flipped in and out. The result is unfolded: fold() it before sampling.
+ */
+inline Uv uvFor(const FrameTerms& t, Uv uv, float aspect) {
     if (!std::isfinite(uv.u) || !std::isfinite(uv.v)) return {};
+    if (!(t.flags & kMoves)) return uv;
     const float a = (std::isfinite(aspect) && aspect > 0.0f) ? aspect : 1.0f;
     const float aspX = a < 1.0f ? a : 1.0f;
     const float aspY = a > 1.0f ? 1.0f / a : 1.0f;
     const float x = uv.u * 2.0f - 1.0f;
     const float y = uv.v * 2.0f - 1.0f;  // the mesh y: 1 - 2 v with v down, which is 2 v - 1 with v up
 
-    const float rad = std::sqrt(x * x * aspX * aspX + y * y * aspY * aspY);
-    const float zoom2 = std::pow(f.zoom, std::pow(f.zoomExp, rad * 2.0f - 1.0f));
+    // zoom^(1^r) is zoom whatever the radius.
+    float zoom2 = t.zoom;
+    if (t.flags & kRadialZoom) {
+        const float rad = std::sqrt(x * x * aspX * aspX + y * y * aspY * aspY);
+        zoom2 = std::pow(t.zoom, std::pow(t.zoomExp, rad * 2.0f - 1.0f));
+    }
     const float zoomInv = 1.0f / zoom2;
     float u = x * aspX * 0.5f * zoomInv + 0.5f;
     float v = -y * aspY * 0.5f * zoomInv + 0.5f;
 
-    u = (u - f.cx) / f.sx + f.cx;
-    v = (v - f.cy) / f.sy + f.cy;
+    u = (u - t.cx) / t.sx + t.cx;
+    v = (v - t.cy) / t.sy + t.cy;
 
-    const float wt = (std::isfinite(time) ? time : 0.0f) * f.warpSpeed;
-    const float si = 1.0f / f.warpScale;
-    const float f0 = 11.68f + 4.0f * std::cos(wt * 1.413f + 10.0f);
-    const float f1 = 8.77f + 3.0f * std::cos(wt * 1.113f + 7.0f);
-    const float f2 = 10.54f + 3.0f * std::cos(wt * 1.233f + 3.0f);
-    const float f3 = 11.49f + 4.0f * std::cos(wt * 0.933f + 5.0f);
-    u += f.warp * std::sin(wt * 0.333f + si * (x * f0 - y * f3));
-    v += f.warp * std::cos(wt * 0.375f - si * (x * f2 + y * f1));
-    u += f.warp * std::cos(wt * 0.753f - si * (x * f1 - y * f2));
-    v += f.warp * std::sin(wt * 0.825f + si * (x * f0 + y * f3));
+    if (t.flags & kWarps) {
+        const float si = t.warpInvScale;
+        const float* fq = t.warpFreq;
+        const float* ph = t.warpPhase;
+        u += t.warp * std::sin(ph[0] + si * (x * fq[0] - y * fq[3]));
+        v += t.warp * std::cos(ph[1] - si * (x * fq[2] + y * fq[1]));
+        u += t.warp * std::cos(ph[2] - si * (x * fq[1] - y * fq[2]));
+        v += t.warp * std::sin(ph[3] + si * (x * fq[0] + y * fq[3]));
+    }
 
-    const float u2 = u - f.cx;
-    const float v2 = v - f.cy;
-    const float c = std::cos(f.rot);
-    const float s = std::sin(f.rot);
-    u = u2 * c - v2 * s + f.cx;
-    v = u2 * s + v2 * c + f.cy;
+    const float u2 = u - t.cx;
+    const float v2 = v - t.cy;
+    u = u2 * t.rotCos - v2 * t.rotSin + t.cx;
+    v = u2 * t.rotSin + v2 * t.rotCos + t.cy;
 
-    u -= f.dx;
-    v -= f.dy;
+    u -= t.dx;
+    v -= t.dy;
 
     u = (u - 0.5f) / aspX + 0.5f;
     v = (v - 0.5f) / aspY + 0.5f;
     if (!std::isfinite(u) || !std::isfinite(v)) return uv;
     return {u, 1.0f - v};
 }
+
+/** uvFor at `time`: the frame's terms derived, then applied. */
+inline Uv uvFor(const FrameMotion& f, Uv uv, float aspect, float time) { return uvFor(derive(f, time), uv, aspect); }
 
 /** Mirror fold into 0..1 (`1 - |1 - mod(p, 2)|`): an edge pulled inward reflects the picture, never smears it. */
 inline float fold(float p) {

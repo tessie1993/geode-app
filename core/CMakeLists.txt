@@ -320,6 +320,7 @@ if(ANDROID)
         stage/android/VsyncThread.cpp
         stage/android/StageThread.cpp
         api/geode_stage_api.cpp)
+    target_link_libraries(geode_core PUBLIC games-frame-pacing::swappy_static)
 endif()
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in

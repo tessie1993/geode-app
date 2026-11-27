@@ -42,6 +42,12 @@ add_subdirectory(third_party/taglib)
 # project), which the Android Gradle plugin packages beside libgeode.so.
 find_package(oboe REQUIRED CONFIG)
 
+# Android Frame Pacing (Swappy), the live stage's swap (core/stage/android/SwappyHost): the Prefab package of the
+# androidx.games:games-frame-pacing AAR. Its static module, games-frame-pacing::swappy_static (built against
+# c++_shared like this project), links into libgeode.so and so takes its 16 KB page alignment
+# (developer.android.com/games/sdk/frame-pacing/opengl/update-build-settings: static over shared).
+find_package(games-frame-pacing REQUIRED CONFIG)
+
 # Show on a computer over WebRTC (core/cast/WebRtcLink, owner 2026-11-12): libdatachannel v0.24.6 (MPL-2.0) with
 # its own submodules (libjuice for ICE, libsrtp, usrsctp, plog), and Mbed TLS v3.6.7 (Apache-2.0) for DTLS, all
 # static inside libgeode, so they get its 16 KB page alignment. Unmodified submodules under third_party/; the one

@@ -20,6 +20,15 @@
 # else in the *Native objects needs keeping.
 
 # ---------------------------------------------------------------------------
+# Android Frame Pacing (Swappy, androidx.games:games-frame-pacing)
+# ---------------------------------------------------------------------------
+# Swappy's native code finds these classes by name and binds their natives with
+# RegisterNatives; the AAR ships no consumer rules, so these are gamesdk's own
+# (games-frame-pacing/extras/lib-proguard-rules.txt).
+-keep public class com.google.androidgamesdk.ChoreographerCallback { *; }
+-keep public class com.google.androidgamesdk.SwappyDisplayManager { *; }
+
+# ---------------------------------------------------------------------------
 # Media3 / ExoPlayer
 # ---------------------------------------------------------------------------
 # Media3 resolves extractors, decoders and audio-processor implementations by

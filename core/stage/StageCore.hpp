@@ -39,9 +39,7 @@ enum StageCommand : uint16_t {
 struct PaceTimes {
     // The presentation time the pacer aims the next frame at, CLOCK_MONOTONIC ns (Swappy's startFrame); 0: none.
     int64_t desiredNs = 0;
-    // One frame's length (the swap interval in whole refresh periods), and the display's refresh period; 0: not
-    // known.
-    int64_t frameNs = 0;
+    // The refresh period of the display mode running, as the platform reports it; 0: not known.
     int64_t periodNs = 0;
     // Swappy holds each frame to its slot inside the swap. False: nothing in the swap does, so the platform's vsync
     // (Choreographer, wakeAtVsync) paces the stage, one frame per vsync, and desiredNs is that vsync's presentation time.
@@ -69,8 +67,8 @@ public:
     // The reference a hand-over carried, once the stage no longer names that window.
     virtual void releaseWindow(void* window) = 0;
     virtual void setFrameRate(void* window, float fps) = 0;
-    // The pacing starts (on, at `capFps`), takes a new cap, or stops (off).
-    virtual void pace(bool on, float capFps) = 0;
+    // The pacing starts or takes a new frame budget (on: the swap interval in it is Swappy's), or stops (off).
+    virtual void pace(bool on, const FrameBudget& budget) = 0;
     virtual PaceTimes paceTimes() = 0;
     // The GPU time of the frame before the last one swapped, as the pacer measured it; 0 or less: not known.
     virtual int64_t lastGpuNs() { return 0; }
@@ -119,9 +117,9 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     // The rate frames are paced at, 1 / the frame's length; 0 until the pacer says.
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
-    // The frame budget, ns: the setting's frame length on the display mode now running. The swap interval, the work
-    // target and the UI read this one number; 0 until the pacer says.
-    int64_t frameBudgetNs() const { return budget_.load(std::memory_order_relaxed); }
+    // The published mirror of the frame budget, ns: the setting's frame length on the display mode now running; 0 until
+    // the platform has said the mode. Read by the UI without waiting.
+    int64_t frameBudgetNs() const { return mirror_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
     bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
@@ -132,7 +130,7 @@ private:
     Outcome execute(const Action& action);
     bool draw(float pacedFps, float capFps, int64_t presentNs, int64_t& drawNs);
     void restateRate();
-    void syncBudget(const PaceTimes& times);
+    void deriveBudget(int64_t periodNs, bool swapPaces);
     void drawPaced();
     void handOverFrames();
     Lifecycle lifecycle_;
@@ -143,7 +141,9 @@ private:
     PresentClock clock_;
     // The last paced frame swapped nothing: the next one waits for the vsync asked for (kStageVsync).
     bool vsyncWait_ = false;
-    int64_t appliedBudgetNs_ = 0;
+    // The one frame budget: derived when the cap or the display mode changes (deriveBudget), then only read.
+    FrameBudget budget_;
+    bool swapPaces_ = false;
     // The last drawn frame's presentation time, 0 since a start.
     int64_t lastShownNs_ = 0;
     FrameRecorder recorder_;
@@ -154,7 +154,7 @@ private:
 
     std::atomic<uint32_t> state_{0};
     std::atomic<float> paced_;
-    std::atomic<int64_t> budget_{0};
+    std::atomic<int64_t> mirror_{0};
     std::atomic<uint32_t> events_{0};
 };
 

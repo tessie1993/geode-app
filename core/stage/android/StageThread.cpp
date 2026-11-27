@@ -275,7 +275,7 @@ Outcome StageThread::swap() {
     bool revote = false;
     SwappyHost& swappy = SwappyHost::process();
     const SwappyHost::Swap result =
-        swappy.swap(this, egl_.window(), swapIntervalNs(capFps_), egl_.display(), egl_.surface(), revote);
+        swappy.swap(this, egl_.window(), budget_.swapNs, egl_.display(), egl_.surface(), revote);
     if (result == SwappyHost::Swap::Fallback) {
         lastGpuNs_ = 0;
         return outcomeOf(egl_.swap());
@@ -302,8 +302,8 @@ void StageThread::setFrameRate(void* window, float fps) {
                                                  ANATIVEWINDOW_CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
 }
 
-void StageThread::pace(bool on, float capFps) {
-    capFps_ = capFps;
+void StageThread::pace(bool on, const FrameBudget& budget) {
+    budget_ = budget;
     if (!on) SwappyHost::process().release(this);
 }
 
@@ -314,11 +314,9 @@ PaceTimes StageThread::paceTimes() {
     if (times.swapPaces) {
         times.periodNs = positive(swappy.refreshPeriodNs());
         times.desiredNs = swappy.times(this).desiredNs;
-        times.frameNs = frameLengthNs(swapIntervalNs(capFps_), times.periodNs);
     } else {
         times.periodNs = refreshPeriodNs_;
         times.desiredNs = vsyncPresentNs_;
-        times.frameNs = refreshPeriodNs_;
     }
     return times;
 }

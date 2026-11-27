@@ -41,6 +41,33 @@ inline int64_t frameLengthNs(int64_t swapNs, int64_t periodNs) {
     return periodNs > 0 ? periodsPerFrame(swapNs, periodNs) * periodNs : 0;
 }
 
+// One frame-rate setting on one display mode, derived once whenever either changes (StageCore) and handed on whole:
+// Swappy takes swapNs, the window's frame-rate vote is voteFps, the work target is budgetNs, and the UI reads budgetNs from
+// the mirror StageCore publishes. None of them works a number out again.
+struct FrameBudget {
+    // The refresh period of the display mode running, ns; 0 until the platform has said.
+    int64_t periodNs = 0;
+    // The swap interval Swappy is given (0: its pacing is off, Follow device or a stage Swappy does not pace).
+    int64_t swapNs = 0;
+    // One frame's length: whole refresh periods of the swap interval; 0 while the period is not known.
+    int64_t budgetNs = 0;
+    // The rate the window is voted: the setting's own, 0 for Follow device. It never follows what the platform does.
+    float voteFps = 0.0f;
+
+    bool operator==(const FrameBudget&) const = default;
+};
+
+// `swapPaces`: Swappy holds each frame to its slot. Without it the vsync paces one frame per refresh, so no swap interval is
+// handed on and the budget is one period.
+inline FrameBudget frameBudget(float capFps, int64_t periodNs, bool swapPaces) {
+    FrameBudget b;
+    b.periodNs = periodNs > 0 ? periodNs : 0;
+    b.swapNs = swapPaces ? swapIntervalNs(capFps) : 0;
+    b.budgetNs = frameLengthNs(b.swapNs, b.periodNs);
+    b.voteFps = frameRateHint(capFps);
+    return b;
+}
+
 // The presentation time each frame is drawn for: the picture's clock (its step) and where the sound is read. The
 // time comes from the pacer: Swappy's desired presentation time for the frame it starts (its startFrame tracer
 // callback, the time it stamps the swap with). Swappy measures it from its own wake-up, which jitters by a fraction of

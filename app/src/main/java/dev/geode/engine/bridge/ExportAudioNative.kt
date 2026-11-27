@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_export_audio_jni.cpp (CLAUDE.md).
+// The JNI declarations of geode_export_audio_jni.cpp.
 object ExportAudioNative {
     init {
         GeodeNative.ensureLoaded()

@@ -10,7 +10,7 @@
 
 #include "audio/output/OutputFifo.hpp"
 
-// The playback output's device stream (core/audio/output/README.md): an Oboe output stream whose data
+// The playback output's device stream: an Oboe output stream whose data
 // callback pulls from an OutputFifo. Media3's DefaultAudioSink keeps everything above it (the processor
 // chain, the media position, gapless joins); this replaces only the AudioTrack at the end, for plain
 // PCM. The only file in core/ that includes Oboe: it is compiled for Android alone, and everything a

@@ -128,7 +128,7 @@ void shakeTests() {
 
 // Not constexpr, so a constant Song at 120 does not compile; a computed one stops the run.
 [[noreturn]] void refuseTheOldCentre() {
-    std::printf("FAIL: a Song at the old centre tempo: no bias on BPM, tests included (owner's rule, CLAUDE.md)\n");
+    std::printf("FAIL: a Song at the old centre tempo: no bias on BPM, tests included (owner's rule)\n");
     std::abort();
 }
 

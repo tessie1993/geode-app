@@ -1,5 +1,5 @@
 // Host-side checks for core/stage/StageCore: what a stage thread does with each command and on each turn of its
-// loop (docs/agents/native-stage.md). No EGL and no looper: a model port records every platform call and can fail
+// loop. No EGL and no looper: a model port records every platform call and can fail
 // a swap the way a driver does, and a model client records what it is told.
 //
 // What is pinned: each command's lifecycle event (window, window gone, size, mode, pause and resume, redraw, cap,

@@ -1,5 +1,5 @@
 // Host-side checks for core/stage/LiveClient: what a live stage's client does between the stage thread and the
-// threads that talk to it (docs/agents/native-stage.md). The renderer is a model that records every call.
+// threads that talk to it. The renderer is a model that records every call.
 //
 // What is pinned: a frame hears the ring set last and none after it is cleared; what a frame reported is kept
 // until polled (an error text only when it differs, director moments summed,

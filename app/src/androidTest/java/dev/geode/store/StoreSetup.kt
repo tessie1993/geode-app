@@ -68,7 +68,7 @@ internal annotation class StoreShot(
 )
 
 /**
- * The outermost rule of the store captures (docs/store/screenshots.md): skips the case unless the
+ * The outermost rule of the store captures: skips the case unless the
  * class's own instrumentation argument is `1`, then seeds the app before the activity starts.
  *
  * Like the UI tour's rule, the skip has to sit ahead of the compose rule, or the ordinary emulator

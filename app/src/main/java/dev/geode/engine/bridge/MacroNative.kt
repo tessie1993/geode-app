@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for the macro bank (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for the macro bank.
 object MacroNative {
     init {
         GeodeNative.ensureLoaded()

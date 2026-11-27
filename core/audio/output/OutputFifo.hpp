@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-// The playback output's FIFO (core/audio/output/README.md): what sits between Media3's sink, which
+// The playback output's FIFO: what sits between Media3's sink, which
 // hands over PCM whenever its playback thread runs, and the audio device's callback, which pulls a
 // burst every few milliseconds on a real-time thread. It also keeps the count the sink asks for: how
 // many of the frames it wrote the listener has heard. No Oboe here, so the host tests reach all of it;

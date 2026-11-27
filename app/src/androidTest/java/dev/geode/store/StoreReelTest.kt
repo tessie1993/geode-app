@@ -15,14 +15,13 @@ import org.junit.runner.RunWith
  * Raw clips for the promo video: the screen recorded (`screenrecord`) while one style runs full
  * screen on the demo groove. The clips show Pro (the owner's rule, 2026-11-11: screenshots free,
  * recordings Pro), so the app is seeded as a Pro owner and every style here is one only Pro
- * unlocks; a video cut from them has to label them Pro (docs/store/promo-video.md). One clip per
+ * unlocks; a video cut from them has to label them Pro. One clip per
  * style rather than one long take, because a clip per test keeps what the emulator did not lose.
  *
  * Skipped unless `storereel=1`; `storeReelSeconds` sets each clip's length (default
  * [DEFAULT_SECONDS]; `screenrecord` stops at 180). These are material, not the video: the CI
  * emulator renders in software and has no audio device, so a clip is silent and well below the
- * frame rate of a phone. docs/store/promo-video.md has the shot list and what to record on a
- * real phone instead.
+ * frame rate of a phone.
  */
 @LargeTest
 @RunWith(AndroidJUnit4::class)

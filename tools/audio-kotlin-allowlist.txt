@@ -1,6 +1,6 @@
 # Every audio hit tools/audio-kotlin-gate.sh finds in Kotlin today. Format: <permanent|debt> <path> <pattern> <reason>
 # The gate fails on a hit not listed here and on a line here that no longer matches: delete a line in the PR that
-# lands its port (ADR 0003), never add one. Owner rule: samples and buffers never pass through Kotlin.
+# lands its port, never add one. Owner rule: samples and buffers never pass through Kotlin.
 #
 # permanent: a platform shell Media3 or Android needs as a JVM class. It forwards to core/ and keeps no audio logic.
 # debt: audio handled in Kotlin that moves to core/.

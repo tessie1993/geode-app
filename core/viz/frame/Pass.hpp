@@ -2,7 +2,7 @@
 
 #include "sound/SoundFrame.h"
 
-// The frame graph's unit of work (core/viz/frame/README.md): one step of the frame every surface
+// The frame graph's unit of work: one step of the frame every surface
 // runs, after the scene and before the swap. Trail, Liquid, Composite, UiBlur and the export
 // post-passes are to implement it; EdgeGlowPass (the wallpaper's edge look, #439) is the first.
 //

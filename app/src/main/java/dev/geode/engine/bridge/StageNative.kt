@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_stage_jni.cpp (CLAUDE.md).
+// The JNI declarations of geode_stage_jni.cpp.
 object StageNative {
     init {
         GeodeNative.ensureLoaded()

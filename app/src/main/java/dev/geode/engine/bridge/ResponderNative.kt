@@ -1,7 +1,7 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_responder_jni.cpp and the renderer's two Event Responder calls in geode_viz_jni.cpp
-// (CLAUDE.md): declarations only.
+// The JNI declarations of geode_responder_jni.cpp and the renderer's two Event Responder calls in geode_viz_jni.cpp.
+// Declarations only.
 object ResponderNative {
     init {
         GeodeNative.ensureLoaded()

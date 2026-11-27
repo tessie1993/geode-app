@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for style parameters and slider maths (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for style parameters and slider maths.
 object ParamsNative {
     init {
         GeodeNative.ensureLoaded()

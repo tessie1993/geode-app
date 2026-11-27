@@ -9,7 +9,7 @@
 #include "stage/StageLifecycle.hpp"
 #include "stage/VsyncRule.hpp"
 
-// What a stage thread does with each command and on each turn of its loop (docs/agents/native-stage.md): which
+// What a stage thread does with each command and on each turn of its loop: which
 // lifecycle event a command is, when a window hand-over is acknowledged, when a requested frame is drawn, when the
 // window's frame-rate preference is restated. Pure, with no EGL and no Android, so the host can test it
 // (core/tests/stage_core_test.cpp); core/stage/android carries out the port's calls and nothing else.

@@ -3,8 +3,8 @@
 
 #include "viz/SurfaceRun.hpp"
 
-// When a stage creates, uses and destroys its EGL context and window surface, runs its vsync and tells its client
-// (docs/agents/native-stage.md). Pure, with no EGL and no Android, so the host can test it
+// When a stage creates, uses and destroys its EGL context and window surface, runs its vsync and tells its client.
+// Pure, with no EGL and no Android, so the host can test it
 // (core/tests/stage_lifecycle_test.cpp); core/stage/android only carries out what it asks for.
 //
 // It compares what is wanted (from the events so far) with what exists (from the outcomes of its own actions)

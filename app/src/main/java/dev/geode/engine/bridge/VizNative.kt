@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for the renderer, its scene and layers (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for the renderer, its scene and layers.
 object VizNative {
     init {
         GeodeNative.ensureLoaded()

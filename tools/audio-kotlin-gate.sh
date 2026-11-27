@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails when Kotlin handles audio data. Owner rule (CLAUDE.md): no audio, analysis or PCM logic in Kotlin;
+# Fails when Kotlin handles audio data. Owner rule: no audio, analysis or PCM logic in Kotlin;
 # samples and buffers never pass through Kotlin; Kotlin sends commands and receives state. Audio is C++ in
 # core/ (core/audio, core/sound), behind core/api/geode_api.h.
 #
@@ -31,7 +31,7 @@
 # The gate must pass on main today and only tighten. tools/audio-kotlin-allowlist.txt lists every hit the tree
 # still has, one per line:   <permanent|debt> <path> <pattern> <reason>
 #   permanent: a platform shell Media3 or Android requires on the JVM (the class must exist; it only forwards).
-#   debt: audio handled in Kotlin that moves to core/ (ADR 0003).
+#   debt: audio handled in Kotlin that moves to core/.
 # A hit not on the list fails. A list entry that no longer matches fails too, so an entry is deleted in the PR
 # that lands its port and can never silently return. There is no override: port the code to core/ instead.
 #
@@ -181,7 +181,7 @@ fi
 sort -u "$listed" -o "$listed"
 
 while read -r path pat; do
-    echo "::error file=$path,title=Audio in Kotlin::$path handles audio data in Kotlin ($pat). Audio, analysis and PCM are C++ in core/; Kotlin sends commands and receives state (CLAUDE.md, ADR 0003). Samples and buffers never pass through the JVM."
+    echo "::error file=$path,title=Audio in Kotlin::$path handles audio data in Kotlin ($pat). Audio, analysis and PCM are C++ in core/; Kotlin sends commands and receives state. Samples and buffers never pass through the JVM."
     fail=1
 done < <(comm -23 "$hits" "$listed")
 

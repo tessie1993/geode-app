@@ -1,5 +1,5 @@
 // Host-side checks for core/stage/CommandQueue: how other threads hand commands to a stage thread or the vsync
-// thread (docs/agents/native-stage.md).
+// thread.
 //
 // What is pinned: first in, first out across the ring's wrap; last-wins commands merging per kind and target and
 // never across an ordered one; a full queue refusing a new command and keeping what it holds, while a merge still

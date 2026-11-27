@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for the director and its setters (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for the director and its setters.
 object DirectorNative {
     init {
         GeodeNative.ensureLoaded()

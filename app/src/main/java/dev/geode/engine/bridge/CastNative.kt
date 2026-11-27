@@ -2,7 +2,7 @@ package dev.geode.engine.bridge
 
 import android.content.res.AssetManager
 
-// The JNI declarations of geode_cast_jni.cpp (CLAUDE.md), and the cast link and QR calls geode_viz_jni.cpp carries.
+// The JNI declarations of geode_cast_jni.cpp, and the cast link and QR calls geode_viz_jni.cpp carries.
 object CastNative {
     init {
         GeodeNative.ensureLoaded()

@@ -1,5 +1,4 @@
-// Host-side checks for core/stage/StagePacing: one stage's vsync callback on the vsync thread
-// (docs/agents/native-stage.md).
+// Host-side checks for core/stage/StagePacing: one stage's vsync callback on the vsync thread.
 //
 // What is pinned: a callback that re-posts while running and lapses once stopped; two starts posting once; a stop and
 // a start between two vsyncs posting nothing new.

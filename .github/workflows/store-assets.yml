@@ -3,7 +3,6 @@ name: Store assets
 # Captures the Play Store listing's pictures from the real app on the emulator and uploads them
 # as the artifact store-assets-<run>: the screenshot sets (phone, 7-inch and 10-inch tablet),
 # rendered frames for the feature graphic, and raw screen recordings for the promo video.
-# docs/store/screenshots.md says what each file is for and which Play rule sizes it.
 #
 # Manual only: what goes on the store page is the owner's call, and a run costs an hour or more
 # of software rendering. Nothing here uploads to Play; the owner picks files from the artifact.

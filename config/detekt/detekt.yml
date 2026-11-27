@@ -45,7 +45,7 @@ complexity:
     active: true
     threshold: 1100
     # Pure data catalogs: long by nature, no logic to decompose.
-    # The *Native objects in dev.geode.engine.bridge hold every JNI declaration by rule (CLAUDE.md): they grow with the native API and have no logic.
+    # The *Native objects in dev.geode.engine.bridge hold every JNI declaration by rule: they grow with the native API and have no logic.
     excludes:
       - '**/ThemePackCatalog.kt'
       - '**/BuiltInPresets.kt'

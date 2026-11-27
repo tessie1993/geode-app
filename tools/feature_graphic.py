@@ -4,8 +4,7 @@
 
 The wordmark is the one the system splash and the app draw (res/drawable/splash_wordmark.xml,
 made by tools/wordmark.py), read from that file, so the graphic follows it and no font is needed. The eye is the launcher icon's art
-(docs/brand/flow/icon-neon.jpg). Everything else is drawn here. Render the PNG with
-docs/brand/README.md › Regenerating.
+(docs/brand/flow/icon-neon.jpg). Everything else is drawn here.
 
 Play's rules (support.google.com/googleplay/android-developer/answer/9866151): 1024 x 500,
 no alpha, key elements away from the edges, and no pure black, white or dark grey background,

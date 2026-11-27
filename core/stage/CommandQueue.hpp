@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <mutex>
 
-// How other threads hand commands to a stage thread or the vsync thread (docs/agents/native-stage.md). Pure, with
+// How other threads hand commands to a stage thread or the vsync thread. Pure, with
 // no Android, so the host can test it (core/tests/command_queue_test.cpp).
 //
 // A bounded ring of fixed-size commands under one mutex: nothing is allocated after construction, so a frame

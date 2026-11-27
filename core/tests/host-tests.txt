@@ -288,7 +288,7 @@ transition_choice_test | core | core/tests/transition_choice_test.cpp |
 present_time_test | core | core/tests/present_time_test.cpp |
 # Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it.
 live_fps_test | core | core/tests/live_fps_test.cpp |
-# The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
+# The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
 # What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the client's service, a thread ending out of turn.
 stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |

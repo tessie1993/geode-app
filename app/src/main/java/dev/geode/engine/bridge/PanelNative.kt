@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_panel_jni.cpp (CLAUDE.md).
+// The JNI declarations of geode_panel_jni.cpp.
 object PanelNative {
     init {
         GeodeNative.ensureLoaded()

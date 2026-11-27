@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_shell_jni.cpp (CLAUDE.md).
+// The JNI declarations of geode_shell_jni.cpp.
 object ShellNative {
     init {
         GeodeNative.ensureLoaded()

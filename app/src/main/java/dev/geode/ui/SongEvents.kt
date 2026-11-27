@@ -84,8 +84,7 @@ internal fun SongEventsPage(
     var open by rememberSaveable { mutableStateOf("") }
     var adding by rememberSaveable { mutableIntStateOf(-1) }
     var undo by remember { mutableStateOf<RowUndo?>(null) }
-    // The event lights and the cost, as the last frame left them. A new array every poll, so it is read only where
-    // it is drawn (the lights, the meter's line) and as the meter's level: a poll redraws, it never recomposes the page.
+    // The event lights and the cost, as the last frame left them.
     val status = produceState(FloatArray(0)) {
         while (true) {
             value = vm.responderStatus()
@@ -486,7 +485,6 @@ private fun AddResponseSheet(
 /** This frame's work against the budget as a quiet meter: a line, and a word once it is busy. */
 @Composable
 private fun CostMeter(status: () -> FloatArray) {
-    // Only the level (and whether there is a status yet) is composition's; the line reads the cost in its draw.
     val level by remember {
         derivedStateOf {
             val s = status()

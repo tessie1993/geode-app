@@ -6,6 +6,7 @@
 #include "api/geode_api.h"
 #include "sound/Emotion.hpp"
 #include "util/Circular.hpp"
+#include "viz/modulation/Edge.hpp"
 #include "viz/modulation/Lfo.hpp"
 #include "viz/params/Params.hpp"
 
@@ -163,6 +164,10 @@ public:
     // kind keeps the last one heard).
     void step(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling = nullptr);
     float value(ReactSource s) const { return values_[static_cast<size_t>(s)]; }
+    // Whether the frame this step read carried a raw trigger for the source: the once-only hit itself, not its decayed envelope.
+    bool hit(ReactSource s) const { return hit_[static_cast<size_t>(s)]; }
+    bool keyChangeHit() const { return keyChangeHit_; }
+    static bool isTrigger(ReactSource s);
     // Onsets seen so far, wrapping at kCountWrap: a per-hit seed for shaders.
     float onsetCount() const { return onsetCount_; }
     // Hard cuts seen so far, same wrap: lets a shader hold a variation per big moment.
@@ -182,6 +187,8 @@ private:
     void stepDerived(const GeodeSoundFrame& f, float dt, const sound::Emotion::State* feeling);
 
     std::array<float, kReactSourceCount> values_{};
+    std::array<bool, kReactSourceCount> hit_{};
+    bool keyChangeHit_ = false;
     // The clocks' values last frame, for their rates.
     std::array<float, kReactSourceCount> lastClock_{};
     bool clocksPrimed_ = false;
@@ -277,15 +284,16 @@ ReactSource trigger(Moment m);
 // reaction matrix's Step rule, so a held level is one moment, not one a frame. Silence brings none.
 class MomentWatch {
 public:
-    static constexpr float kRise = 0.5f;
-    static constexpr float kRearm = 0.3f;
-    // The bit per Moment that came this frame.
+    static constexpr float kRise = edge::kRise;
+    static constexpr float kRearm = edge::kRearm;
+    // The bit per Moment that came this frame: a trigger moment on its raw hit, a level moment on the rise through kRise.
     std::uint32_t step(const ReactSignals& signals);
     std::uint32_t step(const std::array<float, kMomentCount>& triggers);
-    void reset() { high_.fill(false); }
+    void reset() { high_.fill(edge::State{}); }
 
 private:
-    std::array<bool, kMomentCount> high_{};
+    std::uint32_t stepEdges(const std::array<edge::In, kMomentCount>& in);
+    std::array<edge::State, kMomentCount> high_{};
 };
 
 class ReactionEngine {
@@ -325,6 +333,7 @@ private:
     std::array<float, kRoutes> out_{};
     std::array<float, kRoutes> external_{};
     float dt_ = 0.0f;
+    const edge::State& edgeOf(size_t k, const ReactRoute& r, float level);
     // Whether the route has resolved a frame since it was enabled (or since reset): the first one snaps out_ to its target.
     std::array<bool, kRoutes> primed_{};
     // The (target, source, mode) the route resolved last: a route re-pointed in place is a new cable and snaps again.
@@ -332,7 +341,7 @@ private:
     // The music's absolute reach (core/sound/DriveGain) of the frame last ticked: apply() scales what the audio
     // adds by it, never the params' base values.
     float gain_ = 1.0f;
-    std::array<bool, kRoutes> high_{};
+    std::array<edge::State, kRoutes> high_{};
     std::array<unsigned int, kRoutes> jumpSeed_{};
     // A settled Jump's wait before its next edge counts, seconds (0: ready).
     std::array<float, kRoutes> settle_{};

@@ -84,9 +84,28 @@ void theClockSnapsTheTimeToRefreshPeriods() {
     check(bare.next(9'500, 9'000, 0, 0) == 9'500, "no period: no snap");
 }
 
+// Red against: a budget worked out twice (the swap interval, the vote and the work target disagreeing), a vote that follows the
+// display mode (the platform's choice) instead of the setting, an interval handed to a stage Swappy does not pace, and a
+// budget before the period is known.
+void theBudgetIsOneDescriptor() {
+    const FrameBudget at60 = frameBudget(60.0f, k90, true);
+    check(at60.periodNs == k90 && at60.swapNs == swapIntervalNs(60.0f) && at60.budgetNs == 2 * k90 && at60.voteFps == 60.0f,
+          "60 on a 90 Hz mode: its swap interval, two periods, the setting's own vote");
+    const FrameBudget moved = frameBudget(60.0f, k120, true);
+    check(moved.voteFps == at60.voteFps && moved.swapNs == at60.swapNs && moved.budgetNs == 2 * k120, "a new mode moves the budget, never the vote or the interval");
+    const FrameBudget follow = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsFollow), k90, true);
+    check(follow.swapNs == 0 && follow.voteFps == 0.0f && follow.budgetNs == k90, "Follow device: no interval, no vote, one period of whatever mode runs");
+    const FrameBudget vsync = frameBudget(30.0f, k60, false);
+    check(vsync.swapNs == 0 && vsync.budgetNs == k60 && vsync.voteFps == 30.0f, "no Swappy: no interval, one frame per refresh, the vote still the setting's");
+    const FrameBudget unknown = frameBudget(60.0f, 0, true);
+    check(unknown.budgetNs == 0 && unknown.swapNs == swapIntervalNs(60.0f), "no period known: no budget yet, the interval and vote already");
+    check(frameBudget(60.0f, k90, true) == at60 && !(moved == at60), "equal settings on equal modes are equal descriptors");
+}
+
 }  // namespace
 
 int main() {
+    theBudgetIsOneDescriptor();
     theVoteIsTheCapOrNothing();
     theSwapIntervalIsOneFrameAtTheCap();
     aFrameSpansWholeRefreshPeriods();

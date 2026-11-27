@@ -533,19 +533,21 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     if (firstVisit_ && current_ >= 0 && current_ < kSectionSlots) sections_[static_cast<size_t>(current_)].style = style_;
 
     // The build's lean: in while Form's state is a build, out when it fades. A drop's cut takes it away
-    // with the cut. Form's state changes on a downbeat, so the lean starts there.
+    // with the cut. Form's state changes on a downbeat, so the lean starts there. Over the tuning's bars, or
+    // its seconds with no bar heard (a bar of 0 would land it in one frame).
+    const auto over = [&](Tune bars, Tune seconds) { return barKnown ? T[bars] * bar : T[seconds]; };
     if (sound::dropped(f)) {
         lean_ = 0.0f;
     } else if (state == GEODE_SECTION_BUILD) {
-        lean_ = std::min(1.0f, lean_ + dt / (T[Tune::LeanInBars] * bar));
+        lean_ = std::min(1.0f, lean_ + dt / over(Tune::LeanInBars, Tune::LeanInSeconds));
     } else {
-        lean_ = std::max(0.0f, lean_ - dt / (T[Tune::LeanOutBars] * bar));
+        lean_ = std::max(0.0f, lean_ - dt / over(Tune::LeanOutBars, Tune::LeanOutSeconds));
     }
 
     // The song's arc: toward the level of Form's section state and the phrases heard, over the tuning's
-    // bars. Form's state and the phrase count change on downbeats; nothing else moves it.
+    // bars (or seconds). Form's state and the phrase count change on downbeats; nothing else moves it.
     const float arcTo = director::arcLevel(state, phrases_, T);
-    const float arcStep = dt / (T[Tune::ArcBars] * bar);
+    const float arcStep = dt / over(Tune::ArcBars, Tune::ArcSeconds);
     arc_ = arc_ < arcTo ? std::min(arcTo, arc_ + arcStep) : std::max(arcTo, arc_ - arcStep);
 
     if (commits_ > 0) presence_ += (1.0f - presence_) * (1.0f - std::exp(-dt / 1.0f));

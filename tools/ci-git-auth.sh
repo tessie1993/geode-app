@@ -1,4 +1,3 @@
-# shellcheck shell=bash
 # Sourced by a workflow step that pushes: gives git the job's GH_TOKEN for this step's process only,
 # the header actions/checkout would have persisted in .git/config. Masks the encoded copy too.
 # Usage: GH_TOKEN=... ; source tools/ci-git-auth.sh

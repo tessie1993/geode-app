@@ -5,6 +5,7 @@ updates:
     directories:
       - "/"
       - "/.github/actions/android-build-setup"
+      - "/.github/actions/android-emulator"
     schedule:
       interval: "weekly"
 

@@ -7,7 +7,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <new>
 #include <fstream>
 #include <sstream>
 #include <memory>
@@ -21,6 +24,19 @@
 
 using namespace geode::viz;
 namespace pl = geode::viz::palette;
+
+namespace {
+long allocations = 0;  // every operator new in this process, so a ramp's per-frame rebuild can be held to none
+}  // namespace
+
+// Out of line, as cast_audio_test's: inlined, GCC pairs the free with the new it sees and fails -Wmismatched-new-delete.
+[[gnu::noinline]] void* operator new(std::size_t bytes) {
+    ++allocations;
+    if (void* p = std::malloc(bytes > 0 ? bytes : 1)) return p;
+    throw std::bad_alloc();
+}
+[[gnu::noinline]] void operator delete(void* p) noexcept { std::free(p); }
+[[gnu::noinline]] void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 
 namespace {
 
@@ -426,6 +442,134 @@ void theRampARendererUploads() {
     check(ramp.update(std::make_shared<const pl::Stack>(), moved) && !ramp.active(), "an unset stack hands the look back to its old colours");
 }
 
+namespace {
+
+// Palette.cpp's stack sampler at 86094e4a7, verbatim: the oracle.
+colour::Rgb referenceAt(const pl::Stack& s, const pl::Amounts& amounts, float t) {
+    const auto amountOf = [&](size_t i) {
+        const float a = amounts[i];
+        return std::isfinite(a) ? std::clamp(a, 0.0f, 1.0f) : 0.0f;
+    };
+    const auto smooth = [](float x) {
+        const float c = std::clamp(x, 0.0f, 1.0f);
+        return c * c * (3.0f - 2.0f * c);
+    };
+    const auto lerp = [](colour::Rgb a, colour::Rgb b, float f) {
+        return colour::Rgb{a.r + (b.r - a.r) * f, a.g + (b.g - a.g) * f, a.b + (b.b - a.b) * f};
+    };
+    const auto softHalf = [](float a, float b) { return std::min(pl::kSoftReach, 0.25f * std::min(a, b)); };
+    struct Part {
+        size_t layer;
+        float start;
+        float width;
+    };
+    constexpr float kBeforeOne = 1.0f - 1e-6f;
+    if (pl::isUnset(s)) return pl::at(pl::unsetFallback(), t);
+    const float w = std::isfinite(t) ? colour::wrap01(t) : 0.0f;
+    float total = 0.0f;
+    for (size_t i = 0; i < s.layers.size(); ++i) total += amountOf(i);
+    if (s.layers.size() == 1 || total <= 1e-6f) return pl::at(s.layers.front(), w);
+    if (s.blend == pl::Blend::Mix) {
+        colour::Rgb sum{};
+        for (size_t i = 0; i < s.layers.size(); ++i) {
+            const float a = amountOf(i) / total;
+            if (a <= 0.0f) continue;
+            const colour::Rgb c = pl::at(s.layers[i], w);
+            sum = {sum.r + c.r * a, sum.g + c.g * a, sum.b + c.b * a};
+        }
+        return sum;
+    }
+    std::vector<Part> parts;
+    float start = 0.0f;
+    for (size_t i = 0; i < s.layers.size(); ++i) {
+        const float width = amountOf(i) / total;
+        if (width <= 0.0f) continue;
+        parts.push_back({i, start, width});
+        start += width;
+    }
+    size_t k = parts.size() - 1;
+    for (size_t j = 0; j < parts.size(); ++j) {
+        if (w < parts[j].start + parts[j].width) {
+            k = j;
+            break;
+        }
+    }
+    const Part& part = parts[k];
+    const colour::Rgb own = pl::at(s.layers[part.layer], std::clamp((w - part.start) / part.width, 0.0f, kBeforeOne));
+    if (s.edge == pl::Edge::Hard || parts.size() < 2) return own;
+    const Part& prev = parts[(k + parts.size() - 1) % parts.size()];
+    const Part& next = parts[(k + 1) % parts.size()];
+    const float fromLeft = w - part.start;
+    const float toRight = part.start + part.width - w;
+    const float left = softHalf(prev.width, part.width);
+    const float right = softHalf(part.width, next.width);
+    if (fromLeft < left) return lerp(pl::at(s.layers[prev.layer], kBeforeOne), own, smooth((fromLeft + left) / (2.0f * left)));
+    if (toRight < right) return lerp(pl::at(s.layers[next.layer], 0.0f), own, smooth((toRight + right) / (2.0f * right)));
+    return own;
+}
+
+}  // namespace
+
+// A modulated palette amount rebuilds the ramp every frame on the render thread: no allocation, the same bytes.
+void aMovingAmountRebuildsTheRampWithoutAllocating() {
+    const int c4[] = {0xFF2200, 0x10E0A0, 0x2040FF, 0xF0F0F0};
+    pl::Palette loop = pl::fromColours(pl::Source::Yours, "", "Loop", c4, 4);
+    pl::setOption(loop, "LOOP");
+    pl::setOption(loop, "HUE");
+    pl::Palette steps = two(0x000000, 0xFFDD00);
+    pl::setOption(steps, "STEPS");
+    pl::setOption(steps, "RGB");
+    pl::Palette unsorted = pl::fromColours(pl::Source::Yours, "", "Unsorted", c4, 4);
+    unsorted.stops[0].pos = 0.8f;
+    unsorted.stops[1].pos = 0.1f;
+    unsorted.stops[2].pos = 0.8f;  // a tie: the sort must keep the user's order
+    unsorted.stops[3].pos = 0.4f;
+    std::vector<pl::Stack> stacks;
+    for (const char* edge : {"SOFT", "HARD"}) {
+        pl::Stack s;
+        for (const pl::Palette& p : {two(0xFF0000, 0x0000FF), one(0x22AA44, "SHADES"), loop, steps, one(0x8040C0, "TO_BLACK"), unsorted, one(0xC0C000, "FLAT")}) {
+            s = pl::addLayer(std::move(s), p);
+        }
+        s.edge = std::string(edge) == "HARD" ? pl::Edge::Hard : pl::Edge::Soft;
+        stacks.push_back(s);
+    }
+    stacks.push_back(stacks[0]);
+    stacks.back().blend = pl::Blend::Mix;
+    stacks.push_back(pl::addLayer({}, unsorted));
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const std::vector<pl::Amounts> moves = {
+        pl::defaultAmounts(), {1.0f, 0.3f, 0.7f, 0.1f, 0.9f, 0.5f, 0.02f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f},
+        {0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.2f}, {nan, 1.0f, 0.5f, -2.0f, 3.0f, 0.25f, 0.6f, 0.0f}, pl::Amounts{},
+        {1.0f, 0.001f, 1.0f, 0.001f, 1.0f, 0.001f, 1.0f, 0.0f}};
+    for (size_t si = 0; si < stacks.size(); ++si) {
+        const auto stack = std::make_shared<const pl::Stack>(stacks[si]);
+        pl::Ramp ramp;
+        ramp.update(stack, moves.back());
+        for (size_t mi = 0; mi < moves.size(); ++mi) {
+            const long before = allocations;
+            ramp.update(stack, moves[mi]);
+            const long made = allocations - before;
+            check(made == 0, "stack " + std::to_string(si) + ", amounts " + std::to_string(mi) + ": a moved amount allocates nothing (" +
+                                 std::to_string(made) + " allocations)");
+            int differ = 0;
+            for (int i = 0; i < pl::kRampSize; ++i) {
+                const int rgb = packed(referenceAt(*stack, moves[mi], (static_cast<float>(i) + 0.5f) / static_cast<float>(pl::kRampSize)));
+                const auto& b = ramp.bytes();
+                differ += b[3 * i] != ((rgb >> 16) & 0xFF) || b[3 * i + 1] != ((rgb >> 8) & 0xFF) || b[3 * i + 2] != (rgb & 0xFF);
+            }
+            check(differ == 0, "stack " + std::to_string(si) + ", amounts " + std::to_string(mi) + ": every texel is the plain sampler's, to the byte (" +
+                                   std::to_string(differ) + " differ)");
+            const auto composed = pl::compose(*stack, moves[mi]);
+            bool same = true;
+            for (int i = 0; i < pl::kRampSize; ++i) {
+                const colour::Rgb want = referenceAt(*stack, moves[mi], (static_cast<float>(i) + 0.5f) / static_cast<float>(pl::kRampSize));
+                same = same && std::memcmp(&composed[static_cast<size_t>(i)], &want, sizeof want) == 0;
+            }
+            check(same, "compose() is the plain sampler's too, to the bit");
+        }
+    }
+}
+
 void theStackAsLookDrawsIt() {
     const std::string unset = geode_palette_stack_unset();
     std::string text = geode_palette_stack_editor(unset.c_str());
@@ -488,6 +632,7 @@ int main(int argc, char** argv) {
     anOldLookKeepsItsColours();
     recentColours();
     theRampARendererUploads();
+    aMovingAmountRebuildsTheRampWithoutAllocating();
     theStackAsLookDrawsIt();
     libraryTextEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/palettes.txt");
     if (failures) {

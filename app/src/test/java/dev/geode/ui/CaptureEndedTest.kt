@@ -7,42 +7,31 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** A capture Android ends is said and kept going on the device mix; one the person stops is not. */
+/** What a capture Android ends leaves in the state: the reason, until the person resumes or picks another source. */
 class CaptureEndedTest {
-    private val running = ExternalAudioState(active = true, hasSessionAccess = true, hearingSilence = true)
+    private val running = ExternalAudioState(active = true, hasSessionAccess = true, hearingSilence = true, refusedByApp = true)
 
     @Test
-    fun aLockEndingKeepsListeningOnTheMixAndSaysSo() {
-        assertTrue(keepsListeningAfter(CaptureEnd.SCREEN_LOCKED))
-        val ending = running.ended(CaptureEnd.SCREEN_LOCKED, onDeviceMix = true)
-        assertFalse(ending.state.active)
-        assertFalse(ending.state.hearingSilence)
-        assertEquals(CaptureEnd.SCREEN_LOCKED, ending.state.ended)
-        assertTrue(ending.state.onDeviceMix)
-        assertEquals(CaptureNotice.Ended(CaptureEnd.SCREEN_LOCKED, onDeviceMix = true), ending.notice)
+    fun androidsEndingKeepsItsReasonAndNothingElse() {
+        val ended = running.ended(CaptureEnd.SCREEN_LOCKED)
+        assertFalse(ended.active)
+        assertFalse(ended.hearingSilence)
+        assertFalse(ended.refusedByApp)
+        assertFalse(ended.playing)
+        assertEquals(CaptureEnd.SCREEN_LOCKED, ended.ended)
     }
 
     @Test
-    fun aRefusedMixStillSaysTheCaptureEnded() {
-        val ending = running.ended(CaptureEnd.SYSTEM, onDeviceMix = false)
-        assertEquals(CaptureEnd.SYSTEM, ending.state.ended)
-        assertFalse(ending.state.onDeviceMix)
-        assertEquals(CaptureNotice.Ended(CaptureEnd.SYSTEM, onDeviceMix = false), ending.notice)
-    }
-
-    @Test
-    fun aPersonsStopIsQuietAndLeavesNoMix() {
-        assertFalse(keepsListeningAfter(null))
-        val ending = running.ended(null, onDeviceMix = true)
-        assertFalse(ending.state.active)
-        assertNull(ending.state.ended)
-        assertFalse(ending.state.onDeviceMix)
-        assertNull(ending.notice)
+    fun aPersonsStopLeavesNoReason() {
+        val ended = running.ended(null)
+        assertFalse(ended.active)
+        assertNull(ended.ended)
+        assertFalse(ended.holdsSource)
     }
 
     @Test
     fun anEndedCaptureStillHoldsTheSoundUntilStopped() {
-        val ended = running.ended(CaptureEnd.SCREEN_LOCKED, onDeviceMix = true).state
+        val ended = running.ended(CaptureEnd.SYSTEM)
         assertTrue(ended.holdsSource)
         assertFalse(ended.stopped().holdsSource)
         assertNull(ended.stopped().ended)

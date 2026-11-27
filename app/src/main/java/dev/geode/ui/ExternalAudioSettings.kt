@@ -61,13 +61,21 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     color = accentTextColor(),
                 )
             ended != null -> {
+                // A Resume that was refused says why, over the ending it tried to answer.
+                val refused = external.failure
                 Text(
-                    stringResource(captureEndedText(ended, external.onDeviceMix)),
+                    stringResource(refused?.let(::captureFailureText) ?: captureEndedText(ended)),
                     style = MaterialTheme.typography.bodySmall,
                     color = accentTextColor(),
                 )
-                CrystalButton(onClick = capture::start, compact = true, filled = false) {
-                    Text(stringResource(R.string.capture_resume))
+                if (refused == CaptureFailure.PERMISSION) {
+                    CrystalButton(onClick = { context.openAppSettings() }, compact = true, filled = false) {
+                        Text(stringResource(R.string.permission_open_settings))
+                    }
+                } else {
+                    CrystalButton(onClick = capture::start, compact = true, filled = false) {
+                        Text(stringResource(R.string.capture_resume))
+                    }
                 }
             }
             else ->
@@ -146,13 +154,10 @@ private fun RefusedNotice(
     }
 }
 
-internal fun captureEndedText(
-    reason: CaptureEnd,
-    onDeviceMix: Boolean,
-): Int =
+internal fun captureEndedText(reason: CaptureEnd): Int =
     when (reason) {
-        CaptureEnd.SCREEN_LOCKED -> if (onDeviceMix) R.string.capture_ended_locked_mix else R.string.capture_ended_locked
-        CaptureEnd.SYSTEM -> if (onDeviceMix) R.string.capture_ended_system_mix else R.string.capture_ended_system
+        CaptureEnd.SCREEN_LOCKED -> R.string.capture_ended_locked
+        CaptureEnd.SYSTEM -> R.string.capture_ended_system
     }
 
 internal fun captureFailureText(failure: CaptureFailure): Int =

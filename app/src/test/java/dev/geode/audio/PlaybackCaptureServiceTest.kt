@@ -3,7 +3,6 @@ package dev.geode.audio
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
-import android.media.projection.MediaProjection
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import org.junit.After
@@ -15,7 +14,6 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import java.lang.reflect.Proxy
 
 /**
  * The system stops a projection when a new consent replaces it, and that stop reaches the service's callback
@@ -25,7 +23,7 @@ import java.lang.reflect.Proxy
 class PlaybackCaptureServiceTest {
     @After
     fun tearDown() {
-        MediaProjectionHolder.publish(null)
+        MediaProjectionHolder.reset()
     }
 
     @Test
@@ -95,35 +93,4 @@ class PlaybackCaptureServiceTest {
     }
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
-
-    /** A real [MediaProjection] over a stand-in for the system's side of it, which keeps the callback it is handed. */
-    private class FakeProjection {
-        private var systemCallback: Any? = null
-
-        val projection: MediaProjection
-
-        init {
-            val iface = Class.forName("android.media.projection.IMediaProjection")
-            val impl =
-                Proxy.newProxyInstance(iface.classLoader, arrayOf(iface)) { _, method, args ->
-                    if (method.name == "start") systemCallback = args[0]
-                    when (method.returnType) {
-                        java.lang.Boolean.TYPE -> false
-                        Integer.TYPE -> 0
-                        else -> null
-                    }
-                }
-            projection =
-                MediaProjection::class.java
-                    .getDeclaredConstructor(Context::class.java, iface)
-                    .newInstance(ApplicationProvider.getApplicationContext<Context>(), impl)
-        }
-
-        fun stopBySystem() {
-            Class
-                .forName("android.media.projection.IMediaProjectionCallback")
-                .getMethod("onStop")
-                .invoke(checkNotNull(systemCallback))
-        }
-    }
 }

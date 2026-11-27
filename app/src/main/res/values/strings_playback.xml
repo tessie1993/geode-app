@@ -14,9 +14,7 @@
     <string name="opened_audio_refused">BeatRealms can\'t play that file.</string>
     <!-- Listening to other apps, ended by Android rather than the person (ui/CaptureController, CaptureNotice). -->
     <string name="capture_ended_locked">Listening to other apps stopped when the screen locked.</string>
-    <string name="capture_ended_locked_mix">Listening to other apps stopped when the screen locked. Visuals follow the phone\'s sound for now.</string>
     <string name="capture_ended_system">Android stopped listening to other apps.</string>
-    <string name="capture_ended_system_mix">Android stopped listening to other apps. Visuals follow the phone\'s sound for now.</string>
     <string name="subtitle_capture_ended_locked">Listening stopped when the screen locked</string>
     <string name="subtitle_capture_ended">Listening to other apps stopped</string>
     <string name="capture_resume">Resume</string>

@@ -99,6 +99,8 @@ class PlayerViewModel
 
         fun noteExternalAudioConsentDenied() = session.captureController.noteExternalAudioConsentDenied()
 
+        fun noteExternalAudioStartFailed() = session.captureController.noteExternalAudioStartFailed()
+
         fun noteExternalAudioPermissionDenied() = session.captureController.noteExternalAudioPermissionDenied()
 
         fun stopExternalAudio() = session.stopExternalAudio()

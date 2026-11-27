@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.roundToIntRect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.NavigationEventTransitionState
 import androidx.navigationevent.compose.NavigationBackHandler
@@ -425,8 +426,12 @@ private fun AppContent(tourViewModel: TourViewModel) {
         val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
             // The tab fades toward Player as a back gesture travels (rememberBackToPlayer); the banner
             // stays lit, since it belongs to playback, not to the tab.
-            if (!inPip) PlaybackNoticeBanner(viewModel)
-            if (!inPip) CaptureNoticeBanner(viewModel)
+            if (!inPip) {
+                Column {
+                    PlaybackNoticeBanner(viewModel)
+                    CaptureNoticeBanner(viewModel)
+                }
+            }
             Box(Modifier.liveFrameRate(liveRate).graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer() }) {
                 destinationState.SaveableStateProvider(appState.dest.name) {
                     when (appState.dest) {
@@ -1090,7 +1095,7 @@ private fun CaptureNoticeBanner(viewModel: PlayerViewModel) {
     val settings = shown == CaptureNotice.Failed(CaptureFailure.PERMISSION)
     val message =
         when (shown) {
-            is CaptureNotice.Ended -> captureEndedText(shown.reason, shown.onDeviceMix)
+            is CaptureNotice.Ended -> captureEndedText(shown.reason)
             is CaptureNotice.Failed -> captureFailureText(shown.failure)
         }
     val action =
@@ -1112,9 +1117,9 @@ private fun CaptureNoticeBanner(viewModel: PlayerViewModel) {
     )
 }
 
-/** A message over the open tab that goes by itself, on a tap, or through its one [action]. */
+/** A message over the open tab that goes by itself once seen for a while, on a tap, or through its one [action]. */
 @Composable
-private fun NoticeBanner(
+internal fun NoticeBanner(
     message: String,
     action: String,
     actionDescription: String?,
@@ -1122,9 +1127,14 @@ private fun NoticeBanner(
     onDismiss: () -> Unit,
     dismissDescription: String? = null,
 ) {
-    LaunchedEffect(message) {
-        kotlinx.coroutines.delay(NOTICE_VISIBLE_MS)
-        onDismiss()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+    // Counted only while the app is in front: a notice raised behind the lock waits for the person to come back.
+    LaunchedEffect(message, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            delay(NOTICE_VISIBLE_MS)
+            currentOnDismiss()
+        }
     }
 
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -1161,7 +1171,7 @@ private fun NoticeBanner(
     }
 }
 
-private const val NOTICE_VISIBLE_MS = 8_000L
+internal const val NOTICE_VISIBLE_MS = 8_000L
 
 /**
  * What the taste milestone counts and waits for (`pro/PaywallPrompts`): time with Visuals on screen

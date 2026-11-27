@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import androidx.annotation.VisibleForTesting
 import dev.geode.RingLog
 import dev.geode.appLaunchIntent
 import dev.geode.startedInForeground
@@ -210,6 +211,12 @@ object MediaProjectionHolder {
 
     fun noteStartFailure() {
         _startFailures.value += 1
+    }
+
+    @VisibleForTesting
+    internal fun reset() {
+        endedBy = null
+        _projection.value = null
     }
 }
 

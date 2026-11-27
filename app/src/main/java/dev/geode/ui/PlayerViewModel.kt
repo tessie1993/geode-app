@@ -64,6 +64,10 @@ class PlayerViewModel
 
         val externalAudio: StateFlow<ExternalAudioState> get() = session.externalAudio
 
+        val captureNotice: StateFlow<CaptureNotice?> get() = session.captureController.notice
+
+        fun clearCaptureNotice() = session.captureController.clearNotice()
+
         val historyTick: StateFlow<Int> get() = session.listening.historyTick
 
         val favourites: StateFlow<Set<String>> get() = session.favourites

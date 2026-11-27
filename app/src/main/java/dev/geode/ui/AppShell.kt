@@ -99,6 +99,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
+import dev.geode.audio.CaptureFailure
 import dev.geode.cast.CastMirror
 import dev.geode.data.BootAnimationStore
 import dev.geode.engine.bridge.PaletteNative
@@ -400,6 +401,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             // The tab fades toward Player as a back gesture travels (rememberBackToPlayer); the banner
             // stays lit, since it belongs to playback, not to the tab.
             if (!inPip) PlaybackNoticeBanner(viewModel)
+            if (!inPip) CaptureNoticeBanner(viewModel)
             Box(Modifier.liveFrameRate(liveRate).graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer() }) {
                 destinationState.SaveableStateProvider(appState.dest.name) {
                     when (appState.dest) {
@@ -1043,11 +1045,61 @@ private val GeodeDestination.tourPlace: TourPlace
 private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
     val notice by viewModel.playbackNotice.collectAsStateWithLifecycle()
     val message = notice ?: return
-    val dismissDescription = stringResource(R.string.notice_dismiss_description)
+    NoticeBanner(
+        message,
+        action = stringResource(R.string.notice_dismiss),
+        actionDescription = stringResource(R.string.notice_dismiss_description),
+        onAction = viewModel::clearPlaybackNotice,
+        onDismiss = viewModel::clearPlaybackNotice,
+    )
+}
 
+/** What became of listening to other apps, said on whichever screen is open, with the tap that answers it. */
+@Composable
+private fun CaptureNoticeBanner(viewModel: PlayerViewModel) {
+    val context = LocalContext.current
+    // Composed with or without a notice: Android's consent answers this launcher after the banner is gone.
+    val capture = rememberExternalCaptureLauncher(viewModel)
+    val notice by viewModel.captureNotice.collectAsStateWithLifecycle()
+    val shown = notice ?: return
+    val settings = shown == CaptureNotice.Failed(CaptureFailure.PERMISSION)
+    val message =
+        when (shown) {
+            is CaptureNotice.Ended -> captureEndedText(shown.reason, shown.onDeviceMix)
+            is CaptureNotice.Failed -> captureFailureText(shown.failure)
+        }
+    val action =
+        when {
+            shown is CaptureNotice.Ended -> R.string.capture_resume
+            settings -> R.string.permission_open_settings
+            else -> R.string.capture_try_again
+        }
+    NoticeBanner(
+        stringResource(message),
+        action = stringResource(action),
+        actionDescription = null,
+        onAction = {
+            viewModel.clearCaptureNotice()
+            if (settings) context.openAppSettings() else capture.start()
+        },
+        onDismiss = viewModel::clearCaptureNotice,
+        dismissDescription = stringResource(R.string.capture_notice_dismiss_description),
+    )
+}
+
+/** A message over the open tab that goes by itself, on a tap, or through its one [action]. */
+@Composable
+private fun NoticeBanner(
+    message: String,
+    action: String,
+    actionDescription: String?,
+    onAction: () -> Unit,
+    onDismiss: () -> Unit,
+    dismissDescription: String? = null,
+) {
     LaunchedEffect(message) {
         kotlinx.coroutines.delay(NOTICE_VISIBLE_MS)
-        viewModel.clearPlaybackNotice()
+        onDismiss()
     }
 
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -1057,7 +1109,7 @@ private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.errorContainer)
-                    .clickable { viewModel.clearPlaybackNotice() }
+                    .clickable(onClickLabel = dismissDescription, onClick = onDismiss)
                     .semantics { liveRegion = LiveRegionMode.Polite }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1070,14 +1122,14 @@ private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = stringResource(R.string.notice_dismiss),
+                text = action,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier =
                     Modifier
                         .minimumInteractiveComponentSize()
-                        .clickable { viewModel.clearPlaybackNotice() }
-                        .semantics { contentDescription = dismissDescription }
+                        .clickable(onClick = onAction)
+                        .semantics { actionDescription?.let { contentDescription = it } }
                         .padding(8.dp),
             )
         }

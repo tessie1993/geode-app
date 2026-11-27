@@ -1,5 +1,6 @@
 package dev.geode.audio
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +14,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import dev.geode.RingLog
 import dev.geode.appLaunchIntent
 import dev.geode.startedInForeground
@@ -30,10 +32,18 @@ class PlaybackCaptureService : Service() {
         object : MediaProjection.Callback() {
             override fun onStop() {
                 if (projection !== mp) return
-                MediaProjectionHolder.publish(null)
+                MediaProjectionHolder.endedBySystem(stopReason())
                 stopSelf()
             }
         }
+
+    // Only the system calls onStop, and it says no more than that: a locked or dark screen is the lock's doing.
+    private fun stopReason(): CaptureEnd {
+        val locked =
+            getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true ||
+                getSystemService(PowerManager::class.java)?.isInteractive == false
+        return if (locked) CaptureEnd.SCREEN_LOCKED else CaptureEnd.SYSTEM
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -146,7 +156,7 @@ class PlaybackCaptureService : Service() {
     companion object {
         private const val CHANNEL_ID = "geode-capture"
         private const val NOTIFICATION_ID = 42
-        private const val ACTION_STOP = "dev.geode.STOP_CAPTURE"
+        internal const val ACTION_STOP = "dev.geode.STOP_CAPTURE"
         private const val EXTRA_RESULT_CODE = "resultCode"
         private const val EXTRA_RESULT_DATA = "resultData"
 
@@ -176,12 +186,26 @@ object MediaProjectionHolder {
 
     val projection: StateFlow<MediaProjection?> = _projection
 
+    /**
+     * Why the last projection went, read when [projection] turns null: set only when Android ended it, so null
+     * there means the app or its notification stopped it. A new projection forgets it.
+     */
+    var endedBy: CaptureEnd? = null
+        private set
+
     private val _startFailures = MutableStateFlow(0)
 
     val startFailures: StateFlow<Int> = _startFailures
 
     fun publish(projection: MediaProjection?) {
+        if (projection != null) endedBy = null
         _projection.value = projection
+    }
+
+    /** The reason goes first: the collector may read it as soon as the null lands. */
+    fun endedBySystem(reason: CaptureEnd) {
+        endedBy = reason
+        _projection.value = null
     }
 
     fun noteStartFailure() {

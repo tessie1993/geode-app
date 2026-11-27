@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.media.AudioManager
 import androidx.core.content.ContextCompat
 import dev.geode.audio.AudioBus
+import dev.geode.audio.CaptureEnd
 import dev.geode.audio.CaptureFailure
 import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.OutputMixCapture
@@ -36,7 +37,29 @@ data class ExternalAudioState(
     val refusedByApp: Boolean = false,
     /** Capturing, but only silence for a while: nothing plays, or the playing app blocks capture. */
     val hearingSilence: Boolean = false,
+    /** Android ended the capture without the person (the screen locked, the status-bar chip): kept until they resume or stop. */
+    val ended: CaptureEnd? = null,
+    /** The device mix stands in for the [ended] capture, so the visuals still follow other apps. */
+    val onDeviceMix: Boolean = false,
 ) {
+    /** A capture, or what one Android ended left behind: the player's own play or the mic replaces it. */
+    val holdsSource: Boolean get() = active || ended != null
+
+    fun stopped(): ExternalAudioState =
+        copy(active = false, awaitingConsent = false, refusedByApp = false, ended = null, onDeviceMix = false)
+
+    /** The projection the capture read went: [reason] is Android's, null when the person stopped it. */
+    fun ended(
+        reason: CaptureEnd?,
+        onDeviceMix: Boolean,
+    ): CaptureEnding {
+        val mix = reason != null && onDeviceMix
+        return CaptureEnding(
+            copy(active = false, refusedByApp = false, hearingSilence = false, ended = reason, onDeviceMix = mix),
+            notice = reason?.let { CaptureNotice.Ended(it, mix) },
+        )
+    }
+
     val refusingApp: String? get() = if (refusedByApp) nowPlaying?.appLabel else null
 
     /** The other app while it is the sound source and its media session answers: the transport is its, not the player's. */
@@ -44,6 +67,26 @@ data class ExternalAudioState(
 
     /** Capturing without notification access: the other app can be heard but not named or driven. */
     val sessionUnreadable: Boolean get() = active && !hasSessionAccess
+}
+
+/** Only an ending the person did not ask for keeps the visuals going, on the device mix (no consent, survives the lock). */
+internal fun keepsListeningAfter(reason: CaptureEnd?): Boolean = reason != null
+
+data class CaptureEnding(
+    val state: ExternalAudioState,
+    val notice: CaptureNotice?,
+)
+
+/** A capture's outcome the app tells about wherever the person is, with a one-tap way back. */
+sealed interface CaptureNotice {
+    data class Ended(
+        val reason: CaptureEnd,
+        val onDeviceMix: Boolean,
+    ) : CaptureNotice
+
+    data class Failed(
+        val failure: CaptureFailure,
+    ) : CaptureNotice
 }
 
 internal class CaptureController(
@@ -82,6 +125,15 @@ internal class CaptureController(
     private val _externalAudio = MutableStateFlow(ExternalAudioState())
 
     val externalAudio: StateFlow<ExternalAudioState> = _externalAudio
+
+    // Held until shown, not a one-shot event: the screen lock ends a capture while nothing on screen collects.
+    private val _notice = MutableStateFlow<CaptureNotice?>(null)
+
+    val notice: StateFlow<CaptureNotice?> = _notice
+
+    fun clearNotice() {
+        _notice.value = null
+    }
 
     /** The mic was stopped because the app left the screen, and comes back with it ([onForeground]). */
     private var micPausedInBackground = false
@@ -156,22 +208,27 @@ internal class CaptureController(
                     if (projection != null) {
                         startPlaybackCapture(projection)
                     } else if (_externalAudio.value.active) {
-                        nowPlayingBridge.unwatch()
-                        playbackCapture.stop()
-                        host.resetSound(!externalAudioOwnsRing())
-                        _externalAudio.update { it.copy(active = false, refusedByApp = false) }
+                        onProjectionGone(dev.geode.audio.MediaProjectionHolder.endedBy)
                     }
                 }
         }
         scope.launch {
             dev.geode.audio.MediaProjectionHolder.startFailures
                 .drop(1)
-                .collect {
-                    _externalAudio.update {
-                        it.copy(awaitingConsent = false, failure = CaptureFailure.CONSENT)
-                    }
-                }
+                .collect { noteExternalAudioConsentDenied() }
         }
+    }
+
+    /** The capture's projection went without the app stopping it: by the notification's Stop ([reason] null) or by Android. */
+    private fun onProjectionGone(reason: CaptureEnd?) {
+        nowPlayingBridge.unwatch()
+        playbackCapture.stop()
+        host.resetSound(!externalAudioOwnsRing())
+        hearDeviceMix(keepsListeningAfter(reason))
+        if (reason == null) deviceMixRefused = false
+        val ending = _externalAudio.value.ended(reason, onDeviceMix = deviceMix.running)
+        _externalAudio.value = ending.state
+        _notice.value = ending.notice
     }
 
     private fun externalAudioOwnsRing(): Boolean = playbackCapture.active
@@ -189,7 +246,7 @@ internal class CaptureController(
             return null
         }
         if (IngestNative.micActive()) return null
-        if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
+        if (playbackCapture.active || _externalAudio.value.holdsSource) stopExternalAudio()
         // A new epoch before the first block: nothing an earlier run left in the ring is heard.
         IngestNative.pcmRingBeginEpoch(micRing)
         val failure = startMic()
@@ -267,6 +324,7 @@ internal class CaptureController(
         _externalAudio.update {
             it.copy(awaitingConsent = false, failure = CaptureFailure.CONSENT)
         }
+        _notice.value = CaptureNotice.Failed(CaptureFailure.CONSENT)
     }
 
     /** The mic permission was refused before Android's capture dialog: a different refusal, with Settings as the way back. */
@@ -277,12 +335,17 @@ internal class CaptureController(
     }
 
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
+        // A new capture replaces the mix that stood in for an ended one, and may ask for the mix again.
+        stopDeviceAudio()
+        deviceMixRefused = false
+        _notice.value = null
         if (!hasMicPermission()) {
             // No capture without the permission: the service and its projection go, as when a start fails below.
             PlaybackCaptureService.stop(application)
             _externalAudio.update {
-                it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
+                it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION, ended = null, onDeviceMix = false)
             }
+            _notice.value = CaptureNotice.Failed(CaptureFailure.PERMISSION)
             return
         }
         host.pausePlayback()
@@ -297,8 +360,11 @@ internal class CaptureController(
                 awaitingConsent = false,
                 failure = failure,
                 refusedByApp = false,
+                ended = null,
+                onDeviceMix = false,
             )
         }
+        failure?.let { _notice.value = CaptureNotice.Failed(it) }
         followSession()
     }
 
@@ -318,9 +384,8 @@ internal class CaptureController(
         playbackCapture.stop()
         host.resetSound(!externalAudioOwnsRing())
         PlaybackCaptureService.stop(application)
-        _externalAudio.update {
-            it.copy(active = false, awaitingConsent = false, refusedByApp = false)
-        }
+        _externalAudio.update { it.stopped() }
+        _notice.value = null
     }
 
     @Volatile
@@ -361,7 +426,7 @@ internal class CaptureController(
                     return@launch
                 }
                 val quiet = capturing && playbackCapture.quiet
-                hearDeviceMix(quiet)
+                hearDeviceMix(quiet || _externalAudio.value.onDeviceMix)
                 // On the mix the app is heard after all, so neither notice applies.
                 val unheard = quiet && !deviceMix.running
                 _externalAudio.update {

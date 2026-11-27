@@ -935,7 +935,7 @@ class PlayerSession internal constructor(
                         bookmarks.flush(player)
                         return
                     }
-                    if (externalAudio.value.active) stopExternalAudio()
+                    if (externalAudio.value.holdsSource) stopExternalAudio()
                     fades.ensureAudibleAfterExternalPlay()
                     PlaybackService.ensureRunning(application)
                 }

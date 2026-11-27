@@ -6,6 +6,7 @@
 #   name     the binary: the compiler's -o, built in the repository root.
 #   profile  a `profile` line below: the flags the test is built with.
 #   sources  every file the binary is built from, in link order; $VARS and globs expand as in a shell.
+#            `@NAME` is test NAME's sources, so a test built again under another profile names no file twice.
 #   run      the arguments the binary is run with (empty: none; `-`: built, not run).
 #            An optional fifth field is an environment prefix for the run (NAME="value").
 #
@@ -24,9 +25,19 @@ profile fakegl-mt = -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/
 profile o2 = -std=c++20 -O2 -Wall -Wextra -Werror -Icore
 # The same test under ThreadSanitizer: data races are the analysis thread's main risk.
 profile tsan = -std=c++20 -O1 -g -Wall -Wextra -Werror -pthread -fsanitize=thread -Icore
+# The threaded and memory-heavy tests under AddressSanitizer and UndefinedBehaviorSanitizer: a use after free, an
+# overrun, a leak or undefined behaviour stops the test, where an ordinary build may read stale memory and pass.
+profile asan = -std=c++20 -O1 -Wall -Wextra -Werror -pthread $SAN -Icore
+profile asan-stub = -std=c++20 -O1 -Wall -Wextra -Werror -pthread $SAN -Icore -Icore/tests/stub
+profile asan-fakegl = -std=c++20 -O1 -Wall -Wextra -Werror -pthread $SAN -Icore -Icore/tests/fakegl
+profile asan-gltf = -std=c++20 -O1 -Wall -Wextra -Werror -pthread $SAN -Icore -isystem third_party/cgltf \
+    -isystem third_party/meshoptimizer/src -isystem $BASISU $BASISU_DEFS
 # glTF import: cgltf, meshoptimizer and Basis Universal are the submodules' headers, as system headers.
 profile gltf = -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -isystem third_party/cgltf -isystem third_party/meshoptimizer/src -isystem $BASISU $BASISU_DEFS
 
+SAN="-g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all"
+ASAN_OPTS="detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1"
+UBSAN_OPTS="print_stacktrace=1"
 BASISU="third_party/basis_universal"
 BASISU_DEFS="-DBASISU_SUPPORT_SSE=0 -DBASISU_SUPPORT_OPENCL=0 -DBASISD_SUPPORT_KTX2=1 -DBASISD_SUPPORT_KTX2_ZSTD=1"
 INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp \
@@ -292,8 +303,10 @@ present_time_test | core | core/tests/present_time_test.cpp |
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
-# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the client's service, a thread ending out of turn.
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
 stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |
+# The stage's per-frame recorder for on-device measurement: off until a debug flag, the ring's newest frames oldest first, a fence settling the last drawn frame once, the CSV.
+frame_recorder_test | core | core/tests/frame_recorder_test.cpp |
 # The look snapshot a renderer is handed whole: only the parts that differ reach it, all on a new one; its defaults.
 look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
 # A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
@@ -670,6 +683,38 @@ analysis_thread_test | mt | core/tests/analysis_thread_test.cpp core/sound/hop/A
 # --- Analysis thread (ThreadSanitizer)
 analysis_thread_tsan | tsan | core/tests/analysis_thread_test.cpp core/sound/hop/AnalysisThread.cpp core/sound/*.cpp \
     core/audio/ingest/PcmRing.cpp |  | TSAN_OPTIONS="halt_on_error=1 second_deadlock_stack=1"
+
+@group asan
+
+# --- AddressSanitizer and UndefinedBehaviorSanitizer
+# The tests whose code shares memory between threads or owns raw buffers (rings, FIFOs, queues, encoders, the
+# stage's client, the glTF reader of untrusted files), each built again from its main entry's sources.
+live_client_asan | asan | @live_client_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+command_queue_asan | asan | @command_queue_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+live_frame_asan | asan-stub | @live_frame_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+analysis_thread_asan | asan | @analysis_thread_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+frame_blend_asan | asan | @frame_blend_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+heard_forget_asan | asan | @heard_forget_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+waveform_asan | asan | @waveform_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+pcm_handoff_asan | asan | @pcm_handoff_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+pcm_ring_asan | asan-stub | @pcm_ring_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+pcm_ring_kinds_asan | asan-stub | @pcm_ring_kinds_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+pcm_tap_asan | asan-stub | @pcm_tap_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+track_feed_asan | asan-stub | @track_feed_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+aiff_header_asan | asan-stub | @aiff_header_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+layer_mix_asan | asan-stub | @layer_mix_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+mic_input_asan | asan | @mic_input_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+capture_pump_asan | asan-fakegl | @capture_pump_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+output_fifo_asan | asan | @output_fifo_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+cast_audio_asan | asan-stub | @cast_audio_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+cast_encoder_asan | asan-stub | @cast_encoder_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+recorder_asan | asan-stub | @recorder_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+encode_sink_asan | asan-stub | @encode_sink_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+mod_state_asan | asan-stub | @mod_state_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+touch_field_asan | asan | @touch_field_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+shader_overrides_asan | asan | @shader_overrides_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
+@pre basisu
+gltf_import_asan | asan-gltf | @gltf_import_test | | ASAN_OPTIONS=$ASAN_OPTS UBSAN_OPTIONS=$UBSAN_OPTS
 
 @group main
 

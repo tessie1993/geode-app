@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "util/Log.hpp"
+#include "util/Trace.hpp"
 
 namespace geode::viz {
 
@@ -93,6 +94,7 @@ bool TransitionPrograms::create(const std::string& fadeVert, std::string* error)
     const auto source = assets_.load("composite_frag.glsl", error);
     if (!source) return false;
     source_ = *source;
+    const util::TraceSection section("geode.transitionCompile");
     const GLuint program = program::build(fadeVert_, source_, cache_, error);
     if (program == 0) return false;
     base_.reset(program);
@@ -129,7 +131,11 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
     const TransitionCatalog::Def* def = definition(id);
     if (!def) return base_;
     std::string error;
-    const GLuint program = program::build(fadeVert_, TransitionCatalog::spliceInto(source_, *def), cache_, &error);
+    GLuint program = 0;
+    {
+        const util::TraceSection section("geode.transitionCompile");
+        program = program::build(fadeVert_, TransitionCatalog::spliceInto(source_, *def), cache_, &error);
+    }
     if (program == 0) {
         GEODE_LOGW(kTag, "\"%s\" failed to link: %s", id.c_str(), error.c_str());
         failed_.insert(id);

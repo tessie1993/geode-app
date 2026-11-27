@@ -106,7 +106,7 @@ void strips() {
 void taps() {
     Reader r;
     r.down(500.0f, 300.0f, 1000);
-    check(geode_gesture_wait_ms(r.g) == kLongPress, "a still finger waits on the hold");
+    check(geode_gesture_wait_ms(r.g, 1000) == kLongPress, "a still finger waits on the hold");
     r.one(502.0f, 301.0f, 1050);
     check(r.lift(1100) & GEODE_GESTURE_OVER, "a lift ends the gesture");
     check(r.end(1200.0f) == G(Gesture::TapTop) && r.out[1] == 1, "above the split: the top tap");
@@ -133,11 +133,11 @@ void hold() {
     Reader r;
     r.down(500.0f, 1000.0f, 1000);
     check(geode_gesture_tick(r.g) == GEODE_GESTURE_RING, "the timeout: the ring shows");
-    check(geode_gesture_wait_ms(r.g) == GEODE_GESTURE_HOLD_FILL_MS, "then the fill");
+    check(geode_gesture_wait_ms(r.g, 1000 + kLongPress) == GEODE_GESTURE_HOLD_FILL_MS, "then the fill");
     check(r.one(503.0f, 1000.0f, 1500) == GEODE_GESTURE_RING, "a finger at rest keeps the ring");
-    check(geode_gesture_wait_ms(r.g) == 700, "the deadline counts from the down, not the event");
+    check(geode_gesture_wait_ms(r.g, 1500) == 700, "the deadline counts from the down, not the event");
     check(geode_gesture_tick(r.g) == GEODE_GESTURE_HOLD, "the ring closes: the hold fires");
-    check(geode_gesture_wait_ms(r.g) == -1, "nothing left to wait for");
+    check(geode_gesture_wait_ms(r.g, 2200) == -1, "nothing left to wait for");
     r.lift(2300);
     check(r.end() == -1, "the lift after a hold means nothing");
 
@@ -148,10 +148,10 @@ void hold() {
 
     r.down(500.0f, 1000.0f, 4000);
     geode_gesture_tick(r.g);
-    check(r.one(520.0f, 1000.0f, 4450) == 0 && geode_gesture_wait_ms(r.g) == -1, "a move past the slop drops the ring and the timer");
+    check(r.one(520.0f, 1000.0f, 4450) == 0 && geode_gesture_wait_ms(r.g, 4450) == -1, "a move past the slop drops the ring and the timer");
 
     r.down(500.0f, 1000.0f, 5000, false);
-    check(geode_gesture_wait_ms(r.g) == -1, "the hold not armed: no timer");
+    check(geode_gesture_wait_ms(r.g, 5000) == -1, "the hold not armed: no timer");
     r.lift(5000 + kLongPress);
     check(r.end() == G(Gesture::TapTop), "a press of exactly the timeout is still a tap");
     r.down(500.0f, 1000.0f, 6000, false);
@@ -159,7 +159,45 @@ void hold() {
     check(r.end() == -1, "a press past the timeout is no tap, ring or not");
     r.actions[G(Gesture::LongPress)] = A(Action::Off);
     r.down(500.0f, 1000.0f, 7000);
-    check(geode_gesture_wait_ms(r.g) == -1, "the hold with no action: no timer");
+    check(geode_gesture_wait_ms(r.g, 7000) == -1, "the hold with no action: no timer");
+}
+
+// A slow main thread: the timeouts come late, or not at all before the next event. Each event's own time decides.
+void lateHold() {
+    Reader r;
+    const long long closes = kLongPress + GEODE_GESTURE_HOLD_FILL_MS;
+    r.down(500.0f, 1000.0f, 0);
+    check(r.lift(closes + 50) == (GEODE_GESTURE_HOLD | GEODE_GESTURE_OVER), "a lift past the ring's close, no tick: the hold fires");
+    check(r.end() == -1, "and the lift means nothing more");
+
+    r.down(500.0f, 1000.0f, 0);
+    check(r.one(502.0f, 1000.0f, closes + 50) == GEODE_GESTURE_HOLD, "a finger at rest past the close, no tick: the hold fires");
+    check(r.lift(closes + 100) == GEODE_GESTURE_OVER, "the hold fires once");
+
+    r.down(500.0f, 1000.0f, 0);
+    check(r.one(502.0f, 1000.0f, kLongPress + 100) == GEODE_GESTURE_RING, "past the timeout, no tick: the ring shows");
+    check(r.lift(kLongPress + 200) == GEODE_GESTURE_OVER && r.end() == -1, "a lift before the close does nothing");
+
+    r.down(500.0f, 1000.0f, 0);
+    check(r.lift(kLongPress + 200) == GEODE_GESTURE_OVER && r.end() == -1, "a lift past the timeout, no tick: no tap, no hold");
+    r.down(500.0f, 1000.0f, 0);
+    check(r.lift(kLongPress) == GEODE_GESTURE_OVER && r.end() == G(Gesture::TapTop), "a lift at exactly the timeout is still a tap");
+    r.down(500.0f, 1000.0f, 0);
+    check(r.lift(300) == GEODE_GESTURE_OVER && r.end() == G(Gesture::TapTop), "a quick lift is a tap");
+
+    r.down(500.0f, 1000.0f, 0);
+    check(r.two(500.0f, 1000.0f, 700.0f, 1000.0f, closes + 50) & GEODE_GESTURE_HOLD, "a second finger past the close: the hold had fired");
+
+    // The wait counts from the caller's now: a follow loop that starts late does not wait its delay again.
+    r.down(500.0f, 1000.0f, 0);
+    check(geode_gesture_wait_ms(r.g, 0) == kLongPress && geode_gesture_wait_ms(r.g, 300) == kLongPress - 300, "the wait shrinks as now grows");
+    check(geode_gesture_wait_ms(r.g, kLongPress + 50) == 1, "overdue: tick at once");
+    check(geode_gesture_tick(r.g) == GEODE_GESTURE_RING, "a late timeout: the ring shows");
+    check(geode_gesture_wait_ms(r.g, kLongPress + 300) == GEODE_GESTURE_HOLD_FILL_MS - 300, "the fill counts from the down's deadline, not the late tick");
+    check(geode_gesture_tick(r.g) == GEODE_GESTURE_HOLD && geode_gesture_wait_ms(r.g, closes) == -1, "the ring closes: the hold fires");
+    r.down(500.0f, 1000.0f, 0);
+    check(r.one(502.0f, 1000.0f, kLongPress + 100) == GEODE_GESTURE_RING && geode_gesture_wait_ms(r.g, kLongPress + 100) == GEODE_GESTURE_HOLD_FILL_MS - 100,
+          "a ring caught up by an event keeps the event's time");
 }
 
 void swipes() {
@@ -225,7 +263,7 @@ void pairs() {
     Reader r;
     r.down(300.0f, 1000.0f, 1000);
     check(r.two(300.0f, 1000.0f, 500.0f, 1000.0f, 1010) == 0, "the second finger: nothing yet, the ring gone");
-    check(geode_gesture_wait_ms(r.g) == -1, "two fingers never hold");
+    check(geode_gesture_wait_ms(r.g, 1010) == -1, "two fingers never hold");
     check(r.two(305.0f, 1000.0f, 505.0f, 1000.0f, 1020) == 0, "inside the slop: not yet a drag");
     unsigned a = r.two(320.0f, 1000.0f, 520.0f, 1000.0f, 1030);
     check(a == GEODE_GESTURE_PUBLISH, "a drag mapped to touch play hands the fingers down");
@@ -424,6 +462,7 @@ int main() {
     strips();
     taps();
     hold();
+    lateHold();
     swipes();
     swirls();
     pairs();

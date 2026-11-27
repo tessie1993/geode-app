@@ -253,6 +253,11 @@
             </intent-filter>
         </service>
 
+        <!-- Android Auto lists only apps that declare this; it then browses PlaybackService above. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <!--
           Media buttons, and with them playback resumption.
 

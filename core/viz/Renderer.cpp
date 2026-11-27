@@ -10,6 +10,7 @@
 #include "sound/Budget.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
+#include "util/Trace.hpp"
 #include "viz/gl/BuildReport.hpp"
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/director/DirectorStyle.hpp"
@@ -553,6 +554,7 @@ void Renderer::applyRenderScale() {
     // each pixel once.
     renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * appliedUserScale_), 1);
+    util::traceCounter("geode.renderScalePct", std::lround(appliedUserScale_ * 100.0f));
     // Spares over the budget go before anything is resized (#378). Then only the scenes drawn this frame
     // are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
     // resize per scene shown, not one per scene ever built.
@@ -744,9 +746,11 @@ Scene* Renderer::readyScene(const std::string& id) {
         if (prep_.retarget(id)) stager_.clear();
         const double now = monotonicSeconds();
         switch (prep_.next(stager_.idle(), now, stager_.progress())) {
-            case ScenePrep::Step::Wait:
+            case ScenePrep::Step::Wait: {
+                const util::TraceSection section("geode.stagerStep");
                 stager_.step(now);
                 return nullptr;
+            }
             case ScenePrep::Step::GiveUp:
                 failBuild(id, build_report::text(id, build_report::Stage::Stall, ""));
                 break;
@@ -776,6 +780,7 @@ Scene* Renderer::readySecondary(const std::string& id, const std::string& other)
 // One staged build of `id`: the whole setup buildScene does, with every program build answered
 // by the stager. Deferred (a program still compiling) drops the scene and its placeholders.
 Scene* Renderer::attemptScene(const std::string& id) {
+    const util::TraceSection section("geode.sceneAttempt");
     std::unique_ptr<Scene> scene;
     bool deferred = false;
     holdingErrors_ = true;
@@ -801,6 +806,7 @@ Scene* Renderer::attemptScene(const std::string& id) {
 
 Scene* Renderer::sceneFor(const std::string& id) {
     if (Scene* scene = builtScene(id)) return scene;
+    const util::TraceSection section("geode.sceneBuild");
     holdingErrors_ = true;
     heldErrors_.clear();
     auto built = buildScene(id);

@@ -65,7 +65,9 @@ void geode_gesture_down(geode_gesture* g, float x, float y, long long t_ms, cons
     if (g) g->read.down(x, y, t_ms, actions, armed != 0);
 }
 
-long long geode_gesture_wait_ms(const geode_gesture* g) { return g ? g->read.waitMs() : -1; }
+long long geode_gesture_wait_ms(const geode_gesture* g, long long now_ms) {
+    return g ? g->read.waitMs(static_cast<int64_t>(now_ms)) : -1;
+}
 
 unsigned geode_gesture_tick(geode_gesture* g) { return g ? g->read.tick() : 0u; }
 

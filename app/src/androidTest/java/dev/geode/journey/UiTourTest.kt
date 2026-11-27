@@ -27,7 +27,9 @@ import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.RuleChain
+import org.junit.rules.Timeout
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 
 /**
  * The UI tour: walks every screen, sheet, page and gesture of the app on the emulator and leaves
@@ -55,8 +57,21 @@ class UiTourTest {
     private val setup = TourSetup()
     private val compose = createAndroidComposeRule<MainActivity>()
 
+    /**
+     * Each case gets [CASE_LIMIT_MINUTES], so a case that never returns fails alone (with the
+     * stuck thread's stack as its failure) and Orchestrator goes on to the config's other cases;
+     * without it one hang held the font config until the job's limit (#1420). Inside [setup], so
+     * the device config is still put back after a case that ran out of time.
+     */
+    private val limit: Timeout =
+        Timeout
+            .builder()
+            .withTimeout(CASE_LIMIT_MINUTES, TimeUnit.MINUTES)
+            .withLookingForStuckThread(true)
+            .build()
+
     @get:Rule
-    val rules: RuleChain = RuleChain.outerRule(setup).around(compose)
+    val rules: RuleChain = RuleChain.outerRule(setup).around(limit).around(compose)
 
     private val tour by lazy { UiTour(compose, setup) }
     private var browser: MediaBrowser? = null
@@ -682,6 +697,14 @@ class UiTourTest {
     private fun chapterRow(label: String) = hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)
 
     private companion object {
+        /**
+         * The slowest passing cases took 13.5 min (`gestures`, 811 s, landscape) and 13.4 min
+         * (`visuals`, 802 s, font) in UI tour run 45957586631, and `gestures` ranged 681 to 811 s
+         * across runs: 20 min leaves about half again over the slowest. A config's cases add up to
+         * about 56 min, so one case run out still ends inside the emulator step's 110 min.
+         */
+        const val CASE_LIMIT_MINUTES = 20L
+
         // The app's English strings (res/values), as the user reads them.
         const val SAFETY_TITLE = "Before the visuals start"
         const val SAFETY_ACK = "I understand"

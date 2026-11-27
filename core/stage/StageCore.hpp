@@ -2,9 +2,11 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "stage/CommandQueue.hpp"
 #include "stage/FramePacer.hpp"
+#include "stage/FrameRecorder.hpp"
 #include "stage/StageClient.hpp"
 #include "stage/StageLifecycle.hpp"
 #include "stage/VsyncRule.hpp"
@@ -66,6 +68,9 @@ public:
         static_cast<void>(budgetNs);
         static_cast<void>(actualNs);
     }
+    // A chunk of the frame recorder (stage/FrameRecorder), as its CSV: when the ring is full and when the vsync stops.
+    // Only while a debug flag has it recording.
+    virtual void framesRecorded(const std::string& csv) { static_cast<void>(csv); }
 };
 
 class StageCore {
@@ -84,6 +89,8 @@ public:
     // Stage thread, last: a command that will never be applied gives its window back, as does the stage's own.
     void discard(const Command& command);
     void close();
+    // Stage thread, from a debug flag: every vsync the frame clock draws on goes to the frame recorder. Off by default.
+    void recordFrames(bool on) { recorder_.setEnabled(on); }
 
     bool finished() const { return lifecycle_.finished(); }
     // When step is owed with no command arriving, -1 for never.
@@ -102,8 +109,11 @@ private:
     void runActions();
     void acknowledge();
     Outcome execute(const Action& action);
-    void draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs);
+    bool draw(float pacedFps, float capFps, int64_t frameNs, int64_t presentNs, int64_t stampNs);
     void restateRate();
+    void drawDue();
+    void fencePolled(bool busy);
+    void handOverFrames();
     Lifecycle lifecycle_;
     std::shared_ptr<StageClient> client_;
     StagePort& port_;
@@ -117,6 +127,10 @@ private:
     int64_t duePeriodNs_ = 0;
     int64_t duePresentNs_ = 0;
     int64_t dueStampNs_ = 0;
+    // The last drawn frame's expected presentation (its vsync's time when none was given), 0 since a start.
+    int64_t lastShownNs_ = 0;
+    int64_t gpuSkips_ = 0;
+    FrameRecorder recorder_;
     bool serviceDue_ = false;
     int64_t seenSeq_ = 0;
     int64_t appliedSeq_ = 0;

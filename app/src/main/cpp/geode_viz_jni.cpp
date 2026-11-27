@@ -1044,8 +1044,8 @@ Java_dev_geode_engine_bridge_TouchNative_gestureDown(JNIEnv* env, jobject, jlong
 }
 
 JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_TouchNative_gestureWaitMs(JNIEnv*, jobject, jlong handle) {
-    return geode_gesture_wait_ms(reinterpret_cast<geode_gesture*>(handle));
+Java_dev_geode_engine_bridge_TouchNative_gestureWaitMs(JNIEnv*, jobject, jlong handle, jlong nowMs) {
+    return geode_gesture_wait_ms(reinterpret_cast<geode_gesture*>(handle), nowMs);
 }
 
 JNIEXPORT jint JNICALL

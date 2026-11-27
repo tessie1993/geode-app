@@ -1,14 +1,7 @@
 #version 300 es
-//#include lib_frame
-
-uniform float uTime;
-flat out vec4 vTurn;
-flat out vec4 vTurnB;
-flat out vec4 vTurnC;
+//#include lib_frame_vert
 
 void main() {
     quadVertex();
-    vTurn = frameTurn(uTime, FRAME_RATE(50));
-    vTurnB = frameAngle(0.6 - uTime * FRAME_RATE(65));
-    vTurnC = frameAngle(1.1 + uTime * FRAME_RATE(100));
+    frameMain(FrameIn(uTime, FrameTurn(FRAME_RATE(50), 0.0), FrameTurn(-FRAME_RATE(65), 0.6), FrameTurn(FRAME_RATE(100), 1.1)));
 }

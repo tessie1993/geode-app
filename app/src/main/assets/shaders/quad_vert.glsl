@@ -1,6 +1,6 @@
 #version 300 es
 // Fullscreen triangle, no vertex buffer needed.
-//#include lib_frame
+//#include lib_quad
 
 void main() {
     quadVertex();

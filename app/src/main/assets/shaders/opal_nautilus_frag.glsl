@@ -4,7 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
-flat in vec4 vTurn;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -23,7 +23,7 @@ out vec4 fragColor;
 // steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
-    p.xz = mat2(vTurn) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     float r = max(length(p.xy), 1.0e-3);
     float th = atan(p.y, p.x) / OPAL_TAU;
     float b = mix(1.15, 0.5, gOpalForm);

@@ -4,7 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
-flat in vec4 vTurn;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -72,7 +72,7 @@ vec3 bellTree(vec3 p) {
 }
 
 vec3 petalMap(vec3 p) {
-    p.xz = mat2(vTurn) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     p.y -= 1.0;
     vec3 m = vec3(0.0);
     if (gLayerPick.x > 0.0) m += gLayerPick.x * bellNest(p);

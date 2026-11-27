@@ -4,9 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
-flat in vec4 vTurn;
-flat in vec4 vTurnB;
-flat in vec4 vTurnC;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -53,11 +51,11 @@ float nestShell(vec3 p, float rad, float hole, out float seam) {
 vec2 shells(vec3 p) {
     float open = mix(0.18, 0.36, gPrismForm);
     vec3 a = p;
-    a.xz = mat2(vTurn) * a.xz;
+    frameTurnXZ(gFrame.a, a);
     vec3 b = p;
-    b.yz = mat2(vTurnB) * b.yz;
+    frameTurnYZ(gFrame.b, b);
     vec3 c = p;
-    c.xy = mat2(vTurnC) * c.xy;
+    frameTurnXY(gFrame.c, c);
     float s0;
     float s1;
     float s2;

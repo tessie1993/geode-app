@@ -4,7 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
-flat in vec4 vTurn;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -60,7 +60,7 @@ vec2 netted(vec3 p) {
 }
 
 vec2 fluorMap(vec3 p) {
-    p.xz = mat2(vTurn) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     vec2 a = vec2(1.0e3);
     vec2 b = a;
     vec2 c = a;

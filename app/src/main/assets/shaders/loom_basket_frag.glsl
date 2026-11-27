@@ -4,7 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
-flat in vec4 vTurn;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -109,7 +109,7 @@ vec4 basketCluster(vec3 p) {
 }
 
 vec4 loomMap(vec3 p) {
-    p.xz = mat2(vTurn) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     vec4 m = vec4(0.0);
     if (gLayerPick.x > 0.0) m += gLayerPick.x * basketBall(p);
     if (gLayerPick.y > 0.0) m += gLayerPick.y * basketRing(p);

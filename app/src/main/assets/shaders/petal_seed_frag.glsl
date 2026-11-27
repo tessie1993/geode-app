@@ -4,7 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
-flat in vec4 vTurn;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -80,7 +80,7 @@ vec3 seedCluster(vec3 p) {
 }
 
 vec3 petalMap(vec3 p) {
-    p.xz = mat2(vTurn) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     vec3 m = vec3(0.0);
     if (gLayerPick.x > 0.0) m += gLayerPick.x * seedHead(p, 1.5, 1.5, 1.0);
     if (gLayerPick.y > 0.0) m += gLayerPick.y * seedHead(p, 0.85, 1.9, 1.6);

@@ -119,12 +119,21 @@ vec3 cityP(vec3 p) {
     return vec3(p.x - gBend * sin(p.z * (6.2831853 / 64.0)), p.y, p.z);
 }
 
+/** The eight band regions' levels, read once per pixel by bandLevels() rather than per map(). */
+vec4 gBandLo;
+vec4 gBandHi;
+
+void bandLevels() {
+    gBandLo = vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57));
+    gBandHi = vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX));
+}
+
 /** One of the eight band regions, picked by h in 0..1. */
 float bandPick(float h) {
     float k = floor(h * 8.0);
     vec4 lo = vec4(equal(vec4(k), vec4(0.0, 1.0, 2.0, 3.0)));
     vec4 hi = vec4(equal(vec4(k), vec4(4.0, 5.0, 6.0, 7.0)));
-    return dot(lo, vec4(sndLevel(SND_SUB_ATT), sndSpectrum(0.23), sndShaped(SND_LOW), sndSpectrum(0.57))) + dot(hi, vec4(sndLevel(SND_MID_HIGH_ATT), sndSpectrum(0.80), sndLevel(SND_TREBLE_ATT), sndLevel(SND_FLUX)));
+    return dot(lo, gBandLo) + dot(hi, gBandHi);
 }
 
 float mapField(vec3 w) {
@@ -226,6 +235,7 @@ void main() {
     sFoot = shellMap(shellKnob(5), 1.2, 1.0, 0.7);
     sMoonR = shellMap(shellKnob(5), 0.12, 0.085, 0.06);
     float reach = shellMap(shellKnob(5), 0.8, 1.0, 1.2);
+    bandLevels();
 
     vec2 uv = view();
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;

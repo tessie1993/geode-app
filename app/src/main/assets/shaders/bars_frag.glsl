@@ -134,6 +134,15 @@ float gTilt;
 float gRoad;
 float gWidth;
 float gWaveK;
+vec4 gRegionLo;
+vec3 gRegionHi;
+/**
+ * The last lane barsField read and that lane's band level and cap throw. A march stays in one lane
+ * for many steps, so the sound texture is read once each time the ray (or a normal tap) enters a lane.
+ */
+float gLaneAt = -1.0;
+float gLaneLvl;
+float gLaneThrow;
 
 /**
  * The band region a bar position 0..1 falls in, read from the sound frame:
@@ -141,13 +150,19 @@ float gWaveK;
  * bands 8, 16, 26, 36, 46 and 55).
  */
 float barsRegion(float x) {
-    if (x < 0.125) return sndSpectrum(0.10);
-    if (x < 0.25) return sndLevel(SND_BASS_ATT);
-    if (x < 0.40625) return sndSpectrum(0.41);
-    if (x < 0.5625) return sndLevel(SND_MID_ATT);
-    if (x < 0.71875) return sndSpectrum(0.70);
-    if (x < 0.859375) return sndShaped(SND_HIGH);
-    return sndSpectrum(0.93);
+    if (x < 0.125) return gRegionLo.x;
+    if (x < 0.25) return gRegionLo.y;
+    if (x < 0.40625) return gRegionLo.z;
+    if (x < 0.5625) return gRegionLo.w;
+    if (x < 0.71875) return gRegionHi.x;
+    if (x < 0.859375) return gRegionHi.y;
+    return gRegionHi.z;
+}
+
+/** barsRegion's seven levels, read from the sound frame once per pixel (main), not per map(). */
+void barsRegionLevels() {
+    gRegionLo = vec4(sndSpectrum(0.10), sndLevel(SND_BASS_ATT), sndSpectrum(0.41), sndLevel(SND_MID_ATT));
+    gRegionHi = vec3(sndSpectrum(0.70), sndShaped(SND_HIGH), sndSpectrum(0.93));
 }
 
 /** A prism of footprint distance s standing between y0 and y1. */
@@ -178,14 +193,19 @@ float barsField(vec3 p) {
         float h2 = uhashUnit(uhash(u));
         // The kerb lane is the top of the spectrum, the outer lane the bass.
         float seg = 1.0 - (lane + 0.5) / BARS_LANES;
-        float lvl = clamp(0.5 * sndEq(seg), 0.0, 1.5);
+        if (lane != gLaneAt) {
+            gLaneAt = lane;
+            gLaneLvl = clamp(0.5 * sndEq(seg), 0.0, 1.5);
+            gLaneThrow = barsRegion(seg);
+        }
+        float lvl = gLaneLvl;
         float wave = gWaveAmp * sin(lane * gWaveK + cc.y * (BARS_TAU / 16.0) - uTime * 3.0);
         // TONE leans the skyline: seg 1 is the kerb (treble), 0 the outer bass lane.
         float lean = max(1.0 + gTilt * (2.0 * seg - 1.0), 0.15);
         float top = BARS_FLOOR + 0.15 + gGain * lvl * lean * (1.0 + gScatter * (2.0 * h - 1.0)) + wave;
         top = clamp(top, BARS_FLOOR + 0.05, BARS_HMAX - BARS_CAP_GAP - BARS_CAP_H - 0.3);
         // The cap: thrown up on the beat and falling back with gravity's shape.
-        float capY = min(top + BARS_CAP_GAP + gThrow * gBeatFall * barsRegion(seg), BARS_HMAX - BARS_CAP_H);
+        float capY = min(top + BARS_CAP_GAP + gThrow * gBeatFall * gLaneThrow, BARS_HMAX - BARS_CAP_H);
 
         // Rounded-rect footprint, turned by Warp. Half-size <= 0.319, so the
         // corner never leaves the 0.46 circle the neighbour bound assumes.
@@ -284,6 +304,7 @@ void main() {
     float nRound = 0.5 + 0.5 * clamp(uMorph, 0.0, 1.0);       // Morph    square blocks to cylinders
     float nTurn = 0.5 + 0.25 * clamp(uWarp, 0.0, 2.0);        // Warp     each tower's turn
     float nScatter = 0.5 + 0.5 * clamp(uTurbulence, 0.0, 1.0); // Turbulence the height scatter
+    barsRegionLevels();
     gThrow = shellMap(nThrow, 0.4 * BARS_CAP_THROW, BARS_CAP_THROW, 1.6 * BARS_CAP_THROW);
     float swellAmp = shellMap(nSwell, 0.0, 0.0, 0.25);
     gWaveK = shellMap(nSwell, 0.5, 0.7, 0.95);

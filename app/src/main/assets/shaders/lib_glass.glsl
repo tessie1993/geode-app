@@ -118,6 +118,23 @@
 #define GLASS_ENV_AURORA 5
 #define GLASS_ENV_FRACTAL 6
 
+/**
+ * The worlds a style compiles in: a style that looks into only some of them defines GLASS_ENVS
+ * as an OR of these bits before its //#include lib_glass, and glassEnv() chooses among those
+ * alone, at compile time, instead of branching on GlassLook.env per call. Every world when unset.
+ * Which worlds a style uses never modulates, so this never costs a recompile.
+ */
+#define GLASS_ENV_BIT_STUDIO 1
+#define GLASS_ENV_BIT_NEON 2
+#define GLASS_ENV_BIT_DUSK 4
+#define GLASS_ENV_BIT_DEEP 8
+#define GLASS_ENV_BIT_VOID 16
+#define GLASS_ENV_BIT_AURORA 32
+#define GLASS_ENV_BIT_FRACTAL 64
+#ifndef GLASS_ENVS
+#define GLASS_ENVS 127
+#endif
+
 // ---- the Customize macros ---------------------------------------------------
 //
 // At their defaults each is the identity: Speed (1) scales animation
@@ -568,7 +585,29 @@ struct GlassLook {
     float flow;
     float warp;
     float detail;
+    // Set once by glassLookPrepare from the fields above, so a world reads them instead of
+    // recomputing them on every lookup: the key light (glassKeyDir), the FRACTAL vortex's plane
+    // round it, and the FRACTAL fold's constant.
+    vec3 key;
+    vec3 keyX;
+    vec3 keyY;
+    vec3 fractC;
 };
+
+/** The key light's direction for a key `height` (0..1); see glassKeyDir. */
+vec3 glassKeyDirAt(float height) {
+    float el = mix(0.45, 1.25, clamp(height, 0.0, 1.0));
+    float az = -0.45;
+    return normalize(vec3(sin(az) * cos(el), sin(el), cos(az) * cos(el)));
+}
+
+/** A look's values that depend on its fields alone: computed once per look, not per world lookup. */
+void glassLookPrepare(inout GlassLook l) {
+    l.key = glassKeyDirAt(l.height);
+    l.keyX = normalize(cross(l.key, vec3(0.0, 1.0, 0.001)));
+    l.keyY = cross(l.key, l.keyX);
+    l.fractC = vec3(0.52, 0.42, 0.61) + 0.07 * vec3(sin(l.flow * 0.9), cos(l.flow * 0.7), sin(l.flow * 1.1 + 1.0)) + 0.05 * (l.warp - 0.75);
+}
 
 GlassLook glassLook(int env, float hue, GlassEar e) {
     GlassLook l;
@@ -584,6 +623,7 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
     l.warp = 0.75 + 0.5 * e.snare + 0.25 * glassChaos();
     // Fractal iterations follow the quality tier: about 8 on Balanced, 11 on High, 6 on Saver.
     l.detail = 0.25 + 0.75 * glassQuality();
+    glassLookPrepare(l);
     return l;
 }
 
@@ -594,9 +634,7 @@ GlassLook glassLook(int env, float hue, GlassEar e) {
  * caustic forward onto the floor where the viewer sees it.
  */
 vec3 glassKeyDir(GlassLook l) {
-    float el = mix(0.45, 1.25, clamp(l.height, 0.0, 1.0));
-    float az = -0.45;
-    return normalize(vec3(sin(az) * cos(el), sin(el), cos(az) * cos(el)));
+    return l.key;
 }
 
 /** A soft rectangular light panel centred on direction `c` (gnomonic projection: straight edges). 0..1. */
@@ -831,7 +869,7 @@ vec3 glassVivid(vec3 c, float amount) {
  */
 vec3 glassFractal(vec3 d, GlassLook l) {
     int iters = int(5.0 + 6.0 * clamp(l.detail, 0.0, 1.0));
-    vec3 c = vec3(0.52, 0.42, 0.61) + 0.07 * vec3(sin(l.flow * 0.9), cos(l.flow * 0.7), sin(l.flow * 1.1 + 1.0)) + 0.05 * (l.warp - 0.75);
+    vec3 c = l.fractC;
     vec3 col = vec3(0.0);
     float rough = clamp(l.rough * 6.0, 0.0, 1.0);
     // High adds a third, finer depth (glassMarchBounces: the same budget gate as the second interior march).
@@ -864,10 +902,7 @@ vec3 glassFractal(vec3 d, GlassLook l) {
     // turn on time alone, at l.flow's typical rate: no sound turns them (owner 2026-11-12,
     // no style spins to the music).
     float spin = 0.12 * glassTime();
-    vec3 key = glassKeyDir(l);
-    vec3 ax = normalize(cross(key, vec3(0.0, 1.0, 0.001)));
-    vec3 ay = cross(key, ax);
-    vec2 sp = vec2(dot(d, ax), dot(d, ay));
+    vec2 sp = vec2(dot(d, l.keyX), dot(d, l.keyY));
     float sr = length(sp) + 1e-3;
     float sa = atan(sp.y, sp.x);
     float spiral = pow(0.5 + 0.5 * cos(sa * 3.0 + log(sr) * 9.0 - spin * 2.0), 8.0);
@@ -960,15 +995,34 @@ vec3 glassAurora(vec3 d, GlassLook l) {
     return col * l.glow;
 }
 
-/** The world in direction `d`, as the look picks it. */
+/**
+ * The world in direction `d`, as the look picks it, among the worlds GLASS_ENVS compiles in. A look
+ * whose world is not compiled in draws STUDIO, or FRACTAL when STUDIO is not compiled in either.
+ */
 vec3 glassEnv(vec3 d, GlassLook l) {
+#if (GLASS_ENVS & GLASS_ENV_BIT_NEON) != 0
     if (l.env == GLASS_ENV_NEON) return glassNeon(d, l);
+#endif
+#if (GLASS_ENVS & GLASS_ENV_BIT_DUSK) != 0
     if (l.env == GLASS_ENV_DUSK) return glassDusk(d, l);
+#endif
+#if (GLASS_ENVS & GLASS_ENV_BIT_DEEP) != 0
     if (l.env == GLASS_ENV_DEEP) return glassDeep(d, l);
+#endif
+#if (GLASS_ENVS & GLASS_ENV_BIT_VOID) != 0
     if (l.env == GLASS_ENV_VOID) return glassVoid(d, l);
+#endif
+#if (GLASS_ENVS & GLASS_ENV_BIT_AURORA) != 0
     if (l.env == GLASS_ENV_AURORA) return glassAurora(d, l);
+#endif
+#if (GLASS_ENVS & GLASS_ENV_BIT_STUDIO) != 0
+#if (GLASS_ENVS & GLASS_ENV_BIT_FRACTAL) != 0
     if (l.env == GLASS_ENV_FRACTAL) return glassFractal(d, l);
+#endif
     return glassStudio(d, l);
+#else
+    return glassFractal(d, l);
+#endif
 }
 
 /** The same world, frosted by `extra` more roughness (a frosted face of an otherwise clear body). */

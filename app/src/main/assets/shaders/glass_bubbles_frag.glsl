@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+#define GLASS_ENVS (GLASS_ENV_BIT_FRACTAL)
 //#include lib_glass
 
 // Glass Bubbles: a flight down a long dark hall strung with neon arches, full

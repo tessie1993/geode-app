@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+#define GLASS_ENVS (GLASS_ENV_BIT_FRACTAL | GLASS_ENV_BIT_DUSK)
 //#include lib_glass
 
 // Glass Pool: an endless lane pool at dusk, flown over a little above the

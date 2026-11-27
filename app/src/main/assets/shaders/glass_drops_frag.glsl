@@ -12,6 +12,7 @@ out vec4 fragColor;
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+#define GLASS_ENVS (GLASS_ENV_BIT_FRACTAL)
 //#include lib_glass
 
 // Glass Drops: rain at night, flown through. The old style was a misted

@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import dev.geode.ui.MainActivity
@@ -79,7 +78,7 @@ class VisualsJourneyTest {
         compose.tap("Presets")
         compose.tap("Save look")
         compose.awaitNode(hasSetTextAction())
-        compose.onNode(hasSetTextAction()).performTextInput("Journey look")
+        compose.onNode(hasSetTextAction()).setTextWithoutKeyboard("Journey look")
         compose.tap("Save")
         compose.awaitNode(hasText("Journey look"))
         compose.tap("Mine")

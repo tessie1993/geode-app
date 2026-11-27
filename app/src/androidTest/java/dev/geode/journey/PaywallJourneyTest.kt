@@ -3,7 +3,6 @@ package dev.geode.journey
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
@@ -78,7 +77,7 @@ class PaywallJourneyTest {
         compose.awaitNode(hasText("Debug billing (fake)"))
 
         // The code grants Pro at once, as a purchase would.
-        compose.onNode(hasText("Tester code")).performTextInput(code!!)
+        compose.onNode(hasText("Tester code")).setTextWithoutKeyboard(code!!)
         compose.tap("Unlock")
         compose.tap("Start creating")
         compose.awaitNoNode(stylesTitle)

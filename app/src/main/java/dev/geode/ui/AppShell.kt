@@ -360,9 +360,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // Player is home: Back from any other tab goes there, previewed by the gesture (#557). Composed
     // before the theme and every screen, so their own back handlers, registered later, win first.
     val backToPlayer = rememberBackToPlayer(appState, motion)
-    // Snapped, not animated: the accent builds the ColorScheme in a static local, so each frame of a
-    // spring here recomposed every screen under the theme while the visual changed style.
-    val accent = accentTarget
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
@@ -373,7 +370,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
-    CrystalMaterialTheme(general = general, accentSource = accent) {
+    CrystalMaterialTheme(general = general, accentSource = accentTarget) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
                 title = miniTitle,

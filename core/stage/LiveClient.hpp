@@ -107,7 +107,8 @@ public:
     int liquidMode() const { return liquid_.load(); }
     bool takeStill(Still& out);
 
-    // Holds the renderer for one call from another thread; false (and nothing held) once it is released.
+    // Holds the renderer for one call from another thread; false (and nothing held) once it is released or while it
+    // is being, never waiting for either.
     bool lockViz();
     void unlockViz();
 

@@ -32,7 +32,7 @@ import dev.geode.geodeContainer
 
 /**
  * Settings › Performance › Basics: the quality preset (Saver, Balanced, High), what the live
- * visualizer, wallpaper and dream may spend. Export ignores it.
+ * visualizer and dream may spend. Export ignores it.
  */
 @Composable
 internal fun PerformanceBasics() {

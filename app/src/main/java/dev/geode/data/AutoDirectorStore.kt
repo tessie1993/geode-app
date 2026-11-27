@@ -27,7 +27,7 @@ import kotlin.random.Random
  * over every style, never colour or a reaction route. This store only tells the engine how much to
  * drive (the switch, cut to the free taste by native director::liveAmount) and which play it is: each new track gets a new seed, so a replay is a new film
  * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
- * is process-wide, so the screen, the wallpaper and the dream all follow it. The switch itself goes
+ * is process-wide, so the screen and the dream both follow it. The switch itself goes
  * native too: an export's renderer pins its director from it once at prepare (geode_viz_pin_engine_settings,
  * director::forExport), so the player moving on (a new seed, or past the free taste) never reaches a render
  * in progress.

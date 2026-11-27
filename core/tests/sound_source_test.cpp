@@ -1,4 +1,4 @@
-// Host test for core/sound/SoundSource: which sound the wallpaper and the dream hear (#773).
+// Host test for core/sound/SoundSource: which sound the dream hears (#773).
 //
 // Build and run (one command):
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp
@@ -154,7 +154,7 @@ void testRetryBackoff() {
     s.poll(src::kRetryMs + 2 * kPollMs, false, 0, true);  // just granted
     CHECK(s.starts == 3 && s.usingCapture, "a fresh grant did not retry at once (%d)", s.starts);
 
-    // A stop by the shell (hidden wallpaper) is not a refusal: the next poll starts again at once.
+    // A stop by the shell (a stopped dream) is not a refusal: the next poll starts again at once.
     s.captureRunning = false;
     s.poll(src::kRetryMs + 3 * kPollMs, false, 0, true);
     CHECK(s.starts == 4 && s.usingCapture, "restart after a shell stop waited (%d)", s.starts);

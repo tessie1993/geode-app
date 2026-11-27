@@ -99,7 +99,7 @@ class Stage(
     /** The ring handle the stage hears (0: none), asked every polled frame so a playback session that comes and goes is picked up. */
     var soundInput: () -> Long = { 0L }
 
-    /** This stage is the one a cast carries: the app's stage view sets it, never the wallpaper or the dream. */
+    /** This stage is the one a cast carries: the app's stage view sets it, never the dream. */
     var castSource = false
         set(on) {
             field = on
@@ -158,7 +158,7 @@ class Stage(
 
     fun availableSceneIds(): List<String> = StageNative.stageSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
-    /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
+    /** Process-wide: export and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,

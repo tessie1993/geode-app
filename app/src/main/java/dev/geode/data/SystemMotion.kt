@@ -17,9 +17,9 @@ import android.provider.Settings
  * - the live renderer (`ui/EnginePlumbing`), from the same live value, so turning it on while the
  *   visual plays calms the visual at once;
  * - the paywall's hero, through the same value in `ui/AppShell`;
- * - exports, casts and the wallpaper, read with [isReduced] when they start.
+ * - exports and casts, read with [isReduced] when they start.
  *
- * Kept in `data` (it reads a stored system setting) so the wallpaper and cast, which may not
+ * Kept in `data` (it reads a stored system setting) so the dream and cast, which may not
  * reach into the UI package, read the same rule.
  */
 object SystemMotion {

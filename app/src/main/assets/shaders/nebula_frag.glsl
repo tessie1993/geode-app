@@ -378,7 +378,7 @@ out vec4 fragColor;
 /**
  * Global glow floor and gain on sndLevel(SND_VOL). The floor is 1.0, not something less,
  * because energy has to be able to add without silence having to look dim -
- * a wallpaper spends most of its life at sndLevel(SND_VOL) 0.
+ * a screen saver spends most of its life at sndLevel(SND_VOL) 0.
  */
 #define NEB_ENERGY_BASE 1.0
 #define NEB_ENERGY_GAIN 0.35

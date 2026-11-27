@@ -220,7 +220,7 @@ void restore() {
     for (const auto& info : sections[0].prefsEntries) all.stagedPrefs[info.path] = "{}";
     const RestorePlan s = planRestore(all);
     check(s.sections[0].prefs.size() == 6 && s.sections[0].prefs[5].file == "geode-background", "settings' six files in order");
-    // An older backup's wallpaper options (retired with the wallpaper) are accepted and restore nothing.
+    // An older backup's live wallpaper options (retired with the wallpaper) are accepted and restore nothing.
     all.stagedPrefs["prefs/geode-wallpaper.json"] = "{}";
     const RestorePlan w = planRestore(all);
     check(w.failure.ok() && w.sections[0].prefs.size() == 6, "the retired wallpaper file is skipped");

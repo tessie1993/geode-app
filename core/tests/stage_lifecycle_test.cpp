@@ -3,7 +3,7 @@
 // each action, checks it was allowed, and can fail the creates the way a driver does.
 //
 // What is pinned: the action order of the common paths (a view shown, paused and resumed with its context kept,
-// hidden while resumed, rotated, its context lost; a wallpaper's still frame with its settle burst, a restated
+// hidden while resumed, rotated, its context lost; a dream's still frame with its settle burst, a restated
 // still frame, Dark; a refused context; three losses in a row), and, over every sequence of four events from a
 // twenty-event alphabet and thousands of longer random ones, for both kinds: no GL call without a current context,
 // no surface on a gone or replaced window once the events are applied, every create matched by its destroy after
@@ -349,7 +349,7 @@ void surfacePaths() {
     Model m;
     m.window = 1;
     lc.windowSet(1440, 3120);
-    same(settle(lc, m), {}, "a wallpaper builds nothing while its rule says stopped");
+    same(settle(lc, m), {}, "a surface stage builds nothing while its rule says stopped");
     lc.setMode(RunMode::Animated, 0);
     same(settle(lc, m), {Act::CreateContext, Act::CreateSurface, Act::MakeCurrent, Act::ClientSurfaceCreated, Act::ClientSurfaceChanged, Act::StartVsync},
          "animated builds and paces");
@@ -379,7 +379,7 @@ void surfacePaths() {
     lc.setMode(RunMode::Still, 7000);
     same(settle(lc, m), {Act::StartVsync}, "dark to still settles too");
 
-    // A rotation replaces the wallpaper's surface: the old one goes before the new one is made.
+    // A rotation replaces the surface stage's window: the old one goes before the new one is made.
     m.window = 2;
     lc.windowSet(3120, 1440);
     same(settle(lc, m), {Act::DestroySurface, Act::CreateSurface, Act::MakeCurrent, Act::ClientSurfaceChanged},

@@ -12,7 +12,7 @@ namespace geode::viz {
 // The sentinel is a file that exists only while glProgramBinary runs. Seeing it at open time means a
 // previous process died inside the driver, so the cache turns itself off for that driver for good.
 // That inference holds only for the first renderer in a process to open the store. The live view,
-// the wallpaper, the dream and Cast each own a Renderer, and every Renderer owns a cache on the same
+// the dream and Cast each own a Renderer, and every Renderer owns a cache on the same
 // directory. A second renderer that opened while the first one was loading used to read the first
 // one's sentinel as a crash, wipe the store and disable it. Once a process has opened a namespace,
 // any sentinel there belongs to a live renderer in this process: a crash would have taken the

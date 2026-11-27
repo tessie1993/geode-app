@@ -7,8 +7,8 @@ import dev.geode.pro.ProFeature
 import dev.geode.pro.TrialState
 
 /**
- * A synchronous [FeatureGate] for the surfaces outside the UI's injection graph: the live
- * wallpaper and the screensaver. Both are started by the system, may run with no activity at all,
+ * A synchronous [FeatureGate] for the surfaces outside the UI's injection graph: the
+ * screensaver. It is started by the system, may run with no activity at all,
  * and must decide in their first callback whether to animate.
  *
  * Reads the same two prefs the repositories write, so a purchase or a trial is seen here the next
@@ -17,7 +17,7 @@ import dev.geode.pro.TrialState
  */
 object ProSnapshot {
     // The cached purchase is re-verified on every read, by the same rule as PlayBillingRepository,
-    // because this is the reader that matters offline: the wallpaper and dream of a buyer away
+    // because this is the reader that matters offline: the dream of a buyer away
     // from Play keep running on the signed purchase alone.
     private val verifier by lazy { PurchaseVerifier.forThisBuild() }
 

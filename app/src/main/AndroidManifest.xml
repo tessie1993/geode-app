@@ -182,7 +182,7 @@
         <!--
           The visualizer as a screensaver (Daydream): the app's renderer, started by the system while
           the device is docked or charging and idle. Its name predates the dream's own package and must
-          not change: the system stores the user's chosen screensaver by it (wallpaper/VisualizerDreamService).
+          not change: the system stores the user's chosen screensaver by it (dev.geode.wallpaper.VisualizerDreamService, a shim over dev.geode.dream).
           Exported and permission-gated the same way the notification listener below is — the
           only caller is meant to be the system, and BIND_DREAM_SERVICE is what enforces that.
         -->

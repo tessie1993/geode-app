@@ -16,8 +16,7 @@ import androidx.compose.ui.unit.dp
 fun Context.isTelevision(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
 
 /**
- * [isTelevision], read once by `AppRoot` and handed down; false outside it (the paywall, the
- * wallpaper's options), where nothing reads it. Static: it never changes while the app runs.
+ * [isTelevision], read once by `AppRoot` and handed down; false outside it (the paywall), where nothing reads it. Static: it never changes while the app runs.
  */
 val LocalTelevision = staticCompositionLocalOf { false }
 

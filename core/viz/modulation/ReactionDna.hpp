@@ -31,7 +31,7 @@ namespace geode::viz {
 // personality still listen to different parts of the music.
 //
 // Pure and deterministic: the same id, seed and traits always give the same
-// routes, on every platform, so the live view, the wallpaper, the dream and an
+// routes, on every platform, so the live view, the dream and an
 // export all react alike.
 
 enum class Personality {

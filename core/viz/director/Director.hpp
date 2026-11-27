@@ -62,7 +62,7 @@ namespace geode::viz {
 // the same film.
 //
 // A pure function of (seed, tuning, sound frames, dt): no clock, no randomness of its own, state reset with
-// the renderer. Process-wide configuration, like the macro bank, so the screen, an export, the wallpaper and
+// the renderer. Process-wide configuration, like the macro bank, so the screen, an export and
 // the dream all follow the same switch.
 struct DirectorConfig {
     float amount = 0.0f;  // 0 off .. 1 full

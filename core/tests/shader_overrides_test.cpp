@@ -1,7 +1,7 @@
 // Host-side checks for the process-wide shader overrides (core/viz/glsl/ShaderOverrides, #364). Built and run
 // by CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
-// What is pinned: one table every renderer reads (live, export, wallpaper, dream), so an edit set once is
+// What is pinned: one table every renderer reads (live, export, dream), so an edit set once is
 // what each of them builds; an empty source clears; the generation moves on every change and only then,
 // so a renderer re-applies overrides to its resident scenes exactly when they changed; and a snapshot is a
 // copy, so a renderer working through one never sees a half-applied later edit.
@@ -87,7 +87,7 @@ void snapshotIsACopy() {
 }
 
 // Kills: the table or the generation counter made per thread (`static thread_local`), i.e. per renderer
-// again. The app's main thread writes; the live, export, wallpaper and dream renderers read on their own
+// again. The app's main thread writes; the live, export and dream renderers read on their own
 // GL threads, and one may be created long after the edit.
 void everyRendererThreadReadsTheOneTable() {
     so::clearAll();

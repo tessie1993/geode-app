@@ -1,5 +1,5 @@
 // Host test for a live stage's ring at teardown (core/stage/LiveClient with a real geode_pcm_ring handle): the
-// wallpaper's and the dream's close, where Stage.close clears the stage's sound and destroys it, then the output
+// dream's close, where Stage.close clears the stage's sound and destroys it, then the output
 // mix's owner destroys the ring (OutputMixCapture.release). Destroy's wait is bounded: a frame slower than it is
 // still running, on a thread nobody waits for, when the owner's destroy comes.
 //

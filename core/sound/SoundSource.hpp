@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// Which sound a resting surface (the live wallpaper, the dream) hears: the app's own ring while
+// Which sound a resting surface (the dream) hears: the app's own ring while
 // something feeds it, else, when the user allows it, the output mix (any other app's audio, through
 // a Visualizer the shell owns). Silence's neighbour: the same caller polls both on its own clock.
 //

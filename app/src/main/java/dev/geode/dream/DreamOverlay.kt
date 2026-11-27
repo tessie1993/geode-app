@@ -37,7 +37,7 @@ import kotlin.random.Random
  */
 class DreamOverlay(
     context: Context,
-    /** Settings › Wallpaper & screen saver's toggles (`BehaviourPrefs.dreamShowClock`, `dreamShowNowPlaying`). */
+    /** Settings › Screen saver's toggles (`BehaviourPrefs.dreamShowClock`, `dreamShowNowPlaying`). */
     private val showClock: Boolean,
     private val showNowPlaying: Boolean,
     /** Settings › Look's text size, which scales this text as it does the app's. */

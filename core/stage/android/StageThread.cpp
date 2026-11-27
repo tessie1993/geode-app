@@ -80,7 +80,7 @@ void StageThread::push(const Command& command, Merge merge) {
 }
 
 void StageThread::setWindow(ANativeWindow* window, int width, int height) {
-    std::unique_lock<std::mutex> lock(ackLock_);
+    std::lock_guard<std::mutex> lock(ackLock_);
     if (finished_) return;
     const int64_t seq = nextSeq_.fetch_add(1) + 1;
     Command c;
@@ -92,13 +92,9 @@ void StageThread::setWindow(ANativeWindow* window, int width, int height) {
     // The reference travels with the command; the stage releases it when the window is replaced or gone. Pushed
     // under the lock, so a thread that has finished never leaves a hand-over in a queue nobody drains.
     if (window) ANativeWindow_acquire(window);
-    if (!inbox_->pushWithin(c, Merge::Ordered, kPushWait)) {
+    if (inbox_->queue.push(c, Merge::Ordered) == Pushed::Full) {
         if (window) ANativeWindow_release(window);
         GEODE_LOGE(kTag, "window hand-over dropped");
-        return;
-    }
-    if (!ackCv_.wait_for(lock, kWindowWait, [&] { return appliedSeq_ >= seq || finished_; })) {
-        GEODE_LOGW(kTag, "the stage took over %lld ms to take a window", static_cast<long long>(kWindowWait.count()));
     }
 }
 

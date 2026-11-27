@@ -59,11 +59,10 @@ typedef struct geode_stage_client {
    (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW; 0 every vsync). */
 GEODE_API geode_stage* geode_stage_create(int kind, const geode_stage_client* client, float cap_fps);
 /* A window (from ANativeWindow_fromSurface; the stage takes its own reference, the caller keeps and releases
-   its own) or NULL when the surface is destroyed. Returns once the stage has let go of the old window: call it
-   from surfaceCreated and, with NULL, from surfaceDestroyed. It waits at most 1100 ms (100 ms for room in a full
-   queue, 1000 ms for the stage); returning on that bound is a known degradation, where the EGL surface on the old
-   window may outlive the call for a moment. The stage holds its own window reference, so that late destroy is
-   safe, and GEODE_STAGE_STATE_SURFACE clears when it has happened. */
+   its own) or NULL when the surface is destroyed. Returns at once, the stage applying it between frames: call it
+   from surfaceCreated and, with NULL, from surfaceDestroyed. The EGL surface on the old window may outlive the call
+   for a frame. The stage holds its own window reference, so that late destroy is safe, and
+   GEODE_STAGE_STATE_SURFACE clears when it has happened. */
 GEODE_API void     geode_stage_set_window(geode_stage*, struct ANativeWindow* window, int width, int height);
 GEODE_API void     geode_stage_set_size(geode_stage*, int width, int height);
 /* The app's view: GEODE_STAGE_VIEW_* bits. */

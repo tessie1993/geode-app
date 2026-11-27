@@ -217,7 +217,7 @@ class Stage(
         poll()
     }
 
-    /** The surface from `surfaceCreated`, or null from `surfaceDestroyed`; returns once the stage let go of the old one. */
+    /** The surface from `surfaceCreated`, or null from `surfaceDestroyed`; returns at once, the stage applies it between frames. */
     fun setWindow(
         surface: Surface?,
         width: Int,

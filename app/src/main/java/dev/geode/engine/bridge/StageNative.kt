@@ -33,7 +33,7 @@ object StageNative {
     /** Quits the stage; its thread frees the renderer. Waits at most 200 ms. */
     external fun stageDestroy(stage: Long)
 
-    /** The `android.view.Surface` from surfaceCreated, or null from surfaceDestroyed; returns once the stage let go of the old one (bounded). */
+    /** The `android.view.Surface` from surfaceCreated, or null from surfaceDestroyed; returns at once, the stage applies it between frames. */
     external fun stageSetWindow(
         stage: Long,
         surface: Any?,

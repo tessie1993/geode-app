@@ -15,7 +15,7 @@ constexpr int kMaxActions = 64;
 }  // namespace
 
 StageCore::StageCore(Kind kind, std::shared_ptr<StageClient> client, float capFps, StagePort& port)
-    : lifecycle_(kind), client_(std::move(client)), port_(port), cap_(capFps), paced_(0.0f) {}
+    : lifecycle_(kind), client_(std::move(client)), port_(port), cap_(capFps), budget_(frameBudget(capFps, 0, false)), paced_(0.0f) {}
 
 void StageCore::apply(const Command& command, int64_t nowMs) {
     switch (command.kind) {
@@ -47,11 +47,10 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             break;
         case kStageRedraw: lifecycle_.redrawNeeded(); break;
         case kStageCap:
-            // One vote, kept: restated only when the rate changes.
+            // The setting is a void event: the budget is derived from it here, once, and handed on whole.
             if (command.f == cap_) break;
             cap_ = command.f;
-            restateRate();
-            if (lifecycle_.vsyncOn()) port_.pace(true, cap_);
+            deriveBudget(budget_.periodNs, swapPaces_);
             break;
         case kStageQuit: lifecycle_.quit(); break;
         case kStageService: serviceDue_ = true; break;
@@ -89,14 +88,14 @@ int64_t StageCore::waitMs(int64_t nowMs) const {
 // its slot), its draw (not the swap's wait) reported for ADPF and the recorder.
 void StageCore::drawPaced() {
     const PaceTimes p = port_.paceTimes();
+    deriveBudget(p.periodNs, p.swapPaces);
     const int64_t start = port_.nowNs();
-    const int64_t presentNs = clock_.next(p.desiredNs, start, p.frameNs, p.periodNs);
-    syncBudget(p);
-    const float fps = p.frameNs > 0 ? static_cast<float>(1.0e9 / static_cast<double>(p.frameNs)) : 0.0f;
+    const int64_t presentNs = clock_.next(p.desiredNs, start, budget_.budgetNs, budget_.periodNs);
+    const float fps = budget_.budgetNs > 0 ? static_cast<float>(1.0e9 / static_cast<double>(budget_.budgetNs)) : 0.0f;
     paced_.store(fps, std::memory_order_relaxed);
     int64_t drawNs = 0;
     const bool swapped = draw(fps, cap_, presentNs, drawNs);
-    port_.frameWork(p.frameNs, drawNs);
+    port_.frameWork(budget_.budgetNs, drawNs);
     util::traceCounter("geode.cpuUs", drawNs / 1000);
     if (const int64_t gpuNs = port_.lastGpuNs(); gpuNs > 0) util::traceCounter("geode.gpuUs", gpuNs / 1000);
     if (!swapped || !p.swapPaces) {
@@ -116,13 +115,19 @@ void StageCore::drawPaced() {
     }
 }
 
-// The budget is the frame's length on the display mode now running. A new one (the setting or the mode changed) is
-// published for the UI and traced; the swap interval and the work target take it from the same frame's times.
-void StageCore::syncBudget(const PaceTimes& times) {
-    if (times.frameNs == appliedBudgetNs_) return;
-    appliedBudgetNs_ = times.frameNs;
-    budget_.store(times.frameNs, std::memory_order_relaxed);
-    util::traceCounter("geode.frameBudgetUs", times.frameNs / 1000);
+// The one place the frame budget is worked out: the setting and the display mode in, the descriptor out. A new one is
+// published for the UI, traced, handed to the pacer (the swap interval) and, when the rate it votes changed, to the window.
+// The swap, the vote, the work target and the UI only read it.
+void StageCore::deriveBudget(int64_t periodNs, bool swapPaces) {
+    swapPaces_ = swapPaces;
+    const FrameBudget next = frameBudget(cap_, periodNs, swapPaces);
+    if (next == budget_) return;
+    const bool voteChanged = next.voteFps != budget_.voteFps;
+    budget_ = next;
+    mirror_.store(budget_.budgetNs, std::memory_order_relaxed);
+    util::traceCounter("geode.frameBudgetUs", budget_.budgetNs / 1000);
+    if (lifecycle_.vsyncOn()) port_.pace(true, budget_);
+    if (voteChanged) restateRate();
 }
 
 void StageCore::handOverFrames() {
@@ -147,7 +152,7 @@ void StageCore::close() {
 // The window is asked for the user's rate (one vote, restated only for a new surface, size or rate); the pacer keeps
 // the rate whether or not the display follows it.
 void StageCore::restateRate() {
-    if (window_) port_.setFrameRate(window_, frameRateHint(cap_));
+    if (window_) port_.setFrameRate(window_, budget_.voteFps);
 }
 
 // A window that went has no EGL surface left on it; a new one is held by its surface. Nothing after that touches the
@@ -195,10 +200,10 @@ Outcome StageCore::execute(const Action& action) {
             clock_.restart();
             lastShownNs_ = 0;
             vsyncWait_ = false;
-            port_.pace(true, cap_);
+            port_.pace(true, budget_);
             return Outcome::Done;
         case Act::StopVsync:
-            port_.pace(false, cap_);
+            port_.pace(false, budget_);
             if (recorder_.enabled()) handOverFrames();
             return Outcome::Done;
         case Act::DrawOnce: {

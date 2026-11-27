@@ -47,7 +47,7 @@ struct Port final : StagePort {
     float rate = -1.0f;
     int rateCalls = 0;
     bool pacing = false;
-    float paceCap = -1.0f;
+    FrameBudget paceBudget;
     int paceCalls = 0;
     int vsyncWakes = 0;
     int64_t applied = 0;
@@ -55,7 +55,7 @@ struct Port final : StagePort {
     int64_t now = 100;
     int64_t swapCost = 0;
     int64_t gpuNs = 0;
-    PaceTimes times{0, kPeriod60, kPeriod60, true};
+    PaceTimes times{0, kPeriod60, true};
     std::vector<std::pair<int64_t, int64_t>> work;  // each frame's (target, actual) as reported for ADPF
     std::vector<std::string> recorded;
 
@@ -112,9 +112,9 @@ struct Port final : StagePort {
         rate = fps;
         rateCalls++;
     }
-    void pace(bool on, float capFps) override {
+    void pace(bool on, const FrameBudget& budget) override {
         pacing = on;
-        paceCap = capFps;
+        paceBudget = budget;
         paceCalls++;
     }
     PaceTimes paceTimes() override { return times; }
@@ -230,7 +230,7 @@ void windowAndFrames() {
 
     r.client->nextEvents = 0x4;
     r.send(command(kStageMode, static_cast<int32_t>(RunMode::Animated)));
-    check(r.port.pacing && r.port.paceCap == 60.0f, "a watched view starts the pacing at the cap");
+    check(r.port.pacing && r.port.paceBudget.swapNs == swapIntervalNs(60.0f), "a watched view starts the pacing with the cap's swap interval");
     check(r.client->frames == 1 && r.port.swaps == 1, "and its first turn draws a frame and swaps it");
     r.client->nextEvents = 0x10;
     r.turns(2);
@@ -245,7 +245,7 @@ void windowAndFrames() {
     const int paces = r.port.paceCalls;
     r.send(command(kStageCap, 0, 0, 90.0f));
     check(r.port.rate == 90.0f && r.port.rateWindow == &windowA, "a cap goes to the window as its frame-rate vote");
-    check(r.port.paceCalls == paces + 1 && r.port.paceCap == 90.0f, "and to the pacer once");
+    check(r.port.paceCalls == paces + 1 && r.port.paceBudget.swapNs == swapIntervalNs(90.0f) && r.port.paceBudget.voteFps == 90.0f, "and to the pacer once, in the one budget that holds the interval and the vote");
     const int hints = r.port.rateCalls;
     r.turns(5);
     check(r.port.rateCalls == hints, "a drawn frame states no rate: the vote is set on a change only");
@@ -360,7 +360,7 @@ void aFrameThatRepeatsThePictureIsNotSwapped() {
 // vsync lost or doubled, and a presentation time that is not the vsync's own.
 void withoutSwappyTheVsyncPacesEachFrame() {
     Rig r;
-    r.port.times = PaceTimes{2'000'000'000, kPeriod60, kPeriod60, false};
+    r.port.times = PaceTimes{2'000'000'000, kPeriod60, false};
     r.show();
     check(r.client->frames == 1 && r.port.swaps == 1 && r.port.vsyncWakes == 1, "a swapped frame no pacer holds asks for the next vsync");
     check(r.client->presentTimes.back() == 2'000'000'000, "told the vsync's presentation time");
@@ -386,20 +386,19 @@ void theFrameBudgetFollowsTheModeAndTheWorkIsTheDraw() {
     r.client->drawCost = 3'000'000;
     r.port.swapCost = 12'000'000;
     r.show();
-    check(r.core.frameBudgetNs() == kPeriod60, "the budget is the frame's length the pacer reports");
+    check(r.core.frameBudgetNs() == kPeriod60, "the budget is the setting on the mode the platform reports");
+    check(r.port.paceBudget.budgetNs == r.core.frameBudgetNs() && r.port.paceBudget.periodNs == kPeriod60, "and the mirror is the descriptor the pacer was handed, not a second working-out");
     check(r.port.work.size() == 1 && r.port.work[0].first == kPeriod60 && r.port.work[0].second == 3'000'000,
           "the work is reported against the budget as the draw alone, not the swap's wait");
     const int hints = r.port.rateCalls;
     const float vote = r.port.rate;
-    r.port.times.frameNs = 2 * kPeriod90;
     r.port.times.periodNs = kPeriod90;
     r.turns(1);
     check(r.core.frameBudgetNs() == 2 * kPeriod90 && r.port.work.back().first == 2 * kPeriod90, "a new display mode is a new budget, for the UI and for the work target");
     check(near(r.client->paced, 45.0f), "and the rate the frame is told");
     check(r.port.rateCalls == hints && r.port.rate == vote, "the vote does not follow the mode");
     r.send(command(kStageCap, 0, 0, -1.0f));
-    check(r.port.rate == 0.0f && r.port.paceCap == -1.0f, "Follow device votes no rate and tells the pacer");
-    r.port.times.frameNs = kPeriod90;
+    check(r.port.rate == 0.0f && r.port.paceBudget.swapNs == 0 && r.port.paceBudget.voteFps == 0.0f, "Follow device votes no rate and hands the pacer no interval");
     r.turns(1);
     check(r.core.frameBudgetNs() == kPeriod90, "and its budget is one refresh period of the mode the system runs");
 }

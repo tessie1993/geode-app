@@ -85,7 +85,7 @@ private:
     void wakeAtVsync() override;
     void releaseWindow(void* window) override;
     void setFrameRate(void* window, float fps) override;
-    void pace(bool on, float capFps) override;
+    void pace(bool on, const FrameBudget& budget) override;
     PaceTimes paceTimes() override;
     int64_t lastGpuNs() override { return lastGpuNs_; }
     int64_t nowNs() override;
@@ -108,7 +108,8 @@ private:
     bool vsyncArrived_ = false;
     int64_t vsyncPresentNs_ = 0;
     int64_t refreshPeriodNs_ = 0;
-    float capFps_ = 0.0f;
+    // The frame budget StageCore last handed on: its swap interval is the one Swappy is given.
+    FrameBudget budget_;
     int64_t lastGpuNs_ = 0;
     // The window's standing frame-rate vote, restated after anything Swappy may have voted over.
     void* voteWindow_ = nullptr;

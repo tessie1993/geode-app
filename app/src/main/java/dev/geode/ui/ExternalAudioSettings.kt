@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.audio.CaptureEnd
 import dev.geode.audio.CaptureFailure
 
 @Composable
@@ -37,6 +38,7 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        val ended = external.ended
         when {
             external.awaitingConsent ->
                 Text(
@@ -58,9 +60,27 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     style = MaterialTheme.typography.bodySmall,
                     color = accentTextColor(),
                 )
+            ended != null -> {
+                // A Resume that was refused says why, over the ending it tried to answer.
+                val refused = external.failure
+                Text(
+                    stringResource(refused?.let(::captureFailureText) ?: captureEndedText(ended)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accentTextColor(),
+                )
+                if (refused == CaptureFailure.PERMISSION) {
+                    CrystalButton(onClick = { context.openAppSettings() }, compact = true, filled = false) {
+                        Text(stringResource(R.string.permission_open_settings))
+                    }
+                } else {
+                    CrystalButton(onClick = capture::start, compact = true, filled = false) {
+                        Text(stringResource(R.string.capture_resume))
+                    }
+                }
+            }
             else ->
                 external.failure?.let { failure ->
-                    Text(stringResource(failureText(failure)), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(captureFailureText(failure)), style = MaterialTheme.typography.bodySmall)
                     // Once Android stops asking for the mic, its page in Settings is the only way back.
                     if (failure == CaptureFailure.PERMISSION) {
                         CrystalButton(onClick = { context.openAppSettings() }, compact = true, filled = false) {
@@ -134,7 +154,13 @@ private fun RefusedNotice(
     }
 }
 
-private fun failureText(failure: CaptureFailure): Int =
+internal fun captureEndedText(reason: CaptureEnd): Int =
+    when (reason) {
+        CaptureEnd.SCREEN_LOCKED -> R.string.capture_ended_locked
+        CaptureEnd.SYSTEM -> R.string.capture_ended_system
+    }
+
+internal fun captureFailureText(failure: CaptureFailure): Int =
     when (failure) {
         CaptureFailure.PERMISSION -> R.string.ext_fail_permission
         CaptureFailure.CONSENT -> R.string.ext_fail_consent

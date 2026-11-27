@@ -80,6 +80,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
+import dev.geode.audio.CaptureEnd
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
 import dev.geode.ui.cast.ComputerLinkDoor
@@ -472,6 +473,9 @@ private fun PlayerHero(
                                     external.refusingApp
                                         ?: stringResource(R.string.subtitle_capture_refused_unknown_app),
                                 )
+                            external.ended == CaptureEnd.SCREEN_LOCKED ->
+                                stringResource(R.string.subtitle_capture_ended_locked)
+                            external.ended != null -> stringResource(R.string.subtitle_capture_ended)
                             foreign && external.hearingSilence -> stringResource(R.string.subtitle_capture_silent)
                             foreign ->
                                 foreignTrack?.artist?.ifBlank { null }
@@ -484,10 +488,10 @@ private fun PlayerHero(
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color =
-                            if (external.refusedByApp) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            when {
+                                external.refusedByApp -> MaterialTheme.colorScheme.error
+                                external.ended != null -> accentTextColor()
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
                             },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

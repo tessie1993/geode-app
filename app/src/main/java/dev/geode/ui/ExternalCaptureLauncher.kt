@@ -56,14 +56,16 @@ fun rememberExternalCaptureLauncher(
     val projection =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val data = result.data
-            if (result.resultCode == Activity.RESULT_OK && data != null && PlaybackCaptureService.start(context, result.resultCode, data)) {
+            if (result.resultCode != Activity.RESULT_OK || data == null) {
+                viewModel.noteExternalAudioConsentDenied()
+            } else if (!PlaybackCaptureService.start(context, result.resultCode, data)) {
+                viewModel.noteExternalAudioStartFailed()
+            } else {
                 if (!CaptureDisclosure.notificationsAsked && !context.granted(Manifest.permission.POST_NOTIFICATIONS)) {
                     CaptureDisclosure.notificationsAsked = true
                     notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 currentOnStarted()
-            } else {
-                viewModel.noteExternalAudioConsentDenied()
             }
         }
     return rememberExternalCaptureLauncher(

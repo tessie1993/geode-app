@@ -11,6 +11,15 @@ enum class CaptureFailure {
     UNAVAILABLE,
 }
 
+/** Why Android ended a capture the person did not stop from the app or its notification. */
+enum class CaptureEnd {
+    /** Android 15 QPR1+ stops every projection when the screen locks. */
+    SCREEN_LOCKED,
+
+    /** The status-bar chip's Stop, another app's projection, or anything else Android decided. */
+    SYSTEM,
+}
+
 /**
  * Another app's audio into [ring]. Native builds the `AudioRecord` over the consent token, reads it on its own
  * thread and releases it (`core/audio/ingest/CapturePump`); the shell only hands down the [MediaProjection].

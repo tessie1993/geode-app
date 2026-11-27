@@ -21,16 +21,15 @@
 // surface and carries out what core/stage/StageCore asks for through its port. It decides nothing itself: what a
 // command means and when a frame is drawn is StageCore's, when EGL objects live is StageLifecycle's.
 //
-// The setters may be called from any thread and return at once, except setWindow, which waits (bounded) until the
-// stage has let go of the old window, as surfaceDestroyed requires. The stage holds the client from start() until
-// its release, which is the client's last call, on this thread.
+// The setters may be called from any thread and return at once, setWindow included: a frame late on the stage thread
+// never holds up the caller. The stage holds the client from start() until its release, which is the client's last
+// call, on this thread.
 namespace geode::stage::platform {
 
 class StageThread final : private StagePort {
 public:
-    // How long a window hand-over waits for the stage to apply it, how long any command waits for room in a full
-    // queue, and how long destroy waits, in all, for the thread to finish.
-    static constexpr std::chrono::milliseconds kWindowWait{1000};
+    // How long any other command waits for room in a full queue, and how long destroy waits, in all, for the thread to
+    // finish.
     static constexpr std::chrono::milliseconds kPushWait{100};
     static constexpr std::chrono::milliseconds kQuitWait{200};
 
@@ -41,10 +40,10 @@ public:
     StageThread& operator=(const StageThread&) = delete;
     ~StageThread() override;
 
-    // A window (acquired here for the stage) or none. Returns once the stage has applied it. Past kWindowWait
-    // (plus kPushWait for a full queue) it returns anyway, a known degradation: with none, the EGL surface on the
-    // old window may then still exist for a moment. The stage holds its own reference to that window, so the late
-    // destroy is safe, and the state word's surface bit tells when it has happened.
+    // A window (acquired here for the stage) or none. Returns at once; the stage applies it between frames. With none,
+    // the EGL surface on the old window exists until then. The stage holds its own reference to that window, so the late
+    // destroy is safe (a swap on a window its owner let go of fails and the surface is rebuilt or dropped), and the state
+    // word's surface bit tells when it has happened.
     void setWindow(ANativeWindow* window, int width, int height);
     void setSize(int width, int height);
     void setMode(RunMode mode);

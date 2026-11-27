@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include "stage/StageClient.hpp"
@@ -88,6 +89,7 @@ private:
     void presentAt(int64_t stampNs) override;
     void windowApplied(int64_t sequence) override;
     void frameWork(int64_t budgetNs, int64_t actualNs) override;
+    void framesRecorded(const std::string& csv) override;
 
     std::shared_ptr<Inbox> inbox_;
     EglWindow egl_;                      // stage thread only

@@ -8,6 +8,7 @@
 #include "viz/gl/Program.hpp"
 #include "viz/gl/ScenePrep.hpp"
 #include "util/Sha256.hpp"
+#include "util/Trace.hpp"
 
 #ifndef GL_COMPLETION_STATUS_KHR
 #define GL_COMPLETION_STATUS_KHR 0x91B1
@@ -103,6 +104,7 @@ bool ProgramStager::idle() const {
 }
 
 ProgramStager::Job ProgramStager::kick(const Entry& entry) const {
+    const util::TraceSection section("geode.programCompile");
     Job job;
     job.program = glCreateProgram();
     for (const auto& stage : entry.stages) {

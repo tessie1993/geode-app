@@ -223,13 +223,13 @@ private fun point(p: PointF) =
  */
 fun UiTour.stageBaseline() {
     // Stop first: the first stop opens the save sheet, which the loop below closes.
-    if (state().recording) runCatching { tap(UiTour.STOP_RECORDING) }
+    if (state().recording) attempt { tap(UiTour.STOP_RECORDING) }
     for (i in 0 until MAX_DISMISSALS) {
         val s = state()
         if (!(s.quickSettings || s.macros || s.paywall || s.recordSaveAsked)) break
         back()
     }
-    if (!has(hasContentDescription(LIVE_VISUAL))) runCatching { tap(VISUALS) }
+    if (!has(hasContentDescription(LIVE_VISUAL))) attempt { tap(VISUALS) }
     hideSheet()
     val deadline = SystemClock.uptimeMillis() + CHROME_SLEEP_MS
     while (has(hasContentDescription(UiTour.FULLSCREEN) and hasClickAction()) && SystemClock.uptimeMillis() < deadline) {
@@ -241,7 +241,7 @@ fun UiTour.stageBaseline() {
 fun UiTour.hideSheet() {
     if (!state().sheetShown) return
     val close = hasContentDescription(UiTour.SHEET_CLOSE) and hasClickAction()
-    if (has(close)) runCatching { tap(close) } else customAction(UiTour.SHEET_CLOSE)
+    if (has(close)) attempt { tap(close) } else customAction(UiTour.SHEET_CLOSE)
     SystemClock.sleep(UiTour.SHORT_SETTLE_MS)
 }
 

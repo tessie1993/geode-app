@@ -301,8 +301,10 @@ present_time_test | core | core/tests/present_time_test.cpp |
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
-# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the client's service, a thread ending out of turn.
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
 stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |
+# The stage's per-frame recorder for on-device measurement: off until a debug flag, the ring's newest frames oldest first, a fence settling the last drawn frame once, the CSV.
+frame_recorder_test | core | core/tests/frame_recorder_test.cpp |
 # The look snapshot a renderer is handed whole: only the parts that differ reach it, all on a new one; its defaults.
 look_snapshot_test | core | core/tests/look_snapshot_test.cpp |
 # A live stage's client: the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.

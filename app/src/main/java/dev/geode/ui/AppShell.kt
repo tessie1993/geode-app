@@ -366,6 +366,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // Its sleep timer waits while the boot intro or a first-run page covers the shell.
     val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !onboarding.safetyAcknowledged || !onboarding.setupDone
     val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
+    JankState("Tab", appState.dest.name)
+    JankState("Playing", if (playing) "playing" else null)
     val dockHeight = remember { mutableStateOf(0.dp) }
     val visualsReserve = remember { Animatable(0.dp, Dp.VectorConverter) }
     LaunchedEffect(motion) {

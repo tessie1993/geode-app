@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -247,6 +249,9 @@ private fun OptionsHeader(
     val view = LocalView.current
     val nudge = LocalTourNudge.current
     val drag = rememberDraggableState(onDrag)
+    val dragSource = remember { MutableInteractionSource() }
+    val dragged by dragSource.collectIsDraggedAsState()
+    JankState("SheetDrag", if (dragged) "dragging" else null)
     val handle = stringResource(R.string.visuals_sheet_handle)
     val expand = stringResource(R.string.visuals_sheet_expand)
     val collapse = stringResource(R.string.visuals_sheet_collapse)
@@ -259,7 +264,7 @@ private fun OptionsHeader(
                     Modifier
                 } else {
                     Modifier
-                        .draggable(drag, Orientation.Vertical, onDragStopped = { onDragStopped() })
+                        .draggable(drag, Orientation.Vertical, interactionSource = dragSource, onDragStopped = { onDragStopped() })
                         .semantics {
                             contentDescription = handle
                             customActions =

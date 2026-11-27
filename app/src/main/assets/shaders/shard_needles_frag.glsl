@@ -4,6 +4,8 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+flat in vec4 vTurn;
+flat in vec4 vTurnB;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -95,8 +97,8 @@ vec3 urchinFolded(vec3 p, float k, float iters, float span, vec3 c) {
 }
 
 vec3 shardMap(vec3 p) {
-    p.xz = shardRot(uTime * SHARD_RATE(50)) * p.xz;
-    p.xy = shardRot(uTime * SHARD_RATE(31)) * p.xy;
+    p.xz = mat2(vTurn) * p.xz;
+    p.xy = mat2(vTurnB) * p.xy;
     vec3 a = vec3(1.0e3);
     vec3 b = a;
     vec3 c = a;

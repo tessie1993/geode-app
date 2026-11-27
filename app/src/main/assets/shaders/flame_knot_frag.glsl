@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+flat in vec4 vTurn;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -23,7 +24,7 @@ out vec4 fragColor;
 
 void flameField(vec3 p, out vec2 f, out vec2 hue, out vec2 wt) {
     vec3 q = p;
-    q.xz = flameRot(uTime * FLAME_RATE(60)) * q.xz;
+    q.xz = mat2(vTurn) * q.xz;
     float a = 0.35 + 0.7 * gFlameForm;
     for (int i = 0; i < 3; i++) {
         q = abs(q) - vec3(0.55, 0.3, 0.42);

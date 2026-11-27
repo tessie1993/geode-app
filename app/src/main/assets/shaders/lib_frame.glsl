@@ -14,10 +14,13 @@ void quadVertex() {
 /** k whole cycles per uTime wrap (7100 s, ShaderScene): the rate every family's *_RATE(k) spells. */
 #define FRAME_RATE(k) (6.2831853 * float(k) / 7100.0)
 
-/** mat2(frameTurn(t, rate)) turns by t * rate; .x is its cosine and .z its sine. */
-vec4 frameTurn(float t, float rate) {
-    float a = t * rate;
+/** mat2(frameAngle(a)) turns by a; .x is its cosine and .z its sine. */
+vec4 frameAngle(float a) {
     float c = cos(a);
     float s = sin(a);
     return vec4(c, -s, s, c);
+}
+
+vec4 frameTurn(float t, float rate) {
+    return frameAngle(t * rate);
 }

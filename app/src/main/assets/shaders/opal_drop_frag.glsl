@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+flat in vec4 vTurn;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -21,7 +22,7 @@ out vec4 fragColor;
 // free droplets. Worst case 100 steps and 4 skins, no noise.
 
 vec2 opalMap(vec3 p) {
-    p.xz = opalRot(uTime * OPAL_RATE(60)) * p.xz;
+    p.xz = mat2(vTurn) * p.xz;
     float body = length(p * vec3(1.0, 1.0 + 0.15 * sin(uTime * OPAL_RATE(700)), 1.0)) - 1.15;
     float seg = OPAL_TAU / 8.0;
     float a = mod(atan(p.z, p.x) + 0.5 * seg, seg) - 0.5 * seg;

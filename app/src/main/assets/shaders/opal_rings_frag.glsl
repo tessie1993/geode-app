@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+flat in vec4 vTurn;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -27,7 +28,7 @@ float ring(vec3 p, float big, float small, out float skin) {
 }
 
 vec2 opalMap(vec3 p) {
-    p.xz = opalRot(uTime * OPAL_RATE(80)) * p.xz;
+    p.xz = mat2(vTurn) * p.xz;
     float small = mix(0.12, 0.5, gOpalForm);
     float tip = 0.5 * gOpalForm;
     float s0;

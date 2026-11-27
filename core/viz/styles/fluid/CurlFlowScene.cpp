@@ -117,7 +117,7 @@ void CurlFlowScene::draw(float timeSeconds) {
     }
 
     restoreFramebufferAndViewport();
-    particles_.draw(aspect_, std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
+    particles_.draw(aspect_, savedViewportWidth(), savedViewportHeight(), std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
                     hue::span(params_.hueRange, params_.paletteRange()),
                     fluid::curl::kBaseBrightness * fluid::math::particleExposure(particleCount_, fluid::curl::kRefParticles),
                     static_cast<float>(params_.particleShape), particle_look::glow(params_.bloom), wallTime_);

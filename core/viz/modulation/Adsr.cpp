@@ -60,9 +60,11 @@ float AdsrVoice::step(const AdsrShape& c, float dt, float hit, float energy, boo
         }
     }
     if (stage == AdsrStage::Sustain) {
-        level = slew::step(level, sustainTarget, left, kSustainSeconds);
-        if (!gateHolds) stage = AdsrStage::Release;
-        return std::clamp(level, 0.0f, 1.0f);
+        if (gateHolds) {
+            level = slew::step(level, sustainTarget, left, kSustainSeconds);
+            return std::clamp(level, 0.0f, 1.0f);
+        }
+        stage = AdsrStage::Release;
     }
     if (stage == AdsrStage::Release) {
         level -= left / std::max(c.release, AdsrEngine::kMinStageSeconds);

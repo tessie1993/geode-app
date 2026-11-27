@@ -11,9 +11,14 @@
 namespace geode::viz::liquid {
 
 // The liquid itself (LiquidMath.hpp has the why): a pair of liquid targets carried frame to frame and
-// swapped after each run, both with one shared second attachment for what the composite shows (the pass
-// reads only the liquid, and the frame reads the display only after the run that wrote it). One fullscreen
-// pass a frame over liquid_frag.glsl; the composite then reads the display in place of the scene target.
+// swapped after each run. In Liquid mode both have one shared second attachment for what the composite
+// shows, the liquid with its Surface lit (the pass reads only the liquid, and the frame reads the display
+// only after the run that wrote it). One fullscreen pass a frame over liquid_frag.glsl; the composite then
+// reads the display in place of the scene target.
+//
+// A shader style's Trails have no Surface: what they show is the liquid itself, which stays in 0..1 (it
+// only ever mixes the RGBA8 scene into itself), so they keep no display. Their sides have the one
+// attachment and run() returns the liquid just written, with no RGBA8 copy of it per frame.
 //
 // The liquid is half float where the GPU renders it (FluidBuffers' probe), so the slow pour-back of
 // deep Liquidity does not band; RGBA8 otherwise. Both sides filter linearly: the back-trace lands
@@ -40,6 +45,7 @@ public:
         int bornMode = 0;  // 0 a frame from bornTex, 3 ink forms
         int age = 0;
         int surface = 0;
+        bool flowing = false;  // velocityTex is the flow field's (else a zero texture, and nothing flows)
         bool feedback = true;
         float shimmer = 0.0f;
         float light = 0.0f;
@@ -54,8 +60,10 @@ public:
     LiquidPass& operator=(const LiquidPass&) = delete;
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& vert, bool halfFloat, std::string* error);
     void release();
-    // Sizes the targets; a new size starts the liquid over (black, filled by the next pours).
-    bool ensure(int width, int height);
+    // Sizes the targets; a new size starts the liquid over (black, filled by the next pours). `display`
+    // keeps the lit display beside the liquid (Liquid mode); without it run() returns the liquid itself
+    // (Trails). Adding or dropping the display at the same size keeps the liquid.
+    bool ensure(int width, int height, bool display);
     // Starts the liquid over from the next frame's style: switching Liquid on must not show an old pour.
     void reset() { fresh_ = true; }
     // Frees both sides and keeps the program: ensure() builds them again, starting from the style.
@@ -74,11 +82,15 @@ private:
     void releaseSide(Side& s);
     // Both sides and the shared display.
     void releaseSides();
+    // Attaches a new display to both sides, or detaches and frees it; false when a side will not complete.
+    bool setDisplay(bool display);
+    // What the composite shows after the run that wrote side `side`.
+    GLuint shown(int side) const { return display_ != 0 ? display_ : sides_[side].liquid; }
 
     GLuint program_ = 0;
     UniformCache uniforms_;
     Side sides_[2];
-    // RGBA8, what run() returns: attachment 1 of both sides, written by every run.
+    // RGBA8, what run() returns in Liquid mode: attachment 1 of both sides, written by every run. 0 for Trails.
     GLuint display_ = 0;
     int read_ = 0;
     int width_ = 0;

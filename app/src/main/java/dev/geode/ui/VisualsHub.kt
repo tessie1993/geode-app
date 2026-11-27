@@ -105,7 +105,7 @@ internal fun VisualsHub(
     viewModel: PlayerViewModel,
     visualizerView: StageView,
     chrome: ShellChromeState,
-    bottomReserve: Dp,
+    bottomReserve: () -> Dp,
     sheetOpacity: Float,
     onOpenStudioRender: () -> Unit,
     pip: Boolean = false,
@@ -139,7 +139,7 @@ private fun VisualsHubContent(
     viewModel: PlayerViewModel,
     visualizerView: StageView,
     chrome: ShellChromeState,
-    bottomReserve: Dp,
+    bottomReserve: () -> Dp,
     sheetOpacity: Float,
     onOpenStudioRender: () -> Unit,
     pip: Boolean,
@@ -246,8 +246,16 @@ private fun VisualsHubContent(
         // without glass then): it runs down behind the bar, so nothing shows between them.
         val dockGap = if (docked != null) 0.dp else GeodeSpacing.EdgeInset
         val barUnder = if (docked != null) with(density) { chrome.tabBarHeightPx.toDp() } else 0.dp
-        val roomPx =
-            with(density) { (maxHeight - statusTop - bottomReserve - dockGap - dockedHeight).toPx() }.coerceAtLeast(0f)
+        // [bottomReserve] moves on every frame of the wide shell's mini player, where the options are
+        // the side panel: there the room is not the sheet's and is not read, so nothing recomposes.
+        // The sheet's own room still follows it (a portrait tablet), one recomposition per change.
+        val maxHeightNow = maxHeight
+        val roomPx by remember(side, maxHeightNow, statusTop, dockGap, dockedHeight, density) {
+            derivedStateOf {
+                val reserve = if (side) 0.dp else bottomReserve()
+                with(density) { (maxHeightNow - statusTop - reserve - dockGap - dockedHeight).toPx() }.coerceAtLeast(0f)
+            }
+        }
         val anchors = remember(roomPx, density) { sheetAnchors(roomPx, with(density) { SHEET_PEEK.toPx() }) }
         val fullPx = constraints.maxHeight.toFloat()
         val fullWidthPx = constraints.maxWidth.toFloat()
@@ -290,7 +298,8 @@ private fun VisualsHubContent(
         LaunchedEffect(nav.sheetShown, settles, panelWidth, side) {
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)
         }
-        val reservePx = with(density) { (bottomReserve + dockGap + dockedHeight).toPx() }
+        // Read only in derived state, layout and touch: never in composition.
+        val reservePx = { with(density) { (bottomReserve() + dockGap + dockedHeight).toPx() } }
         // The docked player stays while the options are up and holds the tab bar with it
         // (ShellChromeState.docked); with the options hidden it is a pill that sleeps with the
         // chrome, on the same fade as the tab bar under it.
@@ -311,12 +320,12 @@ private fun VisualsHubContent(
         val insetPx = with(density) { GeodeSpacing.EdgeInset.toPx() }
         val topInsetPx = WindowInsets.safeDrawing.getTop(density).toFloat()
         // Which stage icons the sheet or the panel leaves room for; flips only when one changes.
-        val iconRoom by remember(side, fullWidthPx, fullPx, reservePx, topInsetPx, density) {
+        val iconRoom by remember(side, fullWidthPx, fullPx, dockGap, dockedHeight, topInsetPx, density) {
             derivedStateOf {
                 stageIconRoom(
                     stageWidthPx = fullWidthPx,
                     stageHeightPx = fullPx,
-                    sheetPx = if (side) 0f else heightPx.value + reservePx,
+                    sheetPx = if (side) 0f else heightPx.value + reservePx(),
                     panelPx = if (panelPx.value > 0f) panelPx.value + insetPx else 0f,
                     topInsetPx = topInsetPx,
                     iconPx = with(density) { GeodeSpacing.TouchTarget.toPx() },
@@ -331,7 +340,7 @@ private fun VisualsHubContent(
             actions = actions,
             recording = record.recording,
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
-            tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
+            tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx()) / 2f },
             onTapDown = tapAlong,
             onPinch = viewModel::nudgeTransform.takeIf { visualsSettings.touchTransform },
             styleStepLabels = styleStepLabels,
@@ -351,7 +360,7 @@ private fun VisualsHubContent(
                 room = iconRoom,
                 showArrows = general.stageArrows,
                 showRecord = general.stageRecord,
-                sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
+                sheetTopPx = { if (side) 0f else heightPx.value + reservePx() },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
                 onFullScreen = { actions.run(GestureAction.TOGGLE_SHEET, 0) },
@@ -420,7 +429,7 @@ private fun VisualsHubContent(
                         Modifier
                             .align(Alignment.TopEnd)
                             .fillMaxHeight()
-                            .padding(bottom = bottomReserve)
+                            .dockBottomPadding(bottomReserve)
                             .then(swallowTaps)
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
                             .padding(GeodeSpacing.EdgeInset)
@@ -432,7 +441,7 @@ private fun VisualsHubContent(
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                             .widthIn(max = SHEET_MAX_WIDTH)
                             .fillMaxWidth()
-                            .padding(bottom = (bottomReserve - barUnder).coerceAtLeast(0.dp))
+                            .dockBottomPadding { (bottomReserve() - barUnder).coerceAtLeast(0.dp) }
                             .then(swallowTaps)
                             .padding(horizontal = GeodeSpacing.EdgeInset)
                             .padding(top = GeodeSpacing.EdgeInset / 2, bottom = dockGap / 2)

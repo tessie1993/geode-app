@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+flat in vec4 vTurn;
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -84,7 +85,7 @@ vec4 thornBody(vec3 p, int rule) {
 }
 
 vec4 foldMap(vec3 p) {
-    p.xz = foldRot(uTime * FOLD_RATE(55)) * p.xz;
+    p.xz = mat2(vTurn) * p.xz;
     float slack = layerFlowWarp(p, gFoldFlow, gFoldChaos);
     vec4 m = vec4(0.0);
     if (gLayerPick.x > 0.0) m += gLayerPick.x * thornBody(p, 0);

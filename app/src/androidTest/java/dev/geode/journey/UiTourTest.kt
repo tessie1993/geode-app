@@ -99,19 +99,15 @@ class UiTourTest {
             tour.tap(SAFETY_ACK)
             "tour up: ${tour.waitFor(hasText(TOUR_SKIP_ALL))}"
         }
-        tour.step("first-run", "skip-tour", "the tour ends at once and the Pro offer comes, once") {
+        tour.step("first-run", "skip-tour", "the shell, with one line on where the tour is kept and no Pro offer") {
             tour.tap(TOUR_SKIP_ALL)
-            "offer up: ${tour.waitFor(hasText(PRO_OFFER))}"
-        }
-        tour.step("first-run", "close-offer", "the shell, with one line on where the tour is kept") {
-            tour.tap(CLOSE)
             "note up: ${tour.waitFor(hasText(TOUR_OK), POINTER_WAIT_MS)}"
         }
     }
 
     /**
      * A user past the safety notice who has not seen the tour: the first steps (a song, then
-     * Visuals), Visuals' pointers and the Pro offer after them, the Customize and Studio pointers
+     * Visuals), Visuals' pointers, the Customize and Studio pointers
      * the first time each is on screen, then a replay from Settings › Tutorials.
      */
     @Test
@@ -129,11 +125,6 @@ class UiTourTest {
         }
         tour.step("pointers", "start-open-visuals", "Visuals' pointers") { tour.tap(TOUR_OPEN_VISUALS) }
         walkPointers("pointers", "visuals")
-        tour.step("pointers", "pro-offer", "the Pro offer after Visuals' pointers, closed") {
-            val offered = tour.waitFor(hasText(PRO_OFFER), POINTER_WAIT_MS)
-            tour.tapIfPresent(CLOSE)
-            "offered: $offered"
-        }
         tour.step("pointers", "open-customize", "Customize's pointers, first time") { tour.tap(CUSTOMIZE) }
         walkPointers("pointers", "customize")
         tour.step("pointers", "open-studio", "Studio's pointers, first time") { tour.tap(STUDIO) }
@@ -740,7 +731,6 @@ class UiTourTest {
         const val TOUR_OK = "OK"
         const val TOUR_OPEN_LIBRARY = "Open Library"
         const val TOUR_OPEN_VISUALS = "Open Visuals"
-        const val PRO_OFFER = "Make your music come to life"
         const val TUTORIALS = "Tutorials"
         const val RENDER = "Render"
         const val MY_VIDEOS = "My videos"

@@ -95,7 +95,7 @@ void StageCore::drawPaced() {
     paced_.store(fps, std::memory_order_relaxed);
     int64_t drawNs = 0;
     const bool swapped = draw(fps, cap_, presentNs, drawNs);
-    port_.frameWork(budget_.budgetNs, drawNs);
+    port_.frameWork(budget_.budgetNs, drawNs, swapped && p.swapPaces ? port_.lastGpuNs() : 0, start);
     util::traceCounter("geode.cpuUs", drawNs / 1000);
     if (const int64_t gpuNs = port_.lastGpuNs(); gpuNs > 0) util::traceCounter("geode.gpuUs", gpuNs / 1000);
     if (!swapped || !p.swapPaces) {

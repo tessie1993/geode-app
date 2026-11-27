@@ -39,6 +39,9 @@ enum class Tune : int {
     GlideCalmSeconds,     // the calmest
     GlideNeutralSeconds,  // neither: between the two
     ReturnMorphSeconds,   // the shortest morph into a returning section's look
+    LeanInSeconds,        // the build's lean coming in
+    LeanOutSeconds,       // letting go when a build fades without a drop
+    ArcSeconds,           // the arc moving to a new section's level
     kCount
 };
 constexpr int kTunes = static_cast<int>(Tune::kCount);

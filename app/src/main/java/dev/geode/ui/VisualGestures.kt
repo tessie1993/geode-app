@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -281,7 +282,7 @@ private suspend fun AwaitPointerEventScope.follow(
     onTouch: (Int) -> Unit,
 ) {
     while (true) {
-        val wait = TouchNative.gestureWaitMs(reader)
+        val wait = TouchNative.gestureWaitMs(reader, SystemClock.uptimeMillis())
         val event = if (wait > 0) withTimeoutOrNull(wait) { awaitPointerEvent() } else awaitPointerEvent()
         var live = 0
         val answer =

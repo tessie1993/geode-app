@@ -419,6 +419,11 @@ reaction_resolve_test | stub | core/tests/reaction_resolve_test.cpp core/viz/mod
 # field read the long way round, and the composite gate that leaves a rig scene's picture to the scene.
 field_present_test | fakegl | core/tests/field_present_test.cpp core/viz/styles/life/FieldGeometry.cpp |
 
+# --- Composite terms host test
+# The composite's per-frame terms and stage flags (core/viz/passes/CompositeTerms): each stage's threshold, the
+# gates that leave a scene's own stages off, a camera at rest, the rotation and the lens values.
+composite_terms_test | fakegl | core/tests/composite_terms_test.cpp |
+
 # --- Catalogue host tests
 # On every pull request: run only by hand, a stale fixture and a failing crossfade test
 # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".

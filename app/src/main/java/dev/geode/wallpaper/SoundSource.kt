@@ -41,6 +41,8 @@ class SoundSource(
     /** Called on the main thread when [silent] flips, so the engine can restate its run mode. */
     private val onSilenceChanged: () -> Unit,
 ) {
+    var onInput: (Long) -> Unit = {}
+
     private val capture = OutputMixCapture()
     private val prefs by lazy { WallpaperPrefsStore(context.geodeContainer.prefsFiles.wallpaper) }
     private val handler = Handler(Looper.getMainLooper())
@@ -121,7 +123,10 @@ class SoundSource(
         }
         val useCapture = (answer and SoundNative.SOUND_SOURCE_USE_CAPTURE) != 0
         val chosen = if (useCapture && capture.running) capture.soundInput else app
-        input = chosen
+        if (chosen != input) {
+            input = chosen
+            onInput(chosen)
+        }
         if (chosen != 0L) soundAtMs = heardAt(chosen, now)
         val nowSilent = SoundNative.silenceResting(now, soundAtMs)
         if (nowSilent != silent) {

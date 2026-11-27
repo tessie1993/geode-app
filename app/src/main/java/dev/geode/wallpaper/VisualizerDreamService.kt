@@ -129,7 +129,8 @@ class VisualizerDreamService : DreamService() {
         view.stage.look = looks.current().gentleFlight()
         dreamFps = behaviour.dreamFps
         applyPerformance()
-        view.stage.soundInput = { sound.input }
+        sound.onInput = view.stage::hear
+        view.stage.hear(sound.input)
         val stage = FrameLayout(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         // Above the stage's view (a SurfaceView's hole would clear anything below it), under the overlay.

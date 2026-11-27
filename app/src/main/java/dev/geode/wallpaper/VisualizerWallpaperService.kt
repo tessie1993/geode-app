@@ -129,7 +129,8 @@ class VisualizerWallpaperService : WallpaperService() {
             restoreLook(engine)
             settings = prefsStore.load()
             applyFps()
-            engine.soundInput = { sound.input }
+            sound.onInput = engine::hear
+            engine.hear(sound.input)
             ContextCompat.registerReceiver(
                 this@VisualizerWallpaperService,
                 systemReceiver,

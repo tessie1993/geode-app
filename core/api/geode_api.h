@@ -1475,6 +1475,31 @@ GEODE_API int             geode_perf_resolution_for_scale(float render_scale, in
 #define GEODE_PERF_BUFFER_INTS 2
 GEODE_API int             geode_perf_buffer_size(int resolution, int mode_width, int mode_height, int view_width,
                                                  int view_height, int* out, int capacity);
+/* The render resolution the app holds (core/viz/frame/ResolutionState), process-wide. Each set is a void event and
+   derives the descriptor once; the shell and the screen read it as published (geode_perf_resolution_read) and
+   compute nothing. panel_set: the display's panel and its current mode, as above (0 for unknown). view_set: the stage
+   view's size in pixels. settings_set: the user's resolution, fps cap, march scale and post FX (0/1). */
+GEODE_API void            geode_perf_panel_set(int panel_width, int panel_height, int mode_width, int mode_height);
+GEODE_API void            geode_perf_view_set(int view_width, int view_height);
+GEODE_API void            geode_perf_settings_set(int resolution, int fps_cap, float march_scale, int post_fx);
+/* The descriptor, GEODE_PERF_DESCRIPTOR_INTS ints into out in the order of GEODE_PERF_FIELD_*: the stored
+   resolution; the preset these values are on this panel (-1: Custom); the index of the selected step (-1: none); the
+   window buffer for the view and what the resolution draws full screen on the current mode (0 x 0 while there is no
+   view, or the mode is unknown); the current mode; the step count and the steps the tab offers, ascending, Native
+   last. Returns the count, 0 for a short out. */
+#define GEODE_PERF_FIELD_RESOLUTION 0
+#define GEODE_PERF_FIELD_PRESET 1
+#define GEODE_PERF_FIELD_SELECTED 2
+#define GEODE_PERF_FIELD_BUFFER_WIDTH 3
+#define GEODE_PERF_FIELD_BUFFER_HEIGHT 4
+#define GEODE_PERF_FIELD_DRAWN_WIDTH 5
+#define GEODE_PERF_FIELD_DRAWN_HEIGHT 6
+#define GEODE_PERF_FIELD_MODE_WIDTH 7
+#define GEODE_PERF_FIELD_MODE_HEIGHT 8
+#define GEODE_PERF_FIELD_STEP_COUNT 9
+#define GEODE_PERF_FIELD_STEPS 10
+#define GEODE_PERF_DESCRIPTOR_INTS 17
+GEODE_API int             geode_perf_resolution_read(int* out, int capacity);
 /* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
    is up, never the dream, an export or Cast. `rates` are the refresh rates of the stage's display at
    its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the

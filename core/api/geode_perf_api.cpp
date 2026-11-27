@@ -1,15 +1,32 @@
 #include <algorithm>
+#include <mutex>
 
 #include "api/geode_api.h"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/Quality.hpp"
+#include "viz/frame/ResolutionState.hpp"
 
 namespace frame = geode::viz::frame;
 
 static_assert(frame::kScaleChoices.size() == GEODE_PERF_SCALE_CHOICES);
 static_assert(frame::kMaxResolutionChoices == GEODE_PERF_RESOLUTION_CHOICES);
 static_assert(frame::kNativeResolution == GEODE_PERF_NATIVE);
+static_assert(frame::kDescriptorInts == GEODE_PERF_DESCRIPTOR_INTS);
+static_assert(frame::kFieldSteps == GEODE_PERF_FIELD_STEPS);
 
+namespace {
+
+struct Shared {
+    std::mutex lock;
+    frame::ResolutionState state;
+};
+
+Shared& shared() {
+    static Shared s;
+    return s;
+}
+
+}  // namespace
 extern "C" {
 
 int geode_perf_tier(int mode, float* out, int capacity) {
@@ -57,4 +74,30 @@ int geode_perf_buffer_size(int resolution, int mode_width, int mode_height, int 
     return GEODE_PERF_BUFFER_INTS;
 }
 
+void geode_perf_panel_set(int panel_width, int panel_height, int mode_width, int mode_height) {
+    Shared& s = shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    s.state.setPanel({panel_width, panel_height, mode_width, mode_height});
+}
+
+void geode_perf_view_set(int view_width, int view_height) {
+    Shared& s = shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    s.state.setView({view_width, view_height});
+}
+
+void geode_perf_settings_set(int resolution, int fps_cap, float march_scale, int post_fx) {
+    Shared& s = shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    s.state.setSettings({resolution, fps_cap, march_scale, post_fx != 0});
+}
+
+int geode_perf_resolution_read(int* out, int capacity) {
+    if (!out || capacity < GEODE_PERF_DESCRIPTOR_INTS) return 0;
+    Shared& s = shared();
+    std::lock_guard<std::mutex> lock(s.lock);
+    const frame::Descriptor& d = s.state.descriptor();
+    std::copy(d.begin(), d.end(), out);
+    return GEODE_PERF_DESCRIPTOR_INTS;
+}
 }  // extern "C"

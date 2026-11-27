@@ -8,6 +8,7 @@
 
 #include "api/geode_api.h"
 #include "viz/frame/Quality.hpp"
+#include "viz/frame/ResolutionState.hpp"
 
 using namespace geode::viz::frame;
 
@@ -169,6 +170,63 @@ void migration() {
     check(modeOf(resolutionForScale(1.0f, 1440, 3200), 60, 1.0f, true, 1440) == 2, "old High is High anywhere");
 }
 
+// The state the app holds: events in, one descriptor out, nothing for the reader to compute.
+void resolutionState() {
+    ResolutionState s;
+    check(s.descriptor()[kFieldStepCount] == kMaxResolutionChoices && s.descriptor()[kFieldBufferWidth] == 0,
+          "before any event: every step, no buffer");
+    s.setPanel({1080, 2400, 1080, 2400});
+    s.setView({1080, 2400});
+    s.setSettings({900, 60, 0.75f, true});
+    const Descriptor& d = s.descriptor();
+    check(d[kFieldResolution] == 900 && d[kFieldPreset] == 1, "Balanced's values are the Balanced preset");
+    check(d[kFieldStepCount] == 4 && d[kFieldSteps] == 540 && d[kFieldSteps + 3] == kNativeResolution,
+          "a 1080p panel offers 540, 720, 900 and Native");
+    check(d[kFieldSelected] == 2, "900 is the third step");
+    check(d[kFieldBufferWidth] == 900 && d[kFieldBufferHeight] == 2000, "the buffer is the view at 900");
+    check(d[kFieldDrawnWidth] == 900 && d[kFieldDrawnHeight] == 2000 && d[kFieldModeWidth] == 1080 && d[kFieldModeHeight] == 2400,
+          "what it draws full screen, and the mode it is on");
+
+    s.setView({1200, 540});
+    check(s.descriptor()[kFieldBufferWidth] == 1000 && s.descriptor()[kFieldBufferHeight] == 450, "a new view, a new buffer");
+    check(s.descriptor()[kFieldDrawnWidth] == 900, "the full-screen size does not follow the view");
+
+    s.setSettings({900, 30, 0.75f, true});
+    check(s.descriptor()[kFieldPreset] == -1 && s.descriptor()[kFieldSelected] == 2, "a changed fps cap reads Custom");
+
+    s.setSettings({kNativeResolution, 60, 1.0f, true});
+    check(s.descriptor()[kFieldPreset] == 2 && s.descriptor()[kFieldSelected] == 3, "Native is the last step, and High");
+    check(s.descriptor()[kFieldBufferWidth] == 1200, "Native fills the view");
+
+    s.setPanel({720, 1600, 720, 1600});
+    check(s.descriptor()[kFieldStepCount] == 2 && s.descriptor()[kFieldSteps] == 540 && s.descriptor()[kFieldSteps + 1] == 0,
+          "a 720p panel offers 540 and Native");
+    s.setSettings({900, 60, 0.75f, true});
+    check(s.descriptor()[kFieldSelected] == 1 && s.descriptor()[kFieldPreset] == 1,
+          "900 on a 720p panel draws Native: the Native step, still Balanced");
+
+    ResolutionState unknown;
+    unknown.setSettings({720, 60, 1.0f, true});
+    check(unknown.descriptor()[kFieldSelected] == 1 && unknown.descriptor()[kFieldDrawnWidth] == 0,
+          "an unknown panel offers every step and has no drawn size");
+    unknown.setSettings({1000, 60, 1.0f, true});
+    check(unknown.descriptor()[kFieldSelected] == -1, "a stored value no step shows selects none");
+}
+
+void resolutionStateThroughTheAbi() {
+    int d[GEODE_PERF_DESCRIPTOR_INTS] = {};
+    check(geode_perf_resolution_read(d, GEODE_PERF_DESCRIPTOR_INTS - 1) == 0 && geode_perf_resolution_read(nullptr, 17) == 0,
+          "a short out reads nothing");
+    geode_perf_panel_set(1440, 3200, 1080, 2400);
+    geode_perf_view_set(1080, 2400);
+    geode_perf_settings_set(1080, 60, 0.75f, 1);
+    check(geode_perf_resolution_read(d, GEODE_PERF_DESCRIPTOR_INTS) == GEODE_PERF_DESCRIPTOR_INTS, "geode_perf_resolution_read");
+    check(d[GEODE_PERF_FIELD_RESOLUTION] == 1080 && d[GEODE_PERF_FIELD_STEP_COUNT] == 5 && d[GEODE_PERF_FIELD_SELECTED] == 3 &&
+              d[GEODE_PERF_FIELD_STEPS + 4] == GEODE_PERF_NATIVE,
+          "the steps and the selection through the ABI");
+    check(d[GEODE_PERF_FIELD_BUFFER_WIDTH] == 1080 && d[GEODE_PERF_FIELD_DRAWN_HEIGHT] == 2400 && d[GEODE_PERF_FIELD_MODE_WIDTH] == 1080,
+          "the buffer and the drawn size through the ABI");
+}
 void throughTheAbi() {
     check(geode_perf_mode_of(900, 60, 0.75f, 1, 1080, 2400) == 1 && geode_perf_mode_of(720, 60, 0.75f, 1, 1080, 2400) == -1,
           "geode_perf_mode_of");
@@ -201,6 +259,8 @@ int main() {
     devicePick();
     presetMatch();
     migration();
+    resolutionState();
+    resolutionStateThroughTheAbi();
     throughTheAbi();
     if (failures == 0) std::printf("quality_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

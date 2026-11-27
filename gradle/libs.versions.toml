@@ -36,8 +36,12 @@ oboe = "1.11.0"
 # Android Frame Pacing (Swappy, AGDK), the live stage's swap: a Prefab AAR on Google Maven. 2.1.3 is the latest
 # stable (2.3.0 is alpha); its static module is built against c++_shared, as this project is.
 gamesFramePacing = "2.1.3"
+metricsPerformance = "1.0.0"
+tracing = "2.0.5"
 
 [libraries]
+metrics-performance = { module = "androidx.metrics:metrics-performance", version.ref = "metricsPerformance" }
+tracing = { module = "androidx.tracing:tracing", version.ref = "tracing" }
 oboe = { module = "com.google.oboe:oboe", version.ref = "oboe" }
 games-frame-pacing = { module = "androidx.games:games-frame-pacing", version.ref = "gamesFramePacing" }
 billing = { module = "com.android.billingclient:billing", version.ref = "billing" }

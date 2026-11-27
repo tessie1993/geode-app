@@ -352,6 +352,7 @@ private:
     // Re-applies the process-wide shader overrides (viz/glsl/ShaderOverrides) to resident scenes when they change.
     void syncShaderOverrides();
     void openQuarantine();
+    void applyQuarantine();
 
     ShaderSource assets_;
     std::string cacheDir_;

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.AssetManager
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
-import dev.geode.diag.ExitReasons
 import dev.geode.engine.bridge.VizNative
 import dev.geode.model.SceneParams
 import java.lang.ref.Cleaner
@@ -22,7 +21,6 @@ class NativeViz(
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets: AssetManager = context.assets
     private val cacheDir: String = context.cacheDir.absolutePath
-    private val appContext: Context = context.applicationContext
 
     // Written on the GL thread (surfaceCreated) and read/written from composition-time call
     // sites on the main thread (e.g. a stage query); @Volatile keeps every
@@ -56,7 +54,6 @@ class NativeViz(
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
-            ExitReasons.tellStyleQuarantine(appContext)
             handle = VizNative.vizCreate(assets, cacheDir)
             owned.handle = handle
             if (handle != 0L) {

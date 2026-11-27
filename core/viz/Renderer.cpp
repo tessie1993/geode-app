@@ -388,7 +388,12 @@ void Renderer::syncShaderOverrides() {
     // An edited source may build where the last one failed.
     prep_.forgive();
     const auto overrides = shader_overrides::snapshot();
-    for (const auto& entry : overrides) quarantine_.leave(entry.first);
+    std::vector<std::string> overridden;
+    for (const auto& entry : overrides) {
+        overridden.push_back(entry.first);
+        quarantine_.leave(entry.first);
+    }
+    prep_.setOverridden(std::move(overridden));
     const std::string stock;
     for (auto& [id, scene] : scenes_) {
         const auto found = overrides.find(id);
@@ -709,14 +714,19 @@ Scene* Renderer::builtScene(const std::string& id) {
 }
 
 // Once per renderer, on its first context (the driver's name needs one). The first renderer in the process
-// counts what a dead process left; every renderer then keeps the quarantined styles off for good.
+// sets aside what a dead process left; every renderer then keeps the quarantined styles off for good.
 void Renderer::openQuarantine() {
     if (quarantine_.isOpen() || cacheDir_.empty()) return;
     const GlIdentity identity = prober::identity();
     quarantine_.open(StyleQuarantine::dirFor(cacheDir_, identity, GEODE_APP_BUILD), identity.renderer,
                      static_cast<long long>(std::time(nullptr)));
+    applyQuarantine();
+}
+
+void Renderer::applyQuarantine() {
     for (const std::string& id : quarantine_.quarantined()) {
-        GEODE_LOGW(kTag, "%s is off: it crashed this driver (%s) twice", id.c_str(), identity.renderer.c_str());
+        if (prep_.quarantined(id)) continue;
+        GEODE_LOGW(kTag, "%s is off: it crashed this graphics driver twice", id.c_str());
         prep_.fail(id, build_report::text(id, build_report::Stage::Crash, ""), ScenePrep::Lasting::Yes);
     }
 }
@@ -739,7 +749,7 @@ Scene* Renderer::readyScene(const std::string& id) {
     // A style that did not build is not built again every frame: the caller keeps what it drew.
     if (prep_.failed(id)) return nullptr;
     // Until its first frames are drawn, a death in the driver is blamed on this style; a user's shader is not.
-    if (shader_overrides::get(id).empty()) quarantine_.arm(id);
+    if (!prep_.overridden(id)) quarantine_.arm(id);
     Scene* scene = nullptr;
     if (blockingBuilds_.load(std::memory_order_relaxed)) {
         scene = sceneFor(id);

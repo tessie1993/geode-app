@@ -126,7 +126,7 @@ director_reach_test | stub | core/tests/director_reach_test.cpp core/viz/resolve
 scene_residency_test | core | core/tests/scene_residency_test.cpp |
 # The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
 cache_sentinels_test | mt | core/tests/cache_sentinels_test.cpp |
-# A style armed alone at two native crashes or ANRs while building or first drawing is off for that driver.
+# A style armed alone when its process died in the GPU driver (or in an ANR on the stage), twice, is off for that driver.
 style_quarantine_test | mt | core/tests/style_quarantine_test.cpp core/util/Sha256.cpp |
 sound_test | core | core/tests/sound_test.cpp core/sound/*.cpp |
 # Absolute loudness and the drive: a quiet sparse pad is low, a loud dense loop high, no normalising.

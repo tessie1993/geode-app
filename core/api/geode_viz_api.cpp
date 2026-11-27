@@ -463,11 +463,16 @@ void geode_shader_override_set(const char* style_id, const char* fragment_source
     if (style_id) geode::viz::shader_overrides::set(style_id, fragment_source ? fragment_source : "");
 }
 
-void geode_style_quarantine_last_death(int death) {
-    using Death = geode::viz::StyleQuarantine::Death;
-    geode::viz::StyleQuarantine::setLastDeath(death == GEODE_LAST_DEATH_CRASH   ? Death::Crash
-                                              : death == GEODE_LAST_DEATH_OTHER ? Death::Other
-                                                                                : Death::Unknown);
+void geode_style_quarantine_deaths(const int* pids, const int64_t* times_ms, const int* verdicts, int count) {
+    using geode::viz::StyleDeaths;
+    std::vector<StyleDeaths::Death> deaths;
+    for (int i = 0; pids && times_ms && verdicts && i < count; ++i) {
+        const auto verdict = verdicts[i] == GEODE_DEATH_CRASH   ? StyleDeaths::Verdict::Crash
+                             : verdicts[i] == GEODE_DEATH_OTHER ? StyleDeaths::Verdict::Other
+                                                                : StyleDeaths::Verdict::Unknown;
+        deaths.push_back({pids[i], static_cast<long long>(times_ms[i]), verdict});
+    }
+    StyleDeaths::process().tell(std::move(deaths));
 }
 
 size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {

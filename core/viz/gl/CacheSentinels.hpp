@@ -74,6 +74,13 @@ public:
         remove();
     }
 
+    // Other file work that must not interleave with a settle or an open's check.
+    template <typename Work>
+    void locked(Work&& work) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        work();
+    }
+
     bool settled(const std::string& sentinel) {
         std::lock_guard<std::mutex> lock(mutex_);
         return settled_.count(sentinel) > 0;

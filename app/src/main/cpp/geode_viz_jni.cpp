@@ -450,8 +450,19 @@ Java_dev_geode_engine_bridge_DirectorNative_shaderOverrideSet(JNIEnv* env, jobje
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_styleQuarantineLastDeath(JNIEnv*, jobject, jint death) {
-    geode_style_quarantine_last_death(death);
+Java_dev_geode_engine_bridge_VizNative_styleQuarantineDeaths(JNIEnv* env, jobject, jintArray pids, jlongArray timesMs,
+                                                             jintArray verdicts) {
+    if (!pids || !timesMs || !verdicts) return;
+    const jsize count = env->GetArrayLength(pids);
+    if (env->GetArrayLength(timesMs) != count || env->GetArrayLength(verdicts) != count) return;
+    std::vector<jint> p(static_cast<size_t>(count));
+    std::vector<jlong> t(static_cast<size_t>(count));
+    std::vector<jint> v(static_cast<size_t>(count));
+    env->GetIntArrayRegion(pids, 0, count, p.data());
+    env->GetLongArrayRegion(timesMs, 0, count, t.data());
+    env->GetIntArrayRegion(verdicts, 0, count, v.data());
+    std::vector<int64_t> times(t.begin(), t.end());
+    geode_style_quarantine_deaths(p.data(), times.data(), v.data(), static_cast<int>(count));
 }
 
 JNIEXPORT jstring JNICALL

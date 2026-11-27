@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <initializer_list>
 #include <string>
 #include <utility>
 #include <vector>
@@ -108,32 +109,45 @@ public:
     }
 
     // Lasting: a style quarantined for crashing this driver (StyleQuarantine), which no new context or
-    // shader edit makes safe to try in this process.
+    // shader edit of another style makes safe to try in this process. A Studio override of the style
+    // itself is a different shader, so it may build (overridden()).
     enum class Lasting { No, Yes };
 
     // `id` did not build: not asked for again until forgive(). `report` is what the stage says about it.
     void fail(const std::string& id, const std::string& report = {}, Lasting lasting = Lasting::No) {
-        if (Failure* entry = find(id)) {
-            if (lasting == Lasting::Yes && entry->lasting == Lasting::No) *entry = Failure{id, report, lasting};
-            return;
-        }
-        failed_.push_back(Failure{id, report, lasting});
+        auto& list = lasting == Lasting::Yes ? lasting_ : failed_;
+        if (!find(list, id)) list.push_back(Failure{id, report});
     }
-    bool failed(const std::string& id) const { return find(id) != nullptr; }
+    bool failed(const std::string& id) const { return find(failed_, id) != nullptr || quarantined(id); }
+    // Off for crashing this driver, and not drawn by an override.
+    bool quarantined(const std::string& id) const { return find(lasting_, id) != nullptr && !overridden(id); }
     // What fail() was told about `id`, said again when the style is picked again; empty for none.
     std::string report(const std::string& id) const {
-        const auto* entry = find(id);
+        if (quarantined(id)) return find(lasting_, id)->report;
+        const auto* entry = find(failed_, id);
         return entry ? entry->report : std::string();
     }
     // True when `text` is the report of a failed style, so it can be taken down for another style.
     bool reported(const std::string& text) const {
         if (text.empty()) return false;
-        return std::any_of(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.report == text; });
+        const auto same = [&](const Failure& entry) { return entry.report == text; };
+        return std::any_of(failed_.begin(), failed_.end(), same) || std::any_of(lasting_.begin(), lasting_.end(), same);
     }
     // A new context or a changed shader source may build what failed before.
-    void forgive() {
-        failed_.erase(std::remove_if(failed_.begin(), failed_.end(), [](const auto& entry) { return entry.lasting == Lasting::No; }),
-                      failed_.end());
+    void forgive() { failed_.clear(); }
+
+    // The styles a Studio shader override draws (viz/glsl/ShaderOverrides).
+    void setOverridden(std::vector<std::string> ids) { overridden_ = std::move(ids); }
+    bool overridden(const std::string& id) const { return std::find(overridden_.begin(), overridden_.end(), id) != overridden_.end(); }
+
+    // The style a live frame stages for `requested`: itself, unless it is quarantined; then the style on
+    // screen, else `fallback`, whichever has not failed; `requested` again when neither will do.
+    const std::string& stageFor(const std::string& requested, const std::string& onScreen, const std::string& fallback) const {
+        if (!quarantined(requested)) return requested;
+        for (const std::string* candidate : {&onScreen, &fallback}) {
+            if (!candidate->empty() && !failed(*candidate)) return *candidate;
+        }
+        return requested;
     }
 
     // True when `id`, a secondary target (the layer, Liquid's next style), must wait because the
@@ -158,15 +172,15 @@ private:
     struct Failure {
         std::string id;
         std::string report;
-        Lasting lasting = Lasting::No;
     };
-    const Failure* find(const std::string& id) const {
-        const auto it = std::find_if(failed_.begin(), failed_.end(), [&](const auto& entry) { return entry.id == id; });
-        return it == failed_.end() ? nullptr : &*it;
+    static const Failure* find(const std::vector<Failure>& list, const std::string& id) {
+        const auto it = std::find_if(list.begin(), list.end(), [&](const auto& entry) { return entry.id == id; });
+        return it == list.end() ? nullptr : &*it;
     }
-    Failure* find(const std::string& id) { return const_cast<Failure*>(std::as_const(*this).find(id)); }
 
     std::vector<Failure> failed_;
+    std::vector<Failure> lasting_;
+    std::vector<std::string> overridden_;
 };
 
 }  // namespace geode::viz

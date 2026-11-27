@@ -267,11 +267,18 @@ object VizNative {
 
     external fun underlayBlendOf(name: String?): Int
 
-    /** Mirrors GEODE_LAST_DEATH_*: how the last process died, for the style quarantine. */
-    const val LAST_DEATH_UNKNOWN = 0
-    const val LAST_DEATH_OTHER = 1
-    const val LAST_DEATH_CRASH = 2
+    /** Mirrors GEODE_DEATH_*: a verdict on one exit record, for the style quarantine. */
+    const val DEATH_UNKNOWN = 0
+    const val DEATH_OTHER = 1
+    const val DEATH_CRASH = 2
 
-    /** Process-wide (core/viz/gl/StyleQuarantine): set before the first renderer; only [LAST_DEATH_CRASH] strikes a style. */
-    external fun styleQuarantineLastDeath(death: Int)
+    /**
+     * How recent processes died, once per process (core/viz/gl/StyleQuarantine): per record its pid, time (ms since
+     * the epoch) and a `DEATH_*` verdict. Only [DEATH_CRASH] strikes; [DEATH_UNKNOWN] keeps the evidence.
+     */
+    external fun styleQuarantineDeaths(
+        pids: IntArray,
+        timesMs: LongArray,
+        verdicts: IntArray,
+    )
 }

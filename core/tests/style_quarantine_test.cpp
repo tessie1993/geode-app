@@ -1,13 +1,16 @@
-// Host-side checks for core/viz/gl/StyleQuarantine: a style whose build or first draws were armed when
-// the process died of a native crash or an ANR is remembered on disk, per driver, and turned off after
-// two such deaths, so a saved style cannot crash the app on every launch. Plain files in a temp dir; a
-// "new process" is a fresh StyleQuarantine over a reset CacheSentinels, and a death is abandon(): the
-// instance forgets what it armed and leaves its files as a dead process would.
+// Host-side checks for core/viz/gl/StyleQuarantine: a style that was the only one armed (built or first
+// drawn) when its process died in the graphics driver is remembered on disk, per driver, and turned off
+// after two such deaths, so a saved style cannot crash the app on every launch. Plain files in a temp dir.
+// A "process" is a fresh CacheSentinels and StyleDeaths with its own pid; a death is abandon(), which
+// leaves the sentinels on disk; the app's word on how earlier processes died is StyleDeaths::tell.
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <unistd.h>
 
@@ -18,8 +21,10 @@
 
 using geode::viz::CacheSentinels;
 using geode::viz::ScenePrep;
+using geode::viz::StyleDeaths;
 using geode::viz::StyleQuarantine;
-using Death = geode::viz::StyleQuarantine::Death;
+using Death = StyleDeaths::Death;
+using Verdict = StyleDeaths::Verdict;
 namespace fs = std::filesystem;
 
 namespace {
@@ -47,6 +52,44 @@ std::string slurp(const std::string& file) {
 
 bool has(const std::string& text, const std::string& part) { return text.find(part) != std::string::npos; }
 
+long long nowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+// Exit records, written after the sentinels they explain.
+Death crashOf(int pid) { return {pid, nowMs() + 60000, Verdict::Crash}; }
+Death killOf(int pid) { return {pid, nowMs() + 60000, Verdict::Other}; }
+Death unknownOf(int pid) { return {pid, nowMs() + 60000, Verdict::Unknown}; }
+
+int countNamed(const std::string& dir, const std::string& prefix) {
+    int n = 0;
+    std::error_code ec;
+    for (const auto& entry : fs::directory_iterator(dir, ec)) n += entry.path().filename().string().rfind(prefix, 0) == 0 ? 1 : 0;
+    return n;
+}
+
+struct Process {
+    explicit Process(int pid) : deaths(pid) {}
+    CacheSentinels sentinels;
+    StyleDeaths deaths;
+};
+
+struct Run {
+    explicit Run(int pid) : process(std::make_unique<Process>(pid)), q(std::make_unique<StyleQuarantine>(process->sentinels, process->deaths)) {}
+    std::unique_ptr<Process> process;
+    std::unique_ptr<StyleQuarantine> q;
+    void open(const std::string& dir) { q->open(dir, "Adreno (TM) 740", 2000); }
+    void tell(std::vector<Death> deaths) { process->deaths.tell(std::move(deaths)); }
+};
+
+// Process `pid` armed `id` and died before its draws proved it; nobody told it how its predecessor died.
+void dieWhileBuilding(const std::string& dir, const std::string& id, int pid) {
+    Run run(pid);
+    run.open(dir);
+    run.q->arm(id);
+    run.q->abandon();
+}
+
 // Draws `id` for kProvenDraws frames over kProvenSeconds, from `t`.
 void prove(StyleQuarantine& q, const std::string& id, double t = 0.0) {
     for (uint64_t i = 0; i <= StyleQuarantine::kProvenDraws; ++i) {
@@ -55,85 +98,99 @@ void prove(StyleQuarantine& q, const std::string& id, double t = 0.0) {
     }
 }
 
-// A process that armed `id` and died before its draws proved it; `previous` is how the process before it died.
-void dieWhileBuilding(CacheSentinels& s, const std::string& dir, const std::string& id, Death previous = Death::Crash) {
-    s.resetForTest();
-    StyleQuarantine dead(s);
-    dead.open(dir, "Adreno (TM) 740", 1000, previous);
-    dead.arm(id);
-    dead.abandon();
-}
-
-// A new process that learned how the last one died.
-void reopen(CacheSentinels& s, StyleQuarantine& q, const std::string& dir, Death death, long long nowS = 2000) {
-    s.resetForTest();
-    q.open(dir, "Adreno (TM) 740", nowS, death);
-}
-
 void oneCrashIsAStrikeTwoTurnItOff() {
-    CacheSentinels s;
     const std::string dir = freshDir("strikes");
-    dieWhileBuilding(s, dir, "flame_veil");
-    check(fs::exists(dir + "/building-flame_veil"), "an armed build leaves its sentinel on disk");
+    dieWhileBuilding(dir, "flame_veil", 101);
+    check(has(slurp(dir + "/building-flame_veil"), "101 "), "the sentinel names the process that armed it");
     {
-        StyleQuarantine q(s);
-        reopen(s, q, dir, Death::Crash);
-        check(!q.isQuarantined("flame_veil"), "one crash is a strike, not a quarantine");
-        check(!fs::exists(dir + "/building-flame_veil"), "the leftover sentinel is counted once and removed");
+        Run run(102);
+        run.open(dir);
+        run.tell({crashOf(101)});
+        check(!run.q->isQuarantined("flame_veil"), "one driver crash is a strike, not a quarantine");
+        check(countNamed(dir, "building-") == 0 && countNamed(dir, "left-") == 0, "the leftover is counted once and removed");
         const std::string crash = slurp(dir + "/last-crash.txt");
         check(has(crash, "flame_veil") && has(crash, "Adreno (TM) 740"), "last-crash.txt names the style and the driver");
         check(has(slurp(dir + "/strikes.txt"), "flame_veil 1"), "one strike on disk");
+        run.q->arm("flame_veil");
+        run.q->abandon();
     }
-    dieWhileBuilding(s, dir, "flame_veil");
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash, 3000);
-    check(q.isQuarantined("flame_veil"), "a second crash while building it turns the style off for this driver");
-    q.arm("flame_veil");
+    Run run(103);
+    run.tell({crashOf(102), killOf(101)});
+    run.open(dir);
+    check(run.q->isQuarantined("flame_veil"), "a second driver crash turns it off, at once when the app told first");
+    run.q->arm("flame_veil");
     check(!fs::exists(dir + "/building-flame_veil"), "a quarantined style is never armed");
 
-    StyleQuarantine again(s);
-    reopen(s, again, dir, Death::Unknown, 4000);
-    check(again.isQuarantined("flame_veil"), "the quarantine outlives the process");
+    Run again(104);
+    again.open(dir);
+    check(again.q->isQuarantined("flame_veil"), "the quarantine outlives the process");
 }
 
-// A swipe from Recents, an OEM or low-memory kill, a JVM crash: the style is not to blame.
-void aDeathThatIsNoCrashIsNoStrike() {
-    CacheSentinels s;
+// A swipe from Recents, an OEM or low-memory kill, a JVM crash, a native crash outside the driver.
+void aDeathThatIsNoDriverCrashIsNoStrike() {
     const std::string dir = freshDir("kills");
-    for (const Death death : {Death::Other, Death::Unknown, Death::Other}) {
-        dieWhileBuilding(s, dir, "silk_web");
-        StyleQuarantine q(s);
-        reopen(s, q, dir, death);
-        check(!fs::exists(dir + "/building-silk_web"), "a kill's leftover sentinel is cleared");
-        check(!q.isQuarantined("silk_web"), "a kill or an unknown death is never a strike");
+    for (int pid = 110; pid < 113; ++pid) {
+        dieWhileBuilding(dir, "silk_web", pid);
+        Run run(pid + 100);
+        run.open(dir);
+        run.tell({killOf(pid)});
+        check(countNamed(dir, "left-") == 0 && countNamed(dir, "building-") == 0, "a kill's leftover is cleared");
+        check(!run.q->isQuarantined("silk_web"), "a kill is never a strike");
     }
     check(!has(slurp(dir + "/strikes.txt"), "silk_web"), "nothing is struck");
-
-    dieWhileBuilding(s, dir, "silk_web");
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash);
-    check(has(slurp(dir + "/strikes.txt"), "silk_web 1"), "the same leftover after a native crash or an ANR is one strike");
 }
 
-void theDeathIsProcessWide() {
-    CacheSentinels s;
-    const std::string dir = freshDir("flag");
-    check(StyleQuarantine::lastDeath() == Death::Unknown, "unknown until the app says");
-    StyleQuarantine::setLastDeath(Death::Crash);
-    check(StyleQuarantine::lastDeath() == Death::Crash, "the app's word is kept for every renderer");
-    dieWhileBuilding(s, dir, "opal_drop");
-    s.resetForTest();
-    StyleQuarantine q(s);
-    q.open(dir, "Mali-G715", 0);
-    check(has(slurp(dir + "/strikes.txt"), "opal_drop 1"), "open() uses it by default");
-    StyleQuarantine::setLastDeath(Death::Unknown);
+// Unknown is "not yet": an export renderer or the live view may open before the app has read the records.
+void evidenceWaitsUntilTold() {
+    const std::string dir = freshDir("unknown");
+    dieWhileBuilding(dir, "opal_drop", 201);
+    {
+        Run run(202);
+        run.open(dir);
+        check(!fs::exists(dir + "/building-opal_drop") && countNamed(dir, "left-201-") == 1,
+              "an open before the app told sets the leftover aside and keeps it");
+        run.q->arm("opal_drop");
+        check(fs::exists(dir + "/building-opal_drop") && countNamed(dir, "left-201-") == 1, "arming the same style again keeps the evidence");
+        run.q->release();
+        check(countNamed(dir, "left-201-") == 1, "and so does a release");
+    }
+    {
+        Run run(203);
+        run.open(dir);
+        run.tell({unknownOf(202), unknownOf(201)});
+        check(countNamed(dir, "left-201-") == 1, "a record still unread (no tombstone yet) keeps it for a later process");
+        check(!fs::exists(dir + "/strikes.txt"), "without a strike");
+    }
+    Run run(204);
+    run.open(dir);
+    run.tell({killOf(203), crashOf(201)});
+    check(has(slurp(dir + "/strikes.txt"), "opal_drop 1"), "the crash, once known, strikes the style its own process armed");
+    check(countNamed(dir, "left-") == 0, "and the evidence goes");
+}
+
+void theRecordMustBeTheSentinelsOwn() {
+    const std::string dir = freshDir("own");
+    dieWhileBuilding(dir, "hollow_roots", 301);
+    {
+        // P2 (started by a media button) crashed in audio code; P1 was swiped and its record is gone.
+        Run run(303);
+        run.open(dir);
+        run.tell({crashOf(302)});
+        check(!fs::exists(dir + "/strikes.txt"), "another process's crash is never this style's strike");
+        check(countNamed(dir, "left-") == 0, "a leftover with no record of its own is dropped");
+    }
+    dieWhileBuilding(dir, "hollow_roots", 401);
+    Run run(402);
+    run.open(dir);
+    run.tell({{401, 1000, Verdict::Crash}});
+    check(!fs::exists(dir + "/strikes.txt"), "a record older than the sentinel (pid reused, power lost) is not its death");
 }
 
 void drawsProveAStyle() {
-    CacheSentinels s;
     const std::string dir = freshDir("proven");
-    StyleQuarantine q(s);
-    q.open(dir, "Mali-G715", 0, Death::Unknown);
+    Run run(501);
+    StyleQuarantine& q = *run.q;
+    run.open(dir);
     q.arm("opal_drop");
     check(fs::exists(dir + "/building-opal_drop"), "arming writes the sentinel");
     for (uint64_t i = 0; i < StyleQuarantine::kProvenDraws; ++i) {
@@ -150,149 +207,158 @@ void drawsProveAStyle() {
     check(q.proven("opal_drop"), "proven after kProvenDraws frames and kProvenSeconds of drawing");
     check(!fs::exists(dir + "/building-opal_drop"), "proving removes the sentinel");
     check(has(slurp(dir + "/proven.txt"), "opal_drop"), "and records it");
-    check(q.lastProven() == "opal_drop", "the last style proven is known");
-
     q.arm("opal_drop");
     check(!fs::exists(dir + "/building-opal_drop"), "a proven style never touches the disk again");
 
-    StyleQuarantine next(s);
-    reopen(s, next, dir, Death::Unknown);
-    next.arm("opal_drop");
-    check(next.proven("opal_drop") && !fs::exists(dir + "/building-opal_drop"), "proven in a later process too");
-    check(next.lastProven() == "opal_drop", "and still the last proven");
+    Run next(502);
+    next.open(dir);
+    next.q->arm("opal_drop");
+    check(next.q->proven("opal_drop") && !fs::exists(dir + "/building-opal_drop"), "proven in a later process too");
 }
 
 void aProvenStyleIsNeverStruck() {
-    CacheSentinels s;
     const std::string dir = freshDir("never");
     {
-        StyleQuarantine q(s);
-        q.open(dir, "Mali-G715", 0, Death::Unknown);
-        q.arm("opal_drop");
-        prove(q, "opal_drop");
+        Run run(601);
+        run.open(dir);
+        run.q->arm("opal_drop");
+        prove(*run.q, "opal_drop");
     }
     // A sentinel some holder left behind for a style already proven.
-    std::ofstream(dir + "/building-opal_drop").close();
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash);
-    check(!fs::exists(dir + "/building-opal_drop"), "its sentinel is cleared");
+    std::ofstream(dir + "/building-opal_drop") << "602 " << nowMs() - 1000 << "\n";
+    Run run(603);
+    run.open(dir);
+    run.tell({crashOf(602)});
+    check(countNamed(dir, "left-") == 0 && !fs::exists(dir + "/building-opal_drop"), "its sentinel is cleared");
     check(!has(slurp(dir + "/strikes.txt"), "opal_drop"), "a proven style is never struck");
 }
 
 void provingClearsTheStrikes() {
-    CacheSentinels s;
     const std::string dir = freshDir("clear");
-    dieWhileBuilding(s, dir, "flame_orb");
-    {
-        StyleQuarantine q(s);
-        reopen(s, q, dir, Death::Crash);
-        check(has(slurp(dir + "/strikes.txt"), "flame_orb 1"), "struck once");
-        q.arm("flame_orb");
-        prove(q, "flame_orb");
-        check(!has(slurp(dir + "/strikes.txt"), "flame_orb"), "a style that proves itself loses its strike");
-    }
+    dieWhileBuilding(dir, "flame_orb", 701);
+    Run run(702);
+    run.open(dir);
+    run.tell({crashOf(701)});
+    check(has(slurp(dir + "/strikes.txt"), "flame_orb 1"), "struck once");
+    run.q->arm("flame_orb");
+    prove(*run.q, "flame_orb");
+    check(!has(slurp(dir + "/strikes.txt"), "flame_orb"), "a style that proves itself loses its strike");
 }
 
 void aStyleLeftBeforeItsDrawsStopsGuarding() {
-    CacheSentinels s;
     const std::string dir = freshDir("left");
-    StyleQuarantine q(s);
-    q.open(dir, "Mali-G57", 0, Death::Unknown);
-    q.arm("silk_bloom");
-    q.frame("silk_bloom", 0.0);
-    check(fs::exists(dir + "/building-silk_bloom"), "a style still building keeps its sentinel");
-    q.drew("silk_bloom");
-    q.frame("", 0.1);
-    check(fs::exists(dir + "/building-silk_bloom"), "a style drawn in the frame keeps its sentinel");
-    q.frame("silk_weave", 0.2);
-    check(!fs::exists(dir + "/building-silk_bloom"), "a style picked past before its draws proved it stops guarding");
-    check(!q.proven("silk_bloom"), "without being proven");
-    q.abandon();
-
-    StyleQuarantine next(s);
-    reopen(s, next, dir, Death::Crash);
+    {
+        Run run(801);
+        StyleQuarantine& q = *run.q;
+        run.open(dir);
+        q.arm("silk_bloom");
+        q.frame("silk_bloom", 0.0);
+        check(fs::exists(dir + "/building-silk_bloom"), "a style still building keeps its sentinel");
+        q.drew("silk_bloom");
+        q.frame("", 0.1);
+        check(fs::exists(dir + "/building-silk_bloom"), "a style drawn in the frame keeps its sentinel");
+        q.frame("silk_weave", 0.2);
+        check(!fs::exists(dir + "/building-silk_bloom"), "a style picked past before its draws proved it stops guarding");
+        check(!q.proven("silk_bloom"), "without being proven");
+        q.abandon();
+    }
+    Run next(802);
+    next.open(dir);
+    next.tell({crashOf(801)});
     check(!fs::exists(dir + "/last-crash.txt"), "a style picked past is never struck by a later crash");
 }
 
 // The surface stops drawing (home, the lock screen, a hidden wallpaper) and the context is kept.
-void aPauseDisarmsAndTheNextFrameRearms() {
-    CacheSentinels s;
+void aPauseDisarmsAndDrawingOnRearms() {
     const std::string dir = freshDir("pause");
     {
-        StyleQuarantine q(s);
-        q.open(dir, "Mali-G57", 0, Death::Unknown);
+        Run run(901);
+        StyleQuarantine& q = *run.q;
+        run.open(dir);
         q.arm("silk_bloom");
         q.frame("silk_bloom", 0.0);
         q.drew("silk_bloom");
         q.pause();
         check(!fs::exists(dir + "/building-silk_bloom"), "a pause takes the sentinel down");
         q.frame("", 60.0);
-        check(fs::exists(dir + "/building-silk_bloom"), "the next frame puts it back for a style still unproven");
         q.drew("silk_bloom");
+        check(!fs::exists(dir + "/building-silk_bloom"), "one draw while paused (a still frame) does not put it back");
         q.frame("", 60.1);
+        check(fs::exists(dir + "/building-silk_bloom"), "drawing on puts it back for a style still unproven");
         q.drew("silk_bloom");
         q.frame("", 60.2);
         q.drew("silk_bloom");
         q.frame("", 60.3);
         q.drew("silk_bloom");
         check(!q.proven("silk_bloom"), "time spent paused is not time drawing");
+
+        q.arm("opal_drop");
+        q.frame("opal_drop", 61.0);
+        q.pause();
+        check(!fs::exists(dir + "/building-opal_drop"), "a style still building is taken down too");
+        q.frame("opal_drop", 70.0);
+        check(fs::exists(dir + "/building-opal_drop"), "and put back on the next frame: it never drew");
         q.pause();
         q.abandon();
     }
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash);
-    check(!has(slurp(dir + "/strikes.txt"), "silk_bloom"), "a kill or crash while paused is never this style's strike");
+    Run run(902);
+    run.open(dir);
+    run.tell({crashOf(901)});
+    check(!fs::exists(dir + "/strikes.txt"), "a crash while paused is never a style's strike");
 }
 
 void twoArmedStylesAreNoStrike() {
-    CacheSentinels s;
     const std::string dir = freshDir("ambiguous");
-    s.resetForTest();
     {
-        StyleQuarantine live(s);
-        StyleQuarantine wallpaper(s);
-        live.open(dir, "Mali-G57", 0, Death::Unknown);
-        wallpaper.open(dir, "Mali-G57", 0, Death::Unknown);
+        Process p(1001);
+        StyleQuarantine live(p.sentinels, p.deaths);
+        StyleQuarantine wallpaper(p.sentinels, p.deaths);
+        live.open(dir, "Mali-G57", 0);
+        wallpaper.open(dir, "Mali-G57", 0);
         live.arm("silk_bloom");
         wallpaper.arm("hollow_roots");
         live.abandon();
         wallpaper.abandon();
     }
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash);
-    check(!fs::exists(dir + "/strikes.txt") || slurp(dir + "/strikes.txt").empty(), "two styles armed at the crash: neither is struck");
+    Run run(1002);
+    run.open(dir);
+    run.tell({crashOf(1001)});
+    check(!fs::exists(dir + "/strikes.txt"), "two styles armed at the crash: neither is struck");
     const std::string crash = slurp(dir + "/last-crash.txt");
     check(has(crash, "ambiguous") && has(crash, "silk_bloom") && has(crash, "hollow_roots"), "last-crash.txt says it could not tell");
-    check(!fs::exists(dir + "/building-silk_bloom") && !fs::exists(dir + "/building-hollow_roots"), "both sentinels are cleared");
+    check(countNamed(dir, "left-") == 0, "both leftovers are cleared");
 }
 
 void malformedStrikesAreSkipped() {
-    CacheSentinels s;
     const std::string dir = freshDir("malformed");
     fs::create_directories(dir);
     std::ofstream(dir + "/strikes.txt") << "garbage\nopal_drop x\n../etc 1\nflame_veil 1\n 7\nsilk_web 1 extra\nhollow_roots 1";
-    dieWhileBuilding(s, dir, "flame_veil");
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash);
-    check(q.isQuarantined("flame_veil"), "a good line after bad ones still counts");
+    std::ofstream(dir + "/building-junk") << "not a pid\n";
+    dieWhileBuilding(dir, "flame_veil", 1101);
+    Run run(1102);
+    run.open(dir);
+    run.tell({crashOf(1101)});
+    check(!run.q->isQuarantined("flame_veil"), "a renderer open before the app told has not looked yet");
+    check(run.q->frame("", 0.0) && run.q->isQuarantined("flame_veil"), "its next frame sees the style turned off");
+    check(!run.q->frame("", 0.1), "once");
+    check(has(slurp(dir + "/quarantined.txt"), "flame_veil"), "a good line after bad ones still counts");
     const std::string strikes = slurp(dir + "/strikes.txt");
     check(has(strikes, "hollow_roots 1"), "a last line with no newline is kept");
     check(!has(strikes, "garbage") && !has(strikes, "../etc") && !has(strikes, "opal_drop"), "bad lines are dropped");
     check(!has(strikes, "silk_web"), "a line with more than an id and a count is bad");
-    bool temp = false;
-    for (const auto& entry : fs::directory_iterator(dir)) temp = temp || has(entry.path().filename().string(), ".tmp");
-    check(!temp, "no temp file is left behind");
+    check(!fs::exists(dir + "/building-junk") && countNamed(dir, "left-") == 0, "a sentinel with no pid is dropped");
+    check(countNamed(dir, "strikes.txt.") == 0 && countNamed(dir, "quarantined.txt.") == 0, "no temp file is left behind");
 }
 
 void twoRenderersShareOneSentinel() {
-    CacheSentinels s;
     const std::string dir = freshDir("shared");
-    StyleQuarantine live(s);
-    StyleQuarantine wallpaper(s);
-    live.open(dir, "PowerVR D-Series DXT-48-1536", 0, Death::Unknown);
+    Process p(1201);
+    StyleQuarantine live(p.sentinels, p.deaths);
+    StyleQuarantine wallpaper(p.sentinels, p.deaths);
+    live.open(dir, "PowerVR D-Series DXT-48-1536", 0);
     live.arm("hollow_roots");
-    wallpaper.open(dir, "PowerVR D-Series DXT-48-1536", 0, Death::Unknown);
-    check(fs::exists(dir + "/building-hollow_roots"), "a second renderer's open does not read a live sentinel as a crash");
+    wallpaper.open(dir, "PowerVR D-Series DXT-48-1536", 0);
+    check(fs::exists(dir + "/building-hollow_roots"), "a second renderer's open does not set a live sentinel aside");
     wallpaper.arm("hollow_roots");
     live.release();
     check(fs::exists(dir + "/building-hollow_roots"), "one renderer's release does not unguard the other's build");
@@ -308,59 +374,31 @@ void twoRenderersShareOneSentinel() {
 }
 
 void cleanReleaseIsNoStrike() {
-    CacheSentinels s;
     const std::string dir = freshDir("release");
     {
-        StyleQuarantine q(s);
-        q.open(dir, "Samsung Xclipse 940", 0, Death::Unknown);
-        q.arm("silk_web");
-        q.release();
+        Run run(1301);
+        run.open(dir);
+        run.q->arm("silk_web");
+        run.q->release();
         check(!fs::exists(dir + "/building-silk_web"), "release() (a lost context, a closed view) disarms");
-        q.arm("silk_web");
+        run.q->arm("silk_web");
     }
     check(!fs::exists(dir + "/building-silk_web"), "a renderer that ends disarms what it still held");
-    for (int i = 0; i < 3; ++i) {
-        StyleQuarantine q(s);
-        reopen(s, q, dir, Death::Crash);
-        check(!q.isQuarantined("silk_web"), "a clean end is never a strike");
-    }
+    Run run(1302);
+    run.open(dir);
+    run.tell({crashOf(1301)});
+    check(!fs::exists(dir + "/strikes.txt"), "a clean end is never a strike");
 }
 
 void aStyleLeftAloneIsNotGuarded() {
-    CacheSentinels s;
     const std::string dir = freshDir("leave");
-    StyleQuarantine q(s);
-    q.open(dir, "Mali-G57", 0, Death::Unknown);
-    q.arm("silk_web");
-    q.leave("silk_web");
+    Run run(1401);
+    run.open(dir);
+    run.q->arm("silk_web");
+    run.q->leave("silk_web");
     check(!fs::exists(dir + "/building-silk_web"), "leave() (a shader override now draws it) disarms");
-    q.frame("", 0.0);
+    run.q->frame("", 0.0);
     check(!fs::exists(dir + "/building-silk_web"), "and the next frame does not arm it again");
-}
-
-void aQuarantinedStyleGetsAStandIn() {
-    CacheSentinels s;
-    const std::string dir = freshDir("standin");
-    dieWhileBuilding(s, dir, "flame_veil");
-    {
-        StyleQuarantine q(s);
-        reopen(s, q, dir, Death::Crash);
-    }
-    dieWhileBuilding(s, dir, "flame_veil");
-    StyleQuarantine q(s);
-    reopen(s, q, dir, Death::Crash);
-    check(q.isQuarantined("flame_veil"), "the saved style is off");
-    check(q.standIn("flame_veil", "silk_flow") == "silk_flow", "with nothing proven, the safe default draws");
-    check(q.standIn("opal_drop", "silk_flow") == "opal_drop", "a style that is not off draws itself");
-    q.arm("opal_drop");
-    prove(q, "opal_drop");
-    check(q.standIn("flame_veil", "silk_flow") == "opal_drop", "the last proven style stands in");
-    check(q.standIn("flame_veil", "flame_veil").empty() || q.standIn("flame_veil", "flame_veil") == "opal_drop",
-          "never the quarantined style itself");
-
-    StyleQuarantine later(s);
-    reopen(s, later, dir, Death::Unknown);
-    check(later.standIn("flame_veil", "silk_flow") == "opal_drop", "in a later process too");
 }
 
 void eachDriverHasItsOwnList() {
@@ -374,22 +412,33 @@ void eachDriverHasItsOwnList() {
     check(a != c, "an app update starts a new list (its shaders may be fixed)");
     check(a.rfind(root + "/gl-quarantine/", 0) == 0, "lists live under <cacheDir>/gl-quarantine");
 
-    CacheSentinels s;
-    dieWhileBuilding(s, a, "flame_orb");
-    dieWhileBuilding(s, a, "flame_orb");
-    StyleQuarantine old(s);
-    reopen(s, old, a, Death::Crash);
-    check(old.isQuarantined("flame_orb"), "off on the driver that crashed");
-    StyleQuarantine updated(s);
-    updated.open(b, "Adreno (TM) 740", 0, Death::Unknown);
+    dieWhileBuilding(a, "flame_orb", 1501);
+    {
+        Run run(1502);
+        run.open(a);
+        run.tell({crashOf(1501)});
+        run.q->arm("flame_orb");
+        run.q->abandon();
+    }
+    Run old(1503);
+    old.open(a);
+    old.tell({crashOf(1502)});
+    old.q->frame("", 0.0);
+    check(old.q->isQuarantined("flame_orb"), "off on the driver that crashed");
+    StyleQuarantine updated(old.process->sentinels, old.process->deaths);
+    updated.open(b, "Adreno (TM) 740", 0);
     check(!updated.isQuarantined("flame_orb"), "tried again on the updated driver");
     check(fs::exists(a), "a list in use in this process is kept");
 
-    s.resetForTest();
-    StyleQuarantine next(s);
-    next.open(b, "Adreno (TM) 740", 0, Death::Unknown);
+    Run next(1504);
+    next.open(b);
     check(fs::exists(b) && !fs::exists(a), "the first open in a process prunes the lists of older drivers and builds");
     check(fs::exists(root), "and nothing outside gl-quarantine");
+}
+
+void theProcessIsOne() {
+    check(&StyleDeaths::process() == &StyleDeaths::process(), "every renderer in a process shares one StyleDeaths");
+    check(StyleDeaths::process().pid() == static_cast<int>(::getpid()), "and it carries this process's pid");
 }
 
 void forgiveKeepsQuarantinedStyles() {
@@ -397,7 +446,7 @@ void forgiveKeepsQuarantinedStyles() {
     prep.fail("flame_veil", "flame_veil was turned off", ScenePrep::Lasting::Yes);
     prep.fail("opal_drop", "opal_drop did not load (compile)");
     prep.forgive();
-    check(prep.failed("flame_veil"), "forgive() (a new context, an edited shader) keeps a quarantined style off");
+    check(prep.failed("flame_veil") && prep.quarantined("flame_veil"), "forgive() (a new context, an edited shader) keeps a quarantined style off");
     check(prep.report("flame_veil") == "flame_veil was turned off", "and its report");
     check(!prep.failed("opal_drop"), "an ordinary failure is still forgiven");
 
@@ -408,25 +457,65 @@ void forgiveKeepsQuarantinedStyles() {
           "the stage says why the style is off and what brings it back");
 }
 
+void anOverrideMayTryAQuarantinedStyle() {
+    ScenePrep prep;
+    prep.fail("flame_veil", "flame_veil was turned off", ScenePrep::Lasting::Yes);
+    prep.setOverridden({"flame_veil"});
+    check(!prep.failed("flame_veil") && !prep.quarantined("flame_veil"), "a Studio override of a quarantined style may build");
+    check(prep.report("flame_veil").empty(), "and the stage does not call it off");
+    prep.fail("flame_veil", "flame_veil did not load (compile)");
+    check(prep.failed("flame_veil") && prep.report("flame_veil") == "flame_veil did not load (compile)",
+          "an override that does not build fails as any build does");
+    prep.forgive();
+    prep.setOverridden({});
+    check(prep.quarantined("flame_veil") && prep.report("flame_veil") == "flame_veil was turned off",
+          "without the override it is off again");
+}
+
+// Renderer::resolveActiveScene's choice, frame by frame: the id it stages and hands readyScene.
+void aQuarantinedStyleGetsAStandInEveryFrame() {
+    ScenePrep prep;
+    prep.fail("flame_veil", "off", ScenePrep::Lasting::Yes);
+    const std::string requested = "flame_veil";
+    const std::string fallback = "neon_chrome_sea";
+    std::string onScreen;
+    for (int frame = 0; frame < 5; ++frame) {
+        const std::string& staged = prep.stageFor(requested, onScreen, fallback);
+        check(staged == fallback, "with nothing on screen, the free first style stands in, every frame");
+        onScreen = staged;  // built: the next frame draws it, and nothing stays pending
+    }
+    check(prep.stageFor(requested, "glass_orb", fallback) == "glass_orb", "a style already on screen stays");
+    check(prep.stageFor("opal_drop", "glass_orb", fallback) == "opal_drop", "a style that is not off draws itself");
+    prep.fail("glass_orb", "did not load");
+    check(prep.stageFor(requested, "glass_orb", fallback) == fallback, "a stand-in that failed to build falls through to the next");
+    prep.fail(fallback, "did not load");
+    check(prep.stageFor(requested, "glass_orb", fallback) == requested, "with none left the request stays, as any failed style");
+    prep.setOverridden({"flame_veil"});
+    check(prep.stageFor(requested, "", fallback) == requested, "an overridden style is not stood in for");
+}
+
 }  // namespace
 
 int main() {
     oneCrashIsAStrikeTwoTurnItOff();
-    aDeathThatIsNoCrashIsNoStrike();
-    theDeathIsProcessWide();
+    aDeathThatIsNoDriverCrashIsNoStrike();
+    evidenceWaitsUntilTold();
+    theRecordMustBeTheSentinelsOwn();
     drawsProveAStyle();
     aProvenStyleIsNeverStruck();
     provingClearsTheStrikes();
     aStyleLeftBeforeItsDrawsStopsGuarding();
-    aPauseDisarmsAndTheNextFrameRearms();
+    aPauseDisarmsAndDrawingOnRearms();
     twoArmedStylesAreNoStrike();
     malformedStrikesAreSkipped();
     twoRenderersShareOneSentinel();
     cleanReleaseIsNoStrike();
     aStyleLeftAloneIsNotGuarded();
-    aQuarantinedStyleGetsAStandIn();
     eachDriverHasItsOwnList();
+    theProcessIsOne();
     forgiveKeepsQuarantinedStyles();
+    anOverrideMayTryAQuarantinedStyle();
+    aQuarantinedStyleGetsAStandInEveryFrame();
     if (failures == 0) std::printf("style_quarantine_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

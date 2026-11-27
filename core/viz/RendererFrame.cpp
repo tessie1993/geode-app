@@ -28,6 +28,9 @@ namespace geode::viz {
 namespace {
 // Endless zoom fades in and out over this long when it is switched, on the wall clock.
 constexpr float kDiveFadeSeconds = 0.6f;
+const std::string kNoScene;
+// Free for everyone (FreeTier.FIRST_STYLE_ID), so a stand-in never lands on a locked style.
+const std::string kStandInScene = kFirstSceneId;
 // Liquid mode's hand and sound on the flow (clip units per second into FlowField's kicks), and the
 // radius of each kind of kick: a drag moves the liquid about as fast as the finger.
 constexpr float kLiquidPush = 1.0f;
@@ -210,11 +213,10 @@ Scene* Renderer::resolveActiveScene() {
             fail("");
         }
     }
-    // A style turned off for crashing this driver, with nothing on screen yet, draws a stand-in: the last
-    // proven style, else the catalogue's default (TemplateFile's, a Silk style).
-    if (!activeScene_ && quarantine_.isQuarantined(requestedId)) {
-        const std::string standIn = quarantine_.standIn(requestedId, catalogue::allIds().front());
-        if (!standIn.empty()) requestedId = standIn;
+    // A style turned off for crashing this driver draws a stand-in, every frame it stays requested: the style on
+    // screen, else the app's free first style. An export says the style is off (above) and draws no other.
+    if (!offscreen_.load(std::memory_order_relaxed)) {
+        requestedId = prep_.stageFor(requestedId, activeScene_ ? activeScene_->id() : kNoScene, kStandInScene);
     }
     // Live, a scene not built yet comes back null for a few frames while it is staged; the frame
     // keeps drawing activeScene_ (or a clear when there is none) until it is whole.
@@ -669,7 +671,7 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
     repeated_ = false;
-    quarantine_.frame(prep_.target(), monotonicSeconds());
+    if (quarantine_.frame(prep_.target(), monotonicSeconds())) applyQuarantine();
     const float wallDt = beginFrame(timeSeconds);
     // The picture's step drives the responder, the waves and the sound; the simulations step by it through the
     // scene clock's scale (never backwards).

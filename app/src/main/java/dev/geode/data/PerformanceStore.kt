@@ -13,17 +13,23 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Settings › Performance, in the general prefs file so the dream (which builds
- * its own store, in its own lifetime) read the same values the app wrote.
+ * Settings > Performance, in the general prefs file so the dream (which builds its own store, in its own
+ * lifetime) reads the same values the app wrote.
  *
  * Nothing stored yet means first run: the device decides the mode once, and that pick is written
- * back so it never changes under the user after an OS update or a RAM reading that wobbles.
+ * back so it never changes under the user after an OS update or a RAM reading that wobbles. An install from
+ * before the resolution setting has a render scale instead: it becomes the nearest resolution once, on [panel].
  */
 class PerformanceStore(
     private val prefs: SharedPreferences,
     private val deviceMode: () -> PerformanceMode,
+    private val panel: () -> DisplayPanel,
 ) {
-    constructor(prefs: SharedPreferences, context: Context) : this(prefs, { devicePerformanceMode(context) })
+    constructor(prefs: SharedPreferences, context: Context) : this(
+        prefs,
+        { devicePerformanceMode(context) },
+        { DisplayPanel.atBoot(context) },
+    )
 
     private val state by lazy { MutableStateFlow(load()) }
 
@@ -35,29 +41,45 @@ class PerformanceStore(
     }
 
     private fun load(): PerformanceSettings {
-        if (!prefs.contains(KEY_SCALE)) return deviceMode().settings.also(::save)
+        val stored = prefs.contains(KEY_RESOLUTION)
+        // An old install's scale; one of another type (a bad restore) reads as full size.
+        val oldScale =
+            when {
+                stored || !prefs.contains(RETIRED_RENDER_SCALE) -> null
+                else -> runCatching { prefs.getFloat(RETIRED_RENDER_SCALE, 1f) }.getOrDefault(1f)
+            }
+        if (!stored && oldScale == null) return deviceMode().settings.also(::save)
         val fallback = PerformanceSettings.HIGH
-        return PerformanceSettings(
-            renderScale = prefs.getFloat(KEY_SCALE, fallback.renderScale),
-            fpsCap = prefs.getInt(KEY_FPS, fallback.fpsCap),
-            marchScale = prefs.getFloat(KEY_MARCH, fallback.marchScale),
-            postFx = prefs.getBoolean(KEY_POST_FX, fallback.postFx),
-        )
+        val resolution =
+            oldScale?.let { PerformanceSettings.resolutionForScale(it, panel()) } ?: prefs.getInt(KEY_RESOLUTION, fallback.resolution)
+        val settings =
+            PerformanceSettings(
+                resolution = resolution,
+                fpsCap = prefs.getInt(KEY_FPS, fallback.fpsCap),
+                marchScale = prefs.getFloat(KEY_MARCH, fallback.marchScale),
+                postFx = prefs.getBoolean(KEY_POST_FX, fallback.postFx),
+            )
+        if (oldScale != null) save(settings)
+        return settings
     }
 
     private fun save(settings: PerformanceSettings) =
         prefs.edit {
-            putFloat(KEY_SCALE, settings.renderScale)
+            putInt(KEY_RESOLUTION, settings.resolution)
             putInt(KEY_FPS, settings.fpsCap)
             putFloat(KEY_MARCH, settings.marchScale)
             putBoolean(KEY_POST_FX, settings.postFx)
+            remove(RETIRED_RENDER_SCALE)
         }
 
     internal companion object {
-        const val KEY_SCALE = "perf_render_scale"
+        const val KEY_RESOLUTION = "perf_resolution"
         const val KEY_FPS = "perf_fps_cap"
         const val KEY_MARCH = "perf_march_scale"
         const val KEY_POST_FX = "perf_post_fx"
+
+        /** The render scale, a fraction of the screen (to 2026-11-27): read once to carry an old install over, then removed. */
+        private const val RETIRED_RENDER_SCALE = "perf_render_scale"
 
         /** "Adapt to frame time" (2026-11-18), retired 2026-11-25 with the frame governor: never read or written. */
         private const val RETIRED_ADAPT_FRAME_TIME = "perf_adapt_frame_time"
@@ -67,16 +89,17 @@ class PerformanceStore(
         private const val RETIRED_LIQUID_HOT = "perf_liquid_hot"
 
         /**
-         * Every key this store writes, and the two it no longer does. They describe this phone (picked from its
-         * RAM and performance class at first launch), so a backup leaves them out and a restore never carries
+         * Every key this store writes, and the ones it no longer does. They describe this phone (picked from its
+         * RAM, performance class and panel at first launch), so a backup leaves them out and a restore never carries
          * one phone's tuning onto another: the new phone keeps its own pick.
          */
         val KEYS: Set<String> =
             setOf(
-                KEY_SCALE,
+                KEY_RESOLUTION,
                 KEY_FPS,
                 KEY_MARCH,
                 KEY_POST_FX,
+                RETIRED_RENDER_SCALE,
                 RETIRED_ADAPT_FRAME_TIME,
                 RETIRED_ADAPTIVE,
                 RETIRED_LIQUID_HOT,
@@ -84,9 +107,10 @@ class PerformanceStore(
 
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
-                device(PrefType.FLOAT, KEY_SCALE, KEY_MARCH)
-                device(PrefType.INT, KEY_FPS)
+                device(PrefType.INT, KEY_RESOLUTION, KEY_FPS)
+                device(PrefType.FLOAT, KEY_MARCH)
                 device(PrefType.BOOLEAN, KEY_POST_FX)
+                retired(PrefType.FLOAT, RETIRED_RENDER_SCALE, backup = BackupClass.DEVICE)
                 retired(PrefType.BOOLEAN, RETIRED_ADAPT_FRAME_TIME, backup = BackupClass.DEVICE)
                 retired(PrefType.BOOLEAN, RETIRED_ADAPTIVE, backup = BackupClass.DEVICE)
                 retired(PrefType.INT, RETIRED_LIQUID_HOT, backup = BackupClass.DEVICE)
@@ -99,5 +123,5 @@ fun devicePerformanceMode(context: Context): PerformanceMode {
     val am = context.getSystemService(ActivityManager::class.java)
     val memory = ActivityManager.MemoryInfo().also { am?.getMemoryInfo(it) }
     val performanceClass = Build.VERSION.MEDIA_PERFORMANCE_CLASS
-    return PerformanceSettings.modeForDevice(memory.totalMem, am?.isLowRamDevice == true, performanceClass)
+    return PerformanceSettings.modeForDevice(memory.totalMem, am?.isLowRamDevice == true, performanceClass, DisplayPanel.atBoot(context))
 }

@@ -81,13 +81,16 @@ class StageView(
     }
 
     /**
-     * The render resolution the Android way: the window buffer is fixed to native's size for this view and the
-     * display's scaler fills the view, so every pass (scene, composite, UI blur) shades only the buffer's pixels.
-     * Full size follows the layout again. Restated on every layout size (rotation, a multi-window resize) and
-     * setting; the holder keeps it across a surface's recreation. Main thread, as `setFixedSize` asks.
+     * The render resolution the Android way: the window buffer is fixed to native's size for this view on its
+     * display's current mode, and the display's scaler fills the view, so every pass (scene, composite, UI blur)
+     * shades only the buffer's pixels. Full size follows the layout again. Restated on every layout size
+     * (rotation, a multi-window resize, a fold) and setting; the holder keeps it across a surface's recreation.
+     * Main thread, as `setFixedSize` asks.
      */
     private fun sizeBuffer() {
-        if (!PerfNative.perfBufferSize(stage.performance.renderScale, width, height, buffer)) return
+        val mode = display?.mode
+        val resolution = stage.performance.resolution
+        if (!PerfNative.perfBufferSize(resolution, mode?.physicalWidth ?: 0, mode?.physicalHeight ?: 0, width, height, buffer)) return
         if (buffer[0] == bufferWidth && buffer[1] == bufferHeight) return
         bufferWidth = buffer[0]
         bufferHeight = buffer[1]

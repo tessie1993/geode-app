@@ -7,6 +7,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.retain.RetainedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.LookSnapshot
@@ -100,10 +101,12 @@ fun VisualizerEngineBindings(
         visualsViewModel.attachResponderStage(visualizerView.stage)
         onDispose { visualsViewModel.attachResponderStage(null) }
     }
-    // Record copies this stage's frames; one leaving the screen ends a recording it was making.
-    DisposableEffect(visualizerView) {
-        studioViewModel.attachRecordStage(visualizerView.stage)
-        onDispose { studioViewModel.attachRecordStage(null) }
+    // Record copies this stage's frames. An Activity recreation keeps the stage and the recording; only the
+    // stage's end (the Activity finishing) ends a recording it was making.
+    val stage = visualizerView.stage
+    RetainedEffect(stage) {
+        studioViewModel.attachRecordStage(stage)
+        onRetire { studioViewModel.attachRecordStage(null) }
     }
     LaunchedEffect(Unit) {
         viewModel.vizState

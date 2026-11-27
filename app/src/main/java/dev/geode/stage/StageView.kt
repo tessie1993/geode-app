@@ -16,17 +16,19 @@ import dev.geode.engine.bridge.StageNative
  * view is attached, visible and opaque, the host's pause) and decides nothing: when the stage draws, sheds or
  * listens to the tilt sensor is native's answer.
  *
- * The stage outlives the surface and a detach (a second screen takes the view and gives it back), so whoever
- * made the view ends it with `stage.close()`.
+ * The stage outlives the surface, a detach (a second screen takes the view and gives it back) and the app's view
+ * itself (an Activity recreation builds a new view over the same stage), so whoever made the stage ends it with
+ * `stage.close()`.
  */
 class StageView(
     context: Context,
+    val stage: Stage,
     private val kind: Int = StageNative.STAGE_KIND_VIEW,
-    capFps: Float = DEFAULT_CAP_FPS,
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
     SensorEventListener {
-    val stage = Stage(context, kind, capFps)
+    /** A view with a stage of its own: the wallpaper's and the dream's. */
+    constructor(context: Context, kind: Int, capFps: Float) : this(context, Stage(context, kind, capFps), kind)
 
     private val sensors = context.getSystemService(SensorManager::class.java)
 
@@ -162,8 +164,4 @@ class StageView(
         sensor: Sensor?,
         accuracy: Int,
     ) = Unit
-
-    private companion object {
-        const val DEFAULT_CAP_FPS = 60f
-    }
 }

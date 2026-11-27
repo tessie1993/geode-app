@@ -76,8 +76,9 @@ float hybridDE(vec3 p, out vec4 tr) {
             break;
         }
         float n = (i % 2 == 0) ? 7.0 : 3.0;
-        dr = n * pow(r, n - 1.0) * dr + 1.0;
-        z = bulbPow(z, r, n, n, vec2(0.0)) + p;
+        float rn1 = pow(r, n - 1.0);
+        dr = n * rn1 * dr + 1.0;
+        z = bulbPow(z, r, rn1 * r, n, n, vec2(0.0)) + p;
         tr.x = min(tr.x, dot(z, z));
         tr.y = min(tr.y, abs(z.y));
         tr.z = min(tr.z, length(z.xz));

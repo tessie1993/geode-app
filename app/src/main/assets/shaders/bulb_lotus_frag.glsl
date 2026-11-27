@@ -89,9 +89,10 @@ float lotusDE(vec3 p, out vec4 tr) {
         }
         float lat = asin(clamp(z.y / r, -1.0, 1.0)) * gLat;
         float lon = atan(z.z, z.x + 1e-12) * BL_M + gTwirl;
-        dr = grow * pow(r, BL_M - 1.0) * dr + 1.0;
+        float rm1 = pow(r, BL_M - 1.0);
+        dr = grow * rm1 * dr + 1.0;
         float cl = cos(lat);
-        z = pow(r, BL_M) * vec3(cl * cos(lon), sin(lat), cl * sin(lon)) + p;
+        z = rm1 * r * vec3(cl * cos(lon), sin(lat), cl * sin(lon)) + p;
         tr.x = min(tr.x, dot(z, z));
         tr.y = min(tr.y, abs(z.y));
         tr.z = min(tr.z, length(z.xz));

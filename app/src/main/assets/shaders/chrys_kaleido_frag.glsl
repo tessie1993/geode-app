@@ -1,6 +1,7 @@
 #version 300 es
 #define VIEW_OWNS_SHAPE
 precision highp float;
+precision highp int;
 precision highp sampler2D;
 
 in vec2 vUv;

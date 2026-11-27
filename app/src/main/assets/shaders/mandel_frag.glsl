@@ -3,6 +3,7 @@
 // wave), not on the rays, so view() must not bend the picture a second time.
 #define VIEW_OWNS_SHAPE
 precision highp float;
+precision highp int;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
 // (Mali) every read is clamped and quantized.

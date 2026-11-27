@@ -1,7 +1,7 @@
 // Host-side checks for the process-wide shader overrides (core/viz/glsl/ShaderOverrides, #364). Built and run
 // by CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
-// What is pinned: one table every renderer reads (live, export, wallpaper, dream), so an edit set once is
+// What is pinned: one table every renderer reads (live, export), so an edit set once is
 // what each of them builds; an empty source clears; the generation moves on every change and only then,
 // so a renderer re-applies overrides to its resident scenes exactly when they changed; and a snapshot is a
 // copy, so a renderer working through one never sees a half-applied later edit.
@@ -87,7 +87,7 @@ void snapshotIsACopy() {
 }
 
 // Kills: the table or the generation counter made per thread (`static thread_local`), i.e. per renderer
-// again. The app's main thread writes; the live, export, wallpaper and dream renderers read on their own
+// again. The app's main thread writes; the live and export renderers read on their own
 // GL threads, and one may be created long after the edit.
 void everyRendererThreadReadsTheOneTable() {
     so::clearAll();
@@ -117,12 +117,12 @@ void everyRendererThreadReadsTheOneTable() {
     check(wallpaper == live, "the wallpaper's thread reads the same edit as the live one");
     check(liveGeneration == generationAfterWrite && wallpaperGeneration == generationAfterWrite,
           "every thread sees the one generation, so each renderer notices the same change");
-    // A renderer created after a later replace (the dream starting) builds the replaced source.
+    // A renderer created after a later replace (a renderer starting) builds the replaced source.
     so::set("neon_chrome_sea", "void main(){ /* v2 */ }");
-    std::string dream;
-    std::thread dreamGl([&] { dream = so::get("neon_chrome_sea"); });
-    dreamGl.join();
-    check(dream == "void main(){ /* v2 */ }", "a renderer started after a replace reads the replace");
+    std::string late;
+    std::thread lateGl([&] { late = so::get("neon_chrome_sea"); });
+    lateGl.join();
+    check(late == "void main(){ /* v2 */ }", "a renderer started after a replace reads the replace");
 }
 
 // Kills: lookup by lower_bound / upper_bound or a prefix match (an override for glass_10 drawn by glass_1),

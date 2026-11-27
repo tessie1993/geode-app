@@ -17,8 +17,8 @@
 #include "stage/LiveClient.hpp"
 #include "stage/StageLifecycle.hpp"
 #include "stage/android/StageThread.hpp"
+#include "stage/android/SwappyHost.hpp"
 #include "util/Log.hpp"
-#include "viz/SurfaceRun.hpp"
 
 namespace stage = geode::stage;
 using geode::stage::platform::StageThread;
@@ -71,9 +71,8 @@ public:
     void surfaceChanged(int width, int height) override { geode_viz_surface_changed(v_, width, height); }
     uint32_t frame(const void* ring, float pacedFps, float capFps) override {
         return static_cast<uint32_t>(
-            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, vsyncNs_, presentNs_, true));
+            geode::api::vizFrameAt(v_, static_cast<const geode_pcm_ring*>(ring), pacedFps, capFps, presentNs_, true));
     }
-    void frameTime(int64_t vsyncNs) override { vsyncNs_ = vsyncNs; }
     void framePresent(int64_t presentNs) override { presentNs_ = presentNs; }
     void restartClock() override { geode::api::vizRestartClock(v_); }
     void trimSpares() override { geode_viz_trim_spares(v_); }
@@ -127,7 +126,6 @@ private:
     AAssetManager* assets_;
     geode_export_pass* mark_ = nullptr;  // stage thread
     int64_t presentNs_ = 0;  // stage thread: the next frame's expected presentation time (framePresent), 0 for none
-    int64_t vsyncNs_ = 0;  // stage thread: the next frame's vsync time (frameTime), 0 for none
 };
 
 struct Stage {
@@ -284,12 +282,6 @@ int geode_stage_gyro_listens(geode_stage* s, int wanted) {
     return on ? 1 : 0;
 }
 
-int geode_stage_set_surface(geode_stage* s, unsigned surface_flags, long long animate_until_ms, long long now_ms) {
-    const geode::viz::surface::RunMode mode = geode::viz::surface::mode(surface_flags, animate_until_ms, now_ms);
-    onThread(s, "geode_stage_set_surface", [&](StageThread& t) { t.setMode(mode); });
-    return static_cast<int>(mode);
-}
-
 void geode_stage_pause(geode_stage* s) {
     if (const std::shared_ptr<Stage> stage = find(s)) stage->paused.store(true);
     onThread(s, "geode_stage_pause", [](StageThread& t) { t.setPaused(true); });
@@ -311,6 +303,19 @@ void geode_stage_set_cap(geode_stage* s, float cap_fps) {
 unsigned geode_stage_state(const geode_stage* s) {
     const std::shared_ptr<Stage> stage = find(s);
     return stage ? stage->thread->state() : 0u;
+}
+
+long long geode_stage_frame_budget_ns(const geode_stage* s) {
+    const std::shared_ptr<Stage> stage = find(s);
+    return stage ? stage->thread->frameBudgetNs() : 0;
+}
+
+void geode_stage_pacing_attach(void* env, void* activity) {
+    geode::stage::platform::SwappyHost::process().attach(static_cast<JNIEnv*>(env), static_cast<jobject>(activity));
+}
+
+void geode_stage_pacing_detach(void* env, void* activity) {
+    geode::stage::platform::SwappyHost::process().detach(static_cast<JNIEnv*>(env), static_cast<jobject>(activity));
 }
 
 

@@ -5,10 +5,14 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Handler
+import android.os.HandlerThread
+import android.view.Display
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import dev.geode.data.PerformanceSettings
+import dev.geode.engine.bridge.PerfNative
 import dev.geode.engine.bridge.StageNative
 import java.lang.ref.WeakReference
 
@@ -27,14 +31,17 @@ class StageView(
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
     SensorEventListener {
-    /** A view with a stage of its own: the wallpaper's and the dream's. */
-    constructor(context: Context, kind: Int, capFps: Float) : this(context, Stage(context, kind, capFps))
-
     private val sensors = context.getSystemService(SensorManager::class.java)
 
     // The game rotation vector, not the plain one: no magnetometer, so a speaker cannot swing the view.
     private val tilt = sensors?.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
+
+    @Volatile
     private var tiltOn = false
+    private var tiltThread: HandlerThread? = null
+
+    @Volatile
+    private var tiltDisplay: Display? = null
 
     /** The camera's "Tilt phone to look" setting; native says when the sensor runs. */
     var gyroWanted: Boolean = false
@@ -50,10 +57,51 @@ class StageView(
 
     private val current get() = stage.view.get() === this
 
-    /** Settings › Performance for this surface: quality and the fps cap. */
-    fun applyPerformance(settings: PerformanceSettings) {
+    // The window buffer's size as last fixed (0: not yet), and the blur region as last set, in this view's terms.
+    private val buffer = IntArray(2)
+    private var bufferWidth = 0
+    private var bufferHeight = 0
+    private val blur = FloatArray(BLUR_FIELDS)
+
+    /**
+     * Settings › Performance for this surface: quality, the render resolution (the window buffer's size) and the
+     * fps cap, [capFps] when the host paces to its own (the dream's).
+     */
+    fun applyPerformance(
+        settings: PerformanceSettings,
+        capFps: Float = settings.fpsCap.toFloat(),
+    ) {
         stage.performance = settings
-        stage.capFps = settings.fpsCap.toFloat()
+        stage.capFps = capFps
+        sizeBuffer()
+    }
+
+    override fun onSizeChanged(
+        w: Int,
+        h: Int,
+        oldw: Int,
+        oldh: Int,
+    ) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        sizeBuffer()
+    }
+
+    /**
+     * The render resolution the Android way: the window buffer is fixed to native's size for this view on its
+     * display's current mode, and the display's scaler fills the view, so every pass (scene, composite, UI blur)
+     * shades only the buffer's pixels. Full size follows the layout again. Restated on every layout size
+     * (rotation, a multi-window resize, a fold) and setting; the holder keeps it across a surface's recreation.
+     * Main thread, as `setFixedSize` asks.
+     */
+    private fun sizeBuffer() {
+        val mode = display?.mode
+        val resolution = stage.performance.resolution
+        if (!PerfNative.perfBufferSize(resolution, mode?.physicalWidth ?: 0, mode?.physicalHeight ?: 0, width, height, buffer)) return
+        if (buffer[0] == bufferWidth && buffer[1] == bufferHeight) return
+        bufferWidth = buffer[0]
+        bufferHeight = buffer[1]
+        if (bufferWidth == width && bufferHeight == height) holder.setSizeFromLayout() else holder.setFixedSize(bufferWidth, bufferHeight)
+        if (blur[4] > 0f) sendBlur()
     }
 
     /**
@@ -72,9 +120,23 @@ class StageView(
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    ) = stage.setUiBlurRegion(left, top, right, bottom, strength, cornerPx)
+    ) {
+        blur[0] = left
+        blur[1] = top
+        blur[2] = right
+        blur[3] = bottom
+        blur[4] = strength
+        blur[5] = cornerPx
+        sendBlur()
+    }
 
-    /** The host's pause and resume (the activity's, or the dream's). */
+    /** The edges are fractions of the view, so they hold; the corner is in pixels, so it is the buffer's. */
+    private fun sendBlur() {
+        val toBuffer = if (width > 0 && bufferWidth > 0) bufferWidth.toFloat() / width else 1f
+        stage.setUiBlurRegion(blur[0], blur[1], blur[2], blur[3], blur[4], blur[5] * toBuffer)
+    }
+
+    /** The host's pause and resume (the activity's). */
     fun onPause() {
         stage.pause()
         syncTilt()
@@ -134,9 +196,8 @@ class StageView(
         if (isAttachedToWindow) restate(attached = true)
     }
 
-    /** What the view sees of itself, as is; a surface stage's rule is its host's ([Stage.setSurface]). */
+    /** What the view sees of itself, as is. */
     private fun restate(attached: Boolean) {
-        if (stage.kind != StageNative.STAGE_KIND_VIEW) return
         val flags =
             (if (attached) StageNative.STAGE_VIEW_ATTACHED else 0) or
                 (if (windowVisibility == VISIBLE) StageNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or
@@ -152,21 +213,36 @@ class StageView(
         if (on == tiltOn) return
         // Only a registration the sensor service took counts as on, so a refused one is tried again next sync.
         if (on) {
-            tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) == true
+            val thread = HandlerThread("GeodeTilt").apply { start() }
+            tiltDisplay = display
+            tiltOn = sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME, Handler(thread.looper)) == true
+            if (tiltOn) {
+                tiltThread = thread
+            } else {
+                thread.quitSafely()
+            }
         } else {
             tiltOn = false
             sensors?.unregisterListener(this)
+            tiltThread?.quitSafely()
+            tiltThread = null
+            tiltDisplay = null
         }
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         if (!tiltOn) return // one queued as the sensor stopped would start a new session
         val v = event.values
-        stage.gyroPush(v[0], v[1], v[2], v[3], display?.rotation ?: 0)
+        stage.gyroPush(v[0], v[1], v[2], v[3], tiltDisplay?.rotation ?: 0)
     }
 
     override fun onAccuracyChanged(
         sensor: Sensor?,
         accuracy: Int,
     ) = Unit
+
+    private companion object {
+        /** [setUiBlurRegion]'s left, top, right, bottom, strength and corner. */
+        const val BLUR_FIELDS = 6
+    }
 }

@@ -83,6 +83,7 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         // Before anything reads it this frame. No analysis yet (nothing heard) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
+        latchTuning();
         // The engine settings, latched once per frame for the resolver.
         frameSettings_ = latchEngineSettings();
         sound::SharedAnalysis* heard = sharedSound_ ? sharedSound_.get() : ownSound_.get();
@@ -533,6 +534,10 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     heldScene_ = &scene;
     heldPose_ = camera_.pose();
+    scene.setParams(p);
+    deliverPcm(scene);
+    updateScene(scene, sceneSound(p), dt);
+    scene.simulate();
     glBindFramebuffer(GL_FRAMEBUFFER, fboA_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
@@ -541,9 +546,6 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
-    scene.setParams(p);
-    deliverPcm(scene);
-    updateScene(scene, sceneSound(p), dt);
     // After the trail pass: its echo trades fboA_'s framebuffer for its own.
     const SceneTarget target(fboA_.fbo(), renderWidth_, renderHeight_);
     scene.draw(static_cast<float>(timeSeconds_));
@@ -665,10 +667,6 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // scene clock's scale (never backwards).
     const float musicDt = wallDt * musicRate_;
     float dt = sceneClock_.sim(musicDt);
-    if (userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
-        applyRenderScale();
-        restartClock();
-    }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
     // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
     // at the pause (trimSpares).
@@ -728,9 +726,12 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // A shader style paints its whole frame, so its Trails cannot live in the scene target: they are
-    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
-    const bool trails = liveLiquid_ == liquid::Mode::Off && p.trails && scene->family() == SceneFamily::Shader &&
-                        scene->trailRetention(p) <= 0.0f && liquidPass_.ensure(renderWidth_, renderHeight_);
+    // the feedback pass's sustain. The particle styles keep their own trail (trailRetention). Without
+    // Performance's extra effects the pass does not run: Trails are one of the optional passes.
+    const bool trails = liquid::shaderTrailsRun(liveLiquid_ == liquid::Mode::Off, p.trails,
+                                                scene->family() == SceneFamily::Shader, scene->trailRetention(p),
+                                                userPostFx_.load(std::memory_order_relaxed)) &&
+                        liquidPass_.ensure(renderWidth_, renderHeight_, false);
     if (!trails) trailsWereOn_ = false;
     if (trails || liveLiquid_ != liquid::Mode::Off) {
         feedbackIdleSeconds_ = 0.0f;
@@ -774,7 +775,6 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         if (const GLuint f = uiBlurPass_.beginFrame(blurRegion, width_, height_)) frameFbo = f;
     }
     composite(p, progress, frameFbo, shown);
-    drawEdgeGlow(frameFbo, timeSeconds, dt);
     if (compositeHook_) compositeHook_(frameFbo, width_, height_);
     if (frameFbo != targetFbo || blurRegion.active()) uiBlurPass_.draw(blurRegion, targetFbo, width_, height_, quadVao_.get());
     updatePcmWanted();
@@ -805,7 +805,7 @@ bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wall
                        layerScene_ == nullptr && outgoingScene_ == nullptr && !trails && !liquidOn() &&
                        diveMix_ == 0.0f && !p.endlessZoom && CameraRig::flatDive(p) == 0.0f &&
                        !physics::planFor(p).any() && smearWarp_ == 0.0f && !smearLinger_.live() &&
-                       !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
+                       !uiBlurOn_.load(std::memory_order_relaxed) &&
                        !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
     stillSeconds_ = quiet ? stillSeconds_ + wallDt : 0.0f;
     // Clock control's freeze with "hold last frame": the scene clock stands at 0, so the picture is the one on the
@@ -814,7 +814,7 @@ bool Renderer::stillRepeats(const Scene& scene, const SceneParams& p, float wall
     const bool frozen = sceneClock_.holds() && otherSame && frameStill_ && framePcmCount_ == 0 &&
                         heldScene_ == &scene && !sceneJustSwitched_ &&
                         !requestedPending_ && layerScene_ == nullptr && outgoingScene_ == nullptr &&
-                        !uiBlurOn_.load(std::memory_order_relaxed) && !edgeGlowOn_.load(std::memory_order_relaxed) &&
+                        !uiBlurOn_.load(std::memory_order_relaxed) &&
                         !offscreen_.load(std::memory_order_relaxed) && targetFbo == 0;
     return repeatAllowed_ && ((quiet && stillSeconds_ >= kRepeatAfterSeconds) || frozen);
 }
@@ -855,26 +855,6 @@ bool Renderer::uiBlurWanted(UiBlurRegion& region) {
         region = uiBlurRegion_;
     }
     return region.active();
-}
-
-void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
-    // Off, the pass still hears the switch, so turning it on again starts its envelope from rest.
-    if (!edgeGlowOn_.load(std::memory_order_relaxed)) {
-        edgeGlowPass_.setOptions(frame::edge_glow::Options{});
-        return;
-    }
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        edgeGlowPass_.setOptions(edgeGlowOptions_);
-    }
-    // The renderer has no surface kind of its own yet: the wallpaper is the only caller that turns the
-    // glow on, so an on glow means a wallpaper frame, unless this renderer is an export's.
-    const frame::Surface surface =
-        offscreen_.load(std::memory_order_relaxed) ? frame::Surface::Export : frame::Surface::Wallpaper;
-    const frame::FrameCtx ctx{width_, height_, timeSeconds, dt, surface, &soundFrame_};
-    if (!edgeGlowPass_.wants(ctx)) return;
-    edgeGlowPass_.prepare(ctx);
-    edgeGlowPass_.draw(frame::PassInputs{}, frame::PassTarget{targetFbo, width_, height_});
 }
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt, float inputDt) {
@@ -1152,7 +1132,7 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     const liquid::Plan plan = liquid::planFor(liveLiquid_);
     const int w = std::max(static_cast<int>(static_cast<float>(renderWidth_) * plan.liquidScale), 1);
     const int h = std::max(static_cast<int>(static_cast<float>(renderHeight_) * plan.liquidScale), 1);
-    if (!liquidPass_.ensure(w, h)) return 0;
+    if (!liquidPass_.ensure(w, h, true)) return 0;
     fluid::FlowField* ff = overlays_.flow();
     const bool flowing = ff != nullptr && ff->available() && plan.velocityGrid > 0;
     const bool threeD = scene.drawsCamera();
@@ -1163,6 +1143,7 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.velocityTex = flowing ? ff->velocityTex() : compositePass_.zeroTex();
     f.velScaleX = flowing ? ff->velScaleX() : 0.0f;
     f.velScaleY = flowing ? ff->velScaleY() : 0.0f;
+    f.flowing = flowing;
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;

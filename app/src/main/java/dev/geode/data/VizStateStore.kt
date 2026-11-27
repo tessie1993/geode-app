@@ -64,7 +64,7 @@ internal class VizStateStore(
     }
 
     private companion object {
-        // The keys are LookStore's, which the wallpaper, the dream and Cast read the saved look through.
+        // The keys are LookStore's, which Cast reads the saved look through.
         const val KEY_LIVE_STATE = LookStore.KEY_LIVE_STATE
         const val KEY_TRANSITION_ID = LookStore.KEY_TRANSITION_ID
         const val KEY_TRANSITION_DURATION_SEC = LookStore.KEY_TRANSITION_DURATION_SEC

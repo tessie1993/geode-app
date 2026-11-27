@@ -202,7 +202,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-        // Oboe ships as a Prefab AAR: the root CMakeLists.txt finds it with find_package(oboe).
+        // Oboe and games-frame-pacing ship as Prefab AARs: the root CMakeLists.txt finds them with find_package.
         prefab = true
     }
 }
@@ -273,6 +273,9 @@ dependencies {
     implementation(libs.media3.muxer)
     // The native playback output (core/audio/output): liboboe.so, linked by libgeode.so through Prefab.
     implementation(libs.oboe)
+    // Android Frame Pacing (Swappy): the live stage's swap (core/stage/android/SwappyHost), linked statically into
+    // libgeode.so through Prefab (games-frame-pacing::swappy_static), so no extra .so is packaged.
+    implementation(libs.games.frame.pacing)
     implementation(libs.documentfile)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -299,6 +302,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.billing)
     implementation(libs.profileinstaller)
+    implementation(libs.metrics.performance)
+    implementation(libs.tracing)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

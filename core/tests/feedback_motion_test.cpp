@@ -389,6 +389,99 @@ void liquidDiveIsTheFeedbackTransform() {
     check(finite(uvFor(bad, {0.3f, 0.6f}, 1.0f, 0.0f)), "a broken dive cannot poison the sample");
 }
 
+// uvFor as it was before its per-frame terms moved to derive() (and lib_feedback's uniforms with them):
+// every term worked out per sample.
+Uv perSampleUvFor(const FrameMotion& f, Uv uv, float aspect, float time) {
+    const float aspX = aspect < 1.0f ? aspect : 1.0f;
+    const float aspY = aspect > 1.0f ? 1.0f / aspect : 1.0f;
+    const float x = uv.u * 2.0f - 1.0f;
+    const float y = uv.v * 2.0f - 1.0f;
+    const float rad = std::sqrt(x * x * aspX * aspX + y * y * aspY * aspY);
+    const float zoom2 = std::pow(f.zoom, std::pow(f.zoomExp, rad * 2.0f - 1.0f));
+    float u = x * aspX * 0.5f / zoom2 + 0.5f;
+    float v = -y * aspY * 0.5f / zoom2 + 0.5f;
+    u = (u - f.cx) / f.sx + f.cx;
+    v = (v - f.cy) / f.sy + f.cy;
+    const float wt = time * f.warpSpeed;
+    const float si = 1.0f / f.warpScale;
+    const float f0 = 11.68f + 4.0f * std::cos(wt * 1.413f + 10.0f);
+    const float f1 = 8.77f + 3.0f * std::cos(wt * 1.113f + 7.0f);
+    const float f2 = 10.54f + 3.0f * std::cos(wt * 1.233f + 3.0f);
+    const float f3 = 11.49f + 4.0f * std::cos(wt * 0.933f + 5.0f);
+    u += f.warp * std::sin(wt * 0.333f + si * (x * f0 - y * f3));
+    v += f.warp * std::cos(wt * 0.375f - si * (x * f2 + y * f1));
+    u += f.warp * std::cos(wt * 0.753f - si * (x * f1 - y * f2));
+    v += f.warp * std::sin(wt * 0.825f + si * (x * f0 + y * f3));
+    const float u2 = u - f.cx;
+    const float v2 = v - f.cy;
+    u = u2 * std::cos(f.rot) - v2 * std::sin(f.rot) + f.cx;
+    v = u2 * std::sin(f.rot) + v2 * std::cos(f.rot) + f.cy;
+    u -= f.dx;
+    v -= f.dy;
+    u = (u - 0.5f) / aspX + 0.5f;
+    v = (v - 0.5f) / aspY + 0.5f;
+    return {u, 1.0f - v};
+}
+
+// The frame's terms, derived once, land every sample where the per-sample formula did; the stages they
+// leave out are the ones that change nothing.
+void derivedTermsMatchThePerSampleFormula() {
+    FrameMotion moving;
+    moving.zoom = 1.03f;
+    moving.zoomExp = 1.7f;
+    moving.rot = 0.02f;
+    moving.cx = 0.43f;
+    moving.cy = 0.58f;
+    moving.dx = 0.004f;
+    moving.dy = -0.003f;
+    moving.sx = 1.01f;
+    moving.sy = 0.99f;
+    moving.warp = 0.006f;
+    moving.warpScale = 1.6f;
+    moving.warpSpeed = 0.8f;
+    FrameMotion zoomOnly;  // the Trails' echo: zoom alone, zoomExp 1
+    zoomOnly.zoom = std::pow(2.0f, 0.3f * kTrailZoomOctaves / 60.0f);
+    FrameMotion warpOnly;
+    warpOnly.warp = 0.01f;
+    warpOnly.warpScale = 0.7f;
+    for (const FrameMotion& f : {moving, zoomOnly, warpOnly, FrameMotion{}}) {
+        for (float a : kAspects) {
+            for (float t : {0.0f, 3.7f, 912.25f}) {
+                const FrameTerms terms = derive(f, t);
+                for (float u = 0.0f; u <= 1.0f; u += 0.125f) {
+                    for (float v = 0.0f; v <= 1.0f; v += 0.125f) {
+                        check(near(uvFor(terms, {u, v}, a), perSampleUvFor(f, {u, v}, a, t), 2e-6f),
+                              "the derived terms sample where the per-sample formula did");
+                    }
+                }
+            }
+        }
+    }
+    check(derive(FrameMotion{}, 5.0f).flags == 0, "the identity runs no stage");
+    check(derive(perFrame(trailMotion({}, playing(1.0f), false), 1.0f / 60.0f), 5.0f).flags == 0,
+          "default Trails (no echo zoom, no warp) run no stage, playing or not");
+    check(derive(zoomOnly, 0.0f).flags == kMoves, "a plain zoom neither shapes by radius nor warps");
+    check(derive(warpOnly, 0.0f).flags == (kMoves | kWarps), "a warp alone warps");
+    check(derive(moving, 0.0f).flags == (kMoves | kRadialZoom | kWarps), "a full motion runs every stage");
+    FrameMotion turned;
+    turned.rot = 0.01f;
+    check(derive(turned, 0.0f).flags == kMoves, "a turn alone moves");
+    FrameMotion broken;
+    broken.zoom = std::nanf("");
+    check((derive(broken, 0.0f).flags & kMoves) != 0, "a NaN is never taken for the identity");
+    check(finite(uvFor(derive(broken, 0.0f), {0.3f, 0.5f}, 1.0f)), "and still cannot poison the sample");
+    const Uv p{0.3125f, 0.6875f};
+    const Uv same = uvFor(derive(FrameMotion{}, 1.0f), p, 0.5f);
+    check(same.u == p.u && same.v == p.v, "the identity samples exactly where it draws");
+}
+
+void passFlagsLeaveOutOnlyWhatChangesNothing() {
+    check(liquid::passFlags(false, 0.0f) == 0, "Trails: no flow, no born disc");
+    check(liquid::passFlags(true, 0.0f) == liquid::kPassFlow, "the flow alone");
+    check(liquid::passFlags(false, 0.4f) == liquid::kPassBorn, "the born disc alone");
+    check(liquid::passFlags(false, std::nanf("")) == liquid::kPassBorn, "a NaN gain is not taken for 0");
+}
+
 }  // namespace
 
 int main() {
@@ -406,6 +499,8 @@ int main() {
     trailsKeepTheirOwnMotion();
     trailsAreStillInSilence();
     liquidDiveIsTheFeedbackTransform();
+    derivedTermsMatchThePerSampleFormula();
+    passFlagsLeaveOutOnlyWhatChangesNothing();
     if (failures > 0) {
         std::printf("%d feedback motion check(s) failed\n", failures);
         return 1;

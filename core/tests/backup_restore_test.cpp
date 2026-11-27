@@ -219,7 +219,7 @@ void restore() {
     const auto sections = layout();  // held: a range-for over a temporary's member dangles
     for (const auto& info : sections[0].prefsEntries) all.stagedPrefs[info.path] = "{}";
     const RestorePlan s = planRestore(all);
-    check(s.sections[0].prefs.size() == 7 && s.sections[0].prefs[6].file == "geode-wallpaper", "settings' seven files in order");
+    check(s.sections[0].prefs.size() == 6 && s.sections[0].prefs[5].file == "geode-background", "settings' six files in order");
     // A key the phone has in a device-local slot is never removed even when the backup holds a value for it.
     RestoreRequest local = base();
     local.requested = {"settings"};

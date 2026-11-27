@@ -647,6 +647,9 @@ float wTerrain(vec3 p, out vec4 trap) {
 
 /** The chain's matter at distance d joined with the landscape; the nearer one owns the trap. */
 float wWithTerrain(vec3 p, float d) {
+    float relief = WG_TERRAIN * WG_TERRAIN_HEIGHT;
+    float base = WG_FLOOR_Y - (1.0 - WG_TERRAIN) * WG_TERRAIN_SINK;
+    if (p.y - (base + relief * (1.0 + WG_TERRAIN_WALL)) >= d && d <= WG_TERRAIN_FAR) return d;
     vec4 trap;
     float t = wTerrain(p, trap);
     if (t < d) gWTrap = trap;

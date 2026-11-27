@@ -3,7 +3,7 @@
 // core/viz/CameraRig.cpp steps the pose on the CPU once per frame from the
 // final SceneParams (camFly, camPath, camPush, camYaw, ... which reaction
 // routes and LFOs modulate) and springs toward them, so everything here is
-// already smoothed. Live view, wallpaper, dream and export all run the same
+// already smoothed. Live view and export both run the same
 // rig, so an exported video flies the path the screen did.
 //
 // A style that reads uCamBasis is treated as drawing the camera itself; the

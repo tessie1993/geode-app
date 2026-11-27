@@ -11,6 +11,7 @@ out vec4 fragColor;
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+#define GLASS_ENVS (GLASS_ENV_BIT_FRACTAL)
 //#include lib_glass
 
 // Glass Marble: the flat style's one big cat's-eye marble, now a whole drift

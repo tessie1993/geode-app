@@ -1,40 +1,40 @@
-// The motion uniforms every style may still name. All are CONSTANT but the two flow clocks.
+// The motion values every style may still name. All are compile-time CONSTANTS but the flow clocks.
 //
 // The CPU-side motion field that used to compute them (relative band levels, brightness, a hue driver, a bar
 // wave, an orbit, a drift angle, a breath and the flow clocks) is gone, and so is the Note & key layer behind
-// the uKnob array: the music no longer moves a picture through them. ShaderScene::uploadMotion holds each
-// uniform below at a fixed value, except uFlowPhase and uFlowTime, which advance at one fixed base rate
-// (never for loudness), so a style that still reads one draws a steady, finite number, never garbage. A style moves on the sound only through what it reads from lib_sound
-// (SND_*, sndShaped(SND_LOW) and its siblings, the SND_*_PRESENCE trends) and through the reaction routes
-// the user can see and edit.
+// the uKnob array: the music no longer moves a picture through them. Each one below is a `const` at the value
+// ShaderScene used to upload, so the compiler folds every read and the dead paths behind it (a uniform it
+// could not). Only uFlowPhase, uFlowTime and uSoundTimeSped stay uniforms; the flow clocks advance at one fixed
+// base rate (never for loudness). The u prefix is kept so the styles that still name one need no edit. A style
+// moves on the sound only through what it reads from lib_sound (SND_*, sndShaped(SND_LOW) and its siblings,
+// the SND_*_PRESENCE trends) and through the reaction routes the user can see and edit.
 //
-// Do not add a read of anything below: delete the ones a style has. A style that includes this file and
-// reads nothing from it costs nothing: the linker drops the unread uniforms and the uploads become no-ops.
+// Do not add a read of anything below: delete the ones a style has.
 // Includes this AFTER lib_scene_uniforms (it reads uTime) and before lib_palette.
 
 // ---- relative levels, timbre and key (constants) ---------------------------
 
 /** Held at 1: the typical loudness the relative level used to be measured against. */
-uniform float uEnergyRel;
+const float uEnergyRel = 1.0;
 /** Held at 0. */
-uniform float uMotionBright;
+const float uMotionBright = 0.0;
 /** Held at 0.5. */
-uniform float uHarmony;
+const float uHarmony = 0.5;
 /** Held at 0: no hue driver. */
-uniform float uKeyHue;
+const float uKeyHue = 0.0;
 /** Held at 0: the hue driver is worth nothing, so uKeyHue's effect is gated off. */
-uniform float uKeyStrength;
+const float uKeyStrength = 0.0;
 
 // ---- bar wave, orbit, drift, breath (constants) ----------------------------
 
 /** Held at 0.5, the wave's middle. */
-uniform float uBarOsc;
+const float uBarOsc = 0.5;
 /** Held at (0, 0). */
-uniform vec2 uOrbit;
+const vec2 uOrbit = vec2(0.0, 0.0);
 /** Held at 0: nothing turns a style on its own. */
-uniform float uDrift;
+const float uDrift = 0.0;
 /** Held at 1: no scale wobble. */
-uniform float uBreath;
+const float uBreath = 1.0;
 
 /**
  * A steady travel phase in seconds, advancing at one fixed base rate (0.08 a second) whether the music plays
@@ -59,24 +59,24 @@ uniform vec3 uSoundTimeSped;
 // ---- legacy: constant; delete the readers, then these --------------------
 //
 // The spike-triggered reaction this uniform group used to carry. Nothing
-// writes these any more; ShaderScene uploads the neutral constant every
-// frame so a style that still reads them compiles
-// and draws exactly the picture it did with a silent, un-spiking input.
+// writes these any more; each is the neutral constant, so a style that still
+// reads them compiles and draws exactly the picture it did with a silent,
+// un-spiking input.
 
 /**
  * Unit vector, the current direction of travel. Held at (1, 0): nothing turns
  * it any more.
  */
-uniform vec2 uMoveDir;
+const vec2 uMoveDir = vec2(1.0, 0.0);
 
 /** 0..1, held at 0: nothing re-rolls the spawn identity any more. */
-uniform float uSpawnSeed;
+const float uSpawnSeed = 0.0;
 
 /** Seconds since uSpawnSeed was last rolled. Held at 1000, well past spawnGrow()'s horizon, so a spawn always reads as fully grown in. */
-uniform float uSpawnAge;
+const float uSpawnAge = 1000.0;
 
 /** 0..1, the "which fractal" dial. Held at 0: nothing sends it to a new plateau any more. */
-uniform float uFormPhase;
+const float uFormPhase = 0.0;
 
 // ---- helpers ---------------------------------------------------------------
 

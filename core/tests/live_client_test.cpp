@@ -7,11 +7,14 @@
 // context; a tee opens on the stage thread, fails without a context, and closes exactly once, on its stop or on
 // the stage's release; nothing is queued after the release, and a renderer released is no longer handed to other
 // threads. A look's parts: core/tests/look_snapshot_test.cpp.
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "stage/LiveClient.hpp"
@@ -42,12 +45,16 @@ struct Seen {
     int starts = 0, fails = 0, stops = 0;
     bool freed = false;
     std::function<void()> during;  // runs inside a frame, as another thread's call would
+    std::function<void()> whenFreed;
 };
 
 class Viz final : public LiveViz {
 public:
     explicit Viz(Seen& seen) : s_(seen) {}
-    ~Viz() override { s_.freed = true; }
+    ~Viz() override {
+        if (s_.whenFreed) s_.whenFreed();
+        s_.freed = true;
+    }
     void surfaceCreated() override { s_.log.push_back("created"); }
     void surfaceChanged(int width, int height) override { s_.log.push_back("size " + std::to_string(width) + "x" + std::to_string(height)); }
     uint32_t frame(const void* ring, float, float) override {
@@ -253,6 +260,22 @@ void releases() {
     check(bare.seen.log.empty() && bare.seen.freed, "without a context the scenes are left to the context's end");
 }
 
+void aCallIsNotMadeToWaitForTheRelease() {
+    Rig r;
+    std::promise<void> freeing, finish;
+    r.seen.whenFreed = [&] {
+        freeing.set_value();
+        finish.get_future().wait();
+    };
+    std::thread stage([&] { r.client.release(false); });
+    freeing.get_future().wait();
+    std::future<bool> call = std::async(std::launch::async, [&] { return r.client.lockViz(); });
+    const bool answered = call.wait_for(std::chrono::seconds(5)) == std::future_status::ready;
+    finish.set_value();
+    stage.join();
+    check(answered && !call.get(), "a call that comes while the renderer is freed is turned away, not made to wait for it");
+}
+
 }  // namespace
 
 int main() {
@@ -263,6 +286,7 @@ int main() {
     recordTee();
     aLostContextEndsTheRecording();
     releases();
+    aCallIsNotMadeToWaitForTheRelease();
     if (failures) {
         std::fprintf(stderr, "%d live client check(s) failed\n", failures);
         return 1;

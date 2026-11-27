@@ -98,10 +98,10 @@ void Particles::step(float dt, GLuint velocityTex, float aspect, float flowScale
     quad_.bind();
     if (!seeded_) {
         glUseProgram(seed_.program());
-        glUniform1f(seed_.loc("uAspect"), aspect);
-        glUniform4fv(seed_.loc("uSpawns"), Choreography::kMaxSpawn, spawnData_.data());
-        glUniform1i(seed_.loc("uSpawnCount"), spawnCount_);
-        glUniform1f(seed_.loc("uLife"), std::clamp(life, 1.0f, 30.0f));
+        glUniform1f(seed_.loc(Uniform::uAspect), aspect);
+        glUniform4fv(seed_.loc(Uniform::uSpawns), Choreography::kMaxSpawn, spawnData_.data());
+        glUniform1i(seed_.loc(Uniform::uSpawnCount), spawnCount_);
+        glUniform1f(seed_.loc(Uniform::uLife), std::clamp(life, 1.0f, 30.0f));
         blitDiscarding(st.write());
         st.swap();
         seeded_ = true;
@@ -109,32 +109,32 @@ void Particles::step(float dt, GLuint velocityTex, float aspect, float flowScale
     glUseProgram(update_.program());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, st.read().texA());
-    glUniform1i(update_.loc("uState"), 0);
+    glUniform1i(update_.loc(Uniform::uState), 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, st.read().texB());
-    glUniform1i(update_.loc("uMeta"), 1);
+    glUniform1i(update_.loc(Uniform::uMeta), 1);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, velocityTex);
-    glUniform1i(update_.loc("uVelocityField"), 2);
-    glUniform1f(update_.loc("uAspect"), aspect);
-    glUniform1f(update_.loc("uDt"), dt);
-    glUniform1f(update_.loc("uDrag"), std::clamp(drag, 0.02f, 1.0f));
-    glUniform1f(update_.loc("uFlowScale"), flowScale);
-    glUniform1f(update_.loc("uTime"), std::fmod(timeSeconds, 256.0f));
-    glUniform1f(update_.loc("uLife"), std::clamp(life, 1.0f, 30.0f));
-    glUniform4fv(update_.loc("uSpawns"), Choreography::kMaxSpawn, spawnData_.data());
-    glUniform1i(update_.loc("uSpawnCount"), spawnCount_);
-    glUniform4fv(update_.loc("uCatches"), Choreography::kMaxCatch, catchData_.data());
-    glUniform1i(update_.loc("uCatchCount"), catchCount_);
-    glUniform1f(update_.loc("uStir"), std::max(stir, 0.0f));
-    glUniform1f(update_.loc("uStirFreq"), stirFreq);
-    glUniform1f(update_.loc("uStirTime"), std::fmod(stirTime, 6.2831853f * 64.0f));
+    glUniform1i(update_.loc(Uniform::uVelocityField), 2);
+    glUniform1f(update_.loc(Uniform::uAspect), aspect);
+    glUniform1f(update_.loc(Uniform::uDt), dt);
+    glUniform1f(update_.loc(Uniform::uDrag), std::clamp(drag, 0.02f, 1.0f));
+    glUniform1f(update_.loc(Uniform::uFlowScale), flowScale);
+    glUniform1f(update_.loc(Uniform::uTime), std::fmod(timeSeconds, 256.0f));
+    glUniform1f(update_.loc(Uniform::uLife), std::clamp(life, 1.0f, 30.0f));
+    glUniform4fv(update_.loc(Uniform::uSpawns), Choreography::kMaxSpawn, spawnData_.data());
+    glUniform1i(update_.loc(Uniform::uSpawnCount), spawnCount_);
+    glUniform4fv(update_.loc(Uniform::uCatches), Choreography::kMaxCatch, catchData_.data());
+    glUniform1i(update_.loc(Uniform::uCatchCount), catchCount_);
+    glUniform1f(update_.loc(Uniform::uStir), std::max(stir, 0.0f));
+    glUniform1f(update_.loc(Uniform::uStirFreq), stirFreq);
+    glUniform1f(update_.loc(Uniform::uStirTime), std::fmod(stirTime, 6.2831853f * 64.0f));
     blitDiscarding(st.write());
     st.swap();
     quad_.unbind();
 }
 
-void Particles::draw(float aspect, float pointScale, float hueBase, float hueSpan, float brightness, float shape, float glow, float timeSeconds) {
+void Particles::draw(float aspect, int viewportWidth, int viewportHeight, float pointScale, float hueBase, float hueSpan, float brightness, float shape, float glow, float timeSeconds) {
     if (!state_) return;
     DoubleMrt& st = *state_;
     const bool streaks = maxStretch > 1.0f && streak_.program() != 0;
@@ -145,24 +145,22 @@ void Particles::draw(float aspect, float pointScale, float hueBase, float hueSpa
     glBindVertexArray(streaks ? streakVao_ : pointsVao_);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, st.read().texA());
-    glUniform1i(prog.loc("uState"), 0);
+    glUniform1i(prog.loc(Uniform::uState), 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, st.read().texB());
-    glUniform1i(prog.loc("uMeta"), 1);
-    glUniform1f(prog.loc("uAspect"), aspect);
-    glUniform1f(prog.loc("uPointScale"), pointScale);
-    glUniform1f(prog.loc("uHueBase"), hueBase);
-    glUniform1f(prog.loc("uHueSpan"), hueSpan);
-    glUniform1f(prog.loc("uBrightness"), brightness);
-    glUniform1f(prog.loc("uShape"), shape);
-    glUniform1f(prog.loc("uGlow"), glow);
-    glUniform1f(prog.loc("uTime"), timeSeconds);
+    glUniform1i(prog.loc(Uniform::uMeta), 1);
+    glUniform1f(prog.loc(Uniform::uAspect), aspect);
+    glUniform1f(prog.loc(Uniform::uPointScale), pointScale);
+    glUniform1f(prog.loc(Uniform::uHueBase), hueBase);
+    glUniform1f(prog.loc(Uniform::uHueSpan), hueSpan);
+    glUniform1f(prog.loc(Uniform::uBrightness), brightness);
+    glUniform1f(prog.loc(Uniform::uShape), shape);
+    glUniform1f(prog.loc(Uniform::uGlow), glow);
+    glUniform1f(prog.loc(Uniform::uTime), timeSeconds);
     if (streaks) {
-        GLint vp[4] = {0, 0, 1, 1};
-        glGetIntegerv(GL_VIEWPORT, vp);
-        glUniform2f(prog.loc("uViewport"), static_cast<float>(std::max(vp[2], 1)), static_cast<float>(std::max(vp[3], 1)));
-        glUniform1f(prog.loc("uStretchSeconds"), std::max(stretchSeconds, 0.0f));
-        glUniform1f(prog.loc("uMaxStretch"), maxStretch);
+        glUniform2f(prog.loc(Uniform::uViewport), static_cast<float>(std::max(viewportWidth, 1)), static_cast<float>(std::max(viewportHeight, 1)));
+        glUniform1f(prog.loc(Uniform::uStretchSeconds), std::max(stretchSeconds, 0.0f));
+        glUniform1f(prog.loc(Uniform::uMaxStretch), maxStretch);
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, count_);
     } else {
         glDrawArrays(GL_POINTS, 0, count_);

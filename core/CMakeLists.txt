@@ -230,7 +230,6 @@ add_library(geode_core STATIC
     viz/passes/FieldPass.cpp
     viz/passes/Underlay.cpp
     viz/frame/ExportPasses.cpp
-    viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
     api/geode_cast_tee_api.cpp
@@ -318,9 +317,10 @@ target_link_libraries(geode_core PUBLIC mediandk)
 if(ANDROID)
     target_sources(geode_core PRIVATE
         stage/android/EglWindow.cpp
-        stage/android/VsyncThread.cpp
+        stage/android/SwappyHost.cpp
         stage/android/StageThread.cpp
         api/geode_stage_api.cpp)
+    target_link_libraries(geode_core PUBLIC games-frame-pacing::swappy_static)
 endif()
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in

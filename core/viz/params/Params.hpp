@@ -156,8 +156,8 @@ struct SceneParams {
         if (!(folds >= 1.0f)) return 1;
         return folds >= 16.0f ? 16 : static_cast<int>(folds + 0.5f);
     }
-    // What the shaders read for kaleidoFolds (ShaderScene's uKaleido/uSymmetry, the composite's uPostKaleido/
-    // uPostSymmetry): on from 2 whole folds, at that count. Off, the count is kDefaultSymmetryFolds, which the
+    // What the shaders read for kaleidoFolds (ShaderScene's uKaleido/uSymmetry, the composite's kaleido flag and
+    // segment): on from 2 whole folds, at that count. Off, the count is kDefaultSymmetryFolds, which the
     // styles that build on a count of their own (Chrysanthemum's mirrors and glass) read as it always was.
     struct KaleidoUniforms {
         float on;

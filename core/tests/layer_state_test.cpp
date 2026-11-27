@@ -1,7 +1,7 @@
 // Host-side checks for the process-wide Customize layer (core/viz/LayerState, #364). Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL, no device.
 //
-// What is pinned: one value every renderer reads (live, export, wallpaper, dream), so a layer set once is
+// What is pinned: one value every renderer reads (live, export), so a layer set once is
 // what each of them draws; the generation moves on a real change and only then, so a renderer re-reads it
 // exactly when it changed; a renderer made after the set still sees it; and an export's pinned copy keeps
 // the layer it started with while the live one moves on. And the text the shell saves it as: it round trips,
@@ -74,7 +74,7 @@ void generationMovesOnChangeOnly() {
 void followerFollows() {
     ls::reset();
     ls::set(layer("life", 0.3f, 1));
-    ls::Follower f;  // made after the set, as a wallpaper or dream renderer is
+    ls::Follower f;  // made after the set, as a later renderer is
     ls::Layer out;
     check(f.poll(out) && out.sceneId == "life", "a new follower sees the layer set before it");
     check(!f.poll(out), "nothing new, nothing handed over");

@@ -55,13 +55,12 @@ GeodeSoundFrame FluidScene::idleFeatures(float dt) {
     return idleAudioFeatures(bass, mid, treble, 0.2f);
 }
 
-void FluidScene::draw(float timeSeconds) {
+void FluidScene::simulate() {
     if (!sim_.available()) return;
     resetFrameState();
     const SceneParams& p = params_;
     const GeodeSoundFrame f = scaledFeatures();
 
-    saveGlState();
     applyQualityTier();
 
     const float energy = std::clamp(f.rms, 0.0f, 1.0f);
@@ -119,6 +118,17 @@ void FluidScene::draw(float timeSeconds) {
     look_.sunraysWeight = std::clamp(p.fluidSunraysWeight, 0.3f, 1.0f);
     if (p.fluidDyeEnabled) look_.process(sim_.dyeTex(), p.fluidBloom, p.fluidSunrays);
     hasPending_ = false;
+    simulated_ = true;
+}
+
+void FluidScene::draw(float timeSeconds) {
+    if (!sim_.available()) return;
+    saveGlState();
+    if (!simulated_) simulate();
+    simulated_ = false;
+    const SceneParams& p = params_;
+    const float hueBase = hue::base(p.paletteBase()) + style_.hueOffset;
+    const float hueSpan = hue::span(p.hueRange, p.paletteRange());
 
     restoreFramebufferAndViewport();
     if (p.fluidDyeEnabled) {
@@ -130,7 +140,7 @@ void FluidScene::draw(float timeSeconds) {
         }
     }
     if (particles_.available() && p.fluidParticlesEnabled) {
-        particles_.draw(sim_.aspect(), (1.5f * std::clamp(p.particleSize, 0.2f, 3.0f)) * viewportDpiScale(), hueBase, hueSpan,
+        particles_.draw(sim_.aspect(), savedViewportWidth(), savedViewportHeight(), (1.5f * std::clamp(p.particleSize, 0.2f, 3.0f)) * viewportDpiScale(), hueBase, hueSpan,
                         0.55f * std::clamp(p.fluidParticleBrightness, 0.0f, 2.0f) * (0.3f + std::clamp(p.density, 0.0f, 1.5f)),
                         static_cast<float>(p.particleShape), particle_look::glow(p.bloom), timeSeconds);
     }

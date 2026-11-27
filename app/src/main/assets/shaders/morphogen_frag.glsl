@@ -853,95 +853,6 @@ void main() {
     gWeaveT = uTime * GYROID_CRAWL;
     gSwell = 1.0 + 0.10 * bass;
 
-    // The blob cluster and the crystal's own spin, built ONCE. None of this
-    // depends on the sample point, and map() runs up to 134 times per pixel:
-    // twelve sines and two more inside the march was most of what the metaball
-    // skeleton cost, and none of it was doing any work.
-    //
-    // The lobes point down the four TETRAHEDRAL directions and only their
-    // lengths breathe. Four fully independent orbits were the obvious way to
-    // write this and the wrong one: their positions are uncorrelated, so every
-    // few seconds three of them lined up and the organism was a featureless
-    // sausage, and a moment later they spread and it came apart. Fixed
-    // directions make it a four-lobed star at EVERY instant - the four
-    // directions also sum to zero, so the cluster cannot lean - while the
-    // breathing lengths and the small lateral wobble keep it from reading as a
-    // rigid object being rotated. The rates are mutually irrational-looking so
-    // no two lobes ever fall into step.
-    float bt = uTime * BLOB_RATE;
-    const float TET = 0.5773503;
-    gBlobC[0] = vec3(TET, TET, TET) * (BLOB_ORBIT * (0.82 + 0.18 * sin(bt)))
-        + vec3(sin(bt * 0.83), cos(bt * 0.61), sin(bt * 1.13)) * BLOB_WOBBLE;
-    gBlobC[1] = vec3(TET, -TET, -TET) * (BLOB_ORBIT * (0.82 + 0.18 * cos(bt * 0.71 + 2.1)))
-        + vec3(cos(bt * 1.07), sin(bt * 0.47), cos(bt * 0.89)) * BLOB_WOBBLE;
-    gBlobC[2] = vec3(-TET, TET, -TET) * (BLOB_ORBIT * (0.82 + 0.18 * sin(bt * 1.31 + 4.2)))
-        + vec3(sin(bt * 0.59), cos(bt * 1.19), sin(bt * 0.73)) * BLOB_WOBBLE;
-    gBlobC[3] = vec3(-TET, -TET, TET) * (BLOB_ORBIT * (0.82 + 0.18 * cos(bt * 0.43 + 5.0)))
-        + vec3(cos(bt * 0.67), sin(bt * 0.97), cos(bt * 1.27)) * BLOB_WOBBLE;
-    gBlobRad[0] = 0.34 * gSwell;
-    gBlobRad[1] = 0.30 * gSwell;
-    gBlobRad[2] = 0.28 * gSwell;
-    gBlobRad[3] = 0.32 * gSwell;
-    gCrystalRot = rotY(uTime * CRYSTAL_SPIN);
-    // The box-fold's scale is the parameter its whole shape lives on, so it is
-    // where the fold skeleton's slow life and its mid-band steering both go.
-    //
-    // Centred on -2 rather than the more usual -1.5: the MAGNITUDE sets how
-    // chunky the solid is, and the fine end of that range is where it becomes
-    // the sub-pixel spike forest FOLD_ROUND exists to rescue. Negative
-    // throughout, which is the classic hollowed Mandelbox - a positive scale
-    // gives a solid lump with the folds only on its skin. A tenth of a unit of
-    // mids is a visible change of character and still well inside the band
-    // where the estimator is well behaved.
-    // TONE moves the scale too: a high melody toward the finer, smaller
-    // magnitude end, a low one toward the chunkier larger one, an eighth of a
-    // unit each way, still inside the band where the estimator behaves.
-    gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid + scaleAdd;
-    // The fold loop is where the cost is, so it is what Detail buys: 3 folds
-    // at uSteps 64, 4 at the default 102, 6 at 128. 6/128 is exact in binary,
-    // so both ends of the Detail range land on whole numbers rather than on a
-    // rounding.
-    gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
-    gRelief = RELIEF_AMP * bass;
-
-    // The fingers alone wring the body: nothing turns to the music.
-    gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
-
-    // The organism's own slow turn, on two unrelated rates so it never returns
-    // to the same attitude. This is the motion that has to hold the screen
-    // when there is no music at all.
-    gSpin = rotY(uTime * 0.058) * rotX(0.30 * sin(uTime * 0.041));
-
-    // Every non-rigid deform in map() multiplied together. Each factor is
-    // exactly 1 when its driver is 0, so a silent untouched frame divides by
-    // exactly 1.0 and marches at full speed.
-    gLip = sqrt(1.0 + gSpinK * gSpinK)
-        * (1.0 + RELIEF_LIP * gRelief);
-
-    // ---- where the fingers are, as geometry -------------------------------
-    //
-    // A bulge is seated ON the body, in the direction of the finger, rather
-    // than at the finger's own depth. Seating it at the finger would have put
-    // it inside the body for a touch near the centre (invisible) and adrift in
-    // empty space for a touch near the edge (a detached ball); seated on the
-    // surface it always fuses, and the direction is what carries the gesture.
-    gBulgeN = 0;
-    for (int i = 0; i < TOUCH_MAX_POINTS; i++) {
-        if (i >= uTouchCount) break;
-        vec4 tp = uTouchPoints[i];
-        if (tp.z <= 0.0) continue;
-        vec2 fw = vec2(tp.x * gAspect, tp.y) * gViewScale;
-        gBulgeC[gBulgeN] = normalize(vec3(fw, -BULGE_DEPTH)) * BULGE_SEAT;
-        gBulgeR[gBulgeN] = BULGE_R * tp.z;
-        gBulgeN++;
-    }
-    // The body's clip only grows once there is a bulge outside it to contain,
-    // so an untouched frame clips the body at its own radius.
-    gBodyBound = gBulgeN > 0 ? TOUCH_BOUND : BODY_BOUND;
-    // Detail buys population: three satellites at the floor, six at the top.
-    gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
-    dmtSatPrepare(gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
-
     // ---- camera ------------------------------------------------------------
     vec3 ro = vec3(0.0, 0.0, -CAM_DIST);
     vec3 rd = normalize(vec3(uv * gViewScale, CAM_DIST));
@@ -971,6 +882,95 @@ void main() {
     float glow = 0.0;
 
     if (h > 0.0) {
+        // The blob cluster and the crystal's own spin, built ONCE. None of this
+        // depends on the sample point, and map() runs up to 134 times per pixel:
+        // twelve sines and two more inside the march was most of what the metaball
+        // skeleton cost, and none of it was doing any work.
+        //
+        // The lobes point down the four TETRAHEDRAL directions and only their
+        // lengths breathe. Four fully independent orbits were the obvious way to
+        // write this and the wrong one: their positions are uncorrelated, so every
+        // few seconds three of them lined up and the organism was a featureless
+        // sausage, and a moment later they spread and it came apart. Fixed
+        // directions make it a four-lobed star at EVERY instant - the four
+        // directions also sum to zero, so the cluster cannot lean - while the
+        // breathing lengths and the small lateral wobble keep it from reading as a
+        // rigid object being rotated. The rates are mutually irrational-looking so
+        // no two lobes ever fall into step.
+        float bt = uTime * BLOB_RATE;
+        const float TET = 0.5773503;
+        gBlobC[0] = vec3(TET, TET, TET) * (BLOB_ORBIT * (0.82 + 0.18 * sin(bt)))
+            + vec3(sin(bt * 0.83), cos(bt * 0.61), sin(bt * 1.13)) * BLOB_WOBBLE;
+        gBlobC[1] = vec3(TET, -TET, -TET) * (BLOB_ORBIT * (0.82 + 0.18 * cos(bt * 0.71 + 2.1)))
+            + vec3(cos(bt * 1.07), sin(bt * 0.47), cos(bt * 0.89)) * BLOB_WOBBLE;
+        gBlobC[2] = vec3(-TET, TET, -TET) * (BLOB_ORBIT * (0.82 + 0.18 * sin(bt * 1.31 + 4.2)))
+            + vec3(sin(bt * 0.59), cos(bt * 1.19), sin(bt * 0.73)) * BLOB_WOBBLE;
+        gBlobC[3] = vec3(-TET, -TET, TET) * (BLOB_ORBIT * (0.82 + 0.18 * cos(bt * 0.43 + 5.0)))
+            + vec3(cos(bt * 0.67), sin(bt * 0.97), cos(bt * 1.27)) * BLOB_WOBBLE;
+        gBlobRad[0] = 0.34 * gSwell;
+        gBlobRad[1] = 0.30 * gSwell;
+        gBlobRad[2] = 0.28 * gSwell;
+        gBlobRad[3] = 0.32 * gSwell;
+        gCrystalRot = rotY(uTime * CRYSTAL_SPIN);
+        // The box-fold's scale is the parameter its whole shape lives on, so it is
+        // where the fold skeleton's slow life and its mid-band steering both go.
+        //
+        // Centred on -2 rather than the more usual -1.5: the MAGNITUDE sets how
+        // chunky the solid is, and the fine end of that range is where it becomes
+        // the sub-pixel spike forest FOLD_ROUND exists to rescue. Negative
+        // throughout, which is the classic hollowed Mandelbox - a positive scale
+        // gives a solid lump with the folds only on its skin. A tenth of a unit of
+        // mids is a visible change of character and still well inside the band
+        // where the estimator is well behaved.
+        // TONE moves the scale too: a high melody toward the finer, smaller
+        // magnitude end, a low one toward the chunkier larger one, an eighth of a
+        // unit each way, still inside the band where the estimator behaves.
+        gFoldScale = -1.95 + 0.28 * sin(uTime * 0.037) + 0.10 * mid + scaleAdd;
+        // The fold loop is where the cost is, so it is what Detail buys: 3 folds
+        // at uSteps 64, 4 at the default 102, 6 at 128. 6/128 is exact in binary,
+        // so both ends of the Detail range land on whole numbers rather than on a
+        // rounding.
+        gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
+        gRelief = RELIEF_AMP * bass;
+
+        // The fingers alone wring the body: nothing turns to the music.
+        gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
+
+        // The organism's own slow turn, on two unrelated rates so it never returns
+        // to the same attitude. This is the motion that has to hold the screen
+        // when there is no music at all.
+        gSpin = rotY(uTime * 0.058) * rotX(0.30 * sin(uTime * 0.041));
+
+        // Every non-rigid deform in map() multiplied together. Each factor is
+        // exactly 1 when its driver is 0, so a silent untouched frame divides by
+        // exactly 1.0 and marches at full speed.
+        gLip = sqrt(1.0 + gSpinK * gSpinK)
+            * (1.0 + RELIEF_LIP * gRelief);
+
+        // ---- where the fingers are, as geometry -------------------------------
+        //
+        // A bulge is seated ON the body, in the direction of the finger, rather
+        // than at the finger's own depth. Seating it at the finger would have put
+        // it inside the body for a touch near the centre (invisible) and adrift in
+        // empty space for a touch near the edge (a detached ball); seated on the
+        // surface it always fuses, and the direction is what carries the gesture.
+        gBulgeN = 0;
+        for (int i = 0; i < TOUCH_MAX_POINTS; i++) {
+            if (i >= uTouchCount) break;
+            vec4 tp = uTouchPoints[i];
+            if (tp.z <= 0.0) continue;
+            vec2 fw = vec2(tp.x * gAspect, tp.y) * gViewScale;
+            gBulgeC[gBulgeN] = normalize(vec3(fw, -BULGE_DEPTH)) * BULGE_SEAT;
+            gBulgeR[gBulgeN] = BULGE_R * tp.z;
+            gBulgeN++;
+        }
+        // The body's clip only grows once there is a bulge outside it to contain,
+        // so an untouched frame clips the body at its own radius.
+        gBodyBound = gBulgeN > 0 ? TOUCH_BOUND : BODY_BOUND;
+        // Detail buys population: three satellites at the floor, six at the top.
+        gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
+        dmtSatPrepare(gSatCount, SAT_ORBIT, SAT_RADIUS, SAT_PERIOD);
+
         float sh = sqrt(h);
         float tExit = -b + sh;
         // Per-pixel start offset, taken out at the bounding sphere where

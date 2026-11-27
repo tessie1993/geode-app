@@ -54,6 +54,21 @@ float perFrameWeight(float per60, float dt);
 // The vanishing point's own disc: born content fills it, the live style is kept out of it.
 float bornRadius(float liquidity);
 
+// liquid_frag's uPassFlags, decided once a frame: the stages that frame runs. A stage left out would
+// only add 0 or mix by 0, so leaving it out is exact.
+inline constexpr int kPassFlow = 1;  // the flow field's velocity moves the back-trace
+inline constexpr int kPassBorn = 2;  // the born disc can show: its gain is not 0 (a NaN counts as not 0)
+inline int passFlags(bool flowing, float bornGain) {
+    return (flowing ? kPassFlow : 0) | (bornGain != 0.0f ? kPassBorn : 0);
+}
+
+// Whether a frame runs a shader style's Trails on this pass (Renderer::drawTrails): Liquid off, Trails on,
+// a Shader-family style with no trail of its own (a particle style keeps its own, trailRetention), and
+// Performance's extra effects on, since Trails are one of the optional passes (frame::QualityTier::postFx).
+inline bool shaderTrailsRun(bool liquidOff, bool trails, bool shaderStyle, float ownRetention, bool extraEffects) {
+    return liquidOff && trails && shaderStyle && ownRetention <= 0.0f && extraEffects;
+}
+
 // One frame of the dive: the magnification about the vanishing point (>= 1), the twist this frame
 // (radians) and where the vanishing point is, in centred units (x times the aspect, y -1..1).
 struct DiveFrame {

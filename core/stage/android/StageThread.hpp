@@ -1,4 +1,5 @@
 #pragma once
+#include <android/choreographer.h>
 #include <android/native_window.h>
 
 #include <atomic>
@@ -14,23 +15,21 @@
 #include "stage/StageCore.hpp"
 #include "stage/android/EglWindow.hpp"
 #include "stage/android/Inbox.hpp"
-#include "stage/android/VsyncThread.hpp"
 #include "util/WorkHint.hpp"
 
 // One surface's stage thread: an ALooper thread that owns the EGL context and window
 // surface and carries out what core/stage/StageCore asks for through its port. It decides nothing itself: what a
 // command means and when a frame is drawn is StageCore's, when EGL objects live is StageLifecycle's.
 //
-// The setters may be called from any thread and return at once, except setWindow, which waits (bounded) until the
-// stage has let go of the old window, as surfaceDestroyed requires. The stage holds the client from start() until
-// its release, which is the client's last call, on this thread.
+// The setters may be called from any thread and return at once, setWindow included: a frame late on the stage thread
+// never holds up the caller. The stage holds the client from start() until its release, which is the client's last
+// call, on this thread.
 namespace geode::stage::platform {
 
 class StageThread final : private StagePort {
 public:
-    // How long a window hand-over waits for the stage to apply it, how long any command waits for room in a full
-    // queue, and how long destroy waits, in all, for the thread to finish.
-    static constexpr std::chrono::milliseconds kWindowWait{1000};
+    // How long any other command waits for room in a full queue, and how long destroy waits, in all, for the thread to
+    // finish.
     static constexpr std::chrono::milliseconds kPushWait{100};
     static constexpr std::chrono::milliseconds kQuitWait{200};
 
@@ -41,10 +40,10 @@ public:
     StageThread& operator=(const StageThread&) = delete;
     ~StageThread() override;
 
-    // A window (acquired here for the stage) or none. Returns once the stage has applied it. Past kWindowWait
-    // (plus kPushWait for a full queue) it returns anyway, a known degradation: with none, the EGL surface on the
-    // old window may then still exist for a moment. The stage holds its own reference to that window, so the late
-    // destroy is safe, and the state word's surface bit tells when it has happened.
+    // A window (acquired here for the stage) or none. Returns at once; the stage applies it between frames. With none,
+    // the EGL surface on the old window exists until then. The stage holds its own reference to that window, so the late
+    // destroy is safe (a swap on a window its owner let go of fails and the surface is rebuilt or dropped), and the state
+    // word's surface bit tells when it has happened.
     void setWindow(ANativeWindow* window, int width, int height);
     void setSize(int width, int height);
     void setMode(RunMode mode);
@@ -57,6 +56,7 @@ public:
     void trim();
 
     uint32_t state() const { return core_.state(); }
+    int64_t frameBudgetNs() const { return core_.frameBudgetNs(); }
     // The frame events since the last call. Drains the wake descriptor first, then clears its flag, then takes, so an
     // event that lands in between still has a signal waiting (a spare wake is harmless, a lost one is not).
     uint32_t takeEvents();
@@ -81,21 +81,38 @@ private:
     void destroySurface() override;
     void destroyContext() override;
     Outcome swap() override;
+    void wakeAtVsync() override;
     void releaseWindow(void* window) override;
     void setFrameRate(void* window, float fps) override;
-    void vsyncRun(bool on) override;
-    bool gpuBusy() override;
-    void frameDone() override;
-    void presentAt(int64_t stampNs) override;
+    void pace(bool on, const FrameBudget& budget) override;
+    PaceTimes paceTimes() override;
+    int64_t lastGpuNs() override { return lastGpuNs_; }
+    int64_t nowNs() override;
     void windowApplied(int64_t sequence) override;
-    void frameWork(int64_t budgetNs, int64_t actualNs) override;
+    void frameWork(int64_t budgetNs, int64_t cpuNs, int64_t gpuNs, int64_t startNs) override;
     void framesRecorded(const std::string& csv) override;
 
+    static void onVsync(const AChoreographerFrameCallbackData* data, void* self);
+    static void onRefreshRate(int64_t periodNs, void* self);
+
     std::shared_ptr<Inbox> inbox_;
-    EglWindow egl_;                      // stage thread only
-    VsyncThread::Sink* sink_ = nullptr;  // stage thread only
+    EglWindow egl_;  // stage thread only
     StageCore core_;
-    util::WorkHint workHint_;  // stage thread only: ADPF for the frames the frame clock paces
+    util::WorkHint workHint_;  // stage thread only: ADPF for the frames the pacer paces
+
+    // Stage thread only. The Choreographer of this thread's looper: the vsync a stage without Swappy waits for, and the
+    // display's refresh period.
+    AChoreographer* choreographer_ = nullptr;
+    bool vsyncPosted_ = false;
+    bool vsyncArrived_ = false;
+    int64_t vsyncPresentNs_ = 0;
+    int64_t refreshPeriodNs_ = 0;
+    // The frame budget StageCore last handed on: its swap interval is the one Swappy is given.
+    FrameBudget budget_;
+    int64_t lastGpuNs_ = 0;
+    // The window's standing frame-rate vote, restated after anything Swappy may have voted over.
+    void* voteWindow_ = nullptr;
+    float voteFps_ = 0.0f;
 
     // Readable while frame events wait; written by the stage thread after a step, drained by takeEvents. -1: none.
     int eventFd_ = -1;

@@ -25,8 +25,6 @@ constexpr float kMarchMinDetail = catalogue::kMarchDetail.min;
 constexpr float kMarchMaxDetail = catalogue::kMarchDetail.max;
 // The fewest steps Settings › Performance may scale a march down to; below this most SDFs miss surfaces.
 constexpr float kMarchMinScaledSteps = 24.0f;
-// The length of lib_scene_uniforms' uKnob array.
-constexpr int kKnobCount = 6;
 
 float paletteRowCoordinate(int index) {
     return (static_cast<float>(std::clamp(index, 0, kPaletteRows - 1)) + 0.5f) / static_cast<float>(kPaletteRows);
@@ -240,41 +238,19 @@ void ShaderScene::uploadParams() {
     set1f(Uniform::uSolarize, flag(p.solarize));
     set1f(Uniform::uContrast, p.contrast);
     set1f(Uniform::uGamma, p.gamma);
-    // The style knobs (lib_scene_uniforms' uKnob): nothing drives them any more, so every knob sits at the
-    // midpoint each style was tuned around. Only as many elements as survived linking are written (uploading
-    // past the live length is an INVALID_OPERATION), and a style that reads none gets -1 and a no-op.
-    static constexpr std::array<float, kKnobCount> kKnobsAtRest{0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
-    uniforms_.setFloats(Uniform::uKnob, 1, uniforms_.arrayCount(Uniform::uKnob, kKnobCount), kKnobsAtRest.data());
+    // The style knobs (lib_scene_uniforms' uKnob) are a GLSL constant at 0.5: nothing to upload.
 }
 
 // Every style is handed these; the ones that read none of them link them away
 // (location -1). Each still costs a cached lookup; the UniformCache setters then skip the driver
 // call, as they do for a value the program already holds.
 void ShaderScene::uploadMotion() {
-    // The audio-motion uniforms (lib_scene_motion) are held at constants: nothing computes them from the music
-    // any more, and a style that still names one reads a steady value, never garbage. Average loudness, mid
-    // brightness and tonality, no hue driver, the bar wave at its middle, no orbit, drift or breath. Only the
-    // two flow clocks move: a fixed base rate, with Speed on uFlowTime, never a loudness term.
-    set1f(Uniform::uEnergyRel, 1.0f);
-    set1f(Uniform::uMotionBright, 0.0f);
-    set1f(Uniform::uHarmony, 0.5f);
-    set1f(Uniform::uKeyHue, 0.0f);
-    set1f(Uniform::uKeyStrength, 0.0f);
-    set1f(Uniform::uBarOsc, 0.5f);
-    uniforms_.set2f(Uniform::uOrbit, 0.0f, 0.0f);
-    set1f(Uniform::uDrift, 0.0f);
-    set1f(Uniform::uBreath, 1.0f);
+    // Only the flow clocks move: a fixed base rate, with Speed on uFlowTime, never a loudness term. The rest of
+    // lib_scene_motion (uEnergyRel .. uBreath, uMoveDir, uSpawnSeed, uSpawnAge, uFormPhase) is GLSL constants.
     set1f(Uniform::uFlowPhase, static_cast<float>(flow_.phase));
     set1f(Uniform::uFlowTime, static_cast<float>(flow_.time));
     uniforms_.set3f(Uniform::uSoundTimeSped, static_cast<float>(soundTimeSped_[0].value), static_cast<float>(soundTimeSped_[1].value),
                          static_cast<float>(soundTimeSped_[2].value));
-
-    // Legacy, held at their neutral constant until the readers are deleted: a spawn born once and never re-rolled, a direction
-    // that never turns.
-    set1f(Uniform::uSpawnSeed, 0.0f);
-    set1f(Uniform::uSpawnAge, 1000.0f);
-    set1f(Uniform::uFormPhase, 0.0f);
-    uniforms_.set2f(Uniform::uMoveDir, 1.0f, 0.0f);
 }
 
 void ShaderScene::uploadTouch() {

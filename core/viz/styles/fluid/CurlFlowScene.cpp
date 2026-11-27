@@ -72,19 +72,13 @@ void CurlFlowScene::update(const GeodeSoundFrame& features, float dt) {
     pcmKick_ = std::clamp(tickPcm(dt), 0.0f, 1.0f);
 }
 
-void CurlFlowScene::draw(float timeSeconds) {
-    (void) timeSeconds;
+void CurlFlowScene::simulate() {
     if (!available_ || !field_) return;
     const fluid::Fbo& fld = *field_;
-    saveFramebufferAndViewport();
     applyQualityTier();
-    if (!particles_.available()) {
-        // The tier's population and the shipped fallback were both refused: draw nothing, cleanly.
-        restoreFramebufferAndViewport();
-        return;
-    }
+    simulated_ = true;
 
-    if (hasPending_) {
+    if (particles_.available() && hasPending_) {
         const GeodeSoundFrame& f = pending_;
         wallTime_ = std::fmod(wallTime_ + lastDt_, kWallWrapSeconds);
         // No hit of its own: the field's swell and the particles' flare on every hit (the hit times the
@@ -97,13 +91,13 @@ void CurlFlowScene::draw(float timeSeconds) {
         glDisable(GL_BLEND);
         quad_.bind();
         glUseProgram(fieldUniforms_.program());
-        glUniform2f(fieldUniforms_.loc("uInvRes"), 1.0f / static_cast<float>(fld.width()), 1.0f / static_cast<float>(fld.height()));
-        glUniform1f(fieldUniforms_.loc("uAspect"), aspect_);
-        glUniform1f(fieldUniforms_.loc("uTime"), noiseTime_);
-        glUniform1f(fieldUniforms_.loc("uFreq"), 1.2f * (0.5f + std::clamp(params_.turbulence, 0.1f, 2.0f)));
-        glUniform1f(fieldUniforms_.loc("uDetail"), std::clamp(live::treble(f) * 3.0f + pcmKick_ * 0.8f, 0.0f, 1.5f));
-        glUniform1f(fieldUniforms_.loc("uAmp"), fluid::curl::fieldAmp(params_.audioDrive) * (1.0f + pcmKick_ * 0.35f));
-        glUniform2f(fieldUniforms_.loc("uPeriod"), 0.0f, 0.0f);
+        glUniform2f(fieldUniforms_.loc(Uniform::uInvRes), 1.0f / static_cast<float>(fld.width()), 1.0f / static_cast<float>(fld.height()));
+        glUniform1f(fieldUniforms_.loc(Uniform::uAspect), aspect_);
+        glUniform1f(fieldUniforms_.loc(Uniform::uTime), noiseTime_);
+        glUniform1f(fieldUniforms_.loc(Uniform::uFreq), 1.2f * (0.5f + std::clamp(params_.turbulence, 0.1f, 2.0f)));
+        glUniform1f(fieldUniforms_.loc(Uniform::uDetail), std::clamp(live::treble(f) * 3.0f + pcmKick_ * 0.8f, 0.0f, 1.5f));
+        glUniform1f(fieldUniforms_.loc(Uniform::uAmp), fluid::curl::fieldAmp(params_.audioDrive) * (1.0f + pcmKick_ * 0.35f));
+        glUniform2f(fieldUniforms_.loc(Uniform::uPeriod), 0.0f, 0.0f);
         glBindFramebuffer(GL_FRAMEBUFFER, fld.fbo());
         // The field is rebuilt from noise every audio frame, so nothing carries over: discard, then fill.
         fld.discardContents();
@@ -115,9 +109,18 @@ void CurlFlowScene::draw(float timeSeconds) {
         particles_.step(lastDt_, fld.tex(), aspect_, 1.0f, wallTime_);
         hasPending_ = false;
     }
+}
 
+void CurlFlowScene::draw(float timeSeconds) {
+    (void) timeSeconds;
+    if (!available_ || !field_) return;
+    saveFramebufferAndViewport();
+    if (!simulated_) simulate();
+    simulated_ = false;
     restoreFramebufferAndViewport();
-    particles_.draw(aspect_, std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
+    // The tier's population and the shipped fallback were both refused: draw nothing, cleanly.
+    if (!particles_.available()) return;
+    particles_.draw(aspect_, savedViewportWidth(), savedViewportHeight(), std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
                     hue::span(params_.hueRange, params_.paletteRange()),
                     fluid::curl::kBaseBrightness * fluid::math::particleExposure(particleCount_, fluid::curl::kRefParticles),
                     static_cast<float>(params_.particleShape), particle_look::glow(params_.bloom), wallTime_);

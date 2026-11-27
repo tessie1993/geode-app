@@ -72,19 +72,10 @@
          wake lock, which needs this normal (install-time) permission. Declared here
          rather than left to a library's manifest, so the player never depends on it. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- The live wallpaper is optional; the app is fully usable without a
-         launcher that supports one. -->
-    <uses-feature
-        android:name="android.software.live_wallpaper"
-        android:required="false" />
-    <!-- Picture-in-picture and the screensaver (Daydream) are both optional the same way: the
-         visualizer works fullscreen and as a wallpaper with neither, on a device or launcher
-         that offers no PiP window and no dock/desktop-dream trigger. -->
+    <!-- Picture-in-picture is optional: the visualizer works fullscreen on a device or launcher
+         that offers no PiP window. -->
     <uses-feature
         android:name="android.software.picture-in-picture"
-        android:required="false" />
-    <uses-feature
-        android:name="android.software.daydream"
         android:required="false" />
     <!-- Android TV and Google TV: the same app with a remote (LEANBACK_LAUNCHER and the banner
          below). A TV has no touchscreen, so none is required; ui/theme/Television is where the
@@ -183,52 +174,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <!--
-          The visualizer as a live wallpaper: the same renderer, on the style
-          and parameters the app was last left showing. It reacts to what the
-          app is playing and breathes on its own the rest of the time.
-        -->
-        <!--
-          The wallpaper picker's Settings button (res/xml/wallpaper.xml). Exported because the
-          picker, another app, starts it; it only edits the wallpaper's own options.
-        -->
-        <activity
-            android:name=".ui.wallpaper.WallpaperOptionsActivity"
-            android:exported="true"
-            android:label="@string/wallpaper_options_title"
-            android:theme="@android:style/Theme.Material.NoActionBar" />
-        <service
-            android:name=".wallpaper.VisualizerWallpaperService"
-            android:exported="true"
-            android:label="@string/wallpaper_label"
-            android:permission="android.permission.BIND_WALLPAPER">
-            <intent-filter>
-                <action android:name="android.service.wallpaper.WallpaperService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.service.wallpaper"
-                android:resource="@xml/wallpaper" />
-        </service>
-
-        <!--
-          The visualizer as a screensaver (Daydream): the same renderer again, started by the
-          system while the device is docked or charging and idle rather than by the launcher.
-          Exported and permission-gated the same way the notification listener below is — the
-          only caller is meant to be the system, and BIND_DREAM_SERVICE is what enforces that.
-        -->
-        <service
-            android:name=".wallpaper.VisualizerDreamService"
-            android:exported="true"
-            android:label="@string/dream_label"
-            android:permission="android.permission.BIND_DREAM_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.dreams.DreamService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.service.dream"
-                android:resource="@xml/dream_info" />
-        </service>
 
         <!--
           Music that outlives the screen. Holds the app's one ExoPlayer and the

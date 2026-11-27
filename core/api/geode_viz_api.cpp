@@ -59,7 +59,6 @@
 #include "viz/frame/RecordTap.hpp"
 #include "viz/frame/CastTee.hpp"
 #include "viz/glsl/ShaderOverrides.hpp"
-#include "viz/frame/WallpaperWindow.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {
@@ -215,8 +214,6 @@ static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
-static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
-static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
 static_assert(frame::kEventLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(frame::kEventErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
@@ -582,15 +579,14 @@ void syncReactions(geode_viz* v) {
 // The live frame's stages, bound to one renderer and this frame's ring (frame::LiveFrame keeps the order).
 class VizStages final : public frame::LiveStages {
 public:
-    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t vsyncNs, int64_t presentNs, bool mayRepeat)
-        : v_(v), ring_(ring), vsyncNs_(vsyncNs) {
+    VizStages(geode_viz& v, const geode_pcm_ring* ring, int64_t presentNs, bool mayRepeat) : v_(v), ring_(ring) {
         v_.presentNs = presentNs;
         v_.mayRepeat = mayRepeat;
     }
 
     void setPacedFps(float pacedFps, float capFps) override { v_.renderer.setPacedFps(pacedFps, capFps); }
     void applyQuality(const frame::UserQuality& q) override {
-        v_.renderer.setUserQuality(q.renderScale, q.marchScale, q.postFx);
+        v_.renderer.setUserQuality(q.marchScale, q.postFx);
     }
     int takeLiquidMode() override { return v_.renderer.takeLiquidMode(); }
     void gyroReset() override {
@@ -610,16 +606,12 @@ public:
     bool frameRepeated() override { return v_.renderer.frameRepeated(); }
 
 private:
-    // The frame's time: when the display is expected to show it (the vsync's expected presentation), so the picture's
-    // step is the presentations' own spacing and not the thread hop's jitter. Without one, the vsync it was asked for
-    // at, and without that (the cast's fallback) the clock at the draw. Never earlier than the last frame's.
+    // The frame's time: when the display is expected to show it (the stage's pacer, stage/SwapPace's PresentClock),
+    // so the picture's step is the presentations' own spacing and not the draw's jitter. Without one (a frame no pacer
+    // asked for) the clock at the draw. Never earlier than the last frame's.
     double frameSeconds() {
         double seconds = monotonicSeconds();
-        if (v_.presentNs > 0) {
-            seconds = static_cast<double>(v_.presentNs) * 1e-9;
-        } else if (vsyncNs_ > 0) {
-            seconds = static_cast<double>(vsyncNs_) * 1e-9;
-        }
+        if (v_.presentNs > 0) seconds = static_cast<double>(v_.presentNs) * 1e-9;
         seconds = std::max(seconds, v_.liveSeconds);
         v_.liveSeconds = seconds;
         return seconds;
@@ -627,7 +619,6 @@ private:
 
     geode_viz& v_;
     const geode_pcm_ring* ring_;
-    int64_t vsyncNs_;
 };
 
 static_assert(kPageMoments == GEODE_MUSIC_MOMENTS);
@@ -639,13 +630,13 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 // The two below are defined by qualified name, so each must match its declaration in api/geode_viz_internal.hpp:
 // a drift is a compile error here, not a new overload that geode_stage_api.cpp fails to link against.
 
-// geode_viz_frame for a frame a vsync asked for (declared in api/geode_viz_internal.hpp): vsyncNs, CLOCK_MONOTONIC,
-// is the vsync's frame time, the picture's clock for this frame; 0 draws at the clock now. presentNs, CLOCK_MONOTONIC, is when
-// the display is expected to show it (0: none); the sound is read there. Not part of the C ABI.
-int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t vsyncNs, int64_t presentNs, bool mayRepeat) {
+// geode_viz_frame for a frame the stage's pacer asked for (declared in api/geode_viz_internal.hpp): presentNs,
+// CLOCK_MONOTONIC, is when the display is expected to show it, the picture's clock for this frame and where the sound
+// is read; 0 draws at the clock now. Not part of the C ABI.
+int geode::api::vizFrameAt(geode_viz* v, const geode_pcm_ring* ring, float pacedFps, float capFps, int64_t presentNs, bool mayRepeat) {
     if (!v) return 0;
     try {
-        VizStages stages(*v, ring, vsyncNs, presentNs, mayRepeat);
+        VizStages stages(*v, ring, presentNs, mayRepeat);
         return static_cast<int>(v->live.run(stages, pacedFps, capFps));
     } catch (...) {
         // Nothing to tell the shell this frame; the next one starts over.
@@ -1041,8 +1032,8 @@ const char* geode_viz_look_defaults(void) {
     return defaults.c_str();
 }
 
-void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx) {
-    if (v) v->live.setQuality(frame::UserQuality{render_scale, march_scale, post_fx != 0});
+void geode_viz_set_quality(geode_viz* v, float march_scale, int post_fx) {
+    if (v) v->live.setQuality(frame::UserQuality{march_scale, post_fx != 0});
 }
 
 
@@ -1083,22 +1074,6 @@ void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float rig
     region.strength = strength;
     region.cornerPx = corner_px;
     v->renderer.setUiBlurRegion(region);
-}
-
-void geode_viz_set_edge_glow(geode_viz* v, const float* opts, int count) {
-    if (!v) return;
-    v->renderer.setEdgeGlow(geode::viz::frame::edge_glow::parse(opts, count));
-}
-
-void geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
-                            const float* offsets, int count, float* out) {
-    if (!out) return;
-    namespace wp = geode::viz::frame::wallpaper;
-    const wp::Window w = wp::window(surface_w, surface_h, display_w, display_h, wp::parseOffsets(offsets, count));
-    out[0] = w.left;
-    out[1] = w.top;
-    out[2] = w.width;
-    out[3] = w.height;
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

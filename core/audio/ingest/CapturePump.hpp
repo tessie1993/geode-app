@@ -8,7 +8,7 @@
 #include <utility>
 
 // A capture the platform hands over only as an object to read from (another app's audio: an AudioRecord
-// over a MediaProjection; the wallpaper's output mix: a Visualizer), read on a native thread of its own and
+// over a MediaProjection; the output mix: a Visualizer), read on a native thread of its own and
 // written straight into a ring. The shell makes the object and hands it over; no sample passes through the
 // shell. The device side is audio/ingest/android/JavaCapture; a fake in
 // core/tests/capture_pump_test.cpp.

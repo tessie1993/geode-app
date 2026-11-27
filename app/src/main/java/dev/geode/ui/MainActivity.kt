@@ -12,6 +12,7 @@ import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.util.Rational
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -34,16 +35,15 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.PlaybackPendingIntentBuilder
+import androidx.metrics.performance.JankStats
 import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
 import dev.geode.cast.CastController
+import dev.geode.engine.bridge.StageNative
 import dev.geode.model.PresetLink
 import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
-import dev.geode.pro.PaywallIntent
-import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallPrompts
-import dev.geode.pro.PaywallTrigger
 import dev.geode.ui.theme.isTelevision
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -94,6 +94,8 @@ internal fun pipAspectFraction(
 /** The platform clamps `PictureInPictureParams.setAspectRatio` to this range. */
 internal const val PIP_MIN_ASPECT = 1f / 2.39f
 internal const val PIP_MAX_ASPECT = 2.39f
+
+private const val JANK_TAG = "GeodeJank"
 
 /**
  * Hands a shared link from the Activity's intent to the UI, which asks before importing
@@ -231,18 +233,12 @@ class MainActivity : ComponentActivity() {
 
     private val playerViewModel: PlayerViewModel by viewModels()
 
+    private val jankTally = JankTally()
+
+    private lateinit var jankStats: JankStats
+
     @Inject
     lateinit var paywallPrompts: PaywallPrompts
-
-    @Inject
-    lateinit var paywallNavigator: PaywallNavigator
-
-    /** [PaywallIntent]: the screensaver's notice asking for the paywall of a feature it lacks. */
-    private fun openRequestedPaywall(intent: Intent?) {
-        val feature = PaywallIntent.featureOf(intent) ?: return
-        paywallNavigator.open(PaywallTrigger.Feature(feature))
-        intent?.action = null
-    }
 
     /**
      * Every screen the app opens itself (a file picker, the share sheet, a system settings page) starts
@@ -358,7 +354,14 @@ class MainActivity : ComponentActivity() {
     /** Not called while the visualizer is in a PiP window, which is still on screen. */
     override fun onResume() {
         super.onResume()
+        jankStats.isTrackingEnabled = true
         paywallPrompts.onResumed()
+    }
+
+    override fun onPause() {
+        jankStats.isTrackingEnabled = false
+        Log.i(JANK_TAG, jankTally.summary())
+        super.onPause()
     }
 
     override fun onStop() {
@@ -372,7 +375,6 @@ class MainActivity : ComponentActivity() {
         receiveSharedLink(intent)
         receiveAudioFile(this, intent, playerViewModel)
         playFromSearch(intent)
-        openRequestedPaywall(intent)
     }
 
     /**
@@ -397,6 +399,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setKeepOnScreenCondition { !settingsViewModel.userDataLoaded.value }
         super.onCreate(savedInstanceState)
+        StageNative.pacingAttach(this)
         // Cast to TV starts with the app (owner Q38), so a TV picked in the system's output
         // switcher is gated and streamed even before Visuals has shown the Cast button. Posted to
         // the decor view: the first frame's traversal runs ahead of it, so Cast's start-up (Play
@@ -413,11 +416,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppRoot()
         }
+        jankStats = JankStats.createAndTrack(window, jankTally)
         if (savedInstanceState == null) {
             receiveSharedLink(intent)
             receiveAudioFile(this, intent, playerViewModel)
             playFromSearch(intent)
-            openRequestedPaywall(intent)
         }
+    }
+
+    override fun onDestroy() {
+        StageNative.pacingDetach(this)
+        super.onDestroy()
     }
 }

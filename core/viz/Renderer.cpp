@@ -72,7 +72,7 @@ void Renderer::pinLayer(bool on) {
 }
 
 // Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
-// the live screen, an export, the wallpaper and the dream all draw what Customize › Layers set; the
+// the live screen and an export both draw what Customize › Layers set; the
 // follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene turns
 // the setting into this renderer's style (viz/LayerPick), and an export's blocking build makes the layer
 // scene whole on the first frame that asks for it, like the main scene.
@@ -119,6 +119,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
 
 // Under soundLock_: audio only this renderer hears, into its own ring and analysis.
 void Renderer::hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz) {
+    latchTuning();
     const bool offscreen = offscreen_.load(std::memory_order_relaxed);
     if (!ownSound_) {
         try {
@@ -158,6 +159,7 @@ void Renderer::hearOwn(const float* interleaved, int frames, int channels, int s
 
 void Renderer::hearAnalysis(std::shared_ptr<sound::SharedAnalysis> analysis) {
     std::lock_guard<std::mutex> lock(soundLock_);
+    latchTuning();
     if (analysis == sharedSound_) return;
     sharedSound_ = std::move(analysis);
     sharedHeard_.store(sharedSound_ != nullptr, std::memory_order_release);
@@ -200,12 +202,23 @@ bool Renderer::endPreRoll(int64_t rangeStartMs) {
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
-    std::lock_guard<std::mutex> lock(soundLock_);
     // Clamped here, so a NaN Reactivity reaches the engine as the default one, not a NaN.
-    soundTuning_ = sound::tuning::clamp(tuning);
+    const GeodeSoundTuning clamped = sound::tuning::clamp(tuning);
+    soundWave_.setTrimDb(clamped.inputTrimDb);
+    std::lock_guard<std::mutex> lock(tuningLock_);
+    tuningNext_ = clamped;
+    tuningNew_.store(true, std::memory_order_release);
+}
+
+void Renderer::latchTuning() {
+    if (!tuningNew_.load(std::memory_order_acquire)) return;
+    {
+        std::lock_guard<std::mutex> lock(tuningLock_);
+        soundTuning_ = tuningNext_;
+        tuningNew_.store(false, std::memory_order_relaxed);
+    }
     if (sharedSound_) sharedSound_->thread().setTuning(soundTuning_);
     if (ownSound_) ownSound_->thread().setTuning(soundTuning_);
-    soundWave_.setTrimDb(soundTuning_.inputTrimDb);
 }
 
 double Renderer::monotonicSeconds() {
@@ -413,7 +426,6 @@ void Renderer::onSurfaceCreated() {
     // context never made is a no-op, so releasing first is safe whether or not the context is new.
     releaseScenes();
     // The frame passes (frame::Pass) drop their names before anything below generates new ones.
-    edgeGlowPass_.release();
     trailPass_.release();
     compositePass_.release();
     uiBlurPass_.release();
@@ -463,8 +475,6 @@ void Renderer::onSurfaceCreated() {
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
     // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
-    // And the wallpaper's edge glow: without it the wallpaper shows the full visual instead of the rim.
-    if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
     // Endless zoom is an extra: without its pass the picture shows undived.
@@ -503,16 +513,14 @@ void Renderer::surfaceChanged(int width, int height) {
     width_ = std::max(width, 1);
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
-    applyRenderScale();
+    resizeTargets();
     // The targets were rebuilt: the next frame steps by 0, not by that.
     restartClock();
 }
 
-void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx) {
-    // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
-    // resizing every frame; a corrupt pref means full quality instead.
+void Renderer::setUserQuality(float marchScale, bool postFx) {
+    // std::clamp passes NaN through; a corrupt pref means full quality instead.
     const auto unit = [](float v) { return std::isfinite(v) ? std::clamp(v, 0.25f, 1.0f) : 1.0f; };
-    userScale_.store(unit(renderScale), std::memory_order_relaxed);
     marchScale_.store(unit(marchScale), std::memory_order_relaxed);
     userPostFx_.store(postFx, std::memory_order_relaxed);
 }
@@ -535,22 +543,14 @@ void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
     uiBlurOn_.store(r.active(), std::memory_order_relaxed);
 }
 
-void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    edgeGlowOptions_ = options;
-    edgeGlowOn_.store(options.enabled, std::memory_order_relaxed);
-}
-
-void Renderer::applyRenderScale() {
-    // The user's scale, as of this frame.
-    appliedUserScale_ = userScale_.load(std::memory_order_relaxed);
-    // The scene target is the surface's pixels times that scale and never more: a scale of 1 draws
-    // each pixel once.
-    renderWidth_ = std::max(static_cast<int>(width_ * appliedUserScale_), 1);
-    renderHeight_ = std::max(static_cast<int>(height_ * appliedUserScale_), 1);
-    util::traceCounter("geode.renderScalePct", std::lround(appliedUserScale_ * 100.0f));
+void Renderer::resizeTargets() {
+    // The scene targets are the surface's pixels, one to one. Settings › Performance's render resolution
+    // is the surface's size: the shell sizes the window buffer and the display's scaler fills the screen,
+    // so the composite, the UI blur and the final pass shade the same pixels the scene does.
+    renderWidth_ = width_;
+    renderHeight_ = height_;
     // Spares over the budget go before anything is resized (#378). Then only the scenes drawn this frame
-    // are resized; a spare is resized when readyScene hands it out again, so a scale change costs one
+    // are resized; a spare is resized when readyScene hands it out again, so a size change costs one
     // resize per scene shown, not one per scene ever built.
     ++sizeStamp_;
     trimScenes({});
@@ -848,8 +848,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
-    // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
-    // dream): one process-wide table (viz/glsl/ShaderOverrides, #364). Recorded so syncShaderOverrides
+    // The user's edited source for this style, whichever renderer this is (live or export): one process-wide table (viz/glsl/ShaderOverrides, #364). Recorded so syncShaderOverrides
     // only re-applies what changed after this build.
     const std::string custom = shader_overrides::get(id);
     appliedShaders_[id] = custom;

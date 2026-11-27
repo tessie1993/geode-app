@@ -1,4 +1,4 @@
-// Host test for core/audio/ingest/SnapshotStitch: the wallpaper's output-mix capture hands over snapshots
+// Host test for core/audio/ingest/SnapshotStitch: the output-mix capture hands over snapshots
 // (the newest 1024 samples, ~20 times a second), and the ring must hear them as real time, without seams.
 //
 // Build and run (one command):
@@ -211,7 +211,7 @@ struct Heard {
     GeodeSoundFrame last{};
 };
 
-// 30 s of clicks captured as the wallpaper captures them, each frame (60 fps) feeding the engine what the
+// 30 s of clicks captured as the output-mix capture takes them, each frame (60 fps) feeding the engine what the
 // ring gained, as geode_viz_feed_ring does.
 Heard hear(double bpm, bool stitched) {
     const Signal song = [bpm](double t) { return clicks(t, bpm); };

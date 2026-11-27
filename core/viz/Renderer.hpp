@@ -69,7 +69,6 @@
 #include "viz/frame/LiveFps.hpp"
 #include "viz/passes/UiBlurPass.hpp"
 #include "viz/modulation/VisualSafety.hpp"
-#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/physics/PhysicsLayers.hpp"
@@ -93,11 +92,12 @@ public:
     void setParams(const SceneParams& params);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
-    // so it keeps full quality. renderScale and marchScale are 0..1 multipliers; postFx = false drops the
-    // optional passes and fluid bloom.
-    void setUserQuality(float renderScale, float marchScale, bool postFx);
-    // The rate the display last presented at and the surface's own cap (Settings › Performance, the
-    // wallpaper's, the dream's, Cast's fixed rate), 0 when free-running. Any thread.
+    // so it keeps full quality. marchScale is a 0..1 multiplier; postFx = false drops the optional passes
+    // and fluid bloom. The render resolution is the surface's own size: the shell sizes the window buffer
+    // (SurfaceHolder.setFixedSize, viz/frame/Quality bufferSize) and the display scales it up.
+    void setUserQuality(float marchScale, bool postFx);
+    // The rate the display last presented at and the surface's own cap (Settings › Performance,
+    // Cast's fixed rate), 0 when free-running. Any thread.
     void setPacedFps(float pacedFps, float ownCapFps) {
         pacedFps_.store(pacedFps, std::memory_order_relaxed);
         ownCapFps_.store(ownCapFps, std::memory_order_relaxed);
@@ -120,8 +120,6 @@ public:
     void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
-    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
-    void setEdgeGlow(const frame::edge_glow::Options& options);
     // What Liquid mode ran last frame (liquid::Mode), or -1 when it has not changed since the last take.
     // Taken every live frame by geode_viz_frame (frame::LiveFrame), so the shell wakes its collectors only on
     // a change. A new surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
@@ -167,7 +165,7 @@ public:
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
-    // The live feed is the player's ring (one a sink plays). Off for another ring (the wallpaper's output
+    // The live feed is the player's ring (one a sink plays). Off for another ring (the output
     // mix): the player's source, fade and boundaries are not this engine's (PlayerSignals::heardAsPlayer).
     void setFedPlayersRing(bool on) { fedPlayersRing_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
@@ -238,7 +236,7 @@ public:
     // a pause, a frame no vsync asked for). GL thread.
     void restartClock() { lastTimeS_ = -1.0; }
     void releaseScenes();
-    // The surface is about to stop drawing (the host's pause, an in-app hide, a hidden wallpaper): the spares,
+    // The surface is about to stop drawing (the host's pause, an in-app hide): the spares,
     // the passes' targets and the two scene targets go now (SceneResidency::shedFor), since the trim signal
     // is only read by a frame and none follows. GL thread, with the context current.
     void trimSpares() { trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, false)); }
@@ -274,12 +272,13 @@ private:
     void updatePcmWanted();
     // Under soundLock_: what writeAudio hears without a shared analysis (an export, a layered live feed).
     void hearOwn(const float* interleaved, int frames, int channels, int sampleRateHz);
+    void latchTuning();
     // Under soundLock_, once a frame: the frame at this renderer's sample, its triggers, feeling and waveform.
     void readSound(const sound::SharedAnalysis& heard, float dt, float fadeGain);
     // Steps styleSchedule_ once per frame (after the sound engine and musicRate_) on the picture's clock,
     // the frame's step dt times musicRate_, and requests its change, if any. Still, it holds (#999 F3).
     void applyStyleSchedule(float dt);
-    void applyRenderScale();
+    void resizeTargets();
     Scene* resolveActiveScene();
     // This frame's engine settings (viz/resolver/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
@@ -301,8 +300,6 @@ private:
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0. Its targets go after
     // a short spell without a draw (wallDt, the frame's wall step).
     bool uiBlurWanted(UiBlurRegion& region);
-    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
-    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     // dt: the scene clock's step; inputDt: the picture's own (touch, smear, the liquid's gestures).
     void stepOverlays(Scene& scene, const SceneParams& p, float dt, float inputDt);
@@ -371,7 +368,7 @@ private:
     Overlays overlays_{loader_};
     std::vector<std::pair<std::string, std::unique_ptr<Scene>>> scenes_;
     // Which of scenes_ stay resident, and which were sized before the last tier or scale change
-    // (viz/SceneResidency). sizeStamp_ moves on every applyRenderScale.
+    // (viz/SceneResidency). sizeStamp_ moves on every resizeTargets.
     SceneResidency residency_;
     uint32_t sizeStamp_ = 0;
     std::string quadVert_;
@@ -407,13 +404,6 @@ private:
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
-    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
-    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
-    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
-    // shell turned it on (the wallpaper is its only caller), and never offscreen.
-    frame::EdgeGlowPass edgeGlowPass_;
-    frame::edge_glow::Options edgeGlowOptions_;
-    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<bool> layerAlone_{false};
     std::atomic<bool> fedPlayersRing_{true};
@@ -440,6 +430,9 @@ private:
     // On the analysis settings every engine here runs (SharedAnalysis's thread takes AnalysisSettings{}).
     sound::interp::Waveform soundWave_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
+    std::mutex tuningLock_;
+    GeodeSoundTuning tuningNext_{};
+    std::atomic<bool> tuningNew_{false};
     GeodeSoundFrame soundFrame_{};
     // The frame the scenes and the resolver hear: soundFrame_ with the band trims of the params asked about
     // (viz/BandTrim.hpp), made once per distinct trim per frame. A frame with no trim is soundFrame_ itself.
@@ -474,8 +467,8 @@ private:
     GlTexture paletteRampTex_;
     // The shape graph the Scope::Shapes styles melt into their form (viz/styles/shared/ShapeGraph, lib_shapes), ticked once a
     // frame in resolveParams from the resolved params and the frame's play seed, so the music moves it only
-    // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live, an
-    // export, the wallpaper and the dream each tick their own on their own clock, and an export's fresh
+    // through those params; scenes read its upload through SceneHost::shapeGraph. One per renderer: live and an
+    // export each tick their own on their own clock, and an export's fresh
     // renderer replays its film from the pinned seed.
     shapes::ShapeGraph shapeGraph_;
 
@@ -494,10 +487,8 @@ private:
     std::string transitionId_ = kFirstTransitionId;
     int64_t transitionDurationMs_ = kFirstTransitionMs;
     std::atomic<bool> reducedMotion_{false};
-    std::atomic<float> userScale_{1.0f};
     std::atomic<float> marchScale_{1.0f};
     std::atomic<bool> userPostFx_{true};
-    float appliedUserScale_ = 1.0f;
     // SceneRegistry::spinRate of the requested scene, set by setScene so the
     // frame never compares ids.
     std::atomic<float> sceneSpin_{0.0f};

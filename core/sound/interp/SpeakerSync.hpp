@@ -34,7 +34,7 @@ static_assert(kPlayerRingFrames == 1 << 19, "the player's ring changed size: 4 M
 
 /**
  * The exclusive end (a ring head position) of what a live renderer may hear at monotonic [nowNs].
- * kNewest with no [clock] (a ring no sink plays: the wallpaper's output-mix capture), while the mic or
+ * kNewest with no [clock] (a ring no sink plays: the output-mix capture), while the mic or
  * another app's audio writes the ring instead of the player ([playerIsSource] false), and under
  * [bypass] (Cast: the TV plays the ring as written). Else the clock's speaker sample, which is
  * PlayoutClock::kUnknown (negative: hear nothing yet) until the sink has taken a buffer.

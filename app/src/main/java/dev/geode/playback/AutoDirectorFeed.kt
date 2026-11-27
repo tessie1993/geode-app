@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 /**
  * Tells the auto-director (core/viz/Director, through [AutoDirectorStore]) when a new play starts and,
  * while playing, how far in it is, so the free taste can end after its minute. The entitlement is read
- * with [ProSnapshot] like the wallpaper does, at each new play and play/pause, and on a tick only while
+ * with [ProSnapshot] like Cast does, at each new play and play/pause, and on a tick only while
  * the taste can still end (switch on, not Pro): a buyer's ticks never re-run the purchase signature check,
  * and a purchase still reaches the next tick. Listener callbacks and the ticker run on the main thread.
  */

@@ -94,6 +94,13 @@ function resolveIncludes(source, registry, chain = []) {
   return out.join('\n');
 }
 
+// The vertex stage a style draws with (SceneRegistry::create): its own <id>_vert.glsl when it has one, else quad_vert.glsl.
+function vertexFor(id, registry) {
+  const own = path.join(SHADERS, `${id}_vert.glsl`);
+  const file = fs.existsSync(own) ? own : path.join(SHADERS, 'quad_vert.glsl');
+  return resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+}
+
 // `style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
 // ShaderScene draws from shaders/<id>_frag.glsl (the loose styles and every
 // style family).
@@ -190,18 +197,13 @@ const SHADER_VALUES = {
   uLife: 0, uBirths: [0, 0, 0, 0],
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
-  // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
-  uKnob: [0.5],
   uSteps: 96,
   uPalLutMix: 0, uPalLutRow: 0.5,
   // Your colours (lib_palette): none picked, so the cosine ramp draws.
   uPalStops: new Array(15).fill(0), uPalStopCount: 0,
-  // The audio-motion uniforms (lib_scene_motion) at what ShaderScene::uploadMotion holds them at (the flow clocks run at 0.08 a second, below),
-  // and the legacy four at theirs: nothing computes any of them from the music any more.
-  uMoveDir: [1, 0], uSpawnSeed: 0, uSpawnAge: 1000, uFormPhase: 0, uFlowPhase: 1,
-  uEnergyRel: 1, uMotionBright: 0, uHarmony: 0.5,
-  uKeyHue: 0, uKeyStrength: 0, uBarOsc: 0.5, uOrbit: [0, 0], uDrift: 0,
-  uBreath: 1, uFlowTime: 1,
+  // The flow clocks (lib_scene_motion; they run at 0.08 a second, below). The rest of that file and the
+  // style knobs are GLSL constants, not uniforms.
+  uFlowPhase: 1, uFlowTime: 1,
   // The Speed-integrated sound clocks (core/viz/modulation/SpeedClock.hpp) at Speed 1, where they equal the
   // unscaled ones: the BASS_TIME MID_TIME TREBLE_TIME scalars below.
   uSoundTimeSped: [37, 35, 33],
@@ -307,15 +309,18 @@ function injectWeight(l, dt) {
   return 1 - Math.pow(1 - per60, dt * 60);
 }
 const bornRadius = (l) => 0.12 + 0.08 * l;
-// liquid::motion::fromDive: the dive about the vanishing point as lib_feedback's FrameMotion uniforms.
+// liquid::motion::fromDive, then motion::derive: the dive about the vanishing point as lib_feedback's
+// per-frame terms (no warp, zoomExp 1, so only the moves flag can be set).
 function fromDive(scale, twist, vpX, vpY, aspect) {
   const k = 0.5 * (aspect > 1 ? 1 / aspect : 1);
   const cx = 0.5 + vpX * k, cy = 0.5 - vpY * k;
   const pull = 1 - 1 / scale, ox = (0.5 - cx) * pull, oy = (0.5 - cy) * pull;
   const c = Math.cos(twist), s = Math.sin(twist);
+  const dx = ox * c - oy * s, dy = ox * s + oy * c;
+  const moves = scale !== 1 || twist !== 0 || dx !== 0 || dy !== 0;
   return {
-    uZoom: scale, uZoomExp: 1, uRot: twist, uCx: cx, uCy: cy, uDx: ox * c - oy * s, uDy: ox * s + oy * c,
-    uSx: 1, uSy: 1, uWarp: 0, uWarpScale: 1, uWarpSpeed: 1,
+    uMotionFlags: moves ? 1 : 0, uZoom: scale, uZoomExp: 1, uCx: cx, uCy: cy, uDx: dx, uDy: dy,
+    uSx: 1, uSy: 1, uRotCS: [c, s], uWarp: 0, uWarpInvScale: 1, uWarpFreq: [0, 0, 0, 0], uWarpPhase: [0, 0, 0, 0],
   };
 }
 const ease = (v, t, tau, dt) => v + (t - v) * (1 - Math.exp(-dt / tau));
@@ -323,7 +328,7 @@ const ease = (v, t, tau, dt) => v + (t - v) * (1 - Math.exp(-dt / tau));
 function liquidJobs(args, registry) {
   const W = args.size, H = args.height ?? args.size;
   const aspect = W / H;
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = vertexFor('quad', registry);
   const styleFile = (id) => {
     const f = path.join(SHADERS, `${id}_frag.glsl`);
     if (!fs.existsSync(f)) throw new Error(`no such fragment style: ${id}`);
@@ -379,6 +384,8 @@ function liquidJobs(args, registry) {
       uInject: injectWeight(args.liquidity, dt), uEdge: 0.6 * (1 - args.liquidity * 0.5), uSharpen: 0.35,
       uBornR: bornRadius(args.liquidity), uBornGain: threeD ? 0 : gain, uBornMode: args.born === 3 ? 3 : 0,
       uAge: args.age, uSurface: args.surface, uFeedback: 1, uShimmer: 0.35, uLight: 0.5, uTime: t,
+      // liquid::passFlags: the flow always, the born disc while its gain is not 0.
+      uPassFlags: 1 | ((threeD ? 0 : gain) !== 0 ? 2 : 0),
     };
     frames.push({
       time: t,
@@ -388,7 +395,7 @@ function liquidJobs(args, registry) {
       liquid: plan(liquidU, liquidValues, { uPrev: 'prev', uStyle: 'style', uBorn: 'born', uVel: 'vel' }, W, H),
     });
   }
-  return { styleVert: quadVert, styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
+  return { styleVert: vertexFor(args.liquid, registry), bornVert: vertexFor(bornId, registry), styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
 }
 
 // ---- Endless zoom (--dive <style>) ------------------------------------------
@@ -399,7 +406,7 @@ function liquidJobs(args, registry) {
 // aimY, shape, blend, fog, lens). Look at them in order: every copy only grows, none pops, no ridges.
 function diveJob(args, registry) {
   const W = args.size, H = args.height ?? args.size;
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const quadVert = vertexFor('quad', registry);
   const file = path.join(SHADERS, `${args.dive}_frag.glsl`);
   if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${args.dive}`);
   const styleFrag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
@@ -436,7 +443,7 @@ function diveJob(args, registry) {
       dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1, ...look }, { uScene: 'style' }, W, H),
     });
   }
-  return { vert: quadVert, styleFrag, diveFrag, frames, width: W, height: H };
+  return { vert: quadVert, styleVert: vertexFor(args.dive, registry), styleFrag, diveFrag, frames, width: W, height: H };
 }
 
 // ---- driving the page ------------------------------------------------------
@@ -564,7 +571,6 @@ async function runStills(args, registry) {
   const side = probeGridSide();
   const at = (t) => song[Math.min(song.length - 1, Math.max(0, Math.round(t * 60) - 1))];
   const textures = { ...SHADER_TEXTURES, uSoundTex: 'soundLive' };
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
   let ids = args.shaders.length ? args.shaders : shaderIds();
   if (args.shard) {
     const [k, n] = args.shard.split('/').map(Number);
@@ -592,7 +598,7 @@ async function runStills(args, registry) {
       try {
         // A uniform missing from the table is this style's failure (render), not the whole shard's.
         r = await page.call('__stills', {
-          vert: quadVert, frag, side, png: !!args.out, stillSize: args.stillSize, runSize: args.runSize,
+          vert: vertexFor(id, registry), frag, side, png: !!args.out, stillSize: args.stillSize, runSize: args.runSize,
           stills: STILL_TIMES.map((t) => frame(at(t), args.stillSize)),
           frames: runRows.map((row) => frame(row, args.runSize)),
         });
@@ -753,7 +759,6 @@ async function main() {
     return;
   }
   const jobs = [];
-  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
   const targets = args.all ? ids : args.shaders;
   for (const id of targets) {
     const file = path.join(SHADERS, `${id}_frag.glsl`);
@@ -773,7 +778,7 @@ async function main() {
           uCamPos: [values.uCamPos[0], values.uCamPos[1], values.uCamPos[2] + fly], uCamTravel: values.uCamTravel + fly,
         }, SHADER_TEXTURES, args.size, args.height ?? args.size).filter((u) => !u.texture)
       : undefined;
-    jobs.push({ name: id, vert: quadVert, frag, uniforms, assets, later });
+    jobs.push({ name: id, vert: vertexFor(id, registry), frag, uniforms, assets, later });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');

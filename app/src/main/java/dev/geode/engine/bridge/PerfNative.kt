@@ -8,8 +8,14 @@ object PerfNative {
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
-    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1). */
+    /** Floats [perfTier] writes: resolution (a short side in pixels, or [PERF_NATIVE]), fps cap, march scale, post FX (0/1). */
     const val PERF_TIER_FLOATS = 4
+
+    /** Mirrors GEODE_PERF_NATIVE: the render resolution that is the panel's own. */
+    const val PERF_NATIVE = 0
+
+    /** Mirrors GEODE_PERF_BUFFER_INTS: the ints [perfBufferSize] writes, width then height. */
+    const val PERF_BUFFER_INTS = 2
 
     /** Fills [out] with [mode]'s tier; false for an unknown mode. */
     external fun perfTier(
@@ -29,8 +35,8 @@ object PerfNative {
     /**
      * Settings › Performance's live frame rates (core/viz/frame/LiveFps) on a display with [refreshRates],
      * ascending into [out]; returns how many. Every refresh rate divided by a whole number (30 to 120; 30 and 60
-     * for an unknown display), then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper,
-     * dream, export and Cast keep their own.
+     * for an unknown display), then [LIVE_FPS_FOLLOW]. The in-app stage only: the
+     * export and Cast keep their own.
      */
     external fun liveFpsChoices(
         refreshRates: FloatArray,
@@ -52,23 +58,97 @@ object PerfNative {
         refreshRates: FloatArray,
     ): Float
 
+    // A panel is the display's largest physical mode (Display.Mode.getPhysicalWidth/Height); 0 for unknown.
+
     /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
     external fun perfModeForDevice(
         totalRamBytes: Long,
         lowRam: Boolean,
         mediaPerformanceClass: Int,
+        panelWidth: Int,
+        panelHeight: Int,
     ): Int
 
-    /** The mode these values are, or -1 when none is ("Custom"). */
+    /** The mode these values are on this panel, or -1 when none is ("Custom"). */
     external fun perfModeOf(
-        renderScale: Float,
+        resolution: Int,
         fpsCap: Int,
         marchScale: Float,
         postFx: Boolean,
+        panelWidth: Int,
+        panelHeight: Int,
     ): Int
 
-    /** The render and march scales Settings › Performance offers, ascending. */
+    /** The render resolutions Settings › Performance offers on this panel, ascending: short sides in pixels, then [PERF_NATIVE]. */
+    external fun perfResolutionChoices(
+        panelWidth: Int,
+        panelHeight: Int,
+    ): IntArray
+
+    /** The resolution an old install's stored render scale maps to on this panel. */
+    external fun perfResolutionForScale(
+        renderScale: Float,
+        panelWidth: Int,
+        panelHeight: Int,
+    ): Int
+
+    /** The march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
+
+    /**
+     * The window buffer at [resolution] for a view of [viewWidth] x [viewHeight] pixels on a display in its
+     * [modeWidth] x [modeHeight] mode, width then height into [out] (2 ints): the size the stage's surface is fixed
+     * to, which the display scales up. With the mode as the view, what the resolution draws full screen. False for no view.
+     */
+    external fun perfBufferSize(
+        resolution: Int,
+        modeWidth: Int,
+        modeHeight: Int,
+        viewWidth: Int,
+        viewHeight: Int,
+        out: IntArray,
+    ): Boolean
+
+    // The resolution the app holds (core/viz/frame/ResolutionState): each event returns nothing, and [perfResolutionRead] reads what native derived.
+
+    /** The display's panel and its current mode, as [perfModeForDevice] takes the panel (0 for unknown). */
+    external fun perfPanelSet(
+        panelWidth: Int,
+        panelHeight: Int,
+        modeWidth: Int,
+        modeHeight: Int,
+    )
+
+    /** The stage view's size in pixels. */
+    external fun perfViewSet(
+        viewWidth: Int,
+        viewHeight: Int,
+    )
+
+    /** The user's resolution, fps cap, march scale and post FX. */
+    external fun perfSettingsSet(
+        resolution: Int,
+        fpsCap: Int,
+        marchScale: Float,
+        postFx: Boolean,
+    )
+
+    /** Fills [out] ([PERF_DESCRIPTOR_INTS]) with the descriptor native published, in the order of the `PERF_FIELD_*`; false for a short [out]. */
+    external fun perfResolutionRead(out: IntArray): Boolean
+
+    /** Mirrors GEODE_PERF_DESCRIPTOR_INTS and GEODE_PERF_FIELD_*: [perfResolutionRead]'s ints. */
+    const val PERF_DESCRIPTOR_INTS = 17
+    const val PERF_FIELD_RESOLUTION = 0
+    const val PERF_FIELD_PRESET = 1
+    const val PERF_FIELD_SELECTED = 2
+    const val PERF_FIELD_BUFFER_WIDTH = 3
+    const val PERF_FIELD_BUFFER_HEIGHT = 4
+    const val PERF_FIELD_DRAWN_WIDTH = 5
+    const val PERF_FIELD_DRAWN_HEIGHT = 6
+    const val PERF_FIELD_MODE_WIDTH = 7
+    const val PERF_FIELD_MODE_HEIGHT = 8
+    const val PERF_FIELD_STEP_COUNT = 9
+    const val PERF_FIELD_STEPS = 10
 
     /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
     external fun memoryTrim(level: Int)

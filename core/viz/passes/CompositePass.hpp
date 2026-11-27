@@ -20,8 +20,8 @@ namespace geode::viz {
 // (Renderer::applyUnderlayUpload), as the RGBA8 bytes Renderer::setUnderlayRgba converted Android's
 // ARGB ints to once, when the image was set (#999). The underlay sits UNDER/INTO the scene: draw() blends it into
 // the finished composite colour (screen/multiply/add, by uUnderlayAmount) inside
-// composite_frag.glsl, right before the dither - so it reads identically on the live view, the
-// wallpaper and the frame-exact offscreen export, all of which share this same pass. It is read
+// composite_frag.glsl, right before the dither - so it reads identically on the live view and the
+// frame-exact offscreen export, all of which share this same pass. It is read
 // every frame via underlayTexOrZero()/underlayBlendMode()/underlayAmount() into
 // CompositePass::Inputs, mirroring how Renderer::composite() already wires uFlow.
 // It costs nothing beyond the always-valid zeroTex_ until something is actually uploaded; nothing

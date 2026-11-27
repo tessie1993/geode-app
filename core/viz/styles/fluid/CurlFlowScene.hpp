@@ -18,6 +18,7 @@ public:
     void init() override;
     void resize(int width, int height) override;
     void update(const GeodeSoundFrame& features, float dt) override;
+    void simulate() override;
     void draw(float timeSeconds) override;
     void release() override;
     float trailRetention(const SceneParams& params) const override;
@@ -40,6 +41,7 @@ private:
     float noiseTime_ = 0.0f;
     float wallTime_ = 0.0f;
     float pcmKick_ = 0.0f;
+    bool simulated_ = false;
     float aspect_ = 1.0f;
     int particleCount_ = 0;
     bool available_ = false;

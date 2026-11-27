@@ -29,6 +29,11 @@ int main() {
     hint.report(16000000, 0);
     hint.report(16000000, 9000000);
     hint.report(33000000, 12000000);
+    hint.report(16000000, 9000000, 5000000, 1000);
+    hint.report(16000000, 9000000, 0, 0);
+    hint.report(16000000, 9000000, -1, 1000);
+    hint.report(0, 9000000, 5000000, 1000);
+    hint.report(16000000, 0, 5000000, 1000);
     check(true, "reports are accepted, and ignored where there is no session");
     if (failures == 0) std::printf("work_hint_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

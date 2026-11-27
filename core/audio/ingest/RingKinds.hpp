@@ -5,13 +5,13 @@
 // The rings the app keeps, one per audio source, and how each is made (geode_pcm_ring_shared,
 // geode_pcm_ring_create_kind). The player's and the mic's live for the process, like the playout clock,
 // so a writer, a renderer or a stage that still holds one after its session ends never reaches a freed
-// ring. The output mix's is one per capture (a wallpaper or a dream each run their own), freed by it.
+// ring. The output mix's is one per capture, freed by it.
 namespace geode::audio::ingest {
 
 enum RingKind : int {
     kPlayerRing = 0,     // the tap, or a capture of another app in its place
     kMicRing = 1,        // layered over the player's (LayerMix)
-    kOutputMixRing = 2,  // the wallpaper's and dream's Visualizer snapshots (SnapshotStitch)
+    kOutputMixRing = 2,  // the output mix's Visualizer snapshots (SnapshotStitch)
 };
 inline constexpr int kRingKinds = 3;
 

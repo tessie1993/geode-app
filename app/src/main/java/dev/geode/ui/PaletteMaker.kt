@@ -189,7 +189,7 @@ internal fun PaletteDropdown(
 /**
  * Your colours (Customize › Look, Pro): up to eight colour stops (native's cap) made the Photoshop way, a
  * square and a hue strip and a hex field. Every change plays on the
- * visual at once (the stops are scene params, so the wallpaper, dream, Cast, export and presets carry
+ * visual at once (the stops are scene params, so Cast, export and presets carry
  * them as they carry any palette); Save names them and lists them beside the built-ins. The editor is
  * native's (core/viz/PalettePanel): the stops, the selected one, the limits and the words; this draws it.
  */

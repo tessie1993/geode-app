@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -40,7 +41,7 @@ vec4 onionMul(vec4 a, vec4 b) {
 vec4 onionJulia(vec3 p, bool cubic) {
     vec4 z = vec4(p, mix(-0.3, 0.3, gFoldForm) + 0.35 * (length(p) - 0.75));
     vec4 c = cubic ? vec4(-0.18, 0.52, 0.25, -0.2) : vec4(-0.29, -0.4, 0.34, 0.44);
-    c += 0.04 * vec4(cos(uTime * FOLD_RATE(90)), sin(uTime * FOLD_RATE(90)), 0.0, 0.0);
+    c += 0.04 * vec4(gFrame.b.x, gFrame.b.z, 0.0, 0.0);
     // The orbit's derivative's length: the quaternion norm is multiplicative, so n |z|^(n-1) per power.
     float md = 1.0;
     float m2 = dot(z, z);
@@ -94,7 +95,7 @@ vec4 onionBulb(vec3 p) {
 }
 
 vec4 foldMap(vec3 p) {
-    p.xz = foldRot(uTime * FOLD_RATE(40)) * p.xz;
+    frameTurnXZ(gFrame.a, p);
     float slack = layerFlowWarp(p, gFoldFlow, gFoldChaos);
     vec4 m = vec4(0.0);
     if (gLayerPick.x > 0.0) m += gLayerPick.x * onionJulia(p, false);

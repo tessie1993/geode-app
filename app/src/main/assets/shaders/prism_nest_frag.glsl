@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -50,11 +51,11 @@ float nestShell(vec3 p, float rad, float hole, out float seam) {
 vec2 shells(vec3 p) {
     float open = mix(0.18, 0.36, gPrismForm);
     vec3 a = p;
-    a.xz = prismRot(uTime * PRISM_RATE(50)) * a.xz;
+    frameTurnXZ(gFrame.a, a);
     vec3 b = p;
-    b.yz = prismRot(0.6 - uTime * PRISM_RATE(65)) * b.yz;
+    frameTurnYZ(gFrame.b, b);
     vec3 c = p;
-    c.xy = prismRot(1.1 + uTime * PRISM_RATE(100)) * c.xy;
+    frameTurnXY(gFrame.c, c);
     float s0;
     float s1;
     float s2;

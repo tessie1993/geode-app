@@ -4,7 +4,7 @@
 
 // The frame graph's unit of work: one step of the frame every surface
 // runs, after the scene and before the swap. Trail, Liquid, Composite, UiBlur and the export
-// post-passes are to implement it; EdgeGlowPass (the wallpaper's edge look, #439) is the first.
+// post-passes are to implement it; the export's watermark and seam (ExportPasses) do.
 //
 // Why this split of calls: prepare() is CPU only, so a pass's maths (envelopes, what it reads off the sound
 // frame, the geometry it draws) runs and is tested on the host without a GL context (core/tests); draw()
@@ -14,9 +14,9 @@
 // the new one is generated, or it would later delete or draw with an object that is no longer its own.
 namespace geode::viz::frame {
 
-// Which kind of surface the frame is for. A pass that belongs to one (the wallpaper's edge glow, the
-// export's watermark) says so in wants().
-enum class Surface : int { Live, Wallpaper, Dream, Export };
+// Which kind of surface the frame is for. A pass that belongs to one (the export's watermark) says so in
+// wants().
+enum class Surface : int { Live, Export };
 
 // What a pass may read about this frame. `sound` is the frame's sound engine output: never null while the
 // renderer runs, but a pass treats null as silence so a host test can drive it without one.
@@ -28,8 +28,7 @@ struct FrameCtx {
     const GeodeSoundFrame* sound;
 };
 
-// The frame's textures a pass may sample. 0 = not available to this pass (the edge glow reads neither: it
-// blends over the target's finished pixels).
+// The frame's textures a pass may sample. 0 = not available to this pass.
 struct PassInputs {
     unsigned sceneTex = 0, compositeTex = 0;
 };

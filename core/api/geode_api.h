@@ -84,7 +84,7 @@ GEODE_API const char* geode_director_tuning_with(const char* text, int index, fl
  * keep the style on screen. Without one (or with no intent waiting) Auto's random draw, as geode_auto_pick. */
 GEODE_API int         geode_auto_pick_among(const char* ids, int on_screen, int director_moment);
 /* Customize › Advanced › Layers (core/viz/LayerState, core/viz/LayerPick): a second style over the main one,
- * process-wide like geode_director_set, so live, export, the wallpaper and the dream all draw it. Native keeps the
+ * process-wide like geode_director_set, so live and export both draw it. Native keeps the
  * layer; the shell only saves the line edit hands back ("layer|1|<on 0/1>|<SOURCE>|<style id>|<knob id>|<blend>|
  * <mix>") and hands it to set at the next start. Where its style comes from (GEODE_LAYER_SOURCE_USER, the user's
  * pick or one native picks to suit the style on screen; _DIRECTOR, Auto Director's pick at its style moments;
@@ -132,7 +132,7 @@ GEODE_API const char* geode_layer_shown(const char* active_style);
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
 /* Customize › Advanced › Shader code (core/viz/glsl/ShaderOverrides): the user's fragment source for a style, process-wide
- * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
+ * like geode_director_set, so live and export both draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
 GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
 /* The style's override; returns its full length, 0 when it draws the built-in style. */
@@ -187,9 +187,9 @@ GEODE_API void        geode_viz_set_look(geode_viz*, const geode_viz_look* look)
    Static. geode_viz_set_look holds transition_ms to 300..5000 (viz/looks/LookSnapshot). */
 GEODE_API const char* geode_viz_look_defaults(void);
 /* Settings › Performance for a live surface (any thread, latched; the next geode_viz_frame applies it when it
-   changed, and again on a new surface): scales 0..1, post_fx 0 or 1. Never set, the renderer keeps full
-   quality (an export). */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx);
+   changed, and again on a new surface): march_scale 0..1, post_fx 0 or 1. Never set, the renderer keeps full
+   quality (an export). The render resolution is the surface's own size (geode_perf_buffer_size). */
+GEODE_API void        geode_viz_set_quality(geode_viz*, float march_scale, int post_fx);
 /* One whole live frame (core/viz/frame/LiveFrame), on the GL thread with the context current, into
    framebuffer 0; the shell swaps after it. In order: paced_fps (the rate this surface's pacer draws at,
    0 = free-running) and cap_fps (the surface's own cap; the same as paced_fps where
@@ -213,22 +213,6 @@ GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
-/* The wallpaper's edge look (core/viz/frame/EdgeGlowPass): after the composite, black over the frame except
- * along the screen's rounded rim, the band breathing with the music's level. opts, in this order
- * (core/viz/frame/EdgeGlowMath.hpp): enabled (> 0.5 = on), then the part of the surface on screen in
- * surface pixels, y down: left, top, width, height (width or height <= 0 = the whole surface). Fewer than
- * GEODE_EDGE_GLOW_FLOATS floats, or any non-finite one, turns it off. Any thread, latched for the next
- * frame. Off by default; an offscreen (export) renderer never draws it. */
-#define GEODE_EDGE_GLOW_FLOATS 5
-GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
-/* The live wallpaper's window (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
- * geode_wallpaper_window: the part of a surface_w x surface_h surface on a display_w x display_h screen,
- * from the raw WallpaperService.Engine.onOffsetsChanged values in its order (xOffset, yOffset, xOffsetStep,
- * yOffsetStep, xPixels, yPixels; fewer = unknown). Writes left, top, width, height (surface pixels, y down,
- * as geode_viz_set_edge_glow takes them) to out[4]. Any thread. */
-#define GEODE_WALLPAPER_OFFSETS 6
-GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
-                                             const float* offsets, int count, float* out);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
  * reads geode_macro_bank_set, geode_hand_set or geode_director_set again, so live
  * edits, the player's next track and its free taste never reach the render. The macro bank
@@ -315,7 +299,7 @@ GEODE_API int          geode_shake_sample(geode_shake*, int64_t time_ns, float x
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
-/* The surface is about to stop drawing (the host pauses it, the wallpaper hides): sheds this renderer's spare
+/* The surface is about to stop drawing (the host pauses it): sheds this renderer's spare
  * scenes now, exactly as a TRIM_MEMORY_UI_HIDDEN trim does (geode_memory_trim), because that signal is only read
  * by a frame and a paused surface draws none. What is drawn, the layer, the born and the requested style stay.
  * GL thread, while the context is still current; without one it does nothing. */
@@ -1373,13 +1357,6 @@ GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
 GEODE_API void                geode_export_seam_blend(geode_export_pass*, int index, int tail, int seam_frames);
 
-/* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
- * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
- * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is
- * nothing heard for 6 s. Pure: the caller keeps the one timestamp. */
-GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
-                                                 long long now_ms, long long heard_at_ms);
-GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 /* A capture's digital silence (sound/Silence): heard_at moved to now when the peak of the block it just wrote
  * (the ring's write answer) is above digital zero; quiet is 4 s of none since then. Start heard_at at the
  * capture's start. Pure, any thread. */
@@ -1414,20 +1391,6 @@ GEODE_API int             geode_mic_active(void);
  * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
 GEODE_API long long       geode_sound_track_boundary(long long seed);
 GEODE_API void            geode_sound_set_player_source(int on);
-/* Which sound the wallpaper and the dream hear (sound/SoundSource): the app's ring while it is fed, else the
- * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed
- * = fresh) and polls with now, whether the app has a ring, which ring and its written-frame counter, whether
- * capture is permitted (option on and permission granted, or already running) and whether it runs. The answer
- * is GEODE_SOUND_SOURCE_* bits; the ring falls back after 1 s without a write and takes over again after 0.5 s
- * fed, so it never flaps. A start the shell could not make is reported back and retried after 10 s. Pure. */
-#define GEODE_SOUND_SOURCE_STATE_LONGS 8
-#define GEODE_SOUND_SOURCE_USE_CAPTURE 1     /* read the capture's input (while it runs), not the ring */
-#define GEODE_SOUND_SOURCE_START_CAPTURE 2   /* try to start the capture now */
-#define GEODE_SOUND_SOURCE_STOP_CAPTURE 4    /* stop the capture now */
-GEODE_API int             geode_sound_source_step(long long* state, long long now_ms, int ring_present,
-                                                  long long ring_id, long long ring_written,
-                                                  int capture_permitted, int capture_running);
-GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
  * min(count, slots) and ignores the rest. The engine clamps each slot into its range, a NaN or an
@@ -1457,19 +1420,67 @@ GEODE_API void            geode_cast_format(int* out);
    names (gl_transitions.json, read from the APK once per process), each list's entries separated by US. UTF-8.
    Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */
 GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
-/* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
+/* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. A resolution is the
+   picture's short side in pixels when it fills the screen (1080 is 1080 x 2400 on a 20:9 phone), or
+   GEODE_PERF_NATIVE for the panel's own. panel_width x panel_height is the display's largest physical mode
+   (Display.Mode.getPhysicalWidth/Height over getSupportedModes), mode_width x mode_height its current one;
+   0 for unknown. */
+#define GEODE_PERF_NATIVE 0
 #define GEODE_PERF_TIER_FLOATS 4
-/* Writes render scale, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
+/* Writes resolution, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
-/* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
-GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
-/* The mode these values are (the tier's fps cap as an int, post_fx 0/1), or -1 for none: the tab reads "Custom". */
-GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx);
-/* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
+/* The first-run mode for this phone, a default the user may change. total_ram_bytes 0 = unknown. */
+GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class,
+                                                     int panel_width, int panel_height);
+/* The mode these values are on this panel (resolutions compared as drawn, the tier's fps cap as an int,
+   post_fx 0/1), or -1 for none: the tab reads "Custom". */
+GEODE_API int             geode_perf_mode_of(int resolution, int fps_cap, float march_scale, int post_fx, int panel_width,
+                                             int panel_height);
+/* The march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
+/* The resolutions the tab offers on this panel, ascending into out (up to capacity): every step of 540, 720,
+   900, 1080, 1440, 2160 under the panel's short side, then GEODE_PERF_NATIVE. Returns how many. */
+#define GEODE_PERF_RESOLUTION_CHOICES 7
+GEODE_API int             geode_perf_resolution_choices(int panel_width, int panel_height, int* out, int capacity);
+/* The resolution an old install's stored render scale (0.25..1 of the screen) maps to on this panel: the
+   nearest choice, the higher on a tie. */
+GEODE_API int             geode_perf_resolution_for_scale(float render_scale, int panel_width, int panel_height);
+/* The window buffer a live surface renders into at `resolution` for a view of view_width x view_height pixels
+   on a display in mode_width x mode_height: out[0] width, out[1] height (GEODE_PERF_BUFFER_INTS). The shell
+   sizes the surface to it (SurfaceHolder.setFixedSize) and the display scales it up to the view; every pass,
+   the composite and the UI blur included, shades the buffer's pixels. With the mode as the view it is what
+   the resolution draws full screen. Returns the count, 0 for no view (a size <= 0) or a short out. */
+#define GEODE_PERF_BUFFER_INTS 2
+GEODE_API int             geode_perf_buffer_size(int resolution, int mode_width, int mode_height, int view_width,
+                                                 int view_height, int* out, int capacity);
+/* The render resolution the app holds (core/viz/frame/ResolutionState), process-wide. Each set is a void event and
+   derives the descriptor once; the shell and the screen read it as published (geode_perf_resolution_read) and
+   compute nothing. panel_set: the display's panel and its current mode, as above (0 for unknown). view_set: the stage
+   view's size in pixels. settings_set: the user's resolution, fps cap, march scale and post FX (0/1). */
+GEODE_API void            geode_perf_panel_set(int panel_width, int panel_height, int mode_width, int mode_height);
+GEODE_API void            geode_perf_view_set(int view_width, int view_height);
+GEODE_API void            geode_perf_settings_set(int resolution, int fps_cap, float march_scale, int post_fx);
+/* The descriptor, GEODE_PERF_DESCRIPTOR_INTS ints into out in the order of GEODE_PERF_FIELD_*: the stored
+   resolution; the preset these values are on this panel (-1: Custom); the index of the selected step (-1: none); the
+   window buffer for the view and what the resolution draws full screen on the current mode (0 x 0 while there is no
+   view, or the mode is unknown); the current mode; the step count and the steps the tab offers, ascending, Native
+   last. Returns the count, 0 for a short out. */
+#define GEODE_PERF_FIELD_RESOLUTION 0
+#define GEODE_PERF_FIELD_PRESET 1
+#define GEODE_PERF_FIELD_SELECTED 2
+#define GEODE_PERF_FIELD_BUFFER_WIDTH 3
+#define GEODE_PERF_FIELD_BUFFER_HEIGHT 4
+#define GEODE_PERF_FIELD_DRAWN_WIDTH 5
+#define GEODE_PERF_FIELD_DRAWN_HEIGHT 6
+#define GEODE_PERF_FIELD_MODE_WIDTH 7
+#define GEODE_PERF_FIELD_MODE_HEIGHT 8
+#define GEODE_PERF_FIELD_STEP_COUNT 9
+#define GEODE_PERF_FIELD_STEPS 10
+#define GEODE_PERF_DESCRIPTOR_INTS 17
+GEODE_API int             geode_perf_resolution_read(int* out, int capacity);
 /* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
-   is up, never the wallpaper, the dream, an export or Cast. `rates` are the refresh rates of the stage's display at
+   is up, never an export or Cast. `rates` are the refresh rates of the stage's display at
    its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the
    rates offered, ascending, into out (up to capacity); returns how many: every refresh rate divided by a whole number,
    30 to 120 (30 and 60 for an unknown display), then GEODE_LIVE_FPS_FOLLOW ("Follow
@@ -1483,43 +1494,6 @@ GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
 GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);
 GEODE_API int             geode_live_fps_cap(int stored_fps, const float* rates, int count);
 GEODE_API float           geode_live_fps_refresh(int fps, const float* rates, int count);
-/* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
- * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
- * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
- * after geode_surface_recheck_in_ms (-1 = never), since nothing announces a trial's end. */
-#define GEODE_SURFACE_HAS_SURFACE            (1u << 0)
-#define GEODE_SURFACE_VISIBLE                (1u << 1)
-#define GEODE_SURFACE_PREVIEW                (1u << 2)
-#define GEODE_SURFACE_COVERED                (1u << 3)
-#define GEODE_SURFACE_BATTERY_SAVER          (1u << 4)
-#define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
-#define GEODE_SURFACE_SILENT                 (1u << 6)
-#define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
-#define GEODE_SURFACE_REDUCED_MOTION         (1u << 8)   /* the system's Remove animations */
-#define GEODE_SURFACE_DARK_WHEN_SILENT       (1u << 9)   /* silence shows no visual (the dream), not a still frame */
-#define GEODE_SURFACE_FOREVER                9223372036854775807LL
-GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated, 3 dark */
-GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
-GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
-GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
-/* Why it is not moving, the rule's first reason: 0 moving, 1 hidden or covered, 2 the entitlement, 3 reduced
- * motion, 4 battery saver, 5 silence. */
-GEODE_API int             geode_surface_reason(unsigned flags, long long animate_until_ms, long long now_ms);
-/* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
- * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
-GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
-/* A surface's own frame rate (wallpaper options, Behaviour › Dream): the stored choice as the pacer caps to,
- * snapped to a listed rate; <= 0 gives the default. */
-#define GEODE_SURFACE_DEFAULT_FPS            30
-GEODE_API int             geode_surface_fps_choice(int requested_fps);
-/* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
-GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
-/* What sets GEODE_SURFACE_COVERED, 1 = covered. _zoom_covers: the wallpaper's zoom (0 none, 1 fully out behind the
- * shade or recents) past the cover point. _proximity_near: the dream's proximity reading, in cm, near against the
- * sensor's maximum range. */
-GEODE_API int             geode_surface_zoom_covers(float zoom);
-GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
-
 /* Auto's style timer (core/viz/director/AutoTimer), one per source, process-wide: the wait before the next look is the
  * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the
  * interval. now_ms is the shell's monotonic clock. restart: a look just went up. due: 1 once the wait is over
@@ -1910,7 +1884,7 @@ GEODE_API geode_pcm_ring*   geode_pcm_ring_create(int capacity_frames, int chann
 /* destroy leaves a handle from geode_pcm_ring_shared alone. */
 GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
 /* The rings the app keeps, one per source (audio/ingest/RingKinds): the player's (the tap, or a capture of
- * another app in its place), the mic's and the wallpaper's or dream's output-mix capture. */
+ * another app in its place), the mic's and the output-mix capture of other apps. */
 #define GEODE_PCM_RING_PLAYER 0
 #define GEODE_PCM_RING_MIC 1
 #define GEODE_PCM_RING_OUTPUT_MIX 2
@@ -1918,7 +1892,7 @@ GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
  * size, the mic's layered over the player's, and never freed: a handle any thread holds stays valid. NULL
  * for another kind or no memory. Any thread. */
 GEODE_API geode_pcm_ring*   geode_pcm_ring_shared(int kind);
-/* The app's sound input, for the surfaces that hold no playback session (the stage, the wallpaper, the dream, a
+/* The app's sound input, for the surfaces that hold no playback session (the stage, a
  * cast): the player's ring while a session holds it, else NULL. The shell says so as a session begins and ends.
  * Process-wide, any thread. */
 GEODE_API void              geode_pcm_ring_set_live(int on);
@@ -1937,7 +1911,7 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
-/* on != 0: the ring's writes are a capture's snapshots, not a stream (the wallpaper's output mix: the
+/* on != 0: the ring's writes are a capture's snapshots, not a stream (the output mix: the
  * newest ~1024 samples ~20 times a second). Each write then adds the real time since the last one, on the
  * monotonic clock, filled from that snapshot alone (audio/ingest/SnapshotStitch), so the readers' sample
  * clock is real time and no two snapshots are joined at a seam. on = 0 writes blocks as they are again.
@@ -1966,10 +1940,6 @@ GEODE_API int64_t           geode_pcm_ring_head(const geode_pcm_ring*);      /* 
  * handle then reads up to the sample the speaker plays (geode_playout_listen_limit) instead of the newest.
  * The clock must outlive every reader of the handle; the app keeps one for the process. Any thread. */
 GEODE_API void              geode_pcm_ring_set_playout(geode_pcm_ring*, const geode_playout* clock);
-/* geode_silence_heard_at over the ring's newest `frames` frames: heard_at_ms unchanged when the epoch has
- * not written that many, else now_ms when any of them is audible. */
-GEODE_API long long         geode_pcm_ring_heard_at(const geode_pcm_ring*, int frames, long long now_ms,
-                                                    long long heard_at_ms);
 /* One reader's place in a ring: every frame once, in order. max_frames is the most one take hands out
  * (0 = the ring's runway). One thread per cursor. */
 GEODE_API geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring*, int max_frames);

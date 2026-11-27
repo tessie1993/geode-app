@@ -105,7 +105,7 @@ void stageOrder() {
     LiveFrame f;
     Recorder r;
     f.surfaceCreated();
-    f.setQuality(UserQuality{0.75f, 1.0f, true});
+    f.setQuality(UserQuality{1.0f, true});
     f.requestScene("a");
     f.gyroPush(GyroReading{0.1f, 0.2f, 0.3f, 0.9f, 1});
     // A new surface's first frame is a whole frame: every stage runs, in this one order.
@@ -142,17 +142,17 @@ void qualityOncePerChange() {
     Recorder r;
     frame(f, r);
     check(r.count("quality") == 0, "nothing set: the renderer keeps its own");
-    f.setQuality(UserQuality{0.5f, 0.5f, false});
+    f.setQuality(UserQuality{0.5f, false});
     frame(f, r);
-    check(r.count("quality") == 1 && r.quality.renderScale == 0.5f && !r.quality.postFx, "a set is applied");
+    check(r.count("quality") == 1 && r.quality.marchScale == 0.5f && !r.quality.postFx, "a set is applied");
     frame(f, r);
     check(r.count("quality") == 0, "once");
-    f.setQuality(UserQuality{0.5f, 0.5f, false});
+    f.setQuality(UserQuality{0.5f, false});
     frame(f, r);
     check(r.count("quality") == 0, "an equal set is not applied again");
-    f.setQuality(UserQuality{1.0f, 0.5f, false});
+    f.setQuality(UserQuality{1.0f, false});
     frame(f, r);
-    check(r.count("quality") == 1 && r.quality.renderScale == 1.0f, "a change is");
+    check(r.count("quality") == 1 && r.quality.marchScale == 1.0f, "a change is");
     f.surfaceCreated();
     frame(f, r);
     check(r.count("quality") == 1, "a new surface applies it again, on its first frame");

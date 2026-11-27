@@ -43,13 +43,13 @@ uint32_t frame(FrameCadence& c, Asked& asked, int liquid) {
 
 void qualityDedupes() {
     FrameCadence c;
-    const UserQuality high{1.0f, 1.0f, true};
+    const UserQuality high{1.0f, true};
     check(c.offerQuality(high), "the first push is applied");
     check(!c.offerQuality(high), "the same push again is skipped");
-    check(!c.offerQuality(UserQuality{1.0f, 1.0f, true}), "an equal copy is skipped too");
+    check(!c.offerQuality(UserQuality{1.0f, true}), "an equal copy is skipped too");
     UserQuality lower = high;
-    lower.renderScale = 0.75f;
-    check(c.offerQuality(lower), "a new render scale is applied");
+    lower.marchScale = 0.75f;
+    check(c.offerQuality(lower), "a new march scale is applied");
     UserQuality fx = lower;
     fx.postFx = false;
     check(c.offerQuality(fx), "post FX off is applied");

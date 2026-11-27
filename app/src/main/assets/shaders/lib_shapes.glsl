@@ -6,7 +6,7 @@
 // a group, the children after it combine onto the group, and the finished group lands on the scene by the
 // head's operation (union, smooth blend, cut, mask). Everything that moves (a glide, a primitive or operation
 // crossfade, a shape growing in or shrinking away, the drift) moves natively, once a frame, on the renderer's
-// clocks: this file only reads the numbers, so live, an export, the wallpaper and the dream draw the same graph.
+// clocks: this file only reads the numbers, so live and an export draw the same graph.
 //
 // THE HOST MIRROR. ShapeGraph::sample and ShapeGraph::sampleInto are this file's maths, line for line, so the
 // host tests (core/tests/shape_graph_test) hold the shader's rules: presence 0 leaves no trace, the field is

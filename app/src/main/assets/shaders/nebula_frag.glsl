@@ -378,7 +378,7 @@ out vec4 fragColor;
 /**
  * Global glow floor and gain on sndLevel(SND_VOL). The floor is 1.0, not something less,
  * because energy has to be able to add without silence having to look dim -
- * a wallpaper spends most of its life at sndLevel(SND_VOL) 0.
+ * a screen saver spends most of its life at sndLevel(SND_VOL) 0.
  */
 #define NEB_ENERGY_BASE 1.0
 #define NEB_ENERGY_GAIN 0.35
@@ -570,10 +570,9 @@ void main() {
     vec3 rdW;
     camAround(uv * (NEB_RIG_FOCAL / NEB_FOCAL), NEB_CAM_DIST, NEB_CAM_SPIN, roW, rdW);
     // camAround does not hand back its basis. The eye sits on -forward, and
-    // one more ray at uv (1, 0) gives right.
-    vec3 roX;
-    vec3 rdX;
-    camAround(vec2(1.0, 0.0), NEB_CAM_DIST, NEB_CAM_SPIN, roX, rdX);
+    // one more ray at uv (1, 0) gives right: camAround's own ray expression on
+    // the basis it left in gGrowBasis, so not a second camAround.
+    vec3 rdX = normalize(gGrowBasis * vec3(1.0, 0.0, uCamFocal));
     vec3 camF = -normalize(roW);
     vec3 camR = normalize(rdX - dot(rdX, camF) * camF);
     mat3 camB = mat3(camR, cross(camF, camR), camF);
@@ -643,6 +642,8 @@ void main() {
     // The mids' steer is a slide of the domain, never a turn (see NEB_MID_STEER).
     vec3 drift = vec3(0.031, -0.047, 0.019) * uTime + NEB_MID_STEER * mid * vec3(0.8, -0.35, 0.5);
     mat3 volumeRot = rotY(NEB_TUMBLE_Y * uTime) * rotX(NEB_TUMBLE_X * uTime);
+    // Out of the camera's frame into the world's, then into the volume's own: one matrix for the march.
+    mat3 volumeFromCam = volumeRot * camB;
     // The grow hooks act on the pattern in its own coordinate (nebWarpCoord: world times
     // NEB_DENSITY_SCALE, slid by the drift), so they are measured from the cloud's centre there, the
     // volume's radius deep, and not from that coordinate's origin, which the drift leaves behind.
@@ -772,7 +773,7 @@ void main() {
         // volume's own frame before drifting and warping, so both the eye
         // going round and the tumble turn the STRUCTURE and not the envelope
         // (which is spherical and would not notice).
-        vec3 pn = volumeRot * (camB * pw);
+        vec3 pn = volumeFromCam * pw;
         vec3 q = nebWarpCoord(pn + drift);
 
         // Octaves fall away with depth. A slab at the far side of the volume

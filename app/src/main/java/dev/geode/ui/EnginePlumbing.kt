@@ -53,7 +53,7 @@ private const val MS_PER_SECOND = 1000
 fun VisualizerEngineBindings(
     viewModel: PlayerViewModel,
     visualizerView: StageView,
-    liveRate: LiveFrameRate,
+    liveFps: Int,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -70,7 +70,9 @@ fun VisualizerEngineBindings(
 
     LaunchedEffect(Unit) {
         visualizerView.stage.onShaderError = viewModel::reportShaderError
-        visualizerView.stage.soundInput = { dev.geode.audio.AudioBus.heard }
+    }
+    LaunchedEffect(visualizerView) {
+        dev.geode.audio.AudioBus.heard.collect { visualizerView.stage.hear(it) }
     }
     // W02: the background image is decoded to the surface's current pixel size, so a rotation
     // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
@@ -122,9 +124,9 @@ fun VisualizerEngineBindings(
         // The look carries the transition; this only compiles it ahead of the next style change.
         visualizerView.stage.warmTransition(activeTransitionId)
     }
-    // The app's one live rate (LiveFrameRate): the stored pick as this window's display runs it.
-    LaunchedEffect(performance, liveRate) {
-        visualizerView.applyPerformance(performance.copy(fpsCap = liveRate.fps))
+    // The app's one live rate (rememberLiveFps): the stored pick as this window's display runs it.
+    LaunchedEffect(performance, liveFps) {
+        visualizerView.applyPerformance(performance.copy(fpsCap = liveFps))
     }
     LaunchedEffect(Unit) {
         visualizerView.stage.liquidMode.collect { viewModel.reportLiquidMode(it) }

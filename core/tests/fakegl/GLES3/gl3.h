@@ -1,8 +1,9 @@
-/* Host-test stand-in for <GLES3/gl3.h>: the GL system boundary, faked (core/tests/edge_glow_pass_test.cpp).
+/* Host-test stand-in for <GLES3/gl3.h>: the GL system boundary, faked (core/tests/transition_programs_test.cpp and its siblings).
  *
- * Only the types, enums and entry points that core/viz/frame/EdgeGlowPass.cpp, core/viz/gl/Program.cpp and
+ * Only the types, enums and entry points that core/viz/gl/Program.cpp and
  * core/viz/passes/Transition.cpp (core/tests/transition_programs_test.cpp), core/viz/gl/Quad.cpp and core/viz/gl/GlHandle.hpp
- * (core/tests/gl_ownership_test.cpp, with core/viz/gl/Framebuffer.cpp and core/viz/gl/Texture.cpp) and the headers they include name. Declarations only; the test defines every function as a small
+ * (core/tests/gl_ownership_test.cpp, with core/viz/gl/Framebuffer.cpp and core/viz/gl/Texture.cpp), core/viz/liquid/LiquidPass.cpp
+ * (core/tests/liquid_pass_test.cpp) and the headers they include name. Declarations only; the test defines every function as a small
  * model of a GL context: names that are generated, live and deleted, a bound program, VAO and framebuffer,
  * the blend state, and one probe pixel per framebuffer that a draw blends into. Enum values are the real
  * ones from the Khronos header, so a mixed-up enum still reads as the wrong one.
@@ -70,6 +71,8 @@ typedef unsigned int GLbitfield;
 #define GL_COLOR 0x1800
 #define GL_DEPTH 0x1801
 #define GL_COLOR_ATTACHMENT1 0x8CE1
+#define GL_RGBA16F 0x881A
+#define GL_HALF_FLOAT 0x140B
 
 typedef ptrdiff_t GLsizeiptr;
 
@@ -152,6 +155,7 @@ GLenum glCheckFramebufferStatus(GLenum target);
 void glClearColor(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
 void glClear(GLbitfield mask);
 void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments);
+void glDrawBuffers(GLsizei n, const GLenum* bufs);
 
 #ifdef __cplusplus
 }

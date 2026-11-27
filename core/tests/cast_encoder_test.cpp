@@ -309,7 +309,7 @@ void testThread() {
     while (made[0]->drainNice == geode::util::kNiceInherited && std::chrono::steady_clock::now() < deadline) {
         std::this_thread::yield();
     }
-    // A cast's encoder is opened on the cast render thread (nice -4): its drain must not inherit that.
+    // A cast's encoder is opened on the cast render thread (util::kDisplayNice): its drain must not inherit that.
     check(made[0]->drainNice == geode::util::kFeedNice, "the drain thread sets its own nice, not its spawner's");
     e.reset();   // joins
     check(made[0]->released, "the thread stops and the codecs go");

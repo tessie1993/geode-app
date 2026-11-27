@@ -67,7 +67,7 @@ import kotlin.math.roundToInt
 
 /**
  * Quick knobs: the macro bank's knobs (core/viz/MacroBank), global over every style. Each adds its
- * offsets to the params it links, on screen and in exports, the wallpaper and the dream alike; the
+ * offsets to the params it links, on screen and in exports alike; the
  * names, hints and values come from the bank, and every turn is a native edit through [MacroStore].
  *
  * Drag a knob up or down, double-tap it back to centre, long-press it (or TalkBack's Edit knob) for its

@@ -525,12 +525,6 @@ Java_dev_geode_engine_bridge_VizNative_vizLookDefaults(JNIEnv* env, jobject) {
     return geode::jni::utf8String(env, geode_viz_look_defaults());
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale, jfloat marchScale,
-                                                      jboolean postFx) {
-    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
-}
-
 // The live frame: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is valid
 // while its Kotlin holder is reachable, and the caller holds it for this call.
 JNIEXPORT jint JNICALL
@@ -541,22 +535,6 @@ Java_dev_geode_engine_bridge_VizNative_vizFrame(JNIEnv*, jobject, jlong handle, 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_VizNative_vizSetOffscreen(JNIEnv*, jobject, jlong handle, jboolean on) {
     geode_viz_set_offscreen(vizOf(handle), on == JNI_TRUE);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_VizNative_wallpaperWindow(JNIEnv* env, jobject, jfloat surfaceW, jfloat surfaceH,
-                                                         jfloat displayW, jfloat displayH, jfloatArray offsets,
-                                                         jfloatArray out) {
-    if (!out || env->GetArrayLength(out) < 4) return;
-    float raw[GEODE_WALLPAPER_OFFSETS] = {};
-    jsize count = 0;
-    if (offsets) {
-        count = std::min<jsize>(env->GetArrayLength(offsets), GEODE_WALLPAPER_OFFSETS);
-        env->GetFloatArrayRegion(offsets, 0, count, reinterpret_cast<jfloat*>(raw));
-    }
-    float window[4] = {};
-    geode_wallpaper_window(surfaceW, surfaceH, displayW, displayH, raw, static_cast<int>(count), window);
-    env->SetFloatArrayRegion(out, 0, 4, reinterpret_cast<const jfloat*>(window));
 }
 
 JNIEXPORT jstring JNICALL
@@ -1270,14 +1248,29 @@ Java_dev_geode_engine_bridge_PerfNative_liveFpsRefresh(JNIEnv* env, jobject, jin
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_PerfNative_perfModeForDevice(JNIEnv*, jobject, jlong totalRamBytes, jboolean lowRam,
-                                                          jint mediaPerformanceClass) {
-    return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass);
+                                                          jint mediaPerformanceClass, jint panelWidth, jint panelHeight) {
+    return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass, panelWidth, panelHeight);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_PerfNative_perfModeOf(JNIEnv*, jobject, jfloat renderScale, jint fpsCap, jfloat marchScale,
-                                                   jboolean postFx) {
-    return geode_perf_mode_of(renderScale, fpsCap, marchScale, postFx ? 1 : 0);
+Java_dev_geode_engine_bridge_PerfNative_perfModeOf(JNIEnv*, jobject, jint resolution, jint fpsCap, jfloat marchScale,
+                                                   jboolean postFx, jint panelWidth, jint panelHeight) {
+    return geode_perf_mode_of(resolution, fpsCap, marchScale, postFx ? 1 : 0, panelWidth, panelHeight);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfResolutionChoices(JNIEnv* env, jobject, jint panelWidth, jint panelHeight) {
+    int values[GEODE_PERF_RESOLUTION_CHOICES];
+    const int n = geode_perf_resolution_choices(panelWidth, panelHeight, values, GEODE_PERF_RESOLUTION_CHOICES);
+    jintArray out = env->NewIntArray(n);
+    if (out) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(values));
+    return out;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfResolutionForScale(JNIEnv*, jobject, jfloat renderScale, jint panelWidth,
+                                                               jint panelHeight) {
+    return geode_perf_resolution_for_scale(renderScale, panelWidth, panelHeight);
 }
 
 JNIEXPORT jfloatArray JNICALL
@@ -1289,6 +1282,45 @@ Java_dev_geode_engine_bridge_PerfNative_perfScaleChoices(JNIEnv* env, jobject) {
     return out;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfBufferSize(JNIEnv* env, jobject, jint resolution, jint modeWidth, jint modeHeight,
+                                                       jint viewWidth, jint viewHeight, jintArray out) {
+    if (!out || env->GetArrayLength(out) < GEODE_PERF_BUFFER_INTS) return JNI_FALSE;
+    int size[GEODE_PERF_BUFFER_INTS] = {};
+    if (geode_perf_buffer_size(resolution, modeWidth, modeHeight, viewWidth, viewHeight, size, GEODE_PERF_BUFFER_INTS) !=
+        GEODE_PERF_BUFFER_INTS)
+        return JNI_FALSE;
+    const jint values[GEODE_PERF_BUFFER_INTS] = {size[0], size[1]};
+    env->SetIntArrayRegion(out, 0, GEODE_PERF_BUFFER_INTS, values);
+    return JNI_TRUE;
+}
+
+// The resolution the app holds (core/viz/frame/ResolutionState): the shell's events return nothing; the descriptor is read as published.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfPanelSet(JNIEnv*, jobject, jint panelWidth, jint panelHeight, jint modeWidth,
+                                                     jint modeHeight) {
+    geode_perf_panel_set(panelWidth, panelHeight, modeWidth, modeHeight);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfViewSet(JNIEnv*, jobject, jint viewWidth, jint viewHeight) {
+    geode_perf_view_set(viewWidth, viewHeight);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfSettingsSet(JNIEnv*, jobject, jint resolution, jint fpsCap, jfloat marchScale,
+                                                        jboolean postFx) {
+    geode_perf_settings_set(resolution, fpsCap, marchScale, postFx ? 1 : 0);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_PerfNative_perfResolutionRead(JNIEnv* env, jobject, jintArray out) {
+    if (!out || env->GetArrayLength(out) < GEODE_PERF_DESCRIPTOR_INTS) return JNI_FALSE;
+    int values[GEODE_PERF_DESCRIPTOR_INTS] = {};
+    if (geode_perf_resolution_read(values, GEODE_PERF_DESCRIPTOR_INTS) != GEODE_PERF_DESCRIPTOR_INTS) return JNI_FALSE;
+    env->SetIntArrayRegion(out, 0, GEODE_PERF_DESCRIPTOR_INTS, reinterpret_cast<const jint*>(values));
+    return JNI_TRUE;
+}
 // The background image bake (core/viz/Underlay). The rect comes back as a new int[4] (x, y, width, height).
 JNIEXPORT jintArray JNICALL
 Java_dev_geode_engine_bridge_VizNative_underlayCropRect(JNIEnv* env, jobject, jint srcW, jint srcH, jint targetW, jint targetH) {

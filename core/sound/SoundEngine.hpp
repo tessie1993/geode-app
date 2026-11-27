@@ -54,7 +54,7 @@ namespace geode::sound {
 // step() runs the analysis only when the writer has stopped (> 0.25 s without audio): it feeds silence,
 // dt worth, so the levels fall and silence fires instead of the last window being read forever.
 //
-// One engine per surface (screen, wallpaper, export), never shared between threads. Allocation-free after
+// One engine per surface (screen, export), never shared between threads. Allocation-free after
 // construction.
 class SoundEngine {
 public:

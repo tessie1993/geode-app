@@ -4,6 +4,7 @@ precision highp float;
 precision highp sampler2D;
 
 in vec2 vUv;
+//#include lib_frame_frag
 out vec4 fragColor;
 
 //#include lib_scene_uniforms
@@ -54,7 +55,7 @@ vec2 gemAt(vec3 s, float grow) {
 
 vec2 prismMap(vec3 p) {
     vec3 s = p;
-    s.xz = prismRot(uTime * PRISM_RATE(40)) * s.xz;
+    frameTurnXZ(gFrame.a, s);
     vec2 m = gemAt(s, 1.0);
     vec2 a = m;
     vec2 b = m;
@@ -74,7 +75,7 @@ vec2 prismMap(vec3 p) {
     }
     m = strataBlend2(a, b, c);
     vec3 g = p;
-    g.xz = prismRot(-uTime * PRISM_RATE(30)) * g.xz;
+    frameTurnXZ(gFrame.b, g);
     vec2 gq = prismFold(g.xz, 2.0 * JEWEL_N);
     float gr = 3.0 + 0.22 * cos(2.0 * JEWEL_N * prismAngle(gq));
     float hoop = length(vec2(length(g.xz) - gr, g.y)) - 0.06;

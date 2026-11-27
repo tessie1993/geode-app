@@ -10,8 +10,8 @@
 
 #include "stage/StageClient.hpp"
 
-// A live stage's client: the renderer behind the app's view, the wallpaper and the
-// dream. It runs on the stage thread what must run there (frames, a transition's warm-up, Record's tee), keeps
+// A live stage's client: the renderer behind the app's view.
+// It runs on the stage thread what must run there (frames, a transition's warm-up, Record's tee), keeps
 // what a frame reported until the shell polls it, and holds the renderer alive for calls from other threads.
 // Pure: the renderer is a LiveViz, which core/api/geode_stage_api.cpp binds to a geode_viz and the host test
 // (core/tests/live_client_test.cpp) to a model.
@@ -47,8 +47,6 @@ public:
     virtual void surfaceCreated() = 0;
     virtual void surfaceChanged(int width, int height) = 0;
     virtual uint32_t frame(const void* ring, float pacedFps, float capFps) = 0;
-    // The vsync time (CLOCK_MONOTONIC ns) of the frame that follows, 0: none (StageClient::frameTime).
-    virtual void frameTime(int64_t vsyncNs) { static_cast<void>(vsyncNs); }
     // The frame's expected presentation time, 0: none (StageClient::framePresent).
     virtual void framePresent(int64_t presentNs) { static_cast<void>(presentNs); }
     // The next frame steps by 0 (StageClient::restartClock).
@@ -80,7 +78,6 @@ public:
     void surfaceCreated() override;
     void surfaceChanged(int width, int height) override;
     uint32_t frame(float pacedFps, float capFps) override;
-    void frameTime(int64_t vsyncNs) override;
     void framePresent(int64_t presentNs) override;
     void restartClock() override;
     void trimSpares() override;
@@ -107,7 +104,8 @@ public:
     int liquidMode() const { return liquid_.load(); }
     bool takeStill(Still& out);
 
-    // Holds the renderer for one call from another thread; false (and nothing held) once it is released.
+    // Holds the renderer for one call from another thread; false (and nothing held) once it is released or while it
+    // is being, never waiting for either.
     bool lockViz();
     void unlockViz();
 

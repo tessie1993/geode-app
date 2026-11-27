@@ -7,7 +7,6 @@ import dev.geode.data.prefs.PrefsCodec
 import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.ShellNative
-import dev.geode.engine.bridge.SoundNative
 
 // What the app does by itself, what each screen does, and what each gesture on the visual means
 // (Settings spreads these rows over seven of its tabs). The owner decided every default here (wave 1, 1C). Kept in `geode-prefs`, so
@@ -182,27 +181,6 @@ data class BehaviourPrefs(
     val notificationButtons: Set<NotificationButton> = setOf(NotificationButton.SHUFFLE, NotificationButton.REPEAT),
     val rememberShuffleRepeat: Boolean = true,
     val queueEnd: QueueEndAction = QueueEndAction.STOP,
-    /**
-     * The dream (screen saver) at full brightness. Its own switch: it used to follow Player's
-     * keep-screen-on, which is about a different screen. On by default (owner): a visualizer
-     * screen saver is there to be seen; the user can dim it.
-     */
-    val dreamScreenBright: Boolean = true,
-    /** The dream's clock (time and date) over the visual; a dream is mostly a bedside clock. */
-    val dreamShowClock: Boolean = true,
-    /** The dream's "title · artist" line under the clock, while something plays. */
-    val dreamShowNowPlaying: Boolean = true,
-    /**
-     * The dream also reacts to other apps' sound (the output-mix capture the wallpaper's "React to
-     * any app" uses), when BeatRealms is not playing. Off by default, like the wallpaper's: Android
-     * files that capture under the microphone permission, so it is asked for when this is turned on.
-     */
-    val dreamHearOtherApps: Boolean = false,
-    /**
-     * Behaviour › Dream's frame rate, its own and not Settings › Performance's: 30 unless
-     * the user picks another. The allowed rates and the snap are native (`SoundNative.surfaceFpsChoice`).
-     */
-    val dreamFps: Int = SoundNative.SURFACE_DEFAULT_FPS,
     /** Every canvas gesture's action. A gesture missing from the map is [GestureAction.OFF]. */
     val gestures: Map<CanvasGesture, GestureAction> = DEFAULT_GESTURES,
 ) {
@@ -236,7 +214,7 @@ typealias BehaviourRepository = SettingsRepository<BehaviourPrefs>
 /**
  * How [BehaviourPrefs] is kept in `geode-prefs`. An update writes only the fields it changed
  * ([writeChanges]): the last screen is recorded on every screen change, and a whole write there
- * would pin every default (the gesture map, the dream's rate) for users who never chose one.
+ * would pin every default (the gesture map) for users who never chose one.
  */
 object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
     override val defaults = BehaviourPrefs()
@@ -255,11 +233,6 @@ object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
                     ?: d.notificationButtons,
             rememberShuffleRepeat = prefs.getBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, d.rememberShuffleRepeat),
             queueEnd = prefs.enumOf(KEY_QUEUE_END, d.queueEnd),
-            dreamScreenBright = prefs.getBoolean(KEY_DREAM_BRIGHT, d.dreamScreenBright),
-            dreamShowClock = prefs.getBoolean(KEY_DREAM_CLOCK, d.dreamShowClock),
-            dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
-            dreamHearOtherApps = prefs.getBoolean(KEY_DREAM_OTHER_APPS, d.dreamHearOtherApps),
-            dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
                 CanvasGesture.entries.associateWith { gesture ->
                     prefs.enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
@@ -298,11 +271,6 @@ object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
         }
         if (changed { it.rememberShuffleRepeat }) editor.putBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, value.rememberShuffleRepeat)
         if (changed { it.queueEnd }) editor.putString(KEY_QUEUE_END, value.queueEnd.name)
-        if (changed { it.dreamScreenBright }) editor.putBoolean(KEY_DREAM_BRIGHT, value.dreamScreenBright)
-        if (changed { it.dreamShowClock }) editor.putBoolean(KEY_DREAM_CLOCK, value.dreamShowClock)
-        if (changed { it.dreamShowNowPlaying }) editor.putBoolean(KEY_DREAM_NOW_PLAYING, value.dreamShowNowPlaying)
-        if (changed { it.dreamHearOtherApps }) editor.putBoolean(KEY_DREAM_OTHER_APPS, value.dreamHearOtherApps)
-        if (changed { it.dreamFps }) editor.putInt(KEY_DREAM_FPS, value.dreamFps)
         for (gesture in CanvasGesture.entries) {
             if (changed { it.actionFor(gesture) }) editor.putString(KEY_GESTURE_PREFIX + gesture.name, value.actionFor(gesture).name)
         }
@@ -321,11 +289,6 @@ object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
     internal const val KEY_NOTIFICATION_BUTTONS = "behaviour_notification_buttons"
     internal const val KEY_REMEMBER_SHUFFLE_REPEAT = "behaviour_remember_shuffle_repeat"
     internal const val KEY_QUEUE_END = "behaviour_queue_end"
-    internal const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
-    internal const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
-    internal const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
-    internal const val KEY_DREAM_OTHER_APPS = "behaviour_dream_hear_other_apps"
-    internal const val KEY_DREAM_FPS = "behaviour_dream_fps"
     internal const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
 
     override val keys =
@@ -333,8 +296,14 @@ object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
             portable(PrefType.STRING, KEY_START_SCREEN, KEY_LAST_SCREEN, KEY_QUEUE_END)
             add(PrefType.STRING, BackupClass.PORTABLE, CanvasGesture.entries.map { KEY_GESTURE_PREFIX + it.name })
             portable(PrefType.BOOLEAN, KEY_KEEP_SCREEN_ON_VISUALS, KEY_START_ON_HEADPHONES, KEY_REMEMBER_SHUFFLE_REPEAT)
-            portable(PrefType.BOOLEAN, KEY_DREAM_BRIGHT, KEY_DREAM_CLOCK, KEY_DREAM_NOW_PLAYING, KEY_DREAM_OTHER_APPS)
             portable(PrefType.STRING_SET, KEY_NOTIFICATION_BUTTONS)
-            portable(PrefType.INT, KEY_DREAM_FPS)
+            retired(
+                PrefType.BOOLEAN,
+                "behaviour_dream_screen_bright",
+                "behaviour_dream_show_clock",
+                "behaviour_dream_show_now_playing",
+                "behaviour_dream_hear_other_apps",
+            )
+            retired(PrefType.INT, "behaviour_dream_fps")
         }
 }

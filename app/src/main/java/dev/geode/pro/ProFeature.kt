@@ -35,12 +35,6 @@ enum class ProFeature {
      */
     STUDIO,
 
-    /** The visualizer as a live wallpaper. */
-    LIVE_WALLPAPER,
-
-    /** The visualizer as a screensaver (Daydream). */
-    SCREENSAVER,
-
     /** Every visual style outside [FreeTier.freeStyleIds]. */
     PREMIUM_STYLES,
 

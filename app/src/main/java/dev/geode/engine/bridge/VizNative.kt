@@ -143,14 +143,6 @@ object VizNative {
      */
     external fun vizLookDefaults(): String
 
-    /** Settings › Performance, latched for the next [vizFrame]. Any thread. */
-    external fun vizSetQuality(
-        handle: Long,
-        renderScale: Float,
-        marchScale: Float,
-        postFx: Boolean,
-    )
-
     /**
      * One whole live frame into framebuffer 0 (geode_viz_frame, `core/viz/frame/LiveFrame`), GL thread: the
      * renderer hears [ring] (0: nothing) and draws with what was pushed to it. [pacedFps] is the
@@ -167,20 +159,6 @@ object VizNative {
     external fun vizSetOffscreen(
         handle: Long,
         on: Boolean,
-    )
-
-    /**
-     * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
-     * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
-     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [StageNative.stageSetEdgeGlow] takes them.
-     */
-    external fun wallpaperWindow(
-        surfaceW: Float,
-        surfaceH: Float,
-        displayW: Float,
-        displayH: Float,
-        offsets: FloatArray?,
-        out: FloatArray,
     )
 
     external fun vizLastError(handle: Long): String

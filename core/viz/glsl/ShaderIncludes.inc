@@ -18,6 +18,12 @@
 "lib_scene_motion",
 "lib_dmt",
 "lib_camera",
+// The vertex stages (quad_vert and a style's own <id>_vert) and the per-frame state they publish: lib_frame is the
+// shared descriptors and the owner's maths, lib_frame_vert publishes it as `flat` varyings, lib_frame_frag reads it.
+"lib_quad",
+"lib_frame",
+"lib_frame_vert",
+"lib_frame_frag",
 // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
 "lib_sound",
 // The feedback pass's UV transform (core/viz/liquid/FeedbackMotion.hpp); liquid_frag.

@@ -8,44 +8,39 @@ namespace geode::viz {
 // frame never hashes a name. A new per-frame uniform in those uploads is one X() line here.
 #define GEODE_FRAME_UNIFORMS(X) \
     X(uBackLayer) \
-    X(uBarOsc) \
     X(uBassRel) \
     X(uBirths) \
     X(uBlendMode) \
     X(uBloom) \
-    X(uBreath) \
     X(uBright) \
     X(uCamBasis) \
     X(uCamDolly) \
     X(uCamFlat) \
     X(uCamFocal) \
-    X(uCamGate) \
-    X(uCamGateL) \
     X(uCamPos) \
-    X(uCamTilt) \
+    X(uCamRoll) \
+    X(uCamTiltCS) \
     X(uCamTravel) \
-    X(uChroma) \
     X(uColorShift) \
     X(uContrast) \
     X(uDither) \
-    X(uDrift) \
     X(uDriftX) \
     X(uDriftY) \
     X(uDuotone) \
-    X(uEnergyRel) \
     X(uEscapeColor) \
     X(uField) \
     X(uFieldGeom) \
     X(uFieldLook) \
     X(uFieldRes) \
     X(uFieldShape) \
-    X(uFisheye) \
     X(uFlow) \
     X(uFlowPhase) \
-    X(uFlowStrength) \
     X(uFlowTime) \
-    X(uFormPhase) \
     X(uFormula) \
+    X(uFxA) \
+    X(uFxB) \
+    X(uFxFrame) \
+    X(uFxL) \
     X(uFractal) \
     X(uFrontLayer) \
     X(uGamma) \
@@ -60,18 +55,12 @@ namespace geode::viz {
     X(uIntensity) \
     X(uInvert) \
     X(uKaleido) \
-    X(uKeyHue) \
-    X(uKeyStrength) \
-    X(uKnob) \
     X(uLayerMix) \
     X(uLife) \
     X(uMidRel) \
     X(uMirrorX) \
     X(uMorph) \
-    X(uMotionBright) \
-    X(uMoveDir) \
     X(uNoise) \
-    X(uOrbit) \
     X(uPalBase) \
     X(uPalLut) \
     X(uPalLutMix) \
@@ -91,34 +80,22 @@ namespace geode::viz {
     X(uPostBloom) \
     X(uPostBright) \
     X(uPostContrast) \
-    X(uPostDriftX) \
-    X(uPostDriftY) \
-    X(uPostGamma) \
-    X(uPostHue) \
-    X(uPostInvert) \
-    X(uPostKaleido) \
-    X(uPostLife) \
-    X(uPostMirror) \
-    X(uPostPixelate) \
-    X(uPostPosterize) \
-    X(uPostRipple) \
-    X(uPostRotation) \
+    X(uPostGeo) \
+    X(uPostGeo2) \
+    X(uPostHueCS) \
+    X(uPostLens) \
+    X(uPostLens2) \
     X(uPostSat) \
-    X(uPostSolarize) \
-    X(uPostSway) \
-    X(uPostSymmetry) \
-    X(uPostTemp) \
+    X(uPostShade) \
     X(uPostTile) \
-    X(uPostTwist) \
-    X(uPostTwistBend) \
     X(uPostTwistCentre) \
-    X(uPostWarp) \
-    X(uPostZoom) \
     X(uPosterize) \
     X(uProgress) \
     X(uRatio) \
     X(uResolution) \
     X(uRipple) \
+    X(uRotAB) \
+    X(uRotL) \
     X(uRotation) \
     X(uSat) \
     X(uScanline) \
@@ -136,8 +113,6 @@ namespace geode::viz {
     X(uSoundTex) \
     X(uSoundTimeSped) \
     X(uSpawn) \
-    X(uSpawnAge) \
-    X(uSpawnSeed) \
     X(uSteps) \
     X(uStyle) \
     X(uSway) \
@@ -163,16 +138,93 @@ namespace geode::viz {
     X(uUnderlay) \
     X(uUnderlayAmount) \
     X(uUnderlayBlend) \
-    X(uVignette) \
     X(uWarp) \
     X(uWorld) \
     X(uWorldShapes) \
     X(uWorldTex) \
     X(uZoom)
 
+// The names the fluid passes upload (viz/styles/fluid, FluidParticles), interned the same way.
+#define GEODE_FLUID_UNIFORMS(X) \
+    X(uAmp) \
+    X(uAspect) \
+    X(uAudio) \
+    X(uBass) \
+    X(uBeat) \
+    X(uBrightness) \
+    X(uBuoyancy) \
+    X(uCatchCount) \
+    X(uCatches) \
+    X(uCeiling) \
+    X(uCount) \
+    X(uCur) \
+    X(uCurl) \
+    X(uCurlStrength) \
+    X(uCurve) \
+    X(uDecay) \
+    X(uDetail) \
+    X(uDirection) \
+    X(uDitherScale) \
+    X(uDrag) \
+    X(uDt) \
+    X(uDx) \
+    X(uDye) \
+    X(uE) \
+    X(uEnergy) \
+    X(uFlowScale) \
+    X(uForward) \
+    X(uFreq) \
+    X(uGlow) \
+    X(uH2) \
+    X(uHalfRdx) \
+    X(uHeat) \
+    X(uHueBase) \
+    X(uHueSpan) \
+    X(uInvRes) \
+    X(uLookHue) \
+    X(uMaxHeat) \
+    X(uMaxStretch) \
+    X(uMeta) \
+    X(uMid) \
+    X(uMode) \
+    X(uOmega) \
+    X(uP) \
+    X(uPeriod) \
+    X(uPointScale) \
+    X(uPressure) \
+    X(uPrev) \
+    X(uRadius) \
+    X(uRdx) \
+    X(uRhs) \
+    X(uSeg) \
+    X(uShape) \
+    X(uSource) \
+    X(uSpawnCount) \
+    X(uSpawns) \
+    X(uSrcInvRes) \
+    X(uState) \
+    X(uStir) \
+    X(uStirFreq) \
+    X(uStirTime) \
+    X(uStretchSeconds) \
+    X(uSunrays) \
+    X(uTarget) \
+    X(uTexelSize) \
+    X(uTexture) \
+    X(uThreshold) \
+    X(uTreble) \
+    X(uVal) \
+    X(uValue) \
+    X(uVelInvRes) \
+    X(uVelocity) \
+    X(uVelocityField) \
+    X(uViewport) \
+    X(uWeight)
+
 enum class Uniform : uint16_t {
 #define GEODE_UNIFORM_ENUM(name) name,
     GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_ENUM)
+    GEODE_FLUID_UNIFORMS(GEODE_UNIFORM_ENUM)
 #undef GEODE_UNIFORM_ENUM
     kCount
 };
@@ -180,6 +232,7 @@ enum class Uniform : uint16_t {
 inline constexpr const char* kUniformNames[] = {
 #define GEODE_UNIFORM_NAME(name) #name,
     GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_NAME)
+    GEODE_FLUID_UNIFORMS(GEODE_UNIFORM_NAME)
 #undef GEODE_UNIFORM_NAME
 };
 

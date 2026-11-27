@@ -229,8 +229,6 @@ layer_pick_test | core | core/tests/layer_pick_test.cpp core/viz/LayerPick.cpp c
 # Auto Director's style at its moments: a return's own family stepped on, the next along the catalogue, a drop's leap, stay; never random.
 director_style_test | stub | core/tests/director_style_test.cpp core/viz/director/DirectorStyle.cpp core/viz/styles/catalogue/Catalogue.cpp \
     core/viz/styles/catalogue/StyleCatalog.cpp core/viz/params/Params.cpp core/viz/params/ParamsFields.cpp |
-# Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
-sound_source_test | stub | core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |
 # Settings › Audio's saved tuning as the engine hears it: clamped, an older save without the trim, any other length the defaults.
 sound_tuning_test | stub | core/tests/sound_tuning_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp |
 # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
@@ -246,24 +244,20 @@ cast_clock_test | stub | core/tests/cast_clock_test.cpp core/api/geode_frame_api
 cast_look_test | stub | core/tests/cast_look_test.cpp |
 # The export post-passes' maths: watermark tiling, seam weights (#442).
 export_passes_test | core | core/tests/export_passes_test.cpp |
-# The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
-edge_glow_test | core | core/tests/edge_glow_test.cpp |
 # Fronts (core/viz/fronts): spawn, step, expire, the oldest slot reused when eight are alive, the same place at 30/60/90/144 fps, the packed uniform array, no pass when idle.
 fronts_test | core | core/tests/fronts_test.cpp |
 # Things (core/viz/things): spawn, expire, bad input, slot reuse, the same place at 30/60/90/144 fps, edge crossing, one Collide event per contact, the bounce, chain depth and its per-step cap, bounded gravity, morph, melt, packing, no pass when idle.
 things_test | core | core/tests/things_test.cpp |
 # Fields (core/viz/fields): spawn, expire, bad input, slot reuse, force direction for Attract, Repel and Swirl, no force past the radius, a clamped finite force at the centre, aspect, the envelope, a Thing pulled to the same place at 30/60/90/144 fps, no pass when idle.
 fields_test | core | core/tests/fields_test.cpp |
-# The live wallpaper's on-screen window from the launcher's raw offsets, and its fps pick (#605).
-wallpaper_window_test | core | core/tests/wallpaper_window_test.cpp |
-# The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its
-# lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
-edge_glow_pass_test | fakegl | core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/gl/Program.cpp \
-    core/viz/glsl/ShaderSource.cpp |
 # Who deletes a GL name (core/viz/gl/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
 # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
 gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Compute.cpp core/viz/gl/Quad.cpp \
     core/viz/gl/Framebuffer.cpp core/viz/gl/Texture.cpp |
+# The feedback pass over a faked GL: Trails write one target and show the liquid, Liquid mode keeps its display,
+# trading one for the other keeps the liquid, a driver that will not mix formats falls back to RGBA8.
+liquid_pass_test | fakegl | core/tests/liquid_pass_test.cpp core/viz/liquid/LiquidPass.cpp core/viz/liquid/LiquidMath.cpp \
+    core/viz/gl/Framebuffer.cpp core/viz/gl/Program.cpp core/viz/glsl/ShaderSource.cpp |
 # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
 transition_library_test | core | core/tests/transition_library_test.cpp core/util/Json.cpp |
 # The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
@@ -274,13 +268,8 @@ transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
 # Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
 quality_test | stub | core/tests/quality_test.cpp core/api/geode_perf_api.cpp core/viz/liquid/LiquidMath.cpp |
-# The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
-surface_run_test | stub | core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp \
-    core/sound/Tuning.cpp |
 # The background image bake (#651): the crop rect and dim exact with the old Kotlin, the blur keeps a flat image, the clamps.
 underlay_test | stub | core/tests/underlay_test.cpp core/viz/passes/Underlay.cpp core/api/geode_underlay_api.cpp |
-# Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
-surface_motion_test | stub | core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp |
 # A used program binary is stamped again only when its stamp is a day old (or it is on probation), not on every load.
 cache_touch_policy_test | core | core/tests/cache_touch_policy_test.cpp |
 # Auto's style timer: the interval plus a spread per look, never sooner than the interval; the random draw never repeating what is on screen.
@@ -301,7 +290,7 @@ present_time_test | core | core/tests/present_time_test.cpp |
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
-# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate hint restated on a change only, a vsync skipped while the GPU has not finished the last frame, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
+# What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, one paced frame per loop turn while one can be drawn, a frame that swaps nothing (or no Swappy) waiting for a vsync, the frame budget and its trace, the frame-rate hint restated on a change only, the frame recorder off until asked and handed over at the stop, the client's service, a thread ending out of turn.
 stage_core_test | core | core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp |
 # The stage's per-frame recorder for on-device measurement: off until a debug flag, the ring's newest frames oldest first, a fence settling the last drawn frame once, the CSV.
 frame_recorder_test | core | core/tests/frame_recorder_test.cpp |
@@ -317,12 +306,8 @@ work_hint_test | core | core/tests/work_hint_test.cpp |
 thread_nice_test | mt | core/tests/thread_nice_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 command_queue_test | mt | core/tests/command_queue_test.cpp |
-# The stage's vsync callback on the vsync thread: start and stop, one callback posted, a lapse once stopped.
-stage_pacing_test | core | core/tests/stage_pacing_test.cpp |
-# The stage's vsync rule: skip a vsync while the last frame is in flight (CPU or GPU fence), the frame-rate hint for the window, the presentation rate from its interval.
-vsync_rule_test | core | core/tests/vsync_rule_test.cpp |
-# The live stage's frame clock: the swap interval from the display period and the user's rate, the budget, frames by vsync time.
-frame_pacer_test | core | core/tests/frame_pacer_test.cpp |
+# How the stage paces its swaps: the frame-rate hint for the window, the swap interval for a cap, the frame's length in refresh periods (Swappy's rounding), the presentation time each frame is drawn for.
+swap_pace_test | core | core/tests/swap_pace_test.cpp |
 # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
 renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |
 # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
@@ -418,6 +403,11 @@ reaction_resolve_test | stub | core/tests/reaction_resolve_test.cpp core/viz/mod
 # A simulation presented in 3D (core/viz/present): its surfaces, the eye's ray a finger is mapped by, the
 # field read the long way round, and the composite gate that leaves a rig scene's picture to the scene.
 field_present_test | fakegl | core/tests/field_present_test.cpp core/viz/styles/life/FieldGeometry.cpp |
+
+# --- Composite terms host test
+# The composite's per-frame terms and stage flags (core/viz/passes/CompositeTerms): each stage's threshold, the
+# gates that leave a scene's own stages off, a camera at rest, the rotation and the lens values.
+composite_terms_test | fakegl | core/tests/composite_terms_test.cpp |
 
 # --- Catalogue host tests
 # On every pull request: run only by hand, a stale fixture and a failing crossfade test

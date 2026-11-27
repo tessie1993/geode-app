@@ -48,17 +48,21 @@ layout(location = 0) out vec4 outPosVel;
 layout(location = 1) out vec4 outMeta;
 //#include lib_psrdnoise2
 
+/** The curl-noise stir at a sim-space point, before the calm fade. */
+vec2 stirAt(vec2 p) {
+    if (!(uStir > 0.0)) { return vec2(0.0); }
+    vec2 g;
+    psrdnoise(p * uStirFreq, vec2(0.0), uStirTime, g);
+    return vec2(g.y, -g.x) * uStir;
+}
+
 /** The fluid's velocity at a sim-space point, plus the calm-water stir. */
-vec2 flowAt(vec2 p) {
+vec2 flowAt(vec2 p, vec2 stir) {
     vec2 uv = vec2(p.x / uAspect, p.y) * 0.5 + 0.5;
     vec2 flow = texture(uVelocityField, clamp(uv, 0.0, 1.0)).xy * uFlowScale;
-    if (uStir > 0.0) {
-        vec2 g;
-        psrdnoise(p * uStirFreq, vec2(0.0), uStirTime, g);
-        float calm = 1.0 - smoothstep(0.05, 0.6, length(flow));
-        flow += vec2(g.y, -g.x) * (uStir * calm);
-    }
-    return flow;
+    if (!(uStir > 0.0)) { return flow; }
+    float calm = 1.0 - smoothstep(0.05, 0.6, length(flow));
+    return flow + stir * calm;
 }
 
 float hash(vec2 p) {
@@ -127,8 +131,9 @@ void main() {
     // Frame-rate-independent inertia: uDrag is the per-1/60s blend factor.
     float k = 1.0 - pow(1.0 - uDrag, uDt * 60.0);
     // Midpoint: a trial velocity from the start, the field read half a step on.
-    vec2 trial = v + (flowAt(p) - v) * k;
-    vec2 flow = flowAt(p + 0.5 * uDt * trial);
+    vec2 stir = stirAt(p);
+    vec2 trial = v + (flowAt(p, stir) - v) * k;
+    vec2 flow = flowAt(p + 0.5 * uDt * trial, stir);
     v += (flow - v) * k;
     p += v * uDt;
     // Wrap at the domain edges so the field never empties.

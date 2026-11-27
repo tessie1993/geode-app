@@ -32,7 +32,7 @@ typedef struct geode_stage_client {
 } geode_stage_client;
 
 /* A view stage keeps its surface while hidden (the app's view); a surface stage pauses while its rule says
-   stopped (the live wallpaper, the dream). */
+   stopped. */
 #define GEODE_STAGE_KIND_VIEW                0
 #define GEODE_STAGE_KIND_SURFACE             1
 
@@ -42,7 +42,7 @@ typedef struct geode_stage_client {
 #define GEODE_STAGE_VIEW_SHOWN               (1u << 2)
 #define GEODE_STAGE_VIEW_OPAQUE              (1u << 3)   /* alpha above 0 */
 
-/* The state word. The run mode (GEODE_SURFACE run modes: 0 stopped, 1 still, 2 animated, 3 dark) is in bits
+/* The state word. The run mode (0 stopped, 1 still, 2 animated, 3 dark) is in bits
    GEODE_STAGE_STATE_MODE_SHIFT and up, two bits. */
 #define GEODE_STAGE_STATE_WINDOW             (1u << 0)
 #define GEODE_STAGE_STATE_CONTEXT            (1u << 1)
@@ -56,21 +56,17 @@ typedef struct geode_stage_client {
 #define GEODE_STAGE_STATE_MODE_SHIFT         12
 
 /* NULL when the client lacks a function or the thread could not start. cap_fps is the surface's own fps cap
-   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW, the wallpaper's or the dream's; 0 every vsync). */
+   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW; 0 every vsync). */
 GEODE_API geode_stage* geode_stage_create(int kind, const geode_stage_client* client, float cap_fps);
 /* A window (from ANativeWindow_fromSurface; the stage takes its own reference, the caller keeps and releases
-   its own) or NULL when the surface is destroyed. Returns once the stage has let go of the old window: call it
-   from surfaceCreated and, with NULL, from surfaceDestroyed. It waits at most 1100 ms (100 ms for room in a full
-   queue, 1000 ms for the stage); returning on that bound is a known degradation, where the EGL surface on the old
-   window may outlive the call for a moment. The stage holds its own window reference, so that late destroy is
-   safe, and GEODE_STAGE_STATE_SURFACE clears when it has happened. */
+   its own) or NULL when the surface is destroyed. Returns at once, the stage applying it between frames: call it
+   from surfaceCreated and, with NULL, from surfaceDestroyed. The EGL surface on the old window may outlive the call
+   for a frame. The stage holds its own window reference, so that late destroy is safe, and
+   GEODE_STAGE_STATE_SURFACE clears when it has happened. */
 GEODE_API void     geode_stage_set_window(geode_stage*, struct ANativeWindow* window, int width, int height);
 GEODE_API void     geode_stage_set_size(geode_stage*, int width, int height);
 /* The app's view: GEODE_STAGE_VIEW_* bits. */
 GEODE_API void     geode_stage_set_view(geode_stage*, unsigned view_flags);
-/* The wallpaper and the dream: GEODE_SURFACE_* flags through the surface run rule (geode_surface_run_mode);
-   returns the run mode it applied, so the shell can lay its black cover over Dark. */
-GEODE_API int      geode_stage_set_surface(geode_stage*, unsigned surface_flags, long long animate_until_ms, long long now_ms);
 /* The host's pause and resume (the view's onPause and onResume). */
 GEODE_API void     geode_stage_pause(geode_stage*);
 GEODE_API void     geode_stage_resume(geode_stage*);
@@ -82,6 +78,14 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
+/* The stage's frame budget in ns: one frame's length for the rate setting on the display mode now running. The swap
+   interval, the frame-rate vote's pace and the work target follow this one number; 0 until the pacer has said. */
+GEODE_API long long geode_stage_frame_budget_ns(const geode_stage*);
+/* Android Frame Pacing (Swappy) is made from an Activity and paces the app's live stage: attach with the Activity's
+   JNIEnv* and jobject in its onCreate and detach with them in its onDestroy. A stage with no Swappy is paced by
+   Choreographer, one frame per vsync. */
+GEODE_API void     geode_stage_pacing_attach(void* env, void* activity);
+GEODE_API void     geode_stage_pacing_detach(void* env, void* activity);
 /* A new file descriptor, readable while frame events wait and until geode_stage_take_events takes them, for the
    shell's main looper to sleep on; the caller owns and closes it. -1 when there is none. */
 GEODE_API int      geode_stage_event_fd(const geode_stage*);
@@ -92,8 +96,8 @@ GEODE_API unsigned geode_stage_take_events(geode_stage*);
 GEODE_API void     geode_stage_destroy(geode_stage*);
 
 /* A live stage: one that owns its renderer (a geode_viz made here from the assets and the shader cache folder)
-   and frees it at its release. This is the app's view, the wallpaper and the
-   dream. NULL when the renderer could not be made. The assets must outlive the stage. */
+   and frees it at its release. This is the app's view.
+   NULL when the renderer could not be made. The assets must outlive the stage. */
 GEODE_API geode_stage* geode_stage_create_live(int kind, AAssetManager* assets, const char* cache_dir,
                                                float cap_fps);
 /* The renderer for one any-thread geode_viz_* call (the ones geode_api.h marks "any thread", and the queries),

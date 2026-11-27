@@ -6,11 +6,11 @@
 // The live frame rate, taken from the display. A panel shows a rate evenly only when the rate is one of its refresh
 // rates divided by a whole number (90 Hz: 90, 45, 30; 120 Hz: 120, 60, 40, 30), so those are the rates Settings ›
 // Performance offers. The one the user picks is the whole app's frame rate: it picks the display mode the window asks
-// for (refreshRateFor) and how many vsyncs a stage frame spans (stage/FramePacer), so every thread works to one frame
+// for (refreshRateFor) and how many refresh periods a stage frame spans (stage/SwapPace), so every thread works to one frame
 // length. Pure, with no GL and no Android, so the host can test it (core/tests/live_fps_test.cpp).
 //
-// Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to their own
-// choice (viz/SurfaceRun), an export to its own fixed step, Cast to its fixed clock.
+// Live only: the in-app stage (and its PiP window and second screen). An export paces to its own
+// fixed step, Cast to its fixed clock.
 //
 // `rates` are the refresh rates of the stage's display at its current resolution (Display.getSupportedModes): the same
 // set from every mode, so a mode switch never changes what is offered. NULL or none is a display that has not said.

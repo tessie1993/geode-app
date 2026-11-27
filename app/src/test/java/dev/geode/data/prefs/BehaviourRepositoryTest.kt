@@ -36,11 +36,6 @@ class BehaviourRepositoryTest {
             notificationButtons = setOf(NotificationButton.FAVOURITE),
             rememberShuffleRepeat = false,
             queueEnd = QueueEndAction.SIMILAR,
-            dreamScreenBright = false,
-            dreamShowClock = false,
-            dreamShowNowPlaying = false,
-            dreamHearOtherApps = true,
-            dreamFps = 24,
             gestures = BehaviourPrefs.DEFAULT_GESTURES + (CanvasGesture.SWIPE_UP to GestureAction.PLAY_PAUSE),
         )
 
@@ -54,7 +49,6 @@ class BehaviourRepositoryTest {
         assertEquals("LAST_USED", file.values["behaviour_start_screen"])
         assertEquals(setOf("FAVOURITE"), file.values["behaviour_notification_buttons"])
         assertEquals("PLAY_PAUSE", file.values["behaviour_gesture_SWIPE_UP"])
-        assertEquals(24, file.values["behaviour_dream_fps"])
     }
 
     @Test

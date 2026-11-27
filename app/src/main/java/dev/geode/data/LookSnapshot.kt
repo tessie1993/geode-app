@@ -7,11 +7,9 @@ import dev.geode.model.SceneParams
  * The look snapshot: everything the user set that decides what a renderer draws, as one immutable value
  * (#345). Not the auto-director's Look (GLOSSARY), which is one decision made inside the engine.
  *
- * Every renderer host (live Visuals, the wallpaper, the dream, Cast, an export) only says where its look
- * comes from ([LookSource]) and what it overrides ([gentleFlight]); the host hands it whole to native
- * (`geode_viz_set_look`, `geode_stage_set_look`), which passes on only the parts that changed. Before this,
- * each host rebuilt it field by field and they drifted: the wallpaper and dream once drew with every LFO,
- * envelope and custom reaction off.
+ * Every renderer host (live Visuals, Cast, an export) only says where its look comes from ([LookSource]);
+ * the host hands it whole to native (`geode_viz_set_look`, `geode_stage_set_look`), which passes on only the
+ * parts that changed. Before this, each host rebuilt it field by field and they drifted.
  *
  * Being a value is what pins an export: a render takes one look when it starts, and later edits never reach
  * it. The waves, the envelopes and the routes are their saved texts, read by native alone.
@@ -30,16 +28,13 @@ data class LookSnapshot(
     val reactions: String? = null,
     /** Settings › Audio's saved tuning, null for the engine's defaults. */
     val soundTuning: List<Float>? = null,
-    /** Vestibular accessibility, and the dream's gentle flight; the flash clamp is native and unconditional. */
+    /** Vestibular accessibility; the flash clamp is native and unconditional. */
     val reducedMotion: Boolean = false,
     /** Native's id (core/viz/Transition); a requested cut becomes a fade natively (core/viz/VisualSafety). */
     val transitionId: String = NativeLookDefaults.transitionId,
     val transitionMs: Long = NativeLookDefaults.transitionMs,
     val underlay: LookUnderlay? = null,
-) {
-    /** The dream's override: the camera keeps flying without big moves, because it is watched from across a room. */
-    fun gentleFlight(): LookSnapshot = copy(reducedMotion = true)
-}
+)
 
 /**
  * Native's look before one is set and the shell's visual defaults (`geode_viz_look_defaults`,
@@ -81,7 +76,7 @@ class LookUnderlay(
     val amount: Float,
 )
 
-/** Where a host's look comes from: the saved stores (wallpaper, dream, Cast) or the session's state (export). */
+/** Where a host's look comes from: the saved stores (Cast) or the session's state (export). */
 fun interface LookSource {
     fun current(): LookSnapshot
 

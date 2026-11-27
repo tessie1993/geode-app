@@ -33,7 +33,7 @@ object StageNative {
     /** Quits the stage; its thread frees the renderer. Waits at most 200 ms. */
     external fun stageDestroy(stage: Long)
 
-    /** The `android.view.Surface` from surfaceCreated, or null from surfaceDestroyed; returns once the stage let go of the old one (bounded). */
+    /** The `android.view.Surface` from surfaceCreated, or null from surfaceDestroyed; returns at once, the stage applies it between frames. */
     external fun stageSetWindow(
         stage: Long,
         surface: Any?,
@@ -53,14 +53,6 @@ object StageNative {
         viewFlags: Int,
     )
 
-    /** The wallpaper and the dream: the SURFACE_* bits through the surface run rule; answers the run mode applied. */
-    external fun stageSetSurface(
-        stage: Long,
-        surfaceFlags: Int,
-        animateUntilMs: Long,
-        nowMs: Long,
-    ): Int
-
     external fun stagePause(stage: Long)
 
     external fun stageResume(stage: Long)
@@ -75,6 +67,15 @@ object StageNative {
 
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
+
+    /** The stage's frame budget in ns for the rate setting on the display mode now running; 0 until the pacer has said. */
+    external fun stageFrameBudgetNs(stage: Long): Long
+
+    /** Android Frame Pacing is made from the Activity: [activity] is the `MainActivity` from `onCreate`. */
+    external fun pacingAttach(activity: Any)
+
+    /** Lets Android Frame Pacing go with the Activity from `onDestroy`. */
+    external fun pacingDetach(activity: Any)
 
     /** A new descriptor, readable while frame events wait and until [stageTakeEvents]; the caller owns it. -1: none. */
     external fun stageEventFd(stage: Long): Int
@@ -115,9 +116,9 @@ object StageNative {
         amount: Float,
     )
 
+    /** March scale and post FX; the render resolution is the window buffer's size ([PerfNative.perfBufferSize]). */
     external fun stageSetQuality(
         stage: Long,
-        renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
     )
@@ -178,12 +179,6 @@ object StageNative {
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    )
-
-    /** The edge glow's floats, or null for none. */
-    external fun stageSetEdgeGlow(
-        stage: Long,
-        opts: FloatArray?,
     )
 
     external fun stageSetCastSource(
@@ -257,7 +252,6 @@ object StageNative {
     ): Boolean
 
     const val STAGE_KIND_VIEW = 0
-    const val STAGE_KIND_SURFACE = 1
     const val STAGE_VIEW_ATTACHED = 1 shl 0
     const val STAGE_VIEW_WINDOW_VISIBLE = 1 shl 1
     const val STAGE_VIEW_SHOWN = 1 shl 2

@@ -65,7 +65,7 @@ class GeodeContainer(
 
     /**
      * The last process death a JVM handler cannot see (native or driver crash, ANR, a kill while in use), written
-     * to the crash file once ([ExitReasons]). Started with the process so the wallpaper or dream reports too; the
+     * to the crash file once ([ExitReasons]). Started with the process; the
      * crash dialog awaits it before it reads the file.
      */
     val lastExit: Deferred<ExitKind?> =
@@ -95,7 +95,7 @@ class GeodeContainer(
     val appState: AppStateRepository = PrefsSettingsRepository(prefsFiles.general, AppStateCodec, appScope)
 
     // The process-wide engine configuration: each hands its saved value to native as soon as the
-    // read is back, so the app, the wallpaper, the dream and an export all start from it.
+    // read is back, so the app and an export both start from it.
 
     val macros = MacroStore(PrefsSettingsRepository(prefsFiles.general, MacroBankCodec(), appScope), appScope)
 
@@ -119,7 +119,7 @@ class GeodeContainer(
     /** Customize's tab and the groups the user opened. */
     val customizeGroups = CustomizeGroupsStore(PrefsSettingsRepository(prefsFiles.general, CustomizeGroupsCodec, appScope), appScope)
 
-    /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
+    /** Settings › Performance. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
 
     /** The `ContentResolver` source the screens and controllers reach consent requests, grants and picked documents through. */
@@ -136,6 +136,7 @@ class GeodeContainer(
         sweepOldShareCopies(context.applicationContext.cacheDir)
         sweepOrphanedPendingExports(context.applicationContext)
         sweepRetiredAnalysisCache(context.applicationContext.filesDir)
+        sweepRetiredWallpaperPrefs(context.applicationContext)
         discardStaleRestore(context.applicationContext)
         deleteUnfinishedOutputs(context.applicationContext)
         sweepStaleTemps(context.applicationContext)
@@ -195,6 +196,16 @@ class GeodeContainer(
     private fun sweepRetiredAnalysisCache(filesDir: File) {
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep retired analysis cache") { File(filesDir, "analysis").deleteRecursively() }
+        }
+    }
+
+    /**
+     * Deletes the live wallpaper's options file (`GeodePrefsFiles.RETIRED_WALLPAPER`), which older builds wrote.
+     * The wallpaper is gone, so nothing else would ever remove it.
+     */
+    private fun sweepRetiredWallpaperPrefs(context: Context) {
+        appScope.launch(Dispatchers.IO) {
+            bestEffort(TAG, "sweep retired wallpaper prefs") { context.deleteSharedPreferences(GeodePrefsFiles.RETIRED_WALLPAPER) }
         }
     }
 

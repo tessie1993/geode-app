@@ -69,12 +69,6 @@ Java_dev_geode_engine_bridge_StageNative_stageSetView(JNIEnv*, jobject, jlong st
     geode_stage_set_view(stageOf(stage), static_cast<unsigned>(viewFlags));
 }
 
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetSurface(JNIEnv*, jobject, jlong stage, jint surfaceFlags,
-                                                         jlong animateUntilMs, jlong nowMs) {
-    return geode_stage_set_surface(stageOf(stage), static_cast<unsigned>(surfaceFlags), animateUntilMs, nowMs);
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_StageNative_stagePause(JNIEnv*, jobject, jlong stage) {
     geode_stage_pause(stageOf(stage));
@@ -98,6 +92,21 @@ Java_dev_geode_engine_bridge_StageNative_stageSetCap(JNIEnv*, jobject, jlong sta
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageState(JNIEnv*, jobject, jlong stage) {
     return static_cast<jint>(geode_stage_state(stageOf(stage)));
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_StageNative_stageFrameBudgetNs(JNIEnv*, jobject, jlong stage) {
+    return static_cast<jlong>(geode_stage_frame_budget_ns(stageOf(stage)));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_StageNative_pacingAttach(JNIEnv* env, jobject, jobject activity) {
+    geode_stage_pacing_attach(env, activity);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_StageNative_pacingDetach(JNIEnv* env, jobject, jobject activity) {
+    geode_stage_pacing_detach(env, activity);
 }
 
 JNIEXPORT jint JNICALL
@@ -140,9 +149,8 @@ Java_dev_geode_engine_bridge_StageNative_stageSetUnderlay(JNIEnv* env, jobject, 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat renderScale, jfloat marchScale,
-                                                         jboolean postFx) {
-    geode_viz_set_quality(StageViz(stage), renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0);
+Java_dev_geode_engine_bridge_StageNative_stageSetQuality(JNIEnv*, jobject, jlong stage, jfloat marchScale, jboolean postFx) {
+    geode_viz_set_quality(StageViz(stage), marchScale, postFx == JNI_TRUE ? 1 : 0);
 }
 
 JNIEXPORT void JNICALL
@@ -201,14 +209,6 @@ JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_StageNative_stageSetUiBlurRegion(JNIEnv*, jobject, jlong stage, jfloat left, jfloat top,
                                                               jfloat right, jfloat bottom, jfloat strength, jfloat cornerPx) {
     geode_viz_set_ui_blur_region(StageViz(stage), left, top, right, bottom, strength, cornerPx);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_StageNative_stageSetEdgeGlow(JNIEnv* env, jobject, jlong stage, jfloatArray opts) {
-    const jsize count = opts ? std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS) : 0;
-    float values[GEODE_EDGE_GLOW_FLOATS] = {};
-    if (count > 0) env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
-    geode_viz_set_edge_glow(StageViz(stage), opts ? values : nullptr, static_cast<int>(count));
 }
 
 JNIEXPORT void JNICALL

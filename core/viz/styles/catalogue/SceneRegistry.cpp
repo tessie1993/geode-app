@@ -32,7 +32,16 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
             host_.onShaderError(error);
             return nullptr;
         }
-        auto scene = std::make_unique<ShaderScene>(id, quadVert, *fragment, loader_.cache, host_);
+        std::string vertex = quadVert;
+        if (loader_.assets.readAsset("shaders/" + id + "_vert.glsl")) {
+            const auto own = loader_.assets.load(id + "_vert.glsl", &error);
+            if (!own) {
+                host_.onShaderError(error);
+                return nullptr;
+            }
+            vertex = *own;
+        }
+        auto scene = std::make_unique<ShaderScene>(id, vertex, *fragment, loader_.cache, host_);
         if (id == catalogue::kMorphWorld) {
             // Morph World's baked CC0 shapes and maps (core/viz/styles/shader/WorldAssets); without them the
             // style still draws, the mesh primitive as a sphere and no surface detail.

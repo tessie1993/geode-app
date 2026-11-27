@@ -79,25 +79,18 @@ bool MycoScene::ensureBuffers() {
     return agents_.has_value() && trail_.has_value();
 }
 
-void MycoScene::draw(float timeSeconds) {
-    (void) timeSeconds;
+void MycoScene::simulate() {
     if (!programOk_) return;
     resetFrameState();
-    GLint prevFbo = 0;
-    GLint prevViewport[4] = {0, 0, 0, 0};
-    SceneTarget::read(prevFbo, prevViewport);
-    if (!ensureBuffers()) {
-        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
-        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        return;
-    }
+    simulated_ = true;
+    if (!ensureBuffers()) return;
     fluid::DoubleFbo& colony = *agents_;
     fluid::DoubleFbo& field = *trail_;
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
     const GeodeSoundFrame f = hasPending_ ? pending_ : GeodeSoundFrame{};
     hasPending_ = false;
+    shownEnergy_ = clampedBand(f.rms);
 
     const float speed = std::clamp(p.speed, 0.05f, 4.0f);
     const float drive = safeAudioDrive(p.audioDrive);
@@ -112,6 +105,7 @@ void MycoScene::draw(float timeSeconds) {
 
     glUseProgram(agent_.program());
     glBindFramebuffer(GL_FRAMEBUFFER, colony.write().fbo());
+    colony.write().discardContents();
     glViewport(0, 0, colony.width(), colony.height());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, colony.read().tex());
@@ -154,6 +148,7 @@ void MycoScene::draw(float timeSeconds) {
 
     glUseProgram(blur_.program());
     glBindFramebuffer(GL_FRAMEBUFFER, field.write().fbo());
+    field.write().discardContents();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, field.read().tex());
     glUniform1i(blur_.loc("uTrail"), 0);
@@ -161,7 +156,27 @@ void MycoScene::draw(float timeSeconds) {
     glUniform1f(blur_.loc("uDecay"), std::pow(style_.decay, dt * 60.0f));
     glDrawArrays(GL_TRIANGLES, 0, 3);
     field.swap();
+}
 
+void MycoScene::draw(float timeSeconds) {
+    (void) timeSeconds;
+    if (!programOk_) return;
+    GLint prevFbo = 0;
+    GLint prevViewport[4] = {0, 0, 0, 0};
+    SceneTarget::read(prevFbo, prevViewport);
+    if (!simulated_) simulate();
+    simulated_ = false;
+    if (!ensureBuffers()) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
+    fluid::DoubleFbo& field = *trail_;
+    const SceneParams& p = params_;
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glBindVertexArray(vao_);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     glUseProgram(show_.program());
@@ -174,7 +189,7 @@ void MycoScene::draw(float timeSeconds) {
     glUniform1f(show_.loc("uBaseHue"), hue::base(p.paletteBase()) + style_.hueOffset);
     glUniform1f(show_.loc("uHueSpan"), hue::span(p.hueRange, p.paletteRange()) * style_.hueSpan);
     glUniform1f(show_.loc("uExposure"), style_.exposure * (byteTrail_ ? 1.0f / kByteFallbackDeposit : 1.0f));
-    glUniform1f(show_.loc("uEnergy"), clampedBand(f.rms));
+    glUniform1f(show_.loc("uEnergy"), shownEnergy_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
     glUseProgram(0);

@@ -33,7 +33,7 @@ interface SettingsRepository<T> {
 
     /**
      * For the few callers built synchronously on the main thread before the first load can have
-     * landed (a cold start's first screen, the playback session, the screen saver): the loaded
+     * landed (a cold start's first screen, the playback session): the loaded
      * value, else the file read on this thread, which blocks as a prefs getter would.
      */
     fun current(): T

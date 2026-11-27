@@ -310,13 +310,14 @@ float bulbBail(float n) {
  * z raised to the power (n, m): radius and polar angle by n, azimuth by m,
  * pole on +y. `phase` is added to (polar, azimuth) after the multiply - a
  * per-iteration offset that morphs the body rather than merely turning it.
- * `r` is length(z), already guarded away from zero by the caller.
+ * `r` is length(z), already guarded away from zero by the caller; `rn` is r^n, which the
+ * caller has as its derivative step's r^(n-1) times r, so one pow serves both.
  */
-vec3 bulbPow(vec3 z, float r, float n, float m, vec2 phase) {
+vec3 bulbPow(vec3 z, float r, float rn, float n, float m, vec2 phase) {
     float polar = acos(clamp(z.y / r, -1.0, 1.0)) * n + phase.x;
     float azim = atan(z.z, z.x + 1e-12) * m + phase.y;
     float s = sin(polar);
-    return pow(r, n) * vec3(s * cos(azim), cos(polar), s * sin(azim));
+    return rn * vec3(s * cos(azim), cos(polar), s * sin(azim));
 }
 
 /**
@@ -349,8 +350,9 @@ float bulbDE(vec3 p, float n, float m, vec2 phase, int iters, out vec4 trap) {
             esc = bulbSmoothEscape(i, r, bail, n);
             break;
         }
-        dr = grow * pow(r, n - 1.0) * dr + 1.0;
-        z = bulbPow(z, r, n, m, phase) + p;
+        float rn1 = pow(r, n - 1.0);
+        dr = grow * rn1 * dr + 1.0;
+        z = bulbPow(z, r, rn1 * r, n, m, phase) + p;
         trap.x = min(trap.x, dot(z, z));
         trap.y = min(trap.y, abs(z.y));
         trap.z = min(trap.z, length(z.xz));
@@ -383,8 +385,9 @@ float bulbJuliaDE(vec3 p, vec3 c, float n, int iters, out vec4 trap) {
             esc = bulbSmoothEscape(i, r, bail, n);
             break;
         }
-        dr = grow * pow(r, n - 1.0) * dr;
-        z = bulbPow(z, r, n, m, vec2(0.0)) + c;
+        float rn1 = pow(r, n - 1.0);
+        dr = grow * rn1 * dr;
+        z = bulbPow(z, r, rn1 * r, n, m, vec2(0.0)) + c;
         trap.x = min(trap.x, dot(z, z));
         trap.y = min(trap.y, abs(z.y));
         trap.z = min(trap.z, length(z.xz));

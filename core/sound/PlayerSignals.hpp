@@ -29,7 +29,7 @@ namespace geode::sound::player {
 // Process-wide and latched like the macro bank and the director: written on the main thread, read once per
 // frame on each GL thread. An export renderer reads none of them (Renderer::beginFrame): a render has its
 // own track, no player fades, and counts as the player. The flags are the app ring's: a renderer fed another
-// ring (the wallpaper's output mix, wallpaper/OutputMixCapture) hears no player at all (heardAsPlayer).
+// ring (the output mix, audio/OutputMixCapture) hears no player at all (heardAsPlayer).
 
 struct Boundary {
     uint64_t epoch = 0;  // 0 before the first boundary; each boundary adds one

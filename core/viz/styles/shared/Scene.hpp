@@ -45,6 +45,10 @@ public:
     // Clock control (viz/clock): this frame's signed move of the scene clock (a jump when a stutter loops) and its
     // scale; set before every update().
     virtual void setClockStep(float step, float rate) { (void) step; (void) rate; }
+    // After update(), before the renderer binds the scene target: the scene's offscreen passes (a simulation's steps),
+    // so the target's own pass holds only the picture. A scene that overrides it keeps draw() able to run it when the
+    // renderer did not (a layer, an outgoing scene).
+    virtual void simulate() {}
     virtual void draw(float timeSeconds) = 0;
     virtual void release() = 0;
 
@@ -92,7 +96,7 @@ struct SceneHost {
     std::function<GLuint()> paletteRamp;
     // The shape graph (viz/styles/shared/ShapeGraph) as this frame uploads it: the renderer ticks one graph once a frame after
     // its params resolve, so every scene it draws (the style, the one leaving, the layer) melts in the same shapes,
-    // and live, an export, the wallpaper and the dream each draw their own renderer's. Unset reads as an empty graph.
+    // and live and an export each draw their own renderer's. Unset reads as an empty graph.
     std::function<const shapes::Packed*()> shapeGraph;
     // The live Fields (viz/fields/FieldSet), read only: the fluid takes each as a force on its flow and its
     // particles. Unset reads as none.

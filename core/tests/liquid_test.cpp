@@ -162,7 +162,19 @@ void bornRollSeedIsHighThenLow() {
 
 }  // namespace
 
+// Trails are one of the optional passes: Performance's extra effects off drops them, and nothing else does
+// beyond what always did (Liquid on, Trails off, a style that is not a shader or keeps its own trail).
+void shaderTrailsAreAnOptionalPass() {
+    check(shaderTrailsRun(true, true, true, 0.0f, true), "Trails run on a shader style with extra effects");
+    check(!shaderTrailsRun(true, true, true, 0.0f, false), "extra effects off drops them");
+    check(!shaderTrailsRun(false, true, true, 0.0f, true), "Liquid mode has its own pass");
+    check(!shaderTrailsRun(true, false, true, 0.0f, true), "Trails off");
+    check(!shaderTrailsRun(true, true, false, 0.0f, true), "a simulation or particle style");
+    check(!shaderTrailsRun(true, true, true, 0.6f, true), "a style with a trail of its own");
+}
+
 int main() {
+    shaderTrailsAreAnOptionalPass();
     planAndPicks();
     injectWeightIsFrameRateIndependent();
     diveOnlyDivesInAndWanders();

@@ -10,7 +10,7 @@
 //
 // Why: the renderer kept every style it ever built. A shader style holds a linked program, a VAO and a
 // sound texture; a fluid style holds a whole FluidSim (at Ultra the dye grid alone is tens of MB, #999's
-// arithmetic gave 67.5 MiB, plus velocity, pressure, multigrid, particles and bloom). An hour of Auto, the wallpaper or the dream
+// arithmetic gave 67.5 MiB, plus velocity, pressure, multigrid, particles and bloom). An hour of Auto
 // visits dozens of styles, so resident memory grew until the memory limiter or LMK killed the process,
 // or GL allocations failed. And every scale change resized all of them in one frame.
 //
@@ -34,9 +34,9 @@
 // (onTrimMemory: TRIM_MEMORY_UI_HIDDEN 20, TRIM_MEMORY_BACKGROUND 40; since Android 14 the other levels
 // are no longer delivered and from 15 they are deprecated, so only these two count). Either way the
 // spares go: the budget drops to 0, so each renderer keeps what it draws, the layer, the born style
-// and the one requested, and nothing else. A wallpaper or dream that is still drawing keeps its look
+// and the one requested, and nothing else. A renderer that is still drawing keeps its look
 // for that reason; a rebuilt spare costs one staged build, never a black frame. The signal is
-// process-wide (one process serves the app, the wallpaper and the dream) and each renderer reads it
+// process-wide (one process serves the app and Cast) and each renderer reads it
 // on its own GL thread, so no release ever runs off the thread that owns the context.
 // Only a frame reads the signal, and UI_HIDDEN arrives after the app's GL thread has paused, so a surface
 // that stops drawing sheds at its pause, while its context is still current (Renderer::trimSpares,
@@ -91,10 +91,10 @@ public:
     // A scene's weight: a fluid solver is heavy, a shader style is not.
     static bool heavy(bool fluid) { return fluid; }
 
-    // What a trim sheds. A renderer that goes on drawing (the signal read by a frame: a visible wallpaper,
-    // the dream, Cast, an export) drops its spares only: the passes' targets hold the picture's history
+    // What a trim sheds. A renderer that goes on drawing (the signal read by a frame: Cast,
+    // an export) drops its spares only: the passes' targets hold the picture's history
     // (Liquid's feedback, Trails, the dive), and freeing them popped that history on screen, on the TV and
-    // into the MP4. A surface that stops drawing (its pause, an in-app hide, a stopped wallpaper) also drops
+    // into the MP4. A surface that stops drawing (its pause, an in-app hide) also drops
     // the passes' targets and its two scene targets, since the next frame it draws builds them again;
     // through hours of background playback they were 20 MiB at 1080p for nothing.
     static TrimShed shedFor(MemoryTrim trim, bool drawing) {

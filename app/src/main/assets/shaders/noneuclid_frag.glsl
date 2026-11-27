@@ -723,10 +723,11 @@ void main() {
     }
 
     // The bank, marched on its own around the ball's centre. Its hit is
-    // taken over the structure's whenever it is nearer.
+    // taken over the structure's whenever it is nearer, so it is never
+    // marched past the structure's own hit.
     float satCount = dmtSatelliteCount();
     dmtSatPrepare(satCount, BALL_R + SAT_CLEAR, SAT_RADIUS, SAT_PERIOD);
-    float satT = dmtMarchSatellites(ro - gCenter, rd, FAR, uSteps * 0.5);
+    float satT = dmtMarchSatellites(ro - gCenter, rd, hitT > 0.0 ? min(hitT, FAR) : FAR, uSteps * 0.5);
     bool satWins = satT > 0.0 && (hitT < 0.0 || satT < hitT);
 
     vec2 poleScreen = gPole.xy * FOCAL / max(gPole.z, 0.5);

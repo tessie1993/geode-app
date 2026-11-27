@@ -62,8 +62,8 @@ public:
     // program out of the binary cache (program::build with a null cache).
     GLuint obtain(const std::vector<ShaderStage>& stages, std::string* error, bool* placeholder = nullptr,
                   bool cached = true);
-    // Outside attempts, once per frame while the stager is not idle.
-    void step(double nowS);
+    // Outside attempts, once per frame while the stager is not idle, within `sliceS` (BuildBudget::sliceFor).
+    void step(double nowS, double sliceS);
     // Nothing queued and nothing compiling.
     bool idle() const;
     // GL thread with the context that made them: deletes everything held.
@@ -93,7 +93,7 @@ private:
     Entry& entryFor(const std::vector<ShaderStage>& stages, bool cached);
     Job kick(const Entry& entry) const;
     void finish(Entry& entry, Job job);
-    void startQueued(double nowS);
+    void startQueued(double nowS, double sliceS);
     int inFlightCount() const;
 
     ProgramBinaryCache* cache_;

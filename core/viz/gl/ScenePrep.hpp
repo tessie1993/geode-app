@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,13 +21,28 @@ namespace geode::viz {
 // inside its time slice. A blocking compile (no GL_KHR_parallel_shader_compile, so the driver
 // compiles on this thread) is capped at one per frame because its cost has no bound we can see
 // in advance; cache loads and parallel kicks are cheap and only the time slice limits them.
+//
+// The slice is what the frame clock's budget (stage/FramePacer: interval x period, which reaches the
+// renderer as its paced rate) leaves after the frame's own draw: a fixed slice was a whole 120 Hz frame
+// on top of the draw, and a needless crawl at 30 Hz.
 class BuildBudget {
 public:
-    static constexpr double kFrameSeconds = 0.008;
     static constexpr int kBlockingPerFrame = 1;
+    // The least slice, for a draw that already fills its frame: builds still move, a little a frame.
+    static constexpr double kMinSliceSeconds = 0.001;
+    // The rate a frame is sized at before the frame clock says one (the first frames, a free-running surface).
+    static constexpr float kUnpacedFps = 60.0f;
 
-    void begin(double nowS) {
+    // The slice for a frame drawn at `frameFps` (0 when not known) whose draw takes `drawSeconds`.
+    static double sliceFor(float frameFps, double drawSeconds) {
+        const float fps = std::isfinite(frameFps) && frameFps > 0.0f ? frameFps : kUnpacedFps;
+        const double draw = std::isfinite(drawSeconds) && drawSeconds > 0.0 ? drawSeconds : 0.0;
+        return std::max(kMinSliceSeconds, 1.0 / static_cast<double>(fps) - draw);
+    }
+
+    void begin(double nowS, double sliceS) {
         startS_ = nowS;
+        sliceS_ = sliceS;
         pieces_ = 0;
         blocking_ = 0;
     }
@@ -34,7 +50,7 @@ public:
     bool allows(double nowS, bool blocking) const {
         if (blocking && blocking_ >= kBlockingPerFrame) return false;
         if (pieces_ == 0) return true;
-        return nowS - startS_ < kFrameSeconds;
+        return nowS - startS_ < sliceS_;
     }
 
     void spend(bool blocking) {
@@ -46,8 +62,29 @@ public:
 
 private:
     double startS_ = 0.0;
+    double sliceS_ = kMinSliceSeconds;
     int pieces_ = 0;
     int blocking_ = 0;
+};
+
+// A live renderer's frame as its builds see it: the last frame's draw (its render less the build work in
+// it) and the build work this frame has done so far, so each build step gets what the frame still has.
+class BuildClock {
+public:
+    void frameBegun(double nowS) {
+        startS_ = nowS;
+        buildS_ = 0.0;
+    }
+    void built(double seconds) { buildS_ += seconds; }
+    void frameEnded(double nowS) { drawS_ = std::max(0.0, nowS - startS_ - buildS_); }
+
+    double slice(float frameFps) const { return BuildBudget::sliceFor(frameFps, drawS_ + buildS_); }
+    double drawSeconds() const { return drawS_; }
+
+private:
+    double startS_ = 0.0;
+    double buildS_ = 0.0;
+    double drawS_ = 0.0;
 };
 
 // The scene a live frame wants but has not built yet, and what this frame does about it.

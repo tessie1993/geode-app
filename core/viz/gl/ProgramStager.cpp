@@ -152,7 +152,7 @@ void ProgramStager::finish(Entry& entry, Job job) {
     entry.ready.push_back(job.program);
 }
 
-void ProgramStager::step(double nowS) {
+void ProgramStager::step(double nowS, double sliceS) {
     // Collect what the driver finished in the background first: cheap, and it frees kick slots.
     if (parallel_) {
         for (auto& entry : entries_) {
@@ -175,13 +175,13 @@ void ProgramStager::step(double nowS) {
             }
         }
     }
-    startQueued(nowS);
+    startQueued(nowS, sliceS);
     prober::drainErrors();
 }
 
-void ProgramStager::startQueued(double nowS) {
+void ProgramStager::startQueued(double nowS, double sliceS) {
     BuildBudget budget;
-    budget.begin(nowS);
+    budget.begin(nowS, sliceS);
     for (auto& entry : entries_) {
         while (entry.queued > 0 && !entry.failed) {
             if (entry.cacheKey && budget.allows(nowSeconds(), false)) {

@@ -727,7 +727,8 @@ Scene* Renderer::readyScene(const std::string& id) {
         switch (prep_.next(stager_.idle(), now, stager_.progress())) {
             case ScenePrep::Step::Wait: {
                 const util::TraceSection section("geode.stagerStep");
-                stager_.step(now);
+                stager_.step(now, buildClock_.slice(pacedFps()));
+                buildClock_.built(monotonicSeconds() - now);
                 return nullptr;
             }
             case ScenePrep::Step::GiveUp:
@@ -741,6 +742,7 @@ Scene* Renderer::readyScene(const std::string& id) {
                 scene = sceneFor(id);
                 break;
         }
+        buildClock_.built(monotonicSeconds() - now);
     }
     if (scene || prep_.failed(id)) {
         prep_.done();

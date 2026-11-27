@@ -17,6 +17,7 @@
 #include "stage/LiveClient.hpp"
 #include "stage/StageLifecycle.hpp"
 #include "stage/android/StageThread.hpp"
+#include "stage/android/SwappyHost.hpp"
 #include "util/Log.hpp"
 #include "viz/SurfaceRun.hpp"
 
@@ -309,6 +310,19 @@ void geode_stage_set_cap(geode_stage* s, float cap_fps) {
 unsigned geode_stage_state(const geode_stage* s) {
     const std::shared_ptr<Stage> stage = find(s);
     return stage ? stage->thread->state() : 0u;
+}
+
+long long geode_stage_frame_budget_ns(const geode_stage* s) {
+    const std::shared_ptr<Stage> stage = find(s);
+    return stage ? stage->thread->frameBudgetNs() : 0;
+}
+
+void geode_stage_pacing_attach(void* env, void* activity) {
+    geode::stage::platform::SwappyHost::process().attach(static_cast<JNIEnv*>(env), static_cast<jobject>(activity));
+}
+
+void geode_stage_pacing_detach(void* env, void* activity) {
+    geode::stage::platform::SwappyHost::process().detach(static_cast<JNIEnv*>(env), static_cast<jobject>(activity));
 }
 
 

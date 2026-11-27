@@ -82,9 +82,12 @@ SwappyHost::Swap SwappyHost::swap(const void* owner, ANativeWindow* window, int6
         window_ = nullptr;
         times_ = {};
     }
+    // Swappy states a frame rate of its own on a new window, a new swap interval and a pacing toggle (1e9 / the interval, or
+    // the display's starting rate); the owner's vote follows each of them so it is the one standing.
     if (window_ != window) {
         SwappyGL_setWindow(window);
         window_ = window;
+        revote = true;
     }
     if (swapNs != swapNs_) {
         const bool pacing = swapNs > 0;
@@ -92,9 +95,9 @@ SwappyHost::Swap SwappyHost::swap(const void* owner, ANativeWindow* window, int6
         if (pacing != pacing_) {
             SwappyGL_enableFramePacing(pacing);
             pacing_ = pacing;
-            revote = true;
         }
         swapNs_ = swapNs;
+        revote = true;
     }
     return SwappyGL_swap(display, surface) ? Swap::Done : Swap::Failed;
 }
@@ -106,6 +109,11 @@ void SwappyHost::release(const void* owner) {
     owner_ = nullptr;
     window_ = nullptr;
     times_ = {};
+}
+
+bool SwappyHost::available(const void* owner) const {
+    std::lock_guard<std::mutex> guard(lock_);
+    return made_ && owner && (!owner_ || owner_ == owner);
 }
 
 bool SwappyHost::holds(const void* owner) const {

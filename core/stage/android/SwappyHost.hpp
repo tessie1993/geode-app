@@ -11,9 +11,9 @@
 //
 // Swappy is process-wide, paces one window, and is made from an Activity: SwappyGL_init reads the display's timings
 // through Activity.getWindowManager. So it lives with MainActivity (attach on create, detach on destroy) and paces the
-// app's live stage. A stage that cannot have it (the dream, whose DreamService is no Activity; a second stage while the
-// first one holds it; a device where Swappy is disabled) swaps with plain eglSwapBuffers at the display's rate under
-// the window's frame-rate vote (StageThread): the docs' alternative when SwappyGL_isEnabled is false.
+// app's live stage. A stage that cannot have it (a second stage while the first one holds it; a device where Swappy is
+// disabled or fails to initialise, which the docs allow for) is paced by Choreographer instead, one frame per vsync,
+// under the window's frame-rate vote (StageThread): the docs' alternative when SwappyGL_isEnabled is false.
 //
 // Every Swappy call is made under one lock, so an Activity that goes while a stage swaps waits for that swap (at most
 // one frame) before Swappy is destroyed, and no stage swaps through a Swappy being remade.
@@ -46,12 +46,14 @@ public:
     // Stage thread. `owner` swaps through Swappy when Swappy is made and enabled and no other stage holds it; it then
     // holds it until release. Swappy is given the owner's window and the swap interval for its cap first, when they
     // changed (0: no cap, Follow device, Swappy's pacing off). `revote` is set when Swappy may have voted a frame rate
-    // of its own in this swap (its pacing was switched on or off), so the owner states its own vote again.
+    // of its own in this swap (a new window, interval or pacing switch), so the owner states its own vote again.
     Swap swap(const void* owner, ANativeWindow* window, int64_t swapNs, EGLDisplay display, EGLSurface surface, bool& revote);
     // The owner lets go (its pacing stopped, its window went, it ends): Swappy forgets the window. Nothing when it
     // does not hold Swappy.
     void release(const void* owner);
     bool holds(const void* owner) const;
+    // Swappy is made and `owner` holds it or may take it at its next swap.
+    bool available(const void* owner) const;
     // The owner's last swap, as Swappy's tracer told it; zeros for a stage that does not hold Swappy.
     SwappyTimes times(const void* owner) const;
     // The active display mode's refresh period as Swappy knows it (its display timings, kept current by its own

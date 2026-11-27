@@ -10,8 +10,11 @@
 #include <chrono>
 #include <climits>
 
+#include "stage/SwapPace.hpp"
+#include "stage/android/SwappyHost.hpp"
 #include "util/Log.hpp"
 #include "util/ThreadNice.hpp"
+#include "util/Trace.hpp"
 
 namespace geode::stage::platform {
 
@@ -32,6 +35,8 @@ bool framesFlag() {
 int64_t nowMs() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
+
+int64_t positive(int64_t ns) { return ns > 0 ? ns : 0; }
 
 Outcome outcomeOf(EGLint error) {
     if (error == EGL_SUCCESS) return Outcome::Done;
@@ -174,7 +179,12 @@ void StageThread::run() {
         }
         ALooper* looper = ALooper_prepare(0);
         inbox_->bind(looper);
-        sink_ = VsyncThread::process().attach(inbox_);
+        choreographer_ = AChoreographer_getInstance();
+        if (choreographer_) {
+            AChoreographer_registerRefreshRateCallback(choreographer_, &StageThread::onRefreshRate, this);
+        } else {
+            GEODE_LOGE(kTag, "no choreographer on the stage thread: no frame can wait for a vsync");
+        }
         if (framesFlag()) {
             core_.recordFrames(true);
             GEODE_LOGI(kFramesTag, "recording frames (%s)", kFramesProperty);
@@ -190,8 +200,9 @@ void StageThread::run() {
             GEODE_LOGE(kTag, "the stage's teardown ended on an exception too");
         }
     }
-    VsyncThread::process().detach(sink_);
-    sink_ = nullptr;
+    SwappyHost::process().release(this);
+    if (choreographer_) AChoreographer_unregisterRefreshRateCallback(choreographer_, &StageThread::onRefreshRate, this);
+    choreographer_ = nullptr;
     std::lock_guard<std::mutex> lock(ackLock_);
     finished_ = true;
     // Hand-overs that arrived after quit: their window references are released here, nobody else reads them.
@@ -210,6 +221,12 @@ void StageThread::loop() {
         for (size_t n = inbox_->queue.drain(batch, Inbox::kCapacity); n > 0; n = inbox_->queue.drain(batch, Inbox::kCapacity)) {
             for (size_t i = 0; i < n; ++i) core_.apply(batch[i], nowMs());
         }
+        if (vsyncArrived_) {
+            vsyncArrived_ = false;
+            Command vsync;
+            vsync.kind = kStageVsync;
+            core_.apply(vsync, nowMs());
+        }
         if (quit_.load()) {
             Command quit;
             quit.kind = kStageQuit;
@@ -222,10 +239,8 @@ void StageThread::loop() {
         }
         if (core_.unsettled()) GEODE_LOGE(kTag, "the stage lifecycle did not settle");
         if (core_.finished()) return;
-        int timeout = -1;
-        if (const int64_t deadline = core_.deadlineMs(); deadline >= 0) {
-            timeout = static_cast<int>(std::clamp<int64_t>(deadline - nowMs(), 0, INT_MAX));
-        }
+        const int64_t wait = core_.waitMs(nowMs());
+        const int timeout = wait < 0 ? -1 : static_cast<int>(std::min<int64_t>(wait, INT_MAX));
         // Every return is treated as a wake: the queue is drained either way.
         ALooper_pollOnce(timeout, nullptr, nullptr, nullptr);
     }
@@ -247,32 +262,101 @@ Outcome StageThread::makeCurrentSurfaceless() { return outcomeOf(egl_.makeCurren
 
 void StageThread::releaseCurrent() { egl_.releaseCurrent(); }
 
-void StageThread::destroySurface() { egl_.destroySurface(); }
+void StageThread::destroySurface() {
+    SwappyHost::process().release(this);
+    egl_.destroySurface();
+}
 
 void StageThread::destroyContext() { egl_.destroyContext(); }
 
-Outcome StageThread::swap() { return outcomeOf(egl_.swap()); }
+// The frame goes through Swappy, which holds it to its slot (developer.android.com/games/sdk/frame-pacing). Where Swappy
+// is not this stage's, the plain swap runs and the vsync wait is the next frame's pacing (wakeAtVsync).
+Outcome StageThread::swap() {
+    bool revote = false;
+    SwappyHost& swappy = SwappyHost::process();
+    const SwappyHost::Swap result =
+        swappy.swap(this, egl_.window(), swapIntervalNs(capFps_), egl_.display(), egl_.surface(), revote);
+    if (result == SwappyHost::Swap::Fallback) {
+        lastGpuNs_ = 0;
+        return outcomeOf(egl_.swap());
+    }
+    if (revote && voteWindow_) setFrameRate(voteWindow_, voteFps_);
+    const SwappyTimes times = swappy.times(this);
+    lastGpuNs_ = positive(times.gpuNs);
+    util::traceCounter("geode.swapWaitUs", times.waitNs / 1000);
+    return result == SwappyHost::Swap::Done ? Outcome::Done : outcomeOf(EglWindow::swapError());
+}
 
-void StageThread::releaseWindow(void* window) { ANativeWindow_release(static_cast<ANativeWindow*>(window)); }
+void StageThread::releaseWindow(void* window) {
+    if (voteWindow_ == window) voteWindow_ = nullptr;
+    ANativeWindow_release(static_cast<ANativeWindow*>(window));
+}
 
 // The surface's one vote, the user's rate (developer.android.com/media/optimize/performance/frame-rate): default
 // compatibility (not video), and only a seamless switch, since a panel that blanks for a moment mid-track is worse than
-// the rate. The window asks for the matching display mode itself (the shell's preferredDisplayModeId), so the two agree.
+// the rate. The vote is the setting's and stays so whatever the platform does with it.
 void StageThread::setFrameRate(void* window, float fps) {
+    voteWindow_ = window;
+    voteFps_ = fps;
     ANativeWindow_setFrameRateWithChangeStrategy(static_cast<ANativeWindow*>(window), fps, ANATIVEWINDOW_FRAME_RATE_COMPATIBILITY_DEFAULT,
                                                  ANATIVEWINDOW_CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
 }
 
-void StageThread::vsyncRun(bool on) { VsyncThread::process().run(sink_, on); }
+void StageThread::pace(bool on, float capFps) {
+    capFps_ = capFps;
+    if (!on) SwappyHost::process().release(this);
+}
 
-bool StageThread::gpuBusy() { return egl_.previousFrameBusy(); }
+PaceTimes StageThread::paceTimes() {
+    PaceTimes times;
+    SwappyHost& swappy = SwappyHost::process();
+    times.swapPaces = swappy.available(this);
+    if (times.swapPaces) {
+        times.periodNs = positive(swappy.refreshPeriodNs());
+        times.desiredNs = swappy.times(this).desiredNs;
+        times.frameNs = frameLengthNs(swapIntervalNs(capFps_), times.periodNs);
+    } else {
+        times.periodNs = refreshPeriodNs_;
+        times.desiredNs = vsyncPresentNs_;
+        times.frameNs = refreshPeriodNs_;
+    }
+    return times;
+}
 
-void StageThread::frameDone() { VsyncThread::frameDone(sink_); }
+int64_t StageThread::nowNs() {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 
-void StageThread::presentAt(int64_t stampNs) { egl_.presentAt(stampNs); }
+// The next vsync of this thread's Choreographer, once: a second post would run the callback twice.
+void StageThread::wakeAtVsync() {
+    if (!choreographer_ || vsyncPosted_) return;
+    vsyncPosted_ = true;
+    AChoreographer_postVsyncCallback(choreographer_, &StageThread::onVsync, this);
+}
 
-// ADPF (developer.android.com/games/optimize/adpf): the session's target is the frame clock's budget, and each paced
-// frame reports its whole time on this thread, the draw and the swap.
+// On the stage thread, inside the looper's poll. The preferred timeline's expected presentation time is when the frame
+// drawn for this vsync is shown (CLOCK_MONOTONIC, the clock Swappy's startFrame time is on); its distance to the next
+// timeline is one refresh period, for a display whose refresh-rate callback has not spoken yet.
+void StageThread::onVsync(const AChoreographerFrameCallbackData* data, void* self) {
+    auto* stage = static_cast<StageThread*>(self);
+    stage->vsyncPosted_ = false;
+    stage->vsyncArrived_ = true;
+    const size_t count = AChoreographerFrameCallbackData_getFrameTimelinesLength(data);
+    if (count == 0) return;
+    const size_t preferred = AChoreographerFrameCallbackData_getPreferredFrameTimelineIndex(data);
+    const int64_t present = AChoreographerFrameCallbackData_getFrameTimelineExpectedPresentationTimeNanos(data, preferred);
+    stage->vsyncPresentNs_ = present;
+    if (stage->refreshPeriodNs_ == 0 && count > 1) {
+        const size_t beside = preferred + 1 < count ? preferred + 1 : preferred - 1;
+        const int64_t other = AChoreographerFrameCallbackData_getFrameTimelineExpectedPresentationTimeNanos(data, beside);
+        stage->refreshPeriodNs_ = positive(other > present ? other - present : present - other);
+    }
+}
+
+void StageThread::onRefreshRate(int64_t periodNs, void* self) { static_cast<StageThread*>(self)->refreshPeriodNs_ = positive(periodNs); }
+
+// ADPF (developer.android.com/games/optimize/adpf): the session's target is the frame budget, and each paced frame
+// reports its draw on this thread; the swap's wait is not work.
 void StageThread::frameWork(int64_t budgetNs, int64_t actualNs) { workHint_.report(budgetNs, actualNs); }
 
 // One log line per row: a chunk is too long for one logcat entry.

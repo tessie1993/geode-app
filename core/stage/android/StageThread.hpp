@@ -1,4 +1,5 @@
 #pragma once
+#include <android/choreographer.h>
 #include <android/native_window.h>
 
 #include <atomic>
@@ -14,7 +15,6 @@
 #include "stage/StageCore.hpp"
 #include "stage/android/EglWindow.hpp"
 #include "stage/android/Inbox.hpp"
-#include "stage/android/VsyncThread.hpp"
 #include "util/WorkHint.hpp"
 
 // One surface's stage thread: an ALooper thread that owns the EGL context and window
@@ -57,6 +57,7 @@ public:
     void trim();
 
     uint32_t state() const { return core_.state(); }
+    int64_t frameBudgetNs() const { return core_.frameBudgetNs(); }
     // The frame events since the last call. Drains the wake descriptor first, then clears its flag, then takes, so an
     // event that lands in between still has a signal waiting (a spare wake is harmless, a lost one is not).
     uint32_t takeEvents();
@@ -81,21 +82,37 @@ private:
     void destroySurface() override;
     void destroyContext() override;
     Outcome swap() override;
+    void wakeAtVsync() override;
     void releaseWindow(void* window) override;
     void setFrameRate(void* window, float fps) override;
-    void vsyncRun(bool on) override;
-    bool gpuBusy() override;
-    void frameDone() override;
-    void presentAt(int64_t stampNs) override;
+    void pace(bool on, float capFps) override;
+    PaceTimes paceTimes() override;
+    int64_t lastGpuNs() override { return lastGpuNs_; }
+    int64_t nowNs() override;
     void windowApplied(int64_t sequence) override;
     void frameWork(int64_t budgetNs, int64_t actualNs) override;
     void framesRecorded(const std::string& csv) override;
 
+    static void onVsync(const AChoreographerFrameCallbackData* data, void* self);
+    static void onRefreshRate(int64_t periodNs, void* self);
+
     std::shared_ptr<Inbox> inbox_;
-    EglWindow egl_;                      // stage thread only
-    VsyncThread::Sink* sink_ = nullptr;  // stage thread only
+    EglWindow egl_;  // stage thread only
     StageCore core_;
-    util::WorkHint workHint_;  // stage thread only: ADPF for the frames the frame clock paces
+    util::WorkHint workHint_;  // stage thread only: ADPF for the frames the pacer paces
+
+    // Stage thread only. The Choreographer of this thread's looper: the vsync a stage without Swappy waits for, and the
+    // display's refresh period.
+    AChoreographer* choreographer_ = nullptr;
+    bool vsyncPosted_ = false;
+    bool vsyncArrived_ = false;
+    int64_t vsyncPresentNs_ = 0;
+    int64_t refreshPeriodNs_ = 0;
+    float capFps_ = 0.0f;
+    int64_t lastGpuNs_ = 0;
+    // The window's standing frame-rate vote, restated after anything Swappy may have voted over.
+    void* voteWindow_ = nullptr;
+    float voteFps_ = 0.0f;
 
     // Readable while frame events wait; written by the stage thread after a step, drained by takeEvents. -1: none.
     int eventFd_ = -1;

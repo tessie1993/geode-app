@@ -20,7 +20,6 @@
     <string name="pro_title_full_length">Export the whole track, clean</string>
     <string name="pro_title_studio">Unlock Record</string>
     <string name="pro_title_cast">Your visuals, on the TV</string>
-    <string name="pro_title_screensaver">Your visuals, as a screensaver</string>
     <string name="pro_title_styles">Every visual style, unlocked</string>
     <string name="pro_title_customization">Shape every detail</string>
     <string name="pro_title_auto_director">Let the music direct the whole song</string>
@@ -41,7 +40,6 @@
     <string name="pro_row_length">Export length</string>
     <string name="pro_row_length_pro">Full track</string>
     <string name="pro_row_studio">Record live videos</string>
-    <string name="pro_row_screensaver">Screensaver</string>
     <string name="pro_row_cast">Cast to TV, second screen, show on a computer</string>
     <string name="pro_row_customization">Customize</string>
     <string name="pro_row_auto_director">Auto-director</string>
@@ -62,7 +60,6 @@
     <string name="pro_price_note">One-time purchase, billed by Google Play. No subscription.</string>
     <string name="pro_restore">Restore purchase</string>
     <string name="pro_chip_auto_mode">Auto mode goes on through the whole song with Pro</string>
-    <string name="pro_chip_screensaver">The screensaver moves with Pro. Open BeatRealms 3D to unlock it</string>
     <string name="pro_share_keep_style">Share BeatRealms 3D and keep this style free</string>
     <string name="pro_share_chooser">Share BeatRealms 3D</string>
     <string name="pro_share_text">Music visuals that move to your own songs: BeatRealms 3D %1$s</string>
@@ -94,7 +91,7 @@
 
     <!-- The Settings row. -->
     <string name="pro_settings_title">BeatRealms Pro</string>
-    <string name="pro_settings_free">Unlock every style, full-length 4K 60 fps exports, recording and the screensaver. One payment.</string>
+    <string name="pro_settings_free">Unlock every style, full-length 4K 60 fps exports and recording. One payment.</string>
     <string name="pro_settings_owned">Unlocked. Thank you for supporting BeatRealms.</string>
     <string name="pro_settings_go">Go Pro</string>
 

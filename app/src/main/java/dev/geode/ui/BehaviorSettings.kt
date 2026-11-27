@@ -3,7 +3,6 @@
 
 package dev.geode.ui
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -34,8 +33,8 @@ import kotlinx.coroutines.launch
 
 // The rows stored in [BehaviourPrefs] (`geode-prefs`, defaults the owner's), which Settings spreads
 // over seven tabs since the regroup: Playback (queue end, shuffle and repeat), Output & devices
-// (headphones, notification buttons), Displays & casting (the screen on in Visuals), Screen saver
-// (the dream), Gestures & controls (the gesture map) and Look (where the app opens);
+// (headphones, notification buttons), Displays & casting (the screen on in Visuals),
+// Gestures & controls (the gesture map) and Look (where the app opens);
 // plus the visual's other rows that are not one store's: safety and motion, touch, a second
 // screen. Only options the app honours get a row (#337): a switch that does
 // nothing is worse than no switch.
@@ -107,25 +106,6 @@ internal fun BehaviourRow(
             )
         SettingsRowKey.GESTURE_MAP -> GestureMap(prefs, update)
         SettingsRowKey.NOTIFICATION_BUTTONS -> NotificationButtonsRow(prefs, update)
-        SettingsRowKey.DREAM_BRIGHT ->
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_dream_bright),
-                checked = prefs.dreamScreenBright,
-                onCheckedChange = { on -> update { it.copy(dreamScreenBright = on) } },
-            )
-        SettingsRowKey.DREAM_CLOCK ->
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_dream_clock),
-                checked = prefs.dreamShowClock,
-                onCheckedChange = { on -> update { it.copy(dreamShowClock = on) } },
-            )
-        SettingsRowKey.DREAM_NOW_PLAYING ->
-            SettingsSwitchRow(
-                title = stringResource(R.string.settings_dream_now_playing),
-                checked = prefs.dreamShowNowPlaying,
-                onCheckedChange = { on -> update { it.copy(dreamShowNowPlaying = on) } },
-            )
-        SettingsRowKey.DREAM_OTHER_APPS -> DreamOtherAppsRow(prefs, update)
         else -> Unit
     }
 }
@@ -296,31 +276,6 @@ internal fun ConnectedDisplaySection() {
         SettingsHint(stringResource(R.string.behavior_display_connected))
     } else {
         SettingsHint(stringResource(R.string.behavior_display_none))
-    }
-}
-
-/**
- * The screen saver reacting to other apps' sound ([BehaviourPrefs.dreamHearOtherApps]): turning it on asks for the permission the output-mix
- * capture needs in place, and while it is on without it one button asks again (or opens Android's
- * settings once it has stopped asking), so a refusal is never a switch that silently does nothing.
- */
-@Composable
-private fun DreamOtherAppsRow(
-    prefs: BehaviourPrefs,
-    update: BehaviourEdit,
-) {
-    val permission = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO)
-    SettingsSwitchRow(
-        title = stringResource(R.string.settings_dream_other_apps),
-        summary = stringResource(R.string.settings_dream_other_apps_hint),
-        checked = prefs.dreamHearOtherApps,
-        onCheckedChange = { on ->
-            update { it.copy(dreamHearOtherApps = on) }
-            if (on && !permission.granted) permission.request()
-        },
-    )
-    if (prefs.dreamHearOtherApps && !permission.granted) {
-        CrystalButton(onClick = permission::request) { Text(stringResource(R.string.settings_dream_open_settings)) }
     }
 }
 

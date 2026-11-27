@@ -59,12 +59,6 @@ enum class SettingsRowKey {
     CONNECTED_DISPLAY,
     PIP_AUTO_ENTER,
 
-    // Screen saver
-    DREAM_BRIGHT,
-    DREAM_CLOCK,
-    DREAM_NOW_PLAYING,
-    DREAM_OTHER_APPS,
-
     // Gestures & controls
     GESTURE_MAP,
     TOUCH_SMEAR,

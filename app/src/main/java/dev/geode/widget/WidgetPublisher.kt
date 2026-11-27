@@ -95,7 +95,6 @@ class WidgetPublisher(
         val playing = player.isPlaying
         val position = player.currentPosition.coerceAtLeast(0L)
         val duration = durationOf(player)
-        nowPlaying = NowPlaying(title, artist, playing)
         stateScope.launch {
             // No widget placed: nothing to write or redraw. The next event with one placed brings the state up to date.
             if (!hasWidgets()) return@launch
@@ -211,23 +210,7 @@ class WidgetPublisher(
         uri: String?,
     ): String = metadata.title?.toString()?.ifBlank { null } ?: uri?.substringAfterLast('/').orEmpty()
 
-    /** The session's track as a publisher last read it: memory only, so it costs nothing with no widget placed. */
-    data class NowPlaying(
-        val title: String,
-        val artist: String,
-        val playing: Boolean,
-    )
-
     companion object {
-        /**
-         * Kept on every player event whether or not a widget is placed (the [WidgetState] write is
-         * skipped without one), so the screen saver's now-playing line (`dream/DreamOverlay`) is
-         * always current. Null until the playback service publishes in this process.
-         */
-        @Volatile
-        var nowPlaying: NowPlaying? = null
-            private set
-
         /**
          * How often a playing, visible widget redraws its progress and visual (#878). Every redraw wakes
          * the process and the launcher and the bar is approximate anyway; a minute keeps a four-minute

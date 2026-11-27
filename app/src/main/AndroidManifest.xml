@@ -72,14 +72,10 @@
          wake lock, which needs this normal (install-time) permission. Declared here
          rather than left to a library's manifest, so the player never depends on it. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Picture-in-picture and the screensaver (Daydream) are both optional: the
-         visualizer works fullscreen with neither, on a device or launcher
-         that offers no PiP window and no dock/desktop-dream trigger. -->
+    <!-- Picture-in-picture is optional: the visualizer works fullscreen on a device or launcher
+         that offers no PiP window. -->
     <uses-feature
         android:name="android.software.picture-in-picture"
-        android:required="false" />
-    <uses-feature
-        android:name="android.software.daydream"
         android:required="false" />
     <!-- Android TV and Google TV: the same app with a remote (LEANBACK_LAUNCHER and the banner
          below). A TV has no touchscreen, so none is required; ui/theme/Television is where the
@@ -178,26 +174,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
-        <!--
-          The visualizer as a screensaver (Daydream): the app's renderer, started by the system while
-          the device is docked or charging and idle. Its name predates the dream's own package and must
-          not change: the system stores the user's chosen screensaver by it (dev.geode.wallpaper.VisualizerDreamService, a shim over dev.geode.dream).
-          Exported and permission-gated the same way the notification listener below is — the
-          only caller is meant to be the system, and BIND_DREAM_SERVICE is what enforces that.
-        -->
-        <service
-            android:name=".wallpaper.VisualizerDreamService"
-            android:exported="true"
-            android:label="@string/dream_label"
-            android:permission="android.permission.BIND_DREAM_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.dreams.DreamService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.service.dream"
-                android:resource="@xml/dream_info" />
-        </service>
 
         <!--
           Music that outlives the screen. Holds the app's one ExoPlayer and the

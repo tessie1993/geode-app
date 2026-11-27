@@ -61,8 +61,7 @@ fun AboutSection() {
  * The privacy policy, read from the APK rather than a web page. The app uses the network
  * only to cast to a TV, so a link out would depend on a browser and a connection the app itself
  * promises not to need; the bundled copy is always there and always the version that
- * shipped. `assets/privacy_policy.md` is a copy of `docs/privacy-policy.md`, and
- * `PrivacyPolicyAssetTest` fails the build when the two drift apart.
+ * shipped.
  */
 @Composable
 private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
@@ -72,7 +71,7 @@ private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
         lines =
             withContext(Dispatchers.IO) {
                 runCatching {
-                    context.assets.open("privacy_policy.md").use { policyLines(it.readBytes().decodeToString()) }
+                    context.assets.open("privacy_policy.txt").use { policyLines(it.readBytes().decodeToString()) }
                 }.getOrElse { emptyList() }
             }
     }

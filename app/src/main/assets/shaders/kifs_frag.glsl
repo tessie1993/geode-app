@@ -612,10 +612,9 @@ void main() {
     vec3 rd;
     camAround(uv * (KIFS_RIG_FOCAL / KIFS_FOCAL), camR, KIFS_CAM_SPIN, ro, rd);
     // camAround does not hand back its basis, and touch and the sky need it.
-    // The eye sits on -forward, and one more ray at uv (1, 0) gives right.
-    vec3 roX;
-    vec3 rdX;
-    camAround(vec2(1.0, 0.0), camR, KIFS_CAM_SPIN, roX, rdX);
+    // The eye sits on -forward, and one more ray at uv (1, 0) gives right:
+    // camAround's own ray expression on the basis it left in gGrowBasis.
+    vec3 rdX = normalize(gGrowBasis * vec3(1.0, 0.0, uCamFocal));
     vec3 fwd = -normalize(ro);
     vec3 right = normalize(rdX - dot(rdX, fwd) * fwd);
     vec3 up = cross(fwd, right);

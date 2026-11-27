@@ -51,6 +51,8 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             break;
         case kStageRedraw: lifecycle_.redrawNeeded(); break;
         case kStageCap:
+            // One vote, kept: restated only when the rate changes.
+            if (command.f == cap_) break;
             cap_ = command.f;
             pacer_.setTarget(frameRateHint(cap_));
             restateRate();
@@ -91,7 +93,6 @@ void StageCore::step(int64_t nowMs) {
             } else if (!skipVsync(false, port_.gpuBusy())) {
                 pacer_.drawn(dueFrameNs_);
                 const float frameFps = pacer_.frameFps();
-                frameFps_.store(frameFps, std::memory_order_relaxed);
                 const auto start = std::chrono::steady_clock::now();
                 draw(frameFps > 0.0f ? frameFps : dueFps_, cap_, dueFrameNs_, duePresentNs_, dueStampNs_);
                 port_.frameWork(pacer_.budgetNs(),

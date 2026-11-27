@@ -95,8 +95,6 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     // The rate the display last presented at, from the vsync's own intervals; 0 until one says.
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
-    // The rate frames are drawn at, the frame clock's (stage/FramePacer); 0 until a vsync says the display's period.
-    float frameFps() const { return frameFps_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }
     bool hasEvents() const { return events_.load(std::memory_order_relaxed) != 0; }
 
@@ -126,7 +124,6 @@ private:
 
     std::atomic<uint32_t> state_{0};
     std::atomic<float> paced_;
-    std::atomic<float> frameFps_{0.0f};
     std::atomic<uint32_t> events_{0};
 };
 

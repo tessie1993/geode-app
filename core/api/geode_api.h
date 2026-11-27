@@ -1469,10 +1469,10 @@ GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, fl
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
 /* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
-   is up, never the wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can
-   switch to seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0
-   is an unknown display. choices: the rates offered, ascending, into out (up to capacity); returns how many: every
-   refresh rate divided by a whole number, 30 to 120, with 30 and 60 always, then GEODE_LIVE_FPS_FOLLOW ("Follow
+   is up, never the wallpaper, the dream, an export or Cast. `rates` are the refresh rates of the stage's display at
+   its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the
+   rates offered, ascending, into out (up to capacity); returns how many: every refresh rate divided by a whole number,
+   30 to 120 (30 and 60 for an unknown display), then GEODE_LIVE_FPS_FOLLOW ("Follow
    device") always. cap: the stored pick as this display runs it: an offered rate or Follow as it is, anything else
    the nearest offered rate (the lower on a tie), any other value <= 0 the default. refresh: the refresh rate the
    window asks the display for while `fps` is the live rate, the lowest of `rates` that shows it evenly; 0 (no

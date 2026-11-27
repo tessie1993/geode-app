@@ -25,9 +25,11 @@ class LiveFrameRateTest {
     }
 
     @Test
-    fun aRateWithinAHertzIsThatMode() {
+    fun theRateIsAModesOwnRate() {
+        // Native picks the refresh rate from these modes' own rates, so a 59.94 Hz mode comes back as 59.94.
         val ntsc = ModeRate(9, 1080, 2400, 59.94f)
-        assertEquals(ntsc.id, displayModeFor(listOf(ntsc, fhd90), fhd90, 60f))
+        assertEquals(ntsc.id, displayModeFor(listOf(ntsc, fhd90), fhd90, 59.94f))
+        assertEquals(0, displayModeFor(listOf(ntsc, fhd90), fhd90, 60f))
     }
 
     @Test

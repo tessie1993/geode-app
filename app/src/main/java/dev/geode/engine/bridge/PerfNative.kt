@@ -27,9 +27,9 @@ object PerfNative {
     const val LIVE_FPS_FOLLOW = -1
 
     /**
-     * Settings › Performance's live frame rates (core/viz/frame/LiveFps) on a display that can switch to
-     * [refreshRates] seamlessly, ascending into [out]; returns how many. Every refresh rate divided by a whole
-     * number (30 to 120, with 30 and 60 always), then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper,
+     * Settings › Performance's live frame rates (core/viz/frame/LiveFps) on a display with [refreshRates],
+     * ascending into [out]; returns how many. Every refresh rate divided by a whole number (30 to 120; 30 and 60
+     * for an unknown display), then [LIVE_FPS_FOLLOW]. The in-app stage only: the wallpaper,
      * dream, export and Cast keep their own.
      */
     external fun liveFpsChoices(

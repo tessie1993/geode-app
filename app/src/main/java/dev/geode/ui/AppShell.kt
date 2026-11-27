@@ -317,13 +317,13 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
 
-    VisualizerEngineBindings(viewModel, visualizerView)
-    // One frame rate for the whole app while the stage is up: the window asks for the display mode that shows the
-    // user's rate evenly, Compose votes it below, and the stage's surface and frame clock keep it (LiveFrameRate).
+    // One frame rate for the whole app: the window asks for the display mode that shows the user's rate evenly,
+    // Compose votes it below, and the stage's surface and frame clock keep it (LiveFrameRate).
     val performance by context.geodeContainer.performance.settings
         .collectAsStateWithLifecycle()
     val liveRate = rememberLiveFrameRate(performance.fpsCap)
     LiveFrameRateVote(liveRate)
+    VisualizerEngineBindings(viewModel, visualizerView, liveRate)
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues.
     // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.

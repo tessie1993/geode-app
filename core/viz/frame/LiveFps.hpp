@@ -1,7 +1,6 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <cstdlib>
 
 // The live frame rate, taken from the display. A panel shows a rate evenly only when the rate is one of its refresh
@@ -13,15 +12,16 @@
 // Live only: the in-app stage (and its PiP window and second screen). The wallpaper and the dream pace to their own
 // choice (viz/SurfaceRun), an export to its own fixed step, Cast to its fixed clock.
 //
-// `rates` are the refresh rates the stage's display reaches without a blank: its current mode's and
-// Display.Mode.getAlternativeRefreshRates. NULL or none is a display that has not said.
+// `rates` are the refresh rates of the stage's display at its current resolution (Display.getSupportedModes): the same
+// set from every mode, so a mode switch never changes what is offered. NULL or none is a display that has not said.
 namespace geode::viz::frame {
 
 inline constexpr int kLiveFpsMin = 30;
 inline constexpr int kLiveFpsMax = 120;
 inline constexpr int kLiveFpsDefault = 60;
-// Offered on every display, even one that says nothing: Saver's 30 and the default 60, the quality tiers' rates.
-inline constexpr int kLiveFpsAlways[] = {30, 60};
+// Offered on a display that says nothing (or nothing usable): Saver's 30 and the default 60, the quality tiers' rates.
+// A display that does say offers only what it shows evenly: 60 on a 90 Hz-only panel would draw 45.
+inline constexpr int kLiveFpsUnknown[] = {30, 60};
 // "Follow device": the stage draws every vsync of whatever rate the system runs and states no rate of its own.
 // Negative so no rate means it, -1 so an older build reading it draws every vsync.
 inline constexpr int kLiveFpsFollow = -1;
@@ -52,7 +52,6 @@ inline int liveFpsChoices(const float* rates, int count, int* out, int capacity)
         if (fps < kLiveFpsMin || fps > kLiveFpsMax || n == kLiveFpsMaxRates) return;
         if (std::find(found, found + n, fps) == found + n) found[n++] = fps;
     };
-    for (const int fps : kLiveFpsAlways) add(fps);
     for (int i = 0; rates && i < count; ++i) {
         const float r = rates[i];
         if (!std::isfinite(r) || r <= 0.0f) continue;
@@ -60,6 +59,9 @@ inline int liveFpsChoices(const float* rates, int count, int* out, int capacity)
             const int fps = static_cast<int>(std::lround(r / static_cast<float>(span)));
             if (vsyncSpan(r, static_cast<float>(fps)) == span) add(fps);
         }
+    }
+    if (n == 0) {
+        for (const int fps : kLiveFpsUnknown) add(fps);
     }
     std::sort(found, found + n);
     for (int i = 0; out && i < n && i < capacity; ++i) out[i] = found[i];

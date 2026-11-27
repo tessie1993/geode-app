@@ -3,7 +3,7 @@
 // in .github/workflows/native-host-tests.yml) with the system compiler; no GL.
 //
 // What is pinned: the rates offered are the display's refresh rates divided by a whole number, 30 to 120 (a panel
-// shows only those evenly: 90 Hz gives 90, 45 and 30), with 30 and 60 always and 60 the default; a stored rate
+// shows only those evenly: 90 Hz gives 90, 45 and 30), 30 and 60 for a display that says nothing, 60 the default; a stored rate
 // snapped to the nearest offered, the lower on a tie; and the mode a rate asks for is the lowest refresh rate that
 // shows it evenly, none for a rate no mode shows.
 #include <cmath>
@@ -34,8 +34,8 @@ std::vector<int> choices(const std::vector<float>& rates) {
     return std::vector<int>(out, out + n);
 }
 
-// Red against: a fixed ladder (no 45 on a 90 Hz panel), a divide that rounds (88 Hz read as 90), and a list that drops
-// the tiers' rates on a display that says nothing.
+// Red against: a fixed ladder (no 45 on a 90 Hz panel, a 60 offered where only 90 runs, drawn at 45), a divide that
+// rounds (88 Hz read as 90), and a list that drops the tiers' rates on a display that says nothing.
 void theRatesAreTheDisplaysOwnDivided() {
     check(choices({}) == std::vector<int>({30, 60, -1}), "an unknown display offers 30, 60 and Follow device");
     check(frame::liveFpsChoices(nullptr, 3, nullptr, 0) == 3, "a null rate list is an unknown display, and counting needs no array");
@@ -43,11 +43,12 @@ void theRatesAreTheDisplaysOwnDivided() {
     check(choices({60.0f, 90.0f}) == std::vector<int>({30, 45, 60, 90, -1}), "a 60/90 Hz phone offers 90, 45 and 30 too");
     check(choices({60.0f, 120.0f}) == std::vector<int>({30, 40, 60, 120, -1}), "a 60/120 Hz panel offers 40, not 90");
     check(choices({60.0f, 90.0f, 120.0f}) == std::vector<int>({30, 40, 45, 60, 90, 120, -1}), "a 60/90/120 Hz panel offers each divide");
-    check(choices({144.0f}) == std::vector<int>({30, 36, 48, 60, 72, -1}), "144 Hz offers its divides up to 120");
+    check(choices({90.0f}) == std::vector<int>({30, 45, 90, -1}), "a 90 Hz-only panel offers no 60: it would draw 45");
+    check(choices({144.0f}) == std::vector<int>({36, 48, 72, -1}), "144 Hz offers its divides up to 120");
     check(choices({240.0f}) == std::vector<int>({30, 40, 48, 60, 80, 120, -1}), "240 Hz offers its divides up to 120");
     check(choices({59.94f, 119.88f}) == std::vector<int>({30, 40, 60, 120, -1}), "a 119.88 Hz mode is a 120 Hz mode");
-    check(choices({89.5f}) == std::vector<int>({30, 45, 60, 90, -1}), "half a hertz off is still 90");
-    check(choices({88.0f}) == std::vector<int>({30, 44, 60, 88, -1}), "88 Hz is its own rate, not 90");
+    check(choices({89.5f}) == std::vector<int>({30, 45, 90, -1}), "half a hertz off is still 90");
+    check(choices({88.0f}) == std::vector<int>({44, 88, -1}), "88 Hz is its own rate, not 90");
     check(choices({NAN, INFINITY, -120.0f, 0.0f}) == std::vector<int>({30, 60, -1}), "nonsense rates offer nothing more");
     check(choices({1200.0f}) == std::vector<int>({30, 60, -1}), "a rate past eight divides of 120 offers nothing more");
     check(frame::vsyncSpan(90.0f, 45.0f) == 2 && frame::vsyncSpan(90.0f, 60.0f) == 0, "90 Hz shows 45 every second vsync, 60 never evenly");
@@ -60,10 +61,12 @@ void theRatesAreTheDisplaysOwnDivided() {
           "Follow device comes last, after the rates");
     check(!frame::liveFpsOffered(75, rates, 3), "a rate no mode shows evenly is never offered");
     check(frame::kLiveFpsDefault == 60, "the default stays 60");
-    // Every Settings › Performance tier is a rate every display offers, so picking a tier never shows a value the tab
-    // cannot.
+    // Every Settings › Performance tier is a rate offered on a display that says nothing and on any with a 60 Hz mode,
+    // so picking a tier there never shows a value the tab cannot.
+    const float sixtyNinety[] = {60.0f, 90.0f};
     for (const frame::QualityTier& t : frame::kQualityTiers) {
-        check(frame::liveFpsOffered(static_cast<int>(t.fpsCap), nullptr, 0), "every tier's rate is offered everywhere");
+        check(frame::liveFpsOffered(static_cast<int>(t.fpsCap), nullptr, 0) && frame::liveFpsOffered(static_cast<int>(t.fpsCap), sixtyNinety, 2),
+              "every tier's rate is offered where 60 Hz runs");
     }
 }
 
@@ -76,6 +79,8 @@ void aStoredRateSnapsToTheDisplay() {
     check(frame::liveFpsCap(120, ninety, 2) == 90, "120 on a 90 Hz panel is 90");
     check(frame::liveFpsCap(120, sixty, 1) == 60, "120 on a 60 Hz panel (a foldable's outer screen) is 60");
     check(frame::liveFpsCap(45, sixty, 1) == 30, "45 on a 60 Hz panel is 30, the lower on a tie");
+    const float onlyNinety[] = {90.0f};
+    check(frame::liveFpsCap(60, onlyNinety, 1) == 45, "the default 60 on a 90 Hz-only panel is 45, what it can show");
     check(frame::liveFpsCap(120, nullptr, 0) == 60, "an unknown display runs a high rate at 60");
     check(frame::liveFpsCap(0, fast, 3) == 60 && frame::liveFpsCap(-5, fast, 3) == 60, "nothing stored is the default");
     check(frame::liveFpsCap(75, fast, 3) == 60, "75 is as near 60 as 90: the lower");

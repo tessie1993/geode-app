@@ -442,7 +442,7 @@ void theFrameClockHoldsTheUsersRate() {
     const int dones = r.port.frameDones;
     for (int i = 0; i < 90; ++i) r.send(command(kStageFrameDue, 11'111'111, 0, 0.0f, 0.0f, 1'000'000'000LL + i * 11'111'111LL));
     check(r.client->frames == 45, "a 90 Hz display under a 60 rate draws every second vsync: 45, never 90");
-    check(near(r.client->paced, 45.0f) && near(r.core.frameFps(), 45.0f), "and each frame is told the rate it is drawn at");
+    check(near(r.client->paced, 45.0f), "and each frame is told the rate it is drawn at");
     check(r.port.frameDones == dones + 90, "each passed-by request is still told done");
     check(r.port.budgets.size() == 45 && r.port.budgets.back() == 22'222'222, "each drawn frame's work is reported against two vsyncs");
 

@@ -14,7 +14,7 @@ inline constexpr int kQualityModes = 3;
 
 struct QualityTier {
     float renderScale;  // fraction of the surface's pixels the scene renders
-    float fpsCap;       // the live cap the pacer divides to
+    float fpsCap;       // the live frame rate (viz/frame/LiveFps)
     float marchScale;   // ray-march step budget for marched styles
     bool postFx;        // trails and the other optional passes
 };

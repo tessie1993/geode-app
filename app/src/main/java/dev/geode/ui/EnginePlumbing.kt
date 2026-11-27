@@ -12,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.LookSnapshot
 import dev.geode.data.LookUnderlay
 import dev.geode.data.VizUiState
-import dev.geode.engine.bridge.PerfNative
 import dev.geode.geodeContainer
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.rememberSystemReducedMotion
@@ -54,6 +53,7 @@ private const val MS_PER_SECOND = 1000
 fun VisualizerEngineBindings(
     viewModel: PlayerViewModel,
     visualizerView: StageView,
+    liveRate: LiveFrameRate,
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -125,11 +125,9 @@ fun VisualizerEngineBindings(
         // The look carries the transition; this only compiles it ahead of the next style change.
         visualizerView.stage.warmTransition(activeTransitionId)
     }
-    // The stored live cap as this window's display runs it (native, core/viz/frame/LiveFps): a 120 picked on a
-    // fast panel is 60 on a 60 Hz one.
-    val refreshRates = rememberSeamlessRefreshRates()
-    LaunchedEffect(performance, refreshRates) {
-        visualizerView.applyPerformance(performance.copy(fpsCap = PerfNative.liveFpsCap(performance.fpsCap, refreshRates)))
+    // The app's one live rate (LiveFrameRate): the stored pick as this window's display runs it.
+    LaunchedEffect(performance, liveRate) {
+        visualizerView.applyPerformance(performance.copy(fpsCap = liveRate.fps))
     }
     LaunchedEffect(Unit) {
         visualizerView.stage.liquidMode.collect { viewModel.reportLiquidMode(it) }

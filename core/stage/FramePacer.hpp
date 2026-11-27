@@ -2,6 +2,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "viz/frame/LiveFps.hpp"
+
 // The live stage's frame clock (Android's frame pacing guidance, developer.android.com/games/sdk/frame-pacing): one
 // target rate the user picked from the display's own rates, and the display's vsync period, give a swap interval (the
 // whole vsyncs one frame spans) and the frame budget (interval x period). Every frame is drawn on a vsync that interval
@@ -14,10 +16,10 @@ namespace geode::stage {
 
 class FramePacer {
 public:
-    // How far a refresh rate may sit over a whole multiple of the target and still be that multiple (59.94 Hz panels).
-    static constexpr float kToleranceHz = 1.0f;
-    // The longest interval: a target this far under the refresh rate is not a frame rate.
-    static constexpr int kMaxInterval = 8;
+    // How far a refresh rate may sit over a whole multiple of the target and still be that multiple (59.94 Hz panels),
+    // and the longest interval: the same rule the offered rates are made by (viz/frame/LiveFps).
+    static constexpr float kToleranceHz = viz::frame::kRefreshToleranceHz;
+    static constexpr int kMaxInterval = viz::frame::kMaxVsyncsPerFrame;
 
     // The whole vsyncs one frame spans at `refreshHz` for `targetFps`: the fewest that keep the drawn rate at or
     // under the target. 1 when either is not a positive rate (Follow device states no target: every vsync).
@@ -31,10 +33,10 @@ public:
 
     // The user's rate; 0 or less (Follow device, no cap) draws every vsync.
     void setTarget(float targetFps) { target_ = std::isfinite(targetFps) && targetFps > 0.0f ? targetFps : 0.0f; }
-    float target() const { return target_; }
 
     // A vsync at `vsyncNs` (CLOCK_MONOTONIC, 0 when not known) on a display `periodNs` apart (0 when not known: the last
-    // period stands). True when a frame is due on it. Asks only: drawn() says the frame really was drawn.
+    // period stands): takes the period and the interval it gives, and says whether a frame is due on this vsync. The
+    // frame is counted only by drawn(); a vsync not drawn on is counted by passed().
     bool due(int64_t vsyncNs, int64_t periodNs) {
         if (periodNs > 0) periodNs_ = periodNs;
         interval_ = periodNs_ > 0 ? intervalFor(static_cast<float>(1.0e9 / static_cast<double>(periodNs_)), target_) : 1;

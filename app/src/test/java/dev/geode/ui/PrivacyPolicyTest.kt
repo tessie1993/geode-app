@@ -6,21 +6,9 @@ import org.junit.Test
 import java.io.File
 
 class PrivacyPolicyTest {
-    /**
-     * The app shows the copy in its assets; the store links to the one in docs. They are
-     * the same promise, so a change to one without the other fails here. Unit tests run
-     * with the module directory as the working directory.
-     */
-    @Test
-    fun bundledPolicyMatchesTheDocsCopy() {
-        val bundled = File("src/main/assets/privacy_policy.md").readText()
-        val docs = File("../docs/privacy-policy.md").readText()
-        assertEquals("Copy docs/privacy-policy.md to app/src/main/assets/privacy_policy.md", docs, bundled)
-    }
-
     @Test
     fun theWholePolicyReadsAsPlainText() {
-        val lines = policyLines(File("src/main/assets/privacy_policy.md").readText())
+        val lines = policyLines(File("src/main/assets/privacy_policy.txt").readText())
         assertEquals(PolicyLine.Heading("BeatRealms 3D — Privacy Policy"), lines.first())
         val text = lines.joinToString("\n") { it.text }
         assertTrue("markup left in: $text", listOf("**", "`", "|", "](").none { it in text })

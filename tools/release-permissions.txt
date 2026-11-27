@@ -7,7 +7,7 @@
 # manifest merger report, app/build/outputs/logs/manifest-merger-release-report.txt), decide
 # whether the app should carry it (else remove it in app/src/main/AndroidManifest.xml with
 # tools:node="remove"), then add the line here and to the Permissions list of the privacy policy
-# (docs/privacy-policy.md and its two copies) in the same change. Remove a line when its
+# (app/src/main/assets/privacy_policy.txt and docs/privacy-policy.html) in the same change. Remove a line when its
 # permission leaves the manifest.
 #
 # From app/src/main/AndroidManifest.xml, plus three that libraries add: com.android.vending.BILLING

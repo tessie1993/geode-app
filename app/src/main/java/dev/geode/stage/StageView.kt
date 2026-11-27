@@ -10,6 +10,7 @@ import android.view.SurfaceView
 import android.view.View
 import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.StageNative
+import java.lang.ref.WeakReference
 
 /**
  * The surface a [Stage] draws into. It tells native what Android tells it (the surface, its size, whether the
@@ -23,12 +24,11 @@ import dev.geode.engine.bridge.StageNative
 class StageView(
     context: Context,
     val stage: Stage,
-    private val kind: Int = StageNative.STAGE_KIND_VIEW,
 ) : SurfaceView(context),
     SurfaceHolder.Callback2,
     SensorEventListener {
     /** A view with a stage of its own: the wallpaper's and the dream's. */
-    constructor(context: Context, kind: Int, capFps: Float) : this(context, Stage(context, kind, capFps), kind)
+    constructor(context: Context, kind: Int, capFps: Float) : this(context, Stage(context, kind, capFps))
 
     private val sensors = context.getSystemService(SensorManager::class.java)
 
@@ -45,7 +45,10 @@ class StageView(
 
     init {
         holder.addCallback(this)
+        stage.view = WeakReference(this)
     }
+
+    private val current get() = stage.view.get() === this
 
     /** Settings › Performance for this surface: quality and the fps cap. */
     fun applyPerformance(settings: PerformanceSettings) {
@@ -96,7 +99,9 @@ class StageView(
 
     override fun surfaceRedrawNeeded(holder: SurfaceHolder) = stage.redraw()
 
-    override fun surfaceDestroyed(holder: SurfaceHolder) = stage.setWindow(null, 0, 0)
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        if (current) stage.setWindow(null, 0, 0)
+    }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -131,19 +136,19 @@ class StageView(
 
     /** What the view sees of itself, as is; a surface stage's rule is its host's ([Stage.setSurface]). */
     private fun restate(attached: Boolean) {
-        if (kind != StageNative.STAGE_KIND_VIEW) return
+        if (stage.kind != StageNative.STAGE_KIND_VIEW) return
         val flags =
             (if (attached) StageNative.STAGE_VIEW_ATTACHED else 0) or
                 (if (windowVisibility == VISIBLE) StageNative.STAGE_VIEW_WINDOW_VISIBLE else 0) or
                 (if (isShown) StageNative.STAGE_VIEW_SHOWN else 0) or
                 (if (alpha > 0f) StageNative.STAGE_VIEW_OPAQUE else 0)
-        stage.setView(flags)
+        if (current) stage.setView(flags)
         syncTilt()
     }
 
     private fun syncTilt() {
         val sensor = tilt ?: return
-        val on = stage.gyroListens(gyroWanted)
+        val on = current && stage.gyroListens(gyroWanted)
         if (on == tiltOn) return
         // Only a registration the sensor service took counts as on, so a refused one is tried again next sync.
         if (on) {

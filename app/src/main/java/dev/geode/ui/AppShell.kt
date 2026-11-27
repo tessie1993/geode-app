@@ -265,8 +265,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
-    // A cast to a TV or a browser carries this stage's own frames (core/viz/frame/CastTee), not a second render.
-    val liveStage = rememberLiveStage()
+    // A cast to a TV or a browser carries this stage's own frames (core/viz/frame/CastTee), not a second render;
+    // Record copies them too.
+    val liveStage = rememberLiveStage(geodeViewModel<StudioViewModel>()::attachRecordStage)
     val visualizerView = remember(liveStage) { StageView(context, liveStage) }
     val general by settingsViewModel.general.collectAsStateWithLifecycle()
     val onboarding by settingsViewModel.appState.collectAsStateWithLifecycle()

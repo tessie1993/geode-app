@@ -13,12 +13,16 @@ import dev.geode.stage.Stage
  * closes when the Activity finishes. The app's view is rebuilt over it each time.
  */
 @Composable
-internal fun rememberLiveStage(): Stage {
+internal fun rememberLiveStage(record: (Stage?) -> Unit): Stage {
     // The application's: a retained value must not hold the Activity it outlives.
     val app = LocalContext.current.applicationContext
     return retainUntilRetired(
-        open = { Stage(app, StageNative.STAGE_KIND_VIEW, LIVE_CAP_FPS).apply { castSource = true } },
-        close = Stage::close,
+        open = { Stage(app, StageNative.STAGE_KIND_VIEW, LIVE_CAP_FPS).apply { castSource = true }.also(record) },
+        // Record lets go first, so a recording it was making stops before the stage closes.
+        close = {
+            record(null)
+            it.close()
+        },
     )
 }
 

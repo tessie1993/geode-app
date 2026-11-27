@@ -299,6 +299,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.billing)
     implementation(libs.profileinstaller)
+    implementation(libs.metrics.performance)
+    implementation(libs.tracing)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

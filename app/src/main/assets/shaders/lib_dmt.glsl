@@ -282,6 +282,15 @@ float dmtLifePhase(float seed, float period) {
 /** Bodies on the ring. */
 #define DMT_MORPH_SHAPES 5.0
 
+/** Shape `k` of the ring, 0..4: the one primitive a blend needs, not all five. */
+float dmtMorphShape(float k, vec3 p, float r) {
+    if (k < 0.5) return sdSphere(p, r);
+    if (k < 1.5) return max(sdOctahedron(p, r * 1.42), sdSphere(p, r * 1.02));
+    if (k < 2.5) return sdTorus(p, vec2(r * 0.76, r * 0.34));
+    if (k < 3.5) return sdBox(p, vec3(r * 0.70));
+    return sdOctahedron(p, r * 1.30);
+}
+
 /**
  * One body that is continuously changing what it is: sphere, gem, torus,
  * box, octahedron, and round to the sphere again.
@@ -304,14 +313,8 @@ float dmtMorphBody(vec3 p, float r, float phase) {
     float i = floor(t);
     float f = smoothstep(0.0, 1.0, fract(t));
 
-    float sphere = sdSphere(p, r);
-    float gem = max(sdOctahedron(p, r * 1.42), sdSphere(p, r * 1.02));
-    float torus = sdTorus(p, vec2(r * 0.76, r * 0.34));
-    float box = sdBox(p, vec3(r * 0.70));
-    float octa = sdOctahedron(p, r * 1.30);
-
-    float a = i < 0.5 ? sphere : (i < 1.5 ? gem : (i < 2.5 ? torus : (i < 3.5 ? box : octa)));
-    float b = i < 0.5 ? gem : (i < 1.5 ? torus : (i < 2.5 ? box : (i < 3.5 ? octa : sphere)));
+    float a = dmtMorphShape(i, p, r);
+    float b = dmtMorphShape(i > 3.5 ? 0.0 : i + 1.0, p, r);
     return opRound(mix(a, b, f), r * 0.06);
 }
 

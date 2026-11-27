@@ -3,7 +3,6 @@ name: Architecture gates
 # The layer rule, the engine Kotlin rule, the audio Kotlin rule, the no-BPM-bias rule, the action pin rule,
 # the network rule, JNI parity, hand declarations and the notices copy, each gate with its self-test.
 # Also the store listing text (tools/store-check.sh).
-# Also the self-test of the docs-only check the other pull-request workflows skip on.
 # No path filter, so the check reports on every PR.
 # ship-apk.yml calls it on the commit it ships; the two diff checks against the base run on pull requests only.
 
@@ -239,12 +238,6 @@ jobs:
       - name: No .cpp declares by hand a function another .cpp defines
         shell: bash
         run: bash tools/hand-declaration-gate.sh
-
-      # Pins the docs-only check build-lint.yml and native-host-tests.yml skip on: documents alone must read
-      # "true"; code, a workflow, the privacy policy a unit test reads, or no change at all must read "false".
-      - name: Self-test the docs-only check
-        shell: bash
-        run: bash tools/ci-docs-only.sh --self-test
 
       # The repository's notices and the copy the app ships are one text.
       - name: The notices file equals the shipped asset

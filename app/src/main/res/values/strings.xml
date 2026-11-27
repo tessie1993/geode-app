@@ -87,10 +87,8 @@
     <string name="about_version">Version %1$s (%2$d)</string>
     <string name="about_blurb">Plays music from your device and renders it. No account, no ads, no analytics — nothing leaves the phone unless you export a video and share it.</string>
     <string name="about_licenses">Open source licenses</string>
-    <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_licenses_unavailable">Third-party notices could not be loaded.</string>
     <string name="about_licenses_loading">Loading…</string>
-    <string name="about_privacy_unavailable">The privacy policy could not be loaded.</string>
 
     <!-- A device with the system file picker disabled (some TVs, managed phones). -->
     <string name="picker_unavailable">This device has no file picker, so a folder can\'t be chosen here.</string>

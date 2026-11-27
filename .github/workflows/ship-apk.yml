@@ -28,8 +28,7 @@ on:
         description: Mark the GitHub Release as a pre-release
         type: boolean
         default: true
-  # Every merge into main is tested and, when green, shipped as its own pre-release,
-  # docs-only merges included.
+  # Every merge into main is tested and, when green, shipped as its own pre-release.
   push:
     branches:
       - main

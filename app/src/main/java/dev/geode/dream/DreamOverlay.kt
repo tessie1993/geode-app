@@ -1,4 +1,4 @@
-package dev.geode.wallpaper
+package dev.geode.dream
 
 import android.content.Context
 import android.graphics.Color

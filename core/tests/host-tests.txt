@@ -246,20 +246,12 @@ cast_clock_test | stub | core/tests/cast_clock_test.cpp core/api/geode_frame_api
 cast_look_test | stub | core/tests/cast_look_test.cpp |
 # The export post-passes' maths: watermark tiling, seam weights (#442).
 export_passes_test | core | core/tests/export_passes_test.cpp |
-# The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
-edge_glow_test | core | core/tests/edge_glow_test.cpp |
 # Fronts (core/viz/fronts): spawn, step, expire, the oldest slot reused when eight are alive, the same place at 30/60/90/144 fps, the packed uniform array, no pass when idle.
 fronts_test | core | core/tests/fronts_test.cpp |
 # Things (core/viz/things): spawn, expire, bad input, slot reuse, the same place at 30/60/90/144 fps, edge crossing, one Collide event per contact, the bounce, chain depth and its per-step cap, bounded gravity, morph, melt, packing, no pass when idle.
 things_test | core | core/tests/things_test.cpp |
 # Fields (core/viz/fields): spawn, expire, bad input, slot reuse, force direction for Attract, Repel and Swirl, no force past the radius, a clamped finite force at the centre, aspect, the envelope, a Thing pulled to the same place at 30/60/90/144 fps, no pass when idle.
 fields_test | core | core/tests/fields_test.cpp |
-# The live wallpaper's on-screen window from the launcher's raw offsets, and its fps pick (#605).
-wallpaper_window_test | core | core/tests/wallpaper_window_test.cpp |
-# The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its
-# lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
-edge_glow_pass_test | fakegl | core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/gl/Program.cpp \
-    core/viz/glsl/ShaderSource.cpp |
 # Who deletes a GL name (core/viz/gl/GlHandle.hpp) over the faked GL: no GL owner can be copied, a moved
 # compute program or triangle leaves nothing behind to delete, and every name is deleted exactly once.
 gl_ownership_test | fakegl | core/tests/gl_ownership_test.cpp core/viz/gl/Compute.cpp core/viz/gl/Quad.cpp \

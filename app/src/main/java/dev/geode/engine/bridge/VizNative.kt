@@ -169,20 +169,6 @@ object VizNative {
         on: Boolean,
     )
 
-    /**
-     * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
-     * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
-     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [StageNative.stageSetEdgeGlow] takes them.
-     */
-    external fun wallpaperWindow(
-        surfaceW: Float,
-        surfaceH: Float,
-        displayW: Float,
-        displayH: Float,
-        offsets: FloatArray?,
-        out: FloatArray,
-    )
-
     external fun vizLastError(handle: Long): String
 
     external fun vizSurfaceCreated(handle: Long)

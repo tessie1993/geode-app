@@ -1,4 +1,4 @@
-package dev.geode.wallpaper
+package dev.geode.dream
 
 import android.Manifest
 import android.content.Context
@@ -10,10 +10,9 @@ import androidx.core.content.ContextCompat
 import dev.geode.audio.OutputMixCapture
 import dev.geode.engine.bridge.IngestNative
 import dev.geode.engine.bridge.SoundNative
-import dev.geode.geodeContainer
 
 /**
- * What the wallpaper hears, and whether it is hearing anything at all.
+ * What the dream hears, and whether it is hearing anything at all.
  *
  * Two sources, in order:
  * 1. The app's own ring ([IngestNative.pcmRingLive]) while something feeds it: BeatRealms playing, or the
@@ -32,17 +31,16 @@ import dev.geode.geodeContainer
  * player is running, and [SoundNative.silenceResting] says when the quiet has lasted long enough
  * to rest. Sound coming back wakes it on the next poll.
  *
- * Polled on the main thread at [POLL_MS] only while [start]ed, which the engine does only while
- * the wallpaper is visible: a hidden wallpaper polls nothing and holds no output-mix capture.
+ * Polled on the main thread at [POLL_MS] only while [start]ed, which the dream does only while
+ * it could move: a stopped dream polls nothing and holds no output-mix capture.
  * One poll reads [LEVEL_FRAMES] frames natively, a few microseconds every quarter second.
  */
 class SoundSource(
     private val context: Context,
-    /** Called on the main thread when [silent] flips, so the engine can restate its run mode. */
+    /** Called on the main thread when [silent] flips, so the dream can restate its run mode. */
     private val onSilenceChanged: () -> Unit,
 ) {
     private val capture = OutputMixCapture()
-    private val prefs by lazy { WallpaperPrefsStore(context.geodeContainer.prefsFiles.wallpaper) }
     private val handler = Handler(Looper.getMainLooper())
 
     /** The ring handle the renderer should read this frame, 0 for none. Written on main, read on the GL thread. */
@@ -71,7 +69,7 @@ class SoundSource(
         }
 
     /**
-     * Starts listening. Each start counts as fresh sound, so a wallpaper that comes back into
+     * Starts listening. Each start counts as fresh sound, so a dream that comes back into
      * view always moves for the grace period before it decides the room is quiet.
      */
     fun start(hearOtherApps: Boolean) {
@@ -115,9 +113,7 @@ class SoundSource(
             )
         if ((answer and SoundNative.SOUND_SOURCE_STOP_CAPTURE) != 0) capture.stop()
         if ((answer and SoundNative.SOUND_SOURCE_START_CAPTURE) != 0) {
-            val opened = capture.start(context)
-            prefs.saveMixRefused(!opened)
-            if (!opened) SoundNative.soundSourceStartFailed(sourceState, now)
+            if (!capture.start(context)) SoundNative.soundSourceStartFailed(sourceState, now)
         }
         val useCapture = (answer and SoundNative.SOUND_SOURCE_USE_CAPTURE) != 0
         val chosen = if (useCapture && capture.running) capture.soundInput else app

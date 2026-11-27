@@ -1,4 +1,4 @@
-package dev.geode.wallpaper
+package dev.geode.dream
 
 import android.content.Context
 import android.hardware.Sensor
@@ -12,8 +12,7 @@ import dev.geode.engine.bridge.SoundNative
  *
  * A dream runs on the charger, and a charging phone is often face down on the table or in a
  * pocket on a car mount's cable. Its window stays "visible" there, so without this the visual
- * renders at full rate onto a screen pressed against wood. This is the dream's version of the
- * wallpaper's shade cover (`Engine.onZoomChanged`), which a dream does not get.
+ * renders at full rate onto a screen pressed against wood.
  *
  * The non-wakeup proximity sensor where the phone has one, registered only while dreaming: it is
  * a low-power sensor the phone already runs for calls, and it never wakes the CPU on its own.

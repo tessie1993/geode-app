@@ -213,22 +213,6 @@ GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
-/* The wallpaper's edge look (core/viz/frame/EdgeGlowPass): after the composite, black over the frame except
- * along the screen's rounded rim, the band breathing with the music's level. opts, in this order
- * (core/viz/frame/EdgeGlowMath.hpp): enabled (> 0.5 = on), then the part of the surface on screen in
- * surface pixels, y down: left, top, width, height (width or height <= 0 = the whole surface). Fewer than
- * GEODE_EDGE_GLOW_FLOATS floats, or any non-finite one, turns it off. Any thread, latched for the next
- * frame. Off by default; an offscreen (export) renderer never draws it. */
-#define GEODE_EDGE_GLOW_FLOATS 5
-GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
-/* The live wallpaper's window (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
- * geode_wallpaper_window: the part of a surface_w x surface_h surface on a display_w x display_h screen,
- * from the raw WallpaperService.Engine.onOffsetsChanged values in its order (xOffset, yOffset, xOffsetStep,
- * yOffsetStep, xPixels, yPixels; fewer = unknown). Writes left, top, width, height (surface pixels, y down,
- * as geode_viz_set_edge_glow takes them) to out[4]. Any thread. */
-#define GEODE_WALLPAPER_OFFSETS 6
-GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
-                                             const float* offsets, int count, float* out);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
  * reads geode_macro_bank_set, geode_hand_set or geode_director_set again, so live
  * edits, the player's next track and its free taste never reach the render. The macro bank
@@ -1483,13 +1467,13 @@ GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
 GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);
 GEODE_API int             geode_live_fps_cap(int stored_fps, const float* rates, int count);
 GEODE_API float           geode_live_fps_refresh(int fps, const float* rates, int count);
-/* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
+/* Surface run rule (viz/SurfaceRun): when the dream draws. flags are the GEODE_SURFACE_*
  * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
  * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
  * after geode_surface_recheck_in_ms (-1 = never), since nothing announces a trial's end. */
 #define GEODE_SURFACE_HAS_SURFACE            (1u << 0)
 #define GEODE_SURFACE_VISIBLE                (1u << 1)
-#define GEODE_SURFACE_PREVIEW                (1u << 2)
+/* (1u << 2) was the live wallpaper picker's preview, retired with the wallpaper. */
 #define GEODE_SURFACE_COVERED                (1u << 3)
 #define GEODE_SURFACE_BATTERY_SAVER          (1u << 4)
 #define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
@@ -1502,9 +1486,6 @@ GEODE_API int             geode_surface_run_mode(unsigned flags, long long anima
 GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
-/* Why it is not moving, the rule's first reason: 0 moving, 1 hidden or covered, 2 the entitlement, 3 reduced
- * motion, 4 battery saver, 5 silence. */
-GEODE_API int             geode_surface_reason(unsigned flags, long long animate_until_ms, long long now_ms);
 /* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
  * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
 GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
@@ -1514,10 +1495,8 @@ GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
 GEODE_API int             geode_surface_fps_choice(int requested_fps);
 /* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
 GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
-/* What sets GEODE_SURFACE_COVERED, 1 = covered. _zoom_covers: the wallpaper's zoom (0 none, 1 fully out behind the
- * shade or recents) past the cover point. _proximity_near: the dream's proximity reading, in cm, near against the
- * sensor's maximum range. */
-GEODE_API int             geode_surface_zoom_covers(float zoom);
+/* What sets GEODE_SURFACE_COVERED, 1 = covered: the dream's proximity reading, in cm, near against the sensor's maximum
+ * range. */
 GEODE_API int             geode_surface_proximity_near(float distance_cm, float maximum_range);
 
 /* Auto's style timer (core/viz/director/AutoTimer), one per source, process-wide: the wait before the next look is the

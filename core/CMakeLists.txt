@@ -230,7 +230,6 @@ add_library(geode_core STATIC
     viz/passes/FieldPass.cpp
     viz/passes/Underlay.cpp
     viz/frame/ExportPasses.cpp
-    viz/frame/EdgeGlowPass.cpp
     viz/frame/RecordTap.cpp
     viz/frame/CastTee.cpp
     api/geode_cast_tee_api.cpp

@@ -1,4 +1,4 @@
-package dev.geode.wallpaper
+package dev.geode.dream
 
 import android.content.Context
 import android.database.ContentObserver
@@ -9,17 +9,17 @@ import dev.geode.data.SystemMotion
 
 /**
  * The system's Remove animations (Settings › Accessibility, or the animator duration scale in
- * Developer options), followed live: the reduced-motion source the wallpaper and the
- * dream hand the native run rule. The value is [SystemMotion]'s, the app's one rule.
+ * Developer options), followed live: the reduced-motion source the dream hands the
+ * native run rule. The value is [SystemMotion]'s, the app's one rule.
  *
  * The setting itself, `ANIMATOR_DURATION_SCALE == 0` ([SystemMotion]), is read rather than
  * `ValueAnimator.areAnimatorsEnabled()`, because that one is also false in battery saver, which has
  * its own option ("pause in battery saver") the user may have turned off; reading it would still a
- * wallpaper the user asked to keep moving. Neither surface has an Activity that a configuration
+ * dream the user asked to keep moving. A dream has no Activity that a configuration
  * change would restart, so the change comes through a [ContentObserver] on the setting's URI and
  * [onChanged] restates the run mode, the same as a battery-saver broadcast does.
  *
- * Main thread: the observer is delivered on the main looper, where both services restate.
+ * Main thread: the observer is delivered on the main looper, where the dream restates.
  */
 class SystemAnimations(
     context: Context,

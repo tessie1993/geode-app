@@ -6,7 +6,7 @@
 // ShaderSource, TransitionCatalog and program::build run; only the system boundaries are faked: GL
 // (core/tests/fakegl/GLES3/gl3.h, modelled below as names, compile counts and uniforms per program), the
 // APK's asset store (a small in-memory library) and logcat. ProgramStager and ProgramBinaryCache are link
-// seams as in edge_glow_pass_test.cpp: no stager is current and no cache is passed, so they abort if reached.
+// seams: no stager is current and no cache is passed, so they abort if reached.
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>

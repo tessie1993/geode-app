@@ -8,8 +8,14 @@ object PerfNative {
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
-    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1). */
+    /** Floats [perfTier] writes: resolution (a short side in pixels, or [PERF_NATIVE]), fps cap, march scale, post FX (0/1). */
     const val PERF_TIER_FLOATS = 4
+
+    /** Mirrors GEODE_PERF_NATIVE: the render resolution that is the panel's own. */
+    const val PERF_NATIVE = 0
+
+    /** Mirrors GEODE_PERF_BUFFER_INTS: the ints [perfBufferSize] writes, width then height. */
+    const val PERF_BUFFER_INTS = 2
 
     /** Fills [out] with [mode]'s tier; false for an unknown mode. */
     external fun perfTier(
@@ -52,30 +58,52 @@ object PerfNative {
         refreshRates: FloatArray,
     ): Float
 
+    // A panel is the display's largest physical mode (Display.Mode.getPhysicalWidth/Height); 0 for unknown.
+
     /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
     external fun perfModeForDevice(
         totalRamBytes: Long,
         lowRam: Boolean,
         mediaPerformanceClass: Int,
+        panelWidth: Int,
+        panelHeight: Int,
     ): Int
 
-    /** The mode these values are, or -1 when none is ("Custom"). */
+    /** The mode these values are on this panel, or -1 when none is ("Custom"). */
     external fun perfModeOf(
-        renderScale: Float,
+        resolution: Int,
         fpsCap: Int,
         marchScale: Float,
         postFx: Boolean,
+        panelWidth: Int,
+        panelHeight: Int,
     ): Int
 
-    /** The render and march scales Settings › Performance offers, ascending. */
+    /** The render resolutions Settings › Performance offers on this panel, ascending: short sides in pixels, then [PERF_NATIVE]. */
+    external fun perfResolutionChoices(
+        panelWidth: Int,
+        panelHeight: Int,
+    ): IntArray
+
+    /** The resolution an old install's stored render scale maps to on this panel. */
+    external fun perfResolutionForScale(
+        renderScale: Float,
+        panelWidth: Int,
+        panelHeight: Int,
+    ): Int
+
+    /** The march scales Settings › Performance offers, ascending. */
     external fun perfScaleChoices(): FloatArray
 
     /**
-     * The window buffer for a view of [viewWidth] x [viewHeight] pixels at [renderScale], width then height into
-     * [out] (2 ints): the size the stage's surface is fixed to, which the display scales up. False for no view.
+     * The window buffer at [resolution] for a view of [viewWidth] x [viewHeight] pixels on a display in its
+     * [modeWidth] x [modeHeight] mode, width then height into [out] (2 ints): the size the stage's surface is fixed
+     * to, which the display scales up. With the mode as the view, what the resolution draws full screen. False for no view.
      */
     external fun perfBufferSize(
-        renderScale: Float,
+        resolution: Int,
+        modeWidth: Int,
+        modeHeight: Int,
         viewWidth: Int,
         viewHeight: Int,
         out: IntArray,

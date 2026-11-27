@@ -10,8 +10,12 @@ import dev.geode.engine.bridge.PerfNative
  * renders offline, so it always takes the full-quality path.
  */
 data class PerformanceSettings(
-    /** Fraction of the surface's pixels the scene is drawn at, then upscaled. */
-    val renderScale: Float,
+    /**
+     * The render resolution: the picture's short side in real pixels when it fills the screen (1080 is 1080 x 2400 on
+     * a 20:9 phone), or [PerfNative.PERF_NATIVE] for the panel's own. The window buffer is sized to it and the
+     * display scales it up (`core/viz/frame/Quality`).
+     */
+    val resolution: Int,
     /** The live frame-rate cap handed to the stage as the window's frame-rate hint: 30 to 120, or Follow device (`PerfNative.LIVE_FPS_FOLLOW`). */
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
@@ -19,39 +23,47 @@ data class PerformanceSettings(
     /** Flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
 ) {
-    /** The preset these values match natively, or null when the user has customised them. */
-    val mode: PerformanceMode?
-        get() =
-            PerformanceMode.entries.getOrNull(
-                runCatching { PerfNative.perfModeOf(renderScale, fpsCap, marchScale, postFx) }.getOrDefault(-1),
-            )
+    /** The preset these values match natively on [panel], or null when the user has customised them. */
+    fun modeOn(panel: DisplayPanel): PerformanceMode? =
+        PerformanceMode.entries.getOrNull(
+            runCatching {
+                PerfNative.perfModeOf(resolution, fpsCap, marchScale, postFx, panel.panelWidth, panel.panelHeight)
+            }.getOrDefault(-1),
+        )
 
     companion object {
-        // Tiers, the scale choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps).
+        // Tiers, the choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps).
         val SAVER get() = PerformanceMode.SAVER.settings
         val BALANCED get() = PerformanceMode.BALANCED.settings
         val HIGH get() = PerformanceMode.HIGH.settings
 
-        /** The render and march scales the tab offers, ascending. */
+        /** The march scales the tab offers, ascending. */
         val SCALES: List<Float> by lazy { runCatching { PerfNative.perfScaleChoices().toList() }.getOrDefault(emptyList()) }
 
         internal val tiers by lazy {
             PerformanceMode.entries.map { mode ->
                 val v = FloatArray(PerfNative.PERF_TIER_FLOATS)
                 check(PerfNative.perfTier(mode.ordinal, v)) { "no native tier for $mode" }
-                PerformanceSettings(v[0], v[1].toInt(), v[2], postFx = v[3] != 0f)
+                PerformanceSettings(v[0].toInt(), v[1].toInt(), v[2], postFx = v[3] != 0f)
             }
         }
 
-        /** The first-run pick (RAM, low-RAM flag, media performance class). */
+        /** The first-run pick (RAM, low-RAM flag, media performance class, the panel's native pixels). */
         fun modeForDevice(
             totalRamBytes: Long,
             lowRamDevice: Boolean,
             mediaPerformanceClass: Int,
+            panel: DisplayPanel,
         ): PerformanceMode =
-            PerformanceMode.entries.getOrElse(PerfNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
-                PerformanceMode.BALANCED
-            }
+            PerformanceMode.entries.getOrElse(
+                PerfNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass, panel.panelWidth, panel.panelHeight),
+            ) { PerformanceMode.BALANCED }
+
+        /** An old install's stored render scale as the resolution nearest it on [panel]. */
+        fun resolutionForScale(
+            renderScale: Float,
+            panel: DisplayPanel,
+        ): Int = PerfNative.perfResolutionForScale(renderScale, panel.panelWidth, panel.panelHeight)
     }
 }
 

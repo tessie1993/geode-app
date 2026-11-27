@@ -1420,23 +1420,40 @@ GEODE_API void            geode_cast_format(int* out);
    names (gl_transitions.json, read from the APK once per process), each list's entries separated by US. UTF-8.
    Without assets, or with the asset missing, the library list is empty. The pointer stays valid for the process. */
 GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
-/* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
+/* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. A resolution is the
+   picture's short side in pixels when it fills the screen (1080 is 1080 x 2400 on a 20:9 phone), or
+   GEODE_PERF_NATIVE for the panel's own. panel_width x panel_height is the display's largest physical mode
+   (Display.Mode.getPhysicalWidth/Height over getSupportedModes), mode_width x mode_height its current one;
+   0 for unknown. */
+#define GEODE_PERF_NATIVE 0
 #define GEODE_PERF_TIER_FLOATS 4
-/* Writes render scale, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
+/* Writes resolution, fps cap, march scale, post FX (0/1); returns the count, 0 for a bad mode. */
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
-/* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
-GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
-/* The mode these values are (the tier's fps cap as an int, post_fx 0/1), or -1 for none: the tab reads "Custom". */
-GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx);
-/* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
+/* The first-run mode for this phone, a default the user may change. total_ram_bytes 0 = unknown. */
+GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class,
+                                                     int panel_width, int panel_height);
+/* The mode these values are on this panel (resolutions compared as drawn, the tier's fps cap as an int,
+   post_fx 0/1), or -1 for none: the tab reads "Custom". */
+GEODE_API int             geode_perf_mode_of(int resolution, int fps_cap, float march_scale, int post_fx, int panel_width,
+                                             int panel_height);
+/* The march scales the tab offers, ascending, into out (up to capacity); returns how many. */
 #define GEODE_PERF_SCALE_CHOICES 3
 GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
-/* The window buffer a live surface renders into for a view of view_width x view_height pixels at render_scale:
-   out[0] width, out[1] height (GEODE_PERF_BUFFER_INTS). The shell sizes the surface to it
-   (SurfaceHolder.setFixedSize) and the display scales it up to the view; every pass, the composite and the UI
-   blur included, shades the buffer's pixels. Returns the count, 0 for no view (a size <= 0) or a short out. */
+/* The resolutions the tab offers on this panel, ascending into out (up to capacity): every step of 540, 720,
+   900, 1080, 1440, 2160 under the panel's short side, then GEODE_PERF_NATIVE. Returns how many. */
+#define GEODE_PERF_RESOLUTION_CHOICES 7
+GEODE_API int             geode_perf_resolution_choices(int panel_width, int panel_height, int* out, int capacity);
+/* The resolution an old install's stored render scale (0.25..1 of the screen) maps to on this panel: the
+   nearest choice, the higher on a tie. */
+GEODE_API int             geode_perf_resolution_for_scale(float render_scale, int panel_width, int panel_height);
+/* The window buffer a live surface renders into at `resolution` for a view of view_width x view_height pixels
+   on a display in mode_width x mode_height: out[0] width, out[1] height (GEODE_PERF_BUFFER_INTS). The shell
+   sizes the surface to it (SurfaceHolder.setFixedSize) and the display scales it up to the view; every pass,
+   the composite and the UI blur included, shades the buffer's pixels. With the mode as the view it is what
+   the resolution draws full screen. Returns the count, 0 for no view (a size <= 0) or a short out. */
 #define GEODE_PERF_BUFFER_INTS 2
-GEODE_API int             geode_perf_buffer_size(float render_scale, int view_width, int view_height, int* out, int capacity);
+GEODE_API int             geode_perf_buffer_size(int resolution, int mode_width, int mode_height, int view_width,
+                                                 int view_height, int* out, int capacity);
 /* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
    is up, never an export or Cast. `rates` are the refresh rates of the stage's display at
    its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the

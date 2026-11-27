@@ -27,6 +27,7 @@ public:
 
     void init() override;
     void resize(int width, int height) override;
+    void simulate() override;
     void draw(float timeSeconds) override;
     void release() override;
     GLuint velocityTexture() const override { return sim_.available() ? sim_.velocityTex() : 0; }
@@ -51,6 +52,7 @@ private:
     int appliedParticleSide_ = 0;
     float idlePhase_ = 0.0f;
     float stirPhase_ = 0.0f;
+    bool simulated_ = false;
 };
 
 }  // namespace geode::viz

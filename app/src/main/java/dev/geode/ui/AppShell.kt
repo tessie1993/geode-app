@@ -2,7 +2,7 @@ package dev.geode.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -368,8 +368,15 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // Its sleep timer waits while the boot intro or a first-run page covers the shell.
     val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !onboarding.safetyAcknowledged || !onboarding.setupDone
     val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, miniTitle)
-    var dockHeight by remember { mutableStateOf(0.dp) }
-    val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
+    // The dock's height moves on every frame of the wide shell's mini player expand and shrink. It is
+    // never read here: the spring follows it from an effect and Visuals reads it in layout, so neither
+    // this root nor Visuals recomposes per frame.
+    val dockHeight = remember { mutableStateOf(0.dp) }
+    val visualsReserve = remember { Animatable(0.dp, Dp.VectorConverter) }
+    LaunchedEffect(motion) {
+        val spec = motion.defaultSpatialSpec<Dp>()
+        snapshotFlow { dockHeight.value }.collectLatest { visualsReserve.animateTo(it, spec) }
+    }
     CrystalMaterialTheme(general = general, accentSource = accentTarget) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
@@ -472,7 +479,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                     viewModel,
                                     visualizerView,
                                     chrome = chrome,
-                                    bottomReserve = visualsReserve,
+                                    bottomReserve = { visualsReserve.value },
                                     // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
                                     sheetOpacity = general.barOpacity,
                                     onOpenStudioRender = appState::openStudioRender,
@@ -543,7 +550,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                         pip = inPip,
                         miniPlayer = miniPlayer,
                         dockedPlayer = dockedPlayer,
-                        onDock = { dockHeight = it },
+                        onDock = { dockHeight.value = it },
                         tabLabels = general.tabLabels,
                         content = { destinationContent(false) },
                     )
@@ -559,7 +566,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                         centerRail = sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND),
                         television = television,
                         miniPlayer = miniPlayer,
-                        onDock = { dockHeight = it },
+                        onDock = { dockHeight.value = it },
                         content = { destinationContent(twoPane) },
                     )
                 }
@@ -923,7 +930,7 @@ private fun paletteAccent(
 }
 
 /** Bottom padding whose size is read when the layout runs, so a value that changes every frame never recomposes. */
-private fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =
+internal fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =
     layout { measurable, constraints ->
         val pad = bottom().roundToPx()
         val placeable = measurable.measure(constraints.offset(vertical = -pad))

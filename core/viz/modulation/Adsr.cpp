@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/modulation/Slew.hpp"
+
 namespace geode::viz {
 
 static_assert(config::spec(config::Slot::adsr_band).max == static_cast<float>(EnvBand::Width), "adsr band row");
@@ -10,6 +12,9 @@ static_assert(config::indexInGroup(config::Slot::adsr_moment) == GEODE_ADSR_CONF
               "one adsr row per wire float before the targets");
 
 namespace {
+// A tracking sustain follows its target at 8 a second: a time constant of an eighth of a second.
+constexpr float kSustainSeconds = 1.0f / 8.0f;
+
 bool hasLiveTarget(const AdsrConfig& c) {
     for (const LfoTarget t : c.targets) {
         if (t != LfoTarget::None) return true;
@@ -29,38 +34,45 @@ float AdsrVoice::step(const AdsrShape& c, float dt, float hit, float energy, boo
         (c.sustainTrack ? c.sustain * std::clamp(energy / std::max(c.gateThreshold, AdsrEngine::kMinGateThreshold), 0.0f, 1.0f)
                         : c.sustain) *
         ceiling;
-    switch (stage) {
-        case AdsrStage::Attack:
-            level += dt / std::max(c.attack, AdsrEngine::kMinStageSeconds) * ceiling;
-            if (level >= ceiling) {
-                level = ceiling;
-                stage = AdsrStage::Decay;
-            }
-            break;
-        case AdsrStage::Decay:
-            level -= dt / std::max(c.decay, AdsrEngine::kMinStageSeconds) * std::max(1.0f - sustainTarget, 0.05f);
-            if (level <= sustainTarget) {
-                level = sustainTarget;
-                stage = gateHolds ? AdsrStage::Sustain : AdsrStage::Release;
-            }
-            break;
-        case AdsrStage::Sustain:
-            level += (sustainTarget - level) * std::min(dt * 8.0f, 1.0f);
-            if (!gateHolds) stage = AdsrStage::Release;
-            break;
-        case AdsrStage::Release:
-            level -= dt / std::max(c.release, AdsrEngine::kMinStageSeconds);
-            if (gateOpen && level > 0.01f) {
-                stage = AdsrStage::Sustain;
-            } else if (level <= 0.0f) {
-                level = 0.0f;
-                stage = AdsrStage::Idle;
-            }
-            break;
-        case AdsrStage::Idle:
-            break;
+    // Each stage runs its linear rate for as much of dt as it needs; the rest of the frame goes on into the next
+    // stage, so a stage's length in seconds does not depend on the frame it ends in.
+    float left = std::max(dt, 0.0f);
+    if (stage == AdsrStage::Attack) {
+        const float rate = ceiling / std::max(c.attack, AdsrEngine::kMinStageSeconds);
+        if (rate > 0.0f && level + rate * left < ceiling) {
+            level += rate * left;
+            left = 0.0f;
+        } else {
+            if (rate > 0.0f) left -= std::max(ceiling - level, 0.0f) / rate;
+            level = ceiling;
+            stage = AdsrStage::Decay;
+        }
     }
-    return std::clamp(level, 0.0f, 1.0f);
+    if (stage == AdsrStage::Decay) {
+        const float rate = std::max(1.0f - sustainTarget, 0.05f) / std::max(c.decay, AdsrEngine::kMinStageSeconds);
+        if (level - rate * left > sustainTarget) {
+            level -= rate * left;
+            left = 0.0f;
+        } else {
+            left -= std::max(level - sustainTarget, 0.0f) / rate;
+            level = sustainTarget;
+            stage = gateHolds ? AdsrStage::Sustain : AdsrStage::Release;
+        }
+    }
+    if (stage == AdsrStage::Sustain) {
+        level = slew::step(level, sustainTarget, left, kSustainSeconds);
+        if (!gateHolds) stage = AdsrStage::Release;
+        return std::clamp(level, 0.0f, 1.0f);
+    }
+    if (stage == AdsrStage::Release) {
+        level -= left / std::max(c.release, AdsrEngine::kMinStageSeconds);
+        if (gateOpen && level > 0.01f) {
+            stage = AdsrStage::Sustain;
+        } else if (level <= 0.0f) {
+            level = 0.0f;
+            stage = AdsrStage::Idle;
+        }
+    }    return std::clamp(level, 0.0f, 1.0f);
 }
 
 const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const GeodeSoundFrame& sound, std::uint32_t moments) {

@@ -62,6 +62,13 @@ inline int passFlags(bool flowing, float bornGain) {
     return (flowing ? kPassFlow : 0) | (bornGain != 0.0f ? kPassBorn : 0);
 }
 
+// Whether a frame runs a shader style's Trails on this pass (Renderer::drawTrails): Liquid off, Trails on,
+// a Shader-family style with no trail of its own (a particle style keeps its own, trailRetention), and
+// Performance's extra effects on, since Trails are one of the optional passes (frame::QualityTier::postFx).
+inline bool shaderTrailsRun(bool liquidOff, bool trails, bool shaderStyle, float ownRetention, bool extraEffects) {
+    return liquidOff && trails && shaderStyle && ownRetention <= 0.0f && extraEffects;
+}
+
 // One frame of the dive: the magnification about the vanishing point (>= 1), the twist this frame
 // (radians) and where the vanishing point is, in centred units (x times the aspect, y -1..1).
 struct DiveFrame {

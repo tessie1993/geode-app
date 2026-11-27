@@ -1,6 +1,6 @@
 #pragma once
 
-// One stage's vsync callback on the vsync thread (docs/agents/native-stage.md): whether it runs, whether one is posted.
+// One stage's vsync callback on the vsync thread: whether it runs, whether one is posted.
 // Whether a vsync draws is stage/VsyncRule's, and the window's frame-rate hint is the stage thread's own. Pure, with no
 // Android, so the host can test it (core/tests/stage_pacing_test.cpp).
 //

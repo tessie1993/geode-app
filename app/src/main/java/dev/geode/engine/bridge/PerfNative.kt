@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for performance tiers (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for performance tiers.
 object PerfNative {
     init {
         GeodeNative.ensureLoaded()

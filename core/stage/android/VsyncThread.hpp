@@ -8,7 +8,7 @@
 #include "stage/StagePacing.hpp"
 #include "stage/android/Inbox.hpp"
 
-// The process's one vsync thread (docs/agents/native-stage.md): an ALooper thread with its own AChoreographer that
+// The process's one vsync thread: an ALooper thread with its own AChoreographer that
 // wakes every stage on each vsync. It never draws, so one surface's slow frame never costs another surface a vsync.
 // A vsync (unless that stage is still on the last frame, stage/VsyncRule) becomes a last-wins frame request in the
 // stage's inbox.

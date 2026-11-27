@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_viz_jni.cpp for the style catalogue (CLAUDE.md).
+// The JNI declarations of geode_viz_jni.cpp for the style catalogue.
 object CatalogueNative {
     init {
         GeodeNative.ensureLoaded()

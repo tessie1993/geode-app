@@ -4,7 +4,7 @@
 
 #include "viz/frame/LiveFps.hpp"
 
-// The stage's whole vsync rule (docs/agents/native-stage.md): draw one frame on every vsync the system delivers, and
+// The stage's whole vsync rule: draw one frame on every vsync the system delivers, and
 // skip a vsync only when the last frame is still in flight. Pure, with no EGL and no Android, so the host can test it
 // (core/tests/vsync_rule_test.cpp).
 //

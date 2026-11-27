@@ -16,7 +16,7 @@
 #include "stage/android/VsyncThread.hpp"
 #include "util/WorkHint.hpp"
 
-// One surface's stage thread (docs/agents/native-stage.md): an ALooper thread that owns the EGL context and window
+// One surface's stage thread: an ALooper thread that owns the EGL context and window
 // surface and carries out what core/stage/StageCore asks for through its port. It decides nothing itself: what a
 // command means and when a frame is drawn is StageCore's, when EGL objects live is StageLifecycle's.
 //

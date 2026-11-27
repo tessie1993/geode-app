@@ -22,7 +22,7 @@ export const VOID_FRAME_SIZE: Record<(typeof VIDEO_ASPECT_RATIOS)[number], reado
   '9:16': [720, 1280],
 };
 
-/** docs/brand/README.md: the palette and the neon-glass look of the logo. */
+/** The palette and the neon-glass look of the logo. */
 export const BRAND_STYLE =
   'Style: luminous neon light tubes with a glassy glow, premium and crisp. Palette: deep indigo-black background (#0E0620), ' +
   'violet (#7C4DFF), lilac (#C792EA), cyan (#89DDFF) and blue (#82AAFF), with one small amber (#FFCB6B) accent at the focal point. ' +

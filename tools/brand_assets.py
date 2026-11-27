@@ -10,9 +10,8 @@ rippling oscilloscope lid (eye) around a twisted-hexagon vortex iris (fractal), 
 purple palette. Edit the geometry here, never the generated files, then run:
 
     python tools/brand_assets.py
-    # then the PNG exports in docs/brand/README.md (headless Chrome)
 
-The raster store art (docs/brand/flow/) came from Google Flow; its prompts are in the README.
+The raster store art (docs/brand/flow/) came from Google Flow.
 
 The wordmark is not drawn here: tools/wordmark.py outlines it, and tools/feature_graphic.py
 draws the Play feature graphic.

@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_palette_jni.cpp (CLAUDE.md), and the colour and palette calls geode_viz_jni.cpp carries.
+// The JNI declarations of geode_palette_jni.cpp, and the colour and palette calls geode_viz_jni.cpp carries.
 object PaletteNative {
     init {
         GeodeNative.ensureLoaded()

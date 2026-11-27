@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_loop_mux_jni.cpp (CLAUDE.md).
+// The JNI declarations of geode_loop_mux_jni.cpp.
 object LoopMuxNative {
     init {
         GeodeNative.ensureLoaded()

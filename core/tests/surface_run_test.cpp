@@ -88,11 +88,11 @@ void trialEnd() {
 
 // ---- The full decision table and its transitions over time ---------------------------------------------
 //
-// Expected values come from the rule as AGENTS.md states it for `wallpaper` ("stopped when hidden or covered
+// Expected values come from the rule for `wallpaper` ("stopped when hidden or covered
 // by the shade or recents, a still frame without Pro or once a trial ends, in battery saver or after 6 s of
 // silence"), the preview's exemptions in SurfaceRun.hpp's header comment, Kotlin's TrialState.at (a trial is
 // active for `now in startedAt until endsAt`, a half-open range: the end itself is over), and Silence.hpp's
-// "nothing heard for longer than kRestAfterMs" with AGENTS.md's 6 s.
+// "nothing heard for longer than kRestAfterMs" with the rule's 6 s.
 
 constexpr unsigned kEveryBit = 0xFFu;  // the eight GEODE_SURFACE_* bits
 

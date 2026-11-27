@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails when a PR grows the Kotlin in the engine. Owner rule (CLAUDE.md): Kotlin
+# Fails when a PR grows the Kotlin in the engine. Owner rule: Kotlin
 # is the main-thread shell and Android glue only; engine logic, audio code, params, modulation,
 # clocks, render-loop and export maths are C++ in core/. Until the port finishes, the Kotlin still in
 # the watched paths below may only shrink: a PR's net added lines across them must be <= 0. A UI or
@@ -31,7 +31,7 @@
 # There is deliberately no other override: write the logic in core/ and call it through the ABI.
 #
 # The engine modules also have a list (`allowed` below): every Kotlin file still under
-# engine/*/src/main/, the debt left to port (docs/agents/engine-kotlin-audit.md). A file there that is
+# engine/*/src/main/, the debt left to port. A file there that is
 # not on the list fails, so no new one can start; an entry whose file is gone fails, so the list stays
 # the honest remainder; and a PR that adds an entry fails, so the list only shrinks. Remove an entry in
 # the commit that deletes or moves its file. It ends as the declarations file alone.
@@ -116,7 +116,7 @@ while IFS=$'\t' read -r add del path; do
 done
 
 if [ "$net" -gt 0 ]; then
-    echo "::error title=Engine Kotlin grew::This PR adds $net net lines of Kotlin to the engine paths. Engine logic is C++ in core/ (CLAUDE.md); call it through core/api/geode_api.h instead."
+    echo "::error title=Engine Kotlin grew::This PR adds $net net lines of Kotlin to the engine paths. Engine logic is C++ in core/; call it through core/api/geode_api.h instead."
     printf '%s' "$report"
     exit 1
 fi

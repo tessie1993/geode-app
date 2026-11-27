@@ -1,5 +1,5 @@
 // Host-side checks for core/stage/StageLifecycle: when a stage makes, uses and frees its EGL context and window
-// surface, runs its vsync and tells its client (docs/agents/native-stage.md). No EGL: a model executor carries out
+// surface, runs its vsync and tells its client. No EGL: a model executor carries out
 // each action, checks it was allowed, and can fail the creates the way a driver does.
 //
 // What is pinned: the action order of the common paths (a view shown, paused and resumed with its context kept,

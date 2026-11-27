@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-/* The native stage (core/stage, docs/agents/native-stage.md): one surface's render thread, EGL context and vsync.
+/* The native stage (core/stage): one surface's render thread, EGL context and vsync.
    The shell hands over a window, its size, what it sees and its pause; it reads back one state word and a few
    numbers. Native never calls up into the shell. Every call may come from any thread; only set_window waits. */
 

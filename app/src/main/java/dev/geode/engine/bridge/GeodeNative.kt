@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_jni.cpp, and the one that loads libgeode (CLAUDE.md). The other native files' declarations
+// The JNI declarations of geode_jni.cpp, and the one that loads libgeode. The other native files' declarations
 // are the sibling `*Native` objects of this package, one per JNI source file (geode_viz_jni.cpp's are split by topic).
 object GeodeNative {
     init {

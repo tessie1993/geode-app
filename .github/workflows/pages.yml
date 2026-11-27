@@ -1,7 +1,7 @@
 name: Publish docs site (GitHub Pages)
 
-# Play's App content form needs the privacy policy at a public URL
-# (RELEASE_READINESS.md B1). This publishes it, and later the in-app help, to
+# Play's App content form needs the privacy policy at a public URL.
+# This publishes it, and later the in-app help, to
 #   https://tessie1993.github.io/geode-app/privacy-policy.html
 #   https://tessie1993.github.io/geode-app/help/...
 #

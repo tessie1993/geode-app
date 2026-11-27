@@ -9,7 +9,7 @@
 #include "api/geode_stage_api.h"
 #include "jni_util.hpp"
 
-// The native stage's JNI (docs/agents/native-stage.md): values in, values out. The stage thread never calls up
+// The native stage's JNI: values in, values out. The stage thread never calls up
 // here; the shell polls. A handle that is gone is the C API's to ignore.
 namespace {
 

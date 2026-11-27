@@ -10,7 +10,7 @@
 #include "api/geode_api.h"
 #include "cast/CastLook.hpp"
 
-// The cast's render thread (docs/agents/native-stage.md, Cast): it opens the encoders, makes an EGL context current
+// The cast's render thread: it opens the encoders, makes an EGL context current
 // on the encoder's input window (output/android/EncoderGl) and, once a frame slot (viz/frame/FixedRateClock),
 // either blits the stage's newest copy from the tee (viz/frame/CastTee) or, while the stage draws nothing, draws a
 // renderer of its own (geode_viz) on the look the shell handed in (cast/CastLook), then stamps the frame with its

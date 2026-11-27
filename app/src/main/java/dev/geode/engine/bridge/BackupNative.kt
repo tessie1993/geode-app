@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_backup_jni.cpp (CLAUDE.md). Every call is one plan: lists cross as String[] in and out,
+// The JNI declarations of geode_backup_jni.cpp. Every call is one plan: lists cross as String[] in and out,
 // laid out as core/api/geode_api.h describes for `geode_backup_*`; the shell's BackupWire reads and writes them.
 // An answer is null when native could not build it.
 object BackupNative {

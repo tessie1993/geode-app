@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Counts the numbers the Play listing quotes, from the code and the catalogue, so a claim can be
 # rechecked before each release:   tools/store-stats.sh
-# docs/store/stats.md is this script's output with the reading of each line.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 cat=core/tests/catalogue.txt   # the native catalogue's text, pinned by core/tests/catalogue_test.cpp

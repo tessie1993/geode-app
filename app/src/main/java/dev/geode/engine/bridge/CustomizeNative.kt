@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_customize_jni.cpp (CLAUDE.md), and the customize calls geode_viz_jni.cpp carries.
+// The JNI declarations of geode_customize_jni.cpp, and the customize calls geode_viz_jni.cpp carries.
 object CustomizeNative {
     init {
         GeodeNative.ensureLoaded()

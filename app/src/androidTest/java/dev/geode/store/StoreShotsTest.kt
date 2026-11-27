@@ -23,8 +23,7 @@ import org.junit.runner.RunWith
  * Skipped unless the instrumentation argument `storeshots=1` is set, so the ordinary emulator job
  * never pays for it. `.github/workflows/store-assets.yml` sets it and runs the class once per
  * screen (`storeForm=phone|phone-land|tablet7|tablet10`, sized there with `wm size`), which gives
- * Play's phone, 7-inch and 10-inch sets from one emulator. docs/store/screenshots.md says what
- * each capture is for and which Play rule sizes it.
+ * Play's phone, 7-inch and 10-inch sets from one emulator.
  *
  * One test per capture: Orchestrator runs each on a fresh install, so a capture starts from a
  * known app (the style its [StoreShot] names, nothing left open by the capture before it) and a

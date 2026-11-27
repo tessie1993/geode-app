@@ -26,7 +26,7 @@ target_include_directories(geode_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(geode_sound PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_sound PUBLIC geode_pcm)
 
-# The player (docs/superpowers/specs/2026-11-18-native-engine-architecture.md, step 2.1): the queue and the
+# The player: the queue and the
 # transport as pure logic. It includes only itself, reads no clock and opens no file; nothing calls it yet.
 add_library(geode_player STATIC
     player/Queue.cpp
@@ -312,7 +312,7 @@ target_link_libraries(geode_core PUBLIC oboe::oboe)
 # mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
 target_link_libraries(geode_core PUBLIC mediandk)
 
-# The native stage's platform layer (docs/agents/native-stage.md): looper threads, AChoreographer, EGL on an
+# The native stage's platform layer: looper threads, AChoreographer, EGL on an
 # ANativeWindow, ANativeWindow_setFrameRate. Android only and in no host-test line; android, EGL and nativewindow
 # are linked above. Every call it makes is available at minSdk 33.
 if(ANDROID)

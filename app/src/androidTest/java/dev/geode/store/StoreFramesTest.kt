@@ -29,7 +29,7 @@ import java.nio.ByteOrder
  * native renderer at twice the graphic's 1024 x 500 (the workflow filters it down, which
  * antialiases it), with no app chrome because a feature graphic has none.
  *
- * These are renders, not screenshots, and docs/store says so: the same renderer, shaders and
+ * These are renders, not screenshots: the same renderer, shaders and
  * default look the app draws, offscreen, as [dev.geode.thumbs.StyleThumbnailRenderTest] draws the
  * style thumbnails. Skipped unless `storeframes=1`. `storeFrameIds=<id,id>` picks the styles
  * (default [DEFAULT_IDS], all free ones).

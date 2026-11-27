@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-// What a stage draws with (docs/agents/native-stage.md). The stage owns the thread, the EGL context and the vsync,
+// What a stage draws with. The stage owns the thread, the EGL context and the vsync,
 // and calls these on its own thread only, in the order core/stage/StageLifecycle asks for them; the renderer (a
 // geode_viz) is bound to it by the code that creates the stage. Pure, so the lifecycle's host test can name it.
 namespace geode::stage {

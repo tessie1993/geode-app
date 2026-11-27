@@ -6,7 +6,7 @@
 #include <cstdint>
 
 // The stage's EGL: one display connection, the config GLSurfaceView picks by default for an ES 3 view, one context
-// and at most one window surface (docs/agents/native-stage.md). Stage thread only. It decides nothing: the stage
+// and at most one window surface. Stage thread only. It decides nothing: the stage
 // lifecycle (core/stage/StageLifecycle) says when each call happens, and every failure goes back to it.
 namespace geode::stage::platform {
 

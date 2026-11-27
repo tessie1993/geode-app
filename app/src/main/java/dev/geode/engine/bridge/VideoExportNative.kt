@@ -1,6 +1,6 @@
 package dev.geode.engine.bridge
 
-// The JNI declarations of geode_video_export_jni.cpp (CLAUDE.md).
+// The JNI declarations of geode_video_export_jni.cpp.
 object VideoExportNative {
     init {
         GeodeNative.ensureLoaded()

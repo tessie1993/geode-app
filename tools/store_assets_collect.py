@@ -131,7 +131,7 @@ def main():
     out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "store-assets-out")
     raw = out / "raw"
     out.mkdir(parents=True, exist_ok=True)
-    lines = ["# Store assets", "", "What each file is for: docs/store/screenshots.md and docs/store/promo-video.md."]
+    lines = ["# Store assets", ""]
     problems = []
     if not (raw / "finished").exists():
         problems.append("the capture script did not finish")

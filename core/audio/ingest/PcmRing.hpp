@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-// The PCM ingest ring (core/audio/ingest/README.md): one ring per audio source (the player's
+// The PCM ingest ring: one ring per audio source (the player's
 // tap, the mic, another app's audio, the wallpaper's output-mix capture). Ported from the Kotlin
 // SampleRing and SoundCursor, with the rate inside the ring instead of in a volatile beside it.
 //

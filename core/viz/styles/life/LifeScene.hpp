@@ -43,6 +43,7 @@ public:
     }
     void resize(int width, int height) override;
     void update(const GeodeSoundFrame& features, float dt) override;
+    void simulate() override;
     void draw(float timeSeconds) override;
     void release() override;
     void acceptPcm(const float* samples, int count) override { pcmPulse_.accept(samples, count); }
@@ -102,6 +103,7 @@ private:
     GLuint stepProgram_ = 0;
     UniformCache stepLocs_{0};
     present::FieldPresent present_;
+    bool simulated_ = false;
     bool programOk_ = false;
     GLuint vao_ = 0;
     std::optional<fluid::Formats> formats_;

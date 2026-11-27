@@ -327,20 +327,12 @@ void LifeScene::finishCensus() {
     }
 }
 
-void LifeScene::draw(float timeSeconds) {
-    (void) timeSeconds;
+void LifeScene::simulate() {
     if (!programOk_) return;
     resetFrameState();
-    GLint prevFbo = 0;
-    GLint prevViewport[4] = {0, 0, 0, 0};
-    SceneTarget::read(prevFbo, prevViewport);
+    simulated_ = true;
     fluid::DoubleFbo* field = ensureState();
-    if (!field) {
-        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
-        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        return;
-    }
+    if (!field) return;
     const SceneParams& p = params_;
     const float dt = std::clamp(lastDt_, 0.0f, 1.0f / 15.0f);
 
@@ -350,7 +342,7 @@ void LifeScene::draw(float timeSeconds) {
     censusAge_ += dt;
     if (censusAge_ >= kCensusSeconds && censusFence_ == nullptr) {
         censusAge_ = 0.0f;
-        startCensus(*field, prevFbo);
+        startCensus(*field, 0);
     }
 
     // Whole texels of drift go into the solver (an exact shift, no smear); the remainder is drawn by
@@ -415,6 +407,23 @@ void LifeScene::draw(float timeSeconds) {
     sprinkle_ = 0.0f;
 
     glBindVertexArray(0);
+}
+
+void LifeScene::draw(float timeSeconds) {
+    (void) timeSeconds;
+    if (!programOk_) return;
+    GLint prevFbo = 0;
+    GLint prevViewport[4] = {0, 0, 0, 0};
+    SceneTarget::read(prevFbo, prevViewport);
+    if (!simulated_) simulate();
+    simulated_ = false;
+    fluid::DoubleFbo* field = ensureState();
+    if (!field) {
+        // The allocation bound framebuffer 0: the target this draw was handed is bound again.
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
+        glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+        return;
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
     // The present: the living matter (Lenia's A, or Gray-Scott's v, whose pattern lives around 0..0.45) is

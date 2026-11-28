@@ -119,8 +119,9 @@ void main() {
     float newA;
     float newV = c.g;
     float ink = c.a;
+    bool lenia = uRule == 0;
 
-    if (uRule == 0) {
+    if (lenia) {
         // Disc sampling: 6 radii x 12 angles, kernel weight from the ring
         // formula at each tap, ring phases staggered so no radial spoke
         // pattern imprints on the organisms. Enough resolution for the
@@ -128,7 +129,6 @@ void main() {
         float sum = 0.0;
         float norm = 0.0;
         float inkSum = 0.0;
-        float inkW = 0.0;
         float rings = float(uRings);
         for (int ri = 0; ri < 6; ri++) {
             float rf = (float(ri) + 0.5) / 6.0;
@@ -137,18 +137,18 @@ void main() {
             float w = kernelCore(fract(br)) * (idx == 0 ? uB.x : (idx == 1 ? uB.y : uB.z));
             if (w <= 0.0) continue;
             float rad = rf * uRadius;
+            norm += 12.0 * w;
             for (int ai = 0; ai < 12; ai++) {
                 float a = TAU * (float(ai) + 0.41 * float(ri)) / 12.0;
                 vec4 s = texture(uPrev, uv + rad * vec2(cos(a), sin(a)) * texel);
-                sum += w * s.r;
-                norm += w;
-                inkSum += w * s.r * s.a;
-                inkW += w * s.r;
+                float ws = w * s.r;
+                sum += ws;
+                inkSum += ws * s.a;
             }
         }
         float u = sum / max(norm, 1e-5);
         newA = clamp(c.r + uDt * growthMap(u), 0.0, 1.0);
-        if (inkW > 1e-4) ink = mix(ink, inkSum / inkW, 0.1);
+        if (sum > 1e-4) ink = mix(ink, inkSum / sum, 0.1);
     } else {
         float wx = 0.2 * (1.0 + uAniso);
         float wy = 0.2 * (1.0 - 0.7 * uAniso);
@@ -174,6 +174,7 @@ void main() {
     // the beat or the note puts it on screen, after the drift. `fresh` is how
     // much new matter this texel got; it takes the melody's ink.
     float aspect = uRes.x / uRes.y;
+    vec2 aspectScale = vec2(aspect, 1.0);
     float fresh = 0.0;
     float seedInk = uInk;
     if (uSeed > 0.0) {
@@ -181,11 +182,11 @@ void main() {
         vec2 h = hash2(cell);
         seedInk = clamp(uInk + 0.5 * (h.y - 0.5), 0.0, 1.0);
         float inCell = smoothstep(0.7, 0.95, h.x) * uSeed;
-        if (uRule == 0) {
+        if (lenia) {
             // Smooth blobs, not full cells: hard squares of A never evolve
             // into organisms, gaussian lumps do.
             vec2 centre = (cell - uSeedSalt + 0.2 + 0.6 * hash2(cell + 7.7)) / uSeedJitter;
-            vec2 dpos = (vUv - centre) * vec2(aspect, 1.0) * uSeedJitter;
+            vec2 dpos = (vUv - centre) * aspectScale * uSeedJitter;
             float lump = inCell * h.y * exp(-dot(dpos, dpos) * 2.2);
             newA = max(newA, lump);
             fresh = max(fresh, lump);
@@ -197,9 +198,9 @@ void main() {
     if (uBud > 0.0) {
         // The melody's bud: small and tight, so a run of
         // notes reads as a strand of spores following the line.
-        vec2 dpos = (vUv - uBudPos) * vec2(aspect, 1.0);
+        vec2 dpos = (vUv - uBudPos) * aspectScale;
         float bud = exp(-dot(dpos, dpos) * 1800.0) * uBud;
-        if (uRule == 0) {
+        if (lenia) {
             newA = clamp(newA + bud * 0.45, 0.0, 1.0);
         } else {
             newV = clamp(newV + bud * 0.8, 0.0, 1.0);
@@ -218,10 +219,10 @@ void main() {
             if (i >= uTouchCount) break;
             vec4 t = uTouchPoints[i];
             if (t.z <= 0.0) continue;
-            vec2 dpos = (vUv - (t.xy * 0.5 + 0.5)) * vec2(aspect, 1.0);
+            vec2 dpos = (vUv - (t.xy * 0.5 + 0.5)) * aspectScale;
             seedTouch = max(seedTouch, t.z * exp(-dot(dpos, dpos) * 280.0));
         }
-        if (uRule == 0) {
+        if (lenia) {
             // Same reasoning as the beat kick's half strength: a saturated disc
             // floods a Lenia world into one mass, a soft lump buds an organism.
             newA = clamp(newA + seedTouch * 0.45, 0.0, 1.0);
@@ -232,7 +233,7 @@ void main() {
     }
     if (uSprinkle > 0.0) {
         vec2 h = hash2(floor(vUv * uRes * 0.5) + fract(uTime) * 61.7);
-        if (uRule == 0) {
+        if (lenia) {
             // Lenia metabolizes seeds slowly, so sprinkle sparsely and softly
             // or the hats read as static instead of as new spores.
             float sp = step(1.0 - uSprinkle * 0.0012, h.x);
@@ -247,7 +248,7 @@ void main() {
 
     // Age trace: rises where matter lives, bleeds slowly; the render pass
     // shades history without a second history texture.
-    float live = uRule == 0 ? newA : newV;
+    float live = lenia ? newA : newV;
     float age = clamp(c.b + (live > 0.12 ? 0.02 : -0.006) * uAgeRate, 0.0, 1.0);
     // Freshly injected matter is born young and takes the melody's ink.
     age *= 1.0 - clamp(fresh * 1.5, 0.0, 1.0);

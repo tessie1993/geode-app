@@ -120,7 +120,7 @@ public:
     uint32_t state() const { return state_.load(std::memory_order_relaxed); }
     // The rate frames are paced at, 1 / the frame's length; 0 until the pacer says.
     float pacedFps() const { return paced_.load(std::memory_order_relaxed); }
-    // The published mirror of the frame budget, ns: the setting's frame length on the display mode now running; 0 until
+    // The published mirror of the frame budget, ns: the fixed live frame length on the display mode now running; 0 until
     // the platform has said the mode. Read by the UI without waiting.
     int64_t frameBudgetNs() const { return mirror_.load(std::memory_order_relaxed); }
     uint32_t takeEvents() { return events_.exchange(0, std::memory_order_relaxed); }

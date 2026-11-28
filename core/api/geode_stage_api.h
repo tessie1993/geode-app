@@ -55,8 +55,8 @@ typedef struct geode_stage_client {
 #define GEODE_STAGE_STATE_RELEASED           (1u << 8)
 #define GEODE_STAGE_STATE_MODE_SHIFT         12
 
-/* NULL when the client lacks a function or the thread could not start. cap_fps is the surface's own fps cap
-   (Settings › Performance's, GEODE_LIVE_FPS_FOLLOW; 0 every vsync). */
+/* NULL when the client lacks a function or the thread could not start. The app's live view is created at the fixed
+   GEODE_LIVE_FPS_DEFAULT (30 FPS); cap_fps remains for ABI/generic stage clients (0 every vsync). */
 GEODE_API geode_stage* geode_stage_create(int kind, const geode_stage_client* client, float cap_fps);
 /* A window (from ANativeWindow_fromSurface; the stage takes its own reference, the caller keeps and releases
    its own) or NULL when the surface is destroyed. Returns at once, the stage applying it between frames: call it
@@ -77,10 +77,11 @@ GEODE_API int      geode_stage_gyro_listens(geode_stage*, int wanted);
 /* surfaceRedrawNeeded: one frame now, even while the vsync is stopped. */
 GEODE_API void     geode_stage_redraw(geode_stage*);
 GEODE_API void     geode_stage_set_cap(geode_stage*, float cap_fps);
+/* Compatibility ABI: stored_fps and refresh_rates are ignored; the live stage normalizes to fixed 30 FPS. */
 GEODE_API void     geode_stage_set_live_fps(geode_stage*, int stored_fps, const float* refresh_rates, int count);
 GEODE_API unsigned geode_stage_state(const geode_stage*);
-/* The stage's frame budget in ns: one frame's length for the rate setting on the display mode now running. The swap
-   interval, the frame-rate vote's pace and the work target follow this one number; 0 until the pacer has said. */
+/* The stage's fixed-30 live frame budget in ns on the display mode now running. The swap interval, the frame-rate
+   vote's pace and the work target follow this one number; 0 until the pacer has said. */
 GEODE_API long long geode_stage_frame_budget_ns(const geode_stage*);
 /* Android Frame Pacing (Swappy) is made from an Activity and paces the app's live stage: attach with the Activity's
    JNIEnv* and jobject in its onCreate and detach with them in its onDestroy. A stage with no Swappy is paced by

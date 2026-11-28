@@ -202,7 +202,8 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-        // Oboe and games-frame-pacing ship as Prefab AARs: the root CMakeLists.txt finds them with find_package.
+        // Oboe, games-activity and games-frame-pacing ship as Prefab AARs: the root CMakeLists.txt
+        // finds them with find_package.
         prefab = true
     }
 }
@@ -266,6 +267,9 @@ listOf("assembleRelease", "bundleRelease", "assembleSideload").forEach { name ->
 
 dependencies {
     implementation(libs.core.splashscreen)
+    // GameActivity's AppCompat host and static Prefab bridge; CMake links the bridge into libgeode.so.
+    implementation(libs.appcompat)
+    implementation(libs.games.activity)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.common)
     implementation(libs.media3.session)

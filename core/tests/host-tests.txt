@@ -271,7 +271,7 @@ transition_programs_test | fakegl | core/tests/transition_programs_test.cpp core
     core/viz/params/ParamsFields.cpp core/viz/modulation/Lfo.cpp core/util/Json.cpp |
 # The uniform value cache: an unchanged upload is skipped, a changed one sent, a rebuilt program starts empty.
 uniform_memo_test | fakegl | core/tests/uniform_memo_test.cpp |
-# Settings › Performance's tiers, scale choices, preset match and first-run pick (#437).
+# Settings › Performance's fixed-30 tiers, scale choices, preset match and first-run pick (#437).
 quality_test | stub | core/tests/quality_test.cpp core/api/geode_perf_api.cpp core/viz/liquid/LiquidMath.cpp |
 # The background image bake (#651): the crop rect and dim exact with the old Kotlin, the blur keeps a flat image, the clamps.
 underlay_test | stub | core/tests/underlay_test.cpp core/viz/passes/Underlay.cpp core/api/geode_underlay_api.cpp |
@@ -291,7 +291,7 @@ style_pick_test | stub | core/tests/style_pick_test.cpp core/api/geode_style_pic
 transition_choice_test | core | core/tests/transition_choice_test.cpp |
 # The times a frame is read and shown at: the cap a surface runs at, where the sound is read, the swap's stamp.
 present_time_test | core | core/tests/present_time_test.cpp |
-# Settings › Performance's live cap above 60: the caps a display is offered, the stored cap snapped to it.
+# The fixed-30 live contract: one offered rate, legacy caps normalized, no manual display preference, whole-refresh ratios.
 live_fps_test | core | core/tests/live_fps_test.cpp |
 # The native stage's lifecycle: the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
 stage_lifecycle_test | core | core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp |
@@ -311,7 +311,7 @@ work_hint_test | core | core/tests/work_hint_test.cpp |
 thread_nice_test | mt | core/tests/thread_nice_test.cpp |
 # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 command_queue_test | mt | core/tests/command_queue_test.cpp |
-# How the stage paces its swaps: the frame-rate hint for the window, the swap interval for a cap, the frame's length in refresh periods (Swappy's rounding), the presentation time each frame is drawn for.
+# How the stage paces its swaps: fixed-30 vote/interval, whole-refresh budgets on 60/90/120 Hz panels (Swappy's rounding), the seamless-vote/Choreographer fallback, and each frame's presentation time.
 swap_pace_test | core | core/tests/swap_pace_test.cpp |
 # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the Liquid bit.
 renderer_cadence_test | stub | core/tests/renderer_cadence_test.cpp |

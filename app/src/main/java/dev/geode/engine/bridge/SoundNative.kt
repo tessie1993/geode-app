@@ -62,6 +62,7 @@ object SoundNative {
     const val STAGE_PIP = 1 shl 2
     const val STAGE_SECOND_SCREEN = 1 shl 3
     const val STAGE_CASTING = 1 shl 4
+    const val STAGE_MULTI_WINDOW = 1 shl 5
     const val STAGE_DRAWS = 1 shl 0
     const val STAGE_CAST_LEADS_AUTO = 1 shl 1
 

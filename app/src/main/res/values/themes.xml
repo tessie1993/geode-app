@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- GameActivity derives from AppCompatActivity; retain a dark, no-action-bar window after the splash. -->
+    <style name="Theme.Geode" parent="Theme.AppCompat.NoActionBar" />
+
     <!-- System splash shown while the process cold-starts: the neon mark on brand void, the
          render's own background, so the icon circle the system draws has no visible edge.
          BootIntro opens on the same art at the same size and place, fades it into the first
@@ -11,6 +14,6 @@
         <item name="windowSplashScreenBackground">@color/brand_void</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
         <item name="android:windowSplashScreenBrandingImage">@drawable/splash_wordmark</item>
-        <item name="postSplashScreenTheme">@android:style/Theme.Material.NoActionBar</item>
+        <item name="postSplashScreenTheme">@style/Theme.Geode</item>
     </style>
 </resources>

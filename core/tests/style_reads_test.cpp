@@ -16,6 +16,7 @@
 // Life) draws through a style-like shader on the shared block, and is held to that shader as a style is.
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -29,6 +30,7 @@
 #include "viz/styles/catalogue/Catalogue.hpp"
 #include "viz/panel/CustomizeMap.hpp"
 #include "viz/glsl/ShaderSource.hpp"
+#include "viz/styles/shader/SceneTerms.hpp"
 
 using namespace geode::viz;
 
@@ -221,6 +223,45 @@ void theReaderFollowsCallsNotDeclarations() {
     check(read.count("uWarp") == 0 && read.count("uTwist") == 1, "#ifndef on a name the source defines drops its branch");
 }
 
+// The CPU side of the shared view()/grade() boundary: the formulas the GLSL used to run per pixel.
+void theSceneTermsMatchTheSharedHelpers() {
+    SceneParams p;
+    const shader::SceneViewTerms neutral = shader::describeView(p, 1600, 900, 0.0f, 0.0f, 0.0f);
+    check(std::fabs(neutral.view[0] - 16.0f / 9.0f) < 1e-6f, "scene view carries aspect");
+    check(neutral.view[1] == 0.0f && neutral.view[2] == 0.0f && neutral.view[3] == 0.0f, "neutral view features are off");
+    check(neutral.rotation == std::array<float, 4>{1.0f, 0.0f, 0.0f, 1.0f}, "neutral scene rotation is identity");
+    check(neutral.motion == std::array<float, 4>{0.0f, 0.0f, 1.0f, 0.0f}, "neutral scene motion is unchanged");
+
+    p.pixelate = 0.5f;
+    p.kaleidoFolds = 6.0f;
+    p.morph = 0.5f;
+    p.sway = 0.0f;
+    p.driftX = 1.0f;
+    p.driftY = -1.0f;
+    p.warp = 0.8f;
+    const shader::SceneViewTerms moved = shader::describeView(p, 1600, 900, 0.25f, 10.0f, 0.25f);
+    check(moved.view[1] == 156.0f, "pixelate scale is resolved on the CPU");
+    check(std::fabs(moved.view[2] - 6.2831853f / 6.0f) < 1e-6f, "kaleidoscope segment is resolved on the CPU");
+    const float morphFade = 0.5f * (0.6f + 0.15f * std::sin(10.0f * 0.31f));
+    check(std::fabs(moved.view[3] - morphFade) < 1e-6f, "morph fade is resolved on the CPU");
+    check(std::fabs(moved.rotation[0] - std::cos(0.25f)) < 1e-6f && std::fabs(moved.rotation[1] + std::sin(0.25f)) < 1e-6f,
+          "scene rotation matrix is resolved on the CPU");
+    check(std::fabs(moved.motion[0] - 1.0f) < 1e-6f && std::fabs(moved.motion[1] + 1.0f) < 1e-6f,
+          "drift triangle wave is resolved on the CPU");
+    check(std::fabs(moved.motion[2] - 1.25f) < 1e-6f && std::fabs(moved.motion[3] - 0.4f) < 1e-6f,
+          "twist exponent and warp amplitude are resolved on the CPU");
+
+    p.posterize = 0.5f;
+    p.gamma = 0.5f;
+    p.temperature = 2.0f;
+    p.brightness = 0.5f;
+    p.intensity = 2.0f;
+    const shader::SceneGradeTerms grade = shader::describeGrade(p);
+    check(std::fabs(grade.shade[0] - 13.5f) < 1e-6f && std::fabs(grade.shade[1] - 2.0f) < 1e-6f &&
+              std::fabs(grade.shade[2] - 0.24f) < 1e-6f && std::fabs(grade.shade[3] - 1.0f) < 1e-6f,
+          "scene grade terms are resolved on the CPU");
+}
+
 // The present shader of a dedicated renderer that presents its simulation in 3D (core/viz/styles/life/FieldPresent
 // draws it as a ShaderScene); "" for one that draws flat.
 std::string presentShader(catalogue::Kind kind) { return kind == catalogue::Kind::Life ? "life_show_frag.glsl" : ""; }
@@ -257,6 +298,8 @@ void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
 void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
     static const char* const kLook[] = {"uPalBase", "uPalRange",  "uPalLutMix", "uColorShift",  "uHueRange", "uSat", "uBright",
                                         "uContrast", "uGamma", "uIntensity", "uTemperature", "uBloom"};
+    // The shared grade packs these four controls; a style may still spell the legacy uniform itself.
+    static const std::set<std::string> kPackedGrade = {"uBright", "uGamma", "uIntensity", "uTemperature"};
     AAssetManager assets{assetsRoot};
     const ShaderSource source(&assets);
     for (const std::string& id : catalogue::allIds()) {
@@ -264,7 +307,10 @@ void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
         const auto src = source.load(id + "_frag.glsl", nullptr);
         if (!src) continue;
         const auto words = wordsReachedFromMain(*src);
-        for (const char* u : kLook) check(words.count(u) != 0, id + ": never reads " + u + ", so its Look control is dead");
+        for (const char* u : kLook) {
+            const bool packed = words.count("uSceneGrade") != 0 && kPackedGrade.count(u) != 0;
+            check(words.count(u) != 0 || packed, id + ": never reads " + u + " or its packed scene term, so its Look control is dead");
+        }
     }
 }
 
@@ -357,17 +403,17 @@ const std::vector<Carrier>& shaderCarriers() {
     static const std::vector<Carrier> kCarriers = {
         {"speed", {"uTime", "uFlowTime", "uSoundTimeSped"}},
         {"zoom", {"uZoom"}},
-        {"rotation", {"uRotation"}},
-        {"sway", {"uSway"}},
-        {"driftX", {"uDriftX"}},
-        {"driftY", {"uDriftY"}},
+        {"rotation", {"uRotation", "uSceneRotation"}},
+        {"sway", {"uSway", "uSceneRotation"}},
+        {"driftX", {"uDriftX", "uSceneViewMotion"}},
+        {"driftY", {"uDriftY", "uSceneViewMotion"}},
         {"turbulence", {"uTurbulence"}},
         {"warp", {"uWarp"}},
         {"ripple", {"uRipple"}},
-        {"morph", {"uMorph"}},
+        {"morph", {"uMorph", "uSceneView"}},
         {"twist", {"uTwist"}},
         // Kaleidoscope's one slider: on from 2 folds (uKaleido) at its count (uSymmetry), SceneParams::kaleidoUniforms.
-        {"kaleidoFolds", {"uKaleido", "uSymmetry"}},
+        {"kaleidoFolds", {"uKaleido", "uSymmetry", "uSceneView"}},
         // Grow and layers (Customize › Shape › Grow), shown only on the family styles whose library draws them.
         {"spawn", {"uSpawn"}},
         {"fractal", {"uFractal"}},
@@ -384,7 +430,7 @@ const std::vector<Carrier>& shaderCarriers() {
         {"shadow", {"uShadow"}},
         {"escapeColor", {"uEscapeColor"}},
         {"tile", {"uTile"}},
-        {"pixelate", {"uPixelate"}},
+        {"pixelate", {"uPixelate", "uSceneView"}},
         {"mirror", {"uMirrorX"}},
         {"marchDetail", {"uSteps"}},
         {"palette", {"uPalBase"}},
@@ -401,11 +447,11 @@ const std::vector<Carrier>& shaderCarriers() {
         {"colorShift", {"uColorShift"}},
         {"hueRange", {"uHueRange"}},
         {"saturation", {"uSat"}},
-        {"brightness", {"uBright"}},
+        {"brightness", {"uBright", "uSceneGrade"}},
         {"contrast", {"uContrast"}},
-        {"gamma", {"uGamma"}},
-        {"intensity", {"uIntensity"}},
-        {"temperature", {"uTemperature"}},
+        {"gamma", {"uGamma", "uSceneGrade"}},
+        {"intensity", {"uIntensity", "uSceneGrade"}},
+        {"temperature", {"uTemperature", "uSceneGrade"}},
         {"bloom", {"uBloom"}},
         {"posterize", {"uPosterize"}},
         {"duotone", {"uDuotone"}},
@@ -504,7 +550,9 @@ bool poolCarries(const std::string& styleId, const std::string& field) {
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
     // Spin only turns a style the catalogue gives a spin rate.
-    if (field == "motionDrift") return catalogue::spinRate(styleId) != 0.0f && words.count("uRotation") != 0;
+    if (field == "motionDrift") {
+        return catalogue::spinRate(styleId) != 0.0f && (words.count("uRotation") != 0 || words.count("uSceneRotation") != 0);
+    }
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
     if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);
@@ -680,6 +728,7 @@ int main(int argc, char** argv) {
         }
     }
     theReaderFollowsCallsNotDeclarations();
+    theSceneTermsMatchTheSharedHelpers();
     theCatalogueFollowsTheShaders(root);
     everyShaderStyleReadsTheLookControls(root);
     thePrototypeReaderFindsOnlyPrototypes();

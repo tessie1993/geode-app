@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The live visualizer is fixed at 30 FPS. Do not let Game Mode interventions change its rate or resolution,
+     and do not advertise Battery/Performance modes that would imply app-controlled adaptive quality.
+     kb://android/games/optimize/adpf/gamemode/gamemode-interventions -->
+<game-mode-config
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:allowGameDownscaling="false"
+    android:allowGameFpsOverride="false"
+    android:supportsBatteryGameMode="false"
+    android:supportsPerformanceGameMode="false" />

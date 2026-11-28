@@ -1,10 +1,10 @@
 // Host-side checks for core/stage/SwapPace: how the stage paces its swaps. Built and run by CI ("Native host tests")
 // with the system compiler; no GL.
 //
-// What is pinned: the rate the window is voted (the cap, none for Follow device or a cap that is not a rate), the swap
-// interval Swappy is given for a cap, the frame's length in whole refresh periods with Swappy's own rounding, and the
-// presentation time each frame is drawn for (the pacer's time snapped to whole refresh periods, never two frames on one
-// refresh, two frames ahead where the pacer says none).
+// What is pinned: the fixed 30 FPS window vote and Swappy interval, the frame's length in whole refresh periods with
+// Swappy's own rounding, the seamless-vote/Choreographer fallback, and the presentation time each frame is drawn for
+// (the pacer's time snapped to whole refresh periods, never two frames on one refresh, two frames ahead where the pacer
+// says none). 60/90/120 Hz below are physical-panel timing cases, never selectable render rates.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -28,27 +28,30 @@ constexpr int64_t k60 = 16'666'667;
 constexpr int64_t k90 = 11'111'111;
 constexpr int64_t k120 = 8'333'333;
 
-// Red against: Follow device stated as a rate, a cap that is not a number stated as one, and a stated rate that is not
-// the cap.
-void theVoteIsTheCapOrNothing() {
-    check(frameRateHint(60.0f) == 60.0f && frameRateHint(45.0f) == 45.0f, "a cap is the rate the window is voted");
+// Generic host maths for the vote helper. Production live callers normalize to the one fixed 30 FPS rate; other values
+// here prove the helper's arithmetic, not app FPS options.
+void theVoteHelperStatesTheGivenRateOrNothing() {
+    check(frameRateHint(60.0f) == 60.0f && frameRateHint(45.0f) == 45.0f, "the helper returns a valid stated rate");
+    check(frameRateHint(static_cast<float>(geode::viz::frame::kLiveFpsDefault)) == 30.0f,
+          "the live cap states the fixed 30 FPS seamless vote");
     check(frameRateHint(static_cast<float>(geode::viz::frame::kLiveFpsFollow)) == 0.0f, "Follow device states none");
     check(frameRateHint(0.0f) == 0.0f && frameRateHint(-5.0f) == 0.0f, "no cap, or a negative one, states none");
     check(frameRateHint(NAN) == 0.0f && frameRateHint(INFINITY) == 0.0f, "a cap that is not a number states none");
 }
 
-// Red against: an interval rounded up (a 60 cap would be 59.99), Follow device given an interval (Swappy would pace
-// it), and a cap that is not a rate given one.
-void theSwapIntervalIsOneFrameAtTheCap() {
+// Generic interval maths plus the one production live interval. The non-30 inputs are host-only arithmetic cases.
+void theSwapIntervalIsOneFrameAtTheGivenRate() {
     check(swapIntervalNs(60.0f) == 16'666'666, "60: one frame, rounded down");
-    check(swapIntervalNs(30.0f) == 33'333'333 && swapIntervalNs(120.0f) == 8'333'333, "30 and 120");
-    check(swapIntervalNs(static_cast<float>(geode::viz::frame::kLiveFpsFollow)) == 0, "Follow device: none, so Swappy's pacing is off");
+    check(kLiveSwapIntervalNs == 33'333'333 && swapIntervalNs(30.0f) == kLiveSwapIntervalNs,
+          "the fixed live interval is one 30 FPS frame, rounded down");
+    check(swapIntervalNs(static_cast<float>(geode::viz::frame::kLiveFpsFollow)) == 0,
+          "the retired Follow sentinel states no interval");
     check(swapIntervalNs(0.0f) == 0 && swapIntervalNs(NAN) == 0, "no cap: none");
 }
 
-// Red against: Swappy's margin lost (a 60 interval that is 1 ns short of a period counted as less than one), a frame
-// that spans fewer periods than the interval needs (a 60 cap on a 90 Hz panel shown at 90), and an unknown period
-// guessed.
+// Red against: Swappy's margin lost (an interval 1 ns short of a period counted as less than one), a frame that spans
+// fewer periods than the interval needs, and an unknown period guessed. These are pure interval/period calculations;
+// the fixed-30 production ratios are pinned in theBudgetIsOneDescriptor below.
 void aFrameSpansWholeRefreshPeriods() {
     check(periodsPerFrame(swapIntervalNs(60.0f), k60) == 1, "60 on 60 Hz: one period");
     check(periodsPerFrame(swapIntervalNs(60.0f), 16'666'666) == 1, "60 on a period just under: still one");
@@ -57,7 +60,6 @@ void aFrameSpansWholeRefreshPeriods() {
     check(periodsPerFrame(swapIntervalNs(45.0f), k90) == 2, "45 on 90 Hz: two");
     check(periodsPerFrame(swapIntervalNs(30.0f), k90) == 3, "30 on 90 Hz: three");
     check(periodsPerFrame(swapIntervalNs(40.0f), k120) == 3, "40 on 120 Hz: three");
-    check(periodsPerFrame(swapIntervalNs(120.0f), k60) == 1, "a cap above the display is every refresh");
     check(periodsPerFrame(0, k90) == 1, "no interval: every refresh");
     check(periodsPerFrame(swapIntervalNs(60.0f), 0) == 1, "no period known: one");
     check(frameLengthNs(swapIntervalNs(60.0f), k90) == 2 * k90, "a frame's length is its periods");
@@ -140,7 +142,7 @@ void aNewModeStepsByTheNewFrameLength() {
     PresentClock clock;
     int64_t last = 0;
     for (int n = 0; n < 50; ++n) last = clock.next(base + n * k60, base + n * k60 - 30'000'000, k60, k60);
-    // The user's 60 on a panel that now runs 90 Hz: a frame is two of its periods.
+    // A generic 60 FPS input when the panel period changes to 90 Hz: a host-only timing case, two of its periods.
     const int64_t desired = base + 49 * k60 + 2 * k90;
     const int64_t first = clock.next(desired, desired - 30'000'000, 2 * k90, k90);
     check(std::llabs((first - last) - 2 * k90) < 50'000, "the first frame after the change steps by the new frame length");
@@ -155,10 +157,10 @@ void aNewModeStepsByTheNewFrameLength() {
     check(odd == 0, "and every step after it");
     PresentClock faster;
     for (int n = 0; n < 20; ++n) last = faster.next(base + n * 2 * k60, base + n * 2 * k60 - 30'000'000, 2 * k60, k60);
-    // The cap raised on the same mode: a frame is one period now, not two.
+    // A generic shorter interval on the same mode: a frame is one period now, not two.
     const int64_t d2 = base + 19 * 2 * k60 + k60;
     const int64_t shorter = faster.next(d2, d2 - 30'000'000, k60, k60);
-    check(std::llabs((shorter - last) - k60) < 50'000, "a cap change that shortens the frame steps by one period at once");
+    check(std::llabs((shorter - last) - k60) < 50'000, "an interval change that shortens the frame steps by one period at once");
     // The pacer's base changed (Swappy to the vsync): the time still moves forward, by the new time's own distance.
     PresentClock switched;
     int64_t before = 0;
@@ -167,30 +169,41 @@ void aNewModeStepsByTheNewFrameLength() {
     const int64_t other = switched.next(before - 5 * k60 / 4, before - 5 * k60 / 4 - 30'000'000, k60, k60);
     check(other > before, "a pacer whose clock reads behind never steps the picture back");
 }
-// Red against: a budget worked out twice (the swap interval, the vote and the work target disagreeing), a vote that follows the
-// display mode (the platform's choice) instead of the setting, an interval handed to a stage Swappy does not pace, and a
-// budget before the period is known.
+// Red against: a budget worked out twice (the swap interval, the vote and the work target disagreeing), a vote that follows
+// the physical display mode instead of the fixed 30 FPS render policy, an interval handed to a stage Swappy does not pace,
+// and a budget before the period is known. The 60/90/120 Hz cases are platform timing only.
 void theBudgetIsOneDescriptor() {
-    const FrameBudget at60 = frameBudget(60.0f, k90, true);
-    check(at60.periodNs == k90 && at60.swapNs == swapIntervalNs(60.0f) && at60.budgetNs == 2 * k90 && at60.voteFps == 60.0f,
-          "60 on a 90 Hz mode: its swap interval, two periods, the setting's own vote");
-    const FrameBudget moved = frameBudget(60.0f, k120, true);
-    check(moved.voteFps == at60.voteFps && moved.swapNs == at60.swapNs && moved.budgetNs == 2 * k120, "a new mode moves the budget, never the vote or the interval");
+    const FrameBudget at30On60 = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsDefault), k60, true);
+    check(at30On60.swapNs == kLiveSwapIntervalNs && at30On60.budgetNs == 2 * k60 && at30On60.voteFps == 30.0f,
+          "fixed 30 on a 60 Hz panel: 2:1 whole-refresh pacing and the 30 FPS vote");
+    const FrameBudget at30On90 = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsDefault), k90, true);
+    check(at30On90.swapNs == kLiveSwapIntervalNs && at30On90.budgetNs == 3 * k90 && at30On90.voteFps == 30.0f,
+          "fixed 30 on a 90 Hz panel: 3:1 whole-refresh pacing, never a 90 FPS option");
+    const FrameBudget at30On120 = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsDefault), k120, true);
+    check(at30On120.swapNs == kLiveSwapIntervalNs && at30On120.budgetNs == 4 * k120 && at30On120.voteFps == 30.0f,
+           "fixed 30 on a 120 Hz panel: 4:1 whole-refresh pacing, never a 120 FPS option");
+    const FrameBudget moved = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsDefault), k120, true);
+    check(moved.voteFps == at30On90.voteFps && moved.swapNs == at30On90.swapNs && moved.budgetNs == 4 * k120,
+          "a new panel mode moves the budget, never the fixed vote or interval");
     const FrameBudget follow = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsFollow), k90, true);
-    check(follow.swapNs == 0 && follow.voteFps == 0.0f && follow.budgetNs == k90, "Follow device: no interval, no vote, one period of whatever mode runs");
+    check(follow.swapNs == 0 && follow.voteFps == 0.0f && follow.budgetNs == k90,
+          "the retired Follow sentinel states no interval or vote");
     const FrameBudget vsync = frameBudget(30.0f, k60, false);
-    check(vsync.swapNs == 0 && vsync.budgetNs == k60 && vsync.voteFps == 30.0f, "no Swappy: no interval, one frame per refresh, the vote still the setting's");
-    const FrameBudget unknown = frameBudget(60.0f, 0, true);
-    check(unknown.budgetNs == 0 && unknown.swapNs == swapIntervalNs(60.0f), "no period known: no budget yet, the interval and vote already");
-    check(frameBudget(60.0f, k90, true) == at60 && !(moved == at60), "equal settings on equal modes are equal descriptors");
+    check(vsync.swapNs == 0 && vsync.budgetNs == k60 && vsync.voteFps == 30.0f,
+          "no Swappy: no second interval authority, Choreographer plus the seamless 30 FPS vote");
+    const FrameBudget unknown = frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsDefault), 0, true);
+    check(unknown.budgetNs == 0 && unknown.swapNs == kLiveSwapIntervalNs,
+          "no period known: no budget yet, the fixed interval and vote already");
+    check(frameBudget(static_cast<float>(geode::viz::frame::kLiveFpsDefault), k90, true) == at30On90 && !(moved == at30On90),
+          "equal fixed settings on equal modes are equal descriptors");
 }
 
 }  // namespace
 
 int main() {
     theBudgetIsOneDescriptor();
-    theVoteIsTheCapOrNothing();
-    theSwapIntervalIsOneFrameAtTheCap();
+    theVoteHelperStatesTheGivenRateOrNothing();
+    theSwapIntervalIsOneFrameAtTheGivenRate();
     aFrameSpansWholeRefreshPeriods();
     theClockCountsRefreshPeriodsAndLocksItsPhase();
     aPeriodOffFromNominalNeitherDriftsNorSkips();

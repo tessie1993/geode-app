@@ -24,7 +24,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             window_ = command.target;
             seenSeq_ = std::max(seenSeq_, command.t);
             lifecycle_.windowSet(command.a, command.b);
-            // A new window is a new Surface, and the rate preference lives on the surface.
+            // A new window is a new Surface, and the frame-rate vote lives on the surface.
             if (lifecycle_.vsyncOn()) voteRate(true);
             break;
         case kStageWindowGone:
@@ -47,7 +47,7 @@ void StageCore::apply(const Command& command, int64_t nowMs) {
             break;
         case kStageRedraw: lifecycle_.redrawNeeded(); break;
         case kStageCap:
-            // The setting is a void event: the budget is derived from it here, once, and handed on whole.
+            // The cap is a void event: live callers keep it at 30 FPS, and the budget is derived here once.
             if (command.f == cap_) break;
             cap_ = command.f;
             deriveBudget(budget_.periodNs, swapPaces_);
@@ -115,9 +115,9 @@ void StageCore::drawPaced() {
     }
 }
 
-// The one place the frame budget is worked out: the setting and the display mode in, the descriptor out. A new one is
-// published for the UI, traced, handed to the pacer (the swap interval) and, when the rate it votes changed, to the window.
-// The swap, the vote, the work target and the UI only read it.
+// The one place the frame budget is worked out: the stage cap (fixed at 30 FPS for live rendering) and the platform's
+// display mode in, the descriptor out. A new one is published for the UI, traced, handed to the pacer (the swap interval)
+// and, when the rate it votes changed, to the window. The swap, the vote, the work target and the UI only read it.
 void StageCore::deriveBudget(int64_t periodNs, bool swapPaces) {
     // Swappy's time and the vsync's are different bases of the same clock: the switch re-anchors the count, it never steps back.
     if (swapPaces != swapPaces_) clock_.reanchor();
@@ -151,10 +151,10 @@ void StageCore::close() {
     window_ = nullptr;
 }
 
-// The window is asked for the user's rate while the stage draws (one vote, restated only for a new surface, size or rate), and
-// the vote is cleared when the stage stops while the surface stays visible: a surface that is not being drawn must not hold
-// the display at a rate (kb://android/media/optimize/performance/frame-rate). The pacer keeps the rate whether or not the
-// display follows it.
+// The window is asked for the stage's rate while it draws (fixed at 30 FPS for live rendering; one vote, restated only for
+// a new surface, size or rate), and the vote is cleared when the stage stops while the surface stays visible: a surface that
+// is not being drawn must not hold the display at a rate (kb://android/media/optimize/performance/frame-rate). The pacer
+// keeps the rate whether or not the display follows it.
 void StageCore::voteRate(bool on) {
     if (window_) port_.setFrameRate(window_, on ? budget_.voteFps : 0.0f);
 }

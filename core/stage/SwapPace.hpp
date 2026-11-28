@@ -4,21 +4,24 @@
 
 #include "viz/frame/LiveFps.hpp"
 
-// How the stage paces its swaps, as pure rules, so the host can test them (core/tests/swap_pace_test.cpp). The swap
-// itself is Android Frame Pacing's (Swappy, core/stage/android/SwappyHost), as the docs recommend over Choreographer
-// alone (developer.android.com/games/sdk/frame-pacing); where Swappy cannot pace a stage, plain eglSwapBuffers.
+// How the stage paces its swaps, as pure rules, so the host can test them (core/tests/swap_pace_test.cpp). The live
+// stage's cap is fixed at 30 FPS (viz/frame/LiveFps). The swap itself is Android Frame Pacing's (Swappy,
+// core/stage/android/SwappyHost), as the docs recommend over Choreographer alone
+// (developer.android.com/games/sdk/frame-pacing); where Swappy cannot pace a stage, plain eglSwapBuffers.
 namespace geode::stage {
 
-// The rate the window is asked for (ANativeWindow_setFrameRate): the cap; 0 (no preference) for Follow device or no
-// cap. Follow device states no rate: the system keeps choosing the panel's mode. A rate that is not a number is none.
+// The rate the window is asked for (ANativeWindow_setFrameRate): the cap. Live callers normalize their legacy stored
+// value to 30 FPS before this rule; 0 states no preference. A rate that is not a number is none.
 inline float frameRateHint(float capFps) {
     if (viz::frame::isLiveFpsFollow(capFps)) return 0.0f;
     return std::isfinite(capFps) && capFps > 0.0f ? capFps : 0.0f;
 }
 
-// The swap interval Swappy is given for a cap (SwappyGL_setSwapIntervalNS): one frame at the cap, rounded down so
-// a cap the display shows evenly is a whole number of its refresh periods. 0 for no cap (Follow device): pacing off,
-// every vsync of whatever rate the system runs.
+// The one fixed live swap interval, rounded down: 33,333,333 ns (30 FPS). Swappy sets this before every new window.
+inline constexpr int64_t kLiveSwapIntervalNs = 1'000'000'000 / viz::frame::kLiveFpsDefault;
+
+// The swap interval for a cap (SwappyGL_setSwapIntervalNS): one frame at the cap, rounded down. The generic rule
+// stays pure for host tests; the live stage always hands it kLiveFpsDefault. 0 means no interval.
 inline int64_t swapIntervalNs(float capFps) {
     const float rate = frameRateHint(capFps);
     return rate > 0.0f ? static_cast<int64_t>(1.0e9 / static_cast<double>(rate)) : 0;
@@ -47,18 +50,18 @@ inline int64_t frameLengthNs(int64_t swapNs, int64_t periodNs) {
 struct FrameBudget {
     // The refresh period of the display mode running, ns; 0 until the platform has said.
     int64_t periodNs = 0;
-    // The swap interval Swappy is given (0: its pacing is off, Follow device or a stage Swappy does not pace).
+    // The swap interval for this budget (0 while Swappy is unavailable, so the fallback waits on Choreographer).
     int64_t swapNs = 0;
     // One frame's length: whole refresh periods of the swap interval; 0 while the period is not known.
     int64_t budgetNs = 0;
-    // The rate the window is voted: the setting's own, 0 for Follow device. It never follows what the platform does.
+    // The seamless window vote: 30 FPS for live rendering, 0 for no vote. It never follows an automatic reduction.
     float voteFps = 0.0f;
 
     bool operator==(const FrameBudget&) const = default;
 };
 
-// `swapPaces`: Swappy holds each frame to its slot. Without it the vsync paces one frame per refresh, so no swap interval is
-// handed on and the budget is one period.
+// `swapPaces`: Swappy holds each frame to its fixed 30 FPS slot. Without it the existing one-shot Choreographer path
+// paces one frame per refresh under the window's seamless-only 30 FPS vote; no second sleep/timer authority is added.
 inline FrameBudget frameBudget(float capFps, int64_t periodNs, bool swapPaces) {
     FrameBudget b;
     b.periodNs = periodNs > 0 ? periodNs : 0;

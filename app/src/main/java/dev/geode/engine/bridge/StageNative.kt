@@ -33,7 +33,10 @@ object StageNative {
     /** Quits the stage; its thread frees the renderer. Waits at most 200 ms. */
     external fun stageDestroy(stage: Long)
 
-    /** The `android.view.Surface` from surfaceCreated, or null from surfaceDestroyed; returns at once, the stage applies it between frames. */
+    /**
+     * Compatibility JNI surface binding. Production `ANativeWindow` lifecycle belongs to the direct GameActivity
+     * callback host; this entry point remains for older callers and returns without waiting for StageThread.
+     */
     external fun stageSetWindow(
         stage: Long,
         surface: Any?,
@@ -65,6 +68,7 @@ object StageNative {
         capFps: Float,
     )
 
+    /** Compatibility ABI: [storedFps] and [refreshRates] are ignored; the live stage normalizes to fixed 30 FPS. */
     external fun stageSetLiveFps(
         stage: Long,
         storedFps: Int,
@@ -74,13 +78,16 @@ object StageNative {
     /** The STAGE_STATE_* bits. */
     external fun stageState(stage: Long): Int
 
-    /** The stage's frame budget in ns for the rate setting on the display mode now running; 0 until the pacer has said. */
+    /** The fixed-30 live frame budget in ns on the display mode now running; 0 until the pacer has said. */
     external fun stageFrameBudgetNs(stage: Long): Long
 
-    /** Android Frame Pacing is made from the Activity: [activity] is the `MainActivity` from `onCreate`. */
+    /**
+     * Legacy Kotlin Swappy attachment. The target direct GameActivity host owns attach/detach from
+     * `GameActivity_onCreate` / `onDestroy`; this ABI remains for compatibility during migration.
+     */
     external fun pacingAttach(activity: Any)
 
-    /** Lets Android Frame Pacing go with the Activity from `onDestroy`. */
+    /** Legacy counterpart to [pacingAttach]; the direct GameActivity host is the production owner. */
     external fun pacingDetach(activity: Any)
 
     /** A new descriptor, readable while frame events wait and until [stageTakeEvents]; the caller owns it. -1: none. */

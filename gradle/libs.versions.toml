@@ -6,6 +6,7 @@ hilt = "2.60.1"
 media3 = "1.11.1"
 composeBom = "2026.09.00"
 activityCompose = "1.13.0"
+appCompat = "1.8.0"
 lifecycle = "2.11.0"
 coroutines = "1.11.0"
 material3Adaptive = "1.3.0"
@@ -33,6 +34,8 @@ billing = "9.1.0"
 # Oboe (github.com/google/oboe), the playback output's native stream. A Prefab AAR on Google Maven;
 # 1.11.0 (2026-09-15) is the latest, and 16 KB page aligned (every release from 1.9.3 on is).
 oboe = "1.11.0"
+# GameActivity's native host bridge: a Prefab AAR on Google Maven, linked statically into libgeode.so.
+gamesActivity = "4.4.2"
 # Android Frame Pacing (Swappy, AGDK), the live stage's swap: a Prefab AAR on Google Maven. 2.1.3 is the latest
 # stable (2.3.0 is alpha); its static module is built against c++_shared, as this project is.
 gamesFramePacing = "2.1.3"
@@ -43,6 +46,7 @@ tracing = "2.0.5"
 metrics-performance = { module = "androidx.metrics:metrics-performance", version.ref = "metricsPerformance" }
 tracing = { module = "androidx.tracing:tracing", version.ref = "tracing" }
 oboe = { module = "com.google.oboe:oboe", version.ref = "oboe" }
+games-activity = { module = "androidx.games:games-activity", version.ref = "gamesActivity" }
 games-frame-pacing = { module = "androidx.games:games-frame-pacing", version.ref = "gamesFramePacing" }
 billing = { module = "com.android.billingclient:billing", version.ref = "billing" }
 # Installs the bundled baseline profile on sideloaded and pre-cloud-profile installs.
@@ -66,6 +70,7 @@ compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview"
 compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appCompat" }
 glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
 lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }

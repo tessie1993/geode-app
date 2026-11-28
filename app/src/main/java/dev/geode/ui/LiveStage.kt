@@ -48,5 +48,5 @@ private class Owned<T : Any>(
     override fun onUnused() = close(value)
 }
 
-// Until Settings › Performance's cap lands (VisualizerEngineBindings).
-private const val LIVE_CAP_FPS = 60f
+// Fixed before the first surface is attached; Settings › Performance can no longer change or reduce it.
+private const val LIVE_CAP_FPS = 30f

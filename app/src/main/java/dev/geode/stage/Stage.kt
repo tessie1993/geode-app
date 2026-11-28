@@ -36,6 +36,11 @@ class Stage(
 ) {
     private val appContext = context.applicationContext
 
+    // A view is always fixed at 30 FPS, from creation and on every later cap call. Other stage kinds retain their
+    // own cap; offline exports do not use StageThread and keep their separate 24–60 FPS ladder.
+    private val initialCapFps =
+        if (kind == StageNative.STAGE_KIND_VIEW) PerformanceSettings.LIVE_FPS.toFloat() else capFps
+
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets = appContext.assets
     private val main = Handler(Looper.getMainLooper())
@@ -48,7 +53,7 @@ class Stage(
                 assets,
                 appContext.cacheDir.absolutePath,
                 kind,
-                capFps,
+                initialCapFps,
             ),
         )
 
@@ -64,7 +69,7 @@ class Stage(
             pushLook(value)
         }
 
-    /** Settings › Performance's quality. The fps cap is [capFps]. */
+    /** Settings › Performance's quality. A view's fps cap is fixed at [PerformanceSettings.LIVE_FPS]. */
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
         set(value) {
@@ -73,14 +78,16 @@ class Stage(
             StageNative.stageSetQuality(handle, value.marchScale, value.postFx)
         }
 
-    /** The surface's own fps cap; 0 or less is none. */
+    /** The surface's own fps cap; a view is fixed at 30 FPS, while another kind may state its own or none. */
     @Volatile
-    var capFps: Float = capFps
+    var capFps: Float = initialCapFps
         set(value) {
-            field = value
-            StageNative.stageSetCap(handle, value)
+            val fixed = if (kind == StageNative.STAGE_KIND_VIEW) PerformanceSettings.LIVE_FPS.toFloat() else value
+            field = fixed
+            StageNative.stageSetCap(handle, fixed)
         }
 
+    /** Compatibility entry point: native normalizes every legacy stored rate to the fixed live 30 FPS. */
     fun setLiveFps(
         storedFps: Int,
         refreshRates: FloatArray,

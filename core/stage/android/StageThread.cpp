@@ -270,8 +270,7 @@ void StageThread::destroyContext() { egl_.destroyContext(); }
 Outcome StageThread::swap() {
     bool revote = false;
     SwappyHost& swappy = SwappyHost::process();
-    const SwappyHost::Swap result =
-        swappy.swap(this, egl_.window(), budget_.swapNs, egl_.display(), egl_.surface(), revote);
+    const SwappyHost::Swap result = swappy.swap(this, egl_.window(), egl_.display(), egl_.surface(), revote);
     if (result == SwappyHost::Swap::Fallback) {
         lastGpuNs_ = 0;
         return outcomeOf(egl_.swap());
@@ -288,9 +287,9 @@ void StageThread::releaseWindow(void* window) {
     ANativeWindow_release(static_cast<ANativeWindow*>(window));
 }
 
-// The surface's one vote, the user's rate (developer.android.com/media/optimize/performance/frame-rate): default
-// compatibility (not video), and only a seamless switch, since a panel that blanks for a moment mid-track is worse than
-// the rate. The vote is the setting's and stays so whatever the platform does with it.
+// The surface's one vote, the fixed live 30 FPS rate (developer.android.com/media/optimize/performance/frame-rate):
+// default compatibility (not video), and only a seamless switch, since a panel that blanks for a moment mid-track is
+// worse than the rate. The vote stays 30 FPS whatever the platform does with it; Swappy remains the swap authority.
 void StageThread::setFrameRate(void* window, float fps) {
     voteWindow_ = window;
     voteFps_ = fps;

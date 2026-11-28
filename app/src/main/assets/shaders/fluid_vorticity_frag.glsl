@@ -38,7 +38,9 @@ void main() {
     // 0..50 curl range exactly.
     vec2 force = uCurlStrength * uDx * C * vec2(n.x, -n.y);
     vec2 v = texture(uVelocity, vUv).xy + force * uDt;
-    float heat = clamp(texture(uTemperature, vUv).x, 0.0, uMaxHeat);
-    v.y += uBuoyancy * heat * uDt;
+    if (uBuoyancy != 0.0) {
+        float heat = clamp(texture(uTemperature, vUv).x, 0.0, uMaxHeat);
+        v.y += uBuoyancy * heat * uDt;
+    }
     fragColor = vec4(clamp(v, vec2(-1000.0), vec2(1000.0)), 0.0, 1.0);
 }

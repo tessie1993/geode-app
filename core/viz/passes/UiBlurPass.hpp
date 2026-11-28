@@ -1,6 +1,7 @@
 #pragma once
 #include <GLES3/gl3.h>
 
+#include <array>
 #include <string>
 
 #include "viz/gl/Framebuffer.hpp"
@@ -22,6 +23,13 @@ struct UiBlurRegion {
     float cornerPx = 0.0f;
 
     bool active() const { return strength > 0.0f && right > left && bottom > top; }
+};
+
+// The mask shader's frame-dependent terms, in window pixels with GL y-up.
+struct UiBlurMaskTerms {
+    std::array<float, 2> center{};
+    std::array<float, 2> halfSize{};
+    float cornerRadius = 0.0f;
 };
 
 // The UI blur: frosted glass for the Compose sheet that floats over the visual.

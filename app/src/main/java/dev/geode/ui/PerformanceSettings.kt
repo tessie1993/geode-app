@@ -1,24 +1,14 @@
 package dev.geode.ui
 
-import android.hardware.display.DisplayManager
-import android.os.Handler
-import android.os.Looper
-import android.view.View
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -101,24 +91,6 @@ private fun PerformanceDetailControls(
     onChange: (PerformanceSettings) -> Unit,
 ) {
     ResolutionControls(settings, resolution, onChange)
-    val refreshRates = rememberDisplayRefreshRates()
-    val fpsCaps = remember(refreshRates) { liveFpsCaps(refreshRates) }
-    Column {
-        Choice(
-            stringResource(R.string.perf_fps_cap),
-            fpsCaps.map {
-                if (it == PerfNative.LIVE_FPS_FOLLOW) {
-                    stringResource(R.string.perf_fps_follow)
-                } else {
-                    stringResource(R.string.perf_fps_value, it)
-                }
-            },
-            // The stored pick as this display runs it (a 120 picked on a foldable's inner screen reads 60 outside).
-            fpsCaps.indexOf(PerfNative.liveFpsCap(settings.fpsCap, refreshRates)),
-        ) { onChange(settings.copy(fpsCap = fpsCaps[it])) }
-        Spacer(Modifier.height(6.dp))
-        Hint(stringResource(R.string.perf_fps_cap_hint))
-    }
     Choice(
         stringResource(R.string.perf_march),
         listOf(
@@ -173,59 +145,6 @@ private fun ResolutionControls(
     }
 }
 
-/**
- * The refresh rates of the display under [view] at its current resolution (`Display.getSupportedModes`), ascending:
- * the same set from every mode, so the app's own mode switch never changes it. Empty before the view has a display.
- * Only a read: which rates they offer, how a stored rate snaps to them and which mode a rate asks for are native
- * (`core/viz/frame/LiveFps`).
- */
-internal fun displayRefreshRates(view: View): FloatArray {
-    val display = view.display ?: return FloatArray(0)
-    val current = display.mode
-    return display.supportedModes
-        .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
-        .map { it.refreshRate }
-        .distinct()
-        .sorted()
-        .toFloatArray()
-}
-
-/**
- * [displayRefreshRates] of this window's display: read at start, again when the configuration changes (a fold, a
- * move), and whenever the display says its modes changed (`DisplayManager.DisplayListener`).
- */
-@Composable
-internal fun rememberDisplayRefreshRates(): FloatArray {
-    val view = LocalView.current
-    val configuration = LocalConfiguration.current
-    var rates by remember(view, configuration) { mutableStateOf(displayRefreshRates(view)) }
-    DisposableEffect(view, configuration) {
-        val displays = view.context.getSystemService(DisplayManager::class.java)
-        val listener =
-            object : DisplayManager.DisplayListener {
-                override fun onDisplayAdded(displayId: Int) = Unit
-
-                override fun onDisplayRemoved(displayId: Int) = Unit
-
-                override fun onDisplayChanged(displayId: Int) {
-                    if (displayId != view.display?.displayId) return
-                    val now = displayRefreshRates(view)
-                    if (!now.contentEquals(rates)) rates = now
-                }
-            }
-        displays?.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
-        onDispose { displays?.unregisterDisplayListener(listener) }
-    }
-    return rates
-}
-
-/** The live caps Settings › Performance offers on a display with [refreshRates], ascending, then Follow device (native). */
-private fun liveFpsCaps(refreshRates: FloatArray): List<Int> {
-    val out = IntArray(PerfNative.LIVE_FPS_MAX_CHOICES)
-    val count = PerfNative.liveFpsChoices(refreshRates, out)
-    return out.take(count.coerceIn(0, out.size))
-}
-
 @Composable
 private fun Choice(
     label: String,
@@ -257,6 +176,6 @@ internal fun PerformanceSettingsPreview() {
 @Composable
 internal fun PerformanceSettingsCustomPreview() {
     CrystalMaterialTheme(GeneralSettings()) {
-        PerformanceSettingsContent(PerformanceSettings.SAVER.copy(fpsCap = 60), onChange = {})
+        PerformanceSettingsContent(PerformanceSettings.SAVER.copy(marchScale = 1.0f), onChange = {})
     }
 }

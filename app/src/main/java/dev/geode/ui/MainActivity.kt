@@ -15,10 +15,10 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Rational
+import android.view.FrameLayout
+import android.view.ViewGroup
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.OptIn
@@ -29,22 +29,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.ViewCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.PlaybackPendingIntentBuilder
 import androidx.metrics.performance.JankStats
+import com.google.androidgamesdk.GameActivity
 import dagger.hilt.android.AndroidEntryPoint
 import dev.geode.R
 import dev.geode.cast.CastController
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.bridge.StageNative
 import dev.geode.model.PresetLink
 import dev.geode.model.ScreenRotation
 import dev.geode.playback.PlaybackService
 import dev.geode.pro.PaywallPrompts
+import dev.geode.stage.StageSurfaceController
 import dev.geode.ui.theme.isTelevision
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -66,6 +72,10 @@ internal object VisualizerPipCoordinator {
     var visualizerShowing by mutableStateOf(false)
 
     var inPictureInPicture by mutableStateOf(false)
+        internal set
+
+    /** Android 15+ starts the PiP animation before the final mode callback; hide chrome immediately. */
+    var transitioningToPip by mutableStateOf(false)
         internal set
 
     /**
@@ -229,7 +239,16 @@ internal tailrec fun Context.findMainActivity(): MainActivity? =
 
 @OptIn(UnstableApi::class)
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : GameActivity() {
+    companion object {
+        init {
+            // GameActivity reaches native initialization before AppCompat/Hilt onCreate completes.
+            GeodeNative.ensureLoaded()
+        }
+    }
+
+    private var stageSurface: StageSurfaceController? = null
+
     private val settingsViewModel: SettingsViewModel by viewModels()
 
     private val visualsViewModel: VisualsViewModel by viewModels()

@@ -1,7 +1,8 @@
 name: Merge release
 
-# Every merge to main is verified on its exact commit, then builds a versioned debug APK,
-# reserves the next pre-release number, and publishes the APK plus its checksum as a GitHub pre-release.
+# Every merge to main is verified on its exact commit, including the minified/R8/native packaging
+# gates, then builds a versioned debug APK, reserves the next pre-release number, and publishes
+# the APK plus its checksum as a GitHub pre-release.
 
 on:
   push:
@@ -17,8 +18,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The same gate every pull request runs, on the merge commit itself. Main is not protected,
-  # so a direct push must not be able to publish a red build.
+  # The same gate every pull request runs, including sideload/R8/native packaging, on the merge
+  # commit itself. Main is not protected, so a direct push must not publish a red build.
   checks:
     name: Build and lint
     uses: ./.github/workflows/build-lint.yml

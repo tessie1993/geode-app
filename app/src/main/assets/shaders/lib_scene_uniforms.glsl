@@ -9,10 +9,10 @@
 // second behaviour under the same slider. New styles include this instead, so
 // there is one view() to reason about and one place a fix has to land.
 //
-// The 22 existing styles are deliberately NOT converted. Rewriting a shader
-// that is on screen today to prove a refactor is how a working style acquires
-// a diff nobody can review; they carry their own copy until something else
-// gives a reason to touch them.
+// Frame-invariant view setup is packed by SceneViewTerms on the CPU. The
+// legacy uniforms remain declared for style-specific reads and user shader
+// overrides; view() itself reads only the packed terms and pixel-dependent
+// inputs.
 //
 // A style includes this, then lib_palette, then lib_scene_grade - grade()
 // calls pal(), so the palette has to be declared between them.
@@ -31,6 +31,10 @@ precision highp sampler2D;
 
 uniform float uTime;
 uniform vec2 uResolution;
+// Frame-invariant view() terms from core/viz/styles/shader/SceneTerms.hpp.
+uniform vec4 uSceneView;        // aspect, pixelate scale, kaleidoscope segment, morph fade
+uniform vec4 uSceneRotation;    // mat2(cos, -sin, sin, cos), column-major constructor payload
+uniform vec4 uSceneViewMotion;  // bounded drift x/y, twist exponent, warp amplitude
 uniform float uZoom;
 uniform float uRotation;
 uniform float uColorShift;
@@ -164,20 +168,19 @@ uniform float uSteps;
 
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
+    uv.x *= uSceneView.x;
+    if (uSceneView.y > 0.0) {
+        uv = floor(uv * uSceneView.y) / uSceneView.y;
     }
     if (uMirrorX > 0.5) uv.x = abs(uv.x);
     // VIEW_BENDS_IN_3D: a present that bends its 3D shape by the Kaleidoscope, Twist, Tile and Ripple
     // (lib_field3d) defines it before including this file, so the screen is not bent a second time.
 #ifndef VIEW_BENDS_IN_3D
     // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
+    if (uSceneView.z > 0.0) {
         float rad = length(uv);
         float ang = rad > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
-        float seg = 6.2831853 / uSymmetry;
+        float seg = uSceneView.z;
         ang = abs(mod(ang, seg) - seg * 0.5);
         uv = vec2(cos(ang), sin(ang)) * rad;
     }
@@ -193,18 +196,17 @@ vec2 view() {
     // -pi along the negative x axis, so a raw ma / pi tore every morphing
     // frame from the left edge to the centre, and MotionField keeps morph
     // above zero for most music.
-    if (uMorph > 0.001) {
+    if (uSceneView.w > 0.0) {
         float mr = length(uv);
         float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
         vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
         // Faded to nothing at the centre: atan has no angle at r = 0, so every
         // angle met at one point and the centre of the frame drew as a pinched
         // vortex whenever morph was up (MotionField holds it near 0.7).
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
+        uv = mix(uv, polar, uSceneView.w * smoothstep(0.0, 0.6, mr));
     }
 #endif
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
+    uv = mat2(uSceneRotation.xy, uSceneRotation.zw) * uv;
     // Drift and shake move the picture after the spin and the morph. Added
     // before them, the rotation pivoted on -drift and the morph's pinch rode
     // the drift, so the whole frame spun around a wandering off-centre point.
@@ -218,8 +220,7 @@ vec2 view() {
     // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
     // sun, the ring, the spiral - always comes back instead of leaving frame
     // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
+    uv += uSceneViewMotion.xy;
     float z = uZoom;
     uv /= max(z, 0.05);
 #ifndef VIEW_OWNS_SHAPE
@@ -230,7 +231,7 @@ vec2 view() {
     if (abs(uTwist) > 0.001) {
         vec2 tc = uv - uTwistCentre;
         float tl = length(tc);
-        if (uTwistBend != 0.0) tl = pow(max(tl, 1e-5), 1.0 + uTwistBend);
+        if (uTwistBend != 0.0) tl = pow(max(tl, 1e-5), uSceneViewMotion.z);
         float tr = tl * uTwist * 2.0;
         uv = uTwistCentre + mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * tc;
     }
@@ -244,8 +245,7 @@ vec2 view() {
 #ifndef VIEW_OWNS_SHAPE
     // Domain warp: swirl coordinates by a sin/cos field.
     if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
+        uv += uSceneViewMotion.w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
     }
 #endif
 #ifndef VIEW_BENDS_IN_3D

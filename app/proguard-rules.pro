@@ -8,7 +8,7 @@
 # ---------------------------------------------------------------------------
 # JNI bridge to libgeode.so
 # ---------------------------------------------------------------------------
-# The geode_*jni.cpp files use static symbol registration
+# The geode_*jni.cpp files use name-based JNI symbol discovery
 # (Java_dev_geode_engine_bridge_<X>Native_*), so both the class name and the
 # method names have to survive minification exactly.
 -keepclasseswithmembernames,includedescriptorclasses class dev.geode.engine.bridge.*Native {

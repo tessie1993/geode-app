@@ -10,10 +10,10 @@
 // (developer.android.com/games/sdk/frame-pacing/opengl/add-functions).
 //
 // Swappy is process-wide, paces one window, and is made from an Activity: SwappyGL_init reads the display's timings
-// through Activity.getWindowManager. So it lives with MainActivity (attach on create, detach on destroy) and paces the
-// app's live stage. A stage that cannot have it (a second stage while the first one holds it; a device where Swappy is
-// disabled or fails to initialise, which the docs allow for) is paced by Choreographer instead, one frame per vsync,
-// under the window's frame-rate vote (StageThread): the docs' alternative when SwappyGL_isEnabled is false.
+// through Activity.getWindowManager. The direct GameActivity host owns attach/detach for GeodeGameActivity and paces the
+// app's live stage at fixed 30 FPS. Auto swap interval and auto pipeline mode are disabled. A stage that cannot have it
+// (a second stage while the first one holds it; a device where Swappy is disabled or fails to initialise, which the docs
+// allow for) keeps the seamless-only 30 FPS window vote and the existing one-shot Choreographer fallback (StageThread).
 //
 // Every Swappy call is made under one lock, so an Activity that goes while a stage swaps waits for that swap (at most
 // one frame) before Swappy is destroyed, and no stage swaps through a Swappy being remade.
@@ -44,10 +44,9 @@ public:
     void detach(JNIEnv* env, jobject activity);
 
     // Stage thread. `owner` swaps through Swappy when Swappy is made and enabled and no other stage holds it; it then
-    // holds it until release. Swappy is given the owner's window and the swap interval for its cap first, when they
-    // changed (0: no cap, Follow device, Swappy's pacing off). `revote` is set when Swappy may have voted a frame rate
-    // of its own in this swap (a new window, interval or pacing switch), so the owner states its own vote again.
-    Swap swap(const void* owner, ANativeWindow* window, int64_t swapNs, EGLDisplay display, EGLSurface surface, bool& revote);
+    // holds it until release. Before every new window Swappy is given the fixed 30 FPS interval and frame pacing is
+    // enabled. `revote` is set on that new window so the owner's seamless 30 FPS vote follows Swappy's own vote.
+    Swap swap(const void* owner, ANativeWindow* window, EGLDisplay display, EGLSurface surface, bool& revote);
     // The owner lets go (its pacing stopped, its window went, it ends): Swappy forgets the window. Nothing when it
     // does not hold Swappy.
     void release(const void* owner);
@@ -76,8 +75,6 @@ private:
     bool made_ = false;                // SwappyGL_init succeeded and Swappy is enabled
     const void* owner_ = nullptr;
     ANativeWindow* window_ = nullptr;  // the window Swappy was given last (it holds its own reference)
-    int64_t swapNs_ = -1;              // the interval Swappy was given last, -1 none
-    bool pacing_ = true;               // whether Swappy's pacing is on (its default)
     // Tracer data, written inside SwappyGL_swap on the owner's thread (lock_ held), read by it after.
     SwappyTimes times_;
     int64_t waitStartNs_ = 0;

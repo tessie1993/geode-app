@@ -1,5 +1,5 @@
-// Host-side checks for core/viz/frame/Quality (#437): Settings › Performance's tiers, its render resolutions in
-// real pixels, the window buffer they size and the first-run pick for this phone. Built and run by CI ("Native
+// Host-side checks for core/viz/frame/Quality (#437): Settings › Performance's fixed-30 tiers, render resolutions
+// in real pixels, the window buffer they size and the first-run pick for this phone. Built and run by CI ("Native
 // host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL. The C ABI too.
 #include <algorithm>
 #include <cstdio>
@@ -31,9 +31,8 @@ constexpr int k1080[] = {1080, 2400};
 constexpr int k1440[] = {1440, 3200};
 constexpr int k1200Tablet[] = {1200, 1920};
 
-// The fps caps every display is offered (core/viz/frame/LiveFps: 90 and 120 only on fast panels). Every tier
-// value must be a choice the tab offers, so picking a tier never shows a value the tab can't.
-constexpr float kCaps[] = {30.0f, 60.0f};
+// Every tier retains the ABI fps slot, but the one fixed live rate is the only value it may contain.
+constexpr float kCaps[] = {static_cast<float>(kLiveFpsDefault)};
 
 bool offered(const float* first, const float* last, float v) { return std::find(first, last, v) != last; }
 
@@ -44,10 +43,10 @@ void tiers() {
     const QualityTier& balanced = qualityTier(QualityMode::Balanced);
     const QualityTier& high = qualityTier(QualityMode::High);
     check(saver.resolution == 540 && saver.fpsCap == 30.0f && saver.marchScale == 0.5f && !saver.postFx, "Saver");
-    check(balanced.resolution == 900 && balanced.fpsCap == 60.0f && balanced.marchScale == 0.75f && balanced.postFx, "Balanced");
-    check(high.resolution == kNativeResolution && high.fpsCap == 60.0f && high.marchScale == 1.0f && high.postFx, "High");
+    check(balanced.resolution == 900 && balanced.fpsCap == 30.0f && balanced.marchScale == 0.75f && balanced.postFx, "Balanced");
+    check(high.resolution == kNativeResolution && high.fpsCap == 30.0f && high.marchScale == 1.0f && high.postFx, "High");
     for (const QualityTier& t : kQualityTiers) {
-        check(offered(std::begin(kCaps), std::end(kCaps), t.fpsCap), "fps cap is a choice the tab offers");
+        check(offered(std::begin(kCaps), std::end(kCaps), t.fpsCap), "every tier keeps the fixed 30 FPS ABI slot");
         check(offered(kScaleChoices.data(), kScaleChoices.data() + kScaleChoices.size(), t.marchScale),
               "march scale is a choice the tab offers");
         // A tier's resolution, as drawn, is one of the choices on every panel.
@@ -64,7 +63,7 @@ void tiers() {
                   drawnShortSide(balanced.resolution, panel[0]) <= drawnShortSide(high.resolution, panel[0]),
               "Saver draws no more pixels than Balanced, Balanced no more than High");
     }
-    check(saver.fpsCap < high.fpsCap && saver.marchScale < high.marchScale, "Saver is cheaper than High");
+    check(saver.marchScale < high.marchScale && !saver.postFx && high.postFx, "Saver spends less shader work than High");
 }
 
 void resolutionList() {
@@ -131,16 +130,19 @@ void devicePick() {
     check(modeForDevice(12 * gb, false, 0, 1440, 3200) == QualityMode::Balanced, "no class on 1440p: Balanced");
 }
 
-// The tab's "Custom": a preset only while every compared value is the tier's, resolutions as drawn.
+// The tab's "Custom": resolution and shader work still have to match the tier. The retired fps argument does
+// not: a legacy 60/120/Follow value all run at the same fixed 30 FPS and must not make a preset read Custom.
 void presetMatch() {
     check(modeOf(540, 30, 0.5f, false, 1080) == 0, "Saver's values are Saver");
-    check(modeOf(900, 60, 0.75f, true, 1080) == 1, "Balanced's values are Balanced");
-    check(modeOf(kNativeResolution, 60, 1.0f, true, 1440) == 2, "High's values are High");
+    check(modeOf(900, 30, 0.75f, true, 1080) == 1, "Balanced's values are Balanced");
+    check(modeOf(kNativeResolution, 30, 1.0f, true, 1440) == 2, "High's values are High");
     check(modeOf(kNativeResolution, 60, 0.75f, true, 720) == 1, "Balanced on a 720p panel draws Native: still Balanced");
-    check(modeOf(kNativeResolution, 30, 1.0f, true, 1080) == -1, "High at 30 fps is Custom");
-    check(modeOf(kNativeResolution, GEODE_LIVE_FPS_FOLLOW, 1.0f, true, 1080) == -1, "Follow device is no tier's cap");
-    check(modeOf(720, 60, 0.75f, true, 1080) == -1, "Balanced at 720 is Custom");
-    check(modeOf(900, 60, 0.75f, false, 1080) == -1, "Balanced without post FX is Custom");
+    check(modeOf(kNativeResolution, 60, 1.0f, true, 1080) == 2, "a legacy 60 FPS value is still High at fixed 30");
+    check(modeOf(kNativeResolution, 120, 1.0f, true, 1080) == 2, "a legacy 120 FPS value is still High at fixed 30");
+    check(modeOf(kNativeResolution, GEODE_LIVE_FPS_FOLLOW, 1.0f, true, 1080) == 2,
+          "legacy Follow device is still High at fixed 30");
+    check(modeOf(720, 30, 0.75f, true, 1080) == -1, "Balanced at 720 is Custom");
+    check(modeOf(900, 30, 0.75f, false, 1080) == -1, "Balanced without post FX is Custom");
 }
 
 // An old install's perf_render_scale, mapped once to the nearest resolution; never to a lower one on a tie.
@@ -184,17 +186,20 @@ void resolutionState() {
     check(s.descriptor()[kFieldBufferWidth] == 1000 && s.descriptor()[kFieldBufferHeight] == 450, "a new view, a new buffer");
     check(s.descriptor()[kFieldDrawnWidth] == 900, "the full-screen size does not follow the view");
 
-    s.setSettings({900, 30, 0.75f, true});
-    check(s.descriptor()[kFieldPreset] == -1 && s.descriptor()[kFieldSelected] == 2, "a changed fps cap reads Custom");
+    s.setSettings({900, 60, 0.75f, true});
+    check(s.descriptor()[kFieldPreset] == 1 && s.descriptor()[kFieldSelected] == 2, "a legacy fps cap does not read Custom");
 
-    s.setSettings({kNativeResolution, 60, 1.0f, true});
+    s.setSettings({900, 30, 0.5f, true});
+    check(s.descriptor()[kFieldPreset] == -1 && s.descriptor()[kFieldSelected] == 2, "changed shader work reads Custom");
+
+    s.setSettings({kNativeResolution, 30, 1.0f, true});
     check(s.descriptor()[kFieldPreset] == 2 && s.descriptor()[kFieldSelected] == 3, "Native is the last step, and High");
     check(s.descriptor()[kFieldBufferWidth] == 1200, "Native fills the view");
 
     s.setPanel({720, 1600, 720, 1600});
     check(s.descriptor()[kFieldStepCount] == 2 && s.descriptor()[kFieldSteps] == 540 && s.descriptor()[kFieldSteps + 1] == 0,
           "a 720p panel offers 540 and Native");
-    s.setSettings({900, 60, 0.75f, true});
+    s.setSettings({900, 30, 0.75f, true});
     check(s.descriptor()[kFieldSelected] == 1 && s.descriptor()[kFieldPreset] == 1,
           "900 on a 720p panel draws Native: the Native step, still Balanced");
 
@@ -221,6 +226,11 @@ void resolutionStateThroughTheAbi() {
           "the buffer and the drawn size through the ABI");
 }
 void throughTheAbi() {
+    int normalized[GEODE_PERF_DESCRIPTOR_INTS] = {};
+    geode_perf_settings_set(900, 60, 0.75f, 1);
+    check(geode_perf_resolution_read(normalized, GEODE_PERF_DESCRIPTOR_INTS) == GEODE_PERF_DESCRIPTOR_INTS &&
+              normalized[GEODE_PERF_FIELD_RESOLUTION] == 900 && normalized[GEODE_PERF_FIELD_PRESET] == 1,
+          "the ABI normalizes a legacy fps cap before preset matching");
     geode_perf_panel_set(1440, 3200, 1440, 3200);
     check(geode_perf_mode_for_device(8 * gb, 0, 33) == 1, "geode_perf_mode_for_device reads the panel held: 1440p under class 34");
     geode_perf_panel_set(1080, 2400, 1080, 2400);
@@ -231,7 +241,7 @@ void throughTheAbi() {
           "the march choices, ascending");
     check(geode_perf_scale_choices(scales, 1) == 1 && geode_perf_scale_choices(nullptr, 3) == 0, "march choices fit the capacity");
     float tier[GEODE_PERF_TIER_FLOATS] = {};
-    check(geode_perf_tier(1, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[0] == 900.0f && tier[1] == 60.0f &&
+    check(geode_perf_tier(1, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[0] == 900.0f && tier[1] == 30.0f &&
               tier[3] == 1.0f,
           "geode_perf_tier writes Balanced");
     check(geode_perf_tier(2, tier, GEODE_PERF_TIER_FLOATS) == GEODE_PERF_TIER_FLOATS && tier[0] == GEODE_PERF_NATIVE, "High is Native");

@@ -12,6 +12,9 @@ static_assert(frame::kScaleChoices.size() == GEODE_PERF_SCALE_CHOICES);
 static_assert(frame::kNativeResolution == GEODE_PERF_NATIVE);
 static_assert(frame::kDescriptorInts == GEODE_PERF_DESCRIPTOR_INTS);
 static_assert(frame::kFieldSteps == GEODE_PERF_FIELD_STEPS);
+static_assert(frame::kLiveFpsDefault == GEODE_LIVE_FPS_DEFAULT);
+static_assert(frame::kLiveFpsFollow == GEODE_LIVE_FPS_FOLLOW);
+static_assert(frame::kLiveFpsMaxRates + 1 <= GEODE_LIVE_FPS_MAX_CHOICES);
 
 namespace {
 
@@ -76,7 +79,10 @@ void geode_perf_view_set(int view_width, int view_height) {
 void geode_perf_settings_set(int resolution, int fps_cap, float march_scale, int post_fx) {
     Shared& s = shared();
     std::lock_guard<std::mutex> lock(s.lock);
-    s.state.setSettings({resolution, fps_cap, march_scale, post_fx != 0});
+    // The ABI keeps its fps slot, but live rendering is fixed at 30 FPS. Normalize here as well as in the
+    // store so an older caller cannot make a quality preset read Custom or request another rate.
+    static_cast<void>(fps_cap);
+    s.state.setSettings({resolution, frame::kLiveFpsDefault, march_scale, post_fx != 0});
 }
 
 int geode_perf_resolution_read(int* out, int capacity) {

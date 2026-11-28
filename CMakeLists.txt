@@ -42,6 +42,10 @@ add_subdirectory(third_party/taglib)
 # project), which the Android Gradle plugin packages beside libgeode.so.
 find_package(oboe REQUIRED CONFIG)
 
+# GameActivity's Java/native host bridge (app/build.gradle.kts, buildFeatures.prefab). The static module links
+# into libgeode.so; geode_game_activity.cpp supplies only its direct creation callback, with no second loop.
+find_package(game-activity REQUIRED CONFIG)
+
 # Android Frame Pacing (Swappy), the live stage's swap (core/stage/android/SwappyHost): the Prefab package of the
 # androidx.games:games-frame-pacing AAR. Its static module, games-frame-pacing::swappy_static (built against
 # c++_shared like this project), links into libgeode.so and so takes its 16 KB page alignment
@@ -87,6 +91,7 @@ add_subdirectory(third_party/libdatachannel EXCLUDE_FROM_ALL)
 add_subdirectory(core)
 
 add_library(geode SHARED
+    app/src/main/cpp/geode_game_activity.cpp
     app/src/main/cpp/geode_jni.cpp
     app/src/main/cpp/geode_viz_jni.cpp
     app/src/main/cpp/geode_customize_jni.cpp
@@ -115,5 +120,7 @@ add_library(geode SHARED
     app/src/main/cpp/geode_looks_jni.cpp
     app/src/main/cpp/geode_shell_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
-target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
-target_link_libraries(geode PRIVATE geode_core log android)
+# Retain GameActivity's JNI bridge from the static archive. The separate glue object defines its own
+# GameActivity_onCreate and must stay unextracted; geode_game_activity.cpp supplies the direct callback.
+target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS} "-Wl,-u,Java_com_google_androidgamesdk_GameActivity_initializeNativeCode")
+target_link_libraries(geode PRIVATE geode_core game-activity::game-activity_static log android)

@@ -66,15 +66,13 @@ class StageView(
     private val blur = FloatArray(BLUR_FIELDS)
 
     /**
-     * Settings › Performance for this surface: quality, the render resolution (the window buffer's size) and the
-     * fps cap, which native resolves against [refreshRates].
+     * Settings › Performance for this surface: quality and the render resolution (the window buffer's size).
+     * Live frame rate is fixed at 30 FPS; the legacy rate list is neither read nor used as a Compose-side vote.
      */
-    fun applyPerformance(
-        settings: PerformanceSettings,
-        refreshRates: FloatArray,
-    ) {
-        stage.performance = settings
-        stage.setLiveFps(settings.fpsCap, refreshRates)
+    fun applyPerformance(settings: PerformanceSettings) {
+        val fixed = settings.withFixedLiveFps()
+        stage.performance = fixed
+        stage.setLiveFps(PerformanceSettings.LIVE_FPS, floatArrayOf())
         sizeBuffer()
     }
 

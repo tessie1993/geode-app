@@ -129,9 +129,8 @@ fun VisualizerEngineBindings(
         // The look carries the transition; this only compiles it ahead of the next style change.
         visualizerView.stage.warmTransition(activeTransitionId)
     }
-    val refreshRates = rememberDisplayRefreshRates()
-    LaunchedEffect(performance, refreshRates) {
-        visualizerView.applyPerformance(performance, refreshRates)
+    LaunchedEffect(performance) {
+        visualizerView.applyPerformance(performance)
     }
     LaunchedEffect(Unit) {
         visualizerView.stage.liquidMode.collect { viewModel.reportLiquidMode(it) }

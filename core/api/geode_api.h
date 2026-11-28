@@ -1439,7 +1439,8 @@ GEODE_API int             geode_perf_resolution_for_scale(float render_scale);
    derives the descriptor once; the shell and the screen read it as published (geode_perf_resolution_read) and
    compute nothing. panel_set: the display's largest physical mode (Display.Mode.getPhysicalWidth/Height over
    getSupportedModes) and its current one, in the panel's natural orientation (0 for unknown). view_set: the stage
-   view's size in pixels. settings_set: the user's resolution, fps cap, march scale and post FX (0/1). */
+   view's size in pixels. settings_set: the user's resolution, march scale and post FX (0/1); the retained fps
+   slot is normalized to the fixed live 30 FPS. */
 GEODE_API void            geode_perf_panel_set(int panel_width, int panel_height, int mode_width, int mode_height);
 GEODE_API void            geode_perf_view_set(int view_width, int view_height);
 GEODE_API void            geode_perf_settings_set(int resolution, int fps_cap, float march_scale, int post_fx);
@@ -1461,16 +1462,12 @@ GEODE_API void            geode_perf_settings_set(int resolution, int fps_cap, f
 #define GEODE_PERF_FIELD_STEPS 10
 #define GEODE_PERF_DESCRIPTOR_INTS 17
 GEODE_API int             geode_perf_resolution_read(int* out, int capacity);
-/* Settings › Performance's live frame rate (core/viz/frame/LiveFps): the whole app's rate while the in-app stage
-   is up, never an export or Cast. `rates` are the refresh rates of the stage's display at
-   its current resolution (Display.getSupportedModes), `count` of them; NULL or 0 is an unknown display. choices: the
-   rates offered, ascending, into out (up to capacity); returns how many: every refresh rate divided by a whole number,
-   30 to 120 (30 and 60 for an unknown display), then GEODE_LIVE_FPS_FOLLOW ("Follow
-   device") always. cap: the stored pick as this display runs it: an offered rate or Follow as it is, anything else
-   the nearest offered rate (the lower on a tie), any other value <= 0 the default. refresh: the refresh rate the
-   window asks the display for while `fps` is the live rate, the lowest of `rates` that shows it evenly; 0 (no
-   preference) for Follow device or a rate no mode shows evenly. */
-#define GEODE_LIVE_FPS_DEFAULT 60
+/* Settings › Performance's live frame rate (core/viz/frame/LiveFps): fixed at 30 FPS from creation for the in-app
+   stage, never an export or Cast. The legacy `rates`, `count` and `fps` arguments remain for ABI compatibility and
+   are ignored. choices: writes only 30 into out (up to capacity) and returns 1. cap: normalizes every legacy stored
+   value, including GEODE_LIVE_FPS_FOLLOW, to 30. refresh: retired manual display-mode selection; always returns 0
+   (no preference). The live window's standing 30 FPS vote is made by StageThread, independently of this slot. */
+#define GEODE_LIVE_FPS_DEFAULT 30
 #define GEODE_LIVE_FPS_FOLLOW (-1)
 #define GEODE_LIVE_FPS_MAX_CHOICES 12
 GEODE_API int             geode_live_fps_choices(const float* rates, int count, int* out, int capacity);

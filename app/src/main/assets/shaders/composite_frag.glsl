@@ -126,7 +126,8 @@ bool on(int flags, int stage) { return (flags & stage) != 0; }
 // Hue rotation about the grey axis, by the angle whose cos and sin are cs.
 vec3 hueRotate(vec3 c, vec2 cs) {
     const vec3 w = vec3(0.299, 0.587, 0.114);
-    return vec3(dot(c, w)) + (c - vec3(dot(c, w))) * cs.x + cross(vec3(0.57735), c) * cs.y;
+    float lum = dot(c, w);
+    return vec3(lum) + (c - vec3(lum)) * cs.x + cross(vec3(0.57735), c) * cs.y;
 }
 
 // Intersects the view ray through centred point c with the tilted image
@@ -386,11 +387,11 @@ vec3 blended() {
         return transition(vUv).rgb;
     }
 #endif
-    vec3 a = postFx(uTexA, vUv, uFxA, uRotAB.xy);
     if (uStyle == 0 || uProgress >= 1.0) {
-        return a;
+        return postFx(uTexA, vUv, uFxA, uRotAB.xy);
     }
     if (uStyle == 1) {
+        vec3 a = postFx(uTexA, vUv, uFxA, uRotAB.xy);
         vec3 b = postFx(uTexB, vUv, uFxB, uRotAB.zw);
         return mix(b, a, uProgress);
     } else if (uStyle == 3) {
@@ -406,6 +407,7 @@ vec3 blended() {
         vec3 aZoom = postFx(uTexA, mirrorUv(aUv), uFxA, uRotAB.xy);
         return mix(bZoom, aZoom, sh);
     } else {
+        vec3 a = postFx(uTexA, vUv, uFxA, uRotAB.xy);
         float lumB = dot(texture(uTexB, vUv).rgb, vec3(0.299, 0.587, 0.114));
         vec2 melted = vUv + vec2(0.0, uProgress * (0.25 + lumB * 0.6));
         vec3 bMelt = postFx(uTexB, clamp(melted, 0.0, 1.0), uFxB, uRotAB.zw);

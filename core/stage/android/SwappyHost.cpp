@@ -5,6 +5,7 @@
 
 #include <chrono>
 
+#include "stage/SwapPace.hpp"
 #include "util/Log.hpp"
 
 namespace geode::stage::platform {
@@ -32,7 +33,7 @@ void SwappyHost::attach(JNIEnv* env, jobject activity) {
     destroyLocked(env);
     const bool made = SwappyGL_init(env, activity);
     if (!made || !SwappyGL_isEnabled()) {
-        GEODE_LOGW(kTag, "Android Frame Pacing is not available here: stages swap at the display's rate");
+        GEODE_LOGW(kTag, "Android Frame Pacing is not available here: using the seamless 30 FPS vote and Choreographer");
         SwappyGL_destroy();
         return;
     }
@@ -40,6 +41,7 @@ void SwappyHost::attach(JNIEnv* env, jobject activity) {
     // own, and with it off Swappy always pipelines.
     SwappyGL_setAutoSwapInterval(false);
     SwappyGL_setAutoPipelineMode(false);
+    SwappyGL_enableFramePacing(true);
     SwappyGL_enableStats(false);
     SwappyTracer tracer{};
     tracer.preWait = &SwappyHost::onPreWait;
@@ -51,8 +53,6 @@ void SwappyHost::attach(JNIEnv* env, jobject activity) {
     made_ = true;
     owner_ = nullptr;
     window_ = nullptr;
-    swapNs_ = -1;
-    pacing_ = true;
     times_ = {};
 }
 
@@ -68,13 +68,12 @@ void SwappyHost::destroyLocked(JNIEnv* env) {
     made_ = false;
     owner_ = nullptr;
     window_ = nullptr;
-    swapNs_ = -1;
     times_ = {};
     if (activity_) env->DeleteGlobalRef(activity_);
     activity_ = nullptr;
 }
 
-SwappyHost::Swap SwappyHost::swap(const void* owner, ANativeWindow* window, int64_t swapNs, EGLDisplay display, EGLSurface surface,
+SwappyHost::Swap SwappyHost::swap(const void* owner, ANativeWindow* window, EGLDisplay display, EGLSurface surface,
                                   bool& revote) {
     revote = false;
     std::lock_guard<std::mutex> guard(lock_);
@@ -84,26 +83,18 @@ SwappyHost::Swap SwappyHost::swap(const void* owner, ANativeWindow* window, int6
         window_ = nullptr;
         times_ = {};
     }
-    // Swappy states a frame rate of its own on a new window, a new swap interval and a pacing toggle (1e9 / the interval, or
-    // the display's starting rate); the owner's vote follows each of them so it is the one standing.
+    // Swappy is the only live pacing authority. Its fixed interval is configured before every new window below.
     if (window_ != window) {
-        // Until setWindow succeeds there is no attached window to pace. Keep the owner so another
-        // stage cannot take Swappy while this surface is being retried, but report fallback.
+        // Until setWindow succeeds there is no attached window to pace. Keep the owner so another stage cannot
+        // take Swappy while this surface is being retried, but report fallback. The fixed interval is configured
+        // before every new ANativeWindow, including a surface recreated on the same StageThread.
         window_ = nullptr;
         times_ = {};
-        swapNs_ = -1;
+        SwappyGL_setSwapIntervalNS(static_cast<uint64_t>(kLiveSwapIntervalNs));
+        SwappyGL_enableFramePacing(true);
         if (!SwappyGL_setWindow(window)) return Swap::Fallback;
         window_ = window;
-        revote = true;
-    }
-    if (swapNs != swapNs_) {
-        const bool pacing = swapNs > 0;
-        if (pacing) SwappyGL_setSwapIntervalNS(static_cast<uint64_t>(swapNs));
-        if (pacing != pacing_) {
-            SwappyGL_enableFramePacing(pacing);
-            pacing_ = pacing;
-        }
-        swapNs_ = swapNs;
+        // Swappy votes a frame rate when a window is attached; the owner's seamless 30 FPS vote follows it.
         revote = true;
     }
     return SwappyGL_swap(display, surface) ? Swap::Done : Swap::Failed;
@@ -115,7 +106,6 @@ void SwappyHost::release(const void* owner) {
     if (made_) SwappyGL_setWindow(nullptr);
     owner_ = nullptr;
     window_ = nullptr;
-    swapNs_ = -1;
     times_ = {};
 }
 

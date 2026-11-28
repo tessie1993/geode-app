@@ -3,9 +3,9 @@
 
 namespace geode::viz {
 
-// The uniform names the per-frame uploads of ShaderScene and CompositePass write, interned as ids at compile
-// time. UniformCache::loc(Uniform) resolves each name against its program once and then reads a slot, so a
-// frame never hashes a name. A new per-frame uniform in those uploads is one X() line here.
+// The uniform names the per-frame uploads of ShaderScene, CompositePass, and the UI blur passes write,
+// interned as ids at compile time. UniformCache::loc(Uniform) resolves each name against its program once and
+// then reads a slot, so a frame never hashes a name. A new per-frame uniform is one X() line in its group here.
 #define GEODE_FRAME_UNIFORMS(X) \
     X(uBackLayer) \
     X(uBassRel) \
@@ -99,6 +99,10 @@ namespace geode::viz {
     X(uRotation) \
     X(uSat) \
     X(uScanline) \
+    X(uSceneGrade) \
+    X(uSceneRotation) \
+    X(uSceneView) \
+    X(uSceneViewMotion) \
     X(uShadow) \
     X(uShapeCount) \
     X(uShapeFold) \
@@ -221,10 +225,21 @@ namespace geode::viz {
     X(uViewport) \
     X(uWeight)
 
+// The UI blur passes upload (viz/passes/UiBlurPass), interned the same way.
+#define GEODE_UI_BLUR_UNIFORMS(X) \
+    X(uBlur) \
+    X(uCorner) \
+    X(uRectTerms) \
+    X(uSrc) \
+    X(uStep) \
+    X(uStrength) \
+    X(uTexScale)
+
 enum class Uniform : uint16_t {
 #define GEODE_UNIFORM_ENUM(name) name,
     GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_ENUM)
     GEODE_FLUID_UNIFORMS(GEODE_UNIFORM_ENUM)
+    GEODE_UI_BLUR_UNIFORMS(GEODE_UNIFORM_ENUM)
 #undef GEODE_UNIFORM_ENUM
     kCount
 };
@@ -233,6 +248,7 @@ inline constexpr const char* kUniformNames[] = {
 #define GEODE_UNIFORM_NAME(name) #name,
     GEODE_FRAME_UNIFORMS(GEODE_UNIFORM_NAME)
     GEODE_FLUID_UNIFORMS(GEODE_UNIFORM_NAME)
+    GEODE_UI_BLUR_UNIFORMS(GEODE_UNIFORM_NAME)
 #undef GEODE_UNIFORM_NAME
 };
 

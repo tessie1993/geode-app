@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "viz/frame/LiveFps.hpp"
+
 // Settings › Performance's three tiers, its render resolutions and the first-run pick for this phone (#437).
 // Live surfaces only (the view); an export never reads them. Pure, so the host can test it
 // (core/tests/quality_test.cpp). Kotlin reads the tiers through geode_perf_tier and passes in what Android says
@@ -25,19 +27,20 @@ inline constexpr int kMaxResolutionChoices = static_cast<int>(kResolutionSteps.s
 
 struct QualityTier {
     int resolution;     // short side in pixels, or kNativeResolution
-    float fpsCap;       // the live frame rate (viz/frame/LiveFps)
+    float fpsCap;       // retained ABI slot; every live tier is fixed at kLiveFpsDefault
     float marchScale;   // ray-march step budget for marched styles
     bool postFx;        // trails and the other optional passes
 };
 
-// Saver is cheaper than High on every axis; Balanced sits between. Every value is one the Performance tab
-// offers as a choice, so picking a tier never shows a value the tab can't. A tier's resolution over the panel
-// draws the panel's own: Balanced on a 720p phone is Native.
+// Saver spends less than High on pixels and shader work; Balanced sits between. Frame rate is not a quality
+// axis: every live tier is fixed at 30 FPS and nothing lowers it for frame time, thermals or load. Every other
+// value is one the Performance tab offers, so picking a tier never shows a value the tab can't. A tier's
+// resolution over the panel draws the panel's own: Balanced on a 720p phone is Native.
 // Saver 540 and Balanced 900 keep the old 50% and 75% of a 1080p phone (540, 810: 900 is the nearer step up).
 inline constexpr std::array<QualityTier, kQualityModes> kQualityTiers = {{
-    {540, 30.0f, 0.5f, false},
-    {900, 60.0f, 0.75f, true},
-    {kNativeResolution, 60.0f, 1.0f, true},
+    {540, static_cast<float>(kLiveFpsDefault), 0.5f, false},
+    {900, static_cast<float>(kLiveFpsDefault), 0.75f, true},
+    {kNativeResolution, static_cast<float>(kLiveFpsDefault), 1.0f, true},
 }};
 
 inline const QualityTier& qualityTier(QualityMode mode) { return kQualityTiers[static_cast<int>(mode)]; }
@@ -93,12 +96,14 @@ inline BufferSize bufferSize(int resolution, int modeWidth, int modeHeight, int 
 }
 
 // The tier these values are on a panel with short side `panelShort`, or -1 once the user changed one (the tab
-// reads "Custom"). Resolutions compare as drawn: Balanced's 900 on a 720p panel is its Native.
+// reads "Custom"). Resolutions compare as drawn: Balanced's 900 on a 720p panel is its Native. The retained
+// fpsCap argument no longer participates: legacy 60/120/Follow values all run at the fixed live rate.
 inline int modeOf(int resolution, int fpsCap, float marchScale, bool postFx, int panelShort) {
+    static_cast<void>(fpsCap);
     for (int m = 0; m < kQualityModes; ++m) {
         const QualityTier& t = kQualityTiers[m];
         if (drawnShortSide(t.resolution, panelShort) == drawnShortSide(resolution, panelShort) &&
-            t.fpsCap == static_cast<float>(fpsCap) && t.marchScale == marchScale && t.postFx == postFx)
+            t.marchScale == marchScale && t.postFx == postFx)
             return m;
     }
     return -1;

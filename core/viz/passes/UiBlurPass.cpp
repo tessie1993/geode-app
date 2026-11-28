@@ -110,6 +110,12 @@ bool UiBlurPass::drawBlur(const UiBlurRegion& region, GLuint srcFbo, GLuint targ
     const int sy1 = std::clamp(static_cast<int>(std::ceil(fy1)), 0, height);
     if (sx1 <= sx0 || sy1 <= sy0) return false;
 
+    UiBlurMaskTerms maskTerms;
+    maskTerms.center = {0.5f * (fx0 + fx1), 0.5f * (fy0 + fy1)};
+    maskTerms.halfSize = {0.5f * (fx1 - fx0), 0.5f * (fy1 - fy0)};
+    maskTerms.cornerRadius = std::clamp(
+        std::max(region.cornerPx, 0.0f), 0.0f, std::min(maskTerms.halfSize[0], maskTerms.halfSize[1]));
+
     // The source: the rect plus the margin, 4-aligned, inside the part of the frame the quarter
     // texture covers (a frame not a multiple of 4 wide loses at most 3 pixels at its far edges, which
     // the clamp-to-edge sampler repeats).
@@ -131,8 +137,7 @@ bool UiBlurPass::drawBlur(const UiBlurRegion& region, GLuint srcFbo, GLuint targ
 
     // Separable Gaussian at quarter resolution, A -> B horizontally, B -> A vertically.
     glUseProgram(blurUniforms_.program());
-    glUniform1i(blurUniforms_.loc("uSrc"), 0);
-    const GLint stepLoc = blurUniforms_.loc("uStep");
+    blurUniforms_.set1i(Uniform::uSrc, 0);
     glActiveTexture(GL_TEXTURE0);
     glViewport(0, 0, qw, qh);
     glEnable(GL_SCISSOR_TEST);
@@ -143,11 +148,11 @@ bool UiBlurPass::drawBlur(const UiBlurRegion& region, GLuint srcFbo, GLuint targ
     for (int i = 0; i < kIterations; ++i) {
         glBindFramebuffer(GL_FRAMEBUFFER, quarterB_.fbo());
         glBindTexture(GL_TEXTURE_2D, quarterA_.tex());
-        glUniform2f(stepLoc, stepX, 0.0f);
+        blurUniforms_.set2f(Uniform::uStep, stepX, 0.0f);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glBindFramebuffer(GL_FRAMEBUFFER, quarterA_.fbo());
         glBindTexture(GL_TEXTURE_2D, quarterB_.tex());
-        glUniform2f(stepLoc, 0.0f, stepY);
+        blurUniforms_.set2f(Uniform::uStep, 0.0f, stepY);
         glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
@@ -159,11 +164,13 @@ bool UiBlurPass::drawBlur(const UiBlurRegion& region, GLuint srcFbo, GLuint targ
     glScissor(sx0, sy0, sx1 - sx0, sy1 - sy0);
     glUseProgram(maskUniforms_.program());
     glBindTexture(GL_TEXTURE_2D, quarterA_.tex());
-    glUniform1i(maskUniforms_.loc("uBlur"), 0);
-    glUniform4f(maskUniforms_.loc("uRect"), fx0, fy0, fx1, fy1);
-    glUniform2f(maskUniforms_.loc("uTexScale"), 1.0f / (4.0f * static_cast<float>(qw)), 1.0f / (4.0f * static_cast<float>(qh)));
-    glUniform1f(maskUniforms_.loc("uCorner"), std::max(region.cornerPx, 0.0f));
-    glUniform1f(maskUniforms_.loc("uStrength"), std::clamp(region.strength, 0.0f, 1.0f));
+    maskUniforms_.set1i(Uniform::uBlur, 0);
+    maskUniforms_.set4f(
+        Uniform::uRectTerms, maskTerms.center[0], maskTerms.center[1], maskTerms.halfSize[0], maskTerms.halfSize[1]);
+    maskUniforms_.set2f(
+        Uniform::uTexScale, 1.0f / (4.0f * static_cast<float>(qw)), 1.0f / (4.0f * static_cast<float>(qh)));
+    maskUniforms_.set1f(Uniform::uCorner, maskTerms.cornerRadius);
+    maskUniforms_.set1f(Uniform::uStrength, std::clamp(region.strength, 0.0f, 1.0f));
     glEnable(GL_BLEND);
     // Over on colour; the destination's alpha stays as the composite left it.
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);

@@ -3,6 +3,8 @@
 //
 // The stream is the stage's frames (core/viz/frame/CastTee); a second renderer draws only while the stage does not.
 // Pinned here:
+// - the stage's draw rule (viz/StageRun, through the C ABI the shell calls): a started stage draws while resumed,
+//   in PiP, on a second screen or in multi-window mode, and a stopped stage never draws;
 // - the stage's host (viz/StageRun host, through the C ABI the shell calls): while casting the view draws on every
 //   tab, also before Visuals was ever laid out (it was 0 x 0 then, so the second renderer showed another visual
 //   until Visuals opened), in its whole rect: no bars on the phone;
@@ -56,6 +58,25 @@ int stream(int i) {
 
 constexpr unsigned kShown = GEODE_STAGE_HOST_SHOWN;
 constexpr unsigned kCasting = GEODE_STAGE_HOST_CASTING;
+constexpr unsigned kMultiWindow = 1u << 5;  // STAGE_MULTI_WINDOW / stage::kMultiWindow ABI bit.
+
+void theStageDrawsWhileAnyWindowCanSeeIt() {
+    check(geode_stage_run(GEODE_STAGE_STARTED | GEODE_STAGE_RESUMED) == GEODE_STAGE_DRAWS,
+          "started and resumed: the stage draws");
+    check(geode_stage_run(GEODE_STAGE_STARTED) == 0, "started but merely paused: the stage waits");
+    check(geode_stage_run(GEODE_STAGE_STARTED | GEODE_STAGE_PIP) == GEODE_STAGE_DRAWS,
+          "started in PiP: the stage draws");
+    check(geode_stage_run(GEODE_STAGE_STARTED | GEODE_STAGE_SECOND_SCREEN) == GEODE_STAGE_DRAWS,
+          "started on a second screen: the stage draws");
+    check(geode_stage_run(GEODE_STAGE_STARTED | kMultiWindow) == GEODE_STAGE_DRAWS,
+          "started in multi-window mode: the stage draws");
+    check(geode_stage_run(kMultiWindow | GEODE_STAGE_PIP | GEODE_STAGE_SECOND_SCREEN) == 0,
+          "not started: no visible-window flag makes the stage draw");
+    check(geode_stage_run(GEODE_STAGE_STARTED | GEODE_STAGE_CASTING) == GEODE_STAGE_CAST_LEADS_AUTO,
+          "paused while casting: the cast leads Auto");
+    check(geode_stage_run(GEODE_STAGE_STARTED | kMultiWindow | GEODE_STAGE_CASTING) == GEODE_STAGE_DRAWS,
+          "multi-window stage keeps Auto while casting");
+}
 
 void withoutACastNothingChanges() {
     const Placed shown = host(kShown, 0, 0, 1080, 2400, 1080, 2400);
@@ -173,6 +194,7 @@ void theStreamWaitsForTheStage() {
 }  // namespace
 
 int main() {
+    theStageDrawsWhileAnyWindowCanSeeIt();
     withoutACastNothingChanges();
     aCastDrawsBeforeVisualsWasEverOpened();
     aCastDrawsOnEveryTabWithNoBarsOnThePhone();

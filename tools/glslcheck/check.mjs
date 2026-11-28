@@ -224,6 +224,35 @@ const SHADER_VALUES = {
   uPoolView: [0.75128, 0.659983, 1.6, 0.75],
 };
 
+// CPU-resolved SceneViewTerms / SceneGradeTerms, mirroring SceneTerms.hpp. Derive these from the
+// legacy control values after --set overrides so the harness keeps exercising the same knobs.
+const mix = (x, y, a) => x * (1 - a) + y * a;
+const fract = (x) => x - Math.floor(x);
+const driftOffset = (drift, time) => {
+  const phase = fract(drift * time * 0.025 + 0.25);
+  return 1 - 2 * Math.abs(2 * phase - 1);
+};
+function sceneFrameTerms(values, width, height) {
+  const v = (name, fallback = 0) => values[name] ?? fallback;
+  const time = v('uTime');
+  const angle = v('uRotation') + v('uSway') * 0.35 * Math.sin(time * 0.7);
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const symmetry = v('uSymmetry', 6);
+  const kaleido = v('uKaleido') > 0.5 && symmetry >= 2;
+  return {
+    uSceneView: [
+      width / height,
+      v('uPixelate') > 0.001 ? mix(1, 12, v('uPixelate')) * 24 : 0,
+      kaleido ? 6.2831853 / symmetry : 0,
+      v('uMorph') > 0.001 ? v('uMorph') * (0.6 + 0.15 * Math.sin(time * 0.31)) : 0,
+    ],
+    uSceneRotation: [c, -s, s, c],
+    uSceneViewMotion: [driftOffset(v('uDriftX'), time), driftOffset(v('uDriftY'), time), 1 + v('uTwistBend'), v('uWarp') * 0.5],
+    uSceneGrade: [mix(24, 3, v('uPosterize')), 1 / Math.max(v('uGamma', 1), 0.05), v('uTemperature') * 0.12,
+      v('uBright', 1) * v('uIntensity', 1)],
+  };
+}
+
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
 
 // Morph World's baked assets (core/viz/styles/shader/WorldAssets), handed to the page as the app uploads them:
@@ -266,17 +295,18 @@ const FLUID_TEXTURES = { uDye: 'dye', uBloom: 'dye', uSunrays: 'white', uDither:
 function plan(uniforms, values, textures, width, height) {
   const missing = [];
   const out = [];
+  const frameValues = { ...values, ...sceneFrameTerms(values, width, height) };
   for (const u of uniforms) {
     if (u.type.startsWith('sampler')) {
       if (!(u.name in textures)) missing.push(u.name);
       else out.push({ ...u, texture: textures[u.name] });
       continue;
     }
-    if (!(u.name in values)) {
+    if (!(u.name in frameValues)) {
       missing.push(u.name);
       continue;
     }
-    let value = values[u.name];
+    let value = frameValues[u.name];
     if (Array.isArray(value) && u.type === 'vec4' && value.length !== 4 && value.length !== u.count * 4) {
       throw new Error(`uniform ${u.name}: ${value.length} floats for vec4[${u.count}]`);
     }

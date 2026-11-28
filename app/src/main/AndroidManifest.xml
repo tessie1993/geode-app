@@ -108,7 +108,7 @@
     <application
         android:name=".GeodeApp"
         android:allowBackup="true"
-        android:appCategory="audio"
+        android:appCategory="game"
         android:banner="@drawable/tv_banner"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
@@ -118,6 +118,10 @@
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- Fixed-30 live pacing: no OEM FPS override/downscaling and no adaptive Game Mode promise. -->
+        <meta-data
+            android:name="android.game_mode_config"
+            android:resource="@xml/game_mode_config" />
         <!--
           singleTask: one MainActivity, so a geode:// link or a voice search from another app's
           task reaches the running one through onNewIntent instead of stacking a second activity
@@ -131,6 +135,10 @@
             android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden">
+            <!-- GameActivity loads libgeode.so and calls its exported GameActivity_onCreate entry point. -->
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="geode" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

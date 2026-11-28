@@ -8,7 +8,7 @@ object PerfNative {
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
-    /** Floats [perfTier] writes: resolution (a short side in pixels, or [PERF_NATIVE]), fps cap, march scale, post FX (0/1). */
+    /** Floats [perfTier] writes: resolution (a short side in pixels, or [PERF_NATIVE]), fixed-30 ABI slot, march scale, post FX (0/1). */
     const val PERF_TIER_FLOATS = 4
 
     /** Mirrors GEODE_PERF_NATIVE: the render resolution that is the panel's own. */
@@ -20,35 +20,33 @@ object PerfNative {
         out: FloatArray,
     ): Boolean
 
-    /** Mirrors GEODE_LIVE_FPS_MAX_CHOICES: the size of the array [liveFpsChoices] fills. */
+    /** Legacy ABI capacity. [liveFpsChoices] now fills only the one fixed rate, 30 FPS. */
     const val LIVE_FPS_MAX_CHOICES = 12
 
     /**
-     * Mirrors GEODE_LIVE_FPS_FOLLOW: Settings › Performance's "Follow device", stored as the live cap but
-     * stating no rate. The stage runs at the rate the display runs now and states no rate of its own.
+     * Retired stored value, kept for ABI compatibility. Native normalizes it (and every other legacy cap) to 30 FPS;
+     * it is never offered or returned by the fixed-rate live path.
      */
     const val LIVE_FPS_FOLLOW = -1
 
     /**
-     * Settings › Performance's live frame rates (core/viz/frame/LiveFps) on a display with [refreshRates],
-     * ascending into [out]; returns how many. Every refresh rate divided by a whole number (30 to 120; 30 and 60
-     * for an unknown display), then [LIVE_FPS_FOLLOW]. The in-app stage only: the
-     * export and Cast keep their own.
+     * Compatibility ABI: writes the one fixed live rate (30) into [out] and returns 1. [refreshRates] is ignored.
+     * The in-app stage only: export and Cast keep their own clocks.
      */
     external fun liveFpsChoices(
         refreshRates: FloatArray,
         out: IntArray,
     ): Int
 
-    /** The stored live cap as a display with [refreshRates] runs it: offered as is, else the nearest offered. */
+    /** Compatibility ABI: every legacy stored live cap normalizes to the fixed 30 FPS; [refreshRates] is ignored. */
     external fun liveFpsCap(
         storedFps: Int,
         refreshRates: FloatArray,
     ): Int
 
     /**
-     * The refresh rate the window asks the display for while [fps] is the live rate: the lowest of [refreshRates]
-     * that shows it evenly (60 on a 60/90 Hz panel runs the 60 Hz mode, 45 the 90 Hz one); 0 for no preference.
+     * Retired compatibility ABI: always returns 0 (no manual display-mode preference). The legacy [fps] and
+     * [refreshRates] arguments are ignored; native StageThread makes the standing fixed-30 FPS window vote.
      */
     external fun liveFpsRefresh(
         fps: Int,
@@ -85,7 +83,7 @@ object PerfNative {
         viewHeight: Int,
     )
 
-    /** The user's resolution, fps cap, march scale and post FX. */
+    /** The user's resolution and shader work; the retained fps slot is normalized to fixed 30 FPS. */
     external fun perfSettingsSet(
         resolution: Int,
         fpsCap: Int,

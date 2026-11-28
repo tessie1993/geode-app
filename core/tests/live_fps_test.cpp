@@ -1,13 +1,10 @@
-// Host-side checks for core/viz/frame/LiveFps: the live frame rates Settings › Performance offers on a display, how a
-// stored rate snaps to that display, and which display mode a rate asks for. Built and run by CI ("Native host tests"
-// in .github/workflows/native-host-tests.yml) with the system compiler; no GL.
+// Host-side checks for the fixed-30 live frame-rate contract (core/viz/frame/LiveFps). Built and run by CI
+// ("Native host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL.
 //
-// What is pinned: the rates offered are the display's refresh rates divided by a whole number, 30 to 120 (a panel
-// shows only those evenly: 90 Hz gives 90, 45 and 30), 30 and 60 for a display that says nothing, 60 the default; a stored rate
-// snapped to the nearest offered, the lower on a tie; and the mode a rate asks for is the lowest refresh rate that
-// shows it evenly, none for a rate no mode shows.
+// What is pinned: every quality tier and every legacy stored value normalizes to 30 FPS; no Follow device or
+// display-derived render-rate choice remains; the legacy manual refresh preference returns 0; 60/90/120 Hz are
+// physical-panel timing cases (2/3/4 refresh periods per 30 FPS frame), never app FPS options.
 #include <cmath>
-#include <cstdint>
 #include <cstdio>
 #include <vector>
 
@@ -30,93 +27,73 @@ void check(bool ok, const char* what) {
 std::vector<int> choices(const std::vector<float>& rates) {
     int out[frame::kLiveFpsMaxRates + 1] = {};
     const int n = frame::liveFpsChoices(rates.empty() ? nullptr : rates.data(), static_cast<int>(rates.size()), out,
-                                        frame::kLiveFpsMaxRates + 1);
+                                         frame::kLiveFpsMaxRates + 1);
     return std::vector<int>(out, out + n);
 }
 
-// Red against: a fixed ladder (no 45 on a 90 Hz panel, a 60 offered where only 90 runs, drawn at 45), a divide that
-// rounds (88 Hz read as 90), and a list that drops the tiers' rates on a display that says nothing.
-void theRatesAreTheDisplaysOwnDivided() {
-    check(choices({}) == std::vector<int>({30, 60, -1}), "an unknown display offers 30, 60 and Follow device");
-    check(frame::liveFpsChoices(nullptr, 3, nullptr, 0) == 3, "a null rate list is an unknown display, and counting needs no array");
-    check(choices({60.0f}) == std::vector<int>({30, 60, -1}), "a 60 Hz phone offers 30 and 60");
-    check(choices({60.0f, 90.0f}) == std::vector<int>({30, 45, 60, 90, -1}), "a 60/90 Hz phone offers 90, 45 and 30 too");
-    check(choices({60.0f, 120.0f}) == std::vector<int>({30, 40, 60, 120, -1}), "a 60/120 Hz panel offers 40, not 90");
-    check(choices({60.0f, 90.0f, 120.0f}) == std::vector<int>({30, 40, 45, 60, 90, 120, -1}), "a 60/90/120 Hz panel offers each divide");
-    check(choices({90.0f}) == std::vector<int>({30, 45, 90, -1}), "a 90 Hz-only panel offers no 60: it would draw 45");
-    check(choices({144.0f}) == std::vector<int>({36, 48, 72, -1}), "144 Hz offers its divides up to 120");
-    check(choices({240.0f}) == std::vector<int>({30, 40, 48, 60, 80, 120, -1}), "240 Hz offers its divides up to 120");
-    check(choices({59.94f, 119.88f}) == std::vector<int>({30, 40, 60, 120, -1}), "a 119.88 Hz mode is a 120 Hz mode");
-    check(choices({89.5f}) == std::vector<int>({30, 45, 90, -1}), "half a hertz off is still 90");
-    check(choices({88.0f}) == std::vector<int>({44, 88, -1}), "88 Hz is its own rate, not 90");
-    check(choices({NAN, INFINITY, -120.0f, 0.0f}) == std::vector<int>({30, 60, -1}), "nonsense rates offer nothing more");
-    check(choices({1200.0f}) == std::vector<int>({30, 60, -1}), "a rate past eight divides of 120 offers nothing more");
-    check(frame::vsyncSpan(90.0f, 45.0f) == 2 && frame::vsyncSpan(90.0f, 60.0f) == 0, "90 Hz shows 45 every second vsync, 60 never evenly");
-    // The array is filled up to its capacity; the count is the whole list.
-    const float rates[] = {120.0f, 90.0f, 60.0f};
-    int two[2] = {0, 0};
-    check(frame::liveFpsChoices(rates, 3, two, 2) == 7 && two[0] == 30 && two[1] == 40, "a short array gets the first, the count all");
-    int all[frame::kLiveFpsMaxRates + 1] = {};
-    check(frame::liveFpsChoices(rates, 3, all, frame::kLiveFpsMaxRates + 1) == 7 && all[5] == 120 && all[6] == frame::kLiveFpsFollow,
-          "Follow device comes last, after the rates");
-    check(!frame::liveFpsOffered(75, rates, 3), "a rate no mode shows evenly is never offered");
-    check(frame::kLiveFpsDefault == 60, "the default stays 60");
-    // Every Settings › Performance tier is a rate offered on a display that says nothing and on any with a 60 Hz mode,
-    // so picking a tier there never shows a value the tab cannot.
-    const float sixtyNinety[] = {60.0f, 90.0f};
-    for (const frame::QualityTier& t : frame::kQualityTiers) {
-        check(frame::liveFpsOffered(static_cast<int>(t.fpsCap), nullptr, 0) && frame::liveFpsOffered(static_cast<int>(t.fpsCap), sixtyNinety, 2),
-              "every tier's rate is offered where 60 Hz runs");
+void theOnlyLiveRateIsThirty() {
+    check(frame::kLiveFpsDefault == 30 && frame::kLiveFpsMin == 30 && frame::kLiveFpsMax == 30,
+          "the live rate is fixed at 30");
+    check(choices({}) == std::vector<int>({30}), "an unknown display still has the one fixed rate");
+    check(frame::liveFpsChoices(nullptr, 3, nullptr, 0) == 1, "counting needs no array");
+    check(choices({60.0f}) == std::vector<int>({30}), "60 Hz does not offer a 60 FPS live mode");
+    check(choices({60.0f, 90.0f}) == std::vector<int>({30}), "60/90 Hz does not offer 45 or 90 FPS live modes");
+    check(choices({60.0f, 120.0f}) == std::vector<int>({30}), "60/120 Hz does not offer 40, 60 or 120 FPS live modes");
+    check(choices({144.0f}) == std::vector<int>({30}), "144 Hz does not change the render target");
+    check(choices({NAN, INFINITY, -120.0f, 0.0f}) == std::vector<int>({30}), "nonsense rates cannot change the target");
+    check(frame::liveFpsOffered(30, nullptr, 0), "30 is offered");
+    for (const int fps : {-1, 0, 24, 45, 60, 90, 120}) {
+        check(!frame::liveFpsOffered(fps, nullptr, 0), "no other live rate is offered");
+    }
+    int shortOut[1] = {0};
+    check(frame::liveFpsChoices(nullptr, 0, shortOut, 1) == 1 && shortOut[0] == 30, "the fixed choice fits one slot");
+    check(frame::kLiveFpsFollow == -1, "the legacy Follow sentinel stays ABI-compatible");
+}
+
+void everyLegacyStoredRateNormalizesToThirty() {
+    const float fast[] = {60.0f, 90.0f, 120.0f};
+    const float onlyNinety[] = {90.0f};
+    for (const int stored : {frame::kLiveFpsFollow, -5, 0, 1, 24, 30, 45, 60, 75, 90, 120, 1000}) {
+        check(frame::liveFpsCap(stored, fast, 3) == 30, "every legacy cap becomes 30 on a fast display");
+        check(frame::liveFpsCap(stored, onlyNinety, 1) == 30, "every legacy cap becomes 30 on a 90 Hz-only display");
+        check(frame::liveFpsCap(stored, nullptr, 0) == 30, "every legacy cap becomes 30 on an unknown display");
+    }
+    for (const frame::QualityTier& tier : frame::kQualityTiers) {
+        check(tier.fpsCap == static_cast<float>(frame::kLiveFpsDefault), "every quality tier keeps the fixed rate");
     }
 }
 
-void aStoredRateSnapsToTheDisplay() {
-    const float fast[] = {60.0f, 90.0f, 120.0f};
-    const float ninety[] = {60.0f, 90.0f};
-    const float sixty[] = {60.0f};
-    check(frame::liveFpsCap(120, fast, 3) == 120, "an offered rate stays");
-    check(frame::liveFpsCap(90, fast, 3) == 90 && frame::liveFpsCap(45, fast, 3) == 45, "every offered rate stays");
-    check(frame::liveFpsCap(120, ninety, 2) == 90, "120 on a 90 Hz panel is 90");
-    check(frame::liveFpsCap(120, sixty, 1) == 60, "120 on a 60 Hz panel (a foldable's outer screen) is 60");
-    check(frame::liveFpsCap(45, sixty, 1) == 30, "45 on a 60 Hz panel is 30, the lower on a tie");
-    const float onlyNinety[] = {90.0f};
-    check(frame::liveFpsCap(60, onlyNinety, 1) == 45, "the default 60 on a 90 Hz-only panel is 45, what it can show");
-    check(frame::liveFpsCap(120, nullptr, 0) == 60, "an unknown display runs a high rate at 60");
-    check(frame::liveFpsCap(0, fast, 3) == 60 && frame::liveFpsCap(-5, fast, 3) == 60, "nothing stored is the default");
-    check(frame::liveFpsCap(75, fast, 3) == 60, "75 is as near 60 as 90: the lower");
-    check(frame::liveFpsCap(50, fast, 3) == 45, "50 is nearest 45");
-    check(frame::liveFpsCap(1000, fast, 3) == 120 && frame::liveFpsCap(1, fast, 3) == 30, "far out of range clamps to the ends");
-    check(frame::liveFpsCap(frame::kLiveFpsFollow, fast, 3) == frame::kLiveFpsFollow &&
-              frame::liveFpsCap(frame::kLiveFpsFollow, nullptr, 0) == frame::kLiveFpsFollow,
-          "Follow device stays Follow device on any display");
-    check(frame::liveFpsCap(-2, fast, 3) == 60, "any other negative is the default");
-    check(frame::kLiveFpsFollow == -1, "Follow is -1: an older build reads a negative rate as none, every vsync");
+// The old ABI slot stays callable, but it can no longer select a display mode or refresh-rate preference.
+void theLegacyRefreshSlotStatesNoManualPreference() {
+    const float rates[] = {60.0f, 90.0f, 120.0f};
+    for (const int fps : {frame::kLiveFpsFollow, 0, 30, 45, 60, 90, 120}) {
+        check(frame::refreshRateFor(fps, rates, 3) == 0.0f, "no legacy fps argument selects a display mode");
+    }
+    check(frame::refreshRateFor(30, nullptr, 0) == 0.0f, "an unknown display still states no manual preference");
+    check(frame::refreshRateFor(30, rates, -1) == 0.0f, "a malformed legacy rate list cannot select a mode");
 }
 
-// Red against: a mode chosen as the panel's top rate (60 would run on 90 Hz, unevenly), one that is not a mode the
-// display has, and a mode asked for while following the device.
-void aRateAsksForTheLowestModeThatShowsIt() {
-    const float ninety[] = {60.0f, 90.0f};
-    const float fast[] = {120.0f, 90.0f, 60.0f};
-    const float ntsc[] = {59.94f, 119.88f};
-    const float onlyNinety[] = {90.0f};
-    check(frame::refreshRateFor(60, ninety, 2) == 60.0f, "60 on a 60/90 Hz panel runs the 60 Hz mode");
-    check(frame::refreshRateFor(45, ninety, 2) == 90.0f, "45 runs the 90 Hz mode, every second vsync");
-    check(frame::refreshRateFor(90, ninety, 2) == 90.0f, "90 runs the 90 Hz mode");
-    check(frame::refreshRateFor(30, ninety, 2) == 60.0f, "30 runs the lowest mode that shows it");
-    check(frame::refreshRateFor(40, fast, 3) == 120.0f, "40 runs the 120 Hz mode");
-    check(frame::refreshRateFor(60, ntsc, 2) == 59.94f, "60 runs a 59.94 Hz mode");
-    check(frame::refreshRateFor(60, onlyNinety, 1) == 0.0f, "a rate no mode shows evenly asks for none");
-    check(frame::refreshRateFor(frame::kLiveFpsFollow, ninety, 2) == 0.0f, "Follow device asks for none");
-    check(frame::refreshRateFor(60, nullptr, 0) == 0.0f, "an unknown display asks for none");
+// Whole-refresh ratios are timing math for the panel the platform is already running, not a list of render rates.
+void wholeRefreshRatiosDescribePlatformTimingOnly() {
+    check(frame::vsyncSpan(60.0f, 30.0f) == 2, "30 FPS on 60 Hz: two refresh periods");
+    check(frame::vsyncSpan(90.0f, 30.0f) == 3, "30 FPS on 90 Hz: three refresh periods");
+    check(frame::vsyncSpan(120.0f, 30.0f) == 4, "30 FPS on 120 Hz: four refresh periods");
+    check(frame::vsyncSpan(59.94f, 30.0f) == 2 && frame::vsyncSpan(119.88f, 30.0f) == 4,
+          "nominal NTSC-rate panels keep the same whole-period ratios");
+    check(frame::vsyncSpan(75.0f, 30.0f) == 0, "an uneven 2.5:1 ratio is rejected, not turned into another FPS option");
+    check(frame::vsyncSpan(90.0f, 60.0f) == 0 && frame::vsyncSpan(120.0f, 45.0f) == 0,
+          "uneven ratios never imply 60 or 45 FPS live options");
+    check(frame::vsyncSpan(NAN, 30.0f) == 0 && frame::vsyncSpan(120.0f, NAN) == 0,
+          "invalid timing inputs have no ratio");
 }
 
 }  // namespace
 
 int main() {
-    theRatesAreTheDisplaysOwnDivided();
-    aStoredRateSnapsToTheDisplay();
-    aRateAsksForTheLowestModeThatShowsIt();
+    theOnlyLiveRateIsThirty();
+    everyLegacyStoredRateNormalizesToThirty();
+    theLegacyRefreshSlotStatesNoManualPreference();
+    wholeRefreshRatiosDescribePlatformTimingOnly();
     if (failures == 0) std::printf("live_fps_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -493,8 +493,8 @@ const char* geode_transition_picker(AAssetManager* assets) {
 int geode_live_fps_choices(const float* rates, int count, int* out, int capacity) {
     static_assert(geode::viz::frame::kLiveFpsDefault == GEODE_LIVE_FPS_DEFAULT);
     static_assert(geode::viz::frame::kLiveFpsFollow == GEODE_LIVE_FPS_FOLLOW);
-    // Every rate, then Follow device.
-    static_assert(geode::viz::frame::kLiveFpsMaxRates + 1 == GEODE_LIVE_FPS_MAX_CHOICES);
+    // The legacy ABI capacity stays unchanged; the fixed policy writes only its first slot.
+    static_assert(geode::viz::frame::kLiveFpsMaxRates + 1 <= GEODE_LIVE_FPS_MAX_CHOICES);
     return geode::viz::frame::liveFpsChoices(rates, std::max(count, 0), out, std::max(capacity, 0));
 }
 

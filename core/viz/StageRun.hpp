@@ -9,8 +9,9 @@
 //
 // The stage draws for as long as somebody can see it, which is not the same as the Activity being resumed:
 // - resumed: it draws;
-// - paused but still started, in a picture-in-picture window or on a second screen: it draws (Android pauses
-//   an Activity in PiP and keeps showing it; the phone's own window may be behind a dialog while the second
+// - paused but still started, in a picture-in-picture window, on a second screen, or in multi-window mode: it
+//   draws (older Android versions can leave a visible Activity started in multi-window; Android pauses an
+//   Activity in PiP and keeps showing it, and the phone's own window may be behind a dialog while the second
 //   screen still shows the visual);
 // - paused otherwise (behind a dialog, losing focus), or stopped (another app in front, the screen off): it
 //   does not. A stopped Activity's windows are hidden, the PiP window and the second screen's included.
@@ -29,6 +30,7 @@ enum Flag : uint32_t {
     kPip = 1u << 2,
     kSecondScreen = 1u << 3,
     kCasting = 1u << 4,
+    kMultiWindow = 1u << 5,
 };
 
 // Bits of the answer (GEODE_STAGE_DRAWS, GEODE_STAGE_CAST_LEADS_AUTO).
@@ -37,7 +39,7 @@ inline constexpr uint32_t kCastLeadsAuto = 1u << 1;
 
 inline bool draws(uint32_t flags) {
     if ((flags & kStarted) == 0) return false;
-    return (flags & (kResumed | kPip | kSecondScreen)) != 0;
+    return (flags & (kResumed | kPip | kSecondScreen | kMultiWindow)) != 0;
 }
 
 inline bool castLeadsAuto(uint32_t flags) { return (flags & kCasting) != 0 && !draws(flags); }

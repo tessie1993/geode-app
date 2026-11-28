@@ -11,6 +11,7 @@
 #include "viz/passes/TwistShape.hpp"
 #include "viz/styles/shared/SceneCommon.hpp"
 #include "viz/clock/TimeBase.hpp"
+#include "viz/styles/shader/SceneTerms.hpp"
 #include "viz/styles/shader/WorldAssets.hpp"
 
 namespace geode::viz {
@@ -130,7 +131,7 @@ void ShaderScene::draw(float timeSeconds) {
     glDisable(GL_BLEND);
     glUseProgram(program_);
     uploadParams();
-    glUniform2f(uniforms_.loc(Uniform::uResolution), static_cast<float>(width_), static_cast<float>(height_));
+    uniforms_.set2f(Uniform::uResolution, static_cast<float>(width_), static_cast<float>(height_));
     const SceneParams& p = params_;
     // The look's palette stack draws through the colour map's path: one ramp, read along pal(t). Without a
     // stack the look's own palette draws (Colour map, which once chose a row of the atlas here, is retired).
@@ -138,7 +139,7 @@ void ShaderScene::draw(float timeSeconds) {
     const GLuint lut = ramp != 0 ? ramp : paletteLutTex_;
     const bool lutSelected = ramp != 0;
     // The sampler unit is assigned with or without a texture: left at 0 it shares a unit with another sampler.
-    glUniform1i(uniforms_.loc(Uniform::uPalLut), 2);
+    uniforms_.set1i(Uniform::uPalLut, 2);
     if (lut != 0) {
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, lut);
@@ -164,7 +165,18 @@ void ShaderScene::draw(float timeSeconds) {
 
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
-    set1f(Uniform::uTime, static_cast<float>(shaderTime_));
+    const float time = static_cast<float>(shaderTime_);
+    const TwistShape twist = twistShape(styleVariantSeed(id_), time);
+    // The shared view()/grade() helpers read these packed terms. Legacy uniforms stay uploaded below for
+    // style-specific reads and user shader overrides; UniformCache skips each name the program linked away.
+    const shader::SceneViewTerms view = shader::describeView(p, width_, height_, rotationAngle_, time, twist.bend);
+    uniforms_.setFloats(Uniform::uSceneView, 4, 1, view.view.data());
+    uniforms_.setFloats(Uniform::uSceneRotation, 4, 1, view.rotation.data());
+    uniforms_.setFloats(Uniform::uSceneViewMotion, 4, 1, view.motion.data());
+    const shader::SceneGradeTerms grade = shader::describeGrade(p);
+    uniforms_.setFloats(Uniform::uSceneGrade, 4, 1, grade.shade.data());
+
+    set1f(Uniform::uTime, time);
     set1f(Uniform::uZoom, p.zoom);
     set1f(Uniform::uRotation, rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
@@ -218,7 +230,7 @@ void ShaderScene::uploadParams() {
     // birth passes are all skipped.
     set1f(Uniform::uLife, p.life);
     {
-        const auto b = births::compute(static_cast<float>(shaderTime_), p.life);
+        const auto b = births::compute(time, p.life);
         uniforms_.setFloats(Uniform::uBirths, 4, uniforms_.arrayCount(Uniform::uBirths, 2 * births::kBirths), b.data());
     }
     set1f(Uniform::uPixelate, p.pixelate);
@@ -228,11 +240,8 @@ void ShaderScene::uploadParams() {
     set1f(Uniform::uDriftY, p.driftY);
     set1f(Uniform::uTile, p.tile);
     set1f(Uniform::uTwist, p.twist);
-    {
-        const TwistShape twist = twistShape(styleVariantSeed(id_), static_cast<float>(shaderTime_));
-        uniforms_.set2f(Uniform::uTwistCentre, twist.x, twist.y);
-        set1f(Uniform::uTwistBend, twist.bend);
-    }
+    uniforms_.set2f(Uniform::uTwistCentre, twist.x, twist.y);
+    set1f(Uniform::uTwistBend, twist.bend);
     set1f(Uniform::uTemperature, p.temperature);
     set1f(Uniform::uSolarize, flag(p.solarize));
     set1f(Uniform::uContrast, p.contrast);
@@ -274,7 +283,7 @@ void ShaderScene::uploadCamera() {
         const CameraPose& c = *camera_;
         const float basis[9] = {c.right[0], c.right[1], c.right[2], c.up[0], c.up[1], c.up[2], c.fwd[0], c.fwd[1], c.fwd[2]};
         uniforms_.setFloats(Uniform::uCamPos, 3, 1, c.pos.data());
-        glUniformMatrix3fv(uniforms_.loc(Uniform::uCamBasis), 1, GL_FALSE, basis);
+        uniforms_.setFloats(Uniform::uCamBasis, 3, 3, basis);
         set1f(Uniform::uCamFocal, c.focal);
         set1f(Uniform::uCamTravel, c.travel);
         set1f(Uniform::uCamDolly, c.dolly);
@@ -385,7 +394,8 @@ void ShaderScene::uploadShapes() {
     static const shapes::Packed kNone{};
     const shapes::Packed* g = host_.shapeGraph ? host_.shapeGraph() : nullptr;
     if (!g) g = &kNone;
-    glUniform4fv(at, uniforms_.arrayCount(Uniform::uShapes, shapes::kMaxShapes * shapes::kVec4PerShape), g->shapes.data());
+    uniforms_.setFloats(Uniform::uShapes, 4, uniforms_.arrayCount(Uniform::uShapes, shapes::kMaxShapes * shapes::kVec4PerShape),
+                        g->shapes.data());
     uniforms_.set1i(Uniform::uShapeCount, g->count);
     uniforms_.setFloats(Uniform::uShapeFold, 4, 1, g->fold.data());
     set1f(Uniform::uShapeMelt, g->melt);
@@ -413,10 +423,7 @@ void ShaderScene::specializeWorld() {
     drawsCamera_ = uniforms_.loc(Uniform::uCamBasis) >= 0;
 }
 
-void ShaderScene::set1f(Uniform id, float value) {
-    const GLint location = uniforms_.loc(id);
-    if (location != -1) glUniform1f(location, value);
-}
+void ShaderScene::set1f(Uniform id, float value) { uniforms_.set1f(id, value); }
 
 float ShaderScene::marchSteps(float detail) {
     if (detail != stepsDetail_) {

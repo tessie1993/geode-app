@@ -1,6 +1,7 @@
 name: Build and lint
 
-# The pull-request and merged-commit gate: native/network/shader checks, the debug APK,
+# The pull-request and merged-commit gate: native/network/shader checks, debug and minified
+# sideload APKs, the packaged GameActivity/JNI/16 KB contracts, the R8 Configuration Analyzer,
 # the manifest and library promises, JVM unit tests, and the Kotlin/Android linters.
 # merge-release.yml calls this on the exact commit it is about to publish.
 
@@ -21,7 +22,7 @@ jobs:
   build-lint:
     name: Build and lint
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,6 +38,9 @@ jobs:
 
       - name: Only cast reaches the network
         run: bash tools/network-gate.sh
+
+      - name: JNI name parity
+        run: bash tools/jni-parity-gate.sh
 
       # tools/hostcc/g++ compiles each source once per flag set, in parallel.
       - name: Put the caching native compiler first on PATH
@@ -54,6 +58,12 @@ jobs:
 
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+
+      # Release-optimized and R8-minified, but signed with the committed debug key so this gate
+      # needs no Play upload-key secrets. assembleSideload also finalizes the Gradle ELF check.
+      - name: Assemble minified sideload APK
+        id: sideload
+        run: ./gradlew :app:assembleSideload --stacktrace --no-daemon
 
       - name: ccache statistics
         if: always()
@@ -79,6 +89,36 @@ jobs:
         with:
           name: geode-debug-pr${{ github.event.pull_request.number || 'branch' }}-${{ github.run_number }}
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # Keep the exact minified artifact even when a later packaging gate finds a problem.
+      - name: Upload minified sideload APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: geode-sideload-pr${{ github.event.pull_request.number || 'branch' }}-${{ github.run_number }}
+          path: app/build/outputs/apk/sideload/app-sideload.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # Inspect the packaged .so files: GameActivity's callback must be exported, libgeode.so
+      # must export exactly one JNI_OnLoad, and every native library must have 16 KB ELF and ZIP
+      # alignment. This is deliberately not a device smoke test.
+      - name: Verify packaged GameActivity/JNI symbols and 16 KB alignment
+        run: bash tools/native-packaging-gate.sh app/build/outputs/apk/sideload/app-sideload.apk
+
+      # AGP 9.5.1 provides the standalone analyzer task. Run it even if the packaging gate
+      # above failed, but do not start another Gradle invocation after an earlier build failure.
+      - name: Generate R8 Configuration Analyzer report
+        if: success() || (failure() && steps.sideload.outcome == 'success')
+        run: ./gradlew :app:analyzeReleaseR8Config --stacktrace --no-daemon
+
+      - name: Upload R8 Configuration Analyzer report
+        if: always() && steps.sideload.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: geode-r8-config-analyzer-${{ github.run_number }}
+          path: app/build/reports/r8/r8-config-analyzer-release.html
           if-no-files-found: error
           retention-days: 14
 
